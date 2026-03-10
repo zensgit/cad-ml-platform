@@ -275,6 +275,9 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
         "benchmark_knowledge_source_action_plan_knowledge_source_coverage_json"
         in dispatch_inputs
     )
+    assert "benchmark_knowledge_source_drift_enable" in dispatch_inputs
+    assert "benchmark_knowledge_source_drift_current_summary_json" in dispatch_inputs
+    assert "benchmark_knowledge_source_drift_previous_summary_json" in dispatch_inputs
     assert "benchmark_knowledge_outcome_correlation_enable" in dispatch_inputs
     assert (
         "benchmark_knowledge_outcome_correlation_knowledge_domain_matrix_json"
@@ -825,6 +828,46 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "source_group_action_counts=" in benchmark_knowledge_source_action_plan_script
     assert "recommendations=" in benchmark_knowledge_source_action_plan_script
 
+    benchmark_knowledge_source_drift_step = _get_step(
+        workflow, "evaluate", "Build benchmark knowledge source drift (optional)"
+    )
+    benchmark_knowledge_source_drift_script = (
+        benchmark_knowledge_source_drift_step["run"]
+    )
+    assert (
+        "scripts/export_benchmark_knowledge_source_drift.py"
+        in benchmark_knowledge_source_drift_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_ENABLE"
+        in benchmark_knowledge_source_drift_script
+    )
+    assert (
+        "benchmark_knowledge_source_drift_current_summary_json"
+        in benchmark_knowledge_source_drift_script
+    )
+    assert (
+        "benchmark_knowledge_source_drift_previous_summary_json"
+        in benchmark_knowledge_source_drift_script
+    )
+    assert "steps.benchmark_knowledge_source_coverage.outputs.output_json" in (
+        benchmark_knowledge_source_drift_script
+    )
+    assert "--current-summary" in benchmark_knowledge_source_drift_script
+    assert "current_status=" in benchmark_knowledge_source_drift_script
+    assert "previous_status=" in benchmark_knowledge_source_drift_script
+    assert "ready_source_group_delta=" in benchmark_knowledge_source_drift_script
+    assert "missing_source_group_delta=" in benchmark_knowledge_source_drift_script
+    assert "regressions=" in benchmark_knowledge_source_drift_script
+    assert "improvements=" in benchmark_knowledge_source_drift_script
+    assert "source_group_regressions=" in benchmark_knowledge_source_drift_script
+    assert "source_group_improvements=" in benchmark_knowledge_source_drift_script
+    assert "resolved_focus_areas=" in benchmark_knowledge_source_drift_script
+    assert "new_focus_areas=" in benchmark_knowledge_source_drift_script
+    assert "resolved_priority_domains=" in benchmark_knowledge_source_drift_script
+    assert "new_priority_domains=" in benchmark_knowledge_source_drift_script
+    assert "recommendations=" in benchmark_knowledge_source_drift_script
+
     benchmark_knowledge_outcome_correlation_step = _get_step(
         workflow, "evaluate", "Build benchmark knowledge outcome correlation (optional)"
     )
@@ -1046,6 +1089,13 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         benchmark_bundle_script
     )
     assert "knowledge_source_action_plan_recommendations=" in benchmark_bundle_script
+    assert "knowledge_source_drift_status=" in benchmark_bundle_script
+    assert "knowledge_source_drift_summary=" in benchmark_bundle_script
+    assert "knowledge_source_drift_source_group_regressions=" in benchmark_bundle_script
+    assert "knowledge_source_drift_source_group_improvements=" in benchmark_bundle_script
+    assert "knowledge_source_drift_resolved_priority_domains=" in benchmark_bundle_script
+    assert "knowledge_source_drift_new_priority_domains=" in benchmark_bundle_script
+    assert "knowledge_source_drift_recommendations=" in benchmark_bundle_script
     assert "knowledge_outcome_correlation_status=" in benchmark_bundle_script
     assert "knowledge_outcome_correlation_focus_areas=" in benchmark_bundle_script
     assert "knowledge_outcome_correlation_priority_domains=" in benchmark_bundle_script
@@ -1133,6 +1183,13 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         benchmark_companion_script
     )
     assert "knowledge_source_action_plan_recommendations=" in benchmark_companion_script
+    assert "knowledge_source_drift_status=" in benchmark_companion_script
+    assert "knowledge_source_drift_summary=" in benchmark_companion_script
+    assert "knowledge_source_drift_source_group_regressions=" in benchmark_companion_script
+    assert "knowledge_source_drift_source_group_improvements=" in benchmark_companion_script
+    assert "knowledge_source_drift_resolved_priority_domains=" in benchmark_companion_script
+    assert "knowledge_source_drift_new_priority_domains=" in benchmark_companion_script
+    assert "knowledge_source_drift_recommendations=" in benchmark_companion_script
     assert "knowledge_outcome_correlation_status=" in benchmark_companion_script
     assert "knowledge_outcome_correlation_focus_areas=" in benchmark_companion_script
     assert "knowledge_outcome_correlation_priority_domains=" in benchmark_companion_script
@@ -1220,6 +1277,13 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         benchmark_release_script
     )
     assert "knowledge_source_action_plan_recommendations=" in benchmark_release_script
+    assert "knowledge_source_drift_status=" in benchmark_release_script
+    assert "knowledge_source_drift_summary=" in benchmark_release_script
+    assert "knowledge_source_drift_source_group_regressions=" in benchmark_release_script
+    assert "knowledge_source_drift_source_group_improvements=" in benchmark_release_script
+    assert "knowledge_source_drift_resolved_priority_domains=" in benchmark_release_script
+    assert "knowledge_source_drift_new_priority_domains=" in benchmark_release_script
+    assert "knowledge_source_drift_recommendations=" in benchmark_release_script
     assert "knowledge_outcome_correlation_status=" in benchmark_release_script
     assert "knowledge_outcome_correlation_focus_areas=" in benchmark_release_script
     assert "knowledge_outcome_correlation_priority_domains=" in benchmark_release_script
@@ -1308,6 +1372,13 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         benchmark_runbook_script
     )
     assert "knowledge_source_action_plan_recommendations=" in benchmark_runbook_script
+    assert "knowledge_source_drift_status=" in benchmark_runbook_script
+    assert "knowledge_source_drift_summary=" in benchmark_runbook_script
+    assert "knowledge_source_drift_source_group_regressions=" in benchmark_runbook_script
+    assert "knowledge_source_drift_source_group_improvements=" in benchmark_runbook_script
+    assert "knowledge_source_drift_resolved_priority_domains=" in benchmark_runbook_script
+    assert "knowledge_source_drift_new_priority_domains=" in benchmark_runbook_script
+    assert "knowledge_source_drift_recommendations=" in benchmark_runbook_script
     assert "knowledge_outcome_correlation_status=" in benchmark_runbook_script
     assert "knowledge_outcome_correlation_focus_areas=" in benchmark_runbook_script
     assert "knowledge_outcome_correlation_priority_domains=" in benchmark_runbook_script
@@ -1522,6 +1593,13 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert (
         upload_knowledge_source_action_plan["if"]
         == "steps.benchmark_knowledge_source_action_plan.outputs.enabled == 'true'"
+    )
+    upload_knowledge_source_drift = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge source drift"
+    )
+    assert (
+        upload_knowledge_source_drift["if"]
+        == "steps.benchmark_knowledge_source_drift.outputs.enabled == 'true'"
     )
     upload_knowledge_outcome_correlation = _get_step(
         workflow, "evaluate", "Upload benchmark knowledge outcome correlation"

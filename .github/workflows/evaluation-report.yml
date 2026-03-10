@@ -226,6 +226,18 @@ on:
         description: 'Optional benchmark knowledge source action plan knowledge source coverage JSON'
         required: false
         default: ''
+      benchmark_knowledge_source_drift_enable:
+        description: 'Override: enable benchmark knowledge source drift export (true/false)'
+        required: false
+        default: ''
+      benchmark_knowledge_source_drift_current_summary_json:
+        description: 'Optional benchmark knowledge source drift current summary JSON'
+        required: false
+        default: ''
+      benchmark_knowledge_source_drift_previous_summary_json:
+        description: 'Optional benchmark knowledge source drift previous summary JSON'
+        required: false
+        default: ''
       benchmark_knowledge_outcome_correlation_enable:
         description: 'Override: enable benchmark knowledge outcome correlation export (true/false)'
         required: false
@@ -806,6 +818,12 @@ env:
   BENCHMARK_KNOWLEDGE_SOURCE_ACTION_PLAN_KNOWLEDGE_SOURCE_COVERAGE_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_SOURCE_ACTION_PLAN_KNOWLEDGE_SOURCE_COVERAGE_JSON }}
   BENCHMARK_KNOWLEDGE_SOURCE_ACTION_PLAN_OUTPUT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_SOURCE_ACTION_PLAN_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_knowledge_source_action_plan.json' }}
   BENCHMARK_KNOWLEDGE_SOURCE_ACTION_PLAN_OUTPUT_MD: ${{ vars.BENCHMARK_KNOWLEDGE_SOURCE_ACTION_PLAN_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_knowledge_source_action_plan.md' }}
+  BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_ENABLE: ${{ vars.BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_ENABLE || 'false' }}
+  BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_TITLE: ${{ vars.BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_TITLE || 'Benchmark Knowledge Source Drift' }}
+  BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_CURRENT_SUMMARY_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_CURRENT_SUMMARY_JSON }}
+  BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_PREVIOUS_SUMMARY_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_PREVIOUS_SUMMARY_JSON }}
+  BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_OUTPUT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_knowledge_source_drift.json' }}
+  BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_OUTPUT_MD: ${{ vars.BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_knowledge_source_drift.md' }}
   BENCHMARK_KNOWLEDGE_OUTCOME_CORRELATION_ENABLE: ${{ vars.BENCHMARK_KNOWLEDGE_OUTCOME_CORRELATION_ENABLE || 'false' }}
   BENCHMARK_KNOWLEDGE_OUTCOME_CORRELATION_TITLE: ${{ vars.BENCHMARK_KNOWLEDGE_OUTCOME_CORRELATION_TITLE || 'Benchmark Knowledge Outcome Correlation' }}
   BENCHMARK_KNOWLEDGE_OUTCOME_CORRELATION_KNOWLEDGE_DOMAIN_MATRIX_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_OUTCOME_CORRELATION_KNOWLEDGE_DOMAIN_MATRIX_JSON }}
@@ -2991,6 +3009,129 @@ jobs:
             f.write(f"recommendations={compact(recommendations)}\n")
         PY
 
+    - name: Build benchmark knowledge source drift (optional)
+      id: benchmark_knowledge_source_drift
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_source_drift_enable || '' }}"
+        ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+
+        OUTPUT_JSON="${BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_OUTPUT_JSON:-reports/history_sequence_eval/benchmark_knowledge_source_drift.json}"
+        OUTPUT_MD="${BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_OUTPUT_MD:-reports/history_sequence_eval/benchmark_knowledge_source_drift.md}"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+        mkdir -p "$(dirname "$OUTPUT_MD")"
+
+        pick_first_existing() {
+          local candidate=""
+          for candidate in "$@"; do
+            if [[ -n "$candidate" && -f "$candidate" ]]; then
+              echo "$candidate"
+              return 0
+            fi
+          done
+          return 1
+        }
+
+        CURRENT_SUMMARY="$(pick_first_existing \
+          "${{ github.event.inputs.benchmark_knowledge_source_drift_current_summary_json || '' }}" \
+          "${BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_CURRENT_SUMMARY_JSON:-}" \
+          "${{ steps.benchmark_knowledge_source_coverage.outputs.output_json || '' }}")"
+        PREVIOUS_SUMMARY="$(pick_first_existing \
+          "${{ github.event.inputs.benchmark_knowledge_source_drift_previous_summary_json || '' }}" \
+          "${BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_PREVIOUS_SUMMARY_JSON:-}")"
+
+        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
+          if [[ -z "$CURRENT_SUMMARY" ]]; then
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_ENABLE is not true and no inputs found; skip."
+            exit 0
+          fi
+        fi
+
+        if [[ -z "$CURRENT_SUMMARY" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "No benchmark knowledge source drift current summary found; skip."
+          exit 0
+        fi
+
+        CMD=(
+          python3 scripts/export_benchmark_knowledge_source_drift.py
+          --title "${BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_TITLE:-Benchmark Knowledge Source Drift}"
+          --current-summary "$CURRENT_SUMMARY"
+          --output-json "$OUTPUT_JSON"
+          --output-md "$OUTPUT_MD"
+        )
+        if [[ -n "$PREVIOUS_SUMMARY" ]]; then
+          CMD+=(--previous-summary "$PREVIOUS_SUMMARY")
+        fi
+
+        "${CMD[@]}"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path(
+                os.environ["BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_OUTPUT_JSON"]
+            ).read_text(encoding="utf-8")
+        )
+        component = payload.get("knowledge_source_drift") or {}
+        recommendations = payload.get("recommendations") or []
+
+        def compact(items):
+            return "; ".join(str(item).strip() for item in items[:4] if str(item).strip())
+
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"status={component.get('status', 'unknown')}\n")
+            f.write(f"current_status={component.get('current_status', 'unknown')}\n")
+            f.write(f"previous_status={component.get('previous_status', 'unknown')}\n")
+            f.write(
+                f"ready_source_group_delta={component.get('ready_source_group_delta', 0)}\n"
+            )
+            f.write(
+                "missing_source_group_delta="
+                f"{component.get('missing_source_group_delta', 0)}\n"
+            )
+            f.write(
+                f"regressions={compact(component.get('regressions') or [])}\n"
+            )
+            f.write(
+                f"improvements={compact(component.get('improvements') or [])}\n"
+            )
+            f.write(
+                "source_group_regressions="
+                f"{compact(component.get('source_group_regressions') or [])}\n"
+            )
+            f.write(
+                "source_group_improvements="
+                f"{compact(component.get('source_group_improvements') or [])}\n"
+            )
+            f.write(
+                "resolved_focus_areas="
+                f"{compact(component.get('resolved_focus_areas') or [])}\n"
+            )
+            f.write(
+                f"new_focus_areas={compact(component.get('new_focus_areas') or [])}\n"
+            )
+            f.write(
+                "resolved_priority_domains="
+                f"{compact(component.get('resolved_priority_domains') or [])}\n"
+            )
+            f.write(
+                f"new_priority_domains={compact(component.get('new_priority_domains') or [])}\n"
+            )
+            f.write(f"recommendations={compact(recommendations)}\n")
+        PY
+
     - name: Build benchmark knowledge outcome correlation (optional)
       id: benchmark_knowledge_outcome_correlation
       continue-on-error: true
@@ -3268,6 +3409,7 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-matrix "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_domain_matrix_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_domain_action_plan_json || '' }}"
         add_if_exists --benchmark-knowledge-source-action-plan "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_source_action_plan_json || '' }}"
+        add_if_exists --benchmark-knowledge-source-drift "${{ steps.benchmark_knowledge_source_drift.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_outcome_correlation_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-drift "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_outcome_drift_json || '' }}"
         add_if_exists --benchmark-competitive-surpass-index "${{ github.event.inputs.benchmark_artifact_bundle_competitive_surpass_index_json || '' }}"
@@ -3307,6 +3449,7 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-action-plan "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON:-}"
         add_if_exists --benchmark-knowledge-source-action-plan "${{ steps.benchmark_knowledge_source_action_plan.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-source-action-plan "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON:-}"
+        add_if_exists --benchmark-knowledge-source-drift "${{ steps.benchmark_knowledge_source_drift.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${{ steps.benchmark_knowledge_outcome_correlation.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_OUTCOME_CORRELATION_JSON:-}"
         add_if_exists --benchmark-knowledge-outcome-drift "${{ steps.benchmark_knowledge_outcome_drift.outputs.output_json || '' }}"
@@ -3600,6 +3743,34 @@ jobs:
                 f"{compact(payload.get('knowledge_source_action_plan_recommendations') or [])}\n"
             )
             f.write(
+                "knowledge_source_drift_status="
+                f"{payload.get('knowledge_source_drift_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_source_drift_summary="
+                f"{compact([payload.get('knowledge_source_drift_summary')])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_source_group_regressions="
+                f"{compact(payload.get('knowledge_source_drift_source_group_regressions') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_source_group_improvements="
+                f"{compact(payload.get('knowledge_source_drift_source_group_improvements') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_resolved_priority_domains="
+                f"{compact(payload.get('knowledge_source_drift_resolved_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_new_priority_domains="
+                f"{compact(payload.get('knowledge_source_drift_new_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_recommendations="
+                f"{compact(payload.get('knowledge_source_drift_recommendations') or [])}\n"
+            )
+            f.write(
                 "knowledge_realdata_correlation_status="
                 f"{payload.get('knowledge_realdata_correlation_status', 'unknown')}\n"
             )
@@ -3748,6 +3919,34 @@ jobs:
             f.write(
                 "knowledge_source_action_plan_recommendations="
                 f"{compact(payload.get('knowledge_source_action_plan_recommendations') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_status="
+                f"{payload.get('knowledge_source_drift_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_source_drift_summary="
+                f"{compact([payload.get('knowledge_source_drift_summary')])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_source_group_regressions="
+                f"{compact(payload.get('knowledge_source_drift_source_group_regressions') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_source_group_improvements="
+                f"{compact(payload.get('knowledge_source_drift_source_group_improvements') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_resolved_priority_domains="
+                f"{compact(payload.get('knowledge_source_drift_resolved_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_new_priority_domains="
+                f"{compact(payload.get('knowledge_source_drift_new_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_recommendations="
+                f"{compact(payload.get('knowledge_source_drift_recommendations') or [])}\n"
             )
             f.write(
                 "knowledge_outcome_correlation_status="
@@ -3909,6 +4108,7 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-action-plan "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON:-}"
         add_if_exists --benchmark-knowledge-source-action-plan "${{ steps.benchmark_knowledge_source_action_plan.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-source-action-plan "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON:-}"
+        add_if_exists --benchmark-knowledge-source-drift "${{ steps.benchmark_knowledge_source_drift.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${{ steps.benchmark_knowledge_outcome_correlation.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_OUTCOME_CORRELATION_JSON:-}"
         add_if_exists --benchmark-knowledge-outcome-drift "${{ steps.benchmark_knowledge_outcome_drift.outputs.output_json || '' }}"
@@ -4206,6 +4406,34 @@ jobs:
                 f"{compact(payload.get('knowledge_source_action_plan_recommendations') or [])}\n"
             )
             f.write(
+                "knowledge_source_drift_status="
+                f"{payload.get('knowledge_source_drift_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_source_drift_summary="
+                f"{compact([payload.get('knowledge_source_drift_summary')])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_source_group_regressions="
+                f"{compact(payload.get('knowledge_source_drift_source_group_regressions') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_source_group_improvements="
+                f"{compact(payload.get('knowledge_source_drift_source_group_improvements') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_resolved_priority_domains="
+                f"{compact(payload.get('knowledge_source_drift_resolved_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_new_priority_domains="
+                f"{compact(payload.get('knowledge_source_drift_new_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_recommendations="
+                f"{compact(payload.get('knowledge_source_drift_recommendations') or [])}\n"
+            )
+            f.write(
                 "knowledge_realdata_correlation_status="
                 f"{payload.get('knowledge_realdata_correlation_status', 'unknown')}\n"
             )
@@ -4353,6 +4581,34 @@ jobs:
             f.write(
                 "knowledge_source_action_plan_recommendations="
                 f"{compact(payload.get('knowledge_source_action_plan_recommendations') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_status="
+                f"{payload.get('knowledge_source_drift_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_source_drift_summary="
+                f"{compact([payload.get('knowledge_source_drift_summary')])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_source_group_regressions="
+                f"{compact(payload.get('knowledge_source_drift_source_group_regressions') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_source_group_improvements="
+                f"{compact(payload.get('knowledge_source_drift_source_group_improvements') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_resolved_priority_domains="
+                f"{compact(payload.get('knowledge_source_drift_resolved_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_new_priority_domains="
+                f"{compact(payload.get('knowledge_source_drift_new_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_recommendations="
+                f"{compact(payload.get('knowledge_source_drift_recommendations') or [])}\n"
             )
             f.write(
                 "knowledge_outcome_correlation_status="
@@ -4547,6 +4803,7 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-action-plan "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON:-}"
         add_if_exists --benchmark-knowledge-source-action-plan "${{ steps.benchmark_knowledge_source_action_plan.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-source-action-plan "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON:-}"
+        add_if_exists --benchmark-knowledge-source-drift "${{ steps.benchmark_knowledge_source_drift.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${{ steps.benchmark_knowledge_outcome_correlation.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_OUTCOME_CORRELATION_JSON:-}"
         add_if_exists --benchmark-knowledge-outcome-drift "${{ steps.benchmark_knowledge_outcome_drift.outputs.output_json || '' }}"
@@ -4860,6 +5117,34 @@ jobs:
                 f"{compact(payload.get('knowledge_source_action_plan_recommendations') or [])}\n"
             )
             f.write(
+                "knowledge_source_drift_status="
+                f"{payload.get('knowledge_source_drift_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_source_drift_summary="
+                f"{compact([payload.get('knowledge_source_drift_summary')])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_source_group_regressions="
+                f"{compact(payload.get('knowledge_source_drift_source_group_regressions') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_source_group_improvements="
+                f"{compact(payload.get('knowledge_source_drift_source_group_improvements') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_resolved_priority_domains="
+                f"{compact(payload.get('knowledge_source_drift_resolved_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_new_priority_domains="
+                f"{compact(payload.get('knowledge_source_drift_new_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_recommendations="
+                f"{compact(payload.get('knowledge_source_drift_recommendations') or [])}\n"
+            )
+            f.write(
                 "knowledge_realdata_correlation_status="
                 f"{payload.get('knowledge_realdata_correlation_status', 'unknown')}\n"
             )
@@ -5065,6 +5350,7 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-action-plan "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON:-}"
         add_if_exists --benchmark-knowledge-source-action-plan "${{ steps.benchmark_knowledge_source_action_plan.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-source-action-plan "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON:-}"
+        add_if_exists --benchmark-knowledge-source-drift "${{ steps.benchmark_knowledge_source_drift.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${{ steps.benchmark_knowledge_outcome_correlation.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_OUTCOME_CORRELATION_JSON:-}"
         add_if_exists --benchmark-knowledge-outcome-drift "${{ steps.benchmark_knowledge_outcome_drift.outputs.output_json || '' }}"
@@ -5447,6 +5733,34 @@ jobs:
             f.write(
                 "knowledge_source_action_plan_recommendations="
                 f"{compact(payload.get('knowledge_source_action_plan_recommendations') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_status="
+                f"{payload.get('knowledge_source_drift_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_source_drift_summary="
+                f"{compact([payload.get('knowledge_source_drift_summary')])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_source_group_regressions="
+                f"{compact(payload.get('knowledge_source_drift_source_group_regressions') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_source_group_improvements="
+                f"{compact(payload.get('knowledge_source_drift_source_group_improvements') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_resolved_priority_domains="
+                f"{compact(payload.get('knowledge_source_drift_resolved_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_new_priority_domains="
+                f"{compact(payload.get('knowledge_source_drift_new_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_drift_recommendations="
+                f"{compact(payload.get('knowledge_source_drift_recommendations') or [])}\n"
             )
             f.write(
                 "knowledge_outcome_correlation_status="
@@ -6363,6 +6677,16 @@ jobs:
           ${{ steps.benchmark_knowledge_source_action_plan.outputs.output_md }}
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
+    - name: Upload benchmark knowledge source drift
+      if: steps.benchmark_knowledge_source_drift.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-knowledge-source-drift-${{ github.run_number }}
+        path: |
+          ${{ steps.benchmark_knowledge_source_drift.outputs.output_json }}
+          ${{ steps.benchmark_knowledge_source_drift.outputs.output_md }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
     - name: Upload benchmark knowledge outcome correlation
       if: steps.benchmark_knowledge_outcome_correlation.outputs.enabled == 'true'
       uses: actions/upload-artifact@v4
@@ -6786,6 +7110,23 @@ jobs:
         else
           echo "- Benchmark knowledge source action plan: skipped (BENCHMARK_KNOWLEDGE_SOURCE_ACTION_PLAN_ENABLE!=true or no inputs)" >> $GITHUB_STEP_SUMMARY
         fi
+        if [[ "${{ steps.benchmark_knowledge_source_drift.outputs.enabled }}" == "true" ]]; then
+          echo "- Benchmark knowledge source drift status: ${{ steps.benchmark_knowledge_source_drift.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge source drift current status: ${{ steps.benchmark_knowledge_source_drift.outputs.current_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge source drift previous status: ${{ steps.benchmark_knowledge_source_drift.outputs.previous_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge source drift ready source-group delta: ${{ steps.benchmark_knowledge_source_drift.outputs.ready_source_group_delta }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge source drift missing source-group delta: ${{ steps.benchmark_knowledge_source_drift.outputs.missing_source_group_delta }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge source drift regressions: ${{ steps.benchmark_knowledge_source_drift.outputs.regressions }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge source drift improvements: ${{ steps.benchmark_knowledge_source_drift.outputs.improvements }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge source drift source-group regressions: ${{ steps.benchmark_knowledge_source_drift.outputs.source_group_regressions }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge source drift source-group improvements: ${{ steps.benchmark_knowledge_source_drift.outputs.source_group_improvements }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge source drift resolved domains: ${{ steps.benchmark_knowledge_source_drift.outputs.resolved_priority_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge source drift new domains: ${{ steps.benchmark_knowledge_source_drift.outputs.new_priority_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge source drift recommendations: ${{ steps.benchmark_knowledge_source_drift.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge source drift artifact: ${{ steps.benchmark_knowledge_source_drift.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Benchmark knowledge source drift: skipped (BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_ENABLE!=true or current summary missing)" >> $GITHUB_STEP_SUMMARY
+        fi
         if [[ "${{ steps.feedback_flywheel_benchmark.outputs.enabled }}" == "true" ]]; then
           echo "- Feedback flywheel benchmark status: ${{ steps.feedback_flywheel_benchmark.outputs.status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Feedback flywheel feedback total: ${{ steps.feedback_flywheel_benchmark.outputs.feedback_total }}" >> $GITHUB_STEP_SUMMARY
@@ -6859,6 +7200,13 @@ jobs:
           echo "- Benchmark artifact bundle knowledge source action plan first actions: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_action_plan_recommended_first_actions }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle knowledge source action plan source-group counts: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_action_plan_source_group_action_counts }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle knowledge source action plan recommendations: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_action_plan_recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge source drift: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_drift_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge source drift summary: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_drift_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge source drift source-group regressions: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_drift_source_group_regressions }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge source drift source-group improvements: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_drift_source_group_improvements }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge source drift resolved domains: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_drift_resolved_priority_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge source drift new domains: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_drift_new_priority_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge source drift recommendations: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_drift_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle engineering status: ${{ steps.benchmark_artifact_bundle.outputs.engineering_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle real-data status: ${{ steps.benchmark_artifact_bundle.outputs.realdata_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle real-data recommendations: ${{ steps.benchmark_artifact_bundle.outputs.realdata_recommendations }}" >> $GITHUB_STEP_SUMMARY
@@ -6922,6 +7270,13 @@ jobs:
           echo "- Benchmark companion knowledge source action plan first actions: ${{ steps.benchmark_companion_summary.outputs.knowledge_source_action_plan_recommended_first_actions }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion knowledge source action plan source-group counts: ${{ steps.benchmark_companion_summary.outputs.knowledge_source_action_plan_source_group_action_counts }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion knowledge source action plan recommendations: ${{ steps.benchmark_companion_summary.outputs.knowledge_source_action_plan_recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge source drift: ${{ steps.benchmark_companion_summary.outputs.knowledge_source_drift_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge source drift summary: ${{ steps.benchmark_companion_summary.outputs.knowledge_source_drift_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge source drift source-group regressions: ${{ steps.benchmark_companion_summary.outputs.knowledge_source_drift_source_group_regressions }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge source drift source-group improvements: ${{ steps.benchmark_companion_summary.outputs.knowledge_source_drift_source_group_improvements }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge source drift resolved domains: ${{ steps.benchmark_companion_summary.outputs.knowledge_source_drift_resolved_priority_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge source drift new domains: ${{ steps.benchmark_companion_summary.outputs.knowledge_source_drift_new_priority_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge source drift recommendations: ${{ steps.benchmark_companion_summary.outputs.knowledge_source_drift_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion engineering status: ${{ steps.benchmark_companion_summary.outputs.engineering_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion real-data status: ${{ steps.benchmark_companion_summary.outputs.realdata_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion real-data recommendations: ${{ steps.benchmark_companion_summary.outputs.realdata_recommendations }}" >> $GITHUB_STEP_SUMMARY
@@ -6983,6 +7338,13 @@ jobs:
           echo "- Benchmark release knowledge source action plan first actions: ${{ steps.benchmark_release_decision.outputs.knowledge_source_action_plan_recommended_first_actions }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release knowledge source action plan source-group counts: ${{ steps.benchmark_release_decision.outputs.knowledge_source_action_plan_source_group_action_counts }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release knowledge source action plan recommendations: ${{ steps.benchmark_release_decision.outputs.knowledge_source_action_plan_recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge source drift: ${{ steps.benchmark_release_decision.outputs.knowledge_source_drift_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge source drift summary: ${{ steps.benchmark_release_decision.outputs.knowledge_source_drift_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge source drift source-group regressions: ${{ steps.benchmark_release_decision.outputs.knowledge_source_drift_source_group_regressions }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge source drift source-group improvements: ${{ steps.benchmark_release_decision.outputs.knowledge_source_drift_source_group_improvements }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge source drift resolved domains: ${{ steps.benchmark_release_decision.outputs.knowledge_source_drift_resolved_priority_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge source drift new domains: ${{ steps.benchmark_release_decision.outputs.knowledge_source_drift_new_priority_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge source drift recommendations: ${{ steps.benchmark_release_decision.outputs.knowledge_source_drift_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release engineering status: ${{ steps.benchmark_release_decision.outputs.engineering_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release real-data status: ${{ steps.benchmark_release_decision.outputs.realdata_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release real-data recommendations: ${{ steps.benchmark_release_decision.outputs.realdata_recommendations }}" >> $GITHUB_STEP_SUMMARY
@@ -7038,6 +7400,13 @@ jobs:
           echo "- Benchmark release runbook knowledge source action plan first actions: ${{ steps.benchmark_release_runbook.outputs.knowledge_source_action_plan_recommended_first_actions }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook knowledge source action plan source-group counts: ${{ steps.benchmark_release_runbook.outputs.knowledge_source_action_plan_source_group_action_counts }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook knowledge source action plan recommendations: ${{ steps.benchmark_release_runbook.outputs.knowledge_source_action_plan_recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge source drift: ${{ steps.benchmark_release_runbook.outputs.knowledge_source_drift_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge source drift summary: ${{ steps.benchmark_release_runbook.outputs.knowledge_source_drift_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge source drift source-group regressions: ${{ steps.benchmark_release_runbook.outputs.knowledge_source_drift_source_group_regressions }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge source drift source-group improvements: ${{ steps.benchmark_release_runbook.outputs.knowledge_source_drift_source_group_improvements }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge source drift resolved domains: ${{ steps.benchmark_release_runbook.outputs.knowledge_source_drift_resolved_priority_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge source drift new domains: ${{ steps.benchmark_release_runbook.outputs.knowledge_source_drift_new_priority_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge source drift recommendations: ${{ steps.benchmark_release_runbook.outputs.knowledge_source_drift_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook engineering status: ${{ steps.benchmark_release_runbook.outputs.engineering_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook real-data status: ${{ steps.benchmark_release_runbook.outputs.realdata_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook real-data recommendations: ${{ steps.benchmark_release_runbook.outputs.realdata_recommendations }}" >> $GITHUB_STEP_SUMMARY
