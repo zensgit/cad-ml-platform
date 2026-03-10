@@ -310,6 +310,10 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
         in dispatch_inputs
     )
     assert (
+        "benchmark_competitive_surpass_index_knowledge_source_drift_json"
+        in dispatch_inputs
+    )
+    assert (
         "benchmark_competitive_surpass_index_knowledge_outcome_correlation_json"
         in dispatch_inputs
     )
@@ -1516,6 +1520,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         in benchmark_competitive_surpass_script
     )
     assert "--benchmark-knowledge-domain-matrix" in benchmark_competitive_surpass_script
+    assert "--benchmark-knowledge-source-drift" in benchmark_competitive_surpass_script
     assert (
         "--benchmark-knowledge-outcome-correlation"
         in benchmark_competitive_surpass_script
