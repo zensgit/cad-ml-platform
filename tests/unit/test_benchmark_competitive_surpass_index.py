@@ -87,6 +87,16 @@ def _ready_inputs() -> dict:
             },
             "recommendations": [],
         },
+        "benchmark_knowledge_source_drift": {
+            "knowledge_source_drift": {
+                "status": "stable",
+                "source_group_regressions": [],
+                "source_group_improvements": ["machining"],
+                "resolved_priority_domains": [],
+                "new_priority_domains": [],
+            },
+            "recommendations": [],
+        },
         "benchmark_knowledge_outcome_correlation": {
             "knowledge_outcome_correlation": {
                 "status": "knowledge_outcome_correlation_ready",
@@ -152,6 +162,10 @@ def test_build_competitive_surpass_index_ready() -> None:
         ]
         == "knowledge_source_action_plan_ready"
     )
+    assert (
+        payload["pillars"]["knowledge"]["details"]["component_statuses"]["source_drift"]
+        == "stable"
+    )
     assert payload["primary_gaps"] == []
     assert competitive_surpass_index_recommendations(payload) == [
         "Competitive-surpass benchmark pillars are aligned across engineering, "
@@ -198,6 +212,7 @@ def test_export_benchmark_competitive_surpass_index_outputs_files(
             "--benchmark-knowledge-source-action-plan",
             "benchmark_knowledge_source_action_plan",
         ),
+        ("--benchmark-knowledge-source-drift", "benchmark_knowledge_source_drift"),
         (
             "--benchmark-knowledge-outcome-correlation",
             "benchmark_knowledge_outcome_correlation",
@@ -269,6 +284,16 @@ def test_build_competitive_surpass_summary_blocks_on_realdata_and_alignment() ->
         },
         "recommendations": ["Promote machining source coverage into benchmark surfaces."],
     }
+    inputs["benchmark_knowledge_source_drift"] = {
+        "knowledge_source_drift": {
+            "status": "regressed",
+            "source_group_regressions": ["standards"],
+            "source_group_improvements": [],
+            "resolved_priority_domains": [],
+            "new_priority_domains": ["standards"],
+        },
+        "recommendations": ["Recover standards source coverage before release gating."],
+    }
     payload = build_competitive_surpass_summary(
         title="Benchmark Competitive Surpass Index",
         artifact_paths={},
@@ -287,6 +312,12 @@ def test_build_competitive_surpass_summary_blocks_on_realdata_and_alignment() ->
             "source_action_plan"
         ]
         == "knowledge_source_action_plan_partial"
+    )
+    assert (
+        component["pillars"]["knowledge"]["details"]["component_statuses"][
+            "source_drift"
+        ]
+        == "regressed"
     )
     assert payload["recommendations"][0] == (
         "Expand DXF/STEP/history real-data validation so benchmark claims are "

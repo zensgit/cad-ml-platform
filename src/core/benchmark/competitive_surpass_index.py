@@ -33,11 +33,11 @@ def _normalize_tier(status: str) -> str:
         "knowledge_domain_action_plan_ready",
         "knowledge_source_coverage_ready",
         "knowledge_source_action_plan_ready",
+        "stable",
+        "improved",
         "knowledge_outcome_correlation_ready",
         "competitive_surpass_knowledge_ready",
         "competitive_surpass_realdata_ready",
-        "stable",
-        "improved",
         "realdata_foundation_ready",
         "realdata_scorecard_ready",
         "operator_ready",
@@ -121,6 +121,7 @@ def _knowledge_pillar(
     benchmark_knowledge_domain_action_plan: Dict[str, Any] | None,
     benchmark_knowledge_source_coverage: Dict[str, Any] | None,
     benchmark_knowledge_source_action_plan: Dict[str, Any] | None,
+    benchmark_knowledge_source_drift: Dict[str, Any] | None,
     benchmark_knowledge_outcome_correlation: Dict[str, Any],
     benchmark_knowledge_outcome_drift: Dict[str, Any],
 ) -> Dict[str, Any]:
@@ -158,6 +159,12 @@ def _knowledge_pillar(
         or source_action_plan_root
         or {}
     )
+    source_drift_root = benchmark_knowledge_source_drift or {}
+    source_drift = (
+        source_drift_root.get("knowledge_source_drift")
+        or source_drift_root
+        or {}
+    )
     outcome_corr = (
         benchmark_knowledge_outcome_correlation.get("knowledge_outcome_correlation")
         or benchmark_knowledge_outcome_correlation
@@ -172,6 +179,7 @@ def _knowledge_pillar(
         "realdata": _text(realdata.get("status")) or "missing",
         "domain_matrix": _text(domain_matrix.get("status")) or "missing",
         "action_plan": _text(action_plan.get("status")) or "missing",
+        "source_drift": _text(source_drift.get("status")) or "unknown",
         "outcome_correlation": _text(outcome_corr.get("status")) or "missing",
         "outcome_drift": _text(outcome_drift.get("status")) or "unknown",
     }
@@ -198,6 +206,8 @@ def _knowledge_pillar(
         + list(action_plan.get("priority_domains") or [])
         + list(source_coverage.get("priority_domains") or [])
         + list(source_action_plan.get("priority_domains") or [])
+        + list(source_drift.get("new_priority_domains") or [])
+        + list(source_drift.get("resolved_priority_domains") or [])
         + [row.get("name") for row in source_coverage.get("expansion_candidates") or []]
         + [item.get("source_group") for item in source_action_plan.get("actions") or []]
         + list(outcome_corr.get("priority_domains") or [])
@@ -207,7 +217,7 @@ def _knowledge_pillar(
     summary = (
         f"readiness={rows['readiness']}; application={rows['application']}; "
         f"realdata={rows['realdata']}; domain_matrix={rows['domain_matrix']}; "
-        f"action_plan={rows['action_plan']}; "
+        f"action_plan={rows['action_plan']}; source_drift={rows['source_drift']}; "
         f"outcome={rows['outcome_correlation']}; drift={rows['outcome_drift']}"
     )
     if source_coverage_status:
@@ -229,6 +239,14 @@ def _knowledge_pillar(
             ),
             "source_action_items": _compact(
                 [item.get("id") for item in source_action_plan.get("actions") or []],
+                limit=6,
+            ),
+            "source_group_regressions": _compact(
+                source_drift.get("source_group_regressions") or [],
+                limit=6,
+            ),
+            "source_group_improvements": _compact(
+                source_drift.get("source_group_improvements") or [],
                 limit=6,
             ),
         },
@@ -350,6 +368,7 @@ def build_competitive_surpass_index(
     benchmark_knowledge_domain_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_coverage: Dict[str, Any] | None = None,
     benchmark_knowledge_source_action_plan: Dict[str, Any] | None = None,
+    benchmark_knowledge_source_drift: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_correlation: Dict[str, Any],
     benchmark_knowledge_outcome_drift: Dict[str, Any],
     benchmark_realdata_signals: Dict[str, Any],
@@ -366,6 +385,7 @@ def build_competitive_surpass_index(
             benchmark_knowledge_domain_action_plan,
             benchmark_knowledge_source_coverage,
             benchmark_knowledge_source_action_plan,
+            benchmark_knowledge_source_drift,
             benchmark_knowledge_outcome_correlation,
             benchmark_knowledge_outcome_drift,
         ),
