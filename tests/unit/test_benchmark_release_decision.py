@@ -767,6 +767,52 @@ def test_build_release_decision_exposes_operator_adoption_knowledge_outcome_drif
     assert "Backfill tolerance outcome coverage." in payload["review_signals"]
 
 
+def test_build_release_decision_exposes_knowledge_source_drift_passthrough() -> None:
+    payload = build_release_decision(
+        title="Release Decision",
+        benchmark_scorecard={"components": {"hybrid": {"status": "healthy"}}},
+        benchmark_operational_summary={},
+        benchmark_artifact_bundle={},
+        benchmark_companion_summary={},
+        benchmark_knowledge_readiness={},
+        benchmark_knowledge_drift={},
+        benchmark_knowledge_outcome_drift={},
+        benchmark_knowledge_source_drift={
+            "knowledge_source_drift": {
+                "status": "regressed",
+                "current_status": "knowledge_source_coverage_partial",
+                "previous_status": "knowledge_source_coverage_ready",
+                "source_group_regressions": ["gdt"],
+                "source_group_improvements": [],
+                "new_priority_domains": ["gdt"],
+                "resolved_priority_domains": [],
+            },
+            "recommendations": [
+                "Restore regressed knowledge source groups before claiming "
+                "benchmark source stability."
+            ],
+        },
+        benchmark_engineering_signals={},
+        benchmark_realdata_signals={},
+        benchmark_operator_adoption={"adoption_readiness": "operator_ready"},
+        artifact_paths={
+            "benchmark_knowledge_source_drift": "knowledge_source_drift.json"
+        },
+    )
+
+    assert payload["component_statuses"]["knowledge_source_drift"] == "regressed"
+    assert payload["artifacts"]["benchmark_knowledge_source_drift"]["present"] is True
+    assert payload["knowledge_source_drift_status"] == "regressed"
+    assert payload["knowledge_source_drift_source_group_regressions"] == ["gdt"]
+    assert payload["knowledge_source_drift_recommendations"] == [
+        "Restore regressed knowledge source groups before claiming benchmark source stability."
+    ]
+    assert (
+        "Restore regressed knowledge source groups before claiming benchmark source stability."
+        in payload["review_signals"]
+    )
+
+
 def test_build_release_decision_exposes_scorecard_and_operational_operator_adoption() -> None:
     payload = build_release_decision(
         title="Release Decision",

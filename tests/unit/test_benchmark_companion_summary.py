@@ -873,6 +873,73 @@ def test_build_companion_summary_exposes_knowledge_outcome_drift_passthrough() -
     ]
 
 
+def test_build_companion_summary_exposes_knowledge_source_drift_passthrough() -> None:
+    payload = build_companion_summary(
+        title="Benchmark Companion",
+        benchmark_scorecard={
+            "overall_status": "healthy",
+            "components": {"hybrid": {"status": "healthy"}},
+        },
+        benchmark_operational_summary={},
+        benchmark_artifact_bundle={
+            "overall_status": "healthy",
+            "component_statuses": {
+                "assistant_explainability": "explainability_ready",
+                "review_queue": "healthy",
+                "ocr_review": "ocr_ready",
+            },
+        },
+        benchmark_knowledge_readiness={
+            "knowledge_readiness": {"status": "knowledge_foundation_ready"}
+        },
+        benchmark_knowledge_drift={},
+        benchmark_knowledge_outcome_drift={},
+        benchmark_knowledge_source_drift={
+            "knowledge_source_drift": {
+                "status": "mixed",
+                "current_status": "knowledge_source_coverage_partial",
+                "previous_status": "knowledge_source_coverage_ready",
+                "regressions": ["tolerance"],
+                "improvements": ["standards"],
+                "new_focus_areas": ["tolerance"],
+                "source_group_regressions": ["tolerance"],
+                "source_group_improvements": ["standards"],
+                "new_priority_domains": ["tolerance"],
+                "resolved_priority_domains": ["standards"],
+            },
+            "recommendations": [
+                "Keep the previous knowledge source coverage baseline until "
+                "regressions are cleared."
+            ],
+        },
+        benchmark_engineering_signals={
+            "engineering_signals": {"status": "engineering_semantics_ready"},
+            "recommendations": [],
+        },
+        benchmark_realdata_signals={
+            "realdata_signals": {"status": "realdata_foundation_ready"},
+            "recommendations": [],
+        },
+        benchmark_operator_adoption={
+            "adoption_readiness": "operator_ready",
+            "recommended_actions": [],
+        },
+        artifact_paths={
+            "benchmark_knowledge_source_drift": "knowledge_source_drift.json"
+        },
+    )
+
+    assert payload["component_statuses"]["knowledge_source_drift"] == "mixed"
+    assert payload["primary_gap"] == "knowledge_source_drift:mixed"
+    assert payload["artifacts"]["benchmark_knowledge_source_drift"]["present"] is True
+    assert payload["knowledge_source_drift"]["status"] == "mixed"
+    assert "regressions=tolerance" in payload["knowledge_source_drift_summary"]
+    assert payload["knowledge_source_drift_source_group_regressions"] == ["tolerance"]
+    assert payload["knowledge_source_drift_recommendations"] == [
+        "Keep the previous knowledge source coverage baseline until regressions are cleared."
+    ]
+
+
 def test_build_companion_summary_exposes_competitive_surpass_index_passthrough() -> None:
     payload = build_companion_summary(
         title="Benchmark Companion",

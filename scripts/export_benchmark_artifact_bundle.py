@@ -126,6 +126,7 @@ def _component_statuses(
     benchmark_knowledge_domain_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_coverage: Dict[str, Any] | None = None,
+    benchmark_knowledge_source_drift: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_correlation: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_drift: Dict[str, Any] | None = None,
 ) -> Dict[str, str]:
@@ -144,6 +145,7 @@ def _component_statuses(
     benchmark_knowledge_source_coverage = (
         benchmark_knowledge_source_coverage or {}
     )
+    benchmark_knowledge_source_drift = benchmark_knowledge_source_drift or {}
     benchmark_knowledge_outcome_correlation = (
         benchmark_knowledge_outcome_correlation or {}
     )
@@ -204,6 +206,9 @@ def _component_statuses(
         benchmark_knowledge_source_coverage.get("knowledge_source_coverage")
         or benchmark_knowledge_source_coverage
         or {}
+    )
+    knowledge_source_drift_component = _knowledge_source_drift_component(
+        benchmark_knowledge_source_drift
     )
     knowledge_outcome_correlation_component = (
         benchmark_knowledge_outcome_correlation.get("knowledge_outcome_correlation")
@@ -337,6 +342,13 @@ def _component_statuses(
         or (components.get("knowledge_source_coverage") or {}).get("status")
         or "unknown"
     )
+    component_rows["knowledge_source_drift"] = str(
+        companion_components.get("knowledge_source_drift")
+        or operational_components.get("knowledge_source_drift")
+        or knowledge_source_drift_component.get("status")
+        or (components.get("knowledge_source_drift") or {}).get("status")
+        or "unknown"
+    )
     component_rows["knowledge_outcome_correlation"] = str(
         companion_components.get("knowledge_outcome_correlation")
         or operational_components.get("knowledge_outcome_correlation")
@@ -364,6 +376,10 @@ def _knowledge_drift_component(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 def _knowledge_outcome_drift_component(payload: Dict[str, Any]) -> Dict[str, Any]:
     return payload.get("knowledge_outcome_drift") or payload or {}
+
+
+def _knowledge_source_drift_component(payload: Dict[str, Any]) -> Dict[str, Any]:
+    return payload.get("knowledge_source_drift") or payload or {}
 
 
 def _knowledge_drift_summary(component: Dict[str, Any]) -> str:
@@ -412,6 +428,28 @@ def _knowledge_outcome_drift_summary(component: Dict[str, Any]) -> str:
     return "; ".join(parts)
 
 
+def _knowledge_source_drift_summary(component: Dict[str, Any]) -> str:
+    if not component:
+        return ""
+    parts = [f"status={component.get('status') or 'unknown'}"]
+    current_status = str(component.get("current_status") or "").strip()
+    previous_status = str(component.get("previous_status") or "").strip()
+    if current_status:
+        parts.append(f"current={current_status}")
+    if previous_status:
+        parts.append(f"previous={previous_status}")
+    regressions = _compact_list(component.get("regressions") or [])
+    improvements = _compact_list(component.get("improvements") or [])
+    new_focus_areas = _compact_list(component.get("new_focus_areas") or [])
+    if regressions:
+        parts.append("regressions=" + ", ".join(regressions))
+    if improvements:
+        parts.append("improvements=" + ", ".join(improvements))
+    if new_focus_areas:
+        parts.append("new_focus_areas=" + ", ".join(new_focus_areas))
+    return "; ".join(parts)
+
+
 def _pick_summary_items(
     benchmark_release_decision: Dict[str, Any],
     benchmark_companion_summary: Dict[str, Any],
@@ -428,6 +466,7 @@ def _pick_summary_items(
     benchmark_knowledge_domain_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_coverage: Dict[str, Any] | None = None,
+    benchmark_knowledge_source_drift: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_correlation: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_drift: Dict[str, Any] | None = None,
 ) -> tuple[str, List[str], List[str]]:
@@ -446,6 +485,7 @@ def _pick_summary_items(
     benchmark_knowledge_source_coverage = (
         benchmark_knowledge_source_coverage or {}
     )
+    benchmark_knowledge_source_drift = benchmark_knowledge_source_drift or {}
     benchmark_knowledge_outcome_correlation = (
         benchmark_knowledge_outcome_correlation or {}
     )
@@ -480,6 +520,7 @@ def _pick_summary_items(
         or benchmark_knowledge_domain_action_plan.get("recommendations")
         or benchmark_knowledge_source_action_plan.get("recommendations")
         or benchmark_knowledge_source_coverage.get("recommendations")
+        or benchmark_knowledge_source_drift.get("recommendations")
         or benchmark_knowledge_outcome_correlation.get("recommendations")
         or benchmark_knowledge_outcome_drift.get("recommendations")
         or []
@@ -553,6 +594,7 @@ def build_bundle(
     benchmark_knowledge_domain_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_coverage: Dict[str, Any] | None = None,
+    benchmark_knowledge_source_drift: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_correlation: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_drift: Dict[str, Any] | None = None,
     feedback_flywheel: Dict[str, Any],
@@ -577,6 +619,7 @@ def build_bundle(
     benchmark_knowledge_source_coverage = (
         benchmark_knowledge_source_coverage or {}
     )
+    benchmark_knowledge_source_drift = benchmark_knowledge_source_drift or {}
     benchmark_knowledge_outcome_correlation = (
         benchmark_knowledge_outcome_correlation or {}
     )
@@ -597,6 +640,7 @@ def build_bundle(
         benchmark_knowledge_domain_action_plan,
         benchmark_knowledge_source_action_plan,
         benchmark_knowledge_source_coverage,
+        benchmark_knowledge_source_drift,
         benchmark_knowledge_outcome_correlation,
         benchmark_knowledge_outcome_drift,
     )
@@ -649,6 +693,9 @@ def build_bundle(
         benchmark_knowledge_source_coverage.get("knowledge_source_coverage")
         or benchmark_knowledge_source_coverage
         or {}
+    )
+    knowledge_source_drift_component = _knowledge_source_drift_component(
+        benchmark_knowledge_source_drift
     )
     knowledge_outcome_correlation_component = (
         benchmark_knowledge_outcome_correlation.get("knowledge_outcome_correlation")
@@ -708,6 +755,9 @@ def build_bundle(
     )
     knowledge_source_coverage_recommendations = _compact_list(
         benchmark_knowledge_source_coverage.get("recommendations") or []
+    )
+    knowledge_source_drift_recommendations = _compact_list(
+        benchmark_knowledge_source_drift.get("recommendations") or []
     )
     knowledge_outcome_correlation_recommendations = _compact_list(
         benchmark_knowledge_outcome_correlation.get("recommendations") or []
@@ -812,6 +862,11 @@ def build_bundle(
                 "",
             ),
             payload=benchmark_knowledge_source_coverage,
+        ),
+        "benchmark_knowledge_source_drift": _artifact_row(
+            name="benchmark_knowledge_source_drift",
+            path_text=artifact_paths.get("benchmark_knowledge_source_drift", ""),
+            payload=benchmark_knowledge_source_drift,
         ),
         "benchmark_knowledge_outcome_correlation": _artifact_row(
             name="benchmark_knowledge_outcome_correlation",
@@ -985,6 +1040,28 @@ def build_bundle(
         "knowledge_source_coverage_recommendations": (
             knowledge_source_coverage_recommendations
         ),
+        "knowledge_source_drift_status": (
+            knowledge_source_drift_component.get("status") or "unknown"
+        ),
+        "knowledge_source_drift": knowledge_source_drift_component,
+        "knowledge_source_drift_summary": _knowledge_source_drift_summary(
+            knowledge_source_drift_component
+        ),
+        "knowledge_source_drift_source_group_regressions": list(
+            knowledge_source_drift_component.get("source_group_regressions") or []
+        ),
+        "knowledge_source_drift_source_group_improvements": list(
+            knowledge_source_drift_component.get("source_group_improvements") or []
+        ),
+        "knowledge_source_drift_resolved_priority_domains": list(
+            knowledge_source_drift_component.get("resolved_priority_domains") or []
+        ),
+        "knowledge_source_drift_new_priority_domains": list(
+            knowledge_source_drift_component.get("new_priority_domains") or []
+        ),
+        "knowledge_source_drift_recommendations": (
+            knowledge_source_drift_recommendations
+        ),
         "knowledge_outcome_correlation_status": (
             knowledge_outcome_correlation_component.get("status") or "unknown"
         ),
@@ -1048,6 +1125,7 @@ def build_bundle(
             benchmark_knowledge_domain_action_plan,
             benchmark_knowledge_source_action_plan,
             benchmark_knowledge_source_coverage,
+            benchmark_knowledge_source_drift,
             benchmark_knowledge_outcome_correlation,
             benchmark_knowledge_outcome_drift,
         ),
@@ -1080,6 +1158,8 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         f"`{payload.get('knowledge_source_action_plan_status') or 'unknown'}`",
         f"- knowledge_source_coverage_status: "
         f"`{payload.get('knowledge_source_coverage_status') or 'unknown'}`",
+        f"- knowledge_source_drift_status: "
+        f"`{payload.get('knowledge_source_drift_status') or 'unknown'}`",
         f"- knowledge_outcome_correlation_status: "
         f"`{payload.get('knowledge_outcome_correlation_status') or 'unknown'}`",
         f"- knowledge_outcome_drift_status: "
@@ -1272,6 +1352,68 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     )
     if knowledge_source_recommendations:
         for item in knowledge_source_recommendations:
+            lines.append(f"- recommendation: {item}")
+    lines.extend(["", "## Knowledge Source Drift", ""])
+    lines.append(
+        f"- `status`: `{payload.get('knowledge_source_drift_status') or 'unknown'}`"
+    )
+    lines.append(
+        "- summary: "
+        + (_text(payload.get("knowledge_source_drift_summary")) or "none")
+    )
+    lines.append(
+        "- source_group_regressions: "
+        + (
+            ", ".join(
+                str(item)
+                for item in (
+                    payload.get("knowledge_source_drift_source_group_regressions") or []
+                )
+            )
+            or "none"
+        )
+    )
+    lines.append(
+        "- source_group_improvements: "
+        + (
+            ", ".join(
+                str(item)
+                for item in (
+                    payload.get("knowledge_source_drift_source_group_improvements") or []
+                )
+            )
+            or "none"
+        )
+    )
+    lines.append(
+        "- resolved_priority_domains: "
+        + (
+            ", ".join(
+                str(item)
+                for item in (
+                    payload.get("knowledge_source_drift_resolved_priority_domains") or []
+                )
+            )
+            or "none"
+        )
+    )
+    lines.append(
+        "- new_priority_domains: "
+        + (
+            ", ".join(
+                str(item)
+                for item in (
+                    payload.get("knowledge_source_drift_new_priority_domains") or []
+                )
+            )
+            or "none"
+        )
+    )
+    knowledge_source_drift_recommendations = (
+        payload.get("knowledge_source_drift_recommendations") or []
+    )
+    if knowledge_source_drift_recommendations:
+        for item in knowledge_source_drift_recommendations:
             lines.append(f"- recommendation: {item}")
     lines.extend(["", "## Knowledge Outcome Correlation", ""])
     lines.append(
@@ -1602,6 +1744,7 @@ def main() -> None:
     parser.add_argument("--benchmark-knowledge-domain-action-plan", default="")
     parser.add_argument("--benchmark-knowledge-source-action-plan", default="")
     parser.add_argument("--benchmark-knowledge-source-coverage", default="")
+    parser.add_argument("--benchmark-knowledge-source-drift", default="")
     parser.add_argument("--benchmark-knowledge-outcome-correlation", default="")
     parser.add_argument("--benchmark-knowledge-outcome-drift", default="")
     parser.add_argument("--feedback-flywheel", default="")
@@ -1638,6 +1781,7 @@ def main() -> None:
         "benchmark_knowledge_source_coverage": (
             args.benchmark_knowledge_source_coverage
         ),
+        "benchmark_knowledge_source_drift": args.benchmark_knowledge_source_drift,
         "benchmark_knowledge_outcome_correlation": (
             args.benchmark_knowledge_outcome_correlation
         ),
@@ -1685,6 +1829,9 @@ def main() -> None:
         ),
         benchmark_knowledge_source_coverage=_maybe_load_json(
             args.benchmark_knowledge_source_coverage
+        ),
+        benchmark_knowledge_source_drift=_maybe_load_json(
+            args.benchmark_knowledge_source_drift
         ),
         benchmark_knowledge_outcome_correlation=_maybe_load_json(
             args.benchmark_knowledge_outcome_correlation
