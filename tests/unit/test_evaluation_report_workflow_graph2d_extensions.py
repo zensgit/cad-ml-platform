@@ -170,6 +170,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_RELEASE_DECISION_KNOWLEDGE_READINESS_JSON" in env
     assert "BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DRIFT_JSON" in env
     assert "BENCHMARK_RELEASE_DECISION_KNOWLEDGE_APPLICATION_JSON" in env
+    assert "BENCHMARK_RELEASE_DECISION_COMPETITIVE_SURPASS_INDEX_JSON" in env
     assert "BENCHMARK_RELEASE_DECISION_OUTPUT_JSON" in env
     assert "BENCHMARK_RELEASE_DECISION_OUTPUT_MD" in env
     assert "BENCHMARK_RELEASE_RUNBOOK_ENABLE" in env
@@ -183,6 +184,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_READINESS_JSON" in env
     assert "BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DRIFT_JSON" in env
     assert "BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_APPLICATION_JSON" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_COMPETITIVE_SURPASS_INDEX_JSON" in env
     assert "BENCHMARK_RELEASE_RUNBOOK_OUTPUT_JSON" in env
     assert "BENCHMARK_RELEASE_RUNBOOK_OUTPUT_MD" in env
     assert "BENCHMARK_OPERATOR_ADOPTION_ENABLE" in env
@@ -338,6 +340,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
         in dispatch_inputs
     )
     assert "benchmark_release_decision_knowledge_outcome_drift_json" in dispatch_inputs
+    assert "benchmark_release_decision_competitive_surpass_index_json" in dispatch_inputs
     assert "benchmark_release_runbook_enable" in dispatch_inputs
     assert "benchmark_release_runbook_release_decision_json" in dispatch_inputs
     assert "benchmark_release_runbook_companion_summary_json" in dispatch_inputs
@@ -354,6 +357,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
         in dispatch_inputs
     )
     assert "benchmark_release_runbook_knowledge_outcome_drift_json" in dispatch_inputs
+    assert "benchmark_release_runbook_competitive_surpass_index_json" in dispatch_inputs
     assert "benchmark_operator_adoption_enable" in dispatch_inputs
     assert "benchmark_operator_adoption_release_decision_json" in dispatch_inputs
     assert "benchmark_operator_adoption_release_runbook_json" in dispatch_inputs
@@ -373,6 +377,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
 
 def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> None:
     workflow = _load_workflow()
+    workflow_text = WORKFLOW.read_text(encoding="utf-8")
     download_step = _get_step(
         workflow, "evaluate", "Download review-pack input artifact (optional)"
     )
@@ -1032,6 +1037,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-knowledge-application" in benchmark_release_script
     assert "--benchmark-knowledge-outcome-correlation" in benchmark_release_script
     assert "--benchmark-knowledge-outcome-drift" in benchmark_release_script
+    assert "--benchmark-competitive-surpass-index" in benchmark_release_script
     assert "release_status=" in benchmark_release_script
     assert "automation_ready=" in benchmark_release_script
     assert "primary_signal_source=" in benchmark_release_script
@@ -1067,6 +1073,9 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_outcome_drift_resolved_priority_domains=" in benchmark_release_script
     assert "knowledge_outcome_drift_new_priority_domains=" in benchmark_release_script
     assert "knowledge_outcome_drift_recommendations=" in benchmark_release_script
+    assert "competitive_surpass_index_status=" in benchmark_release_script
+    assert "competitive_surpass_primary_gaps=" in benchmark_release_script
+    assert "competitive_surpass_recommendations=" in benchmark_release_script
     assert "operator_adoption_status=" in benchmark_release_script
     assert "operator_adoption_knowledge_drift_status=" in benchmark_release_script
     assert "operator_adoption_knowledge_drift_summary=" in benchmark_release_script
@@ -1102,6 +1111,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-knowledge-application" in benchmark_runbook_script
     assert "--benchmark-knowledge-outcome-correlation" in benchmark_runbook_script
     assert "--benchmark-knowledge-outcome-drift" in benchmark_runbook_script
+    assert "--benchmark-competitive-surpass-index" in benchmark_runbook_script
     assert "ready_to_freeze_baseline=" in benchmark_runbook_script
     assert "next_action=" in benchmark_runbook_script
     assert "missing_artifacts=" in benchmark_runbook_script
@@ -1136,6 +1146,9 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_outcome_drift_resolved_priority_domains=" in benchmark_runbook_script
     assert "knowledge_outcome_drift_new_priority_domains=" in benchmark_runbook_script
     assert "knowledge_outcome_drift_recommendations=" in benchmark_runbook_script
+    assert "competitive_surpass_index_status=" in benchmark_runbook_script
+    assert "competitive_surpass_primary_gaps=" in benchmark_runbook_script
+    assert "competitive_surpass_recommendations=" in benchmark_runbook_script
     assert "operator_adoption_status=" in benchmark_runbook_script
     assert "operator_adoption_knowledge_drift_status=" in benchmark_runbook_script
     assert "operator_adoption_knowledge_drift_summary=" in benchmark_runbook_script
@@ -1150,6 +1163,8 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "operational_operator_adoption_knowledge_outcome_drift_status=" in (
         benchmark_runbook_script
     )
+    assert "Benchmark Release Decision Competitive Surpass" in workflow_text
+    assert "Benchmark Release Runbook Competitive Surpass" in workflow_text
 
     benchmark_operator_adoption_step = _get_step(
         workflow, "evaluate", "Build benchmark operator adoption (optional)"
