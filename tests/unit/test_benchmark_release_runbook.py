@@ -318,6 +318,14 @@ def test_build_release_runbook_freezes_when_ready() -> None:
                 "Promote the improved knowledge outcome correlation after CI surfaces refresh."
             ],
         },
+        benchmark_competitive_surpass_index={
+            "competitive_surpass_index": {
+                "status": "competitive_surpass_ready",
+                "score": 91,
+                "primary_gaps": [],
+            },
+            "recommendations": [],
+        },
         artifact_paths={
             "benchmark_release_decision": "release.json",
             "benchmark_companion_summary": "companion.json",
@@ -328,6 +336,7 @@ def test_build_release_runbook_freezes_when_ready() -> None:
                 "knowledge_outcome_correlation.json"
             ),
             "benchmark_knowledge_outcome_drift": "knowledge_outcome_drift.json",
+            "benchmark_competitive_surpass_index": "competitive_surpass.json",
         },
     )
 
@@ -344,14 +353,20 @@ def test_build_release_runbook_freezes_when_ready() -> None:
     assert payload["knowledge_application_status"] == "knowledge_application_ready"
     assert payload["knowledge_domain_matrix_status"] == "knowledge_domain_matrix_ready"
     assert payload["knowledge_outcome_drift_status"] == "improved"
+    assert payload["competitive_surpass_index_status"] == "competitive_surpass_ready"
+    assert payload["competitive_surpass_index"]["score"] == 91
+    assert payload["competitive_surpass_primary_gaps"] == []
+    assert payload["competitive_surpass_recommendations"] == []
     assert payload["next_action"] == "freeze_release_baseline"
     assert "benchmark_operator_adoption" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_drift" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_outcome_drift" not in payload["missing_artifacts"]
     assert "benchmark_realdata_signals" not in payload["missing_artifacts"]
+    assert "benchmark_competitive_surpass_index" not in payload["missing_artifacts"]
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is False
     assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_knowledge_outcome_drift"]["present"] is True
+    assert payload["artifacts"]["benchmark_competitive_surpass_index"]["present"] is True
     assert payload["operator_steps"][-1]["status"] == "ready"
     assert payload["operator_adoption"]["knowledge_outcome_drift_status"] == "unknown"
 
@@ -370,6 +385,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     knowledge_domain_matrix = tmp_path / "knowledge_domain_matrix.json"
     knowledge_outcome_correlation = tmp_path / "knowledge_outcome_correlation.json"
     knowledge_outcome_drift = tmp_path / "knowledge_outcome_drift.json"
+    competitive_surpass = tmp_path / "competitive_surpass.json"
     output_json = tmp_path / "runbook.json"
     output_md = tmp_path / "runbook.md"
 
@@ -607,6 +623,22 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    competitive_surpass.write_text(
+        json.dumps(
+            {
+                "competitive_surpass_index": {
+                    "status": "competitive_surpass_partial",
+                    "score": 73,
+                    "primary_gaps": ["history_realdata", "step_dir_depth"],
+                },
+                "recommendations": [
+                    "Expand history and STEP real-data depth before claiming "
+                    "benchmark surpass readiness."
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     subprocess.run(
         [
@@ -638,6 +670,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
             str(knowledge_outcome_correlation),
             "--benchmark-knowledge-outcome-drift",
             str(knowledge_outcome_drift),
+            "--benchmark-competitive-surpass-index",
+            str(competitive_surpass),
             "--output-json",
             str(output_json),
             "--output-md",
@@ -662,12 +696,22 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         "knowledge_outcome_correlation_partial"
     )
     assert payload["knowledge_outcome_drift_status"] == "regressed"
+    assert payload["competitive_surpass_index_status"] == "competitive_surpass_partial"
+    assert payload["competitive_surpass_index"]["score"] == 73
+    assert payload["competitive_surpass_primary_gaps"] == [
+        "history_realdata",
+        "step_dir_depth",
+    ]
+    assert payload["competitive_surpass_recommendations"] == [
+        "Expand history and STEP real-data depth before claiming benchmark surpass readiness."
+    ]
     assert payload["next_action"] == "review_signals"
     assert payload["artifacts"]["benchmark_knowledge_drift"]["present"] is True
     assert payload["artifacts"]["benchmark_knowledge_outcome_drift"]["present"] is True
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
+    assert payload["artifacts"]["benchmark_competitive_surpass_index"]["present"] is True
     assert payload["operator_adoption"]["signals"] == [
         "operator_shift_handoff:pending"
     ]
@@ -692,6 +736,13 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert "## Knowledge Application" in rendered
     assert "## Knowledge Domain Matrix" in rendered
     assert "## Knowledge Outcome Drift" in rendered
+    assert "## Competitive Surpass Index" in rendered
+    assert "`competitive_surpass_index_status`: `competitive_surpass_partial`" in rendered
+    assert "history_realdata, step_dir_depth" in rendered
+    assert (
+        "Expand history and STEP real-data depth before claiming benchmark surpass readiness."
+        in rendered
+    )
     assert "## Real-Data Signals" in rendered
     assert "## Operator Adoption" in rendered
     assert "operator_shift_handoff:pending" in rendered

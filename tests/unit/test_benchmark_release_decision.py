@@ -284,6 +284,14 @@ def test_build_release_decision_ready_without_blockers() -> None:
             },
             "recommendations": [],
         },
+        benchmark_competitive_surpass_index={
+            "competitive_surpass_index": {
+                "status": "competitive_surpass_ready",
+                "score": 92,
+                "primary_gaps": [],
+            },
+            "recommendations": [],
+        },
         artifact_paths={"benchmark_scorecard": "scorecard.json"},
     )
 
@@ -299,6 +307,9 @@ def test_build_release_decision_ready_without_blockers() -> None:
     assert payload["component_statuses"]["knowledge_domain_matrix"] == (
         "knowledge_domain_matrix_ready"
     )
+    assert payload["component_statuses"]["competitive_surpass_index"] == (
+        "competitive_surpass_ready"
+    )
     assert payload["operator_adoption_knowledge_drift"]["status"] == "stable"
     assert payload["operator_adoption_knowledge_outcome_drift"]["status"] == "stable"
     assert payload["knowledge_focus_areas"] == []
@@ -312,6 +323,10 @@ def test_build_release_decision_ready_without_blockers() -> None:
     assert payload["knowledge_domain_focus_areas"] == []
     assert payload["knowledge_application_status"] == "knowledge_application_ready"
     assert payload["knowledge_domain_matrix_status"] == "knowledge_domain_matrix_ready"
+    assert payload["competitive_surpass_index_status"] == "competitive_surpass_ready"
+    assert payload["competitive_surpass_index"]["score"] == 92
+    assert payload["competitive_surpass_primary_gaps"] == []
+    assert payload["competitive_surpass_recommendations"] == []
     assert payload["review_signals"] == []
 
 
@@ -389,6 +404,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     engineering = tmp_path / "engineering.json"
     realdata = tmp_path / "realdata.json"
     operator = tmp_path / "operator.json"
+    competitive_surpass = tmp_path / "competitive_surpass.json"
     output_json = tmp_path / "release.json"
     output_md = tmp_path / "release.md"
     scorecard.write_text(
@@ -496,6 +512,21 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    competitive_surpass.write_text(
+        json.dumps(
+            {
+                "competitive_surpass_index": {
+                    "status": "competitive_surpass_partial",
+                    "score": 78,
+                    "primary_gaps": ["step_dir_depth", "knowledge_realdata"],
+                },
+                "recommendations": [
+                    "Expand STEP/B-Rep depth before claiming benchmark surpass readiness."
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     subprocess.run(
         [
@@ -519,6 +550,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
             str(realdata),
             "--benchmark-operator-adoption",
             str(operator),
+            "--benchmark-competitive-surpass-index",
+            str(competitive_surpass),
             "--output-json",
             str(output_json),
             "--output-md",
@@ -535,6 +568,9 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
     assert payload["component_statuses"]["realdata_signals"] == "realdata_foundation_ready"
     assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
+    assert payload["component_statuses"]["competitive_surpass_index"] == (
+        "competitive_surpass_partial"
+    )
     assert payload["operator_adoption_knowledge_drift"]["status"] == "stable"
     assert payload["operator_adoption_knowledge_outcome_drift"]["status"] == "regressed"
     assert payload["artifacts"]["benchmark_knowledge_readiness"]["present"] is True
@@ -543,6 +579,16 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
     assert payload["knowledge_domains"]["standards"]["status"] == "ready"
     assert payload["knowledge_domain_focus_areas"] == []
+    assert payload["competitive_surpass_index_status"] == "competitive_surpass_partial"
+    assert payload["competitive_surpass_index"]["score"] == 78
+    assert payload["competitive_surpass_primary_gaps"] == [
+        "step_dir_depth",
+        "knowledge_realdata",
+    ]
+    assert payload["competitive_surpass_recommendations"] == [
+        "Expand STEP/B-Rep depth before claiming benchmark surpass readiness."
+    ]
+    assert payload["artifacts"]["benchmark_competitive_surpass_index"]["present"] is True
     assert output_md.exists()
 
     rendered = render_markdown(payload)
@@ -554,6 +600,10 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert "`operator_adoption`: `operator_ready`" in rendered
     assert "`operator_adoption_knowledge_drift`: `stable`" in rendered
     assert "`operator_adoption_knowledge_outcome_drift`: `regressed`" in rendered
+    assert "## Competitive Surpass Index" in rendered
+    assert "`competitive_surpass_index_status`: `competitive_surpass_partial`" in rendered
+    assert "step_dir_depth, knowledge_realdata" in rendered
+    assert "Expand STEP/B-Rep depth before claiming benchmark surpass readiness." in rendered
     assert "## Knowledge Domains" in rendered
     assert "## Knowledge Domain Matrix" in rendered
     assert "## Real-Data Signals" in rendered

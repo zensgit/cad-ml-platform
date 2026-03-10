@@ -77,6 +77,7 @@ def _artifacts(
     benchmark_knowledge_domain_matrix: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_correlation: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_drift: Dict[str, Any] | None = None,
+    benchmark_competitive_surpass_index: Dict[str, Any] | None = None,
     artifact_paths: Dict[str, str],
 ) -> Dict[str, Dict[str, Any]]:
     benchmark_realdata_scorecard = benchmark_realdata_scorecard or {}
@@ -89,6 +90,7 @@ def _artifacts(
         benchmark_knowledge_outcome_correlation or {}
     )
     benchmark_knowledge_outcome_drift = benchmark_knowledge_outcome_drift or {}
+    benchmark_competitive_surpass_index = benchmark_competitive_surpass_index or {}
     decision_artifacts = benchmark_release_decision.get("artifacts") or {}
 
     def pick_path(name: str) -> str:
@@ -172,6 +174,11 @@ def _artifacts(
             "benchmark_knowledge_outcome_drift",
             artifact_paths.get("benchmark_knowledge_outcome_drift", ""),
             benchmark_knowledge_outcome_drift,
+        ),
+        "benchmark_competitive_surpass_index": _artifact_row(
+            "benchmark_competitive_surpass_index",
+            artifact_paths.get("benchmark_competitive_surpass_index", ""),
+            benchmark_competitive_surpass_index,
         ),
         "benchmark_scorecard": _artifact_row(
             "benchmark_scorecard",
@@ -478,6 +485,7 @@ def build_release_runbook(
     benchmark_knowledge_domain_matrix: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_correlation: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_drift: Dict[str, Any] | None = None,
+    benchmark_competitive_surpass_index: Dict[str, Any] | None = None,
     artifact_paths: Dict[str, str],
 ) -> Dict[str, Any]:
     benchmark_scorecard = benchmark_scorecard or {}
@@ -493,6 +501,7 @@ def build_release_runbook(
         benchmark_knowledge_outcome_correlation or {}
     )
     benchmark_knowledge_outcome_drift = benchmark_knowledge_outcome_drift or {}
+    benchmark_competitive_surpass_index = benchmark_competitive_surpass_index or {}
     knowledge_component = (
         benchmark_knowledge_readiness.get("knowledge_readiness")
         or benchmark_knowledge_readiness
@@ -536,6 +545,11 @@ def build_release_runbook(
     knowledge_outcome_drift_component = (
         benchmark_knowledge_outcome_drift.get("knowledge_outcome_drift")
         or benchmark_knowledge_outcome_drift
+        or {}
+    )
+    competitive_surpass_component = (
+        benchmark_competitive_surpass_index.get("competitive_surpass_index")
+        or benchmark_competitive_surpass_index
         or {}
     )
     realdata_status = (
@@ -683,6 +697,20 @@ def build_release_runbook(
         ):
             if item not in review_signals:
                 review_signals.append(item)
+    competitive_surpass_status = (
+        str(competitive_surpass_component.get("status") or "unknown").strip()
+        or "unknown"
+    )
+    if competitive_surpass_status not in {
+        "",
+        "unknown",
+        "competitive_surpass_ready",
+    }:
+        for item in _compact(
+            benchmark_competitive_surpass_index.get("recommendations") or []
+        ):
+            if item not in review_signals:
+                review_signals.append(item)
     for item in _knowledge_drift_review_signals(knowledge_drift):
         if item not in review_signals:
             review_signals.append(item)
@@ -701,6 +729,7 @@ def build_release_runbook(
         benchmark_knowledge_domain_matrix=benchmark_knowledge_domain_matrix,
         benchmark_knowledge_outcome_correlation=benchmark_knowledge_outcome_correlation,
         benchmark_knowledge_outcome_drift=benchmark_knowledge_outcome_drift,
+        benchmark_competitive_surpass_index=benchmark_competitive_surpass_index,
         artifact_paths=artifact_paths,
     )
     operator_adoption = _operator_adoption_payload(benchmark_operator_adoption)
@@ -983,6 +1012,14 @@ def build_release_runbook(
         "knowledge_outcome_drift_recommendations": _compact(
             benchmark_knowledge_outcome_drift.get("recommendations") or []
         ),
+        "competitive_surpass_index_status": competitive_surpass_status,
+        "competitive_surpass_index": competitive_surpass_component,
+        "competitive_surpass_primary_gaps": list(
+            competitive_surpass_component.get("primary_gaps") or []
+        ),
+        "competitive_surpass_recommendations": _compact(
+            benchmark_competitive_surpass_index.get("recommendations") or []
+        ),
         "primary_signal_source": _primary_signal_source(
             benchmark_release_decision,
             benchmark_companion_summary,
@@ -1025,6 +1062,8 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         f"- `realdata_status`: `{payload.get('realdata_status')}`",
         f"- `realdata_scorecard_status`: "
         f"`{payload.get('realdata_scorecard_status') or 'unknown'}`",
+        f"- `competitive_surpass_index_status`: "
+        f"`{payload.get('competitive_surpass_index_status') or 'unknown'}`",
         f"- `primary_signal_source`: `{payload.get('primary_signal_source')}`",
         f"- `next_action`: `{payload.get('next_action')}`",
         "",
@@ -1306,6 +1345,24 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         lines.extend(f"- {item}" for item in realdata_scorecard_recommendations)
     else:
         lines.append("- none")
+    lines.extend(["", "## Competitive Surpass Index", ""])
+    competitive_surpass = payload.get("competitive_surpass_index") or {}
+    lines.append(
+        f"- `status`: `{payload.get('competitive_surpass_index_status') or 'unknown'}`"
+    )
+    lines.append(f"- `score`: `{competitive_surpass.get('score', 0)}`")
+    gaps = payload.get("competitive_surpass_primary_gaps") or []
+    lines.append(
+        "- `primary_gaps`: "
+        + (", ".join(str(item) for item in gaps) if gaps else "none")
+    )
+    competitive_surpass_recommendations = (
+        payload.get("competitive_surpass_recommendations") or []
+    )
+    if competitive_surpass_recommendations:
+        lines.extend(f"- {item}" for item in competitive_surpass_recommendations)
+    else:
+        lines.append("- none")
     lines.extend(["", "## Operator Adoption", ""])
     operator_adoption = payload.get("operator_adoption") or {}
     lines.append(f"- `status`: `{operator_adoption.get('status')}`")
@@ -1430,6 +1487,7 @@ def main() -> None:
     parser.add_argument("--benchmark-knowledge-domain-matrix", default="")
     parser.add_argument("--benchmark-knowledge-outcome-correlation", default="")
     parser.add_argument("--benchmark-knowledge-outcome-drift", default="")
+    parser.add_argument("--benchmark-competitive-surpass-index", default="")
     parser.add_argument("--output-json", default="")
     parser.add_argument("--output-md", default="")
     args = parser.parse_args()
@@ -1455,6 +1513,9 @@ def main() -> None:
             args.benchmark_knowledge_outcome_correlation
         ),
         "benchmark_knowledge_outcome_drift": args.benchmark_knowledge_outcome_drift,
+        "benchmark_competitive_surpass_index": (
+            args.benchmark_competitive_surpass_index
+        ),
     }
     payload = build_release_runbook(
         title=args.title,
@@ -1495,6 +1556,9 @@ def main() -> None:
         ),
         benchmark_knowledge_outcome_drift=_maybe_load_json(
             args.benchmark_knowledge_outcome_drift
+        ),
+        benchmark_competitive_surpass_index=_maybe_load_json(
+            args.benchmark_competitive_surpass_index
         ),
         artifact_paths=artifact_paths,
     )
