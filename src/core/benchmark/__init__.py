@@ -50,6 +50,11 @@ from .knowledge_source_coverage import (  # noqa: F401
     knowledge_source_coverage_recommendations,
     render_knowledge_source_coverage_markdown,
 )
+from .knowledge_source_action_plan import (  # noqa: F401
+    build_knowledge_source_action_plan,
+    knowledge_source_action_plan_recommendations,
+    render_knowledge_source_action_plan_markdown,
+)
 from .knowledge_outcome_correlation import (  # noqa: F401
     build_knowledge_outcome_correlation_status,
     knowledge_outcome_correlation_recommendations,

@@ -79,6 +79,14 @@ def _ready_inputs() -> dict:
             },
             "recommendations": [],
         },
+        "benchmark_knowledge_source_action_plan": {
+            "knowledge_source_action_plan": {
+                "status": "knowledge_source_action_plan_ready",
+                "priority_domains": [],
+                "actions": [],
+            },
+            "recommendations": [],
+        },
         "benchmark_knowledge_outcome_correlation": {
             "knowledge_outcome_correlation": {
                 "status": "knowledge_outcome_correlation_ready",
@@ -138,6 +146,12 @@ def test_build_competitive_surpass_index_ready() -> None:
         payload["pillars"]["knowledge"]["details"]["component_statuses"]["source_coverage"]
         == "knowledge_source_coverage_ready"
     )
+    assert (
+        payload["pillars"]["knowledge"]["details"]["component_statuses"][
+            "source_action_plan"
+        ]
+        == "knowledge_source_action_plan_ready"
+    )
     assert payload["primary_gaps"] == []
     assert competitive_surpass_index_recommendations(payload) == [
         "Competitive-surpass benchmark pillars are aligned across engineering, "
@@ -179,6 +193,10 @@ def test_export_benchmark_competitive_surpass_index_outputs_files(
         (
             "--benchmark-knowledge-source-coverage",
             "benchmark_knowledge_source_coverage",
+        ),
+        (
+            "--benchmark-knowledge-source-action-plan",
+            "benchmark_knowledge_source_action_plan",
         ),
         (
             "--benchmark-knowledge-outcome-correlation",
@@ -243,6 +261,14 @@ def test_build_competitive_surpass_summary_blocks_on_realdata_and_alignment() ->
         },
         "recommendations": ["Expose machining and standards source coverage."],
     }
+    inputs["benchmark_knowledge_source_action_plan"] = {
+        "knowledge_source_action_plan": {
+            "status": "knowledge_source_action_plan_partial",
+            "priority_domains": ["standards"],
+            "actions": [{"id": "machining:expansion"}],
+        },
+        "recommendations": ["Promote machining source coverage into benchmark surfaces."],
+    }
     payload = build_competitive_surpass_summary(
         title="Benchmark Competitive Surpass Index",
         artifact_paths={},
@@ -255,6 +281,12 @@ def test_build_competitive_surpass_summary_blocks_on_realdata_and_alignment() ->
     assert (
         component["pillars"]["knowledge"]["details"]["component_statuses"]["source_coverage"]
         == "knowledge_source_coverage_partial"
+    )
+    assert (
+        component["pillars"]["knowledge"]["details"]["component_statuses"][
+            "source_action_plan"
+        ]
+        == "knowledge_source_action_plan_partial"
     )
     assert payload["recommendations"][0] == (
         "Expand DXF/STEP/history real-data validation so benchmark claims are "
