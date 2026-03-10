@@ -2641,8 +2641,14 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkCompetitiveSurpassTrendStatusLine" in pr_comment_script
     assert "benchmarkCompetitiveSurpassTrendLight" in pr_comment_script
     assert "benchmarkCompetitiveSurpassTrendRecommendations" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassActionPlanEnabled" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassActionPlanStatus" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassActionPlanStatusLine" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassActionPlanLight" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassActionPlanRecommendations" in pr_comment_script
     assert "Benchmark Competitive Surpass" in pr_comment_script
     assert "Benchmark Competitive Surpass Trend" in pr_comment_script
+    assert "Benchmark Competitive Surpass Action Plan" in pr_comment_script
     assert "benchmarkKnowledgeEnabled" in pr_comment_script
     assert "benchmarkKnowledgeStatusLine" in pr_comment_script
     assert "benchmarkKnowledgeLight" in pr_comment_script
