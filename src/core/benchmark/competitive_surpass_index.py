@@ -322,26 +322,66 @@ def _operator_adoption_pillar(benchmark_operator_adoption: Dict[str, Any]) -> Di
     )
 
 
-def _release_alignment_pillar(benchmark_operator_adoption: Dict[str, Any]) -> Dict[str, Any]:
+def _release_alignment_pillar(
+    benchmark_operator_adoption: Dict[str, Any],
+    benchmark_knowledge_domain_release_surface_alignment: Dict[str, Any] | None = None,
+) -> Dict[str, Any]:
     alignment = benchmark_operator_adoption.get("release_surface_alignment") or {}
-    status = (
+    operator_status = (
         _text(benchmark_operator_adoption.get("release_surface_alignment_status"))
         or _text(alignment.get("status"))
         or "unavailable"
     )
-    summary = (
+    operator_summary = (
         _text(benchmark_operator_adoption.get("release_surface_alignment_summary"))
         or _text(alignment.get("summary"))
         or "none"
     )
-    mismatches = list(alignment.get("mismatches") or [])
+    operator_mismatches = list(alignment.get("mismatches") or [])
+    knowledge_root = benchmark_knowledge_domain_release_surface_alignment or {}
+    knowledge_alignment = (
+        knowledge_root.get("knowledge_domain_release_surface_alignment")
+        or knowledge_root
+        or {}
+    )
+    knowledge_status = (
+        _text(knowledge_root.get("knowledge_domain_release_surface_alignment_status"))
+        or _text(knowledge_alignment.get("status"))
+        or "unavailable"
+    )
+    knowledge_summary = (
+        _text(knowledge_root.get("knowledge_domain_release_surface_alignment_summary"))
+        or _text(knowledge_alignment.get("summary"))
+        or "none"
+    )
+    knowledge_mismatches = list(knowledge_alignment.get("mismatches") or [])
+    if operator_status == "aligned" and knowledge_status == "aligned":
+        status = "aligned"
+    elif "diverged" in {operator_status, knowledge_status}:
+        status = "diverged"
+    elif operator_status in {"unavailable", "unknown"} and knowledge_status in {
+        "unavailable",
+        "unknown",
+    }:
+        status = "unavailable"
+    else:
+        status = "partial"
+    summary = (
+        f"operator={operator_status}; knowledge_domain={knowledge_status}; "
+        f"operator_summary={operator_summary}; knowledge_summary={knowledge_summary}"
+    )
+    mismatches = operator_mismatches + knowledge_mismatches
     if mismatches:
         summary = f"{summary}; mismatches={'; '.join(_compact(mismatches, limit=4))}"
     return _pillar_row(
         "release_alignment",
         status,
         summary,
-        {"mismatches": mismatches},
+        {
+            "mismatches": mismatches,
+            "operator_status": operator_status,
+            "knowledge_domain_status": knowledge_status,
+        },
     )
 
 
@@ -374,6 +414,7 @@ def build_competitive_surpass_index(
     benchmark_realdata_signals: Dict[str, Any],
     benchmark_realdata_scorecard: Dict[str, Any],
     benchmark_operator_adoption: Dict[str, Any],
+    benchmark_knowledge_domain_release_surface_alignment: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     pillars = {
         "engineering": _engineering_pillar(benchmark_engineering_signals),
@@ -393,7 +434,10 @@ def build_competitive_surpass_index(
             benchmark_realdata_signals, benchmark_realdata_scorecard
         ),
         "operator_adoption": _operator_adoption_pillar(benchmark_operator_adoption),
-        "release_alignment": _release_alignment_pillar(benchmark_operator_adoption),
+        "release_alignment": _release_alignment_pillar(
+            benchmark_operator_adoption,
+            benchmark_knowledge_domain_release_surface_alignment,
+        ),
     }
     status, score = _overall_status(pillars)
     blocked = [row["name"] for row in pillars.values() if row["tier"] == "blocked"]
@@ -434,8 +478,8 @@ def competitive_surpass_index_recommendations(component: Dict[str, Any]) -> List
         )
     if "release_alignment" in gaps:
         recommendations.append(
-            "Keep release decision, runbook, and operator adoption surfaces "
-            "aligned so release guidance stays trustworthy."
+            "Keep release decision, runbook, operator adoption, and knowledge-domain "
+            "surfaces aligned so release guidance stays trustworthy."
         )
     if not recommendations:
         recommendations.append(

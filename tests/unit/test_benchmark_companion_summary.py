@@ -235,6 +235,7 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
     assert payload["operator_adoption_release_surface_alignment"]["status"] == (
         "mismatched"
     )
+    assert payload["knowledge_domain_release_surface_alignment"]["status"] == "unknown"
     assert (
         payload["operator_adoption_knowledge_drift"]["summary"]
         == "Tolerance coverage regressed."
@@ -289,6 +290,7 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
     markdown = render_markdown(payload)
     assert "## Operator Adoption Release Surface Alignment" in markdown
+    assert "## Knowledge Domain Release Surface Alignment" in markdown
     assert "## Scorecard Operator Adoption" in markdown
     assert "## Operational Operator Adoption" in markdown
     assert "## Knowledge Source Coverage" in markdown
@@ -378,6 +380,11 @@ def test_render_markdown_includes_sections() -> None:
             "summary": "Release runbook is missing operator adoption guidance.",
             "mismatches": ["release_runbook:missing"],
         },
+        "knowledge_domain_release_surface_alignment": {
+            "status": "diverged",
+            "summary": "Knowledge-domain release surfaces diverged.",
+            "mismatches": ["domain:standards"],
+        },
         "knowledge_application_domains": {
             "gdt": {
                 "status": "partial",
@@ -430,6 +437,7 @@ def test_render_markdown_includes_sections() -> None:
     assert "Tolerance coverage regressed." in rendered
     assert "Operator review outcomes regressed." in rendered
     assert "## Operator Adoption Release Surface Alignment" in rendered
+    assert "## Knowledge Domain Release Surface Alignment" in rendered
     assert "Expand GD&T coverage." in rendered
     assert "status=stable; current=knowledge_foundation_ready" in rendered
     assert "domain_regressions" in rendered

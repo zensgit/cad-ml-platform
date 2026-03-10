@@ -252,6 +252,7 @@ def test_build_bundle_prefers_operational_summary() -> None:
     assert payload["operator_adoption_knowledge_outcome_drift"]["status"] == "regressed"
     assert payload["operator_adoption_release_surface_alignment"]["status"] == "aligned"
     assert payload["operator_adoption_release_surface_alignment"]["mismatches"] == []
+    assert payload["knowledge_domain_release_surface_alignment"]["status"] == "unknown"
     assert payload["knowledge_application_status"] == "knowledge_application_partial"
     assert payload["knowledge_application_domains"]["standards"]["status"] == "partial"
     assert payload["knowledge_domain_matrix_status"] == "knowledge_domain_matrix_partial"
@@ -286,6 +287,7 @@ def test_build_bundle_prefers_operational_summary() -> None:
     ]
     markdown = module.render_markdown(payload)
     assert "## Operator Adoption Release Surface Alignment" in markdown
+    assert "## Knowledge Domain Release Surface Alignment" in markdown
     assert "## Knowledge Source Coverage" in markdown
 
 

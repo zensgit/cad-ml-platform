@@ -185,10 +185,23 @@ def test_build_release_decision_blocks_on_blockers() -> None:
             },
             "recommendations": ["Backfill tolerance source coverage."],
         },
+        benchmark_knowledge_domain_release_surface_alignment={
+            "knowledge_domain_release_surface_alignment": {
+                "status": "diverged",
+                "summary": "gdt:blocked->partial",
+                "mismatches": ["gdt:blocked->partial"],
+                "domain_mismatches": ["gdt:blocked->partial"],
+                "release_blocker_mismatches": [],
+            },
+            "recommendations": ["Reconcile release-surface mismatches before freeze."],
+        },
         artifact_paths={
             "benchmark_companion_summary": "companion.json",
             "benchmark_engineering_signals": "engineering.json",
             "benchmark_operator_adoption": "operator.json",
+            "benchmark_knowledge_domain_release_surface_alignment": (
+                "knowledge_domain_release_surface_alignment.json"
+            ),
         },
     )
 
@@ -214,8 +227,15 @@ def test_build_release_decision_blocks_on_blockers() -> None:
     assert payload["component_statuses"]["knowledge_source_coverage"] == (
         "knowledge_source_coverage_partial"
     )
+    assert payload["component_statuses"]["knowledge_domain_release_surface_alignment"] == (
+        "diverged"
+    )
     assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
     assert payload["operator_adoption_knowledge_outcome_drift"]["status"] == "unknown"
+    assert payload["knowledge_domain_release_surface_alignment_status"] == "diverged"
+    assert payload["knowledge_domain_release_surface_alignment"]["mismatches"] == [
+        "gdt:blocked->partial"
+    ]
     assert payload["knowledge_focus_areas"][0]["component"] == "tolerance"
     assert payload["knowledge_drift_status"] == "regressed"
     assert payload["knowledge_drift_domain_regressions"] == ["gdt"]
@@ -261,6 +281,14 @@ def test_build_release_decision_blocks_on_blockers() -> None:
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is False
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
+    assert (
+        payload["artifacts"]["benchmark_knowledge_domain_release_surface_alignment"][
+            "present"
+        ]
+        is True
+    )
+    rendered = render_markdown(payload)
+    assert "## Knowledge Domain Release Surface Alignment" in rendered
 
 
 def test_build_release_decision_ready_without_blockers() -> None:

@@ -64,6 +64,16 @@ from .knowledge_domain_control_plane_drift import (  # noqa: F401
     knowledge_domain_control_plane_drift_recommendations,
     render_knowledge_domain_control_plane_drift_markdown,
 )
+from .knowledge_domain_release_surface_alignment import (  # noqa: F401
+    build_knowledge_domain_release_surface_alignment,
+    knowledge_domain_release_surface_alignment_recommendations,
+    render_knowledge_domain_release_surface_alignment_markdown,
+)
+from .knowledge_domain_release_gate import (  # noqa: F401
+    build_knowledge_domain_release_gate,
+    knowledge_domain_release_gate_recommendations,
+    render_knowledge_domain_release_gate_markdown,
+)
 from .knowledge_source_coverage import (  # noqa: F401
     build_knowledge_source_coverage_status,
     collect_builtin_knowledge_source_snapshot,
