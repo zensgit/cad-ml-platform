@@ -743,6 +743,7 @@ def test_build_release_runbook_exposes_scorecard_and_operational_operator_adopti
         payload["operational_operator_adoption"]["knowledge_outcome_drift_status"]
         == "partial"
     )
+    assert payload["operator_adoption_release_surface_alignment"]["status"] == "unknown"
 
     rendered = render_markdown(payload)
     assert "## Scorecard Operator Adoption" in rendered
@@ -750,3 +751,34 @@ def test_build_release_runbook_exposes_scorecard_and_operational_operator_adopti
     assert "Operator outcome drift needs review." in rendered
     assert "## Operational Operator Adoption" in rendered
     assert "Operational rollout is partial." in rendered
+    assert "## Operator Adoption Release Surface Alignment" in rendered
+
+
+def test_build_release_runbook_exposes_operator_adoption_release_alignment() -> None:
+    payload = build_release_runbook(
+        title="Benchmark Release Runbook",
+        benchmark_release_decision={"release_status": "review_required"},
+        benchmark_scorecard={},
+        benchmark_operational_summary={},
+        benchmark_companion_summary={},
+        benchmark_artifact_bundle={},
+        benchmark_knowledge_readiness={},
+        benchmark_knowledge_drift={},
+        benchmark_engineering_signals={},
+        benchmark_realdata_signals={},
+        benchmark_operator_adoption={
+            "adoption_readiness": "guided_manual",
+            "release_surface_alignment_status": "aligned",
+            "release_surface_alignment_summary": (
+                "Release decision and runbook are aligned."
+            ),
+            "release_surface_alignment": {"mismatches": []},
+        },
+        artifact_paths={},
+    )
+
+    assert payload["operator_adoption_release_surface_alignment"]["status"] == "aligned"
+    assert payload["operator_adoption_release_surface_alignment"]["mismatches"] == []
+
+    rendered = render_markdown(payload)
+    assert "Release decision and runbook are aligned." in rendered

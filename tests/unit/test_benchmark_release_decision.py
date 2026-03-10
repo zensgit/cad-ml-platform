@@ -675,6 +675,7 @@ def test_build_release_decision_exposes_scorecard_and_operational_operator_adopt
         payload["operational_operator_adoption"]["knowledge_outcome_drift_status"]
         == "partial"
     )
+    assert payload["operator_adoption_release_surface_alignment"]["status"] == "unknown"
 
     rendered = render_markdown(payload)
     assert "## Scorecard Operator Adoption" in rendered
@@ -682,3 +683,42 @@ def test_build_release_decision_exposes_scorecard_and_operational_operator_adopt
     assert "Operator outcome drift needs review." in rendered
     assert "## Operational Operator Adoption" in rendered
     assert "Operational rollout is partial." in rendered
+    assert "## Operator Adoption Release Surface Alignment" in rendered
+
+
+def test_build_release_decision_exposes_operator_adoption_release_alignment() -> None:
+    payload = build_release_decision(
+        title="Release Decision",
+        benchmark_scorecard={},
+        benchmark_operational_summary={},
+        benchmark_artifact_bundle={},
+        benchmark_companion_summary={},
+        benchmark_knowledge_readiness={},
+        benchmark_knowledge_drift={},
+        benchmark_engineering_signals={},
+        benchmark_realdata_signals={},
+        benchmark_operator_adoption={
+            "adoption_readiness": "guided_manual",
+            "release_surface_alignment_status": "mismatched",
+            "release_surface_alignment_summary": (
+                "Release runbook is missing operator adoption guidance."
+            ),
+            "release_surface_alignment": {
+                "mismatches": ["release_runbook:missing"],
+                "release_decision": {"scorecard_status": "guided_manual"},
+                "release_runbook": {},
+            },
+        },
+        artifact_paths={},
+    )
+
+    assert payload["operator_adoption_release_surface_alignment"]["status"] == (
+        "mismatched"
+    )
+    assert payload["operator_adoption_release_surface_alignment"]["mismatches"] == [
+        "release_runbook:missing"
+    ]
+
+    rendered = render_markdown(payload)
+    assert "Release runbook is missing operator adoption guidance." in rendered
+    assert "release_runbook:missing" in rendered
