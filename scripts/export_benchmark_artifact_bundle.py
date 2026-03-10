@@ -73,6 +73,27 @@ def _operational_operator_adoption(
     }
 
 
+def _operator_adoption_release_surface_alignment(
+    benchmark_operator_adoption: Dict[str, Any],
+) -> Dict[str, Any]:
+    alignment = benchmark_operator_adoption.get("release_surface_alignment") or {}
+    return {
+        "status": str(
+            benchmark_operator_adoption.get("release_surface_alignment_status")
+            or alignment.get("status")
+            or "unknown"
+        ),
+        "summary": str(
+            benchmark_operator_adoption.get("release_surface_alignment_summary")
+            or alignment.get("summary")
+            or "none"
+        ),
+        "mismatches": list(alignment.get("mismatches") or []),
+        "release_decision": dict(alignment.get("release_decision") or {}),
+        "release_runbook": dict(alignment.get("release_runbook") or {}),
+    }
+
+
 def _artifact_row(
     *,
     name: str,
@@ -555,6 +576,9 @@ def build_bundle(
     operational_operator_adoption = _operational_operator_adoption(
         benchmark_operational_summary
     )
+    operator_adoption_release_surface_alignment = (
+        _operator_adoption_release_surface_alignment(benchmark_operator_adoption)
+    )
     knowledge_domains = knowledge_component.get("domains") or {}
     knowledge_domain_focus_areas = list(
         knowledge_component.get("domain_focus_areas") or []
@@ -793,6 +817,9 @@ def build_bundle(
         "operator_adoption_knowledge_drift": operator_adoption_knowledge_drift,
         "operator_adoption_knowledge_outcome_drift": (
             operator_adoption_knowledge_outcome_drift
+        ),
+        "operator_adoption_release_surface_alignment": (
+            operator_adoption_release_surface_alignment
         ),
         "scorecard_operator_adoption": scorecard_operator_adoption,
         "operational_operator_adoption": operational_operator_adoption,
@@ -1186,6 +1213,15 @@ def render_markdown(payload: Dict[str, Any]) -> str:
             lines.append(f"- recommendation: {item}")
     else:
         lines.append("- recommendation: none")
+    lines.extend(["", "## Operator Adoption Release Surface Alignment", ""])
+    alignment = payload.get("operator_adoption_release_surface_alignment") or {}
+    lines.append(f"- `status`: `{alignment.get('status') or 'unknown'}`")
+    lines.append(f"- `summary`: {alignment.get('summary') or 'none'}")
+    mismatches = alignment.get("mismatches") or []
+    lines.append(
+        "- `mismatches`: "
+        + (", ".join(str(item) for item in mismatches) if mismatches else "none")
+    )
     lines.extend(["", "## Scorecard Operator Adoption", ""])
     scorecard_operator = payload.get("scorecard_operator_adoption") or {}
     lines.append(f"- `status`: `{scorecard_operator.get('status') or 'unknown'}`")
