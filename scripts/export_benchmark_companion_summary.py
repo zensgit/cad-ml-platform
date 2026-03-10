@@ -362,6 +362,7 @@ def _artifact_rows(
     engineering_path: str,
     realdata_path: str,
     realdata_scorecard_path: str,
+    competitive_surpass_index_path: str,
     operator_adoption_path: str,
     knowledge_application_path: str,
     knowledge_realdata_correlation_path: str,
@@ -397,6 +398,9 @@ def _artifact_rows(
         ),
         "benchmark_realdata_scorecard": row(
             "benchmark_realdata_scorecard", realdata_scorecard_path
+        ),
+        "benchmark_competitive_surpass_index": row(
+            "benchmark_competitive_surpass_index", competitive_surpass_index_path
         ),
         "benchmark_operator_adoption": row(
             "benchmark_operator_adoption", operator_adoption_path
@@ -483,6 +487,7 @@ def build_companion_summary(
     benchmark_realdata_signals: Dict[str, Any],
     benchmark_realdata_scorecard: Dict[str, Any] | None = None,
     benchmark_operator_adoption: Dict[str, Any],
+    benchmark_competitive_surpass_index: Dict[str, Any] | None = None,
     artifact_paths: Dict[str, str],
     benchmark_knowledge_application: Dict[str, Any] | None = None,
     benchmark_knowledge_realdata_correlation: Dict[str, Any] | None = None,
@@ -491,6 +496,7 @@ def build_companion_summary(
     benchmark_knowledge_outcome_drift: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     benchmark_realdata_scorecard = benchmark_realdata_scorecard or {}
+    benchmark_competitive_surpass_index = benchmark_competitive_surpass_index or {}
     benchmark_knowledge_application = benchmark_knowledge_application or {}
     benchmark_knowledge_realdata_correlation = (
         benchmark_knowledge_realdata_correlation or {}
@@ -530,6 +536,11 @@ def build_companion_summary(
     realdata_scorecard_root = (
         benchmark_realdata_scorecard.get("realdata_scorecard")
         or benchmark_realdata_scorecard
+        or {}
+    )
+    competitive_surpass_root = (
+        benchmark_competitive_surpass_index.get("competitive_surpass_index")
+        or benchmark_competitive_surpass_index
         or {}
     )
     knowledge_application_root = (
@@ -718,6 +729,7 @@ def build_companion_summary(
         artifact_paths.get("benchmark_engineering_signals", ""),
         artifact_paths.get("benchmark_realdata_signals", ""),
         artifact_paths.get("benchmark_realdata_scorecard", ""),
+        artifact_paths.get("benchmark_competitive_surpass_index", ""),
         artifact_paths.get("benchmark_operator_adoption", ""),
         artifact_paths.get("benchmark_knowledge_application", ""),
         artifact_paths.get("benchmark_knowledge_realdata_correlation", ""),
@@ -848,6 +860,17 @@ def build_companion_summary(
         "realdata_scorecard_recommendations": _compact(
             realdata_scorecard_recommendations, limit=5
         ),
+        "competitive_surpass_index": competitive_surpass_root,
+        "competitive_surpass_index_status": (
+            competitive_surpass_root.get("status") or "unknown"
+        ),
+        "competitive_surpass_primary_gaps": list(
+            competitive_surpass_root.get("primary_gaps") or []
+        ),
+        "competitive_surpass_recommendations": _compact(
+            benchmark_competitive_surpass_index.get("recommendations") or [],
+            limit=5,
+        ),
         "operator_adoption_knowledge_outcome_drift": (
             operator_adoption_knowledge_outcome_drift
         ),
@@ -883,6 +906,8 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         f"- `realdata_status`: `{payload.get('realdata_status') or 'unknown'}`",
         f"- `realdata_scorecard_status`: "
         f"`{payload.get('realdata_scorecard_status') or 'unknown'}`",
+        f"- `competitive_surpass_index_status`: "
+        f"`{payload.get('competitive_surpass_index_status') or 'unknown'}`",
         "",
         "## Component Statuses",
         "",
@@ -983,6 +1008,29 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     )
     if realdata_scorecard_recommendations:
         for item in realdata_scorecard_recommendations:
+            lines.append(f"- recommendation: {item}")
+    else:
+        lines.append("- recommendation: none")
+    lines.extend(["", "## Competitive Surpass Index", ""])
+    competitive_surpass = payload.get("competitive_surpass_index") or {}
+    lines.append(
+        f"- `status`: `{payload.get('competitive_surpass_index_status') or 'unknown'}`"
+    )
+    lines.append(f"- `score`: `{competitive_surpass.get('score', 0)}`")
+    lines.append(
+        "- `primary_gaps`: "
+        + (
+            ", ".join(
+                str(item) for item in (payload.get("competitive_surpass_primary_gaps") or [])
+            )
+            or "none"
+        )
+    )
+    competitive_surpass_recommendations = (
+        payload.get("competitive_surpass_recommendations") or []
+    )
+    if competitive_surpass_recommendations:
+        for item in competitive_surpass_recommendations:
             lines.append(f"- recommendation: {item}")
     else:
         lines.append("- recommendation: none")
@@ -1228,6 +1276,7 @@ def main() -> None:
     parser.add_argument("--benchmark-engineering-signals", default="")
     parser.add_argument("--benchmark-realdata-signals", default="")
     parser.add_argument("--benchmark-realdata-scorecard", default="")
+    parser.add_argument("--benchmark-competitive-surpass-index", default="")
     parser.add_argument("--benchmark-operator-adoption", default="")
     parser.add_argument("--benchmark-knowledge-application", default="")
     parser.add_argument("--benchmark-knowledge-realdata-correlation", default="")
@@ -1247,6 +1296,7 @@ def main() -> None:
         "benchmark_engineering_signals": args.benchmark_engineering_signals,
         "benchmark_realdata_signals": args.benchmark_realdata_signals,
         "benchmark_realdata_scorecard": args.benchmark_realdata_scorecard,
+        "benchmark_competitive_surpass_index": args.benchmark_competitive_surpass_index,
         "benchmark_operator_adoption": args.benchmark_operator_adoption,
         "benchmark_knowledge_application": args.benchmark_knowledge_application,
         "benchmark_knowledge_realdata_correlation": (
@@ -1275,6 +1325,9 @@ def main() -> None:
         benchmark_realdata_signals=_maybe_load_json(args.benchmark_realdata_signals),
         benchmark_realdata_scorecard=_maybe_load_json(
             args.benchmark_realdata_scorecard
+        ),
+        benchmark_competitive_surpass_index=_maybe_load_json(
+            args.benchmark_competitive_surpass_index
         ),
         benchmark_operator_adoption=_maybe_load_json(args.benchmark_operator_adoption),
         benchmark_knowledge_application=_maybe_load_json(
