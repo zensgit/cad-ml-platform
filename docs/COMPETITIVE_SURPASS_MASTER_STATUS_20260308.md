@@ -67,6 +67,14 @@ surfaces.
 - PR comments and signal lights now also expose release decision / runbook
   scorecard operator adoption and operational operator adoption, including
   outcome-drift summaries for both layers
+- operator-adoption exporters now also compute `release_surface_alignment`,
+  including mismatch lists between release decision and release runbook
+- benchmark artifact bundle and companion summary now surface
+  `release_surface_alignment` so downstream benchmark views do not need to open
+  the standalone operator-adoption artifact
+- `evaluation-report.yml`, job summary, and PR comments now surface operator
+  release-surface alignment for the standalone operator-adoption surface and
+  the bundle/companion downstream surfaces
 - benchmark release surfaces now expose domain-level knowledge readiness for
   `tolerance`, `standards`, and `gdt`, including focus components and missing
   metrics
@@ -138,6 +146,11 @@ product depth:
 - `docs/BENCHMARK_RELEASE_SCORECARD_OPERATOR_ADOPTION_VALIDATION_20260309.md`
 - `docs/BENCHMARK_RELEASE_SCORECARD_OPERATOR_ADOPTION_CI_VALIDATION_20260309.md`
 - `docs/BENCHMARK_RELEASE_SCORECARD_OPERATOR_ADOPTION_PR_COMMENT_VALIDATION_20260309.md`
+- `docs/BENCHMARK_OPERATOR_ADOPTION_RELEASE_ALIGNMENT_VALIDATION_20260309.md`
+- `docs/BENCHMARK_OPERATOR_ADOPTION_RELEASE_ALIGNMENT_CI_VALIDATION_20260310.md`
+- `docs/BENCHMARK_OPERATOR_ADOPTION_RELEASE_ALIGNMENT_PR_COMMENT_VALIDATION_20260310.md`
+- `docs/BENCHMARK_OPERATOR_ADOPTION_RELEASE_SURFACES_VALIDATION_20260310.md`
+- `docs/BENCHMARK_OPERATOR_ADOPTION_RELEASE_SURFACES_CI_VALIDATION_20260310.md`
 - `docs/BENCHMARK_KNOWLEDGE_READINESS_VALIDATION_20260308.md`
 - `docs/BENCHMARK_KNOWLEDGE_DOMAIN_READINESS_VALIDATION_20260308.md`
 - `docs/BENCHMARK_KNOWLEDGE_READINESS_CI_VALIDATION_20260308.md`
