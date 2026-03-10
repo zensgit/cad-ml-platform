@@ -172,6 +172,26 @@ def test_build_bundle_prefers_operational_summary() -> None:
             },
             "recommendations": ["Backfill standards foundation metrics first."],
         },
+        benchmark_knowledge_source_action_plan={
+            "knowledge_source_action_plan": {
+                "status": "knowledge_source_action_plan_blocked",
+                "priority_domains": ["standards"],
+                "total_action_count": 2,
+                "high_priority_action_count": 1,
+                "medium_priority_action_count": 1,
+                "expansion_action_count": 1,
+                "recommended_first_actions": [
+                    {
+                        "id": "standards:coverage",
+                        "domain": "standards",
+                        "stage": "source_group",
+                        "priority": "high",
+                    }
+                ],
+                "source_group_action_counts": {"standards": 1},
+            },
+            "recommendations": ["Prioritize standards source-group restoration."],
+        },
         benchmark_knowledge_source_coverage={
             "knowledge_source_coverage": {
                 "status": "knowledge_source_coverage_partial",
@@ -200,7 +220,7 @@ def test_build_bundle_prefers_operational_summary() -> None:
         },
     )
     assert payload["overall_status"] == "attention_required"
-    assert payload["available_artifact_count"] == 10
+    assert payload["available_artifact_count"] == 11
     assert payload["component_statuses"]["feedback_flywheel"] == "feedback_collected"
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_partial"
     assert payload["knowledge_focus_area_count"] == 1
@@ -222,6 +242,9 @@ def test_build_bundle_prefers_operational_summary() -> None:
     assert payload["component_statuses"]["knowledge_domain_action_plan"] == (
         "knowledge_domain_action_plan_blocked"
     )
+    assert payload["component_statuses"]["knowledge_source_action_plan"] == (
+        "knowledge_source_action_plan_blocked"
+    )
     assert payload["component_statuses"]["knowledge_source_coverage"] == (
         "knowledge_source_coverage_partial"
     )
@@ -238,6 +261,12 @@ def test_build_bundle_prefers_operational_summary() -> None:
     )
     assert payload["knowledge_domain_action_plan_actions"][0]["id"] == (
         "standards:foundation"
+    )
+    assert payload["knowledge_source_action_plan_status"] == (
+        "knowledge_source_action_plan_blocked"
+    )
+    assert payload["knowledge_source_action_plan_recommended_first_actions"][0]["id"] == (
+        "standards:coverage"
     )
     assert payload["knowledge_source_coverage_status"] == (
         "knowledge_source_coverage_partial"
@@ -507,6 +536,29 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
             "recommendations": ["Promote machining into benchmark views."],
         },
     )
+    knowledge_source_action_plan = _write_json(
+        tmp_path / "knowledge_source_action_plan.json",
+        {
+            "knowledge_source_action_plan": {
+                "status": "knowledge_source_action_plan_ready",
+                "priority_domains": [],
+                "total_action_count": 1,
+                "high_priority_action_count": 0,
+                "medium_priority_action_count": 1,
+                "expansion_action_count": 1,
+                "recommended_first_actions": [
+                    {
+                        "id": "machining:coverage",
+                        "domain": "machining",
+                        "stage": "source_group",
+                        "priority": "medium",
+                    }
+                ],
+                "source_group_action_counts": {"machining": 1},
+            },
+            "recommendations": ["Promote machining source coverage next."],
+        },
+    )
     output_json = tmp_path / "bundle.json"
     output_md = tmp_path / "bundle.md"
 
@@ -532,6 +584,8 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
             str(realdata),
             "--benchmark-operator-adoption",
             str(operator),
+            "--benchmark-knowledge-source-action-plan",
+            str(knowledge_source_action_plan),
             "--benchmark-knowledge-source-coverage",
             str(knowledge_source_coverage),
             "--output-json",
@@ -566,12 +620,19 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
     assert payload["component_statuses"]["knowledge_source_coverage"] == (
         "knowledge_source_coverage_ready"
     )
+    assert payload["component_statuses"]["knowledge_source_action_plan"] == (
+        "knowledge_source_action_plan_ready"
+    )
     assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
     assert payload["operator_adoption_knowledge_outcome_drift"]["status"] == "regressed"
     assert payload["operator_adoption_release_surface_alignment"]["status"] == (
         "mismatched"
     )
     assert payload["artifacts"]["benchmark_knowledge_source_coverage"]["present"] is True
+    assert payload["artifacts"]["benchmark_knowledge_source_action_plan"]["present"] is True
+    assert payload["knowledge_source_action_plan_status"] == (
+        "knowledge_source_action_plan_ready"
+    )
     assert payload["knowledge_source_coverage_status"] == "knowledge_source_coverage_ready"
     assert payload["realdata_status"] == "realdata_foundation_partial"
     assert payload["component_statuses"]["qdrant_backend"] == "indexed_ready"

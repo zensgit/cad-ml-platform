@@ -152,6 +152,26 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
             },
             "recommendations": ["Backfill GD&T foundation metrics first."],
         },
+        benchmark_knowledge_source_action_plan={
+            "knowledge_source_action_plan": {
+                "status": "knowledge_source_action_plan_blocked",
+                "priority_domains": ["gdt"],
+                "total_action_count": 2,
+                "high_priority_action_count": 1,
+                "medium_priority_action_count": 1,
+                "expansion_action_count": 1,
+                "recommended_first_actions": [
+                    {
+                        "id": "gdt:coverage",
+                        "domain": "gdt",
+                        "stage": "source_group",
+                        "priority": "high",
+                    }
+                ],
+                "source_group_action_counts": {"gdt": 1},
+            },
+            "recommendations": ["Backfill GD&T source actions first."],
+        },
         benchmark_knowledge_source_coverage={
             "knowledge_source_coverage": {
                 "status": "knowledge_source_coverage_partial",
@@ -194,6 +214,12 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
     assert payload["knowledge_domain_action_plan_actions"][0]["id"] == (
         "gdt:foundation"
     )
+    assert payload["knowledge_source_action_plan_status"] == (
+        "knowledge_source_action_plan_blocked"
+    )
+    assert payload["knowledge_source_action_plan_recommended_first_actions"][0]["id"] == (
+        "gdt:coverage"
+    )
     assert payload["knowledge_source_coverage_status"] == (
         "knowledge_source_coverage_partial"
     )
@@ -210,6 +236,7 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
         "Schedule an operator handoff dry run."
     ]
     assert payload["operator_adoption"]["knowledge_drift_status"] == "regressed"
+    assert "Backfill GD&T source actions first." in payload["review_signals"]
     assert "Expand STEP/B-Rep directory validation." in payload["review_signals"]
     assert "Backfill GD&T source coverage." in payload["review_signals"]
     assert payload["operator_steps"][1]["key"] == "resolve_blockers"
@@ -349,6 +376,26 @@ def test_build_release_runbook_freezes_when_ready() -> None:
             },
             "recommendations": [],
         },
+        benchmark_knowledge_source_action_plan={
+            "knowledge_source_action_plan": {
+                "status": "knowledge_source_action_plan_ready",
+                "priority_domains": [],
+                "total_action_count": 1,
+                "high_priority_action_count": 0,
+                "medium_priority_action_count": 1,
+                "expansion_action_count": 1,
+                "recommended_first_actions": [
+                    {
+                        "id": "machining:coverage",
+                        "domain": "machining",
+                        "stage": "source_group",
+                        "priority": "medium",
+                    }
+                ],
+                "source_group_action_counts": {"machining": 1},
+            },
+            "recommendations": [],
+        },
         benchmark_knowledge_source_coverage={
             "knowledge_source_coverage": {
                 "status": "knowledge_source_coverage_ready",
@@ -407,6 +454,9 @@ def test_build_release_runbook_freezes_when_ready() -> None:
             "benchmark_engineering_signals": "engineering.json",
             "benchmark_realdata_signals": "realdata.json",
             "benchmark_knowledge_domain_action_plan": "knowledge_domain_action_plan.json",
+            "benchmark_knowledge_source_action_plan": (
+                "knowledge_source_action_plan.json"
+            ),
             "benchmark_knowledge_source_coverage": "knowledge_source_coverage.json",
             "benchmark_knowledge_outcome_correlation": (
                 "knowledge_outcome_correlation.json"
@@ -446,6 +496,7 @@ def test_build_release_runbook_freezes_when_ready() -> None:
     assert "benchmark_operator_adoption" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_drift" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_domain_action_plan" not in payload["missing_artifacts"]
+    assert "benchmark_knowledge_source_action_plan" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_source_coverage" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_outcome_drift" not in payload["missing_artifacts"]
     assert "benchmark_realdata_signals" not in payload["missing_artifacts"]
@@ -471,6 +522,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     knowledge_realdata_correlation = tmp_path / "knowledge_realdata_correlation.json"
     knowledge_domain_matrix = tmp_path / "knowledge_domain_matrix.json"
     knowledge_domain_action_plan = tmp_path / "knowledge_domain_action_plan.json"
+    knowledge_source_action_plan = tmp_path / "knowledge_source_action_plan.json"
     knowledge_source_coverage = tmp_path / "knowledge_source_coverage.json"
     knowledge_outcome_correlation = tmp_path / "knowledge_outcome_correlation.json"
     knowledge_outcome_drift = tmp_path / "knowledge_outcome_drift.json"
@@ -711,6 +763,31 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    knowledge_source_action_plan.write_text(
+        json.dumps(
+            {
+                "knowledge_source_action_plan": {
+                    "status": "knowledge_source_action_plan_partial",
+                    "priority_domains": ["tolerance"],
+                    "total_action_count": 1,
+                    "high_priority_action_count": 1,
+                    "medium_priority_action_count": 0,
+                    "expansion_action_count": 0,
+                    "recommended_first_actions": [
+                        {
+                            "id": "tolerance:coverage",
+                            "domain": "tolerance",
+                            "stage": "source_group",
+                            "priority": "high",
+                        }
+                    ],
+                    "source_group_action_counts": {"tolerance": 1},
+                },
+                "recommendations": ["Backfill tolerance source actions first."],
+            }
+        ),
+        encoding="utf-8",
+    )
     knowledge_outcome_correlation.write_text(
         json.dumps(
             {
@@ -799,6 +876,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
             str(knowledge_domain_matrix),
             "--benchmark-knowledge-domain-action-plan",
             str(knowledge_domain_action_plan),
+            "--benchmark-knowledge-source-action-plan",
+            str(knowledge_source_action_plan),
             "--benchmark-knowledge-source-coverage",
             str(knowledge_source_coverage),
             "--benchmark-knowledge-outcome-correlation",
@@ -830,6 +909,9 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert payload["knowledge_domain_action_plan_status"] == (
         "knowledge_domain_action_plan_partial"
     )
+    assert payload["knowledge_source_action_plan_status"] == (
+        "knowledge_source_action_plan_partial"
+    )
     assert payload["knowledge_source_coverage_status"] == (
         "knowledge_source_coverage_partial"
     )
@@ -854,6 +936,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     ]
     assert payload["next_action"] == "review_signals"
     assert "benchmark_knowledge_domain_action_plan" not in payload["missing_artifacts"]
+    assert "benchmark_knowledge_source_action_plan" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_source_coverage" not in payload["missing_artifacts"]
     assert payload["artifacts"]["benchmark_knowledge_drift"]["present"] is True
     assert payload["artifacts"]["benchmark_knowledge_outcome_drift"]["present"] is True
