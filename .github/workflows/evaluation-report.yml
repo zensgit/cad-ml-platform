@@ -294,6 +294,10 @@ on:
         description: 'Optional benchmark competitive surpass index knowledge source action plan JSON'
         required: false
         default: ''
+      benchmark_competitive_surpass_index_knowledge_source_drift_json:
+        description: 'Optional benchmark competitive surpass index knowledge source drift JSON'
+        required: false
+        default: ''
       benchmark_competitive_surpass_index_knowledge_outcome_correlation_json:
         description: 'Optional benchmark competitive surpass index knowledge outcome correlation JSON'
         required: false
@@ -845,6 +849,7 @@ env:
   BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_DOMAIN_MATRIX_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_DOMAIN_MATRIX_JSON }}
   BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON }}
   BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON }}
+  BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_SOURCE_DRIFT_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_SOURCE_DRIFT_JSON }}
   BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_OUTCOME_CORRELATION_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_OUTCOME_CORRELATION_JSON }}
   BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_OUTCOME_DRIFT_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_OUTCOME_DRIFT_JSON }}
   BENCHMARK_COMPETITIVE_SURPASS_INDEX_REALDATA_SIGNALS_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_INDEX_REALDATA_SIGNALS_JSON }}
@@ -6160,6 +6165,7 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-matrix "${{ github.event.inputs.benchmark_competitive_surpass_index_knowledge_domain_matrix_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ github.event.inputs.benchmark_competitive_surpass_index_knowledge_domain_action_plan_json || '' }}"
         add_if_exists --benchmark-knowledge-source-action-plan "${{ github.event.inputs.benchmark_competitive_surpass_index_knowledge_source_action_plan_json || '' }}"
+        add_if_exists --benchmark-knowledge-source-drift "${{ github.event.inputs.benchmark_competitive_surpass_index_knowledge_source_drift_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${{ github.event.inputs.benchmark_competitive_surpass_index_knowledge_outcome_correlation_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-drift "${{ github.event.inputs.benchmark_competitive_surpass_index_knowledge_outcome_drift_json || '' }}"
         add_if_exists --benchmark-realdata-signals "${{ github.event.inputs.benchmark_competitive_surpass_index_realdata_signals_json || '' }}"
@@ -6179,6 +6185,8 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-action-plan "${BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON:-}"
         add_if_exists --benchmark-knowledge-source-action-plan "${{ steps.benchmark_knowledge_source_action_plan.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-source-action-plan "${BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON:-}"
+        add_if_exists --benchmark-knowledge-source-drift "${{ steps.benchmark_knowledge_source_drift.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-source-drift "${BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_SOURCE_DRIFT_JSON:-}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${{ steps.benchmark_knowledge_outcome_correlation.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_OUTCOME_CORRELATION_JSON:-}"
         add_if_exists --benchmark-knowledge-outcome-drift "${{ steps.benchmark_knowledge_outcome_drift.outputs.output_json || '' }}"
