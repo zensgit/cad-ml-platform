@@ -1033,3 +1033,67 @@ def test_build_bundle_exposes_competitive_surpass_trend_passthrough() -> None:
     assert payload["artifacts"]["benchmark_competitive_surpass_trend"]["present"] is True
     markdown = module.render_markdown(payload)
     assert "## Competitive Surpass Trend" in markdown
+
+
+def test_build_bundle_exposes_competitive_surpass_action_plan_passthrough() -> None:
+    payload = module.build_bundle(
+        title="Benchmark Artifact Bundle",
+        benchmark_scorecard={"components": {"hybrid": {"status": "ready"}}},
+        benchmark_operational_summary={},
+        benchmark_companion_summary={},
+        benchmark_release_decision={},
+        benchmark_knowledge_readiness={},
+        benchmark_knowledge_drift={},
+        benchmark_engineering_signals={},
+        benchmark_realdata_signals={},
+        benchmark_realdata_scorecard={},
+        benchmark_operator_adoption={},
+        benchmark_competitive_surpass_action_plan={
+            "competitive_surpass_action_plan": {
+                "status": "competitive_surpass_action_plan_blocked",
+                "total_action_count": 3,
+                "high_priority_action_count": 2,
+                "medium_priority_action_count": 1,
+                "priority_pillars": ["realdata", "operator_adoption"],
+                "recommended_first_actions": [
+                    {
+                        "pillar": "realdata",
+                        "action": "Collect production STEP and history samples.",
+                    }
+                ],
+            },
+            "recommendations": [
+                "realdata: Collect production STEP and history samples."
+            ],
+        },
+        feedback_flywheel={},
+        assistant_evidence={},
+        review_queue={},
+        ocr_review={},
+        artifact_paths={
+            "benchmark_competitive_surpass_action_plan": (
+                "competitive_surpass_action_plan.json"
+            )
+        },
+    )
+
+    assert payload["component_statuses"]["competitive_surpass_action_plan"] == (
+        "competitive_surpass_action_plan_blocked"
+    )
+    assert payload["competitive_surpass_action_plan_status"] == (
+        "competitive_surpass_action_plan_blocked"
+    )
+    assert payload["competitive_surpass_action_plan_total_action_count"] == 3
+    assert payload["competitive_surpass_action_plan_high_priority_action_count"] == 2
+    assert payload["competitive_surpass_action_plan_priority_pillars"] == [
+        "realdata",
+        "operator_adoption",
+    ]
+    assert payload["competitive_surpass_action_plan_recommendations"] == [
+        "realdata: Collect production STEP and history samples."
+    ]
+    assert payload["artifacts"]["benchmark_competitive_surpass_action_plan"][
+        "present"
+    ] is True
+    markdown = module.render_markdown(payload)
+    assert "## Competitive Surpass Action Plan" in markdown

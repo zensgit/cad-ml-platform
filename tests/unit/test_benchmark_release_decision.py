@@ -388,6 +388,17 @@ def test_build_release_decision_ready_without_blockers() -> None:
                 "Promote the improved competitive surpass posture after CI surfaces refresh."
             ],
         },
+        benchmark_competitive_surpass_action_plan={
+            "competitive_surpass_action_plan": {
+                "status": "competitive_surpass_action_plan_ready",
+                "total_action_count": 0,
+                "high_priority_action_count": 0,
+                "medium_priority_action_count": 0,
+                "priority_pillars": [],
+                "recommended_first_actions": [],
+            },
+            "recommendations": [],
+        },
         artifact_paths={"benchmark_scorecard": "scorecard.json"},
     )
 
@@ -431,7 +442,17 @@ def test_build_release_decision_ready_without_blockers() -> None:
     assert payload["competitive_surpass_trend_recommendations"] == [
         "Promote the improved competitive surpass posture after CI surfaces refresh."
     ]
+    assert payload["component_statuses"]["competitive_surpass_action_plan"] == (
+        "competitive_surpass_action_plan_ready"
+    )
+    assert payload["competitive_surpass_action_plan_status"] == (
+        "competitive_surpass_action_plan_ready"
+    )
+    assert payload["competitive_surpass_action_plan_total_action_count"] == 0
+    assert payload["competitive_surpass_action_plan_priority_pillars"] == []
+    assert payload["competitive_surpass_action_plan_recommendations"] == []
     assert payload["review_signals"] == []
+    assert "## Competitive Surpass Action Plan" in render_markdown(payload)
 
 
 def test_build_release_decision_uses_operator_adoption_blocker_as_fallback() -> None:

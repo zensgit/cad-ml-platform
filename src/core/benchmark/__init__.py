@@ -90,3 +90,8 @@ from .competitive_surpass_trend import (  # noqa: F401
     competitive_surpass_trend_recommendations,
     render_competitive_surpass_trend_markdown,
 )
+from .competitive_surpass_action_plan import (  # noqa: F401
+    build_competitive_surpass_action_plan,
+    competitive_surpass_action_plan_recommendations,
+    render_competitive_surpass_action_plan_markdown,
+)
