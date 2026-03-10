@@ -453,6 +453,7 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     knowledge_application = tmp_path / "knowledge_application.json"
     knowledge_realdata_correlation = tmp_path / "knowledge_realdata_correlation.json"
     knowledge_domain_matrix = tmp_path / "knowledge_domain_matrix.json"
+    knowledge_domain_capability_matrix = tmp_path / "knowledge_domain_capability_matrix.json"
     knowledge_outcome_correlation = tmp_path / "knowledge_outcome_correlation.json"
     output_json = tmp_path / "out.json"
     output_md = tmp_path / "out.md"
@@ -630,6 +631,32 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    knowledge_domain_capability_matrix.write_text(
+        json.dumps(
+            {
+                "knowledge_domain_capability_matrix": {
+                    "status": "knowledge_domain_capability_ready",
+                    "priority_domains": [],
+                    "focus_areas_detail": [],
+                    "domains": {
+                        "standards": {
+                            "domain": "standards",
+                            "label": "Standards & Design Tables",
+                            "status": "ready",
+                            "foundation_status": "ready",
+                            "application_status": "ready",
+                            "matrix_status": "ready",
+                            "provider_status": "ready",
+                            "surface_status": "ready",
+                            "reference_item_count": 12,
+                        }
+                    },
+                },
+                "recommendations": [],
+            }
+        ),
+        encoding="utf-8",
+    )
     knowledge_outcome_correlation.write_text(
         json.dumps(
             {
@@ -677,6 +704,8 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
             str(knowledge_realdata_correlation),
             "--benchmark-knowledge-domain-matrix",
             str(knowledge_domain_matrix),
+            "--benchmark-knowledge-domain-capability-matrix",
+            str(knowledge_domain_capability_matrix),
             "--benchmark-knowledge-outcome-correlation",
             str(knowledge_outcome_correlation),
             "--output-json",
@@ -700,6 +729,9 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     assert payload["component_statuses"]["knowledge_domain_matrix"] == (
         "knowledge_domain_matrix_ready"
     )
+    assert payload["component_statuses"]["knowledge_domain_capability_matrix"] == (
+        "knowledge_domain_capability_ready"
+    )
     assert payload["component_statuses"]["knowledge_outcome_correlation"] == (
         "knowledge_outcome_correlation_ready"
     )
@@ -713,6 +745,9 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     assert payload["knowledge_domain_focus_areas"] == []
     assert payload["knowledge_application_status"] == "knowledge_application_ready"
     assert payload["knowledge_domain_matrix_status"] == "knowledge_domain_matrix_ready"
+    assert payload["knowledge_domain_capability_matrix_status"] == (
+        "knowledge_domain_capability_ready"
+    )
     assert payload["knowledge_outcome_correlation_status"] == (
         "knowledge_outcome_correlation_ready"
     )

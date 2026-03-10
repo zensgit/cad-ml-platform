@@ -262,6 +262,9 @@ def test_build_release_runbook_freezes_when_ready() -> None:
                 "benchmark_operational_summary": {"path": "operational.json"},
                 "benchmark_companion_summary": {"path": "companion.json"},
                 "benchmark_artifact_bundle": {"path": "bundle.json"},
+                "benchmark_knowledge_domain_capability_matrix": {
+                    "path": "knowledge_domain_capability_matrix.json"
+                },
             },
         },
         benchmark_companion_summary={"overall_status": "healthy"},
@@ -355,6 +358,27 @@ def test_build_release_runbook_freezes_when_ready() -> None:
                         "readiness_status": "ready",
                         "application_status": "ready",
                         "realdata_status": "ready",
+                    }
+                },
+            },
+            "recommendations": [],
+        },
+        benchmark_knowledge_domain_capability_matrix={
+            "knowledge_domain_capability_matrix": {
+                "status": "knowledge_domain_capability_ready",
+                "priority_domains": [],
+                "focus_areas_detail": [],
+                "domains": {
+                    "standards": {
+                        "domain": "standards",
+                        "label": "Standards & Design Tables",
+                        "status": "ready",
+                        "foundation_status": "ready",
+                        "application_status": "ready",
+                        "matrix_status": "ready",
+                        "provider_status": "ready",
+                        "surface_status": "ready",
+                        "reference_item_count": 12,
                     }
                 },
             },
@@ -494,6 +518,9 @@ def test_build_release_runbook_freezes_when_ready() -> None:
             "benchmark_artifact_bundle": "bundle.json",
             "benchmark_engineering_signals": "engineering.json",
             "benchmark_realdata_signals": "realdata.json",
+            "benchmark_knowledge_domain_capability_matrix": (
+                "knowledge_domain_capability_matrix.json"
+            ),
             "benchmark_knowledge_domain_action_plan": "knowledge_domain_action_plan.json",
             "benchmark_knowledge_source_action_plan": (
                 "knowledge_source_action_plan.json"
@@ -591,6 +618,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     knowledge_application = tmp_path / "knowledge_application.json"
     knowledge_realdata_correlation = tmp_path / "knowledge_realdata_correlation.json"
     knowledge_domain_matrix = tmp_path / "knowledge_domain_matrix.json"
+    knowledge_domain_capability_matrix = tmp_path / "knowledge_domain_capability_matrix.json"
     knowledge_domain_action_plan = tmp_path / "knowledge_domain_action_plan.json"
     knowledge_source_action_plan = tmp_path / "knowledge_source_action_plan.json"
     knowledge_source_coverage = tmp_path / "knowledge_source_coverage.json"
@@ -789,6 +817,53 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
                 },
                 "recommendations": [
                     "Backfill tolerance foundation and raise real-data depth."
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    knowledge_domain_capability_matrix.write_text(
+        json.dumps(
+            {
+                "knowledge_domain_capability_matrix": {
+                    "status": "knowledge_domain_capability_partial",
+                    "priority_domains": ["gdt"],
+                    "focus_areas_detail": [
+                        {
+                            "domain": "gdt",
+                            "label": "GD&T & Datums",
+                            "status": "blocked",
+                            "priority": "high",
+                            "provider_status": "missing",
+                            "surface_status": "partial",
+                            "primary_gaps": [
+                                "provider_missing:gdt",
+                                "public_surface_missing",
+                            ],
+                            "action": "Promote GD&T into provider-backed surfaces.",
+                        }
+                    ],
+                    "domains": {
+                        "gdt": {
+                            "domain": "gdt",
+                            "label": "GD&T & Datums",
+                            "status": "blocked",
+                            "foundation_status": "ready",
+                            "application_status": "ready",
+                            "matrix_status": "ready",
+                            "provider_status": "missing",
+                            "surface_status": "partial",
+                            "reference_item_count": 2,
+                            "primary_gaps": [
+                                "provider_missing:gdt",
+                                "public_surface_missing",
+                            ],
+                        }
+                    },
+                },
+                "recommendations": [
+                    "Backfill GD&T provider coverage: gdt",
+                    "Add a public benchmark/API surface for GD&T & Datums",
                 ],
             }
         ),
@@ -1011,6 +1086,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
             str(knowledge_realdata_correlation),
             "--benchmark-knowledge-domain-matrix",
             str(knowledge_domain_matrix),
+            "--benchmark-knowledge-domain-capability-matrix",
+            str(knowledge_domain_capability_matrix),
             "--benchmark-knowledge-domain-action-plan",
             str(knowledge_domain_action_plan),
             "--benchmark-knowledge-source-action-plan",
