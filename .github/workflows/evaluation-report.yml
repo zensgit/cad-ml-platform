@@ -3034,6 +3034,9 @@ jobs:
             )
             scorecard_operator = payload.get("scorecard_operator_adoption") or {}
             operational_operator = payload.get("operational_operator_adoption") or {}
+            release_alignment = (
+                payload.get("operator_adoption_release_surface_alignment") or {}
+            )
             f.write(
                 "scorecard_operator_adoption_status="
                 f"{scorecard_operator.get('status', 'unknown')}\n"
@@ -3061,6 +3064,18 @@ jobs:
             f.write(
                 "operational_operator_adoption_knowledge_outcome_drift_summary="
                 f"{compact([operational_operator.get('knowledge_outcome_drift_summary')])}\n"
+            )
+            f.write(
+                "operator_adoption_release_surface_alignment_status="
+                f"{release_alignment.get('status', 'unknown')}\n"
+            )
+            f.write(
+                "operator_adoption_release_surface_alignment_summary="
+                f"{compact([release_alignment.get('summary')])}\n"
+            )
+            f.write(
+                "operator_adoption_release_surface_alignment_mismatches="
+                f"{compact(release_alignment.get('mismatches') or [])}\n"
             )
             f.write(
                 "operator_adoption_knowledge_outcome_drift_status="
@@ -3470,6 +3485,9 @@ jobs:
             )
             scorecard_operator = payload.get("scorecard_operator_adoption") or {}
             operational_operator = payload.get("operational_operator_adoption") or {}
+            release_alignment = (
+                payload.get("operator_adoption_release_surface_alignment") or {}
+            )
             f.write(
                 "scorecard_operator_adoption_status="
                 f"{scorecard_operator.get('status', 'unknown')}\n"
@@ -3497,6 +3515,18 @@ jobs:
             f.write(
                 "operational_operator_adoption_knowledge_outcome_drift_summary="
                 f"{compact([operational_operator.get('knowledge_outcome_drift_summary')])}\n"
+            )
+            f.write(
+                "operator_adoption_release_surface_alignment_status="
+                f"{release_alignment.get('status', 'unknown')}\n"
+            )
+            f.write(
+                "operator_adoption_release_surface_alignment_summary="
+                f"{compact([release_alignment.get('summary')])}\n"
+            )
+            f.write(
+                "operator_adoption_release_surface_alignment_mismatches="
+                f"{compact(release_alignment.get('mismatches') or [])}\n"
             )
             f.write(
                 "operator_adoption_knowledge_outcome_drift_status="
@@ -5745,6 +5775,9 @@ jobs:
           echo "- Benchmark artifact bundle operational operator adoption: ${{ steps.benchmark_artifact_bundle.outputs.operational_operator_adoption_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle operational operator outcome drift: ${{ steps.benchmark_artifact_bundle.outputs.operational_operator_adoption_knowledge_outcome_drift_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle operational operator outcome drift summary: ${{ steps.benchmark_artifact_bundle.outputs.operational_operator_adoption_knowledge_outcome_drift_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle operator adoption release surface alignment: ${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_release_surface_alignment_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle operator adoption release surface alignment summary: ${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_release_surface_alignment_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle operator adoption release surface mismatches: ${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_release_surface_alignment_mismatches }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle blockers: ${{ steps.benchmark_artifact_bundle.outputs.blockers }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle recommendations: ${{ steps.benchmark_artifact_bundle.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle artifact: ${{ steps.benchmark_artifact_bundle.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
@@ -5797,6 +5830,9 @@ jobs:
           echo "- Benchmark companion operational operator adoption: ${{ steps.benchmark_companion_summary.outputs.operational_operator_adoption_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion operational operator outcome drift: ${{ steps.benchmark_companion_summary.outputs.operational_operator_adoption_knowledge_outcome_drift_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion operational operator outcome drift summary: ${{ steps.benchmark_companion_summary.outputs.operational_operator_adoption_knowledge_outcome_drift_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion operator adoption release surface alignment: ${{ steps.benchmark_companion_summary.outputs.operator_adoption_release_surface_alignment_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion operator adoption release surface alignment summary: ${{ steps.benchmark_companion_summary.outputs.operator_adoption_release_surface_alignment_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion operator adoption release surface mismatches: ${{ steps.benchmark_companion_summary.outputs.operator_adoption_release_surface_alignment_mismatches }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion blockers: ${{ steps.benchmark_companion_summary.outputs.blockers }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion recommended actions: ${{ steps.benchmark_companion_summary.outputs.recommended_actions }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion artifact: ${{ steps.benchmark_companion_summary.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
@@ -6254,6 +6290,9 @@ jobs:
             const benchmarkArtifactBundleOperationalOperatorAdoptionStatus = '${{ steps.benchmark_artifact_bundle.outputs.operational_operator_adoption_status }}';
             const benchmarkArtifactBundleOperationalOperatorAdoptionKnowledgeOutcomeDriftStatus = '${{ steps.benchmark_artifact_bundle.outputs.operational_operator_adoption_knowledge_outcome_drift_status }}';
             const benchmarkArtifactBundleOperationalOperatorAdoptionKnowledgeOutcomeDriftSummary = '${{ steps.benchmark_artifact_bundle.outputs.operational_operator_adoption_knowledge_outcome_drift_summary }}';
+            const benchmarkArtifactBundleOperatorAdoptionReleaseSurfaceAlignmentStatus = '${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_release_surface_alignment_status }}';
+            const benchmarkArtifactBundleOperatorAdoptionReleaseSurfaceAlignmentSummary = '${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_release_surface_alignment_summary }}';
+            const benchmarkArtifactBundleOperatorAdoptionReleaseSurfaceAlignmentMismatches = '${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_release_surface_alignment_mismatches }}';
             const benchmarkArtifactBundleBlockers = '${{ steps.benchmark_artifact_bundle.outputs.blockers }}';
             const benchmarkArtifactBundleRecommendations = '${{ steps.benchmark_artifact_bundle.outputs.recommendations }}';
             const benchmarkArtifactBundleArtifact = '${{ steps.benchmark_artifact_bundle.outputs.output_md }}';
@@ -6321,6 +6360,9 @@ jobs:
             const benchmarkCompanionOperationalOperatorAdoptionStatus = '${{ steps.benchmark_companion_summary.outputs.operational_operator_adoption_status }}';
             const benchmarkCompanionOperationalOperatorAdoptionKnowledgeOutcomeDriftStatus = '${{ steps.benchmark_companion_summary.outputs.operational_operator_adoption_knowledge_outcome_drift_status }}';
             const benchmarkCompanionOperationalOperatorAdoptionKnowledgeOutcomeDriftSummary = '${{ steps.benchmark_companion_summary.outputs.operational_operator_adoption_knowledge_outcome_drift_summary }}';
+            const benchmarkCompanionOperatorAdoptionReleaseSurfaceAlignmentStatus = '${{ steps.benchmark_companion_summary.outputs.operator_adoption_release_surface_alignment_status }}';
+            const benchmarkCompanionOperatorAdoptionReleaseSurfaceAlignmentSummary = '${{ steps.benchmark_companion_summary.outputs.operator_adoption_release_surface_alignment_summary }}';
+            const benchmarkCompanionOperatorAdoptionReleaseSurfaceAlignmentMismatches = '${{ steps.benchmark_companion_summary.outputs.operator_adoption_release_surface_alignment_mismatches }}';
             const benchmarkCompanionBlockers = '${{ steps.benchmark_companion_summary.outputs.blockers }}';
             const benchmarkCompanionRecommendedActions = '${{ steps.benchmark_companion_summary.outputs.recommended_actions }}';
             const benchmarkCompanionArtifact = '${{ steps.benchmark_companion_summary.outputs.output_md }}';
@@ -7092,12 +7134,16 @@ jobs:
             | **Benchmark Artifact Bundle Scorecard Operator Outcome Drift** | ${benchmarkArtifactBundleScorecardOperatorAdoptionKnowledgeOutcomeDriftStatus || 'n/a'} / ${benchmarkArtifactBundleScorecardOperatorAdoptionKnowledgeOutcomeDriftSummary || 'n/a'} |
             | **Benchmark Artifact Bundle Operational Operator Adoption** | ${benchmarkArtifactBundleOperationalOperatorAdoptionStatus || 'n/a'} |
             | **Benchmark Artifact Bundle Operational Operator Outcome Drift** | ${benchmarkArtifactBundleOperationalOperatorAdoptionKnowledgeOutcomeDriftStatus || 'n/a'} / ${benchmarkArtifactBundleOperationalOperatorAdoptionKnowledgeOutcomeDriftSummary || 'n/a'} |
+            | **Benchmark Artifact Bundle Release Surface Alignment** | ${benchmarkArtifactBundleOperatorAdoptionReleaseSurfaceAlignmentStatus || 'n/a'} / ${benchmarkArtifactBundleOperatorAdoptionReleaseSurfaceAlignmentSummary || 'n/a'} |
+            | **Benchmark Artifact Bundle Release Surface Mismatches** | ${benchmarkArtifactBundleOperatorAdoptionReleaseSurfaceAlignmentMismatches || 'n/a'} |
             | **Benchmark Companion Operator Drift** | ${benchmarkCompanionOperatorAdoptionKnowledgeDriftStatus || 'n/a'} / ${benchmarkCompanionOperatorAdoptionKnowledgeDriftSummary || 'n/a'} |
             | **Benchmark Companion Operator Outcome Drift** | ${benchmarkCompanionOperatorAdoptionKnowledgeOutcomeDriftStatus || 'n/a'} / ${benchmarkCompanionOperatorAdoptionKnowledgeOutcomeDriftSummary || 'n/a'} |
             | **Benchmark Companion Scorecard Operator Adoption** | ${benchmarkCompanionScorecardOperatorAdoptionStatus || 'n/a'} / ${benchmarkCompanionScorecardOperatorAdoptionMode || 'n/a'} |
             | **Benchmark Companion Scorecard Operator Outcome Drift** | ${benchmarkCompanionScorecardOperatorAdoptionKnowledgeOutcomeDriftStatus || 'n/a'} / ${benchmarkCompanionScorecardOperatorAdoptionKnowledgeOutcomeDriftSummary || 'n/a'} |
             | **Benchmark Companion Operational Operator Adoption** | ${benchmarkCompanionOperationalOperatorAdoptionStatus || 'n/a'} |
             | **Benchmark Companion Operational Operator Outcome Drift** | ${benchmarkCompanionOperationalOperatorAdoptionKnowledgeOutcomeDriftStatus || 'n/a'} / ${benchmarkCompanionOperationalOperatorAdoptionKnowledgeOutcomeDriftSummary || 'n/a'} |
+            | **Benchmark Companion Release Surface Alignment** | ${benchmarkCompanionOperatorAdoptionReleaseSurfaceAlignmentStatus || 'n/a'} / ${benchmarkCompanionOperatorAdoptionReleaseSurfaceAlignmentSummary || 'n/a'} |
+            | **Benchmark Companion Release Surface Mismatches** | ${benchmarkCompanionOperatorAdoptionReleaseSurfaceAlignmentMismatches || 'n/a'} |
             | **Benchmark Release Decision Operator Drift** | ${benchmarkReleaseOperatorAdoptionKnowledgeDriftStatus || 'n/a'} / ${benchmarkReleaseOperatorAdoptionKnowledgeDriftSummary || 'n/a'} |
             | **Benchmark Release Decision Operator Outcome Drift** | ${benchmarkReleaseOperatorAdoptionKnowledgeOutcomeDriftStatus || 'n/a'} / ${benchmarkReleaseOperatorAdoptionKnowledgeOutcomeDriftSummary || 'n/a'} |
             | **Benchmark Release Runbook** | ${benchmarkReleaseRunbookStatusLine} |
