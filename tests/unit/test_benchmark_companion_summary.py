@@ -1005,3 +1005,54 @@ def test_build_companion_summary_exposes_competitive_surpass_index_passthrough()
     assert payload["artifacts"]["benchmark_competitive_surpass_index"]["present"] is True
     markdown = render_markdown(payload)
     assert "## Competitive Surpass Index" in markdown
+
+
+def test_build_companion_summary_exposes_competitive_surpass_trend_passthrough() -> None:
+    payload = build_companion_summary(
+        title="Benchmark Companion",
+        benchmark_scorecard={
+            "overall_status": "healthy",
+            "components": {"hybrid": {"status": "healthy"}},
+        },
+        benchmark_operational_summary={},
+        benchmark_artifact_bundle={},
+        benchmark_knowledge_readiness={},
+        benchmark_knowledge_drift={},
+        benchmark_engineering_signals={},
+        benchmark_realdata_signals={},
+        benchmark_operator_adoption={},
+        benchmark_competitive_surpass_trend={
+            "competitive_surpass_trend": {
+                "status": "mixed",
+                "score_delta": 2,
+                "pillar_improvements": ["engineering"],
+                "pillar_regressions": ["operator_adoption"],
+                "resolved_primary_gaps": [],
+                "new_primary_gaps": ["operator_adoption"],
+            },
+            "summary": "status=mixed; score_delta=2",
+            "recommendations": [
+                "Keep the current competitive surpass rollout under review."
+            ],
+        },
+        artifact_paths={
+            "benchmark_competitive_surpass_trend": "competitive_surpass_trend.json"
+        },
+    )
+
+    assert payload["component_statuses"]["competitive_surpass_trend"] == "mixed"
+    assert payload["competitive_surpass_trend_status"] == "mixed"
+    assert payload["competitive_surpass_trend_score_delta"] == 2
+    assert payload["competitive_surpass_trend_pillar_improvements"] == ["engineering"]
+    assert payload["competitive_surpass_trend_pillar_regressions"] == [
+        "operator_adoption"
+    ]
+    assert payload["competitive_surpass_trend_new_primary_gaps"] == [
+        "operator_adoption"
+    ]
+    assert payload["competitive_surpass_trend_recommendations"] == [
+        "Keep the current competitive surpass rollout under review."
+    ]
+    assert payload["artifacts"]["benchmark_competitive_surpass_trend"]["present"] is True
+    markdown = render_markdown(payload)
+    assert "## Competitive Surpass Trend" in markdown

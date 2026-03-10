@@ -463,6 +463,20 @@ def test_build_release_runbook_freezes_when_ready() -> None:
             },
             "recommendations": [],
         },
+        benchmark_competitive_surpass_trend={
+            "competitive_surpass_trend": {
+                "status": "improved",
+                "score_delta": 8,
+                "pillar_improvements": ["release_alignment"],
+                "pillar_regressions": [],
+                "resolved_primary_gaps": ["release_alignment"],
+                "new_primary_gaps": [],
+            },
+            "summary": "status=improved; score_delta=8",
+            "recommendations": [
+                "Promote the improved competitive surpass posture after CI surfaces refresh."
+            ],
+        },
         artifact_paths={
             "benchmark_release_decision": "release.json",
             "benchmark_companion_summary": "companion.json",
@@ -480,6 +494,7 @@ def test_build_release_runbook_freezes_when_ready() -> None:
             "benchmark_knowledge_outcome_drift": "knowledge_outcome_drift.json",
             "benchmark_knowledge_source_drift": "knowledge_source_drift.json",
             "benchmark_competitive_surpass_index": "competitive_surpass.json",
+            "benchmark_competitive_surpass_trend": "competitive_surpass_trend.json",
         },
     )
 
@@ -509,6 +524,17 @@ def test_build_release_runbook_freezes_when_ready() -> None:
     assert payload["competitive_surpass_index"]["score"] == 91
     assert payload["competitive_surpass_primary_gaps"] == []
     assert payload["competitive_surpass_recommendations"] == []
+    assert payload["competitive_surpass_trend_status"] == "improved"
+    assert payload["competitive_surpass_trend_score_delta"] == 8
+    assert payload["competitive_surpass_trend_pillar_improvements"] == [
+        "release_alignment"
+    ]
+    assert payload["competitive_surpass_trend_resolved_primary_gaps"] == [
+        "release_alignment"
+    ]
+    assert payload["competitive_surpass_trend_recommendations"] == [
+        "Promote the improved competitive surpass posture after CI surfaces refresh."
+    ]
     assert payload["next_action"] == "freeze_release_baseline"
     assert "benchmark_operator_adoption" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_drift" not in payload["missing_artifacts"]
@@ -518,10 +544,12 @@ def test_build_release_runbook_freezes_when_ready() -> None:
     assert "benchmark_knowledge_outcome_drift" not in payload["missing_artifacts"]
     assert "benchmark_realdata_signals" not in payload["missing_artifacts"]
     assert "benchmark_competitive_surpass_index" not in payload["missing_artifacts"]
+    assert "benchmark_competitive_surpass_trend" not in payload["missing_artifacts"]
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is False
     assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_knowledge_outcome_drift"]["present"] is True
     assert payload["artifacts"]["benchmark_competitive_surpass_index"]["present"] is True
+    assert payload["artifacts"]["benchmark_competitive_surpass_trend"]["present"] is True
     assert payload["operator_steps"][-1]["status"] == "ready"
     assert payload["operator_adoption"]["knowledge_outcome_drift_status"] == "unknown"
 
@@ -545,6 +573,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     knowledge_outcome_correlation = tmp_path / "knowledge_outcome_correlation.json"
     knowledge_outcome_drift = tmp_path / "knowledge_outcome_drift.json"
     competitive_surpass = tmp_path / "competitive_surpass.json"
+    competitive_surpass_trend = tmp_path / "competitive_surpass_trend.json"
     output_json = tmp_path / "runbook.json"
     output_md = tmp_path / "runbook.md"
 
@@ -886,6 +915,26 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    competitive_surpass_trend.write_text(
+        json.dumps(
+            {
+                "competitive_surpass_trend": {
+                    "status": "mixed",
+                    "score_delta": 3,
+                    "pillar_improvements": ["knowledge"],
+                    "pillar_regressions": ["realdata"],
+                    "resolved_primary_gaps": [],
+                    "new_primary_gaps": ["step_dir_depth"],
+                },
+                "summary": "status=mixed; score_delta=3",
+                "recommendations": [
+                    "Keep the current competitive surpass rollout under review until "
+                    "regressions are cleared."
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     subprocess.run(
         [
@@ -927,6 +976,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
             str(knowledge_outcome_drift),
             "--benchmark-competitive-surpass-index",
             str(competitive_surpass),
+            "--benchmark-competitive-surpass-trend",
+            str(competitive_surpass_trend),
             "--output-json",
             str(output_json),
             "--output-md",
@@ -977,6 +1028,14 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert payload["competitive_surpass_recommendations"] == [
         "Expand history and STEP real-data depth before claiming benchmark surpass readiness."
     ]
+    assert payload["competitive_surpass_trend_status"] == "mixed"
+    assert payload["competitive_surpass_trend_score_delta"] == 3
+    assert payload["competitive_surpass_trend_pillar_improvements"] == ["knowledge"]
+    assert payload["competitive_surpass_trend_pillar_regressions"] == ["realdata"]
+    assert payload["competitive_surpass_trend_new_primary_gaps"] == ["step_dir_depth"]
+    assert payload["competitive_surpass_trend_recommendations"] == [
+        "Keep the current competitive surpass rollout under review until regressions are cleared."
+    ]
     assert payload["next_action"] == "review_signals"
     assert "benchmark_knowledge_domain_action_plan" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_source_action_plan" not in payload["missing_artifacts"]
@@ -987,6 +1046,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
     assert payload["artifacts"]["benchmark_competitive_surpass_index"]["present"] is True
+    assert payload["artifacts"]["benchmark_competitive_surpass_trend"]["present"] is True
     assert payload["operator_adoption"]["signals"] == [
         "operator_shift_handoff:pending"
     ]
@@ -1018,6 +1078,12 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert "history_realdata, step_dir_depth" in rendered
     assert (
         "Expand history and STEP real-data depth before claiming benchmark surpass readiness."
+        in rendered
+    )
+    assert "## Competitive Surpass Trend" in rendered
+    assert "`competitive_surpass_trend_status`: `mixed`" in rendered
+    assert (
+        "Keep the current competitive surpass rollout under review until regressions are cleared."
         in rendered
     )
     assert "## Real-Data Signals" in rendered

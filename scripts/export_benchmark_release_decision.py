@@ -101,6 +101,7 @@ def _component_statuses(
     benchmark_knowledge_outcome_correlation: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_drift: Dict[str, Any] | None = None,
     benchmark_competitive_surpass_index: Dict[str, Any] | None = None,
+    benchmark_competitive_surpass_trend: Dict[str, Any] | None = None,
 ) -> Dict[str, str]:
     benchmark_realdata_scorecard = benchmark_realdata_scorecard or {}
     benchmark_knowledge_application = benchmark_knowledge_application or {}
@@ -123,6 +124,7 @@ def _component_statuses(
     )
     benchmark_knowledge_outcome_drift = benchmark_knowledge_outcome_drift or {}
     benchmark_competitive_surpass_index = benchmark_competitive_surpass_index or {}
+    benchmark_competitive_surpass_trend = benchmark_competitive_surpass_trend or {}
     scorecard_components = benchmark_scorecard.get("components") or {}
     operational_components = benchmark_operational_summary.get("component_statuses") or {}
     bundle_components = benchmark_artifact_bundle.get("component_statuses") or {}
@@ -195,6 +197,11 @@ def _component_statuses(
     competitive_surpass_component = (
         benchmark_competitive_surpass_index.get("competitive_surpass_index")
         or benchmark_competitive_surpass_index
+        or {}
+    )
+    competitive_surpass_trend_component = (
+        benchmark_competitive_surpass_trend.get("competitive_surpass_trend")
+        or benchmark_competitive_surpass_trend
         or {}
     )
     drift_component = (
@@ -337,6 +344,12 @@ def _component_statuses(
             companion_components.get("competitive_surpass_index")
             or bundle_components.get("competitive_surpass_index")
             or competitive_surpass_component.get("status")
+            or "unknown"
+        ),
+        "competitive_surpass_trend": str(
+            companion_components.get("competitive_surpass_trend")
+            or bundle_components.get("competitive_surpass_trend")
+            or competitive_surpass_trend_component.get("status")
             or "unknown"
         ),
     }
@@ -724,6 +737,7 @@ def build_release_decision(
     benchmark_knowledge_outcome_correlation: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_drift: Dict[str, Any] | None = None,
     benchmark_competitive_surpass_index: Dict[str, Any] | None = None,
+    benchmark_competitive_surpass_trend: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     benchmark_realdata_scorecard = benchmark_realdata_scorecard or {}
     benchmark_knowledge_application = benchmark_knowledge_application or {}
@@ -746,6 +760,7 @@ def build_release_decision(
     )
     benchmark_knowledge_outcome_drift = benchmark_knowledge_outcome_drift or {}
     benchmark_competitive_surpass_index = benchmark_competitive_surpass_index or {}
+    benchmark_competitive_surpass_trend = benchmark_competitive_surpass_trend or {}
     component_statuses = _component_statuses(
         benchmark_scorecard,
         benchmark_operational_summary,
@@ -767,6 +782,7 @@ def build_release_decision(
         benchmark_knowledge_outcome_correlation,
         benchmark_knowledge_outcome_drift,
         benchmark_competitive_surpass_index,
+        benchmark_competitive_surpass_trend,
     )
     knowledge_drift = _knowledge_drift_payload(benchmark_knowledge_drift)
     realdata_component = (
@@ -827,6 +843,11 @@ def build_release_decision(
     competitive_surpass_component = (
         benchmark_competitive_surpass_index.get("competitive_surpass_index")
         or benchmark_competitive_surpass_index
+        or {}
+    )
+    competitive_surpass_trend_component = (
+        benchmark_competitive_surpass_trend.get("competitive_surpass_trend")
+        or benchmark_competitive_surpass_trend
         or {}
     )
     knowledge_focus_areas = list(
@@ -1051,6 +1072,17 @@ def build_release_decision(
     }:
         for item in _compact(
             benchmark_competitive_surpass_index.get("recommendations") or [],
+            limit=6,
+        ):
+            if item not in review_signals:
+                review_signals.append(item)
+    competitive_surpass_trend_status = (
+        str(competitive_surpass_trend_component.get("status") or "unknown").strip()
+        or "unknown"
+    )
+    if competitive_surpass_trend_status not in {"", "unknown", "stable", "improved"}:
+        for item in _compact(
+            benchmark_competitive_surpass_trend.get("recommendations") or [],
             limit=6,
         ):
             if item not in review_signals:
@@ -1294,6 +1326,30 @@ def build_release_decision(
             benchmark_competitive_surpass_index.get("recommendations") or [],
             limit=6,
         ),
+        "competitive_surpass_trend_status": competitive_surpass_trend_status,
+        "competitive_surpass_trend": competitive_surpass_trend_component,
+        "competitive_surpass_trend_summary": _text(
+            benchmark_competitive_surpass_trend.get("summary")
+        ) or "none",
+        "competitive_surpass_trend_score_delta": (
+            competitive_surpass_trend_component.get("score_delta") or 0
+        ),
+        "competitive_surpass_trend_pillar_improvements": list(
+            competitive_surpass_trend_component.get("pillar_improvements") or []
+        ),
+        "competitive_surpass_trend_pillar_regressions": list(
+            competitive_surpass_trend_component.get("pillar_regressions") or []
+        ),
+        "competitive_surpass_trend_resolved_primary_gaps": list(
+            competitive_surpass_trend_component.get("resolved_primary_gaps") or []
+        ),
+        "competitive_surpass_trend_new_primary_gaps": list(
+            competitive_surpass_trend_component.get("new_primary_gaps") or []
+        ),
+        "competitive_surpass_trend_recommendations": _compact(
+            benchmark_competitive_surpass_trend.get("recommendations") or [],
+            limit=6,
+        ),
         "blocking_signals": blockers,
         "review_signals": review_signals,
         "artifacts": {
@@ -1378,6 +1434,10 @@ def build_release_decision(
             "benchmark_competitive_surpass_index": _artifact_row(
                 "benchmark_competitive_surpass_index",
                 artifact_paths.get("benchmark_competitive_surpass_index", ""),
+            ),
+            "benchmark_competitive_surpass_trend": _artifact_row(
+                "benchmark_competitive_surpass_trend",
+                artifact_paths.get("benchmark_competitive_surpass_trend", ""),
             ),
         },
     }
@@ -1869,6 +1929,32 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         lines.extend(f"- {item}" for item in competitive_surpass_recommendations)
     else:
         lines.append("- none")
+    lines.extend(["", "## Competitive Surpass Trend", ""])
+    lines.append(
+        f"- `status`: `{payload.get('competitive_surpass_trend_status') or 'unknown'}`"
+    )
+    lines.append(
+        f"- `score_delta`: `{payload.get('competitive_surpass_trend_score_delta') or 0}`"
+    )
+    lines.append(
+        "- `summary`: "
+        + (_text(payload.get("competitive_surpass_trend_summary")) or "none")
+    )
+    for label in (
+        "competitive_surpass_trend_pillar_improvements",
+        "competitive_surpass_trend_pillar_regressions",
+        "competitive_surpass_trend_resolved_primary_gaps",
+        "competitive_surpass_trend_new_primary_gaps",
+    ):
+        values = payload.get(label) or []
+        lines.append(
+            f"- `{label}`: `{', '.join(str(item) for item in values) or 'none'}`"
+        )
+    trend_recommendations = payload.get("competitive_surpass_trend_recommendations") or []
+    if trend_recommendations:
+        lines.extend(f"- recommendation: {item}" for item in trend_recommendations)
+    else:
+        lines.append("- recommendation: none")
     lines.extend(["", "## Artifacts", ""])
     for name, row in (payload.get("artifacts") or {}).items():
         lines.append(
@@ -1903,6 +1989,7 @@ def main() -> None:
     parser.add_argument("--benchmark-knowledge-outcome-correlation", default="")
     parser.add_argument("--benchmark-knowledge-outcome-drift", default="")
     parser.add_argument("--benchmark-competitive-surpass-index", default="")
+    parser.add_argument("--benchmark-competitive-surpass-trend", default="")
     parser.add_argument("--output-json", default="")
     parser.add_argument("--output-md", default="")
     args = parser.parse_args()
@@ -1939,6 +2026,9 @@ def main() -> None:
         "benchmark_knowledge_outcome_drift": args.benchmark_knowledge_outcome_drift,
         "benchmark_competitive_surpass_index": (
             args.benchmark_competitive_surpass_index
+        ),
+        "benchmark_competitive_surpass_trend": (
+            args.benchmark_competitive_surpass_trend
         ),
     }
     payload = build_release_decision(
@@ -1996,6 +2086,9 @@ def main() -> None:
         ),
         benchmark_competitive_surpass_index=_maybe_load_json(
             args.benchmark_competitive_surpass_index
+        ),
+        benchmark_competitive_surpass_trend=_maybe_load_json(
+            args.benchmark_competitive_surpass_trend
         ),
         artifact_paths=artifact_paths,
     )

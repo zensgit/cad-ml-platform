@@ -85,3 +85,8 @@ from .competitive_surpass_index import (  # noqa: F401
     competitive_surpass_index_recommendations,
     render_competitive_surpass_markdown,
 )
+from .competitive_surpass_trend import (  # noqa: F401
+    build_competitive_surpass_trend_status,
+    competitive_surpass_trend_recommendations,
+    render_competitive_surpass_trend_markdown,
+)

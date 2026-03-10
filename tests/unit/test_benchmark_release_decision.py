@@ -374,6 +374,20 @@ def test_build_release_decision_ready_without_blockers() -> None:
             },
             "recommendations": [],
         },
+        benchmark_competitive_surpass_trend={
+            "competitive_surpass_trend": {
+                "status": "improved",
+                "score_delta": 12,
+                "pillar_improvements": ["realdata"],
+                "pillar_regressions": [],
+                "resolved_primary_gaps": ["realdata"],
+                "new_primary_gaps": [],
+            },
+            "summary": "status=improved; score_delta=12",
+            "recommendations": [
+                "Promote the improved competitive surpass posture after CI surfaces refresh."
+            ],
+        },
         artifact_paths={"benchmark_scorecard": "scorecard.json"},
     )
 
@@ -409,6 +423,14 @@ def test_build_release_decision_ready_without_blockers() -> None:
     assert payload["competitive_surpass_index"]["score"] == 92
     assert payload["competitive_surpass_primary_gaps"] == []
     assert payload["competitive_surpass_recommendations"] == []
+    assert payload["component_statuses"]["competitive_surpass_trend"] == "improved"
+    assert payload["competitive_surpass_trend_status"] == "improved"
+    assert payload["competitive_surpass_trend_score_delta"] == 12
+    assert payload["competitive_surpass_trend_pillar_improvements"] == ["realdata"]
+    assert payload["competitive_surpass_trend_resolved_primary_gaps"] == ["realdata"]
+    assert payload["competitive_surpass_trend_recommendations"] == [
+        "Promote the improved competitive surpass posture after CI surfaces refresh."
+    ]
     assert payload["review_signals"] == []
 
 
@@ -487,6 +509,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     realdata = tmp_path / "realdata.json"
     operator = tmp_path / "operator.json"
     competitive_surpass = tmp_path / "competitive_surpass.json"
+    competitive_surpass_trend = tmp_path / "competitive_surpass_trend.json"
     output_json = tmp_path / "release.json"
     output_md = tmp_path / "release.md"
     scorecard.write_text(
@@ -609,6 +632,25 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    competitive_surpass_trend.write_text(
+        json.dumps(
+            {
+                "competitive_surpass_trend": {
+                    "status": "regressed",
+                    "score_delta": -7,
+                    "pillar_improvements": [],
+                    "pillar_regressions": ["realdata"],
+                    "resolved_primary_gaps": [],
+                    "new_primary_gaps": ["step_dir_depth"],
+                },
+                "summary": "status=regressed; score_delta=-7",
+                "recommendations": [
+                    "Resolve competitive surpass regressions before claiming benchmark progress."
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     subprocess.run(
         [
@@ -634,6 +676,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
             str(operator),
             "--benchmark-competitive-surpass-index",
             str(competitive_surpass),
+            "--benchmark-competitive-surpass-trend",
+            str(competitive_surpass_trend),
             "--output-json",
             str(output_json),
             "--output-md",
@@ -671,6 +715,15 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         "Expand STEP/B-Rep depth before claiming benchmark surpass readiness."
     ]
     assert payload["artifacts"]["benchmark_competitive_surpass_index"]["present"] is True
+    assert payload["component_statuses"]["competitive_surpass_trend"] == "regressed"
+    assert payload["competitive_surpass_trend_status"] == "regressed"
+    assert payload["competitive_surpass_trend_score_delta"] == -7
+    assert payload["competitive_surpass_trend_pillar_regressions"] == ["realdata"]
+    assert payload["competitive_surpass_trend_new_primary_gaps"] == ["step_dir_depth"]
+    assert payload["competitive_surpass_trend_recommendations"] == [
+        "Resolve competitive surpass regressions before claiming benchmark progress."
+    ]
+    assert payload["artifacts"]["benchmark_competitive_surpass_trend"]["present"] is True
     assert output_md.exists()
 
     rendered = render_markdown(payload)
@@ -686,6 +739,10 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert "`competitive_surpass_index_status`: `competitive_surpass_partial`" in rendered
     assert "step_dir_depth, knowledge_realdata" in rendered
     assert "Expand STEP/B-Rep depth before claiming benchmark surpass readiness." in rendered
+    assert "## Competitive Surpass Trend" in rendered
+    assert "## Competitive Surpass Trend" in rendered
+    assert "- `status`: `regressed`" in rendered
+    assert "Resolve competitive surpass regressions before claiming benchmark progress." in rendered
     assert "## Knowledge Domains" in rendered
     assert "## Knowledge Domain Matrix" in rendered
     assert "## Real-Data Signals" in rendered
