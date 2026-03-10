@@ -95,6 +95,26 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_KNOWLEDGE_APPLICATION_KNOWLEDGE_READINESS_JSON" in env
     assert "BENCHMARK_KNOWLEDGE_APPLICATION_OUTPUT_JSON" in env
     assert "BENCHMARK_KNOWLEDGE_APPLICATION_OUTPUT_MD" in env
+    assert "BENCHMARK_COMPETITIVE_SURPASS_INDEX_ENABLE" in env
+    assert "BENCHMARK_COMPETITIVE_SURPASS_INDEX_TITLE" in env
+    assert "BENCHMARK_COMPETITIVE_SURPASS_INDEX_ENGINEERING_SIGNALS_JSON" in env
+    assert "BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_READINESS_JSON" in env
+    assert "BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_APPLICATION_JSON" in env
+    assert (
+        "BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_REALDATA_CORRELATION_JSON"
+        in env
+    )
+    assert "BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_DOMAIN_MATRIX_JSON" in env
+    assert (
+        "BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_OUTCOME_CORRELATION_JSON"
+        in env
+    )
+    assert "BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_OUTCOME_DRIFT_JSON" in env
+    assert "BENCHMARK_COMPETITIVE_SURPASS_INDEX_REALDATA_SIGNALS_JSON" in env
+    assert "BENCHMARK_COMPETITIVE_SURPASS_INDEX_REALDATA_SCORECARD_JSON" in env
+    assert "BENCHMARK_COMPETITIVE_SURPASS_INDEX_OPERATOR_ADOPTION_JSON" in env
+    assert "BENCHMARK_COMPETITIVE_SURPASS_INDEX_OUTPUT_JSON" in env
+    assert "BENCHMARK_COMPETITIVE_SURPASS_INDEX_OUTPUT_MD" in env
     assert "FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_JSON" in env
     assert "FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_MD" in env
     assert "BENCHMARK_OPERATIONAL_SUMMARY_ENABLE" in env
@@ -122,6 +142,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_READINESS_JSON" in env
     assert "BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DRIFT_JSON" in env
     assert "BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_APPLICATION_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_COMPETITIVE_SURPASS_INDEX_JSON" in env
     assert "BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_JSON" in env
     assert "BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_MD" in env
     assert "BENCHMARK_COMPANION_SUMMARY_ENABLE" in env
@@ -134,6 +155,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_READINESS_JSON" in env
     assert "BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DRIFT_JSON" in env
     assert "BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_APPLICATION_JSON" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_COMPETITIVE_SURPASS_INDEX_JSON" in env
     assert "BENCHMARK_COMPANION_SUMMARY_OUTPUT_JSON" in env
     assert "BENCHMARK_COMPANION_SUMMARY_OUTPUT_MD" in env
     assert "BENCHMARK_RELEASE_DECISION_ENABLE" in env
@@ -238,6 +260,23 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_knowledge_outcome_drift_enable" in dispatch_inputs
     assert "benchmark_knowledge_outcome_drift_current_summary_json" in dispatch_inputs
     assert "benchmark_knowledge_outcome_drift_previous_summary_json" in dispatch_inputs
+    assert "benchmark_competitive_surpass_index_enable" in dispatch_inputs
+    assert "benchmark_competitive_surpass_index_engineering_signals_json" in dispatch_inputs
+    assert "benchmark_competitive_surpass_index_knowledge_readiness_json" in dispatch_inputs
+    assert "benchmark_competitive_surpass_index_knowledge_application_json" in dispatch_inputs
+    assert (
+        "benchmark_competitive_surpass_index_knowledge_realdata_correlation_json"
+        in dispatch_inputs
+    )
+    assert "benchmark_competitive_surpass_index_knowledge_domain_matrix_json" in dispatch_inputs
+    assert (
+        "benchmark_competitive_surpass_index_knowledge_outcome_correlation_json"
+        in dispatch_inputs
+    )
+    assert "benchmark_competitive_surpass_index_knowledge_outcome_drift_json" in dispatch_inputs
+    assert "benchmark_competitive_surpass_index_realdata_signals_json" in dispatch_inputs
+    assert "benchmark_competitive_surpass_index_realdata_scorecard_json" in dispatch_inputs
+    assert "benchmark_competitive_surpass_index_operator_adoption_json" in dispatch_inputs
     assert "benchmark_operational_summary_enable" in dispatch_inputs
     assert "benchmark_operational_summary_scorecard_json" in dispatch_inputs
     assert "benchmark_operational_summary_feedback_json" in dispatch_inputs
@@ -253,6 +292,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_artifact_bundle_review_queue_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_ocr_review_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_companion_summary_json" in dispatch_inputs
+    assert "benchmark_artifact_bundle_competitive_surpass_index_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_release_decision_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_engineering_signals_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_realdata_signals_json" in dispatch_inputs
@@ -275,6 +315,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_companion_summary_knowledge_readiness_json" in dispatch_inputs
     assert "benchmark_companion_summary_knowledge_drift_json" in dispatch_inputs
     assert "benchmark_companion_summary_knowledge_application_json" in dispatch_inputs
+    assert "benchmark_companion_summary_competitive_surpass_index_json" in dispatch_inputs
     assert (
         "benchmark_companion_summary_knowledge_outcome_correlation_json"
         in dispatch_inputs
@@ -845,6 +886,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-knowledge-application" in benchmark_bundle_script
     assert "--benchmark-knowledge-outcome-correlation" in benchmark_bundle_script
     assert "--benchmark-knowledge-outcome-drift" in benchmark_bundle_script
+    assert "--benchmark-competitive-surpass-index" in benchmark_bundle_script
     assert "INPUT_COUNT=0" in benchmark_bundle_script
     assert "available_artifact_count=" in benchmark_bundle_script
     assert "feedback_status=" in benchmark_bundle_script
@@ -882,6 +924,9 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_outcome_drift_resolved_priority_domains=" in benchmark_bundle_script
     assert "knowledge_outcome_drift_new_priority_domains=" in benchmark_bundle_script
     assert "knowledge_outcome_drift_recommendations=" in benchmark_bundle_script
+    assert "competitive_surpass_index_status=" in benchmark_bundle_script
+    assert "competitive_surpass_primary_gaps=" in benchmark_bundle_script
+    assert "competitive_surpass_recommendations=" in benchmark_bundle_script
     assert "operator_adoption_knowledge_drift_status=" in benchmark_bundle_script
     assert "operator_adoption_knowledge_drift_summary=" in benchmark_bundle_script
     assert "operator_adoption_knowledge_outcome_drift_status=" in benchmark_bundle_script
@@ -915,6 +960,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-knowledge-application" in benchmark_companion_script
     assert "--benchmark-knowledge-outcome-correlation" in benchmark_companion_script
     assert "--benchmark-knowledge-outcome-drift" in benchmark_companion_script
+    assert "--benchmark-competitive-surpass-index" in benchmark_companion_script
     assert "review_surface=" in benchmark_companion_script
     assert "primary_gap=" in benchmark_companion_script
     assert "recommended_actions=" in benchmark_companion_script
@@ -950,6 +996,9 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_outcome_drift_resolved_priority_domains=" in benchmark_companion_script
     assert "knowledge_outcome_drift_new_priority_domains=" in benchmark_companion_script
     assert "knowledge_outcome_drift_recommendations=" in benchmark_companion_script
+    assert "competitive_surpass_index_status=" in benchmark_companion_script
+    assert "competitive_surpass_primary_gaps=" in benchmark_companion_script
+    assert "competitive_surpass_recommendations=" in benchmark_companion_script
     assert "operator_adoption_knowledge_drift_status=" in benchmark_companion_script
     assert "operator_adoption_knowledge_drift_summary=" in benchmark_companion_script
     assert "operator_adoption_knowledge_outcome_drift_status=" in benchmark_companion_script
@@ -1134,37 +1183,42 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "blocking_signals=" in benchmark_operator_adoption_script
     assert "recommended_actions=" in benchmark_operator_adoption_script
 
-    benchmark_operator_adoption_step = _get_step(
-        workflow, "evaluate", "Build benchmark operator adoption (optional)"
+    benchmark_competitive_surpass_step = _get_step(
+        workflow, "evaluate", "Build benchmark competitive surpass index (optional)"
     )
-    benchmark_operator_adoption_script = benchmark_operator_adoption_step["run"]
+    benchmark_competitive_surpass_script = benchmark_competitive_surpass_step["run"]
     assert (
-        "scripts/export_benchmark_operator_adoption.py"
-        in benchmark_operator_adoption_script
+        "scripts/export_benchmark_competitive_surpass_index.py"
+        in benchmark_competitive_surpass_script
     )
-    assert "BENCHMARK_OPERATOR_ADOPTION_ENABLE" in benchmark_operator_adoption_script
-    assert "--benchmark-release-decision" in benchmark_operator_adoption_script
-    assert "--benchmark-release-runbook" in benchmark_operator_adoption_script
-    assert "--review-queue" in benchmark_operator_adoption_script
-    assert "--feedback-flywheel" in benchmark_operator_adoption_script
-    assert "--benchmark-knowledge-drift" in benchmark_operator_adoption_script
-    assert "--benchmark-knowledge-outcome-drift" in benchmark_operator_adoption_script
-    assert "INPUT_COUNT=0" in benchmark_operator_adoption_script
-    assert "adoption_readiness=" in benchmark_operator_adoption_script
-    assert "operator_mode=" in benchmark_operator_adoption_script
-    assert "next_action=" in benchmark_operator_adoption_script
-    assert "automation_ready=" in benchmark_operator_adoption_script
-    assert "freeze_ready=" in benchmark_operator_adoption_script
-    assert "release_status=" in benchmark_operator_adoption_script
-    assert "runbook_status=" in benchmark_operator_adoption_script
-    assert "review_queue_status=" in benchmark_operator_adoption_script
-    assert "feedback_status=" in benchmark_operator_adoption_script
-    assert "knowledge_drift_status=" in benchmark_operator_adoption_script
-    assert "knowledge_drift_summary=" in benchmark_operator_adoption_script
-    assert "knowledge_outcome_drift_status=" in benchmark_operator_adoption_script
-    assert "knowledge_outcome_drift_summary=" in benchmark_operator_adoption_script
-    assert "blocking_signals=" in benchmark_operator_adoption_script
-    assert "recommended_actions=" in benchmark_operator_adoption_script
+    assert (
+        "BENCHMARK_COMPETITIVE_SURPASS_INDEX_ENABLE"
+        in benchmark_competitive_surpass_script
+    )
+    assert "--benchmark-engineering-signals" in benchmark_competitive_surpass_script
+    assert "--benchmark-knowledge-readiness" in benchmark_competitive_surpass_script
+    assert "--benchmark-knowledge-application" in benchmark_competitive_surpass_script
+    assert (
+        "--benchmark-knowledge-realdata-correlation"
+        in benchmark_competitive_surpass_script
+    )
+    assert "--benchmark-knowledge-domain-matrix" in benchmark_competitive_surpass_script
+    assert (
+        "--benchmark-knowledge-outcome-correlation"
+        in benchmark_competitive_surpass_script
+    )
+    assert "--benchmark-knowledge-outcome-drift" in benchmark_competitive_surpass_script
+    assert "--benchmark-realdata-signals" in benchmark_competitive_surpass_script
+    assert "--benchmark-realdata-scorecard" in benchmark_competitive_surpass_script
+    assert "--benchmark-operator-adoption" in benchmark_competitive_surpass_script
+    assert "INPUT_COUNT=0" in benchmark_competitive_surpass_script
+    assert "status=" in benchmark_competitive_surpass_script
+    assert "score=" in benchmark_competitive_surpass_script
+    assert "ready_pillars=" in benchmark_competitive_surpass_script
+    assert "partial_pillars=" in benchmark_competitive_surpass_script
+    assert "blocked_pillars=" in benchmark_competitive_surpass_script
+    assert "primary_gaps=" in benchmark_competitive_surpass_script
+    assert "recommendations=" in benchmark_competitive_surpass_script
 
     assistant_step = _get_step(
         workflow, "evaluate", "Build assistant evidence report (optional)"
@@ -1294,6 +1348,13 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
         upload_benchmark_operational["if"]
         == "steps.benchmark_operational_summary.outputs.enabled == 'true'"
     )
+    upload_benchmark_competitive_surpass = _get_step(
+        workflow, "evaluate", "Upload benchmark competitive surpass index"
+    )
+    assert (
+        upload_benchmark_competitive_surpass["if"]
+        == "steps.benchmark_competitive_surpass_index.outputs.enabled == 'true'"
+    )
     upload_benchmark_bundle = _get_step(
         workflow, "evaluate", "Upload benchmark artifact bundle"
     )
@@ -1402,6 +1463,14 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark operational blockers" in summary_script
     assert "Benchmark operational recommendations" in summary_script
     assert "Benchmark operational artifact" in summary_script
+    assert "Benchmark competitive surpass status" in summary_script
+    assert "Benchmark competitive surpass score" in summary_script
+    assert "Benchmark competitive surpass ready pillars" in summary_script
+    assert "Benchmark competitive surpass partial pillars" in summary_script
+    assert "Benchmark competitive surpass blocked pillars" in summary_script
+    assert "Benchmark competitive surpass primary gaps" in summary_script
+    assert "Benchmark competitive surpass recommendations" in summary_script
+    assert "Benchmark competitive surpass artifact" in summary_script
     assert "Benchmark artifact bundle overall" in summary_script
     assert "Benchmark artifact bundle available artifacts" in summary_script
     assert "Benchmark artifact bundle feedback status" in summary_script
@@ -1573,6 +1642,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark artifact bundle knowledge realdata recommendations" in summary_script
     assert "Benchmark artifact bundle real-data status" in summary_script
     assert "Benchmark artifact bundle real-data recommendations" in summary_script
+    assert "Benchmark artifact bundle competitive surpass" in summary_script
+    assert "Benchmark artifact bundle competitive surpass gaps" in summary_script
+    assert "Benchmark artifact bundle competitive surpass recommendations" in summary_script
     assert "Benchmark artifact bundle scorecard operator adoption" in summary_script
     assert "Benchmark artifact bundle scorecard operator outcome drift" in summary_script
     assert "Benchmark artifact bundle operational operator adoption" in summary_script
@@ -1598,6 +1670,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark companion knowledge realdata recommendations" in summary_script
     assert "Benchmark companion real-data status" in summary_script
     assert "Benchmark companion real-data recommendations" in summary_script
+    assert "Benchmark companion competitive surpass" in summary_script
+    assert "Benchmark companion competitive surpass gaps" in summary_script
+    assert "Benchmark companion competitive surpass recommendations" in summary_script
     assert "Benchmark companion scorecard operator adoption" in summary_script
     assert "Benchmark companion scorecard operator outcome drift" in summary_script
     assert "Benchmark companion operational operator adoption" in summary_script
