@@ -2042,6 +2042,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Release Decision Operational Operator Outcome Drift" in (
         pr_comment_script
     )
+    assert "Benchmark Release Decision Release Surface Alignment" in (
+        pr_comment_script
+    )
     assert "knowledge=${benchmarkReleaseKnowledgeStatus}" in pr_comment_script
     assert "knowledge_drift=${benchmarkReleaseKnowledgeDriftStatus}" in pr_comment_script
     assert "benchmarkReleaseKnowledgeDriftDomainRegressions" in pr_comment_script
@@ -2053,6 +2056,10 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     )
     assert (
         "benchmarkReleaseOperationalOperatorAdoptionStatus || 'n/a'" in pr_comment_script
+    )
+    assert (
+        "benchmarkReleaseOperatorAdoptionReleaseSurfaceAlignmentStatus || 'n/a'"
+        in pr_comment_script
     )
     assert "Benchmark Release Decision Knowledge Domains" in pr_comment_script
     assert "Benchmark Release Runbook Knowledge Drift" in pr_comment_script
@@ -2073,6 +2080,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Release Runbook Operational Operator Outcome Drift" in (
         pr_comment_script
     )
+    assert "Benchmark Release Runbook Release Surface Alignment" in (
+        pr_comment_script
+    )
     assert "knowledge=${benchmarkReleaseRunbookKnowledgeStatus}" in pr_comment_script
     assert "knowledge_drift=${benchmarkReleaseRunbookKnowledgeDriftStatus}" in pr_comment_script
     assert "benchmarkReleaseRunbookKnowledgeDriftDomainRegressions" in pr_comment_script
@@ -2085,6 +2095,10 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     )
     assert (
         "benchmarkReleaseRunbookOperationalOperatorAdoptionStatus || 'n/a'"
+        in pr_comment_script
+    )
+    assert (
+        "benchmarkReleaseRunbookOperatorAdoptionReleaseSurfaceAlignmentStatus || 'n/a'"
         in pr_comment_script
     )
     assert (
