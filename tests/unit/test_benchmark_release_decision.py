@@ -135,6 +135,22 @@ def test_build_release_decision_blocks_on_blockers() -> None:
             },
             "recommendations": ["Backfill tolerance foundation and real-data coverage."],
         },
+        benchmark_knowledge_domain_action_plan={
+            "knowledge_domain_action_plan": {
+                "status": "knowledge_domain_action_plan_blocked",
+                "priority_domains": ["tolerance"],
+                "actions": [
+                    {
+                        "id": "tolerance:foundation",
+                        "domain": "tolerance",
+                        "stage": "foundation",
+                        "priority": "high",
+                        "status": "blocked",
+                    }
+                ],
+            },
+            "recommendations": ["Backfill tolerance foundation metrics first."],
+        },
         artifact_paths={
             "benchmark_companion_summary": "companion.json",
             "benchmark_engineering_signals": "engineering.json",
@@ -154,6 +170,9 @@ def test_build_release_decision_blocks_on_blockers() -> None:
     assert payload["component_statuses"]["knowledge_application"] == "knowledge_application_partial"
     assert payload["component_statuses"]["knowledge_domain_matrix"] == (
         "knowledge_domain_matrix_partial"
+    )
+    assert payload["component_statuses"]["knowledge_domain_action_plan"] == (
+        "knowledge_domain_action_plan_blocked"
     )
     assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
     assert payload["operator_adoption_knowledge_outcome_drift"]["status"] == "unknown"
@@ -175,6 +194,12 @@ def test_build_release_decision_blocks_on_blockers() -> None:
     assert payload["knowledge_application_domains"]["tolerance"]["status"] == "partial"
     assert payload["knowledge_domain_matrix_status"] == "knowledge_domain_matrix_partial"
     assert payload["knowledge_domain_matrix_domains"]["tolerance"]["status"] == "blocked"
+    assert payload["knowledge_domain_action_plan_status"] == (
+        "knowledge_domain_action_plan_blocked"
+    )
+    assert payload["knowledge_domain_action_plan_actions"][0]["id"] == (
+        "tolerance:foundation"
+    )
     assert "Operator fallback only." not in payload["review_signals"]
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is False
