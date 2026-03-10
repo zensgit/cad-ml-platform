@@ -218,6 +218,10 @@ on:
         description: 'Optional benchmark knowledge domain action plan knowledge domain matrix JSON'
         required: false
         default: ''
+      benchmark_knowledge_source_coverage_enable:
+        description: 'Override: enable benchmark knowledge source coverage export (true/false)'
+        required: false
+        default: ''
       benchmark_knowledge_source_action_plan_enable:
         description: 'Override: enable benchmark knowledge source action plan export (true/false)'
         required: false
@@ -276,6 +280,10 @@ on:
         default: ''
       benchmark_competitive_surpass_index_knowledge_domain_action_plan_json:
         description: 'Optional benchmark competitive surpass index knowledge domain action plan JSON'
+        required: false
+        default: ''
+      benchmark_competitive_surpass_index_knowledge_source_coverage_json:
+        description: 'Optional benchmark competitive surpass index knowledge source coverage JSON'
         required: false
         default: ''
       benchmark_competitive_surpass_index_knowledge_source_action_plan_json:
@@ -402,6 +410,10 @@ on:
         description: 'Optional benchmark artifact bundle knowledge domain action plan JSON'
         required: false
         default: ''
+      benchmark_artifact_bundle_knowledge_source_coverage_json:
+        description: 'Optional benchmark artifact bundle knowledge source coverage JSON'
+        required: false
+        default: ''
       benchmark_artifact_bundle_knowledge_source_action_plan_json:
         description: 'Optional benchmark artifact bundle knowledge source action plan JSON'
         required: false
@@ -468,6 +480,10 @@ on:
         default: ''
       benchmark_companion_summary_knowledge_domain_action_plan_json:
         description: 'Optional benchmark companion summary knowledge domain action plan JSON'
+        required: false
+        default: ''
+      benchmark_companion_summary_knowledge_source_coverage_json:
+        description: 'Optional benchmark companion summary knowledge source coverage JSON'
         required: false
         default: ''
       benchmark_companion_summary_knowledge_source_action_plan_json:
@@ -546,6 +562,10 @@ on:
         description: 'Optional benchmark release decision knowledge domain action plan JSON'
         required: false
         default: ''
+      benchmark_release_decision_knowledge_source_coverage_json:
+        description: 'Optional benchmark release decision knowledge source coverage JSON'
+        required: false
+        default: ''
       benchmark_release_decision_knowledge_source_action_plan_json:
         description: 'Optional benchmark release decision knowledge source action plan JSON'
         required: false
@@ -616,6 +636,10 @@ on:
         default: ''
       benchmark_release_runbook_knowledge_domain_action_plan_json:
         description: 'Optional benchmark release runbook knowledge domain action plan JSON'
+        required: false
+        default: ''
+      benchmark_release_runbook_knowledge_source_coverage_json:
+        description: 'Optional benchmark release runbook knowledge source coverage JSON'
         required: false
         default: ''
       benchmark_release_runbook_knowledge_source_action_plan_json:
@@ -801,6 +825,10 @@ env:
   BENCHMARK_KNOWLEDGE_DOMAIN_ACTION_PLAN_KNOWLEDGE_DOMAIN_MATRIX_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_ACTION_PLAN_KNOWLEDGE_DOMAIN_MATRIX_JSON }}
   BENCHMARK_KNOWLEDGE_DOMAIN_ACTION_PLAN_OUTPUT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_ACTION_PLAN_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_knowledge_domain_action_plan.json' }}
   BENCHMARK_KNOWLEDGE_DOMAIN_ACTION_PLAN_OUTPUT_MD: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_ACTION_PLAN_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_knowledge_domain_action_plan.md' }}
+  BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_ENABLE: ${{ vars.BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_ENABLE || 'false' }}
+  BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_TITLE: ${{ vars.BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_TITLE || 'Benchmark Knowledge Source Coverage' }}
+  BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_OUTPUT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_knowledge_source_coverage.json' }}
+  BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_OUTPUT_MD: ${{ vars.BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_knowledge_source_coverage.md' }}
   BENCHMARK_KNOWLEDGE_SOURCE_ACTION_PLAN_ENABLE: ${{ vars.BENCHMARK_KNOWLEDGE_SOURCE_ACTION_PLAN_ENABLE || 'false' }}
   BENCHMARK_KNOWLEDGE_SOURCE_ACTION_PLAN_TITLE: ${{ vars.BENCHMARK_KNOWLEDGE_SOURCE_ACTION_PLAN_TITLE || 'Benchmark Knowledge Source Action Plan' }}
   BENCHMARK_KNOWLEDGE_SOURCE_ACTION_PLAN_KNOWLEDGE_SOURCE_COVERAGE_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_SOURCE_ACTION_PLAN_KNOWLEDGE_SOURCE_COVERAGE_JSON }}
@@ -826,6 +854,7 @@ env:
   BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_REALDATA_CORRELATION_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_REALDATA_CORRELATION_JSON }}
   BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_DOMAIN_MATRIX_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_DOMAIN_MATRIX_JSON }}
   BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON }}
+  BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_SOURCE_COVERAGE_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_SOURCE_COVERAGE_JSON }}
   BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON }}
   BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_OUTCOME_CORRELATION_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_OUTCOME_CORRELATION_JSON }}
   BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_OUTCOME_DRIFT_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_OUTCOME_DRIFT_JSON }}
@@ -871,6 +900,7 @@ env:
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_REALDATA_CORRELATION_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_REALDATA_CORRELATION_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_MATRIX_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_MATRIX_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON }}
+  BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_SOURCE_COVERAGE_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_SOURCE_COVERAGE_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_OUTCOME_CORRELATION_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_OUTCOME_CORRELATION_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_COMPETITIVE_SURPASS_INDEX_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_COMPETITIVE_SURPASS_INDEX_JSON }}
@@ -890,6 +920,7 @@ env:
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_REALDATA_CORRELATION_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_REALDATA_CORRELATION_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_MATRIX_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_MATRIX_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON }}
+  BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_SOURCE_COVERAGE_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_SOURCE_COVERAGE_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_OUTCOME_CORRELATION_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_OUTCOME_CORRELATION_JSON }}
   BENCHMARK_COMPANION_SUMMARY_COMPETITIVE_SURPASS_INDEX_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_COMPETITIVE_SURPASS_INDEX_JSON }}
@@ -911,6 +942,7 @@ env:
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_REALDATA_CORRELATION_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_REALDATA_CORRELATION_JSON }}
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_MATRIX_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_MATRIX_JSON }}
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON }}
+  BENCHMARK_RELEASE_DECISION_KNOWLEDGE_SOURCE_COVERAGE_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_SOURCE_COVERAGE_JSON }}
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON }}
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_OUTCOME_CORRELATION_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_OUTCOME_CORRELATION_JSON }}
   BENCHMARK_RELEASE_DECISION_COMPETITIVE_SURPASS_INDEX_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_COMPETITIVE_SURPASS_INDEX_JSON }}
@@ -931,6 +963,7 @@ env:
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_REALDATA_CORRELATION_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_REALDATA_CORRELATION_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_MATRIX_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_MATRIX_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON }}
+  BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_SOURCE_COVERAGE_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_SOURCE_COVERAGE_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_OUTCOME_CORRELATION_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_OUTCOME_CORRELATION_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_COMPETITIVE_SURPASS_INDEX_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_COMPETITIVE_SURPASS_INDEX_JSON }}
@@ -2877,6 +2910,111 @@ jobs:
             f.write(f"recommendations={compact(recommendations)}\n")
         PY
 
+    - name: Build benchmark knowledge source coverage (optional)
+      id: benchmark_knowledge_source_coverage
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_source_coverage_enable || '' }}"
+        ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+
+        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_ENABLE is not true; skip."
+          exit 0
+        fi
+
+        OUTPUT_JSON="${BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_OUTPUT_JSON:-reports/history_sequence_eval/benchmark_knowledge_source_coverage.json}"
+        OUTPUT_MD="${BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_OUTPUT_MD:-reports/history_sequence_eval/benchmark_knowledge_source_coverage.md}"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+        mkdir -p "$(dirname "$OUTPUT_MD")"
+
+        python3 scripts/export_benchmark_knowledge_source_coverage.py \
+          --title "${BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_TITLE:-Benchmark Knowledge Source Coverage}" \
+          --output-json "$OUTPUT_JSON" \
+          --output-md "$OUTPUT_MD"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path(
+                os.environ["BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_OUTPUT_JSON"]
+            ).read_text(encoding="utf-8")
+        )
+        component = payload.get("knowledge_source_coverage") or {}
+        recommendations = payload.get("recommendations") or []
+        domains = component.get("domains") or {}
+        expansion_candidates = component.get("expansion_candidates") or []
+
+        def compact(items):
+            return "; ".join(str(item).strip() for item in items[:4] if str(item).strip())
+
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"status={component.get('status', 'unknown')}\n")
+            f.write(
+                f"ready_source_group_count={component.get('ready_source_group_count', 0)}\n"
+            )
+            f.write(
+                f"partial_source_group_count={component.get('partial_source_group_count', 0)}\n"
+            )
+            f.write(
+                f"missing_source_group_count={component.get('missing_source_group_count', 0)}\n"
+            )
+            f.write(
+                f"total_source_group_count={component.get('total_source_group_count', 0)}\n"
+            )
+            f.write(
+                f"total_source_table_count={component.get('total_source_table_count', 0)}\n"
+            )
+            f.write(
+                f"total_source_item_count={component.get('total_source_item_count', 0)}\n"
+            )
+            f.write(
+                "total_reference_standard_count="
+                f"{component.get('total_reference_standard_count', 0)}\n"
+            )
+            f.write(
+                "ready_expansion_candidate_count="
+                f"{component.get('ready_expansion_candidate_count', 0)}\n"
+            )
+            f.write(f"focus_areas={compact(component.get('focus_areas') or [])}\n")
+            f.write(
+                f"priority_domains={compact(component.get('priority_domains') or [])}\n"
+            )
+            f.write(
+                "domain_statuses="
+                + compact(
+                    [
+                        f"{name}:{row.get('status')}"
+                        for name, row in domains.items()
+                        if name
+                    ]
+                )
+                + "\n"
+            )
+            f.write(
+                "expansion_candidates="
+                + compact(
+                    [
+                        row.get("name")
+                        for row in expansion_candidates
+                        if row.get("name")
+                    ]
+                )
+                + "\n"
+            )
+            f.write(f"recommendations={compact(recommendations)}\n")
+        PY
+
     - name: Build benchmark knowledge source action plan (optional)
       id: benchmark_knowledge_source_action_plan
       continue-on-error: true
@@ -3267,6 +3405,7 @@ jobs:
         add_if_exists --benchmark-knowledge-realdata-correlation "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_realdata_correlation_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-matrix "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_domain_matrix_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_domain_action_plan_json || '' }}"
+        add_if_exists --benchmark-knowledge-source-coverage "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_source_coverage_json || '' }}"
         add_if_exists --benchmark-knowledge-source-action-plan "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_source_action_plan_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_outcome_correlation_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-drift "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_outcome_drift_json || '' }}"
@@ -3305,6 +3444,8 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-matrix "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ steps.benchmark_knowledge_domain_action_plan.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON:-}"
+        add_if_exists --benchmark-knowledge-source-coverage "${{ steps.benchmark_knowledge_source_coverage.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-source-coverage "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_SOURCE_COVERAGE_JSON:-}"
         add_if_exists --benchmark-knowledge-source-action-plan "${{ steps.benchmark_knowledge_source_action_plan.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-source-action-plan "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON:-}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${{ steps.benchmark_knowledge_outcome_correlation.outputs.output_json || '' }}"
@@ -3558,6 +3699,41 @@ jobs:
                 f"{compact(payload.get('knowledge_domain_action_plan_recommendations') or [])}\n"
             )
             f.write(
+                "knowledge_source_coverage_status="
+                f"{payload.get('knowledge_source_coverage_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_source_coverage_domain_statuses="
+                + compact(
+                    [
+                        f"{name}:{row.get('status')}"
+                        for name, row in (
+                            payload.get("knowledge_source_coverage_domains") or {}
+                        ).items()
+                        if name
+                    ]
+                )
+                + "\n"
+            )
+            f.write(
+                "knowledge_source_coverage_expansion_candidates="
+                + compact(
+                    [
+                        row.get("name")
+                        for row in (
+                            payload.get("knowledge_source_coverage_expansion_candidates")
+                            or []
+                        )
+                        if row.get("name")
+                    ]
+                )
+                + "\n"
+            )
+            f.write(
+                "knowledge_source_coverage_recommendations="
+                f"{compact(payload.get('knowledge_source_coverage_recommendations') or [])}\n"
+            )
+            f.write(
                 "knowledge_source_action_plan_status="
                 f"{payload.get('knowledge_source_action_plan_status', 'unknown')}\n"
             )
@@ -3706,6 +3882,41 @@ jobs:
             f.write(
                 "knowledge_domain_action_plan_recommendations="
                 f"{compact(payload.get('knowledge_domain_action_plan_recommendations') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_coverage_status="
+                f"{payload.get('knowledge_source_coverage_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_source_coverage_domain_statuses="
+                + compact(
+                    [
+                        f"{name}:{row.get('status')}"
+                        for name, row in (
+                            payload.get("knowledge_source_coverage_domains") or {}
+                        ).items()
+                        if name
+                    ]
+                )
+                + "\n"
+            )
+            f.write(
+                "knowledge_source_coverage_expansion_candidates="
+                + compact(
+                    [
+                        row.get("name")
+                        for row in (
+                            payload.get("knowledge_source_coverage_expansion_candidates")
+                            or []
+                        )
+                        if row.get("name")
+                    ]
+                )
+                + "\n"
+            )
+            f.write(
+                "knowledge_source_coverage_recommendations="
+                f"{compact(payload.get('knowledge_source_coverage_recommendations') or [])}\n"
             )
             f.write(
                 "knowledge_source_action_plan_status="
@@ -3879,6 +4090,7 @@ jobs:
         add_if_exists --benchmark-knowledge-realdata-correlation "${{ github.event.inputs.benchmark_companion_summary_knowledge_realdata_correlation_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-matrix "${{ github.event.inputs.benchmark_companion_summary_knowledge_domain_matrix_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ github.event.inputs.benchmark_companion_summary_knowledge_domain_action_plan_json || '' }}"
+        add_if_exists --benchmark-knowledge-source-coverage "${{ github.event.inputs.benchmark_companion_summary_knowledge_source_coverage_json || '' }}"
         add_if_exists --benchmark-knowledge-source-action-plan "${{ github.event.inputs.benchmark_companion_summary_knowledge_source_action_plan_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${{ github.event.inputs.benchmark_companion_summary_knowledge_outcome_correlation_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-drift "${{ github.event.inputs.benchmark_companion_summary_knowledge_outcome_drift_json || '' }}"
@@ -3907,6 +4119,8 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-matrix "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ steps.benchmark_knowledge_domain_action_plan.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON:-}"
+        add_if_exists --benchmark-knowledge-source-coverage "${{ steps.benchmark_knowledge_source_coverage.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-source-coverage "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_SOURCE_COVERAGE_JSON:-}"
         add_if_exists --benchmark-knowledge-source-action-plan "${{ steps.benchmark_knowledge_source_action_plan.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-source-action-plan "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON:-}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${{ steps.benchmark_knowledge_outcome_correlation.outputs.output_json || '' }}"
@@ -4164,6 +4378,41 @@ jobs:
                 f"{compact(payload.get('knowledge_domain_action_plan_recommendations') or [])}\n"
             )
             f.write(
+                "knowledge_source_coverage_status="
+                f"{payload.get('knowledge_source_coverage_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_source_coverage_domain_statuses="
+                + compact(
+                    [
+                        f"{name}:{row.get('status')}"
+                        for name, row in (
+                            payload.get("knowledge_source_coverage_domains") or {}
+                        ).items()
+                        if name
+                    ]
+                )
+                + "\n"
+            )
+            f.write(
+                "knowledge_source_coverage_expansion_candidates="
+                + compact(
+                    [
+                        row.get("name")
+                        for row in (
+                            payload.get("knowledge_source_coverage_expansion_candidates")
+                            or []
+                        )
+                        if row.get("name")
+                    ]
+                )
+                + "\n"
+            )
+            f.write(
+                "knowledge_source_coverage_recommendations="
+                f"{compact(payload.get('knowledge_source_coverage_recommendations') or [])}\n"
+            )
+            f.write(
                 "knowledge_source_action_plan_status="
                 f"{payload.get('knowledge_source_action_plan_status', 'unknown')}\n"
             )
@@ -4311,6 +4560,41 @@ jobs:
             f.write(
                 "knowledge_domain_action_plan_recommendations="
                 f"{compact(payload.get('knowledge_domain_action_plan_recommendations') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_coverage_status="
+                f"{payload.get('knowledge_source_coverage_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_source_coverage_domain_statuses="
+                + compact(
+                    [
+                        f"{name}:{row.get('status')}"
+                        for name, row in (
+                            payload.get("knowledge_source_coverage_domains") or {}
+                        ).items()
+                        if name
+                    ]
+                )
+                + "\n"
+            )
+            f.write(
+                "knowledge_source_coverage_expansion_candidates="
+                + compact(
+                    [
+                        row.get("name")
+                        for row in (
+                            payload.get("knowledge_source_coverage_expansion_candidates")
+                            or []
+                        )
+                        if row.get("name")
+                    ]
+                )
+                + "\n"
+            )
+            f.write(
+                "knowledge_source_coverage_recommendations="
+                f"{compact(payload.get('knowledge_source_coverage_recommendations') or [])}\n"
             )
             f.write(
                 "knowledge_source_action_plan_status="
@@ -4513,6 +4797,7 @@ jobs:
         add_if_exists --benchmark-knowledge-realdata-correlation "${{ github.event.inputs.benchmark_release_decision_knowledge_realdata_correlation_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-matrix "${{ github.event.inputs.benchmark_release_decision_knowledge_domain_matrix_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ github.event.inputs.benchmark_release_decision_knowledge_domain_action_plan_json || '' }}"
+        add_if_exists --benchmark-knowledge-source-coverage "${{ github.event.inputs.benchmark_release_decision_knowledge_source_coverage_json || '' }}"
         add_if_exists --benchmark-knowledge-source-action-plan "${{ github.event.inputs.benchmark_release_decision_knowledge_source_action_plan_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${{ github.event.inputs.benchmark_release_decision_knowledge_outcome_correlation_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-drift "${{ github.event.inputs.benchmark_release_decision_knowledge_outcome_drift_json || '' }}"
@@ -4545,6 +4830,8 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-matrix "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ steps.benchmark_knowledge_domain_action_plan.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON:-}"
+        add_if_exists --benchmark-knowledge-source-coverage "${{ steps.benchmark_knowledge_source_coverage.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-source-coverage "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_SOURCE_COVERAGE_JSON:-}"
         add_if_exists --benchmark-knowledge-source-action-plan "${{ steps.benchmark_knowledge_source_action_plan.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-source-action-plan "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON:-}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${{ steps.benchmark_knowledge_outcome_correlation.outputs.output_json || '' }}"
@@ -4820,6 +5107,41 @@ jobs:
                 f"{compact(payload.get('knowledge_domain_action_plan_recommendations') or [])}\n"
             )
             f.write(
+                "knowledge_source_coverage_status="
+                f"{payload.get('knowledge_source_coverage_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_source_coverage_domain_statuses="
+                + compact(
+                    [
+                        f"{name}:{row.get('status')}"
+                        for name, row in (
+                            payload.get("knowledge_source_coverage_domains") or {}
+                        ).items()
+                        if name
+                    ]
+                )
+                + "\n"
+            )
+            f.write(
+                "knowledge_source_coverage_expansion_candidates="
+                + compact(
+                    [
+                        row.get("name")
+                        for row in (
+                            payload.get("knowledge_source_coverage_expansion_candidates")
+                            or []
+                        )
+                        if row.get("name")
+                    ]
+                )
+                + "\n"
+            )
+            f.write(
+                "knowledge_source_coverage_recommendations="
+                f"{compact(payload.get('knowledge_source_coverage_recommendations') or [])}\n"
+            )
+            f.write(
                 "knowledge_source_action_plan_status="
                 f"{payload.get('knowledge_source_action_plan_status', 'unknown')}\n"
             )
@@ -5033,6 +5355,7 @@ jobs:
         add_if_exists --benchmark-knowledge-realdata-correlation "${{ github.event.inputs.benchmark_release_runbook_knowledge_realdata_correlation_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-matrix "${{ github.event.inputs.benchmark_release_runbook_knowledge_domain_matrix_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ github.event.inputs.benchmark_release_runbook_knowledge_domain_action_plan_json || '' }}"
+        add_if_exists --benchmark-knowledge-source-coverage "${{ github.event.inputs.benchmark_release_runbook_knowledge_source_coverage_json || '' }}"
         add_if_exists --benchmark-knowledge-source-action-plan "${{ github.event.inputs.benchmark_release_runbook_knowledge_source_action_plan_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${{ github.event.inputs.benchmark_release_runbook_knowledge_outcome_correlation_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-drift "${{ github.event.inputs.benchmark_release_runbook_knowledge_outcome_drift_json || '' }}"
@@ -5063,6 +5386,8 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-matrix "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ steps.benchmark_knowledge_domain_action_plan.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON:-}"
+        add_if_exists --benchmark-knowledge-source-coverage "${{ steps.benchmark_knowledge_source_coverage.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-source-coverage "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_SOURCE_COVERAGE_JSON:-}"
         add_if_exists --benchmark-knowledge-source-action-plan "${{ steps.benchmark_knowledge_source_action_plan.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-source-action-plan "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON:-}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${{ steps.benchmark_knowledge_outcome_correlation.outputs.output_json || '' }}"
@@ -5407,6 +5732,41 @@ jobs:
             f.write(
                 "knowledge_domain_action_plan_recommendations="
                 f"{compact(payload.get('knowledge_domain_action_plan_recommendations') or [])}\n"
+            )
+            f.write(
+                "knowledge_source_coverage_status="
+                f"{payload.get('knowledge_source_coverage_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_source_coverage_domain_statuses="
+                + compact(
+                    [
+                        f"{name}:{row.get('status')}"
+                        for name, row in (
+                            payload.get("knowledge_source_coverage_domains") or {}
+                        ).items()
+                        if name
+                    ]
+                )
+                + "\n"
+            )
+            f.write(
+                "knowledge_source_coverage_expansion_candidates="
+                + compact(
+                    [
+                        row.get("name")
+                        for row in (
+                            payload.get("knowledge_source_coverage_expansion_candidates")
+                            or []
+                        )
+                        if row.get("name")
+                    ]
+                )
+                + "\n"
+            )
+            f.write(
+                "knowledge_source_coverage_recommendations="
+                f"{compact(payload.get('knowledge_source_coverage_recommendations') or [])}\n"
             )
             f.write(
                 "knowledge_source_action_plan_status="
@@ -5845,6 +6205,7 @@ jobs:
         add_if_exists --benchmark-knowledge-realdata-correlation "${{ github.event.inputs.benchmark_competitive_surpass_index_knowledge_realdata_correlation_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-matrix "${{ github.event.inputs.benchmark_competitive_surpass_index_knowledge_domain_matrix_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ github.event.inputs.benchmark_competitive_surpass_index_knowledge_domain_action_plan_json || '' }}"
+        add_if_exists --benchmark-knowledge-source-coverage "${{ github.event.inputs.benchmark_competitive_surpass_index_knowledge_source_coverage_json || '' }}"
         add_if_exists --benchmark-knowledge-source-action-plan "${{ github.event.inputs.benchmark_competitive_surpass_index_knowledge_source_action_plan_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${{ github.event.inputs.benchmark_competitive_surpass_index_knowledge_outcome_correlation_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-drift "${{ github.event.inputs.benchmark_competitive_surpass_index_knowledge_outcome_drift_json || '' }}"
@@ -5863,6 +6224,8 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-matrix "${BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_DOMAIN_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ steps.benchmark_knowledge_domain_action_plan.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON:-}"
+        add_if_exists --benchmark-knowledge-source-coverage "${{ steps.benchmark_knowledge_source_coverage.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-source-coverage "${BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_SOURCE_COVERAGE_JSON:-}"
         add_if_exists --benchmark-knowledge-source-action-plan "${{ steps.benchmark_knowledge_source_action_plan.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-source-action-plan "${BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON:-}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${{ steps.benchmark_knowledge_outcome_correlation.outputs.output_json || '' }}"
@@ -6353,6 +6716,16 @@ jobs:
           ${{ steps.benchmark_knowledge_domain_action_plan.outputs.output_md }}
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
+    - name: Upload benchmark knowledge source coverage
+      if: steps.benchmark_knowledge_source_coverage.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-knowledge-source-coverage-${{ github.run_number }}
+        path: |
+          ${{ steps.benchmark_knowledge_source_coverage.outputs.output_json }}
+          ${{ steps.benchmark_knowledge_source_coverage.outputs.output_md }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
     - name: Upload benchmark knowledge source action plan
       if: steps.benchmark_knowledge_source_action_plan.outputs.enabled == 'true'
       uses: actions/upload-artifact@v4
@@ -6772,6 +7145,25 @@ jobs:
         else
           echo "- Benchmark knowledge domain action plan: skipped (BENCHMARK_KNOWLEDGE_DOMAIN_ACTION_PLAN_ENABLE!=true or no inputs)" >> $GITHUB_STEP_SUMMARY
         fi
+        if [[ "${{ steps.benchmark_knowledge_source_coverage.outputs.enabled }}" == "true" ]]; then
+          echo "- Benchmark knowledge source coverage status: ${{ steps.benchmark_knowledge_source_coverage.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge source coverage ready source groups: ${{ steps.benchmark_knowledge_source_coverage.outputs.ready_source_group_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge source coverage partial source groups: ${{ steps.benchmark_knowledge_source_coverage.outputs.partial_source_group_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge source coverage missing source groups: ${{ steps.benchmark_knowledge_source_coverage.outputs.missing_source_group_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge source coverage total source groups: ${{ steps.benchmark_knowledge_source_coverage.outputs.total_source_group_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge source coverage total source tables: ${{ steps.benchmark_knowledge_source_coverage.outputs.total_source_table_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge source coverage total source items: ${{ steps.benchmark_knowledge_source_coverage.outputs.total_source_item_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge source coverage reference standards: ${{ steps.benchmark_knowledge_source_coverage.outputs.total_reference_standard_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge source coverage ready expansion candidates: ${{ steps.benchmark_knowledge_source_coverage.outputs.ready_expansion_candidate_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge source coverage focus areas: ${{ steps.benchmark_knowledge_source_coverage.outputs.focus_areas }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge source coverage priority domains: ${{ steps.benchmark_knowledge_source_coverage.outputs.priority_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge source coverage domain statuses: ${{ steps.benchmark_knowledge_source_coverage.outputs.domain_statuses }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge source coverage expansion candidates: ${{ steps.benchmark_knowledge_source_coverage.outputs.expansion_candidates }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge source coverage recommendations: ${{ steps.benchmark_knowledge_source_coverage.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge source coverage artifact: ${{ steps.benchmark_knowledge_source_coverage.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Benchmark knowledge source coverage: skipped (BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_ENABLE!=true)" >> $GITHUB_STEP_SUMMARY
+        fi
         if [[ "${{ steps.benchmark_knowledge_source_action_plan.outputs.enabled }}" == "true" ]]; then
           echo "- Benchmark knowledge source action plan status: ${{ steps.benchmark_knowledge_source_action_plan.outputs.status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark knowledge source action plan total actions: ${{ steps.benchmark_knowledge_source_action_plan.outputs.total_action_count }}" >> $GITHUB_STEP_SUMMARY
@@ -6854,6 +7246,10 @@ jobs:
           echo "- Benchmark artifact bundle knowledge domain matrix focus areas: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_matrix_focus_areas }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle knowledge domain matrix domains: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_matrix_priority_domains }} / ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_matrix_domain_statuses }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle knowledge domain matrix recommendations: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_matrix_recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge source coverage: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_coverage_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge source coverage domains: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_coverage_domain_statuses }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge source coverage expansion candidates: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_coverage_expansion_candidates }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge source coverage recommendations: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_coverage_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle knowledge source action plan: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_action_plan_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle knowledge source action plan domains: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_action_plan_priority_domains }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle knowledge source action plan first actions: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_action_plan_recommended_first_actions }}" >> $GITHUB_STEP_SUMMARY
@@ -6917,6 +7313,10 @@ jobs:
           echo "- Benchmark companion knowledge domain matrix focus areas: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_matrix_focus_areas }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion knowledge domain matrix domains: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_matrix_priority_domains }} / ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_matrix_domain_statuses }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion knowledge domain matrix recommendations: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_matrix_recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge source coverage: ${{ steps.benchmark_companion_summary.outputs.knowledge_source_coverage_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge source coverage domains: ${{ steps.benchmark_companion_summary.outputs.knowledge_source_coverage_domain_statuses }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge source coverage expansion candidates: ${{ steps.benchmark_companion_summary.outputs.knowledge_source_coverage_expansion_candidates }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge source coverage recommendations: ${{ steps.benchmark_companion_summary.outputs.knowledge_source_coverage_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion knowledge source action plan: ${{ steps.benchmark_companion_summary.outputs.knowledge_source_action_plan_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion knowledge source action plan domains: ${{ steps.benchmark_companion_summary.outputs.knowledge_source_action_plan_priority_domains }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion knowledge source action plan first actions: ${{ steps.benchmark_companion_summary.outputs.knowledge_source_action_plan_recommended_first_actions }}" >> $GITHUB_STEP_SUMMARY
@@ -6978,6 +7378,10 @@ jobs:
           echo "- Benchmark release knowledge domain matrix focus areas: ${{ steps.benchmark_release_decision.outputs.knowledge_domain_matrix_focus_areas }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release knowledge domain matrix domains: ${{ steps.benchmark_release_decision.outputs.knowledge_domain_matrix_priority_domains }} / ${{ steps.benchmark_release_decision.outputs.knowledge_domain_matrix_domain_statuses }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release knowledge domain matrix recommendations: ${{ steps.benchmark_release_decision.outputs.knowledge_domain_matrix_recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge source coverage: ${{ steps.benchmark_release_decision.outputs.knowledge_source_coverage_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge source coverage domains: ${{ steps.benchmark_release_decision.outputs.knowledge_source_coverage_domain_statuses }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge source coverage expansion candidates: ${{ steps.benchmark_release_decision.outputs.knowledge_source_coverage_expansion_candidates }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge source coverage recommendations: ${{ steps.benchmark_release_decision.outputs.knowledge_source_coverage_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release knowledge source action plan: ${{ steps.benchmark_release_decision.outputs.knowledge_source_action_plan_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release knowledge source action plan domains: ${{ steps.benchmark_release_decision.outputs.knowledge_source_action_plan_priority_domains }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release knowledge source action plan first actions: ${{ steps.benchmark_release_decision.outputs.knowledge_source_action_plan_recommended_first_actions }}" >> $GITHUB_STEP_SUMMARY
@@ -7033,6 +7437,10 @@ jobs:
           echo "- Benchmark release runbook knowledge domain matrix focus areas: ${{ steps.benchmark_release_runbook.outputs.knowledge_domain_matrix_focus_areas }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook knowledge domain matrix domains: ${{ steps.benchmark_release_runbook.outputs.knowledge_domain_matrix_priority_domains }} / ${{ steps.benchmark_release_runbook.outputs.knowledge_domain_matrix_domain_statuses }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook knowledge domain matrix recommendations: ${{ steps.benchmark_release_runbook.outputs.knowledge_domain_matrix_recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge source coverage: ${{ steps.benchmark_release_runbook.outputs.knowledge_source_coverage_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge source coverage domains: ${{ steps.benchmark_release_runbook.outputs.knowledge_source_coverage_domain_statuses }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge source coverage expansion candidates: ${{ steps.benchmark_release_runbook.outputs.knowledge_source_coverage_expansion_candidates }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge source coverage recommendations: ${{ steps.benchmark_release_runbook.outputs.knowledge_source_coverage_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook knowledge source action plan: ${{ steps.benchmark_release_runbook.outputs.knowledge_source_action_plan_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook knowledge source action plan domains: ${{ steps.benchmark_release_runbook.outputs.knowledge_source_action_plan_priority_domains }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook knowledge source action plan first actions: ${{ steps.benchmark_release_runbook.outputs.knowledge_source_action_plan_recommended_first_actions }}" >> $GITHUB_STEP_SUMMARY

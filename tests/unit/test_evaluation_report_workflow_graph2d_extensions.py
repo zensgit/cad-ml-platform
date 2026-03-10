@@ -270,6 +270,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_knowledge_application_knowledge_readiness_json" in dispatch_inputs
     assert "benchmark_knowledge_domain_action_plan_enable" in dispatch_inputs
     assert "benchmark_knowledge_domain_action_plan_knowledge_domain_matrix_json" in dispatch_inputs
+    assert "benchmark_knowledge_source_coverage_enable" in dispatch_inputs
     assert "benchmark_knowledge_source_action_plan_enable" in dispatch_inputs
     assert (
         "benchmark_knowledge_source_action_plan_knowledge_source_coverage_json"
@@ -295,6 +296,10 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_competitive_surpass_index_knowledge_domain_matrix_json" in dispatch_inputs
     assert (
         "benchmark_competitive_surpass_index_knowledge_domain_action_plan_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_competitive_surpass_index_knowledge_source_coverage_json"
         in dispatch_inputs
     )
     assert (
@@ -333,6 +338,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_artifact_bundle_knowledge_drift_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_knowledge_application_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_knowledge_domain_action_plan_json" in dispatch_inputs
+    assert "benchmark_artifact_bundle_knowledge_source_coverage_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_knowledge_source_action_plan_json" in dispatch_inputs
     assert (
         "benchmark_artifact_bundle_knowledge_outcome_correlation_json"
@@ -350,6 +356,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_companion_summary_knowledge_drift_json" in dispatch_inputs
     assert "benchmark_companion_summary_knowledge_application_json" in dispatch_inputs
     assert "benchmark_companion_summary_knowledge_domain_action_plan_json" in dispatch_inputs
+    assert "benchmark_companion_summary_knowledge_source_coverage_json" in dispatch_inputs
     assert "benchmark_companion_summary_knowledge_source_action_plan_json" in dispatch_inputs
     assert "benchmark_companion_summary_competitive_surpass_index_json" in dispatch_inputs
     assert (
@@ -370,6 +377,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_release_decision_knowledge_drift_json" in dispatch_inputs
     assert "benchmark_release_decision_knowledge_application_json" in dispatch_inputs
     assert "benchmark_release_decision_knowledge_domain_action_plan_json" in dispatch_inputs
+    assert "benchmark_release_decision_knowledge_source_coverage_json" in dispatch_inputs
     assert "benchmark_release_decision_knowledge_source_action_plan_json" in dispatch_inputs
     assert (
         "benchmark_release_decision_knowledge_outcome_correlation_json"
@@ -389,6 +397,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_release_runbook_knowledge_drift_json" in dispatch_inputs
     assert "benchmark_release_runbook_knowledge_application_json" in dispatch_inputs
     assert "benchmark_release_runbook_knowledge_domain_action_plan_json" in dispatch_inputs
+    assert "benchmark_release_runbook_knowledge_source_coverage_json" in dispatch_inputs
     assert "benchmark_release_runbook_knowledge_source_action_plan_json" in dispatch_inputs
     assert (
         "benchmark_release_runbook_knowledge_outcome_correlation_json"
@@ -785,6 +794,34 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "domain_action_counts=" in benchmark_knowledge_domain_action_plan_script
     assert "recommendations=" in benchmark_knowledge_domain_action_plan_script
 
+    benchmark_knowledge_source_coverage_step = _get_step(
+        workflow, "evaluate", "Build benchmark knowledge source coverage (optional)"
+    )
+    benchmark_knowledge_source_coverage_script = (
+        benchmark_knowledge_source_coverage_step["run"]
+    )
+    assert (
+        "scripts/export_benchmark_knowledge_source_coverage.py"
+        in benchmark_knowledge_source_coverage_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_ENABLE"
+        in benchmark_knowledge_source_coverage_script
+    )
+    assert "ready_source_group_count=" in benchmark_knowledge_source_coverage_script
+    assert "partial_source_group_count=" in benchmark_knowledge_source_coverage_script
+    assert "missing_source_group_count=" in benchmark_knowledge_source_coverage_script
+    assert "total_source_group_count=" in benchmark_knowledge_source_coverage_script
+    assert "total_source_table_count=" in benchmark_knowledge_source_coverage_script
+    assert "total_source_item_count=" in benchmark_knowledge_source_coverage_script
+    assert "total_reference_standard_count=" in benchmark_knowledge_source_coverage_script
+    assert "ready_expansion_candidate_count=" in benchmark_knowledge_source_coverage_script
+    assert "focus_areas=" in benchmark_knowledge_source_coverage_script
+    assert "priority_domains=" in benchmark_knowledge_source_coverage_script
+    assert "domain_statuses=" in benchmark_knowledge_source_coverage_script
+    assert "expansion_candidates=" in benchmark_knowledge_source_coverage_script
+    assert "recommendations=" in benchmark_knowledge_source_coverage_script
+
     benchmark_knowledge_source_action_plan_step = _get_step(
         workflow, "evaluate", "Build benchmark knowledge source action plan (optional)"
     )
@@ -1037,6 +1074,10 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_domain_action_plan_actions=" in benchmark_bundle_script
     assert "knowledge_domain_action_plan_priority_domains=" in benchmark_bundle_script
     assert "knowledge_domain_action_plan_recommendations=" in benchmark_bundle_script
+    assert "knowledge_source_coverage_status=" in benchmark_bundle_script
+    assert "knowledge_source_coverage_domain_statuses=" in benchmark_bundle_script
+    assert "knowledge_source_coverage_expansion_candidates=" in benchmark_bundle_script
+    assert "knowledge_source_coverage_recommendations=" in benchmark_bundle_script
     assert "knowledge_source_action_plan_status=" in benchmark_bundle_script
     assert "knowledge_source_action_plan_priority_domains=" in benchmark_bundle_script
     assert "knowledge_source_action_plan_recommended_first_actions=" in (
@@ -1124,6 +1165,10 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_domain_action_plan_actions=" in benchmark_companion_script
     assert "knowledge_domain_action_plan_priority_domains=" in benchmark_companion_script
     assert "knowledge_domain_action_plan_recommendations=" in benchmark_companion_script
+    assert "knowledge_source_coverage_status=" in benchmark_companion_script
+    assert "knowledge_source_coverage_domain_statuses=" in benchmark_companion_script
+    assert "knowledge_source_coverage_expansion_candidates=" in benchmark_companion_script
+    assert "knowledge_source_coverage_recommendations=" in benchmark_companion_script
     assert "knowledge_source_action_plan_status=" in benchmark_companion_script
     assert "knowledge_source_action_plan_priority_domains=" in benchmark_companion_script
     assert "knowledge_source_action_plan_recommended_first_actions=" in (
@@ -1211,6 +1256,10 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_domain_action_plan_actions=" in benchmark_release_script
     assert "knowledge_domain_action_plan_priority_domains=" in benchmark_release_script
     assert "knowledge_domain_action_plan_recommendations=" in benchmark_release_script
+    assert "knowledge_source_coverage_status=" in benchmark_release_script
+    assert "knowledge_source_coverage_domain_statuses=" in benchmark_release_script
+    assert "knowledge_source_coverage_expansion_candidates=" in benchmark_release_script
+    assert "knowledge_source_coverage_recommendations=" in benchmark_release_script
     assert "knowledge_source_action_plan_status=" in benchmark_release_script
     assert "knowledge_source_action_plan_priority_domains=" in benchmark_release_script
     assert "knowledge_source_action_plan_recommended_first_actions=" in (
@@ -1299,6 +1348,10 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_domain_action_plan_actions=" in benchmark_runbook_script
     assert "knowledge_domain_action_plan_priority_domains=" in benchmark_runbook_script
     assert "knowledge_domain_action_plan_recommendations=" in benchmark_runbook_script
+    assert "knowledge_source_coverage_status=" in benchmark_runbook_script
+    assert "knowledge_source_coverage_domain_statuses=" in benchmark_runbook_script
+    assert "knowledge_source_coverage_expansion_candidates=" in benchmark_runbook_script
+    assert "knowledge_source_coverage_recommendations=" in benchmark_runbook_script
     assert "knowledge_source_action_plan_status=" in benchmark_runbook_script
     assert "knowledge_source_action_plan_priority_domains=" in benchmark_runbook_script
     assert "knowledge_source_action_plan_recommended_first_actions=" in (
@@ -1515,6 +1568,13 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert (
         upload_knowledge_domain_action_plan["if"]
         == "steps.benchmark_knowledge_domain_action_plan.outputs.enabled == 'true'"
+    )
+    upload_knowledge_source_coverage = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge source coverage"
+    )
+    assert (
+        upload_knowledge_source_coverage["if"]
+        == "steps.benchmark_knowledge_source_coverage.outputs.enabled == 'true'"
     )
     upload_knowledge_source_action_plan = _get_step(
         workflow, "evaluate", "Upload benchmark knowledge source action plan"
@@ -1851,6 +1911,21 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark knowledge domain action plan domain action counts" in summary_script
     assert "Benchmark knowledge domain action plan recommendations" in summary_script
     assert "Benchmark knowledge domain action plan artifact" in summary_script
+    assert "Benchmark knowledge source coverage status" in summary_script
+    assert "Benchmark knowledge source coverage ready source groups" in summary_script
+    assert "Benchmark knowledge source coverage partial source groups" in summary_script
+    assert "Benchmark knowledge source coverage missing source groups" in summary_script
+    assert "Benchmark knowledge source coverage total source groups" in summary_script
+    assert "Benchmark knowledge source coverage total source tables" in summary_script
+    assert "Benchmark knowledge source coverage total source items" in summary_script
+    assert "Benchmark knowledge source coverage reference standards" in summary_script
+    assert "Benchmark knowledge source coverage ready expansion candidates" in summary_script
+    assert "Benchmark knowledge source coverage focus areas" in summary_script
+    assert "Benchmark knowledge source coverage priority domains" in summary_script
+    assert "Benchmark knowledge source coverage domain statuses" in summary_script
+    assert "Benchmark knowledge source coverage expansion candidates" in summary_script
+    assert "Benchmark knowledge source coverage recommendations" in summary_script
+    assert "Benchmark knowledge source coverage artifact" in summary_script
     assert "Benchmark knowledge source action plan status" in summary_script
     assert "Benchmark knowledge source action plan total actions" in summary_script
     assert "Benchmark knowledge source action plan high-priority actions" in (
@@ -1880,6 +1955,14 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark artifact bundle knowledge realdata focus areas" in summary_script
     assert "Benchmark artifact bundle knowledge realdata domains" in summary_script
     assert "Benchmark artifact bundle knowledge realdata recommendations" in summary_script
+    assert "Benchmark artifact bundle knowledge source coverage" in summary_script
+    assert "Benchmark artifact bundle knowledge source coverage domains" in summary_script
+    assert "Benchmark artifact bundle knowledge source coverage expansion candidates" in (
+        summary_script
+    )
+    assert "Benchmark artifact bundle knowledge source coverage recommendations" in (
+        summary_script
+    )
     assert "Benchmark artifact bundle knowledge source action plan" in summary_script
     assert "Benchmark artifact bundle knowledge source action plan domains" in (
         summary_script
@@ -1922,6 +2005,14 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark companion knowledge realdata focus areas" in summary_script
     assert "Benchmark companion knowledge realdata domains" in summary_script
     assert "Benchmark companion knowledge realdata recommendations" in summary_script
+    assert "Benchmark companion knowledge source coverage" in summary_script
+    assert "Benchmark companion knowledge source coverage domains" in summary_script
+    assert "Benchmark companion knowledge source coverage expansion candidates" in (
+        summary_script
+    )
+    assert "Benchmark companion knowledge source coverage recommendations" in (
+        summary_script
+    )
     assert "Benchmark companion knowledge source action plan" in summary_script
     assert "Benchmark companion knowledge source action plan domains" in summary_script
     assert "Benchmark companion knowledge source action plan first actions" in (
@@ -1959,6 +2050,14 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark release knowledge realdata focus areas" in summary_script
     assert "Benchmark release knowledge realdata domains" in summary_script
     assert "Benchmark release knowledge realdata recommendations" in summary_script
+    assert "Benchmark release knowledge source coverage" in summary_script
+    assert "Benchmark release knowledge source coverage domains" in summary_script
+    assert "Benchmark release knowledge source coverage expansion candidates" in (
+        summary_script
+    )
+    assert "Benchmark release knowledge source coverage recommendations" in (
+        summary_script
+    )
     assert "Benchmark release knowledge source action plan" in summary_script
     assert "Benchmark release knowledge source action plan domains" in summary_script
     assert "Benchmark release knowledge source action plan first actions" in (
@@ -1983,6 +2082,16 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark release runbook knowledge realdata focus areas" in summary_script
     assert "Benchmark release runbook knowledge realdata domains" in summary_script
     assert "Benchmark release runbook knowledge realdata recommendations" in summary_script
+    assert "Benchmark release runbook knowledge source coverage" in summary_script
+    assert "Benchmark release runbook knowledge source coverage domains" in (
+        summary_script
+    )
+    assert "Benchmark release runbook knowledge source coverage expansion candidates" in (
+        summary_script
+    )
+    assert "Benchmark release runbook knowledge source coverage recommendations" in (
+        summary_script
+    )
     assert "Benchmark release runbook knowledge source action plan" in summary_script
     assert "Benchmark release runbook knowledge source action plan domains" in (
         summary_script
