@@ -136,6 +136,22 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
             },
             "recommendations": ["Backfill GD&T foundation and real-data coverage."],
         },
+        benchmark_knowledge_domain_action_plan={
+            "knowledge_domain_action_plan": {
+                "status": "knowledge_domain_action_plan_blocked",
+                "priority_domains": ["gdt"],
+                "actions": [
+                    {
+                        "id": "gdt:foundation",
+                        "domain": "gdt",
+                        "stage": "foundation",
+                        "priority": "high",
+                        "status": "blocked",
+                    }
+                ],
+            },
+            "recommendations": ["Backfill GD&T foundation metrics first."],
+        },
         artifact_paths={
             "benchmark_release_decision": "release.json",
             "benchmark_engineering_signals": "engineering.json",
@@ -158,6 +174,12 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
     assert payload["knowledge_application_domains"]["gdt"]["status"] == "partial"
     assert payload["knowledge_domain_matrix_status"] == "knowledge_domain_matrix_partial"
     assert payload["knowledge_domain_matrix_domains"]["gdt"]["status"] == "blocked"
+    assert payload["knowledge_domain_action_plan_status"] == (
+        "knowledge_domain_action_plan_blocked"
+    )
+    assert payload["knowledge_domain_action_plan_actions"][0]["id"] == (
+        "gdt:foundation"
+    )
     assert payload["next_action"] == "collect_artifacts"
     assert "benchmark_artifact_bundle" in payload["missing_artifacts"]
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
@@ -289,6 +311,22 @@ def test_build_release_runbook_freezes_when_ready() -> None:
             },
             "recommendations": [],
         },
+        benchmark_knowledge_domain_action_plan={
+            "knowledge_domain_action_plan": {
+                "status": "knowledge_domain_action_plan_ready",
+                "priority_domains": [],
+                "actions": [
+                    {
+                        "id": "standards:realdata",
+                        "domain": "standards",
+                        "stage": "realdata",
+                        "priority": "medium",
+                        "status": "ready",
+                    }
+                ],
+            },
+            "recommendations": [],
+        },
         benchmark_knowledge_outcome_correlation={
             "knowledge_outcome_correlation": {
                 "status": "knowledge_outcome_correlation_ready",
@@ -332,6 +370,7 @@ def test_build_release_runbook_freezes_when_ready() -> None:
             "benchmark_artifact_bundle": "bundle.json",
             "benchmark_engineering_signals": "engineering.json",
             "benchmark_realdata_signals": "realdata.json",
+            "benchmark_knowledge_domain_action_plan": "knowledge_domain_action_plan.json",
             "benchmark_knowledge_outcome_correlation": (
                 "knowledge_outcome_correlation.json"
             ),
@@ -352,6 +391,12 @@ def test_build_release_runbook_freezes_when_ready() -> None:
     assert payload["knowledge_domain_focus_areas"] == []
     assert payload["knowledge_application_status"] == "knowledge_application_ready"
     assert payload["knowledge_domain_matrix_status"] == "knowledge_domain_matrix_ready"
+    assert payload["knowledge_domain_action_plan_status"] == (
+        "knowledge_domain_action_plan_ready"
+    )
+    assert payload["knowledge_domain_action_plan_actions"][0]["id"] == (
+        "standards:realdata"
+    )
     assert payload["knowledge_outcome_drift_status"] == "improved"
     assert payload["competitive_surpass_index_status"] == "competitive_surpass_ready"
     assert payload["competitive_surpass_index"]["score"] == 91
@@ -360,6 +405,7 @@ def test_build_release_runbook_freezes_when_ready() -> None:
     assert payload["next_action"] == "freeze_release_baseline"
     assert "benchmark_operator_adoption" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_drift" not in payload["missing_artifacts"]
+    assert "benchmark_knowledge_domain_action_plan" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_outcome_drift" not in payload["missing_artifacts"]
     assert "benchmark_realdata_signals" not in payload["missing_artifacts"]
     assert "benchmark_competitive_surpass_index" not in payload["missing_artifacts"]
@@ -383,6 +429,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     knowledge_application = tmp_path / "knowledge_application.json"
     knowledge_realdata_correlation = tmp_path / "knowledge_realdata_correlation.json"
     knowledge_domain_matrix = tmp_path / "knowledge_domain_matrix.json"
+    knowledge_domain_action_plan = tmp_path / "knowledge_domain_action_plan.json"
     knowledge_outcome_correlation = tmp_path / "knowledge_outcome_correlation.json"
     knowledge_outcome_drift = tmp_path / "knowledge_outcome_drift.json"
     competitive_surpass = tmp_path / "competitive_surpass.json"
@@ -580,6 +627,29 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    knowledge_domain_action_plan.write_text(
+        json.dumps(
+            {
+                "knowledge_domain_action_plan": {
+                    "status": "knowledge_domain_action_plan_partial",
+                    "priority_domains": ["tolerance"],
+                    "actions": [
+                        {
+                            "id": "tolerance:realdata",
+                            "domain": "tolerance",
+                            "stage": "realdata",
+                            "priority": "high",
+                            "status": "partial",
+                        }
+                    ],
+                },
+                "recommendations": [
+                    "Raise tolerance real-data depth before promoting the next baseline."
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
     knowledge_outcome_correlation.write_text(
         json.dumps(
             {
@@ -666,6 +736,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
             str(knowledge_realdata_correlation),
             "--benchmark-knowledge-domain-matrix",
             str(knowledge_domain_matrix),
+            "--benchmark-knowledge-domain-action-plan",
+            str(knowledge_domain_action_plan),
             "--benchmark-knowledge-outcome-correlation",
             str(knowledge_outcome_correlation),
             "--benchmark-knowledge-outcome-drift",
@@ -692,6 +764,12 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert payload["knowledge_domain_focus_areas"][0]["domain"] == "tolerance"
     assert payload["knowledge_application_status"] == "knowledge_application_partial"
     assert payload["knowledge_application_domains"]["tolerance"]["status"] == "partial"
+    assert payload["knowledge_domain_action_plan_status"] == (
+        "knowledge_domain_action_plan_partial"
+    )
+    assert payload["knowledge_domain_action_plan_actions"][0]["id"] == (
+        "tolerance:realdata"
+    )
     assert payload["knowledge_outcome_correlation_status"] == (
         "knowledge_outcome_correlation_partial"
     )
@@ -706,6 +784,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         "Expand history and STEP real-data depth before claiming benchmark surpass readiness."
     ]
     assert payload["next_action"] == "review_signals"
+    assert "benchmark_knowledge_domain_action_plan" not in payload["missing_artifacts"]
     assert payload["artifacts"]["benchmark_knowledge_drift"]["present"] is True
     assert payload["artifacts"]["benchmark_knowledge_outcome_drift"]["present"] is True
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
@@ -735,6 +814,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert "## Knowledge Domain Focus Areas" in rendered
     assert "## Knowledge Application" in rendered
     assert "## Knowledge Domain Matrix" in rendered
+    assert "## Knowledge Domain Action Plan" in rendered
     assert "## Knowledge Outcome Drift" in rendered
     assert "## Competitive Surpass Index" in rendered
     assert "`competitive_surpass_index_status`: `competitive_surpass_partial`" in rendered

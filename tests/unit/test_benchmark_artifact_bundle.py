@@ -156,6 +156,22 @@ def test_build_bundle_prefers_operational_summary() -> None:
             },
             "recommendations": ["Backfill standards foundation and raise real-data depth."],
         },
+        benchmark_knowledge_domain_action_plan={
+            "knowledge_domain_action_plan": {
+                "status": "knowledge_domain_action_plan_blocked",
+                "priority_domains": ["standards"],
+                "actions": [
+                    {
+                        "id": "standards:foundation",
+                        "domain": "standards",
+                        "stage": "foundation",
+                        "priority": "high",
+                        "status": "blocked",
+                    }
+                ],
+            },
+            "recommendations": ["Backfill standards foundation metrics first."],
+        },
         feedback_flywheel={},
         assistant_evidence={},
         review_queue={},
@@ -167,7 +183,7 @@ def test_build_bundle_prefers_operational_summary() -> None:
         },
     )
     assert payload["overall_status"] == "attention_required"
-    assert payload["available_artifact_count"] == 8
+    assert payload["available_artifact_count"] == 9
     assert payload["component_statuses"]["feedback_flywheel"] == "feedback_collected"
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_partial"
     assert payload["knowledge_focus_area_count"] == 1
@@ -186,6 +202,9 @@ def test_build_bundle_prefers_operational_summary() -> None:
     assert payload["component_statuses"]["knowledge_domain_matrix"] == (
         "knowledge_domain_matrix_partial"
     )
+    assert payload["component_statuses"]["knowledge_domain_action_plan"] == (
+        "knowledge_domain_action_plan_blocked"
+    )
     assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
     assert payload["operator_adoption_knowledge_outcome_drift"]["status"] == "regressed"
     assert payload["operator_adoption_release_surface_alignment"]["status"] == "aligned"
@@ -194,6 +213,12 @@ def test_build_bundle_prefers_operational_summary() -> None:
     assert payload["knowledge_application_domains"]["standards"]["status"] == "partial"
     assert payload["knowledge_domain_matrix_status"] == "knowledge_domain_matrix_partial"
     assert payload["knowledge_domain_matrix_domains"]["standards"]["status"] == "blocked"
+    assert payload["knowledge_domain_action_plan_status"] == (
+        "knowledge_domain_action_plan_blocked"
+    )
+    assert payload["knowledge_domain_action_plan_actions"][0]["id"] == (
+        "standards:foundation"
+    )
     assert payload["realdata_status"] == "realdata_foundation_partial"
     assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
     assert payload["blockers"] == ["feedback backlog"]

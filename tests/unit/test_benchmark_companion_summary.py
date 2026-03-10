@@ -167,6 +167,22 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
             },
             "recommendations": ["Backfill standards foundation and real-data coverage."],
         },
+        benchmark_knowledge_domain_action_plan={
+            "knowledge_domain_action_plan": {
+                "status": "knowledge_domain_action_plan_blocked",
+                "priority_domains": ["standards"],
+                "actions": [
+                    {
+                        "id": "standards:foundation",
+                        "domain": "standards",
+                        "stage": "foundation",
+                        "priority": "high",
+                        "status": "blocked",
+                    }
+                ],
+            },
+            "recommendations": ["Backfill standards foundation metrics first."],
+        },
     )
 
     assert payload["overall_status"] == "attention_required"
@@ -200,6 +216,15 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
     assert payload["knowledge_domain_matrix_domains"]["standards"]["status"] == "blocked"
     assert payload["component_statuses"]["knowledge_domain_matrix"] == (
         "knowledge_domain_matrix_partial"
+    )
+    assert payload["component_statuses"]["knowledge_domain_action_plan"] == (
+        "knowledge_domain_action_plan_blocked"
+    )
+    assert payload["knowledge_domain_action_plan_status"] == (
+        "knowledge_domain_action_plan_blocked"
+    )
+    assert payload["knowledge_domain_action_plan_actions"][0]["id"] == (
+        "standards:foundation"
     )
     assert payload["knowledge_drift_domain_regressions"] == []
     assert payload["recommended_actions"] == ["reduce review queue backlog"]

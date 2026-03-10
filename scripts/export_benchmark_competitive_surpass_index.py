@@ -52,6 +52,7 @@ def build_competitive_surpass_summary(
     benchmark_knowledge_application: Dict[str, Any],
     benchmark_knowledge_realdata_correlation: Dict[str, Any],
     benchmark_knowledge_domain_matrix: Dict[str, Any],
+    benchmark_knowledge_domain_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_correlation: Dict[str, Any],
     benchmark_knowledge_outcome_drift: Dict[str, Any],
     benchmark_realdata_signals: Dict[str, Any],
@@ -65,6 +66,7 @@ def build_competitive_surpass_summary(
         benchmark_knowledge_application=benchmark_knowledge_application,
         benchmark_knowledge_realdata_correlation=benchmark_knowledge_realdata_correlation,
         benchmark_knowledge_domain_matrix=benchmark_knowledge_domain_matrix,
+        benchmark_knowledge_domain_action_plan=benchmark_knowledge_domain_action_plan,
         benchmark_knowledge_outcome_correlation=benchmark_knowledge_outcome_correlation,
         benchmark_knowledge_outcome_drift=benchmark_knowledge_outcome_drift,
         benchmark_realdata_signals=benchmark_realdata_signals,
@@ -90,6 +92,7 @@ def main() -> None:
     parser.add_argument("--benchmark-knowledge-application", default="")
     parser.add_argument("--benchmark-knowledge-realdata-correlation", default="")
     parser.add_argument("--benchmark-knowledge-domain-matrix", default="")
+    parser.add_argument("--benchmark-knowledge-domain-action-plan", default="")
     parser.add_argument("--benchmark-knowledge-outcome-correlation", default="")
     parser.add_argument("--benchmark-knowledge-outcome-drift", default="")
     parser.add_argument("--benchmark-realdata-signals", default="")
@@ -107,6 +110,9 @@ def main() -> None:
             args.benchmark_knowledge_realdata_correlation
         ),
         "benchmark_knowledge_domain_matrix": args.benchmark_knowledge_domain_matrix,
+        "benchmark_knowledge_domain_action_plan": (
+            args.benchmark_knowledge_domain_action_plan
+        ),
         "benchmark_knowledge_outcome_correlation": (
             args.benchmark_knowledge_outcome_correlation
         ),
@@ -125,6 +131,9 @@ def main() -> None:
         ),
         benchmark_knowledge_domain_matrix=_maybe_load_json(
             args.benchmark_knowledge_domain_matrix
+        ),
+        benchmark_knowledge_domain_action_plan=_maybe_load_json(
+            args.benchmark_knowledge_domain_action_plan
         ),
         benchmark_knowledge_outcome_correlation=_maybe_load_json(
             args.benchmark_knowledge_outcome_correlation

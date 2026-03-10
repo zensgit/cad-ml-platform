@@ -59,6 +59,14 @@ def _ready_inputs() -> dict:
             },
             "recommendations": [],
         },
+        "benchmark_knowledge_domain_action_plan": {
+            "knowledge_domain_action_plan": {
+                "status": "knowledge_domain_action_plan_ready",
+                "priority_domains": [],
+                "actions": [],
+            },
+            "recommendations": [],
+        },
         "benchmark_knowledge_outcome_correlation": {
             "knowledge_outcome_correlation": {
                 "status": "knowledge_outcome_correlation_ready",
@@ -148,6 +156,10 @@ def test_export_benchmark_competitive_surpass_index_outputs_files(
             "benchmark_knowledge_realdata_correlation",
         ),
         ("--benchmark-knowledge-domain-matrix", "benchmark_knowledge_domain_matrix"),
+        (
+            "--benchmark-knowledge-domain-action-plan",
+            "benchmark_knowledge_domain_action_plan",
+        ),
         (
             "--benchmark-knowledge-outcome-correlation",
             "benchmark_knowledge_outcome_correlation",

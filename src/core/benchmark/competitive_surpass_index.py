@@ -30,6 +30,7 @@ def _normalize_tier(status: str) -> str:
         "knowledge_application_ready",
         "knowledge_realdata_ready",
         "knowledge_domain_matrix_ready",
+        "knowledge_domain_action_plan_ready",
         "knowledge_outcome_correlation_ready",
         "competitive_surpass_knowledge_ready",
         "competitive_surpass_realdata_ready",
@@ -48,6 +49,7 @@ def _normalize_tier(status: str) -> str:
         "knowledge_application_partial",
         "knowledge_realdata_partial",
         "knowledge_domain_matrix_partial",
+        "knowledge_domain_action_plan_partial",
         "knowledge_outcome_correlation_partial",
         "competitive_surpass_knowledge_partial",
         "competitive_surpass_realdata_partial",
@@ -112,6 +114,7 @@ def _knowledge_pillar(
     benchmark_knowledge_application: Dict[str, Any],
     benchmark_knowledge_realdata_correlation: Dict[str, Any],
     benchmark_knowledge_domain_matrix: Dict[str, Any],
+    benchmark_knowledge_domain_action_plan: Dict[str, Any] | None,
     benchmark_knowledge_outcome_correlation: Dict[str, Any],
     benchmark_knowledge_outcome_drift: Dict[str, Any],
 ) -> Dict[str, Any]:
@@ -131,6 +134,12 @@ def _knowledge_pillar(
         benchmark_knowledge_domain_matrix.get("knowledge_domain_matrix")
         or benchmark_knowledge_domain_matrix
     )
+    action_plan_root = benchmark_knowledge_domain_action_plan or {}
+    action_plan = (
+        action_plan_root.get("knowledge_domain_action_plan")
+        or action_plan_root
+        or {}
+    )
     outcome_corr = (
         benchmark_knowledge_outcome_correlation.get("knowledge_outcome_correlation")
         or benchmark_knowledge_outcome_correlation
@@ -144,6 +153,7 @@ def _knowledge_pillar(
         "application": _text(application.get("status")) or "missing",
         "realdata": _text(realdata.get("status")) or "missing",
         "domain_matrix": _text(domain_matrix.get("status")) or "missing",
+        "action_plan": _text(action_plan.get("status")) or "missing",
         "outcome_correlation": _text(outcome_corr.get("status")) or "missing",
         "outcome_drift": _text(outcome_drift.get("status")) or "unknown",
     }
@@ -161,6 +171,7 @@ def _knowledge_pillar(
         + [row.get("domain") for row in application.get("focus_areas_detail") or []]
         + [row.get("domain") for row in realdata.get("focus_areas") or []]
         + list(domain_matrix.get("priority_domains") or [])
+        + list(action_plan.get("priority_domains") or [])
         + list(outcome_corr.get("priority_domains") or [])
         + list(outcome_drift.get("new_priority_domains") or []),
         limit=6,
@@ -168,6 +179,7 @@ def _knowledge_pillar(
     summary = (
         f"readiness={rows['readiness']}; application={rows['application']}; "
         f"realdata={rows['realdata']}; domain_matrix={rows['domain_matrix']}; "
+        f"action_plan={rows['action_plan']}; "
         f"outcome={rows['outcome_correlation']}; drift={rows['outcome_drift']}"
     )
     if focus_areas:
@@ -295,6 +307,7 @@ def build_competitive_surpass_index(
     benchmark_knowledge_application: Dict[str, Any],
     benchmark_knowledge_realdata_correlation: Dict[str, Any],
     benchmark_knowledge_domain_matrix: Dict[str, Any],
+    benchmark_knowledge_domain_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_correlation: Dict[str, Any],
     benchmark_knowledge_outcome_drift: Dict[str, Any],
     benchmark_realdata_signals: Dict[str, Any],
@@ -308,6 +321,7 @@ def build_competitive_surpass_index(
             benchmark_knowledge_application,
             benchmark_knowledge_realdata_correlation,
             benchmark_knowledge_domain_matrix,
+            benchmark_knowledge_domain_action_plan,
             benchmark_knowledge_outcome_correlation,
             benchmark_knowledge_outcome_drift,
         ),

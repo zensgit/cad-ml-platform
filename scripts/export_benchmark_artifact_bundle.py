@@ -123,6 +123,7 @@ def _component_statuses(
     benchmark_knowledge_application: Dict[str, Any] | None = None,
     benchmark_knowledge_realdata_correlation: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_matrix: Dict[str, Any] | None = None,
+    benchmark_knowledge_domain_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_correlation: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_drift: Dict[str, Any] | None = None,
 ) -> Dict[str, str]:
@@ -132,6 +133,9 @@ def _component_statuses(
         benchmark_knowledge_realdata_correlation or {}
     )
     benchmark_knowledge_domain_matrix = benchmark_knowledge_domain_matrix or {}
+    benchmark_knowledge_domain_action_plan = (
+        benchmark_knowledge_domain_action_plan or {}
+    )
     benchmark_knowledge_outcome_correlation = (
         benchmark_knowledge_outcome_correlation or {}
     )
@@ -176,6 +180,11 @@ def _component_statuses(
     knowledge_domain_matrix_component = (
         benchmark_knowledge_domain_matrix.get("knowledge_domain_matrix")
         or benchmark_knowledge_domain_matrix
+        or {}
+    )
+    knowledge_domain_action_plan_component = (
+        benchmark_knowledge_domain_action_plan.get("knowledge_domain_action_plan")
+        or benchmark_knowledge_domain_action_plan
         or {}
     )
     knowledge_outcome_correlation_component = (
@@ -289,6 +298,13 @@ def _component_statuses(
         or (components.get("knowledge_domain_matrix") or {}).get("status")
         or "unknown"
     )
+    component_rows["knowledge_domain_action_plan"] = str(
+        companion_components.get("knowledge_domain_action_plan")
+        or operational_components.get("knowledge_domain_action_plan")
+        or knowledge_domain_action_plan_component.get("status")
+        or (components.get("knowledge_domain_action_plan") or {}).get("status")
+        or "unknown"
+    )
     component_rows["knowledge_outcome_correlation"] = str(
         companion_components.get("knowledge_outcome_correlation")
         or operational_components.get("knowledge_outcome_correlation")
@@ -377,6 +393,7 @@ def _pick_summary_items(
     benchmark_knowledge_application: Dict[str, Any] | None = None,
     benchmark_knowledge_realdata_correlation: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_matrix: Dict[str, Any] | None = None,
+    benchmark_knowledge_domain_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_correlation: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_drift: Dict[str, Any] | None = None,
 ) -> tuple[str, List[str], List[str]]:
@@ -386,6 +403,9 @@ def _pick_summary_items(
         benchmark_knowledge_realdata_correlation or {}
     )
     benchmark_knowledge_domain_matrix = benchmark_knowledge_domain_matrix or {}
+    benchmark_knowledge_domain_action_plan = (
+        benchmark_knowledge_domain_action_plan or {}
+    )
     benchmark_knowledge_outcome_correlation = (
         benchmark_knowledge_outcome_correlation or {}
     )
@@ -417,6 +437,7 @@ def _pick_summary_items(
         or benchmark_knowledge_application.get("recommendations")
         or benchmark_knowledge_realdata_correlation.get("recommendations")
         or benchmark_knowledge_domain_matrix.get("recommendations")
+        or benchmark_knowledge_domain_action_plan.get("recommendations")
         or benchmark_knowledge_outcome_correlation.get("recommendations")
         or benchmark_knowledge_outcome_drift.get("recommendations")
         or []
@@ -487,6 +508,7 @@ def build_bundle(
     benchmark_knowledge_application: Dict[str, Any] | None = None,
     benchmark_knowledge_realdata_correlation: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_matrix: Dict[str, Any] | None = None,
+    benchmark_knowledge_domain_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_correlation: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_drift: Dict[str, Any] | None = None,
     feedback_flywheel: Dict[str, Any],
@@ -502,6 +524,9 @@ def build_bundle(
         benchmark_knowledge_realdata_correlation or {}
     )
     benchmark_knowledge_domain_matrix = benchmark_knowledge_domain_matrix or {}
+    benchmark_knowledge_domain_action_plan = (
+        benchmark_knowledge_domain_action_plan or {}
+    )
     benchmark_knowledge_outcome_correlation = (
         benchmark_knowledge_outcome_correlation or {}
     )
@@ -519,6 +544,7 @@ def build_bundle(
         benchmark_knowledge_application,
         benchmark_knowledge_realdata_correlation,
         benchmark_knowledge_domain_matrix,
+        benchmark_knowledge_domain_action_plan,
         benchmark_knowledge_outcome_correlation,
         benchmark_knowledge_outcome_drift,
     )
@@ -555,6 +581,11 @@ def build_bundle(
     knowledge_domain_matrix_component = (
         benchmark_knowledge_domain_matrix.get("knowledge_domain_matrix")
         or benchmark_knowledge_domain_matrix
+        or {}
+    )
+    knowledge_domain_action_plan_component = (
+        benchmark_knowledge_domain_action_plan.get("knowledge_domain_action_plan")
+        or benchmark_knowledge_domain_action_plan
         or {}
     )
     knowledge_outcome_correlation_component = (
@@ -606,6 +637,9 @@ def build_bundle(
     )
     knowledge_domain_matrix_recommendations = _compact_list(
         benchmark_knowledge_domain_matrix.get("recommendations") or []
+    )
+    knowledge_domain_action_plan_recommendations = _compact_list(
+        benchmark_knowledge_domain_action_plan.get("recommendations") or []
     )
     knowledge_outcome_correlation_recommendations = _compact_list(
         benchmark_knowledge_outcome_correlation.get("recommendations") or []
@@ -686,6 +720,14 @@ def build_bundle(
             name="benchmark_knowledge_domain_matrix",
             path_text=artifact_paths.get("benchmark_knowledge_domain_matrix", ""),
             payload=benchmark_knowledge_domain_matrix,
+        ),
+        "benchmark_knowledge_domain_action_plan": _artifact_row(
+            name="benchmark_knowledge_domain_action_plan",
+            path_text=artifact_paths.get(
+                "benchmark_knowledge_domain_action_plan",
+                "",
+            ),
+            payload=benchmark_knowledge_domain_action_plan,
         ),
         "benchmark_knowledge_outcome_correlation": _artifact_row(
             name="benchmark_knowledge_outcome_correlation",
@@ -801,6 +843,19 @@ def build_bundle(
         "knowledge_domain_matrix_recommendations": (
             knowledge_domain_matrix_recommendations
         ),
+        "knowledge_domain_action_plan_status": (
+            knowledge_domain_action_plan_component.get("status") or "unknown"
+        ),
+        "knowledge_domain_action_plan": knowledge_domain_action_plan_component,
+        "knowledge_domain_action_plan_actions": list(
+            knowledge_domain_action_plan_component.get("actions") or []
+        ),
+        "knowledge_domain_action_plan_priority_domains": list(
+            knowledge_domain_action_plan_component.get("priority_domains") or []
+        ),
+        "knowledge_domain_action_plan_recommendations": (
+            knowledge_domain_action_plan_recommendations
+        ),
         "knowledge_outcome_correlation_status": (
             knowledge_outcome_correlation_component.get("status") or "unknown"
         ),
@@ -861,6 +916,7 @@ def build_bundle(
             benchmark_knowledge_application,
             benchmark_knowledge_realdata_correlation,
             benchmark_knowledge_domain_matrix,
+            benchmark_knowledge_domain_action_plan,
             benchmark_knowledge_outcome_correlation,
             benchmark_knowledge_outcome_drift,
         ),
@@ -887,6 +943,8 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         f"`{payload.get('knowledge_realdata_correlation_status') or 'unknown'}`",
         f"- knowledge_domain_matrix_status: "
         f"`{payload.get('knowledge_domain_matrix_status') or 'unknown'}`",
+        f"- knowledge_domain_action_plan_status: "
+        f"`{payload.get('knowledge_domain_action_plan_status') or 'unknown'}`",
         f"- knowledge_outcome_correlation_status: "
         f"`{payload.get('knowledge_outcome_correlation_status') or 'unknown'}`",
         f"- knowledge_outcome_drift_status: "
@@ -989,6 +1047,29 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     )
     if knowledge_domain_matrix_recommendations:
         for item in knowledge_domain_matrix_recommendations:
+            lines.append(f"- recommendation: {item}")
+    lines.extend(["", "## Knowledge Domain Action Plan", ""])
+    lines.append(
+        f"- `status`: `{payload.get('knowledge_domain_action_plan_status') or 'unknown'}`"
+    )
+    action_plan_actions = payload.get("knowledge_domain_action_plan_actions") or []
+    if action_plan_actions:
+        for item in action_plan_actions:
+            lines.append(
+                "- "
+                f"`{item.get('id')}` "
+                f"domain=`{item.get('domain')}` "
+                f"stage=`{item.get('stage')}` "
+                f"priority=`{item.get('priority')}` "
+                f"status=`{item.get('status')}`"
+            )
+    else:
+        lines.append("- none")
+    knowledge_domain_action_plan_recommendations = (
+        payload.get("knowledge_domain_action_plan_recommendations") or []
+    )
+    if knowledge_domain_action_plan_recommendations:
+        for item in knowledge_domain_action_plan_recommendations:
             lines.append(f"- recommendation: {item}")
     lines.extend(["", "## Knowledge Outcome Correlation", ""])
     lines.append(
@@ -1316,6 +1397,7 @@ def main() -> None:
     parser.add_argument("--benchmark-knowledge-application", default="")
     parser.add_argument("--benchmark-knowledge-realdata-correlation", default="")
     parser.add_argument("--benchmark-knowledge-domain-matrix", default="")
+    parser.add_argument("--benchmark-knowledge-domain-action-plan", default="")
     parser.add_argument("--benchmark-knowledge-outcome-correlation", default="")
     parser.add_argument("--benchmark-knowledge-outcome-drift", default="")
     parser.add_argument("--feedback-flywheel", default="")
@@ -1343,6 +1425,9 @@ def main() -> None:
             args.benchmark_knowledge_realdata_correlation
         ),
         "benchmark_knowledge_domain_matrix": args.benchmark_knowledge_domain_matrix,
+        "benchmark_knowledge_domain_action_plan": (
+            args.benchmark_knowledge_domain_action_plan
+        ),
         "benchmark_knowledge_outcome_correlation": (
             args.benchmark_knowledge_outcome_correlation
         ),
@@ -1381,6 +1466,9 @@ def main() -> None:
         ),
         benchmark_knowledge_domain_matrix=_maybe_load_json(
             args.benchmark_knowledge_domain_matrix
+        ),
+        benchmark_knowledge_domain_action_plan=_maybe_load_json(
+            args.benchmark_knowledge_domain_action_plan
         ),
         benchmark_knowledge_outcome_correlation=_maybe_load_json(
             args.benchmark_knowledge_outcome_correlation

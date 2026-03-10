@@ -39,6 +39,11 @@ from .knowledge_domain_matrix import (  # noqa: F401
     knowledge_domain_matrix_recommendations,
     render_knowledge_domain_matrix_markdown,
 )
+from .knowledge_domain_action_plan import (  # noqa: F401
+    build_knowledge_domain_action_plan,
+    knowledge_domain_action_plan_recommendations,
+    render_knowledge_domain_action_plan_markdown,
+)
 from .knowledge_outcome_correlation import (  # noqa: F401
     build_knowledge_outcome_correlation_status,
     knowledge_outcome_correlation_recommendations,
