@@ -7709,6 +7709,22 @@ jobs:
             const benchmarkKnowledgeSourceActionPlanSourceGroupActionCounts = '${{ steps.benchmark_knowledge_source_action_plan.outputs.source_group_action_counts }}';
             const benchmarkKnowledgeSourceActionPlanRecommendations = '${{ steps.benchmark_knowledge_source_action_plan.outputs.recommendations }}';
             const benchmarkKnowledgeSourceActionPlanArtifact = '${{ steps.benchmark_knowledge_source_action_plan.outputs.output_md }}';
+            const benchmarkKnowledgeSourceDriftEnabled = '${{ steps.benchmark_knowledge_source_drift.outputs.enabled }}' === 'true';
+            const benchmarkKnowledgeSourceDriftStatus = '${{ steps.benchmark_knowledge_source_drift.outputs.status }}';
+            const benchmarkKnowledgeSourceDriftCurrentStatus = '${{ steps.benchmark_knowledge_source_drift.outputs.current_status }}';
+            const benchmarkKnowledgeSourceDriftPreviousStatus = '${{ steps.benchmark_knowledge_source_drift.outputs.previous_status }}';
+            const benchmarkKnowledgeSourceDriftReadySourceGroupDelta = '${{ steps.benchmark_knowledge_source_drift.outputs.ready_source_group_delta }}';
+            const benchmarkKnowledgeSourceDriftMissingSourceGroupDelta = '${{ steps.benchmark_knowledge_source_drift.outputs.missing_source_group_delta }}';
+            const benchmarkKnowledgeSourceDriftRegressions = '${{ steps.benchmark_knowledge_source_drift.outputs.regressions }}';
+            const benchmarkKnowledgeSourceDriftImprovements = '${{ steps.benchmark_knowledge_source_drift.outputs.improvements }}';
+            const benchmarkKnowledgeSourceDriftSourceGroupRegressions = '${{ steps.benchmark_knowledge_source_drift.outputs.source_group_regressions }}';
+            const benchmarkKnowledgeSourceDriftSourceGroupImprovements = '${{ steps.benchmark_knowledge_source_drift.outputs.source_group_improvements }}';
+            const benchmarkKnowledgeSourceDriftResolvedFocusAreas = '${{ steps.benchmark_knowledge_source_drift.outputs.resolved_focus_areas }}';
+            const benchmarkKnowledgeSourceDriftNewFocusAreas = '${{ steps.benchmark_knowledge_source_drift.outputs.new_focus_areas }}';
+            const benchmarkKnowledgeSourceDriftResolvedPriorityDomains = '${{ steps.benchmark_knowledge_source_drift.outputs.resolved_priority_domains }}';
+            const benchmarkKnowledgeSourceDriftNewPriorityDomains = '${{ steps.benchmark_knowledge_source_drift.outputs.new_priority_domains }}';
+            const benchmarkKnowledgeSourceDriftRecommendations = '${{ steps.benchmark_knowledge_source_drift.outputs.recommendations }}';
+            const benchmarkKnowledgeSourceDriftArtifact = '${{ steps.benchmark_knowledge_source_drift.outputs.output_md }}';
             const benchmarkKnowledgeOutcomeCorrelationEnabled = '${{ steps.benchmark_knowledge_outcome_correlation.outputs.enabled }}' === 'true';
             const benchmarkKnowledgeOutcomeCorrelationStatus = '${{ steps.benchmark_knowledge_outcome_correlation.outputs.status }}';
             const benchmarkKnowledgeOutcomeCorrelationReadyDomains = '${{ steps.benchmark_knowledge_outcome_correlation.outputs.ready_domain_count }}';
@@ -7798,6 +7814,13 @@ jobs:
             const benchmarkArtifactBundleKnowledgeSourceActionPlanRecommendedFirstActions = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_action_plan_recommended_first_actions }}';
             const benchmarkArtifactBundleKnowledgeSourceActionPlanSourceGroupActionCounts = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_action_plan_source_group_action_counts }}';
             const benchmarkArtifactBundleKnowledgeSourceActionPlanRecommendations = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_action_plan_recommendations }}';
+            const benchmarkArtifactBundleKnowledgeSourceDriftStatus = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_drift_status }}';
+            const benchmarkArtifactBundleKnowledgeSourceDriftSummary = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_drift_summary }}';
+            const benchmarkArtifactBundleKnowledgeSourceDriftSourceGroupRegressions = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_drift_source_group_regressions }}';
+            const benchmarkArtifactBundleKnowledgeSourceDriftSourceGroupImprovements = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_drift_source_group_improvements }}';
+            const benchmarkArtifactBundleKnowledgeSourceDriftResolvedPriorityDomains = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_drift_resolved_priority_domains }}';
+            const benchmarkArtifactBundleKnowledgeSourceDriftNewPriorityDomains = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_drift_new_priority_domains }}';
+            const benchmarkArtifactBundleKnowledgeSourceDriftRecommendations = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_drift_recommendations }}';
             const benchmarkArtifactBundleKnowledgeOutcomeCorrelationStatus = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_outcome_correlation_status }}';
             const benchmarkArtifactBundleKnowledgeOutcomeCorrelationFocusAreas = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_outcome_correlation_focus_areas }}';
             const benchmarkArtifactBundleKnowledgeOutcomeCorrelationPriorityDomains = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_outcome_correlation_priority_domains }}';
@@ -7880,6 +7903,13 @@ jobs:
             const benchmarkCompanionKnowledgeSourceActionPlanRecommendedFirstActions = '${{ steps.benchmark_companion_summary.outputs.knowledge_source_action_plan_recommended_first_actions }}';
             const benchmarkCompanionKnowledgeSourceActionPlanSourceGroupActionCounts = '${{ steps.benchmark_companion_summary.outputs.knowledge_source_action_plan_source_group_action_counts }}';
             const benchmarkCompanionKnowledgeSourceActionPlanRecommendations = '${{ steps.benchmark_companion_summary.outputs.knowledge_source_action_plan_recommendations }}';
+            const benchmarkCompanionKnowledgeSourceDriftStatus = '${{ steps.benchmark_companion_summary.outputs.knowledge_source_drift_status }}';
+            const benchmarkCompanionKnowledgeSourceDriftSummary = '${{ steps.benchmark_companion_summary.outputs.knowledge_source_drift_summary }}';
+            const benchmarkCompanionKnowledgeSourceDriftSourceGroupRegressions = '${{ steps.benchmark_companion_summary.outputs.knowledge_source_drift_source_group_regressions }}';
+            const benchmarkCompanionKnowledgeSourceDriftSourceGroupImprovements = '${{ steps.benchmark_companion_summary.outputs.knowledge_source_drift_source_group_improvements }}';
+            const benchmarkCompanionKnowledgeSourceDriftResolvedPriorityDomains = '${{ steps.benchmark_companion_summary.outputs.knowledge_source_drift_resolved_priority_domains }}';
+            const benchmarkCompanionKnowledgeSourceDriftNewPriorityDomains = '${{ steps.benchmark_companion_summary.outputs.knowledge_source_drift_new_priority_domains }}';
+            const benchmarkCompanionKnowledgeSourceDriftRecommendations = '${{ steps.benchmark_companion_summary.outputs.knowledge_source_drift_recommendations }}';
             const benchmarkCompanionKnowledgeOutcomeCorrelationStatus = '${{ steps.benchmark_companion_summary.outputs.knowledge_outcome_correlation_status }}';
             const benchmarkCompanionKnowledgeOutcomeCorrelationFocusAreas = '${{ steps.benchmark_companion_summary.outputs.knowledge_outcome_correlation_focus_areas }}';
             const benchmarkCompanionKnowledgeOutcomeCorrelationPriorityDomains = '${{ steps.benchmark_companion_summary.outputs.knowledge_outcome_correlation_priority_domains }}';
@@ -7962,6 +7992,13 @@ jobs:
             const benchmarkReleaseKnowledgeSourceActionPlanRecommendedFirstActions = '${{ steps.benchmark_release_decision.outputs.knowledge_source_action_plan_recommended_first_actions }}';
             const benchmarkReleaseKnowledgeSourceActionPlanSourceGroupActionCounts = '${{ steps.benchmark_release_decision.outputs.knowledge_source_action_plan_source_group_action_counts }}';
             const benchmarkReleaseKnowledgeSourceActionPlanRecommendations = '${{ steps.benchmark_release_decision.outputs.knowledge_source_action_plan_recommendations }}';
+            const benchmarkReleaseKnowledgeSourceDriftStatus = '${{ steps.benchmark_release_decision.outputs.knowledge_source_drift_status }}';
+            const benchmarkReleaseKnowledgeSourceDriftSummary = '${{ steps.benchmark_release_decision.outputs.knowledge_source_drift_summary }}';
+            const benchmarkReleaseKnowledgeSourceDriftSourceGroupRegressions = '${{ steps.benchmark_release_decision.outputs.knowledge_source_drift_source_group_regressions }}';
+            const benchmarkReleaseKnowledgeSourceDriftSourceGroupImprovements = '${{ steps.benchmark_release_decision.outputs.knowledge_source_drift_source_group_improvements }}';
+            const benchmarkReleaseKnowledgeSourceDriftResolvedPriorityDomains = '${{ steps.benchmark_release_decision.outputs.knowledge_source_drift_resolved_priority_domains }}';
+            const benchmarkReleaseKnowledgeSourceDriftNewPriorityDomains = '${{ steps.benchmark_release_decision.outputs.knowledge_source_drift_new_priority_domains }}';
+            const benchmarkReleaseKnowledgeSourceDriftRecommendations = '${{ steps.benchmark_release_decision.outputs.knowledge_source_drift_recommendations }}';
             const benchmarkReleaseKnowledgeOutcomeCorrelationStatus = '${{ steps.benchmark_release_decision.outputs.knowledge_outcome_correlation_status }}';
             const benchmarkReleaseKnowledgeOutcomeCorrelationFocusAreas = '${{ steps.benchmark_release_decision.outputs.knowledge_outcome_correlation_focus_areas }}';
             const benchmarkReleaseKnowledgeOutcomeCorrelationPriorityDomains = '${{ steps.benchmark_release_decision.outputs.knowledge_outcome_correlation_priority_domains }}';
@@ -8040,6 +8077,13 @@ jobs:
             const benchmarkReleaseRunbookKnowledgeSourceActionPlanRecommendedFirstActions = '${{ steps.benchmark_release_runbook.outputs.knowledge_source_action_plan_recommended_first_actions }}';
             const benchmarkReleaseRunbookKnowledgeSourceActionPlanSourceGroupActionCounts = '${{ steps.benchmark_release_runbook.outputs.knowledge_source_action_plan_source_group_action_counts }}';
             const benchmarkReleaseRunbookKnowledgeSourceActionPlanRecommendations = '${{ steps.benchmark_release_runbook.outputs.knowledge_source_action_plan_recommendations }}';
+            const benchmarkReleaseRunbookKnowledgeSourceDriftStatus = '${{ steps.benchmark_release_runbook.outputs.knowledge_source_drift_status }}';
+            const benchmarkReleaseRunbookKnowledgeSourceDriftSummary = '${{ steps.benchmark_release_runbook.outputs.knowledge_source_drift_summary }}';
+            const benchmarkReleaseRunbookKnowledgeSourceDriftSourceGroupRegressions = '${{ steps.benchmark_release_runbook.outputs.knowledge_source_drift_source_group_regressions }}';
+            const benchmarkReleaseRunbookKnowledgeSourceDriftSourceGroupImprovements = '${{ steps.benchmark_release_runbook.outputs.knowledge_source_drift_source_group_improvements }}';
+            const benchmarkReleaseRunbookKnowledgeSourceDriftResolvedPriorityDomains = '${{ steps.benchmark_release_runbook.outputs.knowledge_source_drift_resolved_priority_domains }}';
+            const benchmarkReleaseRunbookKnowledgeSourceDriftNewPriorityDomains = '${{ steps.benchmark_release_runbook.outputs.knowledge_source_drift_new_priority_domains }}';
+            const benchmarkReleaseRunbookKnowledgeSourceDriftRecommendations = '${{ steps.benchmark_release_runbook.outputs.knowledge_source_drift_recommendations }}';
             const benchmarkReleaseRunbookKnowledgeOutcomeCorrelationStatus = '${{ steps.benchmark_release_runbook.outputs.knowledge_outcome_correlation_status }}';
             const benchmarkReleaseRunbookKnowledgeOutcomeCorrelationFocusAreas = '${{ steps.benchmark_release_runbook.outputs.knowledge_outcome_correlation_focus_areas }}';
             const benchmarkReleaseRunbookKnowledgeOutcomeCorrelationPriorityDomains = '${{ steps.benchmark_release_runbook.outputs.knowledge_outcome_correlation_priority_domains }}';
@@ -8188,6 +8232,9 @@ jobs:
             const benchmarkKnowledgeSourceActionPlanStatusLine = benchmarkKnowledgeSourceActionPlanEnabled
               ? `status=${benchmarkKnowledgeSourceActionPlanStatus || 'n/a'}, actions=${benchmarkKnowledgeSourceActionPlanTotalActions || 'n/a'}, high=${benchmarkKnowledgeSourceActionPlanHighPriorityActions || 'n/a'}, medium=${benchmarkKnowledgeSourceActionPlanMediumPriorityActions || 'n/a'}, expansion=${benchmarkKnowledgeSourceActionPlanExpansionActions || 'n/a'}, priority_domains=${benchmarkKnowledgeSourceActionPlanPriorityDomains || 'n/a'}, first_actions=${benchmarkKnowledgeSourceActionPlanRecommendedFirstActions || 'n/a'}, source_group_action_counts=${benchmarkKnowledgeSourceActionPlanSourceGroupActionCounts || 'n/a'}, recommendations=${benchmarkKnowledgeSourceActionPlanRecommendations || 'n/a'}, artifact=${benchmarkKnowledgeSourceActionPlanArtifact || 'n/a'}`
               : '⏭️ skipped';
+            const benchmarkKnowledgeSourceDriftStatusLine = benchmarkKnowledgeSourceDriftEnabled
+              ? `status=${benchmarkKnowledgeSourceDriftStatus || 'n/a'}, current=${benchmarkKnowledgeSourceDriftCurrentStatus || 'n/a'}, previous=${benchmarkKnowledgeSourceDriftPreviousStatus || 'n/a'}, ready_delta=${benchmarkKnowledgeSourceDriftReadySourceGroupDelta || 'n/a'}, missing_delta=${benchmarkKnowledgeSourceDriftMissingSourceGroupDelta || 'n/a'}, regressions=${benchmarkKnowledgeSourceDriftRegressions || 'n/a'}, improvements=${benchmarkKnowledgeSourceDriftImprovements || 'n/a'}, source_group_regressions=${benchmarkKnowledgeSourceDriftSourceGroupRegressions || 'n/a'}, source_group_improvements=${benchmarkKnowledgeSourceDriftSourceGroupImprovements || 'n/a'}, resolved_focus=${benchmarkKnowledgeSourceDriftResolvedFocusAreas || 'n/a'}, new_focus=${benchmarkKnowledgeSourceDriftNewFocusAreas || 'n/a'}, resolved_domains=${benchmarkKnowledgeSourceDriftResolvedPriorityDomains || 'n/a'}, new_domains=${benchmarkKnowledgeSourceDriftNewPriorityDomains || 'n/a'}, recommendations=${benchmarkKnowledgeSourceDriftRecommendations || 'n/a'}, artifact=${benchmarkKnowledgeSourceDriftArtifact || 'n/a'}`
+              : '⏭️ skipped';
             const benchmarkKnowledgeOutcomeCorrelationStatusLine = benchmarkKnowledgeOutcomeCorrelationEnabled
               ? `status=${benchmarkKnowledgeOutcomeCorrelationStatus}, ready=${benchmarkKnowledgeOutcomeCorrelationReadyDomains}, partial=${benchmarkKnowledgeOutcomeCorrelationPartialDomains}, blocked=${benchmarkKnowledgeOutcomeCorrelationBlockedDomains}, total=${benchmarkKnowledgeOutcomeCorrelationTotalDomains}, focus=${benchmarkKnowledgeOutcomeCorrelationFocusAreas || 'n/a'}, domains=${benchmarkKnowledgeOutcomeCorrelationPriorityDomains || 'n/a'} / ${benchmarkKnowledgeOutcomeCorrelationDomainStatuses || 'n/a'}, recommendations=${benchmarkKnowledgeOutcomeCorrelationRecommendations || 'n/a'}, artifact=${benchmarkKnowledgeOutcomeCorrelationArtifact}`
               : '⏭️ skipped';
@@ -8218,6 +8265,9 @@ jobs:
             const benchmarkArtifactBundleKnowledgeSourceActionPlanStatusLine = benchmarkArtifactBundleEnabled
               ? `status=${benchmarkArtifactBundleKnowledgeSourceActionPlanStatus || 'n/a'}, priority_domains=${benchmarkArtifactBundleKnowledgeSourceActionPlanPriorityDomains || 'n/a'}, first_actions=${benchmarkArtifactBundleKnowledgeSourceActionPlanRecommendedFirstActions || 'n/a'}, source_group_action_counts=${benchmarkArtifactBundleKnowledgeSourceActionPlanSourceGroupActionCounts || 'n/a'}, recommendations=${benchmarkArtifactBundleKnowledgeSourceActionPlanRecommendations || 'n/a'}`
               : '⏭️ skipped';
+            const benchmarkArtifactBundleKnowledgeSourceDriftStatusLine = benchmarkArtifactBundleEnabled
+              ? `status=${benchmarkArtifactBundleKnowledgeSourceDriftStatus || 'n/a'}, summary=${benchmarkArtifactBundleKnowledgeSourceDriftSummary || 'n/a'}, source_group_regressions=${benchmarkArtifactBundleKnowledgeSourceDriftSourceGroupRegressions || 'n/a'}, source_group_improvements=${benchmarkArtifactBundleKnowledgeSourceDriftSourceGroupImprovements || 'n/a'}, resolved_domains=${benchmarkArtifactBundleKnowledgeSourceDriftResolvedPriorityDomains || 'n/a'}, new_domains=${benchmarkArtifactBundleKnowledgeSourceDriftNewPriorityDomains || 'n/a'}, recommendations=${benchmarkArtifactBundleKnowledgeSourceDriftRecommendations || 'n/a'}`
+              : '⏭️ skipped';
             const benchmarkArtifactBundleKnowledgeOutcomeCorrelationStatusLine = benchmarkArtifactBundleEnabled
               ? `status=${benchmarkArtifactBundleKnowledgeOutcomeCorrelationStatus || 'n/a'}, focus=${benchmarkArtifactBundleKnowledgeOutcomeCorrelationFocusAreas || 'n/a'}, domains=${benchmarkArtifactBundleKnowledgeOutcomeCorrelationPriorityDomains || 'n/a'} / ${benchmarkArtifactBundleKnowledgeOutcomeCorrelationDomainStatuses || 'n/a'}, recommendations=${benchmarkArtifactBundleKnowledgeOutcomeCorrelationRecommendations || 'n/a'}`
               : '⏭️ skipped';
@@ -8244,6 +8294,9 @@ jobs:
               : '⏭️ skipped';
             const benchmarkCompanionKnowledgeSourceActionPlanStatusLine = benchmarkCompanionSummaryEnabled
               ? `status=${benchmarkCompanionKnowledgeSourceActionPlanStatus || 'n/a'}, priority_domains=${benchmarkCompanionKnowledgeSourceActionPlanPriorityDomains || 'n/a'}, first_actions=${benchmarkCompanionKnowledgeSourceActionPlanRecommendedFirstActions || 'n/a'}, source_group_action_counts=${benchmarkCompanionKnowledgeSourceActionPlanSourceGroupActionCounts || 'n/a'}, recommendations=${benchmarkCompanionKnowledgeSourceActionPlanRecommendations || 'n/a'}`
+              : '⏭️ skipped';
+            const benchmarkCompanionKnowledgeSourceDriftStatusLine = benchmarkCompanionSummaryEnabled
+              ? `status=${benchmarkCompanionKnowledgeSourceDriftStatus || 'n/a'}, summary=${benchmarkCompanionKnowledgeSourceDriftSummary || 'n/a'}, source_group_regressions=${benchmarkCompanionKnowledgeSourceDriftSourceGroupRegressions || 'n/a'}, source_group_improvements=${benchmarkCompanionKnowledgeSourceDriftSourceGroupImprovements || 'n/a'}, resolved_domains=${benchmarkCompanionKnowledgeSourceDriftResolvedPriorityDomains || 'n/a'}, new_domains=${benchmarkCompanionKnowledgeSourceDriftNewPriorityDomains || 'n/a'}, recommendations=${benchmarkCompanionKnowledgeSourceDriftRecommendations || 'n/a'}`
               : '⏭️ skipped';
             const benchmarkCompanionKnowledgeOutcomeCorrelationStatusLine = benchmarkCompanionSummaryEnabled
               ? `status=${benchmarkCompanionKnowledgeOutcomeCorrelationStatus || 'n/a'}, focus=${benchmarkCompanionKnowledgeOutcomeCorrelationFocusAreas || 'n/a'}, domains=${benchmarkCompanionKnowledgeOutcomeCorrelationPriorityDomains || 'n/a'} / ${benchmarkCompanionKnowledgeOutcomeCorrelationDomainStatuses || 'n/a'}, recommendations=${benchmarkCompanionKnowledgeOutcomeCorrelationRecommendations || 'n/a'}`
@@ -8272,6 +8325,9 @@ jobs:
             const benchmarkReleaseKnowledgeSourceActionPlanStatusLine = benchmarkReleaseDecisionEnabled
               ? `status=${benchmarkReleaseKnowledgeSourceActionPlanStatus || 'n/a'}, priority_domains=${benchmarkReleaseKnowledgeSourceActionPlanPriorityDomains || 'n/a'}, first_actions=${benchmarkReleaseKnowledgeSourceActionPlanRecommendedFirstActions || 'n/a'}, source_group_action_counts=${benchmarkReleaseKnowledgeSourceActionPlanSourceGroupActionCounts || 'n/a'}, recommendations=${benchmarkReleaseKnowledgeSourceActionPlanRecommendations || 'n/a'}`
               : '⏭️ skipped';
+            const benchmarkReleaseKnowledgeSourceDriftStatusLine = benchmarkReleaseDecisionEnabled
+              ? `status=${benchmarkReleaseKnowledgeSourceDriftStatus || 'n/a'}, summary=${benchmarkReleaseKnowledgeSourceDriftSummary || 'n/a'}, source_group_regressions=${benchmarkReleaseKnowledgeSourceDriftSourceGroupRegressions || 'n/a'}, source_group_improvements=${benchmarkReleaseKnowledgeSourceDriftSourceGroupImprovements || 'n/a'}, resolved_domains=${benchmarkReleaseKnowledgeSourceDriftResolvedPriorityDomains || 'n/a'}, new_domains=${benchmarkReleaseKnowledgeSourceDriftNewPriorityDomains || 'n/a'}, recommendations=${benchmarkReleaseKnowledgeSourceDriftRecommendations || 'n/a'}`
+              : '⏭️ skipped';
             const benchmarkReleaseKnowledgeOutcomeCorrelationStatusLine = benchmarkReleaseDecisionEnabled
               ? `status=${benchmarkReleaseKnowledgeOutcomeCorrelationStatus || 'n/a'}, focus=${benchmarkReleaseKnowledgeOutcomeCorrelationFocusAreas || 'n/a'}, domains=${benchmarkReleaseKnowledgeOutcomeCorrelationPriorityDomains || 'n/a'} / ${benchmarkReleaseKnowledgeOutcomeCorrelationDomainStatuses || 'n/a'}, recommendations=${benchmarkReleaseKnowledgeOutcomeCorrelationRecommendations || 'n/a'}`
               : '⏭️ skipped';
@@ -8298,6 +8354,9 @@ jobs:
               : '⏭️ skipped';
             const benchmarkReleaseRunbookKnowledgeSourceActionPlanStatusLine = benchmarkReleaseRunbookEnabled
               ? `status=${benchmarkReleaseRunbookKnowledgeSourceActionPlanStatus || 'n/a'}, priority_domains=${benchmarkReleaseRunbookKnowledgeSourceActionPlanPriorityDomains || 'n/a'}, first_actions=${benchmarkReleaseRunbookKnowledgeSourceActionPlanRecommendedFirstActions || 'n/a'}, source_group_action_counts=${benchmarkReleaseRunbookKnowledgeSourceActionPlanSourceGroupActionCounts || 'n/a'}, recommendations=${benchmarkReleaseRunbookKnowledgeSourceActionPlanRecommendations || 'n/a'}`
+              : '⏭️ skipped';
+            const benchmarkReleaseRunbookKnowledgeSourceDriftStatusLine = benchmarkReleaseRunbookEnabled
+              ? `status=${benchmarkReleaseRunbookKnowledgeSourceDriftStatus || 'n/a'}, summary=${benchmarkReleaseRunbookKnowledgeSourceDriftSummary || 'n/a'}, source_group_regressions=${benchmarkReleaseRunbookKnowledgeSourceDriftSourceGroupRegressions || 'n/a'}, source_group_improvements=${benchmarkReleaseRunbookKnowledgeSourceDriftSourceGroupImprovements || 'n/a'}, resolved_domains=${benchmarkReleaseRunbookKnowledgeSourceDriftResolvedPriorityDomains || 'n/a'}, new_domains=${benchmarkReleaseRunbookKnowledgeSourceDriftNewPriorityDomains || 'n/a'}, recommendations=${benchmarkReleaseRunbookKnowledgeSourceDriftRecommendations || 'n/a'}`
               : '⏭️ skipped';
             const benchmarkReleaseRunbookKnowledgeOutcomeCorrelationStatusLine = benchmarkReleaseRunbookEnabled
               ? `status=${benchmarkReleaseRunbookKnowledgeOutcomeCorrelationStatus || 'n/a'}, focus=${benchmarkReleaseRunbookKnowledgeOutcomeCorrelationFocusAreas || 'n/a'}, domains=${benchmarkReleaseRunbookKnowledgeOutcomeCorrelationPriorityDomains || 'n/a'} / ${benchmarkReleaseRunbookKnowledgeOutcomeCorrelationDomainStatuses || 'n/a'}, recommendations=${benchmarkReleaseRunbookKnowledgeOutcomeCorrelationRecommendations || 'n/a'}`
@@ -8488,6 +8547,18 @@ jobs:
                     : (
                         benchmarkKnowledgeSourceActionPlanStatus === 'knowledge_source_action_plan_blocked'
                           ? '🔴'
+                          : '🟡'
+                      )
+                );
+            const benchmarkKnowledgeSourceDriftLight = !benchmarkKnowledgeSourceDriftEnabled
+              ? '⚪'
+              : (
+                  benchmarkKnowledgeSourceDriftStatus === 'regressed'
+                    ? '🔴'
+                    : (
+                        benchmarkKnowledgeSourceDriftStatus === 'improved'
+                        || benchmarkKnowledgeSourceDriftStatus === 'stable'
+                          ? '🟢'
                           : '🟡'
                       )
                 );
@@ -8805,6 +8876,7 @@ jobs:
             | **Benchmark Knowledge Domain Matrix** | ${benchmarkKnowledgeDomainMatrixStatusLine} |
             | **Benchmark Knowledge Domain Action Plan** | ${benchmarkKnowledgeDomainActionPlanStatusLine} |
             | **Benchmark Knowledge Source Action Plan** | ${benchmarkKnowledgeSourceActionPlanStatusLine} |
+            | **Benchmark Knowledge Source Drift** | ${benchmarkKnowledgeSourceDriftStatusLine} |
             | **Benchmark Knowledge Outcome Correlation** | ${benchmarkKnowledgeOutcomeCorrelationStatusLine} |
             | **Benchmark Knowledge Outcome Drift** | ${benchmarkKnowledgeOutcomeDriftStatusLine} |
             | **Benchmark Knowledge Focus Areas** | ${benchmarkKnowledgeFocusAreas || benchmarkKnowledgeFocusAreasScorecard || 'n/a'} |
@@ -8828,6 +8900,7 @@ jobs:
             | **Benchmark Artifact Bundle Knowledge Domain Matrix** | ${benchmarkArtifactBundleKnowledgeDomainMatrixStatusLine} |
             | **Benchmark Artifact Bundle Knowledge Domain Action Plan** | ${benchmarkArtifactBundleKnowledgeDomainActionPlanStatusLine} |
             | **Benchmark Artifact Bundle Knowledge Source Action Plan** | ${benchmarkArtifactBundleKnowledgeSourceActionPlanStatusLine} |
+            | **Benchmark Artifact Bundle Knowledge Source Drift** | ${benchmarkArtifactBundleKnowledgeSourceDriftStatusLine} |
             | **Benchmark Artifact Bundle Knowledge Outcome Correlation** | ${benchmarkArtifactBundleKnowledgeOutcomeCorrelationStatusLine} |
             | **Benchmark Artifact Bundle Knowledge Outcome Drift** | ${benchmarkArtifactBundleKnowledgeOutcomeDriftStatusLine} |
             | **Benchmark Artifact Bundle Knowledge Domains** | ${benchmarkArtifactBundleKnowledgePriorityDomains || 'n/a'} / ${benchmarkArtifactBundleKnowledgeDomainFocusAreas || 'n/a'} |
@@ -8841,6 +8914,7 @@ jobs:
             | **Benchmark Companion Knowledge Domain Matrix** | ${benchmarkCompanionKnowledgeDomainMatrixStatusLine} |
             | **Benchmark Companion Knowledge Domain Action Plan** | ${benchmarkCompanionKnowledgeDomainActionPlanStatusLine} |
             | **Benchmark Companion Knowledge Source Action Plan** | ${benchmarkCompanionKnowledgeSourceActionPlanStatusLine} |
+            | **Benchmark Companion Knowledge Source Drift** | ${benchmarkCompanionKnowledgeSourceDriftStatusLine} |
             | **Benchmark Companion Knowledge Outcome Correlation** | ${benchmarkCompanionKnowledgeOutcomeCorrelationStatusLine} |
             | **Benchmark Companion Knowledge Outcome Drift** | ${benchmarkCompanionKnowledgeOutcomeDriftStatusLine} |
             | **Benchmark Companion Knowledge Domains** | ${benchmarkCompanionKnowledgePriorityDomains || 'n/a'} / ${benchmarkCompanionKnowledgeDomainFocusAreas || 'n/a'} |
@@ -8855,6 +8929,7 @@ jobs:
             | **Benchmark Release Decision Knowledge Domain Matrix** | ${benchmarkReleaseKnowledgeDomainMatrixStatusLine} |
             | **Benchmark Release Decision Knowledge Domain Action Plan** | ${benchmarkReleaseKnowledgeDomainActionPlanStatusLine} |
             | **Benchmark Release Decision Knowledge Source Action Plan** | ${benchmarkReleaseKnowledgeSourceActionPlanStatusLine} |
+            | **Benchmark Release Decision Knowledge Source Drift** | ${benchmarkReleaseKnowledgeSourceDriftStatusLine} |
             | **Benchmark Release Decision Knowledge Outcome Correlation** | ${benchmarkReleaseKnowledgeOutcomeCorrelationStatusLine} |
             | **Benchmark Release Decision Knowledge Outcome Drift** | ${benchmarkReleaseKnowledgeOutcomeDriftStatusLine} |
             | **Benchmark Release Decision Knowledge Domains** | ${benchmarkReleaseKnowledgePriorityDomains || 'n/a'} / ${benchmarkReleaseKnowledgeDomainFocusAreas || 'n/a'} |
@@ -8892,6 +8967,7 @@ jobs:
             | **Benchmark Release Runbook Knowledge Domain Matrix** | ${benchmarkReleaseRunbookKnowledgeDomainMatrixStatusLine} |
             | **Benchmark Release Runbook Knowledge Domain Action Plan** | ${benchmarkReleaseRunbookKnowledgeDomainActionPlanStatusLine} |
             | **Benchmark Release Runbook Knowledge Source Action Plan** | ${benchmarkReleaseRunbookKnowledgeSourceActionPlanStatusLine} |
+            | **Benchmark Release Runbook Knowledge Source Drift** | ${benchmarkReleaseRunbookKnowledgeSourceDriftStatusLine} |
             | **Benchmark Release Runbook Knowledge Outcome Correlation** | ${benchmarkReleaseRunbookKnowledgeOutcomeCorrelationStatusLine} |
             | **Benchmark Release Runbook Knowledge Outcome Drift** | ${benchmarkReleaseRunbookKnowledgeOutcomeDriftStatusLine} |
             | **Benchmark Release Runbook Knowledge Domains** | ${benchmarkReleaseRunbookKnowledgePriorityDomains || 'n/a'} / ${benchmarkReleaseRunbookKnowledgeDomainFocusAreas || 'n/a'} |
@@ -8937,6 +9013,7 @@ jobs:
             | **Benchmark Knowledge Domain Matrix** | ${benchmarkKnowledgeDomainMatrixLight} | ${benchmarkKnowledgeDomainMatrixStatusLine} |
             | **Benchmark Knowledge Domain Action Plan** | ${benchmarkKnowledgeDomainActionPlanLight} | ${benchmarkKnowledgeDomainActionPlanStatusLine} |
             | **Benchmark Knowledge Source Action Plan** | ${benchmarkKnowledgeSourceActionPlanLight} | ${benchmarkKnowledgeSourceActionPlanStatusLine} |
+            | **Benchmark Knowledge Source Drift** | ${benchmarkKnowledgeSourceDriftLight} | ${benchmarkKnowledgeSourceDriftStatusLine} |
             | **Benchmark Knowledge Outcome Correlation** | ${benchmarkKnowledgeOutcomeCorrelationLight} | ${benchmarkKnowledgeOutcomeCorrelationStatusLine} |
             | **Benchmark Knowledge Outcome Drift** | ${benchmarkKnowledgeOutcomeDriftLight} | ${benchmarkKnowledgeOutcomeDriftStatusLine} |
             | **Benchmark Operational Summary** | ${benchmarkOperationalLight} | ${benchmarkOperationalSummaryStatus} |
