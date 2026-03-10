@@ -1580,6 +1580,14 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark real-data scorecard STEP dir status" in summary_script
     assert "Benchmark real-data scorecard recommendations" in summary_script
     assert "Benchmark real-data scorecard artifact" in summary_script
+    assert "Benchmark competitive surpass status" in summary_script
+    assert "Benchmark competitive surpass score" in summary_script
+    assert "Benchmark competitive surpass ready pillars" in summary_script
+    assert "Benchmark competitive surpass partial pillars" in summary_script
+    assert "Benchmark competitive surpass blocked pillars" in summary_script
+    assert "Benchmark competitive surpass primary gaps" in summary_script
+    assert "Benchmark competitive surpass recommendations" in summary_script
+    assert "Benchmark competitive surpass artifact" in summary_script
     assert "Benchmark engineering violations" in summary_script
     assert "Benchmark engineering standards rows" in summary_script
     assert "Benchmark engineering OCR standards" in summary_script
@@ -1866,6 +1874,12 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkRealdataScorecardStatusLine" in pr_comment_script
     assert "benchmarkRealdataScorecardLight" in pr_comment_script
     assert "benchmarkRealdataScorecardRecommendations" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassEnabled" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassStatus" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassStatusLine" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassLight" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassRecommendations" in pr_comment_script
+    assert "Benchmark Competitive Surpass" in pr_comment_script
     assert "benchmarkKnowledgeEnabled" in pr_comment_script
     assert "benchmarkKnowledgeStatusLine" in pr_comment_script
     assert "benchmarkKnowledgeLight" in pr_comment_script
@@ -1908,6 +1922,10 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkKnowledgeOutcomeCorrelationRecommendations" in pr_comment_script
     assert "benchmarkArtifactBundleKnowledgeApplicationStatus" in pr_comment_script
     assert "benchmarkArtifactBundleKnowledgeApplicationStatusLine" in pr_comment_script
+    assert "benchmarkArtifactBundleCompetitiveSurpassStatus" in pr_comment_script
+    assert "benchmarkArtifactBundleCompetitiveSurpassStatusLine" in pr_comment_script
+    assert "benchmarkArtifactBundleCompetitiveSurpassLight" in pr_comment_script
+    assert "Benchmark Artifact Bundle Competitive Surpass" in pr_comment_script
     assert "benchmarkArtifactBundleKnowledgeRealdataCorrelationStatus" in pr_comment_script
     assert "benchmarkArtifactBundleKnowledgeRealdataCorrelationStatusLine" in pr_comment_script
     assert "benchmarkArtifactBundleKnowledgeDomainMatrixStatus" in pr_comment_script
@@ -1916,6 +1934,10 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkArtifactBundleKnowledgeOutcomeCorrelationStatusLine" in pr_comment_script
     assert "benchmarkCompanionKnowledgeApplicationStatus" in pr_comment_script
     assert "benchmarkCompanionKnowledgeApplicationStatusLine" in pr_comment_script
+    assert "benchmarkCompanionCompetitiveSurpassStatus" in pr_comment_script
+    assert "benchmarkCompanionCompetitiveSurpassStatusLine" in pr_comment_script
+    assert "benchmarkCompanionCompetitiveSurpassLight" in pr_comment_script
+    assert "Benchmark Companion Competitive Surpass" in pr_comment_script
     assert "benchmarkCompanionKnowledgeRealdataCorrelationStatus" in pr_comment_script
     assert "benchmarkCompanionKnowledgeRealdataCorrelationStatusLine" in pr_comment_script
     assert "benchmarkCompanionKnowledgeDomainMatrixStatus" in pr_comment_script
