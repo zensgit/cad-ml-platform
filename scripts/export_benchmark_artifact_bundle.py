@@ -131,6 +131,7 @@ def _component_statuses(
     benchmark_knowledge_outcome_drift: Dict[str, Any] | None = None,
     benchmark_competitive_surpass_index: Dict[str, Any] | None = None,
     benchmark_competitive_surpass_trend: Dict[str, Any] | None = None,
+    benchmark_competitive_surpass_action_plan: Dict[str, Any] | None = None,
 ) -> Dict[str, str]:
     benchmark_realdata_scorecard = benchmark_realdata_scorecard or {}
     benchmark_knowledge_application = benchmark_knowledge_application or {}
@@ -154,6 +155,9 @@ def _component_statuses(
     benchmark_knowledge_outcome_drift = benchmark_knowledge_outcome_drift or {}
     benchmark_competitive_surpass_index = benchmark_competitive_surpass_index or {}
     benchmark_competitive_surpass_trend = benchmark_competitive_surpass_trend or {}
+    benchmark_competitive_surpass_action_plan = (
+        benchmark_competitive_surpass_action_plan or {}
+    )
     components = scorecard.get("components") or {}
     companion_components = benchmark_companion_summary.get("component_statuses") or {}
     knowledge_component = (
@@ -229,6 +233,11 @@ def _component_statuses(
     )
     competitive_surpass_trend_component = _competitive_surpass_trend_component(
         benchmark_competitive_surpass_trend
+    )
+    competitive_surpass_action_plan_component = (
+        benchmark_competitive_surpass_action_plan.get("competitive_surpass_action_plan")
+        or benchmark_competitive_surpass_action_plan
+        or {}
     )
     component_rows = {
         "hybrid": str(
@@ -389,6 +398,13 @@ def _component_statuses(
         or (components.get("competitive_surpass_trend") or {}).get("status")
         or "unknown"
     )
+    component_rows["competitive_surpass_action_plan"] = str(
+        companion_components.get("competitive_surpass_action_plan")
+        or operational_components.get("competitive_surpass_action_plan")
+        or competitive_surpass_action_plan_component.get("status")
+        or (components.get("competitive_surpass_action_plan") or {}).get("status")
+        or "unknown"
+    )
     return component_rows
 
 
@@ -521,6 +537,7 @@ def _pick_summary_items(
     benchmark_knowledge_outcome_correlation: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_drift: Dict[str, Any] | None = None,
     benchmark_competitive_surpass_trend: Dict[str, Any] | None = None,
+    benchmark_competitive_surpass_action_plan: Dict[str, Any] | None = None,
 ) -> tuple[str, List[str], List[str]]:
     benchmark_realdata_scorecard = benchmark_realdata_scorecard or {}
     benchmark_knowledge_application = benchmark_knowledge_application or {}
@@ -543,6 +560,9 @@ def _pick_summary_items(
     )
     benchmark_knowledge_outcome_drift = benchmark_knowledge_outcome_drift or {}
     benchmark_competitive_surpass_trend = benchmark_competitive_surpass_trend or {}
+    benchmark_competitive_surpass_action_plan = (
+        benchmark_competitive_surpass_action_plan or {}
+    )
     overall_status = (
         str(benchmark_release_decision.get("release_status") or "").strip()
         or str(benchmark_companion_summary.get("overall_status") or "").strip()
@@ -577,6 +597,7 @@ def _pick_summary_items(
         or benchmark_knowledge_outcome_correlation.get("recommendations")
         or benchmark_knowledge_outcome_drift.get("recommendations")
         or benchmark_competitive_surpass_trend.get("recommendations")
+        or benchmark_competitive_surpass_action_plan.get("recommendations")
         or []
     )
     return overall_status, blockers, recommendations
@@ -643,6 +664,7 @@ def build_bundle(
     benchmark_operator_adoption: Dict[str, Any],
     benchmark_competitive_surpass_index: Dict[str, Any] | None = None,
     benchmark_competitive_surpass_trend: Dict[str, Any] | None = None,
+    benchmark_competitive_surpass_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_application: Dict[str, Any] | None = None,
     benchmark_knowledge_realdata_correlation: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_matrix: Dict[str, Any] | None = None,
@@ -661,6 +683,9 @@ def build_bundle(
     benchmark_realdata_scorecard = benchmark_realdata_scorecard or {}
     benchmark_competitive_surpass_index = benchmark_competitive_surpass_index or {}
     benchmark_competitive_surpass_trend = benchmark_competitive_surpass_trend or {}
+    benchmark_competitive_surpass_action_plan = (
+        benchmark_competitive_surpass_action_plan or {}
+    )
     benchmark_knowledge_application = benchmark_knowledge_application or {}
     benchmark_knowledge_realdata_correlation = (
         benchmark_knowledge_realdata_correlation or {}
@@ -681,25 +706,32 @@ def build_bundle(
     )
     benchmark_knowledge_outcome_drift = benchmark_knowledge_outcome_drift or {}
     overall_status, blockers, recommendations = _pick_summary_items(
-        benchmark_release_decision,
-        benchmark_companion_summary,
-        benchmark_operational_summary,
-        benchmark_scorecard,
-        benchmark_knowledge_drift,
-        benchmark_engineering_signals,
-        benchmark_realdata_signals,
-        benchmark_realdata_scorecard,
-        benchmark_operator_adoption,
-        benchmark_knowledge_application,
-        benchmark_knowledge_realdata_correlation,
-        benchmark_knowledge_domain_matrix,
-        benchmark_knowledge_domain_action_plan,
-        benchmark_knowledge_source_action_plan,
-        benchmark_knowledge_source_coverage,
-        benchmark_knowledge_source_drift,
-        benchmark_knowledge_outcome_correlation,
-        benchmark_knowledge_outcome_drift,
-        benchmark_competitive_surpass_trend,
+        benchmark_release_decision=benchmark_release_decision,
+        benchmark_companion_summary=benchmark_companion_summary,
+        benchmark_operational_summary=benchmark_operational_summary,
+        benchmark_scorecard=benchmark_scorecard,
+        benchmark_knowledge_drift=benchmark_knowledge_drift,
+        benchmark_engineering_signals=benchmark_engineering_signals,
+        benchmark_realdata_signals=benchmark_realdata_signals,
+        benchmark_operator_adoption=benchmark_operator_adoption,
+        benchmark_realdata_scorecard=benchmark_realdata_scorecard,
+        benchmark_knowledge_application=benchmark_knowledge_application,
+        benchmark_knowledge_realdata_correlation=(
+            benchmark_knowledge_realdata_correlation
+        ),
+        benchmark_knowledge_domain_matrix=benchmark_knowledge_domain_matrix,
+        benchmark_knowledge_domain_action_plan=benchmark_knowledge_domain_action_plan,
+        benchmark_knowledge_source_action_plan=benchmark_knowledge_source_action_plan,
+        benchmark_knowledge_source_coverage=benchmark_knowledge_source_coverage,
+        benchmark_knowledge_source_drift=benchmark_knowledge_source_drift,
+        benchmark_knowledge_outcome_correlation=(
+            benchmark_knowledge_outcome_correlation
+        ),
+        benchmark_knowledge_outcome_drift=benchmark_knowledge_outcome_drift,
+        benchmark_competitive_surpass_trend=benchmark_competitive_surpass_trend,
+        benchmark_competitive_surpass_action_plan=(
+            benchmark_competitive_surpass_action_plan
+        ),
     )
     knowledge_component = (
         benchmark_knowledge_readiness.get("knowledge_readiness")
@@ -723,6 +755,11 @@ def build_bundle(
     )
     competitive_surpass_trend_component = _competitive_surpass_trend_component(
         benchmark_competitive_surpass_trend
+    )
+    competitive_surpass_action_plan_component = (
+        benchmark_competitive_surpass_action_plan.get("competitive_surpass_action_plan")
+        or benchmark_competitive_surpass_action_plan
+        or {}
     )
     knowledge_application_component = (
         benchmark_knowledge_application.get("knowledge_application")
@@ -828,6 +865,9 @@ def build_bundle(
     competitive_surpass_trend_recommendations = _compact_list(
         benchmark_competitive_surpass_trend.get("recommendations") or []
     )
+    competitive_surpass_action_plan_recommendations = _compact_list(
+        benchmark_competitive_surpass_action_plan.get("recommendations") or []
+    )
     artifact_rows = {
         "benchmark_scorecard": _artifact_row(
             name="benchmark_scorecard",
@@ -883,6 +923,13 @@ def build_bundle(
             name="benchmark_competitive_surpass_trend",
             path_text=artifact_paths.get("benchmark_competitive_surpass_trend", ""),
             payload=benchmark_competitive_surpass_trend,
+        ),
+        "benchmark_competitive_surpass_action_plan": _artifact_row(
+            name="benchmark_competitive_surpass_action_plan",
+            path_text=artifact_paths.get(
+                "benchmark_competitive_surpass_action_plan", ""
+            ),
+            payload=benchmark_competitive_surpass_action_plan,
         ),
         "benchmark_operator_adoption": _artifact_row(
             name="benchmark_operator_adoption",
@@ -1041,6 +1088,35 @@ def build_bundle(
         ),
         "competitive_surpass_trend_recommendations": (
             competitive_surpass_trend_recommendations
+        ),
+        "competitive_surpass_action_plan_status": (
+            competitive_surpass_action_plan_component.get("status") or "unknown"
+        ),
+        "competitive_surpass_action_plan": competitive_surpass_action_plan_component,
+        "competitive_surpass_action_plan_total_action_count": (
+            competitive_surpass_action_plan_component.get("total_action_count") or 0
+        ),
+        "competitive_surpass_action_plan_high_priority_action_count": (
+            competitive_surpass_action_plan_component.get("high_priority_action_count")
+            or 0
+        ),
+        "competitive_surpass_action_plan_medium_priority_action_count": (
+            competitive_surpass_action_plan_component.get(
+                "medium_priority_action_count"
+            )
+            or 0
+        ),
+        "competitive_surpass_action_plan_priority_pillars": list(
+            competitive_surpass_action_plan_component.get("priority_pillars") or []
+        ),
+        "competitive_surpass_action_plan_recommended_first_actions": list(
+            competitive_surpass_action_plan_component.get(
+                "recommended_first_actions"
+            )
+            or []
+        ),
+        "competitive_surpass_action_plan_recommendations": (
+            competitive_surpass_action_plan_recommendations
         ),
         "knowledge_application_status": knowledge_application_component.get("status")
         or "unknown",
@@ -1203,26 +1279,39 @@ def build_bundle(
         "knowledge_domain_focus_areas": knowledge_domain_focus_areas,
         "knowledge_priority_domains": knowledge_priority_domains,
         "component_statuses": _component_statuses(
-            benchmark_scorecard,
-            benchmark_operational_summary,
-            benchmark_companion_summary,
-            benchmark_knowledge_readiness,
-            benchmark_knowledge_drift,
-            benchmark_engineering_signals,
-            benchmark_realdata_signals,
-            benchmark_operator_adoption,
-            benchmark_realdata_scorecard,
-            benchmark_knowledge_application,
-            benchmark_knowledge_realdata_correlation,
-            benchmark_knowledge_domain_matrix,
-            benchmark_knowledge_domain_action_plan,
-            benchmark_knowledge_source_action_plan,
-            benchmark_knowledge_source_coverage,
-            benchmark_knowledge_source_drift,
-            benchmark_knowledge_outcome_correlation,
-            benchmark_knowledge_outcome_drift,
-            benchmark_competitive_surpass_index,
-            benchmark_competitive_surpass_trend,
+            scorecard=benchmark_scorecard,
+            operational_summary=benchmark_operational_summary,
+            benchmark_companion_summary=benchmark_companion_summary,
+            benchmark_knowledge_readiness=benchmark_knowledge_readiness,
+            benchmark_knowledge_drift=benchmark_knowledge_drift,
+            benchmark_engineering_signals=benchmark_engineering_signals,
+            benchmark_realdata_signals=benchmark_realdata_signals,
+            benchmark_operator_adoption=benchmark_operator_adoption,
+            benchmark_realdata_scorecard=benchmark_realdata_scorecard,
+            benchmark_knowledge_application=benchmark_knowledge_application,
+            benchmark_knowledge_realdata_correlation=(
+                benchmark_knowledge_realdata_correlation
+            ),
+            benchmark_knowledge_domain_matrix=benchmark_knowledge_domain_matrix,
+            benchmark_knowledge_domain_action_plan=(
+                benchmark_knowledge_domain_action_plan
+            ),
+            benchmark_knowledge_source_action_plan=(
+                benchmark_knowledge_source_action_plan
+            ),
+            benchmark_knowledge_source_coverage=benchmark_knowledge_source_coverage,
+            benchmark_knowledge_source_drift=benchmark_knowledge_source_drift,
+            benchmark_knowledge_outcome_correlation=(
+                benchmark_knowledge_outcome_correlation
+            ),
+            benchmark_knowledge_outcome_drift=benchmark_knowledge_outcome_drift,
+            benchmark_competitive_surpass_index=(
+                benchmark_competitive_surpass_index
+            ),
+            benchmark_competitive_surpass_trend=benchmark_competitive_surpass_trend,
+            benchmark_competitive_surpass_action_plan=(
+                benchmark_competitive_surpass_action_plan
+            ),
         ),
         "blockers": blockers,
         "recommendations": recommendations,
@@ -1713,6 +1802,40 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     if competitive_surpass_trend_recommendations:
         for item in competitive_surpass_trend_recommendations:
             lines.append(f"- recommendation: {item}")
+    lines.extend(["", "## Competitive Surpass Action Plan", ""])
+    lines.append(
+        "- `status`: "
+        f"`{payload.get('competitive_surpass_action_plan_status') or 'unknown'}`"
+    )
+    lines.append(
+        "- `total_action_count`: "
+        f"`{payload.get('competitive_surpass_action_plan_total_action_count') or 0}`"
+    )
+    lines.append(
+        "- `priority_pillars`: "
+        + (
+            ", ".join(
+                str(item)
+                for item in (payload.get("competitive_surpass_action_plan_priority_pillars") or [])
+            )
+            or "none"
+        )
+    )
+    first_actions = payload.get("competitive_surpass_action_plan_recommended_first_actions") or []
+    if first_actions:
+        for item in first_actions:
+            lines.append(
+                "- first_action: "
+                f"{item.get('pillar') or 'unknown'} -> {item.get('action') or 'none'}"
+            )
+    else:
+        lines.append("- first_action: none")
+    action_plan_recommendations = (
+        payload.get("competitive_surpass_action_plan_recommendations") or []
+    )
+    if action_plan_recommendations:
+        for item in action_plan_recommendations:
+            lines.append(f"- recommendation: {item}")
     else:
         lines.append("- recommendation: none")
     lines.extend(["", "## Knowledge Drift", ""])
@@ -1890,6 +2013,7 @@ def main() -> None:
     parser.add_argument("--benchmark-realdata-scorecard", default="")
     parser.add_argument("--benchmark-competitive-surpass-index", default="")
     parser.add_argument("--benchmark-competitive-surpass-trend", default="")
+    parser.add_argument("--benchmark-competitive-surpass-action-plan", default="")
     parser.add_argument("--benchmark-operator-adoption", default="")
     parser.add_argument("--benchmark-knowledge-application", default="")
     parser.add_argument("--benchmark-knowledge-realdata-correlation", default="")
@@ -1920,6 +2044,9 @@ def main() -> None:
         "benchmark_realdata_scorecard": args.benchmark_realdata_scorecard,
         "benchmark_competitive_surpass_index": args.benchmark_competitive_surpass_index,
         "benchmark_competitive_surpass_trend": args.benchmark_competitive_surpass_trend,
+        "benchmark_competitive_surpass_action_plan": (
+            args.benchmark_competitive_surpass_action_plan
+        ),
         "benchmark_operator_adoption": args.benchmark_operator_adoption,
         "benchmark_knowledge_application": args.benchmark_knowledge_application,
         "benchmark_knowledge_realdata_correlation": (
@@ -1967,6 +2094,9 @@ def main() -> None:
         ),
         benchmark_competitive_surpass_trend=_maybe_load_json(
             args.benchmark_competitive_surpass_trend
+        ),
+        benchmark_competitive_surpass_action_plan=_maybe_load_json(
+            args.benchmark_competitive_surpass_action_plan
         ),
         benchmark_operator_adoption=_maybe_load_json(args.benchmark_operator_adoption),
         benchmark_knowledge_application=_maybe_load_json(

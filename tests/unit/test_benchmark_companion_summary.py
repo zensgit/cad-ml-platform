@@ -1056,3 +1056,62 @@ def test_build_companion_summary_exposes_competitive_surpass_trend_passthrough()
     assert payload["artifacts"]["benchmark_competitive_surpass_trend"]["present"] is True
     markdown = render_markdown(payload)
     assert "## Competitive Surpass Trend" in markdown
+
+
+def test_build_companion_summary_exposes_competitive_surpass_action_plan_passthrough() -> None:
+    payload = build_companion_summary(
+        title="Benchmark Companion",
+        benchmark_scorecard={
+            "overall_status": "healthy",
+            "components": {"hybrid": {"status": "healthy"}},
+        },
+        benchmark_operational_summary={},
+        benchmark_artifact_bundle={},
+        benchmark_knowledge_readiness={},
+        benchmark_knowledge_drift={},
+        benchmark_engineering_signals={},
+        benchmark_realdata_signals={},
+        benchmark_operator_adoption={},
+        benchmark_competitive_surpass_action_plan={
+            "competitive_surpass_action_plan": {
+                "status": "competitive_surpass_action_plan_partial",
+                "total_action_count": 2,
+                "high_priority_action_count": 0,
+                "medium_priority_action_count": 2,
+                "priority_pillars": ["knowledge", "realdata"],
+                "recommended_first_actions": [
+                    {
+                        "pillar": "knowledge",
+                        "action": "Close standards source gaps.",
+                    }
+                ],
+            },
+            "recommendations": ["knowledge: Close standards source gaps."],
+        },
+        artifact_paths={
+            "benchmark_competitive_surpass_action_plan": (
+                "competitive_surpass_action_plan.json"
+            )
+        },
+    )
+
+    assert payload["component_statuses"]["competitive_surpass_action_plan"] == (
+        "competitive_surpass_action_plan_partial"
+    )
+    assert payload["competitive_surpass_action_plan_status"] == (
+        "competitive_surpass_action_plan_partial"
+    )
+    assert payload["competitive_surpass_action_plan_total_action_count"] == 2
+    assert payload["competitive_surpass_action_plan_medium_priority_action_count"] == 2
+    assert payload["competitive_surpass_action_plan_priority_pillars"] == [
+        "knowledge",
+        "realdata",
+    ]
+    assert payload["competitive_surpass_action_plan_recommendations"] == [
+        "knowledge: Close standards source gaps."
+    ]
+    assert payload["artifacts"]["benchmark_competitive_surpass_action_plan"][
+        "present"
+    ] is True
+    markdown = render_markdown(payload)
+    assert "## Competitive Surpass Action Plan" in markdown
