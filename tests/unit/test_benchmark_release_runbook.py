@@ -600,6 +600,7 @@ def test_build_release_runbook_freezes_when_ready() -> None:
     assert "benchmark_operator_adoption" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_drift" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_domain_action_plan" not in payload["missing_artifacts"]
+    assert "benchmark_knowledge_domain_control_plane" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_source_action_plan" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_source_coverage" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_outcome_drift" not in payload["missing_artifacts"]
@@ -1215,6 +1216,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     ]
     assert payload["next_action"] == "review_signals"
     assert "benchmark_knowledge_domain_action_plan" not in payload["missing_artifacts"]
+    assert "benchmark_knowledge_domain_control_plane" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_source_action_plan" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_source_coverage" not in payload["missing_artifacts"]
     assert payload["artifacts"]["benchmark_knowledge_drift"]["present"] is True
