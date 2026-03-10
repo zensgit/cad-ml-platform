@@ -361,6 +361,31 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
         "benchmark_knowledge_domain_control_plane_drift_previous_summary_json"
         in dispatch_inputs
     )
+    assert "benchmark_knowledge_domain_release_gate_enable" in dispatch_inputs
+    assert (
+        "benchmark_knowledge_domain_release_gate_knowledge_domain_capability_matrix_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_knowledge_domain_release_gate_knowledge_domain_capability_drift_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_knowledge_domain_release_gate_knowledge_domain_action_plan_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_knowledge_domain_release_gate_knowledge_domain_control_plane_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_knowledge_domain_release_gate_knowledge_domain_control_plane_drift_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_knowledge_domain_release_gate_knowledge_domain_release_surface_alignment_json"
+        in dispatch_inputs
+    )
     assert "benchmark_knowledge_source_coverage_enable" in dispatch_inputs
     assert "benchmark_knowledge_source_action_plan_enable" in dispatch_inputs
     assert (
@@ -473,6 +498,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_artifact_bundle_knowledge_drift_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_knowledge_application_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_knowledge_domain_action_plan_json" in dispatch_inputs
+    assert "benchmark_artifact_bundle_knowledge_domain_release_gate_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_knowledge_source_coverage_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_knowledge_source_action_plan_json" in dispatch_inputs
     assert (
@@ -491,6 +517,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_companion_summary_knowledge_drift_json" in dispatch_inputs
     assert "benchmark_companion_summary_knowledge_application_json" in dispatch_inputs
     assert "benchmark_companion_summary_knowledge_domain_action_plan_json" in dispatch_inputs
+    assert "benchmark_companion_summary_knowledge_domain_release_gate_json" in dispatch_inputs
     assert "benchmark_companion_summary_knowledge_source_coverage_json" in dispatch_inputs
     assert "benchmark_companion_summary_knowledge_source_action_plan_json" in dispatch_inputs
     assert "benchmark_companion_summary_competitive_surpass_index_json" in dispatch_inputs
@@ -1133,6 +1160,55 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     )
     assert "recommendations=" in benchmark_knowledge_domain_control_plane_drift_script
 
+    benchmark_knowledge_domain_release_gate_step = _get_step(
+        workflow, "evaluate", "Build benchmark knowledge domain release gate (optional)"
+    )
+    benchmark_knowledge_domain_release_gate_script = (
+        benchmark_knowledge_domain_release_gate_step["run"]
+    )
+    assert (
+        "scripts/export_benchmark_knowledge_domain_release_gate.py"
+        in benchmark_knowledge_domain_release_gate_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_ENABLE"
+        in benchmark_knowledge_domain_release_gate_script
+    )
+    assert (
+        "benchmark_knowledge_domain_release_gate_knowledge_domain_capability_matrix_json"
+        in benchmark_knowledge_domain_release_gate_script
+    )
+    assert "steps.benchmark_knowledge_domain_capability_matrix.outputs.output_json" in (
+        benchmark_knowledge_domain_release_gate_script
+    )
+    assert "steps.benchmark_knowledge_domain_capability_drift.outputs.output_json" in (
+        benchmark_knowledge_domain_release_gate_script
+    )
+    assert "steps.benchmark_knowledge_domain_action_plan.outputs.output_json" in (
+        benchmark_knowledge_domain_release_gate_script
+    )
+    assert "steps.benchmark_knowledge_domain_control_plane.outputs.output_json" in (
+        benchmark_knowledge_domain_release_gate_script
+    )
+    assert "steps.benchmark_knowledge_domain_control_plane_drift.outputs.output_json" in (
+        benchmark_knowledge_domain_release_gate_script
+    )
+    assert (
+        "benchmark_knowledge_domain_release_gate_knowledge_domain_release_surface_alignment_json"
+        in benchmark_knowledge_domain_release_gate_script
+    )
+    assert "gate_open=" in benchmark_knowledge_domain_release_gate_script
+    assert "releasable_domain_count=" in benchmark_knowledge_domain_release_gate_script
+    assert "blocked_domain_count=" in benchmark_knowledge_domain_release_gate_script
+    assert "partial_domain_count=" in benchmark_knowledge_domain_release_gate_script
+    assert "blocking_reasons=" in benchmark_knowledge_domain_release_gate_script
+    assert "warning_reasons=" in benchmark_knowledge_domain_release_gate_script
+    assert "releasable_domains=" in benchmark_knowledge_domain_release_gate_script
+    assert "blocked_domains=" in benchmark_knowledge_domain_release_gate_script
+    assert "priority_domains=" in benchmark_knowledge_domain_release_gate_script
+    assert "recommended_first_action=" in benchmark_knowledge_domain_release_gate_script
+    assert "recommendations=" in benchmark_knowledge_domain_release_gate_script
+
     benchmark_knowledge_source_coverage_step = _get_step(
         workflow, "evaluate", "Build benchmark knowledge source coverage (optional)"
     )
@@ -1501,6 +1577,15 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_domain_control_plane_domains=" in benchmark_bundle_script
     assert "knowledge_domain_control_plane_release_blockers=" in benchmark_bundle_script
     assert "knowledge_domain_control_plane_recommendations=" in benchmark_bundle_script
+    assert "--benchmark-knowledge-domain-release-gate" in benchmark_bundle_script
+    assert "knowledge_domain_release_gate_status=" in benchmark_bundle_script
+    assert "knowledge_domain_release_gate_summary=" in benchmark_bundle_script
+    assert "knowledge_domain_release_gate_gate_open=" in benchmark_bundle_script
+    assert "knowledge_domain_release_gate_blocking_reasons=" in benchmark_bundle_script
+    assert "knowledge_domain_release_gate_releasable_domains=" in benchmark_bundle_script
+    assert "knowledge_domain_release_gate_blocked_domains=" in benchmark_bundle_script
+    assert "knowledge_domain_release_gate_priority_domains=" in benchmark_bundle_script
+    assert "knowledge_domain_release_gate_recommendations=" in benchmark_bundle_script
     assert "knowledge_source_coverage_status=" in benchmark_bundle_script
     assert "knowledge_source_coverage_domain_statuses=" in benchmark_bundle_script
     assert "knowledge_source_coverage_expansion_candidates=" in benchmark_bundle_script
@@ -1666,6 +1751,15 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         "knowledge_domain_control_plane_recommendations="
         in benchmark_companion_script
     )
+    assert "--benchmark-knowledge-domain-release-gate" in benchmark_companion_script
+    assert "knowledge_domain_release_gate_status=" in benchmark_companion_script
+    assert "knowledge_domain_release_gate_summary=" in benchmark_companion_script
+    assert "knowledge_domain_release_gate_gate_open=" in benchmark_companion_script
+    assert "knowledge_domain_release_gate_blocking_reasons=" in benchmark_companion_script
+    assert "knowledge_domain_release_gate_releasable_domains=" in benchmark_companion_script
+    assert "knowledge_domain_release_gate_blocked_domains=" in benchmark_companion_script
+    assert "knowledge_domain_release_gate_priority_domains=" in benchmark_companion_script
+    assert "knowledge_domain_release_gate_recommendations=" in benchmark_companion_script
     assert "knowledge_source_coverage_status=" in benchmark_companion_script
     assert "knowledge_source_coverage_domain_statuses=" in benchmark_companion_script
     assert "knowledge_source_coverage_expansion_candidates=" in benchmark_companion_script
@@ -2388,6 +2482,13 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert (
         upload_knowledge_domain_control_plane_drift["if"]
         == "steps.benchmark_knowledge_domain_control_plane_drift.outputs.enabled == 'true'"
+    )
+    upload_knowledge_domain_release_gate = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge domain release gate"
+    )
+    assert (
+        upload_knowledge_domain_release_gate["if"]
+        == "steps.benchmark_knowledge_domain_release_gate.outputs.enabled == 'true'"
     )
     upload_knowledge_source_coverage = _get_step(
         workflow, "evaluate", "Upload benchmark knowledge source coverage"
