@@ -124,6 +124,7 @@ def _component_statuses(
     benchmark_knowledge_realdata_correlation: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_matrix: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_capability_matrix: Dict[str, Any] | None = None,
+    benchmark_knowledge_domain_capability_drift: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_coverage: Dict[str, Any] | None = None,
@@ -142,6 +143,9 @@ def _component_statuses(
     benchmark_knowledge_domain_matrix = benchmark_knowledge_domain_matrix or {}
     benchmark_knowledge_domain_capability_matrix = (
         benchmark_knowledge_domain_capability_matrix or {}
+    )
+    benchmark_knowledge_domain_capability_drift = (
+        benchmark_knowledge_domain_capability_drift or {}
     )
     benchmark_knowledge_domain_action_plan = (
         benchmark_knowledge_domain_action_plan or {}
@@ -210,6 +214,11 @@ def _component_statuses(
         )
         or benchmark_knowledge_domain_capability_matrix
         or {}
+    )
+    knowledge_domain_capability_drift_component = (
+        _knowledge_domain_capability_drift_component(
+            benchmark_knowledge_domain_capability_drift
+        )
     )
     knowledge_domain_action_plan_component = (
         benchmark_knowledge_domain_action_plan.get("knowledge_domain_action_plan")
@@ -360,6 +369,13 @@ def _component_statuses(
         or (components.get("knowledge_domain_capability_matrix") or {}).get("status")
         or "unknown"
     )
+    component_rows["knowledge_domain_capability_drift"] = str(
+        companion_components.get("knowledge_domain_capability_drift")
+        or operational_components.get("knowledge_domain_capability_drift")
+        or knowledge_domain_capability_drift_component.get("status")
+        or (components.get("knowledge_domain_capability_drift") or {}).get("status")
+        or "unknown"
+    )
     component_rows["knowledge_domain_action_plan"] = str(
         companion_components.get("knowledge_domain_action_plan")
         or operational_components.get("knowledge_domain_action_plan")
@@ -440,6 +456,12 @@ def _knowledge_outcome_drift_component(payload: Dict[str, Any]) -> Dict[str, Any
 
 def _knowledge_source_drift_component(payload: Dict[str, Any]) -> Dict[str, Any]:
     return payload.get("knowledge_source_drift") or payload or {}
+
+
+def _knowledge_domain_capability_drift_component(
+    payload: Dict[str, Any],
+) -> Dict[str, Any]:
+    return payload.get("knowledge_domain_capability_drift") or payload or {}
 
 
 def _competitive_surpass_trend_component(payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -549,6 +571,7 @@ def _pick_summary_items(
     benchmark_knowledge_realdata_correlation: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_matrix: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_capability_matrix: Dict[str, Any] | None = None,
+    benchmark_knowledge_domain_capability_drift: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_coverage: Dict[str, Any] | None = None,
@@ -566,6 +589,9 @@ def _pick_summary_items(
     benchmark_knowledge_domain_matrix = benchmark_knowledge_domain_matrix or {}
     benchmark_knowledge_domain_capability_matrix = (
         benchmark_knowledge_domain_capability_matrix or {}
+    )
+    benchmark_knowledge_domain_capability_drift = (
+        benchmark_knowledge_domain_capability_drift or {}
     )
     benchmark_knowledge_domain_action_plan = (
         benchmark_knowledge_domain_action_plan or {}
@@ -613,6 +639,7 @@ def _pick_summary_items(
         or benchmark_knowledge_realdata_correlation.get("recommendations")
         or benchmark_knowledge_domain_matrix.get("recommendations")
         or benchmark_knowledge_domain_capability_matrix.get("recommendations")
+        or benchmark_knowledge_domain_capability_drift.get("recommendations")
         or benchmark_knowledge_domain_action_plan.get("recommendations")
         or benchmark_knowledge_source_action_plan.get("recommendations")
         or benchmark_knowledge_source_coverage.get("recommendations")
@@ -692,6 +719,7 @@ def build_bundle(
     benchmark_knowledge_realdata_correlation: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_matrix: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_capability_matrix: Dict[str, Any] | None = None,
+    benchmark_knowledge_domain_capability_drift: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_coverage: Dict[str, Any] | None = None,
@@ -717,6 +745,9 @@ def build_bundle(
     benchmark_knowledge_domain_matrix = benchmark_knowledge_domain_matrix or {}
     benchmark_knowledge_domain_capability_matrix = (
         benchmark_knowledge_domain_capability_matrix or {}
+    )
+    benchmark_knowledge_domain_capability_drift = (
+        benchmark_knowledge_domain_capability_drift or {}
     )
     benchmark_knowledge_domain_action_plan = (
         benchmark_knowledge_domain_action_plan or {}
@@ -749,6 +780,9 @@ def build_bundle(
         benchmark_knowledge_domain_matrix=benchmark_knowledge_domain_matrix,
         benchmark_knowledge_domain_capability_matrix=(
             benchmark_knowledge_domain_capability_matrix
+        ),
+        benchmark_knowledge_domain_capability_drift=(
+            benchmark_knowledge_domain_capability_drift
         ),
         benchmark_knowledge_domain_action_plan=benchmark_knowledge_domain_action_plan,
         benchmark_knowledge_source_action_plan=benchmark_knowledge_source_action_plan,
@@ -812,6 +846,11 @@ def build_bundle(
         )
         or benchmark_knowledge_domain_capability_matrix
         or {}
+    )
+    knowledge_domain_capability_drift_component = (
+        _knowledge_domain_capability_drift_component(
+            benchmark_knowledge_domain_capability_drift
+        )
     )
     knowledge_domain_action_plan_component = (
         benchmark_knowledge_domain_action_plan.get("knowledge_domain_action_plan")
@@ -883,6 +922,9 @@ def build_bundle(
     )
     knowledge_domain_capability_matrix_recommendations = _compact_list(
         benchmark_knowledge_domain_capability_matrix.get("recommendations") or []
+    )
+    knowledge_domain_capability_drift_recommendations = _compact_list(
+        benchmark_knowledge_domain_capability_drift.get("recommendations") or []
     )
     knowledge_domain_action_plan_recommendations = _compact_list(
         benchmark_knowledge_domain_action_plan.get("recommendations") or []
@@ -1001,6 +1043,14 @@ def build_bundle(
                 "",
             ),
             payload=benchmark_knowledge_domain_capability_matrix,
+        ),
+        "benchmark_knowledge_domain_capability_drift": _artifact_row(
+            name="benchmark_knowledge_domain_capability_drift",
+            path_text=artifact_paths.get(
+                "benchmark_knowledge_domain_capability_drift",
+                "",
+            ),
+            payload=benchmark_knowledge_domain_capability_drift,
         ),
         "benchmark_knowledge_domain_action_plan": _artifact_row(
             name="benchmark_knowledge_domain_action_plan",
@@ -1218,6 +1268,21 @@ def build_bundle(
         "knowledge_domain_capability_matrix_recommendations": (
             knowledge_domain_capability_matrix_recommendations
         ),
+        "knowledge_domain_capability_drift_status": (
+            knowledge_domain_capability_drift_component.get("status") or "unknown"
+        ),
+        "knowledge_domain_capability_drift": (
+            knowledge_domain_capability_drift_component
+        ),
+        "knowledge_domain_capability_drift_domain_regressions": list(
+            knowledge_domain_capability_drift_component.get("domain_regressions") or []
+        ),
+        "knowledge_domain_capability_drift_domain_improvements": list(
+            knowledge_domain_capability_drift_component.get("domain_improvements") or []
+        ),
+        "knowledge_domain_capability_drift_recommendations": (
+            knowledge_domain_capability_drift_recommendations
+        ),
         "knowledge_domain_action_plan_status": (
             knowledge_domain_action_plan_component.get("status") or "unknown"
         ),
@@ -1363,6 +1428,9 @@ def build_bundle(
             benchmark_knowledge_domain_capability_matrix=(
                 benchmark_knowledge_domain_capability_matrix
             ),
+            benchmark_knowledge_domain_capability_drift=(
+                benchmark_knowledge_domain_capability_drift
+            ),
             benchmark_knowledge_domain_action_plan=(
                 benchmark_knowledge_domain_action_plan
             ),
@@ -1408,6 +1476,8 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         f"`{payload.get('knowledge_domain_matrix_status') or 'unknown'}`",
         f"- knowledge_domain_capability_matrix_status: "
         f"`{payload.get('knowledge_domain_capability_matrix_status') or 'unknown'}`",
+        f"- knowledge_domain_capability_drift_status: "
+        f"`{payload.get('knowledge_domain_capability_drift_status') or 'unknown'}`",
         f"- knowledge_domain_action_plan_status: "
         f"`{payload.get('knowledge_domain_action_plan_status') or 'unknown'}`",
         f"- knowledge_source_action_plan_status: "
@@ -1544,6 +1614,25 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     )
     if capability_recommendations:
         for item in capability_recommendations:
+            lines.append(f"- recommendation: {item}")
+    lines.extend(["", "## Knowledge Domain Capability Drift", ""])
+    capability_drift_regressions = ", ".join(
+        payload.get("knowledge_domain_capability_drift_domain_regressions") or []
+    ) or "none"
+    capability_drift_improvements = ", ".join(
+        payload.get("knowledge_domain_capability_drift_domain_improvements") or []
+    ) or "none"
+    lines.append(
+        "- `status`: "
+        f"`{payload.get('knowledge_domain_capability_drift_status') or 'unknown'}`"
+    )
+    lines.append("- `domain_regressions`: " f"`{capability_drift_regressions}`")
+    lines.append("- `domain_improvements`: " f"`{capability_drift_improvements}`")
+    drift_recommendations = (
+        payload.get("knowledge_domain_capability_drift_recommendations") or []
+    )
+    if drift_recommendations:
+        for item in drift_recommendations:
             lines.append(f"- recommendation: {item}")
     lines.extend(["", "## Knowledge Domain Action Plan", ""])
     lines.append(
@@ -2117,6 +2206,7 @@ def main() -> None:
     parser.add_argument("--benchmark-knowledge-realdata-correlation", default="")
     parser.add_argument("--benchmark-knowledge-domain-matrix", default="")
     parser.add_argument("--benchmark-knowledge-domain-capability-matrix", default="")
+    parser.add_argument("--benchmark-knowledge-domain-capability-drift", default="")
     parser.add_argument("--benchmark-knowledge-domain-action-plan", default="")
     parser.add_argument("--benchmark-knowledge-source-action-plan", default="")
     parser.add_argument("--benchmark-knowledge-source-coverage", default="")
@@ -2154,6 +2244,9 @@ def main() -> None:
         "benchmark_knowledge_domain_matrix": args.benchmark_knowledge_domain_matrix,
         "benchmark_knowledge_domain_capability_matrix": (
             args.benchmark_knowledge_domain_capability_matrix
+        ),
+        "benchmark_knowledge_domain_capability_drift": (
+            args.benchmark_knowledge_domain_capability_drift
         ),
         "benchmark_knowledge_domain_action_plan": (
             args.benchmark_knowledge_domain_action_plan
@@ -2212,6 +2305,9 @@ def main() -> None:
         ),
         benchmark_knowledge_domain_capability_matrix=_maybe_load_json(
             args.benchmark_knowledge_domain_capability_matrix
+        ),
+        benchmark_knowledge_domain_capability_drift=_maybe_load_json(
+            args.benchmark_knowledge_domain_capability_drift
         ),
         benchmark_knowledge_domain_action_plan=_maybe_load_json(
             args.benchmark_knowledge_domain_action_plan

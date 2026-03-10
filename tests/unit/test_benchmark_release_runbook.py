@@ -265,6 +265,9 @@ def test_build_release_runbook_freezes_when_ready() -> None:
                 "benchmark_knowledge_domain_capability_matrix": {
                     "path": "knowledge_domain_capability_matrix.json"
                 },
+                "benchmark_knowledge_domain_capability_drift": {
+                    "path": "knowledge_domain_capability_drift.json"
+                },
             },
         },
         benchmark_companion_summary={"overall_status": "healthy"},
@@ -381,6 +384,14 @@ def test_build_release_runbook_freezes_when_ready() -> None:
                         "reference_item_count": 12,
                     }
                 },
+            },
+            "recommendations": [],
+        },
+        benchmark_knowledge_domain_capability_drift={
+            "knowledge_domain_capability_drift": {
+                "status": "stable",
+                "domain_regressions": [],
+                "domain_improvements": [],
             },
             "recommendations": [],
         },
@@ -521,6 +532,9 @@ def test_build_release_runbook_freezes_when_ready() -> None:
             "benchmark_knowledge_domain_capability_matrix": (
                 "knowledge_domain_capability_matrix.json"
             ),
+            "benchmark_knowledge_domain_capability_drift": (
+                "knowledge_domain_capability_drift.json"
+            ),
             "benchmark_knowledge_domain_action_plan": "knowledge_domain_action_plan.json",
             "benchmark_knowledge_source_action_plan": (
                 "knowledge_source_action_plan.json"
@@ -619,6 +633,9 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     knowledge_realdata_correlation = tmp_path / "knowledge_realdata_correlation.json"
     knowledge_domain_matrix = tmp_path / "knowledge_domain_matrix.json"
     knowledge_domain_capability_matrix = tmp_path / "knowledge_domain_capability_matrix.json"
+    knowledge_domain_capability_drift = (
+        tmp_path / "knowledge_domain_capability_drift.json"
+    )
     knowledge_domain_action_plan = tmp_path / "knowledge_domain_action_plan.json"
     knowledge_source_action_plan = tmp_path / "knowledge_source_action_plan.json"
     knowledge_source_coverage = tmp_path / "knowledge_source_coverage.json"
@@ -643,6 +660,9 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
                     "benchmark_operational_summary": {"path": "operational.json"},
                     "benchmark_companion_summary": {"path": "companion.json"},
                     "benchmark_artifact_bundle": {"path": "bundle.json"},
+                    "benchmark_knowledge_domain_capability_drift": {
+                        "path": "knowledge_domain_capability_drift.json"
+                    },
                 },
             }
         ),
@@ -869,6 +889,22 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    knowledge_domain_capability_drift.write_text(
+        json.dumps(
+            {
+                "knowledge_domain_capability_drift": {
+                    "status": "regressed",
+                    "domain_regressions": ["gdt"],
+                    "domain_improvements": [],
+                },
+                "recommendations": [
+                    "Restore regressed knowledge domain capabilities before claiming "
+                    "benchmark capability stability."
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
     knowledge_domain_action_plan.write_text(
         json.dumps(
             {
@@ -1088,6 +1124,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
             str(knowledge_domain_matrix),
             "--benchmark-knowledge-domain-capability-matrix",
             str(knowledge_domain_capability_matrix),
+            "--benchmark-knowledge-domain-capability-drift",
+            str(knowledge_domain_capability_drift),
             "--benchmark-knowledge-domain-action-plan",
             str(knowledge_domain_action_plan),
             "--benchmark-knowledge-source-action-plan",
