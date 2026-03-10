@@ -3496,6 +3496,17 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkKnowledgeDomainControlPlaneDriftRecommendations" in (
         pr_comment_script
     )
+    assert "benchmarkKnowledgeDomainReleaseGateEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeDomainReleaseGateStatus" in pr_comment_script
+    assert "benchmarkKnowledgeDomainReleaseGateStatusLine" in pr_comment_script
+    assert "benchmarkKnowledgeDomainReleaseGateLight" in pr_comment_script
+    assert "benchmarkKnowledgeDomainReleaseGateReleasableDomains" in pr_comment_script
+    assert "benchmarkKnowledgeDomainReleaseGateBlockedDomains" in pr_comment_script
+    assert "benchmarkKnowledgeDomainReleaseGatePriorityDomains" in pr_comment_script
+    assert "benchmarkKnowledgeDomainReleaseGateRecommendedFirstAction" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeDomainReleaseGateRecommendations" in pr_comment_script
     assert "benchmarkKnowledgeSourceActionPlanEnabled" in pr_comment_script
     assert "benchmarkKnowledgeSourceActionPlanStatus" in pr_comment_script
     assert "benchmarkKnowledgeSourceActionPlanStatusLine" in pr_comment_script
@@ -3555,6 +3566,12 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkArtifactBundleKnowledgeDomainControlPlaneDriftStatusLine" in (
         pr_comment_script
     )
+    assert "benchmarkArtifactBundleKnowledgeDomainReleaseGateStatus" in (
+        pr_comment_script
+    )
+    assert "benchmarkArtifactBundleKnowledgeDomainReleaseGateStatusLine" in (
+        pr_comment_script
+    )
     assert "benchmarkArtifactBundleKnowledgeSourceCoverageStatus" in pr_comment_script
     assert "benchmarkArtifactBundleKnowledgeSourceCoverageStatusLine" in (
         pr_comment_script
@@ -3595,6 +3612,10 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
         pr_comment_script
     )
     assert "benchmarkCompanionKnowledgeDomainControlPlaneDriftStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkCompanionKnowledgeDomainReleaseGateStatus" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeDomainReleaseGateStatusLine" in (
         pr_comment_script
     )
     assert "benchmarkCompanionKnowledgeSourceCoverageStatus" in pr_comment_script
@@ -3708,6 +3729,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Knowledge Domain Action Plan" in pr_comment_script
     assert "Benchmark Knowledge Domain Control Plane" in pr_comment_script
     assert "Benchmark Knowledge Domain Control Plane Drift" in pr_comment_script
+    assert "Benchmark Knowledge Domain Release Gate" in pr_comment_script
     assert "Benchmark Knowledge Source Coverage" in pr_comment_script
     assert "Benchmark Knowledge Source Action Plan" in pr_comment_script
     assert "Benchmark Knowledge Source Drift" in pr_comment_script
@@ -3736,6 +3758,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
         pr_comment_script
     )
     assert "Benchmark Artifact Bundle Knowledge Domain Control Plane Drift" in (
+        pr_comment_script
+    )
+    assert "Benchmark Artifact Bundle Knowledge Domain Release Gate" in (
         pr_comment_script
     )
     assert "Benchmark Artifact Bundle Knowledge Source Coverage" in pr_comment_script
@@ -3767,6 +3792,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Companion Knowledge Domain Control Plane Drift" in (
         pr_comment_script
     )
+    assert "Benchmark Companion Knowledge Domain Release Gate" in pr_comment_script
     assert "Benchmark Companion Knowledge Source Coverage" in pr_comment_script
     assert "Benchmark Companion Knowledge Source Action Plan" in pr_comment_script
     assert "Benchmark Companion Knowledge Source Drift" in pr_comment_script
