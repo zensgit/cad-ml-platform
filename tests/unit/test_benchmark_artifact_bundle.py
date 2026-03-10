@@ -728,3 +728,60 @@ def test_build_bundle_exposes_knowledge_outcome_drift_passthrough() -> None:
     assert "## Operator Adoption Release Surface Alignment" in markdown
     assert "## Scorecard Operator Adoption" in markdown
     assert "## Operational Operator Adoption" in markdown
+
+
+def test_build_bundle_exposes_competitive_surpass_index_passthrough() -> None:
+    payload = module.build_bundle(
+        title="Benchmark Artifact Bundle",
+        benchmark_scorecard={
+            "overall_status": "benchmark_ready_with_multisignal_evidence",
+            "components": {"hybrid": {"status": "ready"}},
+        },
+        benchmark_operational_summary={},
+        benchmark_companion_summary={},
+        benchmark_release_decision={},
+        benchmark_knowledge_readiness={},
+        benchmark_knowledge_drift={},
+        benchmark_engineering_signals={},
+        benchmark_realdata_signals={},
+        benchmark_realdata_scorecard={},
+        benchmark_operator_adoption={},
+        benchmark_competitive_surpass_index={
+            "competitive_surpass_index": {
+                "status": "competitive_surpass_attention_required",
+                "score": 70,
+                "primary_gaps": ["knowledge", "operator_adoption"],
+            },
+            "recommendations": [
+                "Close tolerance/standards/GD&T knowledge gaps before claiming "
+                "benchmark surpass readiness."
+            ],
+        },
+        benchmark_knowledge_application={},
+        benchmark_knowledge_realdata_correlation={},
+        benchmark_knowledge_domain_matrix={},
+        benchmark_knowledge_outcome_correlation={},
+        benchmark_knowledge_outcome_drift={},
+        feedback_flywheel={},
+        assistant_evidence={},
+        review_queue={},
+        ocr_review={},
+        artifact_paths={
+            "benchmark_competitive_surpass_index": "competitive_surpass_index.json"
+        },
+    )
+
+    assert payload["competitive_surpass_index_status"] == (
+        "competitive_surpass_attention_required"
+    )
+    assert payload["competitive_surpass_primary_gaps"] == [
+        "knowledge",
+        "operator_adoption",
+    ]
+    assert payload["competitive_surpass_recommendations"] == [
+        "Close tolerance/standards/GD&T knowledge gaps before claiming benchmark "
+        "surpass readiness."
+    ]
+    assert payload["artifacts"]["benchmark_competitive_surpass_index"]["present"] is True
+    markdown = module.render_markdown(payload)
+    assert "## Competitive Surpass Index" in markdown

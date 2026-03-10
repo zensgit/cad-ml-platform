@@ -790,3 +790,70 @@ def test_build_companion_summary_exposes_knowledge_outcome_drift_passthrough() -
     assert payload["knowledge_outcome_drift_recommendations"] == [
         "Keep the previous knowledge outcome baseline until regressions are cleared."
     ]
+
+
+def test_build_companion_summary_exposes_competitive_surpass_index_passthrough() -> None:
+    payload = build_companion_summary(
+        title="Benchmark Companion",
+        benchmark_scorecard={
+            "overall_status": "healthy",
+            "components": {"hybrid": {"status": "healthy"}},
+        },
+        benchmark_operational_summary={},
+        benchmark_artifact_bundle={
+            "overall_status": "healthy",
+            "component_statuses": {
+                "assistant_explainability": "explainability_ready",
+                "review_queue": "healthy",
+                "ocr_review": "ocr_ready",
+            },
+        },
+        benchmark_knowledge_readiness={
+            "knowledge_readiness": {"status": "knowledge_foundation_ready"}
+        },
+        benchmark_knowledge_drift={},
+        benchmark_engineering_signals={
+            "engineering_signals": {"status": "engineering_semantics_ready"},
+            "recommendations": [],
+        },
+        benchmark_realdata_signals={
+            "realdata_signals": {"status": "realdata_foundation_ready"},
+            "recommendations": [],
+        },
+        benchmark_realdata_scorecard={
+            "realdata_scorecard": {"status": "realdata_scorecard_ready"},
+            "recommendations": [],
+        },
+        benchmark_operator_adoption={
+            "adoption_readiness": "operator_ready",
+            "release_surface_alignment_status": "aligned",
+            "release_surface_alignment_summary": "Release surfaces are aligned.",
+            "release_surface_alignment": {"mismatches": []},
+            "recommended_actions": [],
+        },
+        benchmark_competitive_surpass_index={
+            "competitive_surpass_index": {
+                "status": "competitive_surpass_ready",
+                "score": 100,
+                "primary_gaps": [],
+            },
+            "recommendations": [
+                "Competitive-surpass benchmark pillars are aligned across "
+                "engineering, knowledge, real-data, operator adoption, and "
+                "release surfaces."
+            ],
+        },
+        artifact_paths={
+            "benchmark_competitive_surpass_index": "competitive_surpass_index.json"
+        },
+    )
+
+    assert payload["competitive_surpass_index_status"] == "competitive_surpass_ready"
+    assert payload["competitive_surpass_primary_gaps"] == []
+    assert payload["competitive_surpass_recommendations"] == [
+        "Competitive-surpass benchmark pillars are aligned across engineering, "
+        "knowledge, real-data, operator adoption, and release surfaces."
+    ]
+    assert payload["artifacts"]["benchmark_competitive_surpass_index"]["present"] is True
+    markdown = render_markdown(payload)
+    assert "## Competitive Surpass Index" in markdown

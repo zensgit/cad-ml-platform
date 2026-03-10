@@ -59,3 +59,8 @@ from .realdata_scorecard import (  # noqa: F401
     realdata_scorecard_recommendations,
     render_realdata_scorecard_markdown,
 )
+from .competitive_surpass_index import (  # noqa: F401
+    build_competitive_surpass_index,
+    competitive_surpass_index_recommendations,
+    render_competitive_surpass_markdown,
+)
