@@ -330,6 +330,18 @@ on:
         description: 'Optional benchmark knowledge outcome drift previous summary JSON'
         required: false
         default: ''
+      benchmark_knowledge_domain_release_surface_alignment_enable:
+        description: 'Override: enable benchmark knowledge domain release surface alignment export (true/false)'
+        required: false
+        default: ''
+      benchmark_knowledge_domain_release_surface_alignment_release_decision_json:
+        description: 'Optional benchmark knowledge domain release surface alignment release decision JSON'
+        required: false
+        default: ''
+      benchmark_knowledge_domain_release_surface_alignment_release_runbook_json:
+        description: 'Optional benchmark knowledge domain release surface alignment release runbook JSON'
+        required: false
+        default: ''
       benchmark_competitive_surpass_index_enable:
         description: 'Override: enable benchmark competitive surpass index export (true/false)'
         required: false
@@ -388,6 +400,10 @@ on:
         default: ''
       benchmark_competitive_surpass_index_operator_adoption_json:
         description: 'Optional benchmark competitive surpass index operator adoption JSON'
+        required: false
+        default: ''
+      benchmark_competitive_surpass_index_knowledge_domain_release_surface_alignment_json:
+        description: 'Optional benchmark competitive surpass index knowledge domain release surface alignment JSON'
         required: false
         default: ''
       benchmark_competitive_surpass_trend_enable:
@@ -562,6 +578,10 @@ on:
         description: 'Optional benchmark artifact bundle knowledge outcome drift JSON'
         required: false
         default: ''
+      benchmark_artifact_bundle_knowledge_domain_release_surface_alignment_json:
+        description: 'Optional benchmark artifact bundle knowledge domain release surface alignment JSON'
+        required: false
+        default: ''
       benchmark_artifact_bundle_competitive_surpass_index_json:
         description: 'Optional benchmark artifact bundle competitive surpass index JSON'
         required: false
@@ -652,6 +672,10 @@ on:
         default: ''
       benchmark_companion_summary_knowledge_outcome_drift_json:
         description: 'Optional benchmark companion summary knowledge outcome drift JSON'
+        required: false
+        default: ''
+      benchmark_companion_summary_knowledge_domain_release_surface_alignment_json:
+        description: 'Optional benchmark companion summary knowledge domain release surface alignment JSON'
         required: false
         default: ''
       benchmark_companion_summary_competitive_surpass_index_json:
@@ -1057,6 +1081,12 @@ env:
   BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_PREVIOUS_SUMMARY_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_PREVIOUS_SUMMARY_JSON }}
   BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_OUTPUT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_knowledge_domain_control_plane_drift.json' }}
   BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_OUTPUT_MD: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_knowledge_domain_control_plane_drift.md' }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_ENABLE: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_ENABLE || 'false' }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_TITLE: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_TITLE || 'Benchmark Knowledge Domain Release Surface Alignment' }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_RELEASE_DECISION_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_RELEASE_DECISION_JSON }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_RELEASE_RUNBOOK_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_RELEASE_RUNBOOK_JSON }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_OUTPUT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_knowledge_domain_release_surface_alignment.json' }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_OUTPUT_MD: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_knowledge_domain_release_surface_alignment.md' }}
   BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_ENABLE: ${{ vars.BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_ENABLE || 'false' }}
   BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_TITLE: ${{ vars.BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_TITLE || 'Benchmark Knowledge Source Coverage' }}
   BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_OUTPUT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_knowledge_source_coverage.json' }}
@@ -1100,6 +1130,7 @@ env:
   BENCHMARK_COMPETITIVE_SURPASS_INDEX_REALDATA_SIGNALS_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_INDEX_REALDATA_SIGNALS_JSON }}
   BENCHMARK_COMPETITIVE_SURPASS_INDEX_REALDATA_SCORECARD_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_INDEX_REALDATA_SCORECARD_JSON }}
   BENCHMARK_COMPETITIVE_SURPASS_INDEX_OPERATOR_ADOPTION_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_INDEX_OPERATOR_ADOPTION_JSON }}
+  BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_JSON }}
   BENCHMARK_COMPETITIVE_SURPASS_INDEX_OUTPUT_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_INDEX_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_competitive_surpass_index.json' }}
   BENCHMARK_COMPETITIVE_SURPASS_INDEX_OUTPUT_MD: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_INDEX_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_competitive_surpass_index.md' }}
   BENCHMARK_COMPETITIVE_SURPASS_TREND_ENABLE: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_TREND_ENABLE || 'false' }}
@@ -4255,6 +4286,7 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_domain_capability_matrix_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-drift "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_domain_capability_drift_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-control-plane-drift "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_domain_control_plane_drift_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-surface-alignment "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_domain_release_surface_alignment_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_domain_action_plan_json || '' }}"
         add_if_exists --benchmark-knowledge-source-coverage "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_source_coverage_json || '' }}"
         add_if_exists --benchmark-knowledge-source-action-plan "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_source_action_plan_json || '' }}"
@@ -4300,6 +4332,7 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-capability-drift "${{ steps.benchmark_knowledge_domain_capability_drift.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-control-plane-drift "${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-surface-alignment "${{ steps.benchmark_knowledge_domain_release_surface_alignment.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-control-plane-drift "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ steps.benchmark_knowledge_domain_action_plan.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON:-}"
@@ -4441,6 +4474,9 @@ jobs:
             release_alignment = (
                 payload.get("operator_adoption_release_surface_alignment") or {}
             )
+            knowledge_domain_release_alignment = (
+                payload.get("knowledge_domain_release_surface_alignment") or {}
+            )
             f.write(
                 "scorecard_operator_adoption_status="
                 f"{scorecard_operator.get('status', 'unknown')}\n"
@@ -4480,6 +4516,18 @@ jobs:
             f.write(
                 "operator_adoption_release_surface_alignment_mismatches="
                 f"{compact(release_alignment.get('mismatches') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_release_surface_alignment_status="
+                f"{knowledge_domain_release_alignment.get('status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_domain_release_surface_alignment_summary="
+                f"{compact([knowledge_domain_release_alignment.get('summary')])}\n"
+            )
+            f.write(
+                "knowledge_domain_release_surface_alignment_mismatches="
+                f"{compact(knowledge_domain_release_alignment.get('mismatches') or [])}\n"
             )
             f.write(
                 "operator_adoption_knowledge_outcome_drift_status="
@@ -5153,6 +5201,7 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${{ github.event.inputs.benchmark_companion_summary_knowledge_domain_capability_matrix_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-drift "${{ github.event.inputs.benchmark_companion_summary_knowledge_domain_capability_drift_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-control-plane-drift "${{ github.event.inputs.benchmark_companion_summary_knowledge_domain_control_plane_drift_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-surface-alignment "${{ github.event.inputs.benchmark_companion_summary_knowledge_domain_release_surface_alignment_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ github.event.inputs.benchmark_companion_summary_knowledge_domain_action_plan_json || '' }}"
         add_if_exists --benchmark-knowledge-source-coverage "${{ github.event.inputs.benchmark_companion_summary_knowledge_source_coverage_json || '' }}"
         add_if_exists --benchmark-knowledge-source-action-plan "${{ github.event.inputs.benchmark_companion_summary_knowledge_source_action_plan_json || '' }}"
@@ -5187,6 +5236,7 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-capability-drift "${{ steps.benchmark_knowledge_domain_capability_drift.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-control-plane-drift "${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-surface-alignment "${{ steps.benchmark_knowledge_domain_release_surface_alignment.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-control-plane-drift "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ steps.benchmark_knowledge_domain_action_plan.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON:-}"
@@ -5332,6 +5382,9 @@ jobs:
             release_alignment = (
                 payload.get("operator_adoption_release_surface_alignment") or {}
             )
+            knowledge_domain_release_alignment = (
+                payload.get("knowledge_domain_release_surface_alignment") or {}
+            )
             f.write(
                 "scorecard_operator_adoption_status="
                 f"{scorecard_operator.get('status', 'unknown')}\n"
@@ -5371,6 +5424,18 @@ jobs:
             f.write(
                 "operator_adoption_release_surface_alignment_mismatches="
                 f"{compact(release_alignment.get('mismatches') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_release_surface_alignment_status="
+                f"{knowledge_domain_release_alignment.get('status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_domain_release_surface_alignment_summary="
+                f"{compact([knowledge_domain_release_alignment.get('summary')])}\n"
+            )
+            f.write(
+                "knowledge_domain_release_surface_alignment_mismatches="
+                f"{compact(knowledge_domain_release_alignment.get('mismatches') or [])}\n"
             )
             f.write(
                 "operator_adoption_knowledge_outcome_drift_status="
@@ -7500,6 +7565,99 @@ jobs:
             )
         PY
 
+    - name: Build benchmark knowledge domain release surface alignment (optional)
+      id: benchmark_knowledge_domain_release_surface_alignment
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_domain_release_surface_alignment_enable || '' }}"
+        ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+
+        OUTPUT_JSON="${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_OUTPUT_JSON:-reports/history_sequence_eval/benchmark_knowledge_domain_release_surface_alignment.json}"
+        OUTPUT_MD="${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_OUTPUT_MD:-reports/history_sequence_eval/benchmark_knowledge_domain_release_surface_alignment.md}"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+        mkdir -p "$(dirname "$OUTPUT_MD")"
+
+        CMD=(
+          python3 scripts/export_benchmark_knowledge_domain_release_surface_alignment.py
+          --title "${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_TITLE:-Benchmark Knowledge Domain Release Surface Alignment}"
+          --output-json "$OUTPUT_JSON"
+          --output-md "$OUTPUT_MD"
+        )
+        INPUT_COUNT=0
+
+        add_if_exists() {
+          local flag="$1"
+          local candidate="$2"
+          if [[ -n "$candidate" && -f "$candidate" ]]; then
+            CMD+=("$flag" "$candidate")
+            INPUT_COUNT=$((INPUT_COUNT + 1))
+          fi
+        }
+
+        add_if_exists --benchmark-release-decision "${{ github.event.inputs.benchmark_knowledge_domain_release_surface_alignment_release_decision_json || '' }}"
+        add_if_exists --benchmark-release-decision "${{ steps.benchmark_release_decision.outputs.output_json || '' }}"
+        add_if_exists --benchmark-release-decision "${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_RELEASE_DECISION_JSON:-}"
+        add_if_exists --benchmark-release-runbook "${{ github.event.inputs.benchmark_knowledge_domain_release_surface_alignment_release_runbook_json || '' }}"
+        add_if_exists --benchmark-release-runbook "${{ steps.benchmark_release_runbook.outputs.output_json || '' }}"
+        add_if_exists --benchmark-release-runbook "${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_RELEASE_RUNBOOK_JSON:-}"
+
+        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
+          if [[ "$INPUT_COUNT" -eq 0 ]]; then
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_ENABLE is not true and no inputs found; skip."
+            exit 0
+          fi
+        fi
+
+        if [[ "$INPUT_COUNT" -eq 0 ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "No benchmark knowledge domain release surface alignment inputs found; skip."
+          exit 0
+        fi
+
+        "${CMD[@]}"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path(
+                os.environ[
+                    "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_OUTPUT_JSON"
+                ]
+            ).read_text(encoding="utf-8")
+        )
+        component = payload.get("knowledge_domain_release_surface_alignment") or {}
+        recommendations = payload.get("recommendations") or []
+
+        def compact(items):
+            return "; ".join(str(item).strip() for item in items[:4] if str(item).strip())
+
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+          f.write(f"status={component.get('status', 'unknown')}\n")
+          f.write(f"summary={component.get('summary', 'none')}\n")
+          f.write(f"mismatch_count={component.get('mismatch_count', 0)}\n")
+          f.write(f"mismatches={compact(component.get('mismatches') or [])}\n")
+          f.write(
+              "domain_mismatches="
+              f"{compact(component.get('domain_mismatches') or [])}\n"
+          )
+          f.write(
+              "release_blocker_mismatches="
+              f"{compact(component.get('release_blocker_mismatches') or [])}\n"
+          )
+          f.write(f"recommendations={compact(recommendations)}\n")
+        PY
+
     - name: Build benchmark operator adoption (optional)
       id: benchmark_operator_adoption
       continue-on-error: true
@@ -7822,6 +7980,7 @@ jobs:
         add_if_exists --benchmark-realdata-signals "${{ github.event.inputs.benchmark_competitive_surpass_index_realdata_signals_json || '' }}"
         add_if_exists --benchmark-realdata-scorecard "${{ github.event.inputs.benchmark_competitive_surpass_index_realdata_scorecard_json || '' }}"
         add_if_exists --benchmark-operator-adoption "${{ github.event.inputs.benchmark_competitive_surpass_index_operator_adoption_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-surface-alignment "${{ github.event.inputs.benchmark_competitive_surpass_index_knowledge_domain_release_surface_alignment_json || '' }}"
         add_if_exists --benchmark-engineering-signals "${{ steps.benchmark_engineering_signals.outputs.output_json || '' }}"
         add_if_exists --benchmark-engineering-signals "${BENCHMARK_COMPETITIVE_SURPASS_INDEX_ENGINEERING_SIGNALS_JSON:-}"
         add_if_exists --benchmark-knowledge-readiness "${{ steps.benchmark_knowledge_readiness.outputs.output_json || '' }}"
@@ -7850,6 +8009,8 @@ jobs:
         add_if_exists --benchmark-realdata-scorecard "${BENCHMARK_COMPETITIVE_SURPASS_INDEX_REALDATA_SCORECARD_JSON:-}"
         add_if_exists --benchmark-operator-adoption "${{ steps.benchmark_operator_adoption.outputs.output_json || '' }}"
         add_if_exists --benchmark-operator-adoption "${BENCHMARK_COMPETITIVE_SURPASS_INDEX_OPERATOR_ADOPTION_JSON:-}"
+        add_if_exists --benchmark-knowledge-domain-release-surface-alignment "${{ steps.benchmark_knowledge_domain_release_surface_alignment.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-surface-alignment "${BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_JSON:-}"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
           if [[ "$INPUT_COUNT" -eq 0 ]]; then
@@ -8589,6 +8750,16 @@ jobs:
           ${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.output_md }}
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
+    - name: Upload benchmark knowledge domain release surface alignment
+      if: steps.benchmark_knowledge_domain_release_surface_alignment.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-knowledge-domain-release-surface-alignment-${{ github.run_number }}
+        path: |
+          ${{ steps.benchmark_knowledge_domain_release_surface_alignment.outputs.output_json }}
+          ${{ steps.benchmark_knowledge_domain_release_surface_alignment.outputs.output_md }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
     - name: Upload benchmark knowledge source coverage
       if: steps.benchmark_knowledge_source_coverage.outputs.enabled == 'true'
       uses: actions/upload-artifact@v4
@@ -9109,6 +9280,14 @@ jobs:
         else
           echo "- Benchmark knowledge domain control plane drift: skipped (BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_ENABLE!=true or no inputs)" >> $GITHUB_STEP_SUMMARY
         fi
+        if [[ "${{ steps.benchmark_knowledge_domain_release_surface_alignment.outputs.enabled }}" == "true" ]]; then
+          echo "- Benchmark knowledge domain release surface alignment status: ${{ steps.benchmark_knowledge_domain_release_surface_alignment.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain release surface alignment summary: ${{ steps.benchmark_knowledge_domain_release_surface_alignment.outputs.summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain release surface alignment mismatches: ${{ steps.benchmark_knowledge_domain_release_surface_alignment.outputs.mismatches }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain release surface alignment artifact: ${{ steps.benchmark_knowledge_domain_release_surface_alignment.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Benchmark knowledge domain release surface alignment: skipped (BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_ENABLE!=true or no inputs)" >> $GITHUB_STEP_SUMMARY
+        fi
         if [[ "${{ steps.benchmark_knowledge_source_coverage.outputs.enabled }}" == "true" ]]; then
           echo "- Benchmark knowledge source coverage status: ${{ steps.benchmark_knowledge_source_coverage.outputs.status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark knowledge source coverage ready source groups: ${{ steps.benchmark_knowledge_source_coverage.outputs.ready_source_group_count }}" >> $GITHUB_STEP_SUMMARY
@@ -9307,6 +9486,9 @@ jobs:
           echo "- Benchmark artifact bundle operator adoption release surface alignment: ${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_release_surface_alignment_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle operator adoption release surface alignment summary: ${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_release_surface_alignment_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle operator adoption release surface mismatches: ${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_release_surface_alignment_mismatches }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge domain release surface alignment: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_release_surface_alignment_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge domain release surface alignment summary: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_release_surface_alignment_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge domain release surface mismatches: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_release_surface_alignment_mismatches }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle blockers: ${{ steps.benchmark_artifact_bundle.outputs.blockers }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle recommendations: ${{ steps.benchmark_artifact_bundle.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle artifact: ${{ steps.benchmark_artifact_bundle.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
@@ -9402,6 +9584,9 @@ jobs:
           echo "- Benchmark companion operator adoption release surface alignment: ${{ steps.benchmark_companion_summary.outputs.operator_adoption_release_surface_alignment_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion operator adoption release surface alignment summary: ${{ steps.benchmark_companion_summary.outputs.operator_adoption_release_surface_alignment_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion operator adoption release surface mismatches: ${{ steps.benchmark_companion_summary.outputs.operator_adoption_release_surface_alignment_mismatches }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge domain release surface alignment: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_release_surface_alignment_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge domain release surface alignment summary: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_release_surface_alignment_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge domain release surface mismatches: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_release_surface_alignment_mismatches }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion blockers: ${{ steps.benchmark_companion_summary.outputs.blockers }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion recommended actions: ${{ steps.benchmark_companion_summary.outputs.recommended_actions }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion artifact: ${{ steps.benchmark_companion_summary.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
