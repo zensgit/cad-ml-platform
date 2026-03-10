@@ -321,6 +321,9 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_competitive_surpass_index_realdata_signals_json" in dispatch_inputs
     assert "benchmark_competitive_surpass_index_realdata_scorecard_json" in dispatch_inputs
     assert "benchmark_competitive_surpass_index_operator_adoption_json" in dispatch_inputs
+    assert "benchmark_competitive_surpass_trend_enable" in dispatch_inputs
+    assert "benchmark_competitive_surpass_trend_current_summary_json" in dispatch_inputs
+    assert "benchmark_competitive_surpass_trend_previous_summary_json" in dispatch_inputs
     assert "benchmark_operational_summary_enable" in dispatch_inputs
     assert "benchmark_operational_summary_scorecard_json" in dispatch_inputs
     assert "benchmark_operational_summary_feedback_json" in dispatch_inputs
@@ -337,6 +340,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_artifact_bundle_ocr_review_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_companion_summary_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_competitive_surpass_index_json" in dispatch_inputs
+    assert "benchmark_artifact_bundle_competitive_surpass_trend_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_release_decision_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_engineering_signals_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_realdata_signals_json" in dispatch_inputs
@@ -366,6 +370,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_companion_summary_knowledge_source_coverage_json" in dispatch_inputs
     assert "benchmark_companion_summary_knowledge_source_action_plan_json" in dispatch_inputs
     assert "benchmark_companion_summary_competitive_surpass_index_json" in dispatch_inputs
+    assert "benchmark_companion_summary_competitive_surpass_trend_json" in dispatch_inputs
     assert (
         "benchmark_companion_summary_knowledge_outcome_correlation_json"
         in dispatch_inputs
@@ -392,6 +397,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     )
     assert "benchmark_release_decision_knowledge_outcome_drift_json" in dispatch_inputs
     assert "benchmark_release_decision_competitive_surpass_index_json" in dispatch_inputs
+    assert "benchmark_release_decision_competitive_surpass_trend_json" in dispatch_inputs
     assert "benchmark_release_runbook_enable" in dispatch_inputs
     assert "benchmark_release_runbook_release_decision_json" in dispatch_inputs
     assert "benchmark_release_runbook_companion_summary_json" in dispatch_inputs
@@ -412,6 +418,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     )
     assert "benchmark_release_runbook_knowledge_outcome_drift_json" in dispatch_inputs
     assert "benchmark_release_runbook_competitive_surpass_index_json" in dispatch_inputs
+    assert "benchmark_release_runbook_competitive_surpass_trend_json" in dispatch_inputs
     assert "benchmark_operator_adoption_enable" in dispatch_inputs
     assert "benchmark_operator_adoption_release_decision_json" in dispatch_inputs
     assert "benchmark_operator_adoption_release_runbook_json" in dispatch_inputs
@@ -1092,6 +1099,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-knowledge-outcome-correlation" in benchmark_bundle_script
     assert "--benchmark-knowledge-outcome-drift" in benchmark_bundle_script
     assert "--benchmark-competitive-surpass-index" in benchmark_bundle_script
+    assert "--benchmark-competitive-surpass-trend" in benchmark_bundle_script
     assert "INPUT_COUNT=0" in benchmark_bundle_script
     assert "available_artifact_count=" in benchmark_bundle_script
     assert "feedback_status=" in benchmark_bundle_script
@@ -1154,6 +1162,9 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_outcome_drift_new_priority_domains=" in benchmark_bundle_script
     assert "knowledge_outcome_drift_recommendations=" in benchmark_bundle_script
     assert "competitive_surpass_index_status=" in benchmark_bundle_script
+    assert "competitive_surpass_trend_status=" in benchmark_bundle_script
+    assert "competitive_surpass_trend_summary=" in benchmark_bundle_script
+    assert "competitive_surpass_trend_recommendations=" in benchmark_bundle_script
     assert "competitive_surpass_primary_gaps=" in benchmark_bundle_script
     assert "competitive_surpass_recommendations=" in benchmark_bundle_script
     assert "operator_adoption_knowledge_drift_status=" in benchmark_bundle_script
@@ -1192,6 +1203,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-knowledge-outcome-correlation" in benchmark_companion_script
     assert "--benchmark-knowledge-outcome-drift" in benchmark_companion_script
     assert "--benchmark-competitive-surpass-index" in benchmark_companion_script
+    assert "--benchmark-competitive-surpass-trend" in benchmark_companion_script
     assert "review_surface=" in benchmark_companion_script
     assert "primary_gap=" in benchmark_companion_script
     assert "recommended_actions=" in benchmark_companion_script
@@ -1252,6 +1264,9 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_outcome_drift_new_priority_domains=" in benchmark_companion_script
     assert "knowledge_outcome_drift_recommendations=" in benchmark_companion_script
     assert "competitive_surpass_index_status=" in benchmark_companion_script
+    assert "competitive_surpass_trend_status=" in benchmark_companion_script
+    assert "competitive_surpass_trend_summary=" in benchmark_companion_script
+    assert "competitive_surpass_trend_recommendations=" in benchmark_companion_script
     assert "competitive_surpass_primary_gaps=" in benchmark_companion_script
     assert "competitive_surpass_recommendations=" in benchmark_companion_script
     assert "operator_adoption_knowledge_drift_status=" in benchmark_companion_script
@@ -1290,6 +1305,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-knowledge-outcome-correlation" in benchmark_release_script
     assert "--benchmark-knowledge-outcome-drift" in benchmark_release_script
     assert "--benchmark-competitive-surpass-index" in benchmark_release_script
+    assert "--benchmark-competitive-surpass-trend" in benchmark_release_script
     assert "release_status=" in benchmark_release_script
     assert "automation_ready=" in benchmark_release_script
     assert "primary_signal_source=" in benchmark_release_script
@@ -1350,6 +1366,9 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_outcome_drift_new_priority_domains=" in benchmark_release_script
     assert "knowledge_outcome_drift_recommendations=" in benchmark_release_script
     assert "competitive_surpass_index_status=" in benchmark_release_script
+    assert "competitive_surpass_trend_status=" in benchmark_release_script
+    assert "competitive_surpass_trend_summary=" in benchmark_release_script
+    assert "competitive_surpass_trend_recommendations=" in benchmark_release_script
     assert "competitive_surpass_primary_gaps=" in benchmark_release_script
     assert "competitive_surpass_recommendations=" in benchmark_release_script
     assert "operator_adoption_status=" in benchmark_release_script
@@ -1390,6 +1409,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-knowledge-outcome-correlation" in benchmark_runbook_script
     assert "--benchmark-knowledge-outcome-drift" in benchmark_runbook_script
     assert "--benchmark-competitive-surpass-index" in benchmark_runbook_script
+    assert "--benchmark-competitive-surpass-trend" in benchmark_runbook_script
     assert "ready_to_freeze_baseline=" in benchmark_runbook_script
     assert "next_action=" in benchmark_runbook_script
     assert "missing_artifacts=" in benchmark_runbook_script
@@ -1449,6 +1469,9 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_outcome_drift_new_priority_domains=" in benchmark_runbook_script
     assert "knowledge_outcome_drift_recommendations=" in benchmark_runbook_script
     assert "competitive_surpass_index_status=" in benchmark_runbook_script
+    assert "competitive_surpass_trend_status=" in benchmark_runbook_script
+    assert "competitive_surpass_trend_summary=" in benchmark_runbook_script
+    assert "competitive_surpass_trend_recommendations=" in benchmark_runbook_script
     assert "competitive_surpass_primary_gaps=" in benchmark_runbook_script
     assert "competitive_surpass_recommendations=" in benchmark_runbook_script
     assert "operator_adoption_status=" in benchmark_runbook_script
@@ -1537,6 +1560,40 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "blocked_pillars=" in benchmark_competitive_surpass_script
     assert "primary_gaps=" in benchmark_competitive_surpass_script
     assert "recommendations=" in benchmark_competitive_surpass_script
+
+    benchmark_competitive_surpass_trend_step = _get_step(
+        workflow, "evaluate", "Build benchmark competitive surpass trend (optional)"
+    )
+    benchmark_competitive_surpass_trend_script = benchmark_competitive_surpass_trend_step[
+        "run"
+    ]
+    assert (
+        "scripts/export_benchmark_competitive_surpass_trend.py"
+        in benchmark_competitive_surpass_trend_script
+    )
+    assert (
+        "BENCHMARK_COMPETITIVE_SURPASS_TREND_ENABLE"
+        in benchmark_competitive_surpass_trend_script
+    )
+    assert (
+        "benchmark_competitive_surpass_trend_current_summary_json"
+        in benchmark_competitive_surpass_trend_script
+    )
+    assert (
+        "benchmark_competitive_surpass_trend_previous_summary_json"
+        in benchmark_competitive_surpass_trend_script
+    )
+    assert "--current-summary" in benchmark_competitive_surpass_trend_script
+    assert "--previous-summary" in benchmark_competitive_surpass_trend_script
+    assert "INPUT_COUNT=0" in benchmark_competitive_surpass_trend_script
+    assert "status=" in benchmark_competitive_surpass_trend_script
+    assert "score_delta=" in benchmark_competitive_surpass_trend_script
+    assert "pillar_improvements=" in benchmark_competitive_surpass_trend_script
+    assert "pillar_regressions=" in benchmark_competitive_surpass_trend_script
+    assert "resolved_primary_gaps=" in benchmark_competitive_surpass_trend_script
+    assert "new_primary_gaps=" in benchmark_competitive_surpass_trend_script
+    assert "summary=" in benchmark_competitive_surpass_trend_script
+    assert "recommendations=" in benchmark_competitive_surpass_trend_script
 
     assistant_step = _get_step(
         workflow, "evaluate", "Build assistant evidence report (optional)"
@@ -1701,6 +1758,13 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
         upload_benchmark_competitive_surpass["if"]
         == "steps.benchmark_competitive_surpass_index.outputs.enabled == 'true'"
     )
+    upload_benchmark_competitive_surpass_trend = _get_step(
+        workflow, "evaluate", "Upload benchmark competitive surpass trend"
+    )
+    assert (
+        upload_benchmark_competitive_surpass_trend["if"]
+        == "steps.benchmark_competitive_surpass_trend.outputs.enabled == 'true'"
+    )
     upload_benchmark_bundle = _get_step(
         workflow, "evaluate", "Upload benchmark artifact bundle"
     )
@@ -1817,6 +1881,14 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark competitive surpass primary gaps" in summary_script
     assert "Benchmark competitive surpass recommendations" in summary_script
     assert "Benchmark competitive surpass artifact" in summary_script
+    assert "Benchmark competitive surpass trend status" in summary_script
+    assert "Benchmark competitive surpass trend score delta" in summary_script
+    assert "Benchmark competitive surpass trend pillar improvements" in summary_script
+    assert "Benchmark competitive surpass trend pillar regressions" in summary_script
+    assert "Benchmark competitive surpass trend resolved gaps" in summary_script
+    assert "Benchmark competitive surpass trend new gaps" in summary_script
+    assert "Benchmark competitive surpass trend recommendations" in summary_script
+    assert "Benchmark competitive surpass trend artifact" in summary_script
     assert "Benchmark artifact bundle overall" in summary_script
     assert "Benchmark artifact bundle available artifacts" in summary_script
     assert "Benchmark artifact bundle feedback status" in summary_script
@@ -1934,6 +2006,14 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark competitive surpass primary gaps" in summary_script
     assert "Benchmark competitive surpass recommendations" in summary_script
     assert "Benchmark competitive surpass artifact" in summary_script
+    assert "Benchmark competitive surpass trend status" in summary_script
+    assert "Benchmark competitive surpass trend score delta" in summary_script
+    assert "Benchmark competitive surpass trend pillar improvements" in summary_script
+    assert "Benchmark competitive surpass trend pillar regressions" in summary_script
+    assert "Benchmark competitive surpass trend resolved gaps" in summary_script
+    assert "Benchmark competitive surpass trend new gaps" in summary_script
+    assert "Benchmark competitive surpass trend recommendations" in summary_script
+    assert "Benchmark competitive surpass trend artifact" in summary_script
     assert "Benchmark engineering violations" in summary_script
     assert "Benchmark engineering standards rows" in summary_script
     assert "Benchmark engineering OCR standards" in summary_script
@@ -2065,6 +2145,11 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark artifact bundle competitive surpass" in summary_script
     assert "Benchmark artifact bundle competitive surpass gaps" in summary_script
     assert "Benchmark artifact bundle competitive surpass recommendations" in summary_script
+    assert "Benchmark artifact bundle competitive surpass trend" in summary_script
+    assert "Benchmark artifact bundle competitive surpass trend summary" in summary_script
+    assert "Benchmark artifact bundle competitive surpass trend recommendations" in (
+        summary_script
+    )
     assert "Benchmark artifact bundle scorecard operator adoption" in summary_script
     assert "Benchmark artifact bundle scorecard operator outcome drift" in summary_script
     assert "Benchmark artifact bundle operational operator adoption" in summary_script
@@ -2112,6 +2197,11 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark companion competitive surpass" in summary_script
     assert "Benchmark companion competitive surpass gaps" in summary_script
     assert "Benchmark companion competitive surpass recommendations" in summary_script
+    assert "Benchmark companion competitive surpass trend" in summary_script
+    assert "Benchmark companion competitive surpass trend summary" in summary_script
+    assert "Benchmark companion competitive surpass trend recommendations" in (
+        summary_script
+    )
     assert "Benchmark companion scorecard operator adoption" in summary_script
     assert "Benchmark companion scorecard operator outcome drift" in summary_script
     assert "Benchmark companion operational operator adoption" in summary_script
@@ -2128,6 +2218,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark release knowledge application" in summary_script
     assert "Benchmark release knowledge application focus areas" in summary_script
     assert "Benchmark release knowledge application domains" in summary_script
+    assert "Benchmark release competitive surpass trend" in summary_script
+    assert "Benchmark release competitive surpass trend summary" in summary_script
+    assert "Benchmark release competitive surpass trend recommendations" in summary_script
     assert "Benchmark release knowledge application recommendations" in summary_script
     assert "Benchmark release knowledge realdata correlation" in summary_script
     assert "Benchmark release knowledge realdata focus areas" in summary_script
@@ -2192,6 +2285,11 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     )
     assert "Benchmark release runbook real-data status" in summary_script
     assert "Benchmark release runbook real-data recommendations" in summary_script
+    assert "Benchmark release runbook competitive surpass trend" in summary_script
+    assert "Benchmark release runbook competitive surpass trend summary" in summary_script
+    assert "Benchmark release runbook competitive surpass trend recommendations" in (
+        summary_script
+    )
     assert "Assistant evidence input" in summary_script
     assert "Assistant evidence records" in summary_script
     assert "Assistant evidence items" in summary_script
