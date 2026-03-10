@@ -31,6 +31,7 @@ def _normalize_tier(status: str) -> str:
         "knowledge_realdata_ready",
         "knowledge_domain_matrix_ready",
         "knowledge_domain_action_plan_ready",
+        "knowledge_source_coverage_ready",
         "knowledge_outcome_correlation_ready",
         "competitive_surpass_knowledge_ready",
         "competitive_surpass_realdata_ready",
@@ -50,6 +51,7 @@ def _normalize_tier(status: str) -> str:
         "knowledge_realdata_partial",
         "knowledge_domain_matrix_partial",
         "knowledge_domain_action_plan_partial",
+        "knowledge_source_coverage_partial",
         "knowledge_outcome_correlation_partial",
         "competitive_surpass_knowledge_partial",
         "competitive_surpass_realdata_partial",
@@ -115,6 +117,7 @@ def _knowledge_pillar(
     benchmark_knowledge_realdata_correlation: Dict[str, Any],
     benchmark_knowledge_domain_matrix: Dict[str, Any],
     benchmark_knowledge_domain_action_plan: Dict[str, Any] | None,
+    benchmark_knowledge_source_coverage: Dict[str, Any] | None,
     benchmark_knowledge_outcome_correlation: Dict[str, Any],
     benchmark_knowledge_outcome_drift: Dict[str, Any],
 ) -> Dict[str, Any]:
@@ -140,6 +143,12 @@ def _knowledge_pillar(
         or action_plan_root
         or {}
     )
+    source_coverage_root = benchmark_knowledge_source_coverage or {}
+    source_coverage = (
+        source_coverage_root.get("knowledge_source_coverage")
+        or source_coverage_root
+        or {}
+    )
     outcome_corr = (
         benchmark_knowledge_outcome_correlation.get("knowledge_outcome_correlation")
         or benchmark_knowledge_outcome_correlation
@@ -157,6 +166,9 @@ def _knowledge_pillar(
         "outcome_correlation": _text(outcome_corr.get("status")) or "missing",
         "outcome_drift": _text(outcome_drift.get("status")) or "unknown",
     }
+    source_coverage_status = _text(source_coverage.get("status"))
+    if source_coverage_status:
+        rows["source_coverage"] = source_coverage_status
     tiers = {name: _normalize_tier(status) for name, status in rows.items()}
     if all(tier == "ready" for tier in tiers.values()):
         status = "competitive_surpass_knowledge_ready"
@@ -172,6 +184,8 @@ def _knowledge_pillar(
         + [row.get("domain") for row in realdata.get("focus_areas") or []]
         + list(domain_matrix.get("priority_domains") or [])
         + list(action_plan.get("priority_domains") or [])
+        + list(source_coverage.get("priority_domains") or [])
+        + [row.get("name") for row in source_coverage.get("expansion_candidates") or []]
         + list(outcome_corr.get("priority_domains") or [])
         + list(outcome_drift.get("new_priority_domains") or []),
         limit=6,
@@ -182,6 +196,8 @@ def _knowledge_pillar(
         f"action_plan={rows['action_plan']}; "
         f"outcome={rows['outcome_correlation']}; drift={rows['outcome_drift']}"
     )
+    if source_coverage_status:
+        summary = f"{summary}; source_coverage={source_coverage_status}"
     if focus_areas:
         summary = f"{summary}; focus={', '.join(focus_areas)}"
     return _pillar_row(
@@ -191,6 +207,10 @@ def _knowledge_pillar(
         {
             "component_statuses": rows,
             "focus_areas": focus_areas,
+            "expansion_candidates": _compact(
+                [row.get("name") for row in source_coverage.get("expansion_candidates") or []],
+                limit=6,
+            ),
         },
     )
 
@@ -308,6 +328,7 @@ def build_competitive_surpass_index(
     benchmark_knowledge_realdata_correlation: Dict[str, Any],
     benchmark_knowledge_domain_matrix: Dict[str, Any],
     benchmark_knowledge_domain_action_plan: Dict[str, Any] | None = None,
+    benchmark_knowledge_source_coverage: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_correlation: Dict[str, Any],
     benchmark_knowledge_outcome_drift: Dict[str, Any],
     benchmark_realdata_signals: Dict[str, Any],
@@ -322,6 +343,7 @@ def build_competitive_surpass_index(
             benchmark_knowledge_realdata_correlation,
             benchmark_knowledge_domain_matrix,
             benchmark_knowledge_domain_action_plan,
+            benchmark_knowledge_source_coverage,
             benchmark_knowledge_outcome_correlation,
             benchmark_knowledge_outcome_drift,
         ),

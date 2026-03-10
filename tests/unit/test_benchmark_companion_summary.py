@@ -183,6 +183,20 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
             },
             "recommendations": ["Backfill standards foundation metrics first."],
         },
+        benchmark_knowledge_source_coverage={
+            "knowledge_source_coverage": {
+                "status": "knowledge_source_coverage_partial",
+                "priority_domains": ["standards"],
+                "domains": {
+                    "standards": {
+                        "status": "partial",
+                        "focus_source_groups": ["standards"],
+                    }
+                },
+                "expansion_candidates": [{"name": "machining", "status": "ready"}],
+            },
+            "recommendations": ["Promote machining and standards source coverage."],
+        },
     )
 
     assert payload["overall_status"] == "attention_required"
@@ -220,11 +234,23 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
     assert payload["component_statuses"]["knowledge_domain_action_plan"] == (
         "knowledge_domain_action_plan_blocked"
     )
+    assert payload["component_statuses"]["knowledge_source_coverage"] == (
+        "knowledge_source_coverage_partial"
+    )
     assert payload["knowledge_domain_action_plan_status"] == (
         "knowledge_domain_action_plan_blocked"
     )
     assert payload["knowledge_domain_action_plan_actions"][0]["id"] == (
         "standards:foundation"
+    )
+    assert payload["knowledge_source_coverage_status"] == (
+        "knowledge_source_coverage_partial"
+    )
+    assert payload["knowledge_source_coverage_domains"]["standards"]["status"] == (
+        "partial"
+    )
+    assert payload["knowledge_source_coverage_expansion_candidates"][0]["name"] == (
+        "machining"
     )
     assert payload["knowledge_drift_domain_regressions"] == []
     assert payload["recommended_actions"] == ["reduce review queue backlog"]
@@ -236,6 +262,7 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
     assert "## Operator Adoption Release Surface Alignment" in markdown
     assert "## Scorecard Operator Adoption" in markdown
     assert "## Operational Operator Adoption" in markdown
+    assert "## Knowledge Source Coverage" in markdown
 
 
 def test_render_markdown_includes_sections() -> None:

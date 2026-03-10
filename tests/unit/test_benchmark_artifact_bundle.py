@@ -172,6 +172,23 @@ def test_build_bundle_prefers_operational_summary() -> None:
             },
             "recommendations": ["Backfill standards foundation metrics first."],
         },
+        benchmark_knowledge_source_coverage={
+            "knowledge_source_coverage": {
+                "status": "knowledge_source_coverage_partial",
+                "priority_domains": ["standards"],
+                "domains": {
+                    "standards": {
+                        "status": "partial",
+                        "focus_source_groups": ["standards"],
+                    }
+                },
+                "expansion_candidates": [
+                    {"name": "machining", "status": "ready"},
+                    {"name": "welding", "status": "ready"},
+                ],
+            },
+            "recommendations": ["Promote machining and standards source coverage."],
+        },
         feedback_flywheel={},
         assistant_evidence={},
         review_queue={},
@@ -183,7 +200,7 @@ def test_build_bundle_prefers_operational_summary() -> None:
         },
     )
     assert payload["overall_status"] == "attention_required"
-    assert payload["available_artifact_count"] == 9
+    assert payload["available_artifact_count"] == 10
     assert payload["component_statuses"]["feedback_flywheel"] == "feedback_collected"
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_partial"
     assert payload["knowledge_focus_area_count"] == 1
@@ -205,6 +222,9 @@ def test_build_bundle_prefers_operational_summary() -> None:
     assert payload["component_statuses"]["knowledge_domain_action_plan"] == (
         "knowledge_domain_action_plan_blocked"
     )
+    assert payload["component_statuses"]["knowledge_source_coverage"] == (
+        "knowledge_source_coverage_partial"
+    )
     assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
     assert payload["operator_adoption_knowledge_outcome_drift"]["status"] == "regressed"
     assert payload["operator_adoption_release_surface_alignment"]["status"] == "aligned"
@@ -219,6 +239,15 @@ def test_build_bundle_prefers_operational_summary() -> None:
     assert payload["knowledge_domain_action_plan_actions"][0]["id"] == (
         "standards:foundation"
     )
+    assert payload["knowledge_source_coverage_status"] == (
+        "knowledge_source_coverage_partial"
+    )
+    assert payload["knowledge_source_coverage_domains"]["standards"]["status"] == (
+        "partial"
+    )
+    assert payload["knowledge_source_coverage_expansion_candidates"][0]["name"] == (
+        "machining"
+    )
     assert payload["realdata_status"] == "realdata_foundation_partial"
     assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
     assert payload["blockers"] == ["feedback backlog"]
@@ -228,6 +257,7 @@ def test_build_bundle_prefers_operational_summary() -> None:
     ]
     markdown = module.render_markdown(payload)
     assert "## Operator Adoption Release Surface Alignment" in markdown
+    assert "## Knowledge Source Coverage" in markdown
 
 
 def test_build_bundle_falls_back_to_scorecard() -> None:
@@ -460,6 +490,23 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
             },
         },
     )
+    knowledge_source_coverage = _write_json(
+        tmp_path / "knowledge_source_coverage.json",
+        {
+            "knowledge_source_coverage": {
+                "status": "knowledge_source_coverage_ready",
+                "priority_domains": [],
+                "domains": {
+                    "standards": {
+                        "status": "ready",
+                        "focus_source_groups": [],
+                    }
+                },
+                "expansion_candidates": [{"name": "machining", "status": "ready"}],
+            },
+            "recommendations": ["Promote machining into benchmark views."],
+        },
+    )
     output_json = tmp_path / "bundle.json"
     output_md = tmp_path / "bundle.md"
 
@@ -485,6 +532,8 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
             str(realdata),
             "--benchmark-operator-adoption",
             str(operator),
+            "--benchmark-knowledge-source-coverage",
+            str(knowledge_source_coverage),
             "--output-json",
             str(output_json),
             "--output-md",
@@ -514,11 +563,16 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
     assert payload["component_statuses"]["realdata_signals"] == "realdata_foundation_partial"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
+    assert payload["component_statuses"]["knowledge_source_coverage"] == (
+        "knowledge_source_coverage_ready"
+    )
     assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
     assert payload["operator_adoption_knowledge_outcome_drift"]["status"] == "regressed"
     assert payload["operator_adoption_release_surface_alignment"]["status"] == (
         "mismatched"
     )
+    assert payload["artifacts"]["benchmark_knowledge_source_coverage"]["present"] is True
+    assert payload["knowledge_source_coverage_status"] == "knowledge_source_coverage_ready"
     assert payload["realdata_status"] == "realdata_foundation_partial"
     assert payload["component_statuses"]["qdrant_backend"] == "indexed_ready"
     assert "Knowledge baseline regressed." in output_md.read_text(encoding="utf-8")
@@ -528,6 +582,7 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
     assert "review queue backlog" in output_md.read_text(encoding="utf-8")
     assert "## Knowledge Domains" in output_md.read_text(encoding="utf-8")
     assert "## Knowledge Domain Matrix" in output_md.read_text(encoding="utf-8")
+    assert "## Knowledge Source Coverage" in output_md.read_text(encoding="utf-8")
     assert "## Operator Adoption Release Surface Alignment" in output_md.read_text(
         encoding="utf-8"
     )
