@@ -270,6 +270,18 @@ on:
         description: 'Optional benchmark knowledge domain control plane action plan JSON'
         required: false
         default: ''
+      benchmark_knowledge_domain_control_plane_drift_enable:
+        description: 'Override: enable benchmark knowledge domain control plane drift export (true/false)'
+        required: false
+        default: ''
+      benchmark_knowledge_domain_control_plane_drift_current_summary_json:
+        description: 'Optional benchmark knowledge domain control plane drift current summary JSON'
+        required: false
+        default: ''
+      benchmark_knowledge_domain_control_plane_drift_previous_summary_json:
+        description: 'Optional benchmark knowledge domain control plane drift previous summary JSON'
+        required: false
+        default: ''
       benchmark_knowledge_source_coverage_enable:
         description: 'Override: enable benchmark knowledge source coverage export (true/false)'
         required: false
@@ -526,6 +538,10 @@ on:
         description: 'Optional benchmark artifact bundle knowledge domain capability drift JSON'
         required: false
         default: ''
+      benchmark_artifact_bundle_knowledge_domain_control_plane_drift_json:
+        description: 'Optional benchmark artifact bundle knowledge domain control plane drift JSON'
+        required: false
+        default: ''
       benchmark_artifact_bundle_knowledge_domain_action_plan_json:
         description: 'Optional benchmark artifact bundle knowledge domain action plan JSON'
         required: false
@@ -612,6 +628,10 @@ on:
         default: ''
       benchmark_companion_summary_knowledge_domain_capability_drift_json:
         description: 'Optional benchmark companion summary knowledge domain capability drift JSON'
+        required: false
+        default: ''
+      benchmark_companion_summary_knowledge_domain_control_plane_drift_json:
+        description: 'Optional benchmark companion summary knowledge domain control plane drift JSON'
         required: false
         default: ''
       benchmark_companion_summary_knowledge_domain_action_plan_json:
@@ -710,6 +730,10 @@ on:
         description: 'Optional benchmark release decision knowledge domain capability drift JSON'
         required: false
         default: ''
+      benchmark_release_decision_knowledge_domain_control_plane_drift_json:
+        description: 'Optional benchmark release decision knowledge domain control plane drift JSON'
+        required: false
+        default: ''
       benchmark_release_decision_knowledge_domain_action_plan_json:
         description: 'Optional benchmark release decision knowledge domain action plan JSON'
         required: false
@@ -800,6 +824,10 @@ on:
         default: ''
       benchmark_release_runbook_knowledge_domain_capability_drift_json:
         description: 'Optional benchmark release runbook knowledge domain capability drift JSON'
+        required: false
+        default: ''
+      benchmark_release_runbook_knowledge_domain_control_plane_drift_json:
+        description: 'Optional benchmark release runbook knowledge domain control plane drift JSON'
         required: false
         default: ''
       benchmark_release_runbook_knowledge_domain_action_plan_json:
@@ -1023,6 +1051,12 @@ env:
   BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON }}
   BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_OUTPUT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_knowledge_domain_control_plane.json' }}
   BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_OUTPUT_MD: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_knowledge_domain_control_plane.md' }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_ENABLE: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_ENABLE || 'false' }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_TITLE: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_TITLE || 'Benchmark Knowledge Domain Control Plane Drift' }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_CURRENT_SUMMARY_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_CURRENT_SUMMARY_JSON }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_PREVIOUS_SUMMARY_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_PREVIOUS_SUMMARY_JSON }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_OUTPUT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_knowledge_domain_control_plane_drift.json' }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_OUTPUT_MD: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_knowledge_domain_control_plane_drift.md' }}
   BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_ENABLE: ${{ vars.BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_ENABLE || 'false' }}
   BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_TITLE: ${{ vars.BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_TITLE || 'Benchmark Knowledge Source Coverage' }}
   BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_OUTPUT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_knowledge_source_coverage.json' }}
@@ -1122,6 +1156,7 @@ env:
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_REALDATA_CORRELATION_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_REALDATA_CORRELATION_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_MATRIX_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_MATRIX_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON }}
+  BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_SOURCE_COVERAGE_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_SOURCE_COVERAGE_JSON }}
@@ -1146,6 +1181,7 @@ env:
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_REALDATA_CORRELATION_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_REALDATA_CORRELATION_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_MATRIX_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_MATRIX_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON }}
+  BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_SOURCE_COVERAGE_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_SOURCE_COVERAGE_JSON }}
@@ -1172,6 +1208,7 @@ env:
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_REALDATA_CORRELATION_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_REALDATA_CORRELATION_JSON }}
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_MATRIX_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_MATRIX_JSON }}
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON }}
+  BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON }}
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON }}
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON }}
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_SOURCE_COVERAGE_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_SOURCE_COVERAGE_JSON }}
@@ -1197,6 +1234,7 @@ env:
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_REALDATA_CORRELATION_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_REALDATA_CORRELATION_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_MATRIX_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_MATRIX_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON }}
+  BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_SOURCE_COVERAGE_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_SOURCE_COVERAGE_JSON }}
@@ -3255,6 +3293,103 @@ jobs:
             f.write(f"recommendations={compact(recommendations)}\n")
         PY
 
+    - name: Build benchmark knowledge domain control plane drift (optional)
+      id: benchmark_knowledge_domain_control_plane_drift
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_domain_control_plane_drift_enable || '' }}"
+        ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+
+        OUTPUT_JSON="${BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_OUTPUT_JSON:-reports/history_sequence_eval/benchmark_knowledge_domain_control_plane_drift.json}"
+        OUTPUT_MD="${BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_OUTPUT_MD:-reports/history_sequence_eval/benchmark_knowledge_domain_control_plane_drift.md}"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+        mkdir -p "$(dirname "$OUTPUT_MD")"
+
+        CMD=(
+          python3 scripts/export_benchmark_knowledge_domain_control_plane_drift.py
+          --title "${BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_TITLE:-Benchmark Knowledge Domain Control Plane Drift}"
+          --output-json "$OUTPUT_JSON"
+          --output-md "$OUTPUT_MD"
+        )
+        INPUT_COUNT=0
+
+        add_if_exists() {
+          local flag="$1"
+          local candidate="$2"
+          if [[ -n "$candidate" && -f "$candidate" ]]; then
+            CMD+=("$flag" "$candidate")
+            INPUT_COUNT=$((INPUT_COUNT + 1))
+          fi
+        }
+
+        add_if_exists --current-summary "${{ github.event.inputs.benchmark_knowledge_domain_control_plane_drift_current_summary_json || '' }}"
+        add_if_exists --current-summary "${{ steps.benchmark_knowledge_domain_control_plane.outputs.output_json || '' }}"
+        add_if_exists --current-summary "${BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_CURRENT_SUMMARY_JSON:-}"
+        add_if_exists --previous-summary "${{ github.event.inputs.benchmark_knowledge_domain_control_plane_drift_previous_summary_json || '' }}"
+        add_if_exists --previous-summary "${BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_PREVIOUS_SUMMARY_JSON:-}"
+
+        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
+          if [[ "$INPUT_COUNT" -eq 0 ]]; then
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_ENABLE is not true and no inputs found; skip."
+            exit 0
+          fi
+        fi
+
+        if [[ "$INPUT_COUNT" -eq 0 ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "No benchmark knowledge domain control plane drift inputs found; skip."
+          exit 0
+        fi
+
+        "${CMD[@]}"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path(
+                os.environ["BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_OUTPUT_JSON"]
+            ).read_text(encoding="utf-8")
+        )
+        component = payload.get("knowledge_domain_control_plane_drift") or {}
+        recommendations = payload.get("recommendations") or []
+
+        def compact(items):
+            return "; ".join(str(item).strip() for item in items[:3] if str(item).strip())
+
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"status={component.get('status', 'unknown')}\n")
+            f.write(f"current_status={component.get('current_status', 'unknown')}\n")
+            f.write(f"previous_status={component.get('previous_status', 'unknown')}\n")
+            f.write(f"ready_domain_delta={component.get('ready_domain_delta', 0)}\n")
+            f.write(f"blocked_domain_delta={component.get('blocked_domain_delta', 0)}\n")
+            f.write(f"total_action_delta={component.get('total_action_delta', 0)}\n")
+            f.write(
+                f"high_priority_action_delta={component.get('high_priority_action_delta', 0)}\n"
+            )
+            f.write(f"domain_regressions={compact(component.get('domain_regressions') or [])}\n")
+            f.write(f"domain_improvements={compact(component.get('domain_improvements') or [])}\n")
+            f.write(
+                "resolved_release_blockers="
+                f"{compact(component.get('resolved_release_blockers') or [])}\n"
+            )
+            f.write(
+                "new_release_blockers="
+                f"{compact(component.get('new_release_blockers') or [])}\n"
+            )
+            f.write(f"recommendations={compact(recommendations)}\n")
+        PY
+
     - name: Build benchmark knowledge domain capability matrix (optional)
       id: benchmark_knowledge_domain_capability_matrix
       continue-on-error: true
@@ -4119,6 +4254,7 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-matrix "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_domain_matrix_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_domain_capability_matrix_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-drift "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_domain_capability_drift_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-control-plane-drift "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_domain_control_plane_drift_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_domain_action_plan_json || '' }}"
         add_if_exists --benchmark-knowledge-source-coverage "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_source_coverage_json || '' }}"
         add_if_exists --benchmark-knowledge-source-action-plan "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_source_action_plan_json || '' }}"
@@ -4163,6 +4299,8 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${{ steps.benchmark_knowledge_domain_capability_matrix.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-capability-drift "${{ steps.benchmark_knowledge_domain_capability_drift.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-control-plane-drift "${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-control-plane-drift "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ steps.benchmark_knowledge_domain_action_plan.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-control-plane "${{ steps.benchmark_knowledge_domain_control_plane.outputs.output_json || '' }}"
@@ -4455,6 +4593,30 @@ jobs:
             f.write(
                 "knowledge_domain_capability_drift_recommendations="
                 f"{compact(payload.get('knowledge_domain_capability_drift_recommendations') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_control_plane_drift_status="
+                f"{payload.get('knowledge_domain_control_plane_drift_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_domain_control_plane_drift_domain_regressions="
+                f"{compact(payload.get('knowledge_domain_control_plane_drift_domain_regressions') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_control_plane_drift_domain_improvements="
+                f"{compact(payload.get('knowledge_domain_control_plane_drift_domain_improvements') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_control_plane_drift_resolved_release_blockers="
+                f"{compact(payload.get('knowledge_domain_control_plane_drift_resolved_release_blockers') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_control_plane_drift_new_release_blockers="
+                f"{compact(payload.get('knowledge_domain_control_plane_drift_new_release_blockers') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_control_plane_drift_recommendations="
+                f"{compact(payload.get('knowledge_domain_control_plane_drift_recommendations') or [])}\n"
             )
             f.write(
                 "knowledge_domain_action_plan_status="
@@ -4990,6 +5152,7 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-matrix "${{ github.event.inputs.benchmark_companion_summary_knowledge_domain_matrix_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${{ github.event.inputs.benchmark_companion_summary_knowledge_domain_capability_matrix_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-drift "${{ github.event.inputs.benchmark_companion_summary_knowledge_domain_capability_drift_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-control-plane-drift "${{ github.event.inputs.benchmark_companion_summary_knowledge_domain_control_plane_drift_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ github.event.inputs.benchmark_companion_summary_knowledge_domain_action_plan_json || '' }}"
         add_if_exists --benchmark-knowledge-source-coverage "${{ github.event.inputs.benchmark_companion_summary_knowledge_source_coverage_json || '' }}"
         add_if_exists --benchmark-knowledge-source-action-plan "${{ github.event.inputs.benchmark_companion_summary_knowledge_source_action_plan_json || '' }}"
@@ -5023,6 +5186,8 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${{ steps.benchmark_knowledge_domain_capability_matrix.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-capability-drift "${{ steps.benchmark_knowledge_domain_capability_drift.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-control-plane-drift "${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-control-plane-drift "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ steps.benchmark_knowledge_domain_action_plan.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-control-plane "${{ steps.benchmark_knowledge_domain_control_plane.outputs.output_json || '' }}"
@@ -5319,6 +5484,30 @@ jobs:
             f.write(
                 "knowledge_domain_capability_drift_recommendations="
                 f"{compact(payload.get('knowledge_domain_capability_drift_recommendations') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_control_plane_drift_status="
+                f"{payload.get('knowledge_domain_control_plane_drift_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_domain_control_plane_drift_domain_regressions="
+                f"{compact(payload.get('knowledge_domain_control_plane_drift_domain_regressions') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_control_plane_drift_domain_improvements="
+                f"{compact(payload.get('knowledge_domain_control_plane_drift_domain_improvements') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_control_plane_drift_resolved_release_blockers="
+                f"{compact(payload.get('knowledge_domain_control_plane_drift_resolved_release_blockers') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_control_plane_drift_new_release_blockers="
+                f"{compact(payload.get('knowledge_domain_control_plane_drift_new_release_blockers') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_control_plane_drift_recommendations="
+                f"{compact(payload.get('knowledge_domain_control_plane_drift_recommendations') or [])}\n"
             )
             f.write(
                 "knowledge_domain_action_plan_status="
@@ -5882,6 +6071,7 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-matrix "${{ github.event.inputs.benchmark_release_decision_knowledge_domain_matrix_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${{ github.event.inputs.benchmark_release_decision_knowledge_domain_capability_matrix_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-drift "${{ github.event.inputs.benchmark_release_decision_knowledge_domain_capability_drift_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-control-plane-drift "${{ github.event.inputs.benchmark_release_decision_knowledge_domain_control_plane_drift_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ github.event.inputs.benchmark_release_decision_knowledge_domain_action_plan_json || '' }}"
         add_if_exists --benchmark-knowledge-source-coverage "${{ github.event.inputs.benchmark_release_decision_knowledge_source_coverage_json || '' }}"
         add_if_exists --benchmark-knowledge-source-action-plan "${{ github.event.inputs.benchmark_release_decision_knowledge_source_action_plan_json || '' }}"
@@ -5919,6 +6109,8 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${{ steps.benchmark_knowledge_domain_capability_matrix.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-capability-drift "${{ steps.benchmark_knowledge_domain_capability_drift.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-control-plane-drift "${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-control-plane-drift "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ steps.benchmark_knowledge_domain_action_plan.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-control-plane "${{ steps.benchmark_knowledge_domain_control_plane.outputs.output_json || '' }}"
@@ -6233,6 +6425,30 @@ jobs:
             f.write(
                 "knowledge_domain_capability_drift_recommendations="
                 f"{compact(payload.get('knowledge_domain_capability_drift_recommendations') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_control_plane_drift_status="
+                f"{payload.get('knowledge_domain_control_plane_drift_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_domain_control_plane_drift_domain_regressions="
+                f"{compact(payload.get('knowledge_domain_control_plane_drift_domain_regressions') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_control_plane_drift_domain_improvements="
+                f"{compact(payload.get('knowledge_domain_control_plane_drift_domain_improvements') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_control_plane_drift_resolved_release_blockers="
+                f"{compact(payload.get('knowledge_domain_control_plane_drift_resolved_release_blockers') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_control_plane_drift_new_release_blockers="
+                f"{compact(payload.get('knowledge_domain_control_plane_drift_new_release_blockers') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_control_plane_drift_recommendations="
+                f"{compact(payload.get('knowledge_domain_control_plane_drift_recommendations') or [])}\n"
             )
             f.write(
                 "knowledge_domain_action_plan_status="
@@ -6581,6 +6797,7 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-matrix "${{ github.event.inputs.benchmark_release_runbook_knowledge_domain_matrix_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${{ github.event.inputs.benchmark_release_runbook_knowledge_domain_capability_matrix_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-drift "${{ github.event.inputs.benchmark_release_runbook_knowledge_domain_capability_drift_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-control-plane-drift "${{ github.event.inputs.benchmark_release_runbook_knowledge_domain_control_plane_drift_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ github.event.inputs.benchmark_release_runbook_knowledge_domain_action_plan_json || '' }}"
         add_if_exists --benchmark-knowledge-source-coverage "${{ github.event.inputs.benchmark_release_runbook_knowledge_source_coverage_json || '' }}"
         add_if_exists --benchmark-knowledge-source-action-plan "${{ github.event.inputs.benchmark_release_runbook_knowledge_source_action_plan_json || '' }}"
@@ -6616,6 +6833,8 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${{ steps.benchmark_knowledge_domain_capability_matrix.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-capability-drift "${{ steps.benchmark_knowledge_domain_capability_drift.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-control-plane-drift "${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-control-plane-drift "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ steps.benchmark_knowledge_domain_action_plan.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-control-plane "${{ steps.benchmark_knowledge_domain_control_plane.outputs.output_json || '' }}"
@@ -7001,6 +7220,30 @@ jobs:
             f.write(
                 "knowledge_domain_capability_drift_recommendations="
                 f"{compact(payload.get('knowledge_domain_capability_drift_recommendations') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_control_plane_drift_status="
+                f"{payload.get('knowledge_domain_control_plane_drift_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_domain_control_plane_drift_domain_regressions="
+                f"{compact(payload.get('knowledge_domain_control_plane_drift_domain_regressions') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_control_plane_drift_domain_improvements="
+                f"{compact(payload.get('knowledge_domain_control_plane_drift_domain_improvements') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_control_plane_drift_resolved_release_blockers="
+                f"{compact(payload.get('knowledge_domain_control_plane_drift_resolved_release_blockers') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_control_plane_drift_new_release_blockers="
+                f"{compact(payload.get('knowledge_domain_control_plane_drift_new_release_blockers') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_control_plane_drift_recommendations="
+                f"{compact(payload.get('knowledge_domain_control_plane_drift_recommendations') or [])}\n"
             )
             f.write(
                 "knowledge_domain_action_plan_status="
@@ -8334,6 +8577,16 @@ jobs:
         path: |
           ${{ steps.benchmark_knowledge_domain_control_plane.outputs.output_json }}
           ${{ steps.benchmark_knowledge_domain_control_plane.outputs.output_md }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Upload benchmark knowledge domain control plane drift
+      if: steps.benchmark_knowledge_domain_control_plane_drift.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-knowledge-domain-control-plane-drift-${{ github.run_number }}
+        path: |
+          ${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.output_json }}
+          ${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.output_md }}
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
     - name: Upload benchmark knowledge source coverage
