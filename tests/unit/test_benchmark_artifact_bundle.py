@@ -982,3 +982,54 @@ def test_build_bundle_exposes_competitive_surpass_index_passthrough() -> None:
     assert payload["artifacts"]["benchmark_competitive_surpass_index"]["present"] is True
     markdown = module.render_markdown(payload)
     assert "## Competitive Surpass Index" in markdown
+
+
+def test_build_bundle_exposes_competitive_surpass_trend_passthrough() -> None:
+    payload = module.build_bundle(
+        title="Benchmark Artifact Bundle",
+        benchmark_scorecard={"components": {"hybrid": {"status": "ready"}}},
+        benchmark_operational_summary={},
+        benchmark_companion_summary={},
+        benchmark_release_decision={},
+        benchmark_knowledge_readiness={},
+        benchmark_knowledge_drift={},
+        benchmark_engineering_signals={},
+        benchmark_realdata_signals={},
+        benchmark_realdata_scorecard={},
+        benchmark_operator_adoption={},
+        benchmark_competitive_surpass_trend={
+            "competitive_surpass_trend": {
+                "status": "regressed",
+                "score_delta": -5,
+                "pillar_improvements": ["knowledge"],
+                "pillar_regressions": ["realdata"],
+                "resolved_primary_gaps": ["engineering"],
+                "new_primary_gaps": ["step_dir_depth"],
+            },
+            "summary": "status=regressed; score_delta=-5",
+            "recommendations": [
+                "Resolve competitive surpass regressions before claiming progress."
+            ],
+        },
+        feedback_flywheel={},
+        assistant_evidence={},
+        review_queue={},
+        ocr_review={},
+        artifact_paths={
+            "benchmark_competitive_surpass_trend": "competitive_surpass_trend.json"
+        },
+    )
+
+    assert payload["component_statuses"]["competitive_surpass_trend"] == "regressed"
+    assert payload["competitive_surpass_trend_status"] == "regressed"
+    assert payload["competitive_surpass_trend_score_delta"] == -5
+    assert payload["competitive_surpass_trend_pillar_improvements"] == ["knowledge"]
+    assert payload["competitive_surpass_trend_pillar_regressions"] == ["realdata"]
+    assert payload["competitive_surpass_trend_resolved_primary_gaps"] == ["engineering"]
+    assert payload["competitive_surpass_trend_new_primary_gaps"] == ["step_dir_depth"]
+    assert payload["competitive_surpass_trend_recommendations"] == [
+        "Resolve competitive surpass regressions before claiming progress."
+    ]
+    assert payload["artifacts"]["benchmark_competitive_surpass_trend"]["present"] is True
+    markdown = module.render_markdown(payload)
+    assert "## Competitive Surpass Trend" in markdown
