@@ -2340,6 +2340,10 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkArtifactBundleKnowledgeDomainMatrixStatusLine" in pr_comment_script
     assert "benchmarkArtifactBundleKnowledgeDomainActionPlanStatus" in pr_comment_script
     assert "benchmarkArtifactBundleKnowledgeDomainActionPlanStatusLine" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeSourceCoverageStatus" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeSourceCoverageStatusLine" in (
+        pr_comment_script
+    )
     assert "benchmarkArtifactBundleKnowledgeSourceActionPlanStatus" in pr_comment_script
     assert "benchmarkArtifactBundleKnowledgeSourceActionPlanStatusLine" in pr_comment_script
     assert "benchmarkArtifactBundleKnowledgeOutcomeCorrelationStatus" in pr_comment_script
@@ -2356,6 +2360,8 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkCompanionKnowledgeDomainMatrixStatusLine" in pr_comment_script
     assert "benchmarkCompanionKnowledgeDomainActionPlanStatus" in pr_comment_script
     assert "benchmarkCompanionKnowledgeDomainActionPlanStatusLine" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeSourceCoverageStatus" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeSourceCoverageStatusLine" in pr_comment_script
     assert "benchmarkCompanionKnowledgeSourceActionPlanStatus" in pr_comment_script
     assert "benchmarkCompanionKnowledgeSourceActionPlanStatusLine" in pr_comment_script
     assert "benchmarkCompanionKnowledgeOutcomeCorrelationStatus" in pr_comment_script
@@ -2368,6 +2374,8 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkReleaseKnowledgeDomainMatrixStatusLine" in pr_comment_script
     assert "benchmarkReleaseKnowledgeDomainActionPlanStatus" in pr_comment_script
     assert "benchmarkReleaseKnowledgeDomainActionPlanStatusLine" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeSourceCoverageStatus" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeSourceCoverageStatusLine" in pr_comment_script
     assert "benchmarkReleaseKnowledgeSourceActionPlanStatus" in pr_comment_script
     assert "benchmarkReleaseKnowledgeSourceActionPlanStatusLine" in pr_comment_script
     assert "benchmarkReleaseKnowledgeOutcomeCorrelationStatus" in pr_comment_script
@@ -2380,6 +2388,10 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkReleaseRunbookKnowledgeDomainMatrixStatusLine" in pr_comment_script
     assert "benchmarkReleaseRunbookKnowledgeDomainActionPlanStatus" in pr_comment_script
     assert "benchmarkReleaseRunbookKnowledgeDomainActionPlanStatusLine" in pr_comment_script
+    assert "benchmarkReleaseRunbookKnowledgeSourceCoverageStatus" in pr_comment_script
+    assert "benchmarkReleaseRunbookKnowledgeSourceCoverageStatusLine" in (
+        pr_comment_script
+    )
     assert "benchmarkReleaseRunbookKnowledgeSourceActionPlanStatus" in pr_comment_script
     assert "benchmarkReleaseRunbookKnowledgeSourceActionPlanStatusLine" in (
         pr_comment_script
@@ -2409,6 +2421,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Knowledge Real-Data Correlation" in pr_comment_script
     assert "Benchmark Knowledge Domain Matrix" in pr_comment_script
     assert "Benchmark Knowledge Domain Action Plan" in pr_comment_script
+    assert "Benchmark Knowledge Source Coverage" in pr_comment_script
     assert "Benchmark Knowledge Source Action Plan" in pr_comment_script
     assert "Benchmark Knowledge Outcome Correlation" in pr_comment_script
     assert "Benchmark Knowledge Real-Data Recommendations" in pr_comment_script
@@ -2425,6 +2438,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Artifact Bundle Knowledge Real-Data" in pr_comment_script
     assert "Benchmark Artifact Bundle Knowledge Domain Matrix" in pr_comment_script
     assert "Benchmark Artifact Bundle Knowledge Domain Action Plan" in pr_comment_script
+    assert "Benchmark Artifact Bundle Knowledge Source Coverage" in pr_comment_script
     assert "Benchmark Artifact Bundle Knowledge Source Action Plan" in pr_comment_script
     assert "Benchmark Artifact Bundle Knowledge Outcome Correlation" in pr_comment_script
     assert "Benchmark Artifact Bundle Real-Data" in pr_comment_script
@@ -2442,18 +2456,21 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Companion Knowledge Real-Data" in pr_comment_script
     assert "Benchmark Companion Knowledge Domain Matrix" in pr_comment_script
     assert "Benchmark Companion Knowledge Domain Action Plan" in pr_comment_script
+    assert "Benchmark Companion Knowledge Source Coverage" in pr_comment_script
     assert "Benchmark Companion Knowledge Source Action Plan" in pr_comment_script
     assert "Benchmark Companion Knowledge Outcome Correlation" in pr_comment_script
     assert "Benchmark Release Decision Knowledge Application" in pr_comment_script
     assert "Benchmark Release Decision Knowledge Real-Data" in pr_comment_script
     assert "Benchmark Release Decision Knowledge Domain Matrix" in pr_comment_script
     assert "Benchmark Release Decision Knowledge Domain Action Plan" in pr_comment_script
+    assert "Benchmark Release Decision Knowledge Source Coverage" in pr_comment_script
     assert "Benchmark Release Decision Knowledge Source Action Plan" in pr_comment_script
     assert "Benchmark Release Decision Knowledge Outcome Correlation" in pr_comment_script
     assert "Benchmark Release Runbook Knowledge Application" in pr_comment_script
     assert "Benchmark Release Runbook Knowledge Real-Data" in pr_comment_script
     assert "Benchmark Release Runbook Knowledge Domain Matrix" in pr_comment_script
     assert "Benchmark Release Runbook Knowledge Domain Action Plan" in pr_comment_script
+    assert "Benchmark Release Runbook Knowledge Source Coverage" in pr_comment_script
     assert "Benchmark Release Runbook Knowledge Source Action Plan" in pr_comment_script
     assert "Benchmark Release Runbook Knowledge Outcome Correlation" in pr_comment_script
     assert (
@@ -2473,9 +2490,23 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
         in pr_comment_script
     )
     assert (
+        "recommendations=${benchmarkKnowledgeSourceCoverageRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
         "recommendations=${benchmarkKnowledgeSourceActionPlanRecommendations || 'n/a'}"
         in pr_comment_script
     )
+    assert (
+        "domains=${benchmarkKnowledgeSourceCoveragePriorityDomains || 'n/a'} / "
+        "${benchmarkKnowledgeSourceCoverageDomainStatuses || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "expansion_candidates=${benchmarkKnowledgeSourceCoverageExpansionCandidates || 'n/a'}"
+        in pr_comment_script
+    )
+    assert "benchmarkKnowledgeSourceCoverageLight" in pr_comment_script
     assert (
         "recommendations=${benchmarkKnowledgeOutcomeCorrelationRecommendations || 'n/a'}"
         in pr_comment_script
