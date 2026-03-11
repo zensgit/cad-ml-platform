@@ -195,6 +195,31 @@ def test_build_release_decision_blocks_on_blockers() -> None:
             },
             "recommendations": ["Reconcile release-surface mismatches before freeze."],
         },
+        benchmark_knowledge_reference_inventory={
+            "knowledge_reference_inventory": {
+                "status": "knowledge_reference_inventory_partial",
+                "summary": "Tolerance reference tables are incomplete.",
+                "priority_domains": ["tolerance"],
+                "total_reference_items": 24,
+                "domains": {
+                    "tolerance": {
+                        "status": "partial",
+                        "total_reference_items": 24,
+                        "populated_table_count": 2,
+                        "total_table_count": 4,
+                        "missing_tables": ["hole_limits", "shaft_limits"],
+                    }
+                },
+                "focus_tables_detail": [
+                    {
+                        "domain": "tolerance",
+                        "missing_tables": ["hole_limits", "shaft_limits"],
+                        "action": "Backfill tolerance reference tables.",
+                    }
+                ],
+            },
+            "recommendations": ["Backfill tolerance reference tables."],
+        },
         benchmark_knowledge_domain_release_gate={
             "knowledge_domain_release_gate": {
                 "status": "knowledge_domain_release_gate_blocked",
@@ -216,6 +241,9 @@ def test_build_release_decision_blocks_on_blockers() -> None:
             ),
             "benchmark_knowledge_domain_release_surface_alignment": (
                 "knowledge_domain_release_surface_alignment.json"
+            ),
+            "benchmark_knowledge_reference_inventory": (
+                "knowledge_reference_inventory.json"
             ),
         },
     )
@@ -251,6 +279,9 @@ def test_build_release_decision_blocks_on_blockers() -> None:
     assert payload["component_statuses"]["knowledge_domain_release_surface_alignment"] == (
         "diverged"
     )
+    assert payload["component_statuses"]["knowledge_reference_inventory"] == (
+        "knowledge_reference_inventory_partial"
+    )
     assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
     assert payload["operator_adoption_knowledge_outcome_drift"]["status"] == "unknown"
     assert payload["knowledge_domain_release_gate_status"] == (
@@ -265,6 +296,13 @@ def test_build_release_decision_blocks_on_blockers() -> None:
     assert payload["knowledge_domain_release_surface_alignment"]["mismatches"] == [
         "gdt:blocked->partial"
     ]
+    assert payload["knowledge_reference_inventory_status"] == (
+        "knowledge_reference_inventory_partial"
+    )
+    assert payload["knowledge_reference_inventory_priority_domains"] == [
+        "tolerance"
+    ]
+    assert payload["knowledge_reference_inventory_total_reference_items"] == 24
     assert payload["knowledge_focus_areas"][0]["component"] == "tolerance"
     assert payload["knowledge_drift_status"] == "regressed"
     assert payload["knowledge_drift_domain_regressions"] == ["gdt"]
@@ -307,6 +345,7 @@ def test_build_release_decision_blocks_on_blockers() -> None:
     assert "Operator fallback only." not in payload["review_signals"]
     assert "Backfill tolerance source actions first." in payload["review_signals"]
     assert "Backfill tolerance source coverage." in payload["review_signals"]
+    assert "Backfill tolerance reference tables." in payload["review_signals"]
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is False
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
@@ -317,9 +356,11 @@ def test_build_release_decision_blocks_on_blockers() -> None:
         is True
     )
     assert payload["artifacts"]["benchmark_knowledge_domain_release_gate"]["present"] is True
+    assert payload["artifacts"]["benchmark_knowledge_reference_inventory"]["present"] is True
     rendered = render_markdown(payload)
     assert "## Knowledge Domain Release Gate" in rendered
     assert "## Knowledge Domain Release Surface Alignment" in rendered
+    assert "## Knowledge Reference Inventory" in rendered
 
 
 def test_build_release_decision_ready_without_blockers() -> None:

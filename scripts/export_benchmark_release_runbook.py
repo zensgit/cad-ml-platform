@@ -129,6 +129,7 @@ def _artifacts(
     benchmark_knowledge_domain_control_plane_drift: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_release_gate: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_release_surface_alignment: Dict[str, Any] | None = None,
+    benchmark_knowledge_reference_inventory: Dict[str, Any] | None = None,
     benchmark_knowledge_source_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_coverage: Dict[str, Any] | None = None,
     benchmark_knowledge_source_drift: Dict[str, Any] | None = None,
@@ -165,6 +166,9 @@ def _artifacts(
     )
     benchmark_knowledge_domain_release_surface_alignment = (
         benchmark_knowledge_domain_release_surface_alignment or {}
+    )
+    benchmark_knowledge_reference_inventory = (
+        benchmark_knowledge_reference_inventory or {}
     )
     benchmark_knowledge_source_action_plan = (
         benchmark_knowledge_source_action_plan or {}
@@ -296,6 +300,11 @@ def _artifacts(
                 "",
             ),
             benchmark_knowledge_domain_release_surface_alignment,
+        ),
+        "benchmark_knowledge_reference_inventory": _artifact_row(
+            "benchmark_knowledge_reference_inventory",
+            artifact_paths.get("benchmark_knowledge_reference_inventory", ""),
+            benchmark_knowledge_reference_inventory,
         ),
         "benchmark_knowledge_source_action_plan": _artifact_row(
             "benchmark_knowledge_source_action_plan",
@@ -647,6 +656,7 @@ def build_release_runbook(
     benchmark_knowledge_domain_control_plane_drift: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_release_gate: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_release_surface_alignment: Dict[str, Any] | None = None,
+    benchmark_knowledge_reference_inventory: Dict[str, Any] | None = None,
     benchmark_knowledge_source_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_coverage: Dict[str, Any] | None = None,
     benchmark_knowledge_source_drift: Dict[str, Any] | None = None,
@@ -686,6 +696,9 @@ def build_release_runbook(
     )
     benchmark_knowledge_domain_release_surface_alignment = (
         benchmark_knowledge_domain_release_surface_alignment or {}
+    )
+    benchmark_knowledge_reference_inventory = (
+        benchmark_knowledge_reference_inventory or {}
     )
     benchmark_knowledge_source_action_plan = (
         benchmark_knowledge_source_action_plan or {}
@@ -772,6 +785,11 @@ def build_release_runbook(
         _knowledge_domain_release_surface_alignment(
             benchmark_knowledge_domain_release_surface_alignment
         )
+    )
+    knowledge_reference_inventory_component = (
+        benchmark_knowledge_reference_inventory.get("knowledge_reference_inventory")
+        or benchmark_knowledge_reference_inventory
+        or {}
     )
     knowledge_source_action_plan_component = (
         benchmark_knowledge_source_action_plan.get("knowledge_source_action_plan")
@@ -1085,6 +1103,10 @@ def build_release_runbook(
         str(knowledge_source_coverage_component.get("status") or "unknown").strip()
         or "unknown"
     )
+    knowledge_reference_inventory_status = (
+        str(knowledge_reference_inventory_component.get("status") or "unknown").strip()
+        or "unknown"
+    )
     if knowledge_source_coverage_status not in {
         "",
         "unknown",
@@ -1092,6 +1114,16 @@ def build_release_runbook(
     }:
         for item in _compact(
             benchmark_knowledge_source_coverage.get("recommendations") or []
+        ):
+            if item not in review_signals:
+                review_signals.append(item)
+    if knowledge_reference_inventory_status not in {
+        "",
+        "unknown",
+        "knowledge_reference_inventory_ready",
+    }:
+        for item in _compact(
+            benchmark_knowledge_reference_inventory.get("recommendations") or []
         ):
             if item not in review_signals:
                 review_signals.append(item)
@@ -1198,6 +1230,9 @@ def build_release_runbook(
         ),
         benchmark_knowledge_domain_release_surface_alignment=(
             benchmark_knowledge_domain_release_surface_alignment
+        ),
+        benchmark_knowledge_reference_inventory=(
+            benchmark_knowledge_reference_inventory
         ),
         benchmark_knowledge_domain_capability_drift=(
             benchmark_knowledge_domain_capability_drift
@@ -1589,6 +1624,25 @@ def build_release_runbook(
             )
             or []
         ),
+        "knowledge_reference_inventory_status": (
+            knowledge_reference_inventory_component.get("status") or "unknown"
+        ),
+        "knowledge_reference_inventory": knowledge_reference_inventory_component,
+        "knowledge_reference_inventory_summary": (
+            knowledge_reference_inventory_component.get("summary") or "none"
+        ),
+        "knowledge_reference_inventory_priority_domains": list(
+            knowledge_reference_inventory_component.get("priority_domains") or []
+        ),
+        "knowledge_reference_inventory_total_reference_items": (
+            knowledge_reference_inventory_component.get("total_reference_items") or 0
+        ),
+        "knowledge_reference_inventory_focus_tables_detail": list(
+            knowledge_reference_inventory_component.get("focus_tables_detail") or []
+        ),
+        "knowledge_reference_inventory_recommendations": _compact(
+            benchmark_knowledge_reference_inventory.get("recommendations") or []
+        ),
         "knowledge_source_action_plan_status": knowledge_source_action_plan_status,
         "knowledge_source_action_plan": knowledge_source_action_plan_component,
         "knowledge_source_action_plan_total_action_count": (
@@ -1782,6 +1836,8 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         f"`{payload.get('knowledge_domain_control_plane_drift_status') or 'unknown'}`",
         f"- `knowledge_domain_release_gate_status`: "
         f"`{payload.get('knowledge_domain_release_gate_status') or 'unknown'}`",
+        f"- `knowledge_reference_inventory_status`: "
+        f"`{payload.get('knowledge_reference_inventory_status') or 'unknown'}`",
         f"- `knowledge_domain_release_surface_alignment_status`: "
         f"`{payload.get('knowledge_domain_release_surface_alignment_status') or 'unknown'}`",
         f"- `knowledge_domain_action_plan_status`: "
@@ -2146,6 +2202,52 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     )
     if knowledge_alignment_recommendations:
         for item in knowledge_alignment_recommendations:
+            lines.append(f"- recommendation: {item}")
+    lines.extend(["", "## Knowledge Reference Inventory", ""])
+    lines.append(
+        f"- `status`: `{payload.get('knowledge_reference_inventory_status') or 'unknown'}`"
+    )
+    lines.append(
+        "- `summary`: "
+        f"`{payload.get('knowledge_reference_inventory_summary') or 'none'}`"
+    )
+    priority_domains_text = ", ".join(
+        payload.get("knowledge_reference_inventory_priority_domains") or []
+    )
+    lines.append(f"- `priority_domains`: `{priority_domains_text or 'none'}`")
+    lines.append(
+        "- `total_reference_items`: "
+        f"`{payload.get('knowledge_reference_inventory_total_reference_items') or 0}`"
+    )
+    knowledge_reference_inventory = payload.get("knowledge_reference_inventory") or {}
+    knowledge_reference_domains = knowledge_reference_inventory.get("domains") or {}
+    if knowledge_reference_domains:
+        for name, row in knowledge_reference_domains.items():
+            lines.append(
+                "- "
+                f"`{name}` "
+                f"status=`{row.get('status')}` "
+                f"reference_items=`{row.get('total_reference_items', 0)}` "
+                f"tables=`{row.get('populated_table_count', 0)}/"
+                f"{row.get('total_table_count', 0)}` "
+                f"missing_tables=`{', '.join(row.get('missing_tables') or []) or 'none'}`"
+            )
+    else:
+        lines.append("- none")
+    focus_tables = payload.get("knowledge_reference_inventory_focus_tables_detail") or []
+    if focus_tables:
+        for row in focus_tables[:5]:
+            lines.append(
+                "- focus: "
+                f"`{row.get('domain')}` "
+                f"missing_tables=`{', '.join(row.get('missing_tables') or []) or 'none'}` "
+                f"action=`{row.get('action') or 'Backfill missing tables.'}`"
+            )
+    knowledge_reference_inventory_recommendations = (
+        payload.get("knowledge_reference_inventory_recommendations") or []
+    )
+    if knowledge_reference_inventory_recommendations:
+        for item in knowledge_reference_inventory_recommendations:
             lines.append(f"- recommendation: {item}")
     lines.extend(["", "## Knowledge Domain Action Plan", ""])
     lines.append(
@@ -2619,6 +2721,7 @@ def main() -> None:
     parser.add_argument(
         "--benchmark-knowledge-domain-release-surface-alignment", default=""
     )
+    parser.add_argument("--benchmark-knowledge-reference-inventory", default="")
     parser.add_argument("--benchmark-knowledge-source-action-plan", default="")
     parser.add_argument("--benchmark-knowledge-source-coverage", default="")
     parser.add_argument("--benchmark-knowledge-source-drift", default="")
@@ -2668,6 +2771,9 @@ def main() -> None:
         ),
         "benchmark_knowledge_domain_release_surface_alignment": (
             args.benchmark_knowledge_domain_release_surface_alignment
+        ),
+        "benchmark_knowledge_reference_inventory": (
+            args.benchmark_knowledge_reference_inventory
         ),
         "benchmark_knowledge_source_action_plan": (
             args.benchmark_knowledge_source_action_plan
@@ -2744,6 +2850,9 @@ def main() -> None:
         ),
         benchmark_knowledge_domain_release_surface_alignment=_maybe_load_json(
             args.benchmark_knowledge_domain_release_surface_alignment
+        ),
+        benchmark_knowledge_reference_inventory=_maybe_load_json(
+            args.benchmark_knowledge_reference_inventory
         ),
         benchmark_knowledge_source_action_plan=_maybe_load_json(
             args.benchmark_knowledge_source_action_plan
