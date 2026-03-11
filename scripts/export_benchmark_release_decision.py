@@ -89,6 +89,12 @@ def _knowledge_domain_control_plane_drift_component(
     return payload.get("knowledge_domain_control_plane_drift") or payload or {}
 
 
+def _knowledge_domain_release_gate_component(
+    payload: Dict[str, Any],
+) -> Dict[str, Any]:
+    return payload.get("knowledge_domain_release_gate") or payload or {}
+
+
 def _artifact_row(name: str, path_text: str) -> Dict[str, Any]:
     path_value = _text(path_text)
     return {
@@ -117,6 +123,7 @@ def _component_statuses(
     benchmark_knowledge_domain_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_control_plane: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_control_plane_drift: Dict[str, Any] | None = None,
+    benchmark_knowledge_domain_release_gate: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_release_surface_alignment: Dict[str, Any] | None = None,
     benchmark_knowledge_source_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_coverage: Dict[str, Any] | None = None,
@@ -147,6 +154,9 @@ def _component_statuses(
     )
     benchmark_knowledge_domain_control_plane_drift = (
         benchmark_knowledge_domain_control_plane_drift or {}
+    )
+    benchmark_knowledge_domain_release_gate = (
+        benchmark_knowledge_domain_release_gate or {}
     )
     benchmark_knowledge_domain_release_surface_alignment = (
         benchmark_knowledge_domain_release_surface_alignment or {}
@@ -232,6 +242,9 @@ def _component_statuses(
         _knowledge_domain_control_plane_drift_component(
             benchmark_knowledge_domain_control_plane_drift
         )
+    )
+    knowledge_domain_release_gate_component = _knowledge_domain_release_gate_component(
+        benchmark_knowledge_domain_release_gate
     )
     knowledge_domain_release_surface_alignment_component = (
         _knowledge_domain_release_surface_alignment(
@@ -411,6 +424,12 @@ def _component_statuses(
             or (
                 scorecard_components.get("knowledge_domain_control_plane_drift") or {}
             ).get("status")
+            or "unknown"
+        ),
+        "knowledge_domain_release_gate": str(
+            companion_components.get("knowledge_domain_release_gate")
+            or bundle_components.get("knowledge_domain_release_gate")
+            or knowledge_domain_release_gate_component.get("status")
             or "unknown"
         ),
         "knowledge_domain_release_surface_alignment": str(
@@ -645,6 +664,21 @@ def _knowledge_domain_control_plane_drift_review_signals(
         return []
     return _compact(
         benchmark_knowledge_domain_control_plane_drift.get("recommendations") or [],
+        limit=6,
+    )
+
+
+def _knowledge_domain_release_gate_review_signals(
+    benchmark_knowledge_domain_release_gate: Dict[str, Any],
+    component_statuses: Dict[str, str],
+) -> List[str]:
+    status = str(component_statuses.get("knowledge_domain_release_gate") or "").strip()
+    if status in {"knowledge_domain_release_gate_ready", "unknown", ""}:
+        return []
+    return _compact(
+        benchmark_knowledge_domain_release_gate.get("warning_reasons")
+        or benchmark_knowledge_domain_release_gate.get("recommendations")
+        or [],
         limit=6,
     )
 
@@ -925,6 +959,7 @@ def build_release_decision(
     benchmark_knowledge_domain_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_control_plane: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_control_plane_drift: Dict[str, Any] | None = None,
+    benchmark_knowledge_domain_release_gate: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_release_surface_alignment: Dict[str, Any] | None = None,
     benchmark_knowledge_source_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_coverage: Dict[str, Any] | None = None,
@@ -955,6 +990,9 @@ def build_release_decision(
     )
     benchmark_knowledge_domain_control_plane_drift = (
         benchmark_knowledge_domain_control_plane_drift or {}
+    )
+    benchmark_knowledge_domain_release_gate = (
+        benchmark_knowledge_domain_release_gate or {}
     )
     benchmark_knowledge_domain_release_surface_alignment = (
         benchmark_knowledge_domain_release_surface_alignment or {}
@@ -994,6 +1032,7 @@ def build_release_decision(
         benchmark_knowledge_domain_action_plan,
         benchmark_knowledge_domain_control_plane,
         benchmark_knowledge_domain_control_plane_drift,
+        benchmark_knowledge_domain_release_gate,
         benchmark_knowledge_domain_release_surface_alignment,
         benchmark_knowledge_source_action_plan,
         benchmark_knowledge_source_coverage,
@@ -1056,6 +1095,9 @@ def build_release_decision(
         _knowledge_domain_control_plane_drift_component(
             benchmark_knowledge_domain_control_plane_drift
         )
+    )
+    knowledge_domain_release_gate_component = _knowledge_domain_release_gate_component(
+        benchmark_knowledge_domain_release_gate
     )
     knowledge_domain_release_surface_alignment_component = (
         _knowledge_domain_release_surface_alignment(
@@ -1218,6 +1260,22 @@ def build_release_decision(
             benchmark_operator_adoption.get("blocking_signals") or [],
             limit=6,
         )
+    knowledge_domain_release_gate_status = (
+        str(knowledge_domain_release_gate_component.get("status") or "unknown").strip()
+        or "unknown"
+    )
+    if knowledge_domain_release_gate_status in {
+        "knowledge_domain_release_gate_blocked",
+        "knowledge_domain_release_gate_unavailable",
+    } or not bool(knowledge_domain_release_gate_component.get("gate_open", False)):
+        for item in _compact(
+            benchmark_knowledge_domain_release_gate.get("blocking_reasons")
+            or benchmark_knowledge_domain_release_gate.get("recommendations")
+            or [],
+            limit=6,
+        ):
+            if item not in blockers:
+                blockers.append(item)
     review_signals = _compact(
         benchmark_companion_summary.get("recommended_actions")
         or benchmark_artifact_bundle.get("recommendations")
@@ -1310,6 +1368,14 @@ def build_release_decision(
         item
         for item in _knowledge_domain_control_plane_drift_review_signals(
             benchmark_knowledge_domain_control_plane_drift,
+            component_statuses,
+        )
+        if item not in review_signals
+    )
+    review_signals.extend(
+        item
+        for item in _knowledge_domain_release_gate_review_signals(
+            benchmark_knowledge_domain_release_gate,
             component_statuses,
         )
         if item not in review_signals
@@ -1628,6 +1694,32 @@ def build_release_decision(
         "knowledge_domain_control_plane_drift_recommendations": (
             knowledge_domain_control_plane_drift_recommendations
         ),
+        "knowledge_domain_release_gate_status": knowledge_domain_release_gate_status,
+        "knowledge_domain_release_gate": knowledge_domain_release_gate_component,
+        "knowledge_domain_release_gate_gate_open": bool(
+            knowledge_domain_release_gate_component.get("gate_open")
+        ),
+        "knowledge_domain_release_gate_releasable_domains": list(
+            knowledge_domain_release_gate_component.get("releasable_domains") or []
+        ),
+        "knowledge_domain_release_gate_blocked_domains": list(
+            knowledge_domain_release_gate_component.get("blocked_domains") or []
+        ),
+        "knowledge_domain_release_gate_priority_domains": list(
+            knowledge_domain_release_gate_component.get("priority_domains") or []
+        ),
+        "knowledge_domain_release_gate_blocking_reasons": _compact(
+            benchmark_knowledge_domain_release_gate.get("blocking_reasons") or [],
+            limit=6,
+        ),
+        "knowledge_domain_release_gate_warning_reasons": _compact(
+            benchmark_knowledge_domain_release_gate.get("warning_reasons") or [],
+            limit=6,
+        ),
+        "knowledge_domain_release_gate_recommendations": _compact(
+            benchmark_knowledge_domain_release_gate.get("recommendations") or [],
+            limit=6,
+        ),
         "knowledge_domain_release_surface_alignment_status": (
             knowledge_domain_release_surface_alignment_component.get("status")
             or "unknown"
@@ -1887,6 +1979,10 @@ def build_release_decision(
                     "",
                 ),
             ),
+            "benchmark_knowledge_domain_release_gate": _artifact_row(
+                "benchmark_knowledge_domain_release_gate",
+                artifact_paths.get("benchmark_knowledge_domain_release_gate", ""),
+            ),
             "benchmark_knowledge_domain_release_surface_alignment": _artifact_row(
                 "benchmark_knowledge_domain_release_surface_alignment",
                 artifact_paths.get(
@@ -1947,6 +2043,8 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         f"`{payload.get('knowledge_domain_control_plane_status') or 'unknown'}`",
         f"- `knowledge_domain_control_plane_drift_status`: "
         f"`{payload.get('knowledge_domain_control_plane_drift_status') or 'unknown'}`",
+        f"- `knowledge_domain_release_gate_status`: "
+        f"`{payload.get('knowledge_domain_release_gate_status') or 'unknown'}`",
         f"- `knowledge_domain_release_surface_alignment_status`: "
         f"`{payload.get('knowledge_domain_release_surface_alignment_status') or 'unknown'}`",
         f"- `competitive_surpass_index_status`: "
@@ -2334,6 +2432,50 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     if control_plane_drift_recommendations:
         for item in control_plane_drift_recommendations:
             lines.append(f"- recommendation: {item}")
+    lines.extend(["", "## Knowledge Domain Release Gate", ""])
+    lines.append(
+        f"- `status`: `{payload.get('knowledge_domain_release_gate_status') or 'unknown'}`"
+    )
+    lines.append(
+        "- `gate_open`: "
+        + str(bool(payload.get("knowledge_domain_release_gate_gate_open"))).lower()
+    )
+    lines.append(
+        "- `releasable_domains`: "
+        + (
+            ", ".join(payload.get("knowledge_domain_release_gate_releasable_domains") or [])
+            or "none"
+        )
+    )
+    lines.append(
+        "- `blocked_domains`: "
+        + (
+            ", ".join(payload.get("knowledge_domain_release_gate_blocked_domains") or [])
+            or "none"
+        )
+    )
+    lines.append(
+        "- `priority_domains`: "
+        + (
+            ", ".join(payload.get("knowledge_domain_release_gate_priority_domains") or [])
+            or "none"
+        )
+    )
+    lines.append(
+        "- `blocking_reasons`: "
+        + (
+            ", ".join(payload.get("knowledge_domain_release_gate_blocking_reasons") or [])
+            or "none"
+        )
+    )
+    gate_warnings = payload.get("knowledge_domain_release_gate_warning_reasons") or []
+    if gate_warnings:
+        for item in gate_warnings:
+            lines.append(f"- warning: {item}")
+    gate_recommendations = payload.get("knowledge_domain_release_gate_recommendations") or []
+    if gate_recommendations:
+        for item in gate_recommendations:
+            lines.append(f"- recommendation: {item}")
     lines.extend(["", "## Knowledge Domain Action Plan", ""])
     lines.append(
         f"- `status`: `{payload.get('knowledge_domain_action_plan_status') or 'unknown'}`"
@@ -2665,6 +2807,7 @@ def main() -> None:
     parser.add_argument("--benchmark-knowledge-domain-action-plan", default="")
     parser.add_argument("--benchmark-knowledge-domain-control-plane", default="")
     parser.add_argument("--benchmark-knowledge-domain-control-plane-drift", default="")
+    parser.add_argument("--benchmark-knowledge-domain-release-gate", default="")
     parser.add_argument(
         "--benchmark-knowledge-domain-release-surface-alignment", default=""
     )
@@ -2710,6 +2853,9 @@ def main() -> None:
         ),
         "benchmark_knowledge_domain_control_plane_drift": (
             args.benchmark_knowledge_domain_control_plane_drift
+        ),
+        "benchmark_knowledge_domain_release_gate": (
+            args.benchmark_knowledge_domain_release_gate
         ),
         "benchmark_knowledge_domain_release_surface_alignment": (
             args.benchmark_knowledge_domain_release_surface_alignment
@@ -2784,6 +2930,9 @@ def main() -> None:
         ),
         benchmark_knowledge_domain_control_plane_drift=_maybe_load_json(
             args.benchmark_knowledge_domain_control_plane_drift
+        ),
+        benchmark_knowledge_domain_release_gate=_maybe_load_json(
+            args.benchmark_knowledge_domain_release_gate
         ),
         benchmark_knowledge_domain_release_surface_alignment=_maybe_load_json(
             args.benchmark_knowledge_domain_release_surface_alignment

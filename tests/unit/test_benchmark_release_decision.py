@@ -195,10 +195,25 @@ def test_build_release_decision_blocks_on_blockers() -> None:
             },
             "recommendations": ["Reconcile release-surface mismatches before freeze."],
         },
+        benchmark_knowledge_domain_release_gate={
+            "knowledge_domain_release_gate": {
+                "status": "knowledge_domain_release_gate_blocked",
+                "gate_open": False,
+                "releasable_domains": ["standards"],
+                "blocked_domains": ["tolerance"],
+                "priority_domains": ["tolerance"],
+            },
+            "blocking_reasons": ["tolerance:not_release_ready"],
+            "warning_reasons": ["tolerance:review_before_release"],
+            "recommendations": ["Unblock tolerance before freeze."],
+        },
         artifact_paths={
             "benchmark_companion_summary": "companion.json",
             "benchmark_engineering_signals": "engineering.json",
             "benchmark_operator_adoption": "operator.json",
+            "benchmark_knowledge_domain_release_gate": (
+                "knowledge_domain_release_gate.json"
+            ),
             "benchmark_knowledge_domain_release_surface_alignment": (
                 "knowledge_domain_release_surface_alignment.json"
             ),
@@ -208,7 +223,10 @@ def test_build_release_decision_blocks_on_blockers() -> None:
     assert payload["release_status"] == "blocked"
     assert payload["automation_ready"] is False
     assert payload["primary_signal_source"] == "benchmark_companion_summary"
-    assert payload["blocking_signals"] == ["review_queue:critical_backlog"]
+    assert payload["blocking_signals"] == [
+        "review_queue:critical_backlog",
+        "tolerance:not_release_ready",
+    ]
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_partial"
     assert payload["component_statuses"]["knowledge_drift"] == "regressed"
     assert payload["component_statuses"]["engineering_signals"] == "partial_engineering_semantics"
@@ -221,6 +239,9 @@ def test_build_release_decision_blocks_on_blockers() -> None:
     assert payload["component_statuses"]["knowledge_domain_action_plan"] == (
         "knowledge_domain_action_plan_blocked"
     )
+    assert payload["component_statuses"]["knowledge_domain_release_gate"] == (
+        "knowledge_domain_release_gate_blocked"
+    )
     assert payload["component_statuses"]["knowledge_source_action_plan"] == (
         "knowledge_source_action_plan_blocked"
     )
@@ -232,6 +253,14 @@ def test_build_release_decision_blocks_on_blockers() -> None:
     )
     assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
     assert payload["operator_adoption_knowledge_outcome_drift"]["status"] == "unknown"
+    assert payload["knowledge_domain_release_gate_status"] == (
+        "knowledge_domain_release_gate_blocked"
+    )
+    assert payload["knowledge_domain_release_gate_gate_open"] is False
+    assert payload["knowledge_domain_release_gate_releasable_domains"] == [
+        "standards"
+    ]
+    assert payload["knowledge_domain_release_gate_blocked_domains"] == ["tolerance"]
     assert payload["knowledge_domain_release_surface_alignment_status"] == "diverged"
     assert payload["knowledge_domain_release_surface_alignment"]["mismatches"] == [
         "gdt:blocked->partial"
@@ -287,7 +316,9 @@ def test_build_release_decision_blocks_on_blockers() -> None:
         ]
         is True
     )
+    assert payload["artifacts"]["benchmark_knowledge_domain_release_gate"]["present"] is True
     rendered = render_markdown(payload)
+    assert "## Knowledge Domain Release Gate" in rendered
     assert "## Knowledge Domain Release Surface Alignment" in rendered
 
 

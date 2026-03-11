@@ -196,10 +196,25 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
             },
             "recommendations": ["Reconcile release-surface mismatches before freeze."],
         },
+        benchmark_knowledge_domain_release_gate={
+            "knowledge_domain_release_gate": {
+                "status": "knowledge_domain_release_gate_blocked",
+                "gate_open": False,
+                "releasable_domains": ["standards"],
+                "blocked_domains": ["gdt"],
+                "priority_domains": ["gdt"],
+            },
+            "blocking_reasons": ["gdt:not_release_ready"],
+            "warning_reasons": ["gdt:review_before_release"],
+            "recommendations": ["Unblock GD&T before release freeze."],
+        },
         artifact_paths={
             "benchmark_release_decision": "release.json",
             "benchmark_engineering_signals": "engineering.json",
             "benchmark_operator_adoption": "operator_adoption.json",
+            "benchmark_knowledge_domain_release_gate": (
+                "knowledge_domain_release_gate.json"
+            ),
             "benchmark_knowledge_domain_release_surface_alignment": (
                 "knowledge_domain_release_surface_alignment.json"
             ),
@@ -227,6 +242,14 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
     assert payload["knowledge_domain_action_plan_actions"][0]["id"] == (
         "gdt:foundation"
     )
+    assert payload["knowledge_domain_release_gate_status"] == (
+        "knowledge_domain_release_gate_blocked"
+    )
+    assert payload["knowledge_domain_release_gate_gate_open"] is False
+    assert payload["knowledge_domain_release_gate_blocked_domains"] == ["gdt"]
+    assert payload["knowledge_domain_release_gate_releasable_domains"] == [
+        "standards"
+    ]
     assert payload["knowledge_domain_release_surface_alignment_status"] == "diverged"
     assert payload["knowledge_domain_release_surface_alignment"]["mismatches"] == [
         "gdt:blocked->partial"
@@ -250,13 +273,19 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
     assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
     assert (
+        payload["artifacts"]["benchmark_knowledge_domain_release_gate"]["present"]
+        is True
+    )
+    assert (
         payload["artifacts"]["benchmark_knowledge_domain_release_surface_alignment"][
             "present"
         ]
         is True
     )
     rendered = render_markdown(payload)
+    assert "## Knowledge Domain Release Gate" in rendered
     assert "## Knowledge Domain Release Surface Alignment" in rendered
+    assert "gdt:not_release_ready" in payload["blocking_signals"]
     assert payload["operator_adoption"]["actions"] == [
         "Schedule an operator handoff dry run."
     ]
@@ -292,6 +321,9 @@ def test_build_release_runbook_freezes_when_ready() -> None:
                 },
                 "benchmark_knowledge_domain_capability_drift": {
                     "path": "knowledge_domain_capability_drift.json"
+                },
+                "benchmark_knowledge_domain_release_gate": {
+                    "path": "knowledge_domain_release_gate.json"
                 },
             },
         },
@@ -465,6 +497,18 @@ def test_build_release_runbook_freezes_when_ready() -> None:
             },
             "recommendations": [],
         },
+        benchmark_knowledge_domain_release_gate={
+            "knowledge_domain_release_gate": {
+                "status": "knowledge_domain_release_gate_ready",
+                "gate_open": True,
+                "releasable_domains": ["standards"],
+                "blocked_domains": [],
+                "priority_domains": [],
+            },
+            "blocking_reasons": [],
+            "warning_reasons": [],
+            "recommendations": [],
+        },
         benchmark_knowledge_source_action_plan={
             "knowledge_source_action_plan": {
                 "status": "knowledge_source_action_plan_ready",
@@ -599,6 +643,9 @@ def test_build_release_runbook_freezes_when_ready() -> None:
             "benchmark_knowledge_domain_control_plane_drift": (
                 "knowledge_domain_control_plane_drift.json"
             ),
+            "benchmark_knowledge_domain_release_gate": (
+                "knowledge_domain_release_gate.json"
+            ),
             "benchmark_knowledge_source_action_plan": (
                 "knowledge_source_action_plan.json"
             ),
@@ -635,6 +682,13 @@ def test_build_release_runbook_freezes_when_ready() -> None:
         "knowledge_domain_control_plane_ready"
     )
     assert payload["knowledge_domain_control_plane_drift_status"] == "improved"
+    assert payload["knowledge_domain_release_gate_status"] == (
+        "knowledge_domain_release_gate_ready"
+    )
+    assert payload["knowledge_domain_release_gate_gate_open"] is True
+    assert payload["knowledge_domain_release_gate_releasable_domains"] == [
+        "standards"
+    ]
     assert payload["knowledge_domain_release_surface_alignment_status"] == "aligned"
     assert payload["knowledge_source_coverage_status"] == (
         "knowledge_source_coverage_ready"
@@ -673,6 +727,7 @@ def test_build_release_runbook_freezes_when_ready() -> None:
         "benchmark_knowledge_domain_control_plane_drift"
         not in payload["missing_artifacts"]
     )
+    assert "benchmark_knowledge_domain_release_gate" not in payload["missing_artifacts"]
     assert (
         "benchmark_knowledge_domain_release_surface_alignment"
         not in payload["missing_artifacts"]
@@ -697,6 +752,7 @@ def test_build_release_runbook_freezes_when_ready() -> None:
         ]
         is True
     )
+    assert payload["artifacts"]["benchmark_knowledge_domain_release_gate"]["present"] is True
     assert (
         payload["artifacts"]["benchmark_knowledge_domain_release_surface_alignment"][
             "present"
@@ -733,6 +789,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     knowledge_domain_control_plane_drift = (
         tmp_path / "knowledge_domain_control_plane_drift.json"
     )
+    knowledge_domain_release_gate = tmp_path / "knowledge_domain_release_gate.json"
     knowledge_domain_release_surface_alignment = (
         tmp_path / "knowledge_domain_release_surface_alignment.json"
     )
@@ -1034,6 +1091,25 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    knowledge_domain_release_gate.write_text(
+        json.dumps(
+            {
+                "knowledge_domain_release_gate": {
+                    "status": "knowledge_domain_release_gate_partial",
+                    "gate_open": True,
+                    "releasable_domains": ["standards"],
+                    "blocked_domains": [],
+                    "priority_domains": ["tolerance"],
+                },
+                "blocking_reasons": [],
+                "warning_reasons": ["tolerance:review_before_release"],
+                "recommendations": [
+                    "Review tolerance release readiness before promotion."
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
     knowledge_domain_release_surface_alignment.write_text(
         json.dumps(
             {
@@ -1274,6 +1350,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
             str(knowledge_domain_control_plane),
             "--benchmark-knowledge-domain-control-plane-drift",
             str(knowledge_domain_control_plane_drift),
+            "--benchmark-knowledge-domain-release-gate",
+            str(knowledge_domain_release_gate),
             "--benchmark-knowledge-domain-release-surface-alignment",
             str(knowledge_domain_release_surface_alignment),
             "--benchmark-knowledge-domain-action-plan",
@@ -1321,6 +1399,11 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         "knowledge_domain_control_plane_ready"
     )
     assert payload["knowledge_domain_control_plane_drift_status"] == "improved"
+    assert payload["knowledge_domain_release_gate_status"] == (
+        "knowledge_domain_release_gate_partial"
+    )
+    assert payload["knowledge_domain_release_gate_gate_open"] is True
+    assert payload["knowledge_domain_release_gate_priority_domains"] == ["tolerance"]
     assert payload["knowledge_domain_release_surface_alignment_status"] == "aligned"
     assert payload["knowledge_source_action_plan_status"] == (
         "knowledge_source_action_plan_partial"
@@ -1375,6 +1458,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         "benchmark_knowledge_domain_control_plane_drift"
         not in payload["missing_artifacts"]
     )
+    assert "benchmark_knowledge_domain_release_gate" not in payload["missing_artifacts"]
     assert (
         "benchmark_knowledge_domain_release_surface_alignment"
         not in payload["missing_artifacts"]
@@ -1396,6 +1480,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         ]
         is True
     )
+    assert payload["artifacts"]["benchmark_knowledge_domain_release_gate"]["present"] is True
     assert (
         payload["artifacts"]["benchmark_knowledge_domain_release_surface_alignment"][
             "present"
@@ -1430,6 +1515,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert "## Knowledge Domain Focus Areas" in rendered
     assert "## Knowledge Application" in rendered
     assert "## Knowledge Domain Matrix" in rendered
+    assert "## Knowledge Domain Release Gate" in rendered
     assert "## Knowledge Domain Action Plan" in rendered
     assert "## Knowledge Source Drift" in rendered
     assert "## Knowledge Outcome Drift" in rendered
