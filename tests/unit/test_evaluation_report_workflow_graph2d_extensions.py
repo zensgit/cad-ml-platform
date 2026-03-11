@@ -4800,3 +4800,17 @@ def test_workflow_wires_release_readiness_action_plan_pr_comment() -> None:
         "Benchmark Release Runbook Knowledge Domain Release Readiness Action Plan"
         in pr_comment_script
     )
+
+
+def test_workflow_wires_knowledge_api_surface_matrix_pr_comment() -> None:
+    workflow = _load_workflow()
+
+    pr_comment_step = _get_step(workflow, "evaluate", "Comment PR with results")
+    pr_comment_script = pr_comment_step["with"]["script"]
+
+    assert "benchmarkKnowledgeDomainApiSurfaceMatrixEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeDomainApiSurfaceMatrixStatusLine" in pr_comment_script
+    assert "benchmarkKnowledgeDomainApiSurfaceMatrixLight" in pr_comment_script
+    assert "benchmarkKnowledgeDomainApiSurfaceMatrixPublicApiGapDomains" in pr_comment_script
+    assert "benchmarkKnowledgeDomainApiSurfaceMatrixReferenceGapDomains" in pr_comment_script
+    assert "Benchmark Knowledge Domain API Surface Matrix" in pr_comment_script
