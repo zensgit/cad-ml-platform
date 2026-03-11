@@ -1737,6 +1737,24 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         "knowledge_domain_release_readiness_matrix_recommendations="
         in benchmark_bundle_script
     )
+    assert "--benchmark-knowledge-domain-release-readiness-drift" in (
+        benchmark_bundle_script
+    )
+    assert "knowledge_domain_release_readiness_drift_status=" in (
+        benchmark_bundle_script
+    )
+    assert "knowledge_domain_release_readiness_drift_summary=" in (
+        benchmark_bundle_script
+    )
+    assert "knowledge_domain_release_readiness_drift_domain_regressions=" in (
+        benchmark_bundle_script
+    )
+    assert "knowledge_domain_release_readiness_drift_domain_improvements=" in (
+        benchmark_bundle_script
+    )
+    assert "knowledge_domain_release_readiness_drift_recommendations=" in (
+        benchmark_bundle_script
+    )
     assert "knowledge_source_coverage_status=" in benchmark_bundle_script
     assert "knowledge_source_coverage_domain_statuses=" in benchmark_bundle_script
     assert "knowledge_source_coverage_expansion_candidates=" in benchmark_bundle_script
@@ -1951,6 +1969,24 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         "knowledge_domain_release_readiness_matrix_recommendations="
         in benchmark_companion_script
     )
+    assert "--benchmark-knowledge-domain-release-readiness-drift" in (
+        benchmark_companion_script
+    )
+    assert "knowledge_domain_release_readiness_drift_status=" in (
+        benchmark_companion_script
+    )
+    assert "knowledge_domain_release_readiness_drift_summary=" in (
+        benchmark_companion_script
+    )
+    assert "knowledge_domain_release_readiness_drift_domain_regressions=" in (
+        benchmark_companion_script
+    )
+    assert "knowledge_domain_release_readiness_drift_domain_improvements=" in (
+        benchmark_companion_script
+    )
+    assert "knowledge_domain_release_readiness_drift_recommendations=" in (
+        benchmark_companion_script
+    )
     assert "knowledge_source_coverage_status=" in benchmark_companion_script
     assert "knowledge_source_coverage_domain_statuses=" in benchmark_companion_script
     assert "knowledge_source_coverage_expansion_candidates=" in benchmark_companion_script
@@ -2160,6 +2196,37 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     )
     assert (
         "knowledge_domain_release_readiness_matrix_recommendations="
+        in benchmark_release_script
+    )
+    assert "--benchmark-knowledge-domain-release-readiness-drift" in (
+        benchmark_release_script
+    )
+    assert (
+        "benchmark_release_decision_knowledge_domain_release_readiness_drift_json"
+        in benchmark_release_script
+    )
+    assert (
+        "steps.benchmark_knowledge_domain_release_readiness_drift.outputs.output_json"
+        in benchmark_release_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_drift_status="
+        in benchmark_release_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_drift_summary="
+        in benchmark_release_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_drift_domain_regressions="
+        in benchmark_release_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_drift_domain_improvements="
+        in benchmark_release_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_drift_recommendations="
         in benchmark_release_script
     )
     assert "--benchmark-knowledge-reference-inventory" in benchmark_release_script
@@ -2392,6 +2459,37 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     )
     assert (
         "knowledge_domain_release_readiness_matrix_recommendations="
+        in benchmark_runbook_script
+    )
+    assert "--benchmark-knowledge-domain-release-readiness-drift" in (
+        benchmark_runbook_script
+    )
+    assert (
+        "benchmark_release_runbook_knowledge_domain_release_readiness_drift_json"
+        in benchmark_runbook_script
+    )
+    assert (
+        "steps.benchmark_knowledge_domain_release_readiness_drift.outputs.output_json"
+        in benchmark_runbook_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_drift_status="
+        in benchmark_runbook_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_drift_summary="
+        in benchmark_runbook_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_drift_domain_regressions="
+        in benchmark_runbook_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_drift_domain_improvements="
+        in benchmark_runbook_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_drift_recommendations="
         in benchmark_runbook_script
     )
     assert "--benchmark-knowledge-reference-inventory" in benchmark_runbook_script
@@ -4844,6 +4942,125 @@ def test_workflow_wires_benchmark_knowledge_domain_release_readiness_matrix() ->
     )
     assert (
         "Benchmark release runbook knowledge domain release readiness matrix"
+        in summary_script
+    )
+
+
+def test_workflow_wires_benchmark_knowledge_domain_release_readiness_drift() -> None:
+    workflow = _load_workflow()
+    env = workflow["env"]
+    dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
+
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_DRIFT_ENABLE" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_DRIFT_TITLE" in env
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_DRIFT_CURRENT_SUMMARY_JSON"
+        in env
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_DRIFT_PREVIOUS_SUMMARY_JSON"
+        in env
+    )
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_DRIFT_OUTPUT_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_DRIFT_OUTPUT_MD" in env
+    assert (
+        "BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_RELEASE_READINESS_DRIFT_JSON"
+        in env
+    )
+    assert (
+        "BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_RELEASE_READINESS_DRIFT_JSON"
+        in env
+    )
+    assert (
+        "BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_RELEASE_READINESS_DRIFT_JSON"
+        in env
+    )
+    assert (
+        "BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_DRIFT_JSON"
+        in env
+    )
+
+    assert (
+        "benchmark_knowledge_domain_release_readiness_drift_enable"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_knowledge_domain_release_readiness_drift_current_summary_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_knowledge_domain_release_readiness_drift_previous_summary_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_artifact_bundle_knowledge_domain_release_readiness_drift_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_companion_summary_knowledge_domain_release_readiness_drift_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_release_decision_knowledge_domain_release_readiness_drift_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_release_runbook_knowledge_domain_release_readiness_drift_json"
+        in dispatch_inputs
+    )
+
+    build_step = _get_step(
+        workflow,
+        "evaluate",
+        "Build benchmark knowledge domain release readiness drift (optional)",
+    )
+    build_script = build_step["run"]
+    assert (
+        "scripts/export_benchmark_knowledge_domain_release_readiness_drift.py"
+        in build_script
+    )
+    assert (
+        "benchmark_knowledge_domain_release_readiness_drift_current_summary_json"
+        in build_script
+    )
+    assert (
+        "benchmark_knowledge_domain_release_readiness_drift_previous_summary_json"
+        in build_script
+    )
+    assert "ready_domain_delta=" in build_script
+    assert "partial_domain_delta=" in build_script
+    assert "blocked_domain_delta=" in build_script
+    assert "domain_regressions=" in build_script
+    assert "domain_improvements=" in build_script
+    assert "recommendations=" in build_script
+
+    upload_step = _get_step(
+        workflow,
+        "evaluate",
+        "Upload benchmark knowledge domain release readiness drift",
+    )
+    assert (
+        upload_step["if"]
+        == "steps.benchmark_knowledge_domain_release_readiness_drift.outputs.enabled == 'true'"
+    )
+
+    summary_step = _get_step(workflow, "evaluate", "Create job summary")
+    summary_script = summary_step["run"]
+    assert "Benchmark knowledge domain release readiness drift status" in summary_script
+    assert (
+        "Benchmark artifact bundle knowledge domain release readiness drift"
+        in summary_script
+    )
+    assert (
+        "Benchmark companion knowledge domain release readiness drift"
+        in summary_script
+    )
+    assert (
+        "Benchmark release knowledge domain release readiness drift"
+        in summary_script
+    )
+    assert (
+        "Benchmark release runbook knowledge domain release readiness drift"
         in summary_script
     )
 
