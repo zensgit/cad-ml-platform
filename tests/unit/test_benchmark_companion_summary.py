@@ -183,6 +183,37 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
             },
             "recommendations": ["Backfill standards foundation metrics first."],
         },
+        benchmark_knowledge_domain_release_readiness_action_plan={
+            "knowledge_domain_release_readiness_action_plan": {
+                "status": (
+                    "knowledge_domain_release_readiness_action_plan_blocked"
+                ),
+                "priority_domains": ["standards"],
+                "total_action_count": 2,
+                "high_priority_action_count": 1,
+                "medium_priority_action_count": 1,
+                "gate_open": False,
+                "recommended_first_actions": [
+                    {
+                        "id": "standards:readiness",
+                        "domain": "standards",
+                        "stage": "readiness",
+                        "priority": "high",
+                        "status": "blocked",
+                    }
+                ],
+                "actions": [
+                    {
+                        "id": "standards:readiness",
+                        "domain": "standards",
+                        "stage": "readiness",
+                        "priority": "high",
+                        "status": "blocked",
+                    }
+                ],
+            },
+            "recommendations": ["Unblock standards release-readiness first."],
+        },
         benchmark_knowledge_source_action_plan={
             "knowledge_source_action_plan": {
                 "status": "knowledge_source_action_plan_blocked",
@@ -255,6 +286,9 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
     assert payload["component_statuses"]["knowledge_domain_action_plan"] == (
         "knowledge_domain_action_plan_blocked"
     )
+    assert payload["component_statuses"]["knowledge_domain_release_readiness_action_plan"] == (
+        "knowledge_domain_release_readiness_action_plan_blocked"
+    )
     assert payload["component_statuses"]["knowledge_source_action_plan"] == (
         "knowledge_source_action_plan_blocked"
     )
@@ -266,6 +300,12 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
     )
     assert payload["knowledge_domain_action_plan_actions"][0]["id"] == (
         "standards:foundation"
+    )
+    assert payload["knowledge_domain_release_readiness_action_plan_status"] == (
+        "knowledge_domain_release_readiness_action_plan_blocked"
+    )
+    assert payload["knowledge_domain_release_readiness_action_plan_actions"][0]["id"] == (
+        "standards:readiness"
     )
     assert payload["knowledge_source_action_plan_status"] == (
         "knowledge_source_action_plan_blocked"

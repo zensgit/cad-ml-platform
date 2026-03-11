@@ -151,6 +151,37 @@ def test_build_release_decision_blocks_on_blockers() -> None:
             },
             "recommendations": ["Backfill tolerance foundation metrics first."],
         },
+        benchmark_knowledge_domain_release_readiness_action_plan={
+            "knowledge_domain_release_readiness_action_plan": {
+                "status": (
+                    "knowledge_domain_release_readiness_action_plan_blocked"
+                ),
+                "priority_domains": ["tolerance"],
+                "total_action_count": 2,
+                "high_priority_action_count": 1,
+                "medium_priority_action_count": 1,
+                "gate_open": False,
+                "recommended_first_actions": [
+                    {
+                        "id": "tolerance:readiness",
+                        "domain": "tolerance",
+                        "stage": "readiness",
+                        "priority": "high",
+                        "status": "blocked",
+                    }
+                ],
+                "actions": [
+                    {
+                        "id": "tolerance:readiness",
+                        "domain": "tolerance",
+                        "stage": "readiness",
+                        "priority": "high",
+                        "status": "blocked",
+                    }
+                ],
+            },
+            "recommendations": ["Unblock tolerance release-readiness first."],
+        },
         benchmark_knowledge_source_action_plan={
             "knowledge_source_action_plan": {
                 "status": "knowledge_source_action_plan_blocked",
@@ -267,6 +298,9 @@ def test_build_release_decision_blocks_on_blockers() -> None:
     assert payload["component_statuses"]["knowledge_domain_action_plan"] == (
         "knowledge_domain_action_plan_blocked"
     )
+    assert payload["component_statuses"]["knowledge_domain_release_readiness_action_plan"] == (
+        "knowledge_domain_release_readiness_action_plan_blocked"
+    )
     assert payload["component_statuses"]["knowledge_domain_release_gate"] == (
         "knowledge_domain_release_gate_blocked"
     )
@@ -327,6 +361,12 @@ def test_build_release_decision_blocks_on_blockers() -> None:
     assert payload["knowledge_domain_action_plan_actions"][0]["id"] == (
         "tolerance:foundation"
     )
+    assert payload["knowledge_domain_release_readiness_action_plan_status"] == (
+        "knowledge_domain_release_readiness_action_plan_blocked"
+    )
+    assert payload["knowledge_domain_release_readiness_action_plan_actions"][0]["id"] == (
+        "tolerance:readiness"
+    )
     assert payload["knowledge_source_action_plan_status"] == (
         "knowledge_source_action_plan_blocked"
     )
@@ -356,8 +396,15 @@ def test_build_release_decision_blocks_on_blockers() -> None:
         is True
     )
     assert payload["artifacts"]["benchmark_knowledge_domain_release_gate"]["present"] is True
+    assert (
+        payload["artifacts"][
+            "benchmark_knowledge_domain_release_readiness_action_plan"
+        ]["present"]
+        is False
+    )
     assert payload["artifacts"]["benchmark_knowledge_reference_inventory"]["present"] is True
     rendered = render_markdown(payload)
+    assert "## Knowledge Domain Release Readiness Action Plan" in rendered
     assert "## Knowledge Domain Release Gate" in rendered
     assert "## Knowledge Domain Release Surface Alignment" in rendered
     assert "## Knowledge Reference Inventory" in rendered

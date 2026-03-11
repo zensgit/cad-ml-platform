@@ -172,6 +172,37 @@ def test_build_bundle_prefers_operational_summary() -> None:
             },
             "recommendations": ["Backfill standards foundation metrics first."],
         },
+        benchmark_knowledge_domain_release_readiness_action_plan={
+            "knowledge_domain_release_readiness_action_plan": {
+                "status": (
+                    "knowledge_domain_release_readiness_action_plan_blocked"
+                ),
+                "priority_domains": ["standards"],
+                "total_action_count": 2,
+                "high_priority_action_count": 1,
+                "medium_priority_action_count": 1,
+                "gate_open": False,
+                "recommended_first_actions": [
+                    {
+                        "id": "standards:readiness",
+                        "domain": "standards",
+                        "stage": "readiness",
+                        "priority": "high",
+                        "status": "blocked",
+                    }
+                ],
+                "actions": [
+                    {
+                        "id": "standards:readiness",
+                        "domain": "standards",
+                        "stage": "readiness",
+                        "priority": "high",
+                        "status": "blocked",
+                    }
+                ],
+            },
+            "recommendations": ["Unblock standards release-readiness first."],
+        },
         benchmark_knowledge_source_action_plan={
             "knowledge_source_action_plan": {
                 "status": "knowledge_source_action_plan_blocked",
@@ -220,7 +251,7 @@ def test_build_bundle_prefers_operational_summary() -> None:
         },
     )
     assert payload["overall_status"] == "attention_required"
-    assert payload["available_artifact_count"] == 11
+    assert payload["available_artifact_count"] == 12
     assert payload["component_statuses"]["feedback_flywheel"] == "feedback_collected"
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_partial"
     assert payload["knowledge_focus_area_count"] == 1
@@ -242,6 +273,9 @@ def test_build_bundle_prefers_operational_summary() -> None:
     assert payload["component_statuses"]["knowledge_domain_action_plan"] == (
         "knowledge_domain_action_plan_blocked"
     )
+    assert payload["component_statuses"]["knowledge_domain_release_readiness_action_plan"] == (
+        "knowledge_domain_release_readiness_action_plan_blocked"
+    )
     assert payload["component_statuses"]["knowledge_source_action_plan"] == (
         "knowledge_source_action_plan_blocked"
     )
@@ -262,6 +296,12 @@ def test_build_bundle_prefers_operational_summary() -> None:
     )
     assert payload["knowledge_domain_action_plan_actions"][0]["id"] == (
         "standards:foundation"
+    )
+    assert payload["knowledge_domain_release_readiness_action_plan_status"] == (
+        "knowledge_domain_release_readiness_action_plan_blocked"
+    )
+    assert payload["knowledge_domain_release_readiness_action_plan_actions"][0]["id"] == (
+        "standards:readiness"
     )
     assert payload["knowledge_source_action_plan_status"] == (
         "knowledge_source_action_plan_blocked"
