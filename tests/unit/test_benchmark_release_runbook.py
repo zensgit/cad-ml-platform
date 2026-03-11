@@ -152,6 +152,37 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
             },
             "recommendations": ["Backfill GD&T foundation metrics first."],
         },
+        benchmark_knowledge_domain_release_readiness_action_plan={
+            "knowledge_domain_release_readiness_action_plan": {
+                "status": (
+                    "knowledge_domain_release_readiness_action_plan_blocked"
+                ),
+                "priority_domains": ["gdt"],
+                "total_action_count": 2,
+                "high_priority_action_count": 1,
+                "medium_priority_action_count": 1,
+                "gate_open": False,
+                "recommended_first_actions": [
+                    {
+                        "id": "gdt:readiness",
+                        "domain": "gdt",
+                        "stage": "readiness",
+                        "priority": "high",
+                        "status": "blocked",
+                    }
+                ],
+                "actions": [
+                    {
+                        "id": "gdt:readiness",
+                        "domain": "gdt",
+                        "stage": "readiness",
+                        "priority": "high",
+                        "status": "blocked",
+                    }
+                ],
+            },
+            "recommendations": ["Unblock GD&T release-readiness first."],
+        },
         benchmark_knowledge_source_action_plan={
             "knowledge_source_action_plan": {
                 "status": "knowledge_source_action_plan_blocked",
@@ -270,6 +301,12 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
     assert payload["knowledge_domain_action_plan_actions"][0]["id"] == (
         "gdt:foundation"
     )
+    assert payload["knowledge_domain_release_readiness_action_plan_status"] == (
+        "knowledge_domain_release_readiness_action_plan_blocked"
+    )
+    assert payload["knowledge_domain_release_readiness_action_plan_actions"][0]["id"] == (
+        "gdt:readiness"
+    )
     assert payload["knowledge_domain_release_gate_status"] == (
         "knowledge_domain_release_gate_blocked"
     )
@@ -310,6 +347,12 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
         is True
     )
     assert (
+        payload["artifacts"][
+            "benchmark_knowledge_domain_release_readiness_action_plan"
+        ]["present"]
+        is True
+    )
+    assert (
         payload["artifacts"]["benchmark_knowledge_domain_release_surface_alignment"][
             "present"
         ]
@@ -317,6 +360,7 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
     )
     assert payload["artifacts"]["benchmark_knowledge_reference_inventory"]["present"] is True
     rendered = render_markdown(payload)
+    assert "## Knowledge Domain Release Readiness Action Plan" in rendered
     assert "## Knowledge Domain Release Gate" in rendered
     assert "## Knowledge Domain Release Surface Alignment" in rendered
     assert "## Knowledge Reference Inventory" in rendered
@@ -360,6 +404,9 @@ def test_build_release_runbook_freezes_when_ready() -> None:
                 },
                 "benchmark_knowledge_domain_release_gate": {
                     "path": "knowledge_domain_release_gate.json"
+                },
+                "benchmark_knowledge_domain_release_readiness_action_plan": {
+                    "path": "knowledge_domain_release_readiness_action_plan.json"
                 },
                 "benchmark_knowledge_reference_inventory": {
                     "path": "knowledge_reference_inventory.json"
@@ -567,6 +614,35 @@ def test_build_release_runbook_freezes_when_ready() -> None:
             "warning_reasons": [],
             "recommendations": [],
         },
+        benchmark_knowledge_domain_release_readiness_action_plan={
+            "knowledge_domain_release_readiness_action_plan": {
+                "status": "knowledge_domain_release_readiness_action_plan_ready",
+                "priority_domains": [],
+                "total_action_count": 1,
+                "high_priority_action_count": 0,
+                "medium_priority_action_count": 1,
+                "gate_open": True,
+                "recommended_first_actions": [
+                    {
+                        "id": "standards:release-readiness",
+                        "domain": "standards",
+                        "stage": "release_readiness",
+                        "priority": "medium",
+                        "status": "ready",
+                    }
+                ],
+                "actions": [
+                    {
+                        "id": "standards:release-readiness",
+                        "domain": "standards",
+                        "stage": "release_readiness",
+                        "priority": "medium",
+                        "status": "ready",
+                    }
+                ],
+            },
+            "recommendations": [],
+        },
         benchmark_knowledge_source_action_plan={
             "knowledge_source_action_plan": {
                 "status": "knowledge_source_action_plan_ready",
@@ -698,6 +774,9 @@ def test_build_release_runbook_freezes_when_ready() -> None:
                 "knowledge_reference_inventory.json"
             ),
             "benchmark_knowledge_domain_action_plan": "knowledge_domain_action_plan.json",
+            "benchmark_knowledge_domain_release_readiness_action_plan": (
+                "knowledge_domain_release_readiness_action_plan.json"
+            ),
             "benchmark_knowledge_domain_control_plane": (
                 "knowledge_domain_control_plane.json"
             ),
@@ -738,6 +817,9 @@ def test_build_release_runbook_freezes_when_ready() -> None:
     assert payload["knowledge_domain_matrix_status"] == "knowledge_domain_matrix_ready"
     assert payload["knowledge_domain_action_plan_status"] == (
         "knowledge_domain_action_plan_ready"
+    )
+    assert payload["knowledge_domain_release_readiness_action_plan_status"] == (
+        "knowledge_domain_release_readiness_action_plan_ready"
     )
     assert payload["knowledge_domain_control_plane_status"] == (
         "knowledge_domain_control_plane_ready"
@@ -820,6 +902,12 @@ def test_build_release_runbook_freezes_when_ready() -> None:
     )
     assert payload["artifacts"]["benchmark_knowledge_domain_release_gate"]["present"] is True
     assert (
+        payload["artifacts"][
+            "benchmark_knowledge_domain_release_readiness_action_plan"
+        ]["present"]
+        is True
+    )
+    assert (
         payload["artifacts"]["benchmark_knowledge_domain_release_surface_alignment"][
             "present"
         ]
@@ -858,6 +946,9 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         tmp_path / "knowledge_domain_control_plane_drift.json"
     )
     knowledge_domain_release_gate = tmp_path / "knowledge_domain_release_gate.json"
+    knowledge_domain_release_readiness_action_plan = (
+        tmp_path / "knowledge_domain_release_readiness_action_plan.json"
+    )
     knowledge_domain_release_surface_alignment = (
         tmp_path / "knowledge_domain_release_surface_alignment.json"
     )
@@ -888,6 +979,9 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
                     "benchmark_artifact_bundle": {"path": "bundle.json"},
                     "benchmark_knowledge_domain_capability_drift": {
                         "path": "knowledge_domain_capability_drift.json"
+                    },
+                    "benchmark_knowledge_domain_release_readiness_action_plan": {
+                        "path": "knowledge_domain_release_readiness_action_plan.json"
                     },
                 },
             }
@@ -1179,6 +1273,44 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    knowledge_domain_release_readiness_action_plan.write_text(
+        json.dumps(
+            {
+                "knowledge_domain_release_readiness_action_plan": {
+                    "status": (
+                        "knowledge_domain_release_readiness_action_plan_partial"
+                    ),
+                    "priority_domains": ["tolerance"],
+                    "total_action_count": 1,
+                    "high_priority_action_count": 1,
+                    "medium_priority_action_count": 0,
+                    "gate_open": True,
+                    "recommended_first_actions": [
+                        {
+                            "id": "tolerance:release-readiness",
+                            "domain": "tolerance",
+                            "stage": "release_readiness",
+                            "priority": "high",
+                            "status": "partial",
+                        }
+                    ],
+                    "actions": [
+                        {
+                            "id": "tolerance:release-readiness",
+                            "domain": "tolerance",
+                            "stage": "release_readiness",
+                            "priority": "high",
+                            "status": "partial",
+                        }
+                    ],
+                },
+                "recommendations": [
+                    "Raise tolerance release-readiness actions before promotion."
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
     knowledge_domain_release_surface_alignment.write_text(
         json.dumps(
             {
@@ -1451,6 +1583,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
             str(knowledge_domain_control_plane_drift),
             "--benchmark-knowledge-domain-release-gate",
             str(knowledge_domain_release_gate),
+            "--benchmark-knowledge-domain-release-readiness-action-plan",
+            str(knowledge_domain_release_readiness_action_plan),
             "--benchmark-knowledge-domain-release-surface-alignment",
             str(knowledge_domain_release_surface_alignment),
             "--benchmark-knowledge-reference-inventory",
@@ -1503,8 +1637,14 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert payload["knowledge_domain_release_gate_status"] == (
         "knowledge_domain_release_gate_partial"
     )
+    assert payload["knowledge_domain_release_readiness_action_plan_status"] == (
+        "knowledge_domain_release_readiness_action_plan_partial"
+    )
     assert payload["knowledge_domain_release_gate_gate_open"] is True
     assert payload["knowledge_domain_release_gate_priority_domains"] == ["tolerance"]
+    assert payload["knowledge_domain_release_readiness_action_plan_actions"][0]["id"] == (
+        "tolerance:release-readiness"
+    )
     assert payload["knowledge_domain_release_surface_alignment_status"] == "aligned"
     assert payload["knowledge_reference_inventory_status"] == (
         "knowledge_reference_inventory_partial"
