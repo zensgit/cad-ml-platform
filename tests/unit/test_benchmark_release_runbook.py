@@ -491,6 +491,24 @@ def test_build_release_runbook_freezes_when_ready() -> None:
             },
             "recommendations": [],
         },
+        benchmark_knowledge_domain_validation_matrix={
+            "knowledge_domain_validation_matrix": {
+                "status": "knowledge_domain_validation_matrix_ready",
+                "summary": "Validation coverage is complete.",
+                "priority_domains": [],
+                "total_test_count": 12,
+                "domains": {
+                    "standards": {
+                        "status": "ready",
+                        "provider_status": "ready",
+                        "api_status": "ready",
+                        "integration_status": "ready",
+                        "assistant_status": "ready",
+                    }
+                },
+            },
+            "recommendations": [],
+        },
         benchmark_knowledge_domain_release_surface_alignment={
             "knowledge_domain_release_surface_alignment": {
                 "status": "aligned",
@@ -691,6 +709,9 @@ def test_build_release_runbook_freezes_when_ready() -> None:
             "benchmark_knowledge_domain_capability_drift": (
                 "knowledge_domain_capability_drift.json"
             ),
+            "benchmark_knowledge_domain_validation_matrix": (
+                "knowledge_domain_validation_matrix.json"
+            ),
             "benchmark_knowledge_domain_release_surface_alignment": (
                 "knowledge_domain_release_surface_alignment.json"
             ),
@@ -743,6 +764,9 @@ def test_build_release_runbook_freezes_when_ready() -> None:
         "knowledge_domain_control_plane_ready"
     )
     assert payload["knowledge_domain_control_plane_drift_status"] == "improved"
+    assert payload["knowledge_domain_validation_matrix_status"] == (
+        "knowledge_domain_validation_matrix_ready"
+    )
     assert payload["knowledge_domain_release_gate_status"] == (
         "knowledge_domain_release_gate_ready"
     )
@@ -809,6 +833,10 @@ def test_build_release_runbook_freezes_when_ready() -> None:
     assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_knowledge_outcome_drift"]["present"] is True
     assert (
+        payload["artifacts"]["benchmark_knowledge_domain_validation_matrix"]["present"]
+        is True
+    )
+    assert (
         payload["artifacts"]["benchmark_knowledge_domain_control_plane"]["present"]
         is True
     )
@@ -852,6 +880,9 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     knowledge_domain_capability_matrix = tmp_path / "knowledge_domain_capability_matrix.json"
     knowledge_domain_capability_drift = (
         tmp_path / "knowledge_domain_capability_drift.json"
+    )
+    knowledge_domain_validation_matrix = (
+        tmp_path / "knowledge_domain_validation_matrix.json"
     )
     knowledge_domain_control_plane = tmp_path / "knowledge_domain_control_plane.json"
     knowledge_domain_control_plane_drift = (
@@ -1126,6 +1157,31 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
                 "recommendations": [
                     "Restore regressed knowledge domain capabilities before claiming "
                     "benchmark capability stability."
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    knowledge_domain_validation_matrix.write_text(
+        json.dumps(
+            {
+                "knowledge_domain_validation_matrix": {
+                    "status": "knowledge_domain_validation_matrix_partial",
+                    "summary": "Tolerance validation coverage is still partial.",
+                    "priority_domains": ["tolerance"],
+                    "total_test_count": 7,
+                    "domains": {
+                        "tolerance": {
+                            "status": "partial",
+                            "provider_status": "ready",
+                            "api_status": "partial",
+                            "integration_status": "partial",
+                            "assistant_status": "ready",
+                        }
+                    },
+                },
+                "recommendations": [
+                    "Raise tolerance validation coverage before promoting the next baseline."
                 ],
             }
         ),
@@ -1445,6 +1501,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
             str(knowledge_domain_capability_matrix),
             "--benchmark-knowledge-domain-capability-drift",
             str(knowledge_domain_capability_drift),
+            "--benchmark-knowledge-domain-validation-matrix",
+            str(knowledge_domain_validation_matrix),
             "--benchmark-knowledge-domain-control-plane",
             str(knowledge_domain_control_plane),
             "--benchmark-knowledge-domain-control-plane-drift",
@@ -1500,6 +1558,9 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         "knowledge_domain_control_plane_ready"
     )
     assert payload["knowledge_domain_control_plane_drift_status"] == "improved"
+    assert payload["knowledge_domain_validation_matrix_status"] == (
+        "knowledge_domain_validation_matrix_partial"
+    )
     assert payload["knowledge_domain_release_gate_status"] == (
         "knowledge_domain_release_gate_partial"
     )
@@ -1563,6 +1624,10 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         "benchmark_knowledge_domain_control_plane_drift"
         not in payload["missing_artifacts"]
     )
+    assert (
+        "benchmark_knowledge_domain_validation_matrix"
+        not in payload["missing_artifacts"]
+    )
     assert "benchmark_knowledge_domain_release_gate" not in payload["missing_artifacts"]
     assert (
         "benchmark_knowledge_domain_release_surface_alignment"
@@ -1576,6 +1641,10 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
+    assert (
+        payload["artifacts"]["benchmark_knowledge_domain_validation_matrix"]["present"]
+        is True
+    )
     assert (
         payload["artifacts"]["benchmark_knowledge_domain_control_plane"]["present"]
         is True
@@ -1623,6 +1692,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert "## Knowledge Domain Focus Areas" in rendered
     assert "## Knowledge Application" in rendered
     assert "## Knowledge Domain Matrix" in rendered
+    assert "## Knowledge Domain Validation Matrix" in rendered
     assert "## Knowledge Domain Release Gate" in rendered
     assert "## Knowledge Domain Action Plan" in rendered
     assert "## Knowledge Source Drift" in rendered
