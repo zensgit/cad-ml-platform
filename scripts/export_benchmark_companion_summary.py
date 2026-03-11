@@ -330,6 +330,7 @@ def _component_statuses(
     knowledge_realdata_correlation_summary: Dict[str, Any] | None = None,
     knowledge_domain_matrix_summary: Dict[str, Any] | None = None,
     knowledge_domain_capability_matrix_summary: Dict[str, Any] | None = None,
+    benchmark_knowledge_domain_api_surface_matrix: Dict[str, Any] | None = None,
     knowledge_domain_capability_drift_summary: Dict[str, Any] | None = None,
     knowledge_domain_action_plan_summary: Dict[str, Any] | None = None,
     knowledge_domain_control_plane_summary: Dict[str, Any] | None = None,
@@ -352,6 +353,9 @@ def _component_statuses(
     knowledge_domain_matrix_summary = knowledge_domain_matrix_summary or {}
     knowledge_domain_capability_matrix_summary = (
         knowledge_domain_capability_matrix_summary or {}
+    )
+    benchmark_knowledge_domain_api_surface_matrix = (
+        benchmark_knowledge_domain_api_surface_matrix or {}
     )
     knowledge_domain_capability_drift_summary = (
         knowledge_domain_capability_drift_summary or {}
@@ -433,6 +437,13 @@ def _component_statuses(
             "knowledge_domain_capability_matrix"
         )
         or knowledge_domain_capability_matrix_summary
+        or {}
+    )
+    knowledge_domain_api_surface_matrix_component = (
+        benchmark_knowledge_domain_api_surface_matrix.get(
+            "knowledge_domain_api_surface_matrix"
+        )
+        or benchmark_knowledge_domain_api_surface_matrix
         or {}
     )
     knowledge_domain_capability_drift_component = (
@@ -579,6 +590,15 @@ def _component_statuses(
             or knowledge_domain_capability_matrix_component.get("status")
             or (
                 scorecard_components.get("knowledge_domain_capability_matrix") or {}
+            ).get("status")
+            or "unknown"
+        ),
+        "knowledge_domain_api_surface_matrix": str(
+            bundle_components.get("knowledge_domain_api_surface_matrix")
+            or operational_components.get("knowledge_domain_api_surface_matrix")
+            or knowledge_domain_api_surface_matrix_component.get("status")
+            or (
+                scorecard_components.get("knowledge_domain_api_surface_matrix") or {}
             ).get("status")
             or "unknown"
         ),
@@ -942,6 +962,7 @@ def build_companion_summary(
     benchmark_knowledge_realdata_correlation: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_matrix: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_capability_matrix: Dict[str, Any] | None = None,
+    benchmark_knowledge_domain_api_surface_matrix: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_capability_drift: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_control_plane: Dict[str, Any] | None = None,
@@ -969,6 +990,9 @@ def build_companion_summary(
     benchmark_knowledge_domain_matrix = benchmark_knowledge_domain_matrix or {}
     benchmark_knowledge_domain_capability_matrix = (
         benchmark_knowledge_domain_capability_matrix or {}
+    )
+    benchmark_knowledge_domain_api_surface_matrix = (
+        benchmark_knowledge_domain_api_surface_matrix or {}
     )
     benchmark_knowledge_domain_capability_drift = (
         benchmark_knowledge_domain_capability_drift or {}
@@ -1070,6 +1094,13 @@ def build_companion_summary(
         or benchmark_knowledge_domain_capability_matrix
         or {}
     )
+    knowledge_domain_api_surface_matrix_root = (
+        benchmark_knowledge_domain_api_surface_matrix.get(
+            "knowledge_domain_api_surface_matrix"
+        )
+        or benchmark_knowledge_domain_api_surface_matrix
+        or {}
+    )
     knowledge_domain_capability_drift_root = (
         _knowledge_domain_capability_drift_component(
             benchmark_knowledge_domain_capability_drift
@@ -1127,6 +1158,9 @@ def build_companion_summary(
     knowledge_domain_capability_matrix_recommendations = (
         benchmark_knowledge_domain_capability_matrix.get("recommendations") or []
     )
+    knowledge_domain_api_surface_matrix_recommendations = (
+        benchmark_knowledge_domain_api_surface_matrix.get("recommendations") or []
+    )
     knowledge_domain_capability_drift_recommendations = (
         benchmark_knowledge_domain_capability_drift.get("recommendations") or []
     )
@@ -1177,6 +1211,7 @@ def build_companion_summary(
         or knowledge_realdata_correlation_recommendations
         or knowledge_domain_matrix_recommendations
         or knowledge_domain_capability_matrix_recommendations
+        or knowledge_domain_api_surface_matrix_recommendations
         or knowledge_domain_capability_drift_recommendations
         or knowledge_domain_action_plan_recommendations
         or knowledge_domain_control_plane_recommendations
@@ -1207,6 +1242,7 @@ def build_companion_summary(
         benchmark_knowledge_realdata_correlation,
         benchmark_knowledge_domain_matrix,
         benchmark_knowledge_domain_capability_matrix,
+        benchmark_knowledge_domain_api_surface_matrix,
         benchmark_knowledge_domain_capability_drift,
         benchmark_knowledge_domain_action_plan,
         benchmark_knowledge_domain_control_plane,
@@ -1487,6 +1523,24 @@ def build_companion_summary(
         ),
         "knowledge_domain_capability_matrix_recommendations": _compact(
             knowledge_domain_capability_matrix_recommendations,
+            limit=5,
+        ),
+        "knowledge_domain_api_surface_matrix": knowledge_domain_api_surface_matrix_root,
+        "knowledge_domain_api_surface_matrix_status": (
+            knowledge_domain_api_surface_matrix_root.get("status") or "unknown"
+        ),
+        "knowledge_domain_api_surface_matrix_domains": (
+            knowledge_domain_api_surface_matrix_root.get("domains") or {}
+        ),
+        "knowledge_domain_api_surface_matrix_priority_domains": list(
+            knowledge_domain_api_surface_matrix_root.get("priority_domains") or []
+        ),
+        "knowledge_domain_api_surface_matrix_public_api_gap_domains": list(
+            knowledge_domain_api_surface_matrix_root.get("public_api_gap_domains")
+            or []
+        ),
+        "knowledge_domain_api_surface_matrix_recommendations": _compact(
+            knowledge_domain_api_surface_matrix_recommendations,
             limit=5,
         ),
         "knowledge_domain_capability_drift": knowledge_domain_capability_drift_root,
@@ -2219,6 +2273,31 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     if capability_recommendations:
         for item in capability_recommendations:
             lines.append(f"- recommendation: {item}")
+    lines.extend(["", "## Knowledge Domain API Surface Matrix", ""])
+    lines.append(
+        "- `status`: "
+        f"`{payload.get('knowledge_domain_api_surface_matrix_status') or 'unknown'}`"
+    )
+    api_surface_domains = payload.get("knowledge_domain_api_surface_matrix_domains") or {}
+    if api_surface_domains:
+        for name, row in api_surface_domains.items():
+            lines.append(
+                "- "
+                f"`{name}` "
+                f"status=`{row.get('status')}` "
+                f"api=`{row.get('api_surface_status')}` "
+                f"capability=`{row.get('capability_status')}` "
+                f"reference_items=`{row.get('reference_item_count')}` "
+                f"routes=`{row.get('api_route_count')}`"
+            )
+    else:
+        lines.append("- none")
+    api_surface_recommendations = (
+        payload.get("knowledge_domain_api_surface_matrix_recommendations") or []
+    )
+    if api_surface_recommendations:
+        for item in api_surface_recommendations:
+            lines.append(f"- recommendation: {item}")
     lines.extend(["", "## Knowledge Domain Capability Drift", ""])
     capability_drift_regressions = ", ".join(
         payload.get("knowledge_domain_capability_drift_domain_regressions") or []
@@ -2606,6 +2685,7 @@ def main() -> None:
     parser.add_argument("--benchmark-knowledge-realdata-correlation", default="")
     parser.add_argument("--benchmark-knowledge-domain-matrix", default="")
     parser.add_argument("--benchmark-knowledge-domain-capability-matrix", default="")
+    parser.add_argument("--benchmark-knowledge-domain-api-surface-matrix", default="")
     parser.add_argument("--benchmark-knowledge-domain-capability-drift", default="")
     parser.add_argument("--benchmark-knowledge-domain-action-plan", default="")
     parser.add_argument("--benchmark-knowledge-domain-control-plane", default="")
@@ -2648,6 +2728,9 @@ def main() -> None:
         "benchmark_knowledge_domain_matrix": args.benchmark_knowledge_domain_matrix,
         "benchmark_knowledge_domain_capability_matrix": (
             args.benchmark_knowledge_domain_capability_matrix
+        ),
+        "benchmark_knowledge_domain_api_surface_matrix": (
+            args.benchmark_knowledge_domain_api_surface_matrix
         ),
         "benchmark_knowledge_domain_capability_drift": (
             args.benchmark_knowledge_domain_capability_drift
@@ -2721,6 +2804,9 @@ def main() -> None:
         ),
         benchmark_knowledge_domain_capability_matrix=_maybe_load_json(
             args.benchmark_knowledge_domain_capability_matrix
+        ),
+        benchmark_knowledge_domain_api_surface_matrix=_maybe_load_json(
+            args.benchmark_knowledge_domain_api_surface_matrix
         ),
         benchmark_knowledge_domain_capability_drift=_maybe_load_json(
             args.benchmark_knowledge_domain_capability_drift
