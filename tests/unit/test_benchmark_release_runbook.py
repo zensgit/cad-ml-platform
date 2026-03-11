@@ -196,6 +196,31 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
             },
             "recommendations": ["Reconcile release-surface mismatches before freeze."],
         },
+        benchmark_knowledge_reference_inventory={
+            "knowledge_reference_inventory": {
+                "status": "knowledge_reference_inventory_partial",
+                "summary": "GD&T reference tables are incomplete.",
+                "priority_domains": ["gdt"],
+                "total_reference_items": 18,
+                "domains": {
+                    "gdt": {
+                        "status": "partial",
+                        "total_reference_items": 18,
+                        "populated_table_count": 1,
+                        "total_table_count": 3,
+                        "missing_tables": ["symbol_definitions", "feature_controls"],
+                    }
+                },
+                "focus_tables_detail": [
+                    {
+                        "domain": "gdt",
+                        "missing_tables": ["symbol_definitions", "feature_controls"],
+                        "action": "Backfill GD&T reference tables.",
+                    }
+                ],
+            },
+            "recommendations": ["Backfill GD&T reference tables."],
+        },
         benchmark_knowledge_domain_release_gate={
             "knowledge_domain_release_gate": {
                 "status": "knowledge_domain_release_gate_blocked",
@@ -217,6 +242,9 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
             ),
             "benchmark_knowledge_domain_release_surface_alignment": (
                 "knowledge_domain_release_surface_alignment.json"
+            ),
+            "benchmark_knowledge_reference_inventory": (
+                "knowledge_reference_inventory.json"
             ),
         },
     )
@@ -254,6 +282,11 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
     assert payload["knowledge_domain_release_surface_alignment"]["mismatches"] == [
         "gdt:blocked->partial"
     ]
+    assert payload["knowledge_reference_inventory_status"] == (
+        "knowledge_reference_inventory_partial"
+    )
+    assert payload["knowledge_reference_inventory_priority_domains"] == ["gdt"]
+    assert payload["knowledge_reference_inventory_total_reference_items"] == 18
     assert payload["knowledge_source_action_plan_status"] == (
         "knowledge_source_action_plan_blocked"
     )
@@ -282,9 +315,11 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
         ]
         is True
     )
+    assert payload["artifacts"]["benchmark_knowledge_reference_inventory"]["present"] is True
     rendered = render_markdown(payload)
     assert "## Knowledge Domain Release Gate" in rendered
     assert "## Knowledge Domain Release Surface Alignment" in rendered
+    assert "## Knowledge Reference Inventory" in rendered
     assert "gdt:not_release_ready" in payload["blocking_signals"]
     assert payload["operator_adoption"]["actions"] == [
         "Schedule an operator handoff dry run."
@@ -293,6 +328,7 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
     assert "Backfill GD&T source actions first." in payload["review_signals"]
     assert "Expand STEP/B-Rep directory validation." in payload["review_signals"]
     assert "Backfill GD&T source coverage." in payload["review_signals"]
+    assert "Backfill GD&T reference tables." in payload["review_signals"]
     assert payload["operator_steps"][1]["key"] == "resolve_blockers"
     assert payload["operator_steps"][1]["status"] == "required"
     adoption_step = next(
@@ -324,6 +360,9 @@ def test_build_release_runbook_freezes_when_ready() -> None:
                 },
                 "benchmark_knowledge_domain_release_gate": {
                     "path": "knowledge_domain_release_gate.json"
+                },
+                "benchmark_knowledge_reference_inventory": {
+                    "path": "knowledge_reference_inventory.json"
                 },
             },
         },
@@ -459,6 +498,25 @@ def test_build_release_runbook_freezes_when_ready() -> None:
                 "mismatches": [],
                 "domain_mismatches": [],
                 "release_blocker_mismatches": [],
+            },
+            "recommendations": [],
+        },
+        benchmark_knowledge_reference_inventory={
+            "knowledge_reference_inventory": {
+                "status": "knowledge_reference_inventory_ready",
+                "summary": "Standards reference inventory is complete.",
+                "priority_domains": [],
+                "total_reference_items": 42,
+                "domains": {
+                    "standards": {
+                        "status": "ready",
+                        "total_reference_items": 42,
+                        "populated_table_count": 4,
+                        "total_table_count": 4,
+                        "missing_tables": [],
+                    }
+                },
+                "focus_tables_detail": [],
             },
             "recommendations": [],
         },
@@ -636,6 +694,9 @@ def test_build_release_runbook_freezes_when_ready() -> None:
             "benchmark_knowledge_domain_release_surface_alignment": (
                 "knowledge_domain_release_surface_alignment.json"
             ),
+            "benchmark_knowledge_reference_inventory": (
+                "knowledge_reference_inventory.json"
+            ),
             "benchmark_knowledge_domain_action_plan": "knowledge_domain_action_plan.json",
             "benchmark_knowledge_domain_control_plane": (
                 "knowledge_domain_control_plane.json"
@@ -690,6 +751,10 @@ def test_build_release_runbook_freezes_when_ready() -> None:
         "standards"
     ]
     assert payload["knowledge_domain_release_surface_alignment_status"] == "aligned"
+    assert payload["knowledge_reference_inventory_status"] == (
+        "knowledge_reference_inventory_ready"
+    )
+    assert payload["knowledge_reference_inventory_total_reference_items"] == 42
     assert payload["knowledge_source_coverage_status"] == (
         "knowledge_source_coverage_ready"
     )
@@ -732,6 +797,7 @@ def test_build_release_runbook_freezes_when_ready() -> None:
         "benchmark_knowledge_domain_release_surface_alignment"
         not in payload["missing_artifacts"]
     )
+    assert "benchmark_knowledge_reference_inventory" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_source_action_plan" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_source_coverage" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_outcome_drift" not in payload["missing_artifacts"]
@@ -759,6 +825,7 @@ def test_build_release_runbook_freezes_when_ready() -> None:
         ]
         is True
     )
+    assert payload["artifacts"]["benchmark_knowledge_reference_inventory"]["present"] is True
     assert payload["artifacts"]["benchmark_competitive_surpass_index"]["present"] is True
     assert payload["artifacts"]["benchmark_competitive_surpass_trend"]["present"] is True
     assert payload["artifacts"]["benchmark_competitive_surpass_action_plan"][
@@ -766,6 +833,7 @@ def test_build_release_runbook_freezes_when_ready() -> None:
     ] is True
     assert payload["operator_steps"][-1]["status"] == "ready"
     assert payload["operator_adoption"]["knowledge_outcome_drift_status"] == "unknown"
+    assert "## Knowledge Reference Inventory" in render_markdown(payload)
     assert "## Competitive Surpass Action Plan" in render_markdown(payload)
 
 
@@ -793,6 +861,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     knowledge_domain_release_surface_alignment = (
         tmp_path / "knowledge_domain_release_surface_alignment.json"
     )
+    knowledge_reference_inventory = tmp_path / "knowledge_reference_inventory.json"
     knowledge_domain_action_plan = tmp_path / "knowledge_domain_action_plan.json"
     knowledge_source_action_plan = tmp_path / "knowledge_source_action_plan.json"
     knowledge_source_coverage = tmp_path / "knowledge_source_coverage.json"
@@ -1148,6 +1217,36 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    knowledge_reference_inventory.write_text(
+        json.dumps(
+            {
+                "knowledge_reference_inventory": {
+                    "status": "knowledge_reference_inventory_partial",
+                    "summary": "Tolerance reference tables are incomplete.",
+                    "priority_domains": ["tolerance"],
+                    "total_reference_items": 19,
+                    "domains": {
+                        "tolerance": {
+                            "status": "partial",
+                            "total_reference_items": 19,
+                            "populated_table_count": 2,
+                            "total_table_count": 4,
+                            "missing_tables": ["hole_limits", "shaft_limits"],
+                        }
+                    },
+                    "focus_tables_detail": [
+                        {
+                            "domain": "tolerance",
+                            "missing_tables": ["hole_limits", "shaft_limits"],
+                            "action": "Backfill tolerance reference tables.",
+                        }
+                    ],
+                },
+                "recommendations": ["Backfill tolerance reference tables."],
+            }
+        ),
+        encoding="utf-8",
+    )
     knowledge_source_coverage.write_text(
         json.dumps(
             {
@@ -1354,6 +1453,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
             str(knowledge_domain_release_gate),
             "--benchmark-knowledge-domain-release-surface-alignment",
             str(knowledge_domain_release_surface_alignment),
+            "--benchmark-knowledge-reference-inventory",
+            str(knowledge_reference_inventory),
             "--benchmark-knowledge-domain-action-plan",
             str(knowledge_domain_action_plan),
             "--benchmark-knowledge-source-action-plan",
@@ -1405,6 +1506,10 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert payload["knowledge_domain_release_gate_gate_open"] is True
     assert payload["knowledge_domain_release_gate_priority_domains"] == ["tolerance"]
     assert payload["knowledge_domain_release_surface_alignment_status"] == "aligned"
+    assert payload["knowledge_reference_inventory_status"] == (
+        "knowledge_reference_inventory_partial"
+    )
+    assert payload["knowledge_reference_inventory_total_reference_items"] == 19
     assert payload["knowledge_source_action_plan_status"] == (
         "knowledge_source_action_plan_partial"
     )
@@ -1463,6 +1568,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         "benchmark_knowledge_domain_release_surface_alignment"
         not in payload["missing_artifacts"]
     )
+    assert "benchmark_knowledge_reference_inventory" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_source_action_plan" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_source_coverage" not in payload["missing_artifacts"]
     assert payload["artifacts"]["benchmark_knowledge_drift"]["present"] is True
@@ -1487,6 +1593,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         ]
         is True
     )
+    assert payload["artifacts"]["benchmark_knowledge_reference_inventory"]["present"] is True
     assert payload["artifacts"]["benchmark_competitive_surpass_index"]["present"] is True
     assert payload["artifacts"]["benchmark_competitive_surpass_trend"]["present"] is True
     assert payload["artifacts"]["benchmark_competitive_surpass_action_plan"][
@@ -1505,6 +1612,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     rendered = render_markdown(payload)
     assert "# Benchmark Release Runbook" in rendered
     assert "`engineering_status`: `partial_engineering_semantics`" in rendered
+    assert "## Knowledge Reference Inventory" in rendered
     assert "`knowledge_status`: `knowledge_foundation_partial`" in rendered
     assert "`realdata_status`: `realdata_foundation_partial`" in rendered
     assert "`next_action`: `review_signals`" in rendered

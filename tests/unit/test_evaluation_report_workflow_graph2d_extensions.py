@@ -568,6 +568,10 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_release_decision_knowledge_drift_json" in dispatch_inputs
     assert "benchmark_release_decision_knowledge_application_json" in dispatch_inputs
     assert "benchmark_release_decision_knowledge_domain_release_gate_json" in dispatch_inputs
+    assert (
+        "benchmark_release_decision_knowledge_reference_inventory_json"
+        in dispatch_inputs
+    )
     assert "benchmark_release_decision_knowledge_domain_action_plan_json" in dispatch_inputs
     assert "benchmark_release_decision_knowledge_source_coverage_json" in dispatch_inputs
     assert "benchmark_release_decision_knowledge_source_action_plan_json" in dispatch_inputs
@@ -594,6 +598,10 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_release_runbook_knowledge_drift_json" in dispatch_inputs
     assert "benchmark_release_runbook_knowledge_application_json" in dispatch_inputs
     assert "benchmark_release_runbook_knowledge_domain_release_gate_json" in dispatch_inputs
+    assert (
+        "benchmark_release_runbook_knowledge_reference_inventory_json"
+        in dispatch_inputs
+    )
     assert "benchmark_release_runbook_knowledge_domain_action_plan_json" in dispatch_inputs
     assert "benchmark_release_runbook_knowledge_source_coverage_json" in dispatch_inputs
     assert "benchmark_release_runbook_knowledge_source_action_plan_json" in dispatch_inputs
@@ -2033,6 +2041,26 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_domain_release_gate_priority_domains=" in benchmark_release_script
     assert "knowledge_domain_release_gate_blocking_reasons=" in benchmark_release_script
     assert "knowledge_domain_release_gate_recommendations=" in benchmark_release_script
+    assert "--benchmark-knowledge-reference-inventory" in benchmark_release_script
+    assert (
+        "benchmark_release_decision_knowledge_reference_inventory_json"
+        in benchmark_release_script
+    )
+    assert (
+        "steps.benchmark_knowledge_reference_inventory.outputs.output_json"
+        in benchmark_release_script
+    )
+    assert "knowledge_reference_inventory_status=" in benchmark_release_script
+    assert "knowledge_reference_inventory_summary=" in benchmark_release_script
+    assert "knowledge_reference_inventory_priority_domains=" in benchmark_release_script
+    assert (
+        "knowledge_reference_inventory_total_reference_items="
+        in benchmark_release_script
+    )
+    assert (
+        "knowledge_reference_inventory_recommendations="
+        in benchmark_release_script
+    )
     assert "knowledge_source_coverage_status=" in benchmark_release_script
     assert "knowledge_source_coverage_domain_statuses=" in benchmark_release_script
     assert "knowledge_source_coverage_expansion_candidates=" in benchmark_release_script
@@ -2210,6 +2238,26 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_domain_release_gate_priority_domains=" in benchmark_runbook_script
     assert "knowledge_domain_release_gate_blocking_reasons=" in benchmark_runbook_script
     assert "knowledge_domain_release_gate_recommendations=" in benchmark_runbook_script
+    assert "--benchmark-knowledge-reference-inventory" in benchmark_runbook_script
+    assert (
+        "benchmark_release_runbook_knowledge_reference_inventory_json"
+        in benchmark_runbook_script
+    )
+    assert (
+        "steps.benchmark_knowledge_reference_inventory.outputs.output_json"
+        in benchmark_runbook_script
+    )
+    assert "knowledge_reference_inventory_status=" in benchmark_runbook_script
+    assert "knowledge_reference_inventory_summary=" in benchmark_runbook_script
+    assert "knowledge_reference_inventory_priority_domains=" in benchmark_runbook_script
+    assert (
+        "knowledge_reference_inventory_total_reference_items="
+        in benchmark_runbook_script
+    )
+    assert (
+        "knowledge_reference_inventory_recommendations="
+        in benchmark_runbook_script
+    )
     assert "knowledge_source_coverage_status=" in benchmark_runbook_script
     assert "knowledge_source_coverage_domain_statuses=" in benchmark_runbook_script
     assert "knowledge_source_coverage_expansion_candidates=" in benchmark_runbook_script
@@ -2277,6 +2325,8 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     )
     assert "Benchmark Release Decision Competitive Surpass" in workflow_text
     assert "Benchmark Release Runbook Competitive Surpass" in workflow_text
+    assert "Benchmark release knowledge reference inventory" in workflow_text
+    assert "Benchmark release runbook knowledge reference inventory" in workflow_text
 
     benchmark_operator_adoption_step = _get_step(
         workflow, "evaluate", "Build benchmark operator adoption (optional)"
@@ -4260,7 +4310,15 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
         in pr_comment_script
     )
     assert "benchmarkReleaseKnowledgeDomainReleaseGateStatusLine" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeReferenceInventoryStatusLine" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeReferenceInventoryStatus" in pr_comment_script
+    assert "benchmarkReleaseDecisionKnowledgeReferenceInventoryLight" in (
+        pr_comment_script
+    )
     assert "Benchmark Release Decision Knowledge Domains" in pr_comment_script
+    assert "Benchmark Release Decision Knowledge Reference Inventory" in (
+        pr_comment_script
+    )
     assert "Benchmark Release Runbook Knowledge Drift" in pr_comment_script
     assert (
         "operator_drift=${benchmarkReleaseOperatorAdoptionKnowledgeDriftStatus}"
@@ -4306,11 +4364,23 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkReleaseRunbookKnowledgeDomainReleaseGateStatusLine" in (
         pr_comment_script
     )
+    assert "benchmarkReleaseRunbookKnowledgeReferenceInventoryStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkReleaseRunbookKnowledgeReferenceInventoryStatus" in (
+        pr_comment_script
+    )
+    assert "benchmarkReleaseRunbookKnowledgeReferenceInventoryLight" in (
+        pr_comment_script
+    )
     assert (
         "operator_drift=${benchmarkReleaseRunbookOperatorAdoptionKnowledgeDriftStatus}"
         in pr_comment_script
     )
     assert "Benchmark Release Runbook Knowledge Domains" in pr_comment_script
+    assert "Benchmark Release Runbook Knowledge Reference Inventory" in (
+        pr_comment_script
+    )
     assert "Benchmark Operator Adoption" in pr_comment_script
     assert "automation_ready=${benchmarkReleaseAutomationReady}" in pr_comment_script
     assert "source=${benchmarkReleasePrimarySignalSource}" in pr_comment_script
@@ -4464,3 +4534,29 @@ def test_workflow_wires_benchmark_knowledge_reference_inventory() -> None:
     assert "Benchmark knowledge reference inventory status" in summary_script
     assert "Benchmark artifact bundle knowledge reference inventory" in summary_script
     assert "Benchmark companion knowledge reference inventory" in summary_script
+
+
+def test_workflow_wires_benchmark_knowledge_reference_inventory_pr_comment() -> None:
+    workflow = _load_workflow()
+
+    pr_comment_step = _get_step(
+        workflow,
+        "evaluate",
+        "Comment PR with results",
+    )
+    pr_comment_script = pr_comment_step["with"]["script"]
+
+    assert "benchmarkKnowledgeReferenceInventoryEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeReferenceInventoryStatusLine" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeReferenceInventoryStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkCompanionKnowledgeReferenceInventoryStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeReferenceInventoryLight" in pr_comment_script
+    assert "Benchmark Knowledge Reference Inventory" in pr_comment_script
+    assert "Benchmark Artifact Bundle Knowledge Reference Inventory" in (
+        pr_comment_script
+    )
+    assert "Benchmark Companion Knowledge Reference Inventory" in pr_comment_script
