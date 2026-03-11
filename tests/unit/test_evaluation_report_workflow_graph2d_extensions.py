@@ -4310,7 +4310,15 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
         in pr_comment_script
     )
     assert "benchmarkReleaseKnowledgeDomainReleaseGateStatusLine" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeReferenceInventoryStatusLine" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeReferenceInventoryStatus" in pr_comment_script
+    assert "benchmarkReleaseDecisionKnowledgeReferenceInventoryLight" in (
+        pr_comment_script
+    )
     assert "Benchmark Release Decision Knowledge Domains" in pr_comment_script
+    assert "Benchmark Release Decision Knowledge Reference Inventory" in (
+        pr_comment_script
+    )
     assert "Benchmark Release Runbook Knowledge Drift" in pr_comment_script
     assert (
         "operator_drift=${benchmarkReleaseOperatorAdoptionKnowledgeDriftStatus}"
@@ -4356,11 +4364,23 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkReleaseRunbookKnowledgeDomainReleaseGateStatusLine" in (
         pr_comment_script
     )
+    assert "benchmarkReleaseRunbookKnowledgeReferenceInventoryStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkReleaseRunbookKnowledgeReferenceInventoryStatus" in (
+        pr_comment_script
+    )
+    assert "benchmarkReleaseRunbookKnowledgeReferenceInventoryLight" in (
+        pr_comment_script
+    )
     assert (
         "operator_drift=${benchmarkReleaseRunbookOperatorAdoptionKnowledgeDriftStatus}"
         in pr_comment_script
     )
     assert "Benchmark Release Runbook Knowledge Domains" in pr_comment_script
+    assert "Benchmark Release Runbook Knowledge Reference Inventory" in (
+        pr_comment_script
+    )
     assert "Benchmark Operator Adoption" in pr_comment_script
     assert "automation_ready=${benchmarkReleaseAutomationReady}" in pr_comment_script
     assert "source=${benchmarkReleasePrimarySignalSource}" in pr_comment_script
