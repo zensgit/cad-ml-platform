@@ -404,6 +404,18 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_knowledge_outcome_drift_enable" in dispatch_inputs
     assert "benchmark_knowledge_outcome_drift_current_summary_json" in dispatch_inputs
     assert "benchmark_knowledge_outcome_drift_previous_summary_json" in dispatch_inputs
+    assert (
+        "benchmark_knowledge_domain_release_surface_alignment_enable"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_knowledge_domain_release_surface_alignment_release_decision_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_knowledge_domain_release_surface_alignment_release_runbook_json"
+        in dispatch_inputs
+    )
     assert "benchmark_competitive_surpass_index_enable" in dispatch_inputs
     assert "benchmark_competitive_surpass_index_engineering_signals_json" in dispatch_inputs
     assert "benchmark_competitive_surpass_index_knowledge_readiness_json" in dispatch_inputs
@@ -437,6 +449,10 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_competitive_surpass_index_realdata_signals_json" in dispatch_inputs
     assert "benchmark_competitive_surpass_index_realdata_scorecard_json" in dispatch_inputs
     assert "benchmark_competitive_surpass_index_operator_adoption_json" in dispatch_inputs
+    assert (
+        "benchmark_competitive_surpass_index_knowledge_domain_release_surface_alignment_json"
+        in dispatch_inputs
+    )
     assert "benchmark_competitive_surpass_trend_enable" in dispatch_inputs
     assert "benchmark_competitive_surpass_trend_current_summary_json" in dispatch_inputs
     assert "benchmark_competitive_surpass_trend_previous_summary_json" in dispatch_inputs
@@ -506,6 +522,10 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
         in dispatch_inputs
     )
     assert "benchmark_artifact_bundle_knowledge_outcome_drift_json" in dispatch_inputs
+    assert (
+        "benchmark_artifact_bundle_knowledge_domain_release_surface_alignment_json"
+        in dispatch_inputs
+    )
     assert "benchmark_companion_summary_enable" in dispatch_inputs
     assert "benchmark_companion_summary_scorecard_json" in dispatch_inputs
     assert "benchmark_companion_summary_operational_summary_json" in dispatch_inputs
@@ -531,6 +551,10 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
         in dispatch_inputs
     )
     assert "benchmark_companion_summary_knowledge_outcome_drift_json" in dispatch_inputs
+    assert (
+        "benchmark_companion_summary_knowledge_domain_release_surface_alignment_json"
+        in dispatch_inputs
+    )
     assert "benchmark_release_decision_enable" in dispatch_inputs
     assert "benchmark_release_decision_scorecard_json" in dispatch_inputs
     assert "benchmark_release_decision_operational_summary_json" in dispatch_inputs
@@ -1208,6 +1232,51 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "priority_domains=" in benchmark_knowledge_domain_release_gate_script
     assert "recommended_first_action=" in benchmark_knowledge_domain_release_gate_script
     assert "recommendations=" in benchmark_knowledge_domain_release_gate_script
+    benchmark_knowledge_domain_release_surface_alignment_step = _get_step(
+        workflow,
+        "evaluate",
+        "Build benchmark knowledge domain release surface alignment (optional)",
+    )
+    benchmark_knowledge_domain_release_surface_alignment_script = (
+        benchmark_knowledge_domain_release_surface_alignment_step["run"]
+    )
+    assert (
+        "scripts/export_benchmark_knowledge_domain_release_surface_alignment.py"
+        in benchmark_knowledge_domain_release_surface_alignment_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_ENABLE"
+        in benchmark_knowledge_domain_release_surface_alignment_script
+    )
+    assert (
+        "benchmark_knowledge_domain_release_surface_alignment_release_decision_json"
+        in benchmark_knowledge_domain_release_surface_alignment_script
+    )
+    assert (
+        "benchmark_knowledge_domain_release_surface_alignment_release_runbook_json"
+        in benchmark_knowledge_domain_release_surface_alignment_script
+    )
+    assert "steps.benchmark_release_decision.outputs.output_json" in (
+        benchmark_knowledge_domain_release_surface_alignment_script
+    )
+    assert "steps.benchmark_release_runbook.outputs.output_json" in (
+        benchmark_knowledge_domain_release_surface_alignment_script
+    )
+    assert "status=" in benchmark_knowledge_domain_release_surface_alignment_script
+    assert "summary=" in benchmark_knowledge_domain_release_surface_alignment_script
+    assert "mismatch_count=" in (
+        benchmark_knowledge_domain_release_surface_alignment_script
+    )
+    assert "mismatches=" in benchmark_knowledge_domain_release_surface_alignment_script
+    assert "domain_mismatches=" in (
+        benchmark_knowledge_domain_release_surface_alignment_script
+    )
+    assert "release_blocker_mismatches=" in (
+        benchmark_knowledge_domain_release_surface_alignment_script
+    )
+    assert "recommendations=" in (
+        benchmark_knowledge_domain_release_surface_alignment_script
+    )
 
     benchmark_knowledge_source_coverage_step = _get_step(
         workflow, "evaluate", "Build benchmark knowledge source coverage (optional)"
@@ -1569,6 +1638,19 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         "knowledge_domain_control_plane_drift_recommendations="
         in benchmark_bundle_script
     )
+    assert (
+        "--benchmark-knowledge-domain-release-surface-alignment"
+        in benchmark_bundle_script
+    )
+    assert "knowledge_domain_release_surface_alignment_status=" in (
+        benchmark_bundle_script
+    )
+    assert "knowledge_domain_release_surface_alignment_summary=" in (
+        benchmark_bundle_script
+    )
+    assert "knowledge_domain_release_surface_alignment_mismatches=" in (
+        benchmark_bundle_script
+    )
     assert "knowledge_domain_action_plan_status=" in benchmark_bundle_script
     assert "knowledge_domain_action_plan_actions=" in benchmark_bundle_script
     assert "knowledge_domain_action_plan_priority_domains=" in benchmark_bundle_script
@@ -1736,6 +1818,19 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert (
         "knowledge_domain_control_plane_drift_recommendations="
         in benchmark_companion_script
+    )
+    assert (
+        "--benchmark-knowledge-domain-release-surface-alignment"
+        in benchmark_companion_script
+    )
+    assert "knowledge_domain_release_surface_alignment_status=" in (
+        benchmark_companion_script
+    )
+    assert "knowledge_domain_release_surface_alignment_summary=" in (
+        benchmark_companion_script
+    )
+    assert "knowledge_domain_release_surface_alignment_mismatches=" in (
+        benchmark_companion_script
     )
     assert "knowledge_domain_action_plan_status=" in benchmark_companion_script
     assert "knowledge_domain_action_plan_actions=" in benchmark_companion_script
@@ -2226,6 +2321,10 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-realdata-signals" in benchmark_competitive_surpass_script
     assert "--benchmark-realdata-scorecard" in benchmark_competitive_surpass_script
     assert "--benchmark-operator-adoption" in benchmark_competitive_surpass_script
+    assert (
+        "--benchmark-knowledge-domain-release-surface-alignment"
+        in benchmark_competitive_surpass_script
+    )
     assert "INPUT_COUNT=0" in benchmark_competitive_surpass_script
     assert "status=" in benchmark_competitive_surpass_script
     assert "score=" in benchmark_competitive_surpass_script
@@ -2489,6 +2588,14 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert (
         upload_knowledge_domain_release_gate["if"]
         == "steps.benchmark_knowledge_domain_release_gate.outputs.enabled == 'true'"
+    upload_knowledge_domain_release_surface_alignment = _get_step(
+        workflow,
+        "evaluate",
+        "Upload benchmark knowledge domain release surface alignment",
+    )
+    assert (
+        upload_knowledge_domain_release_surface_alignment["if"]
+        == "steps.benchmark_knowledge_domain_release_surface_alignment.outputs.enabled == 'true'"
     )
     upload_knowledge_source_coverage = _get_step(
         workflow, "evaluate", "Upload benchmark knowledge source coverage"
@@ -2928,6 +3035,18 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
         in summary_script
     )
     assert "Benchmark knowledge domain control plane drift artifact" in summary_script
+    assert "Benchmark knowledge domain release surface alignment status" in (
+        summary_script
+    )
+    assert "Benchmark knowledge domain release surface alignment summary" in (
+        summary_script
+    )
+    assert "Benchmark knowledge domain release surface alignment mismatches" in (
+        summary_script
+    )
+    assert "Benchmark knowledge domain release surface alignment artifact" in (
+        summary_script
+    )
     assert "Benchmark knowledge source coverage status" in summary_script
     assert "Benchmark knowledge source coverage ready source groups" in summary_script
     assert "Benchmark knowledge source coverage partial source groups" in summary_script
@@ -3036,6 +3155,16 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark artifact bundle operator adoption release surface mismatches" in (
         summary_script
     )
+    assert "Benchmark artifact bundle knowledge domain release surface alignment" in (
+        summary_script
+    )
+    assert (
+        "Benchmark artifact bundle knowledge domain release surface alignment summary"
+        in summary_script
+    )
+    assert "Benchmark artifact bundle knowledge domain release surface mismatches" in (
+        summary_script
+    )
     assert "Benchmark companion knowledge drift" in summary_script
     assert "Benchmark companion knowledge drift summary" in summary_script
     assert "Benchmark companion knowledge drift recommendations" in summary_script
@@ -3106,6 +3235,16 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
         summary_script
     )
     assert "Benchmark companion operator adoption release surface mismatches" in (
+        summary_script
+    )
+    assert "Benchmark companion knowledge domain release surface alignment" in (
+        summary_script
+    )
+    assert (
+        "Benchmark companion knowledge domain release surface alignment summary"
+        in summary_script
+    )
+    assert "Benchmark companion knowledge domain release surface mismatches" in (
         summary_script
     )
     assert "Benchmark release knowledge drift" in summary_script
