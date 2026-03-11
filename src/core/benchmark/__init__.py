@@ -79,6 +79,11 @@ from .knowledge_domain_release_gate import (  # noqa: F401
     knowledge_domain_release_gate_recommendations,
     render_knowledge_domain_release_gate_markdown,
 )
+from .knowledge_domain_release_readiness_matrix import (  # noqa: F401
+    build_knowledge_domain_release_readiness_matrix,
+    knowledge_domain_release_readiness_matrix_recommendations,
+    render_knowledge_domain_release_readiness_matrix_markdown,
+)
 from .knowledge_reference_inventory import (  # noqa: F401
     build_knowledge_reference_inventory_status,
     knowledge_reference_inventory_recommendations,

@@ -1287,5 +1287,61 @@ def test_build_bundle_exposes_knowledge_reference_inventory() -> None:
     ]
     assert payload["knowledge_reference_inventory_total_reference_items"] == 42
     assert payload["artifacts"]["benchmark_knowledge_reference_inventory"]["present"] is True
+
+
+def test_build_bundle_exposes_knowledge_domain_release_readiness_matrix() -> None:
+    payload = module.build_bundle(
+        title="Benchmark Artifact Bundle",
+        benchmark_scorecard={},
+        benchmark_operational_summary={},
+        benchmark_companion_summary={},
+        benchmark_release_decision={},
+        benchmark_knowledge_readiness={},
+        benchmark_knowledge_drift={},
+        benchmark_engineering_signals={},
+        benchmark_realdata_signals={},
+        benchmark_operator_adoption={},
+        benchmark_knowledge_domain_release_readiness_matrix={
+            "knowledge_domain_release_readiness_matrix": {
+                "status": "knowledge_domain_release_readiness_partial",
+                "summary": "ready=1; partial=1; blocked=0",
+                "priority_domains": ["tolerance"],
+                "releasable_domains": ["standards"],
+                "blocked_domains": [],
+                "domains": {
+                    "tolerance": {"status": "partial"},
+                    "standards": {"status": "ready"},
+                },
+            },
+            "recommendations": ["Unblock tolerance release readiness."],
+        },
+        artifact_paths={
+            "benchmark_knowledge_domain_release_readiness_matrix": (
+                "knowledge_domain_release_readiness_matrix.json"
+            )
+        },
+        feedback_flywheel={},
+        assistant_evidence={},
+        review_queue={},
+        ocr_review={},
+    )
+
+    assert payload["component_statuses"]["knowledge_domain_release_readiness_matrix"] == (
+        "knowledge_domain_release_readiness_partial"
+    )
+    assert payload["knowledge_domain_release_readiness_matrix_status"] == (
+        "knowledge_domain_release_readiness_partial"
+    )
+    assert payload["knowledge_domain_release_readiness_matrix_priority_domains"] == [
+        "tolerance"
+    ]
+    assert payload["knowledge_domain_release_readiness_matrix_releasable_domains"] == [
+        "standards"
+    ]
+    assert payload["artifacts"][
+        "benchmark_knowledge_domain_release_readiness_matrix"
+    ]["present"] is True
+    markdown = module.render_markdown(payload)
+    assert "## Knowledge Domain Release Readiness Matrix" in markdown
     markdown = module.render_markdown(payload)
     assert "## Knowledge Reference Inventory" in markdown

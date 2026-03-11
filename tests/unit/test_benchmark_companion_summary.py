@@ -1324,3 +1324,54 @@ def test_build_companion_summary_exposes_knowledge_reference_inventory() -> None
     ]
     assert payload["knowledge_reference_inventory_total_reference_items"] == 42
     assert payload["artifacts"]["benchmark_knowledge_reference_inventory"]["present"] is True
+
+
+def test_build_companion_summary_exposes_knowledge_domain_release_readiness_matrix() -> None:
+    payload = build_companion_summary(
+        title="Benchmark Companion",
+        benchmark_scorecard={},
+        benchmark_operational_summary={},
+        benchmark_artifact_bundle={},
+        benchmark_knowledge_readiness={},
+        benchmark_knowledge_drift={},
+        benchmark_engineering_signals={},
+        benchmark_realdata_signals={},
+        benchmark_operator_adoption={},
+        benchmark_knowledge_domain_release_readiness_matrix={
+            "knowledge_domain_release_readiness_matrix": {
+                "status": "knowledge_domain_release_readiness_partial",
+                "summary": "ready=1; partial=1; blocked=0",
+                "priority_domains": ["tolerance"],
+                "releasable_domains": ["standards"],
+                "blocked_domains": [],
+                "domains": {
+                    "tolerance": {"status": "partial"},
+                    "standards": {"status": "ready"},
+                },
+            },
+            "recommendations": ["Unblock tolerance release readiness."],
+        },
+        artifact_paths={
+            "benchmark_knowledge_domain_release_readiness_matrix": (
+                "knowledge_domain_release_readiness_matrix.json"
+            )
+        },
+    )
+
+    assert payload["component_statuses"]["knowledge_domain_release_readiness_matrix"] == (
+        "knowledge_domain_release_readiness_partial"
+    )
+    assert payload["knowledge_domain_release_readiness_matrix_status"] == (
+        "knowledge_domain_release_readiness_partial"
+    )
+    assert payload["knowledge_domain_release_readiness_matrix_priority_domains"] == [
+        "tolerance"
+    ]
+    assert payload["knowledge_domain_release_readiness_matrix_releasable_domains"] == [
+        "standards"
+    ]
+    assert payload["artifacts"][
+        "benchmark_knowledge_domain_release_readiness_matrix"
+    ]["present"] is True
+    markdown = render_markdown(payload)
+    assert "## Knowledge Domain Release Readiness Matrix" in markdown
