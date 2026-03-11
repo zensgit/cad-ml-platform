@@ -11037,6 +11037,14 @@ jobs:
             const benchmarkKnowledgeDomainReleaseGateRecommendedFirstAction = '${{ steps.benchmark_knowledge_domain_release_gate.outputs.recommended_first_action }}';
             const benchmarkKnowledgeDomainReleaseGateRecommendations = '${{ steps.benchmark_knowledge_domain_release_gate.outputs.recommendations }}';
             const benchmarkKnowledgeDomainReleaseGateArtifact = '${{ steps.benchmark_knowledge_domain_release_gate.outputs.output_md }}';
+            const benchmarkKnowledgeDomainReleaseReadinessMatrixEnabled = '${{ steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.enabled }}' === 'true';
+            const benchmarkKnowledgeDomainReleaseReadinessMatrixStatus = '${{ steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.status }}';
+            const benchmarkKnowledgeDomainReleaseReadinessMatrixSummary = '${{ steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.summary }}';
+            const benchmarkKnowledgeDomainReleaseReadinessMatrixPriorityDomains = '${{ steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.priority_domains }}';
+            const benchmarkKnowledgeDomainReleaseReadinessMatrixReleasableDomains = '${{ steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.releasable_domains }}';
+            const benchmarkKnowledgeDomainReleaseReadinessMatrixBlockedDomains = '${{ steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.blocked_domains }}';
+            const benchmarkKnowledgeDomainReleaseReadinessMatrixRecommendations = '${{ steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.recommendations }}';
+            const benchmarkKnowledgeDomainReleaseReadinessMatrixArtifact = '${{ steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.output_md }}';
             const benchmarkKnowledgeDomainReleaseSurfaceAlignmentEnabled = '${{ steps.benchmark_knowledge_domain_release_surface_alignment.outputs.enabled }}' === 'true';
             const benchmarkKnowledgeDomainReleaseSurfaceAlignmentStatus = '${{ steps.benchmark_knowledge_domain_release_surface_alignment.outputs.status }}';
             const benchmarkKnowledgeDomainReleaseSurfaceAlignmentSummary = '${{ steps.benchmark_knowledge_domain_release_surface_alignment.outputs.summary }}';
@@ -11205,6 +11213,12 @@ jobs:
             const benchmarkArtifactBundleKnowledgeDomainReleaseGateBlockedDomains = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_release_gate_blocked_domains }}';
             const benchmarkArtifactBundleKnowledgeDomainReleaseGatePriorityDomains = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_release_gate_priority_domains }}';
             const benchmarkArtifactBundleKnowledgeDomainReleaseGateRecommendations = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_release_gate_recommendations }}';
+            const benchmarkArtifactBundleKnowledgeDomainReleaseReadinessMatrixStatus = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_release_readiness_matrix_status }}';
+            const benchmarkArtifactBundleKnowledgeDomainReleaseReadinessMatrixSummary = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_release_readiness_matrix_summary }}';
+            const benchmarkArtifactBundleKnowledgeDomainReleaseReadinessMatrixPriorityDomains = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_release_readiness_matrix_priority_domains }}';
+            const benchmarkArtifactBundleKnowledgeDomainReleaseReadinessMatrixReleasableDomains = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_release_readiness_matrix_releasable_domains }}';
+            const benchmarkArtifactBundleKnowledgeDomainReleaseReadinessMatrixBlockedDomains = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_release_readiness_matrix_blocked_domains }}';
+            const benchmarkArtifactBundleKnowledgeDomainReleaseReadinessMatrixRecommendations = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_release_readiness_matrix_recommendations }}';
             const benchmarkArtifactBundleKnowledgeReferenceInventoryStatus = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_reference_inventory_status }}';
             const benchmarkArtifactBundleKnowledgeReferenceInventoryPriorityDomains = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_reference_inventory_priority_domains }}';
             const benchmarkArtifactBundleKnowledgeReferenceInventoryTotalReferenceItems = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_reference_inventory_total_reference_items }}';
@@ -11334,6 +11348,12 @@ jobs:
             const benchmarkCompanionKnowledgeDomainReleaseGateBlockedDomains = '${{ steps.benchmark_companion_summary.outputs.knowledge_domain_release_gate_blocked_domains }}';
             const benchmarkCompanionKnowledgeDomainReleaseGatePriorityDomains = '${{ steps.benchmark_companion_summary.outputs.knowledge_domain_release_gate_priority_domains }}';
             const benchmarkCompanionKnowledgeDomainReleaseGateRecommendations = '${{ steps.benchmark_companion_summary.outputs.knowledge_domain_release_gate_recommendations }}';
+            const benchmarkCompanionKnowledgeDomainReleaseReadinessMatrixStatus = '${{ steps.benchmark_companion_summary.outputs.knowledge_domain_release_readiness_matrix_status }}';
+            const benchmarkCompanionKnowledgeDomainReleaseReadinessMatrixSummary = '${{ steps.benchmark_companion_summary.outputs.knowledge_domain_release_readiness_matrix_summary }}';
+            const benchmarkCompanionKnowledgeDomainReleaseReadinessMatrixPriorityDomains = '${{ steps.benchmark_companion_summary.outputs.knowledge_domain_release_readiness_matrix_priority_domains }}';
+            const benchmarkCompanionKnowledgeDomainReleaseReadinessMatrixReleasableDomains = '${{ steps.benchmark_companion_summary.outputs.knowledge_domain_release_readiness_matrix_releasable_domains }}';
+            const benchmarkCompanionKnowledgeDomainReleaseReadinessMatrixBlockedDomains = '${{ steps.benchmark_companion_summary.outputs.knowledge_domain_release_readiness_matrix_blocked_domains }}';
+            const benchmarkCompanionKnowledgeDomainReleaseReadinessMatrixRecommendations = '${{ steps.benchmark_companion_summary.outputs.knowledge_domain_release_readiness_matrix_recommendations }}';
             const benchmarkCompanionKnowledgeReferenceInventoryStatus = '${{ steps.benchmark_companion_summary.outputs.knowledge_reference_inventory_status }}';
             const benchmarkCompanionKnowledgeReferenceInventoryPriorityDomains = '${{ steps.benchmark_companion_summary.outputs.knowledge_reference_inventory_priority_domains }}';
             const benchmarkCompanionKnowledgeReferenceInventoryTotalReferenceItems = '${{ steps.benchmark_companion_summary.outputs.knowledge_reference_inventory_total_reference_items }}';
@@ -11520,6 +11540,12 @@ jobs:
             const benchmarkReleaseKnowledgeDomainReleaseGatePriorityDomains = '${{ steps.benchmark_release_decision.outputs.knowledge_domain_release_gate_priority_domains }}';
             const benchmarkReleaseKnowledgeDomainReleaseGateBlockingReasons = '${{ steps.benchmark_release_decision.outputs.knowledge_domain_release_gate_blocking_reasons }}';
             const benchmarkReleaseKnowledgeDomainReleaseGateRecommendations = '${{ steps.benchmark_release_decision.outputs.knowledge_domain_release_gate_recommendations }}';
+            const benchmarkReleaseKnowledgeDomainReleaseReadinessMatrixStatus = '${{ steps.benchmark_release_decision.outputs.knowledge_domain_release_readiness_matrix_status }}';
+            const benchmarkReleaseKnowledgeDomainReleaseReadinessMatrixSummary = '${{ steps.benchmark_release_decision.outputs.knowledge_domain_release_readiness_matrix_summary }}';
+            const benchmarkReleaseKnowledgeDomainReleaseReadinessMatrixPriorityDomains = '${{ steps.benchmark_release_decision.outputs.knowledge_domain_release_readiness_matrix_priority_domains }}';
+            const benchmarkReleaseKnowledgeDomainReleaseReadinessMatrixReleasableDomains = '${{ steps.benchmark_release_decision.outputs.knowledge_domain_release_readiness_matrix_releasable_domains }}';
+            const benchmarkReleaseKnowledgeDomainReleaseReadinessMatrixBlockedDomains = '${{ steps.benchmark_release_decision.outputs.knowledge_domain_release_readiness_matrix_blocked_domains }}';
+            const benchmarkReleaseKnowledgeDomainReleaseReadinessMatrixRecommendations = '${{ steps.benchmark_release_decision.outputs.knowledge_domain_release_readiness_matrix_recommendations }}';
             const benchmarkReleaseKnowledgeReferenceInventoryStatus = '${{ steps.benchmark_release_decision.outputs.knowledge_reference_inventory_status }}';
             const benchmarkReleaseKnowledgeReferenceInventorySummary = '${{ steps.benchmark_release_decision.outputs.knowledge_reference_inventory_summary }}';
             const benchmarkReleaseKnowledgeReferenceInventoryPriorityDomains = '${{ steps.benchmark_release_decision.outputs.knowledge_reference_inventory_priority_domains }}';
@@ -11643,6 +11669,12 @@ jobs:
             const benchmarkReleaseRunbookKnowledgeDomainReleaseGatePriorityDomains = '${{ steps.benchmark_release_runbook.outputs.knowledge_domain_release_gate_priority_domains }}';
             const benchmarkReleaseRunbookKnowledgeDomainReleaseGateBlockingReasons = '${{ steps.benchmark_release_runbook.outputs.knowledge_domain_release_gate_blocking_reasons }}';
             const benchmarkReleaseRunbookKnowledgeDomainReleaseGateRecommendations = '${{ steps.benchmark_release_runbook.outputs.knowledge_domain_release_gate_recommendations }}';
+            const benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessMatrixStatus = '${{ steps.benchmark_release_runbook.outputs.knowledge_domain_release_readiness_matrix_status }}';
+            const benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessMatrixSummary = '${{ steps.benchmark_release_runbook.outputs.knowledge_domain_release_readiness_matrix_summary }}';
+            const benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessMatrixPriorityDomains = '${{ steps.benchmark_release_runbook.outputs.knowledge_domain_release_readiness_matrix_priority_domains }}';
+            const benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessMatrixReleasableDomains = '${{ steps.benchmark_release_runbook.outputs.knowledge_domain_release_readiness_matrix_releasable_domains }}';
+            const benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessMatrixBlockedDomains = '${{ steps.benchmark_release_runbook.outputs.knowledge_domain_release_readiness_matrix_blocked_domains }}';
+            const benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessMatrixRecommendations = '${{ steps.benchmark_release_runbook.outputs.knowledge_domain_release_readiness_matrix_recommendations }}';
             const benchmarkReleaseRunbookKnowledgeReferenceInventoryStatus = '${{ steps.benchmark_release_runbook.outputs.knowledge_reference_inventory_status }}';
             const benchmarkReleaseRunbookKnowledgeReferenceInventorySummary = '${{ steps.benchmark_release_runbook.outputs.knowledge_reference_inventory_summary }}';
             const benchmarkReleaseRunbookKnowledgeReferenceInventoryPriorityDomains = '${{ steps.benchmark_release_runbook.outputs.knowledge_reference_inventory_priority_domains }}';
@@ -11778,6 +11810,10 @@ jobs:
               : '⏭️ skipped';
             const benchmarkKnowledgeDomainReleaseGateStatusLine = benchmarkKnowledgeDomainReleaseGateEnabled
               ? `status=${benchmarkKnowledgeDomainReleaseGateStatus || 'n/a'}, gate_open=${benchmarkKnowledgeDomainReleaseGateGateOpen || 'n/a'}, releasable=${benchmarkKnowledgeDomainReleaseGateReleasableDomainCount || 'n/a'}, blocked=${benchmarkKnowledgeDomainReleaseGateBlockedDomainCount || 'n/a'}, partial=${benchmarkKnowledgeDomainReleaseGatePartialDomainCount || 'n/a'}, priority_domains=${benchmarkKnowledgeDomainReleaseGatePriorityDomains || 'n/a'}, releasable_domains=${benchmarkKnowledgeDomainReleaseGateReleasableDomains || 'n/a'}, blocked_domains=${benchmarkKnowledgeDomainReleaseGateBlockedDomains || 'n/a'}, blocking_reasons=${benchmarkKnowledgeDomainReleaseGateBlockingReasons || 'n/a'}, warnings=${benchmarkKnowledgeDomainReleaseGateWarningReasons || 'n/a'}, first_action=${benchmarkKnowledgeDomainReleaseGateRecommendedFirstAction || 'n/a'}, recommendations=${benchmarkKnowledgeDomainReleaseGateRecommendations || 'n/a'}, artifact=${benchmarkKnowledgeDomainReleaseGateArtifact || 'n/a'}`
+              : '⏭️ skipped';
+            const benchmarkKnowledgeDomainReleaseReadinessMatrixStatusLine = benchmarkKnowledgeDomainReleaseReadinessMatrixEnabled
+              ? `status=${benchmarkKnowledgeDomainReleaseReadinessMatrixStatus || 'n/a'}, summary=${benchmarkKnowledgeDomainReleaseReadinessMatrixSummary || 'n/a'}, priority_domains=${benchmarkKnowledgeDomainReleaseReadinessMatrixPriorityDomains || 'n/a'}, releasable_domains=${benchmarkKnowledgeDomainReleaseReadinessMatrixReleasableDomains || 'n/a'}, blocked_domains=${benchmarkKnowledgeDomainReleaseReadinessMatrixBlockedDomains || 'n/a'}, recommendations=${benchmarkKnowledgeDomainReleaseReadinessMatrixRecommendations || 'n/a'}, artifact=${benchmarkKnowledgeDomainReleaseReadinessMatrixArtifact || 'n/a'}`
+              : '⏭️ skipped';
             const benchmarkKnowledgeDomainReleaseSurfaceAlignmentStatusLine = benchmarkKnowledgeDomainReleaseSurfaceAlignmentEnabled
               ? `status=${benchmarkKnowledgeDomainReleaseSurfaceAlignmentStatus || 'n/a'}, summary=${benchmarkKnowledgeDomainReleaseSurfaceAlignmentSummary || 'n/a'}, mismatches=${benchmarkKnowledgeDomainReleaseSurfaceAlignmentMismatches || 'n/a'}, artifact=${benchmarkKnowledgeDomainReleaseSurfaceAlignmentArtifact || 'n/a'}`
               : '⏭️ skipped';
@@ -11838,6 +11874,9 @@ jobs:
               : '⏭️ skipped';
             const benchmarkArtifactBundleKnowledgeDomainReleaseGateStatusLine = benchmarkArtifactBundleEnabled
               ? `status=${benchmarkArtifactBundleKnowledgeDomainReleaseGateStatus || 'n/a'}, summary=${benchmarkArtifactBundleKnowledgeDomainReleaseGateSummary || 'n/a'}, gate_open=${benchmarkArtifactBundleKnowledgeDomainReleaseGateGateOpen || 'n/a'}, releasable_domains=${benchmarkArtifactBundleKnowledgeDomainReleaseGateReleasableDomains || 'n/a'}, blocked_domains=${benchmarkArtifactBundleKnowledgeDomainReleaseGateBlockedDomains || 'n/a'}, priority_domains=${benchmarkArtifactBundleKnowledgeDomainReleaseGatePriorityDomains || 'n/a'}, blocking_reasons=${benchmarkArtifactBundleKnowledgeDomainReleaseGateBlockingReasons || 'n/a'}, recommendations=${benchmarkArtifactBundleKnowledgeDomainReleaseGateRecommendations || 'n/a'}`
+              : '⏭️ skipped';
+            const benchmarkArtifactBundleKnowledgeDomainReleaseReadinessMatrixStatusLine = benchmarkArtifactBundleEnabled
+              ? `status=${benchmarkArtifactBundleKnowledgeDomainReleaseReadinessMatrixStatus || 'n/a'}, summary=${benchmarkArtifactBundleKnowledgeDomainReleaseReadinessMatrixSummary || 'n/a'}, priority_domains=${benchmarkArtifactBundleKnowledgeDomainReleaseReadinessMatrixPriorityDomains || 'n/a'}, releasable_domains=${benchmarkArtifactBundleKnowledgeDomainReleaseReadinessMatrixReleasableDomains || 'n/a'}, blocked_domains=${benchmarkArtifactBundleKnowledgeDomainReleaseReadinessMatrixBlockedDomains || 'n/a'}, recommendations=${benchmarkArtifactBundleKnowledgeDomainReleaseReadinessMatrixRecommendations || 'n/a'}`
               : '⏭️ skipped';
             const benchmarkArtifactBundleKnowledgeReferenceInventoryStatusLine = benchmarkArtifactBundleEnabled
               ? `status=${benchmarkArtifactBundleKnowledgeReferenceInventoryStatus || 'n/a'}, domains=${benchmarkArtifactBundleKnowledgeReferenceInventoryPriorityDomains || 'n/a'}, total_items=${benchmarkArtifactBundleKnowledgeReferenceInventoryTotalReferenceItems || 'n/a'}`
@@ -11900,6 +11939,9 @@ jobs:
             const benchmarkCompanionKnowledgeDomainReleaseGateStatusLine = benchmarkCompanionSummaryEnabled
               ? `status=${benchmarkCompanionKnowledgeDomainReleaseGateStatus || 'n/a'}, summary=${benchmarkCompanionKnowledgeDomainReleaseGateSummary || 'n/a'}, gate_open=${benchmarkCompanionKnowledgeDomainReleaseGateGateOpen || 'n/a'}, releasable_domains=${benchmarkCompanionKnowledgeDomainReleaseGateReleasableDomains || 'n/a'}, blocked_domains=${benchmarkCompanionKnowledgeDomainReleaseGateBlockedDomains || 'n/a'}, priority_domains=${benchmarkCompanionKnowledgeDomainReleaseGatePriorityDomains || 'n/a'}, blocking_reasons=${benchmarkCompanionKnowledgeDomainReleaseGateBlockingReasons || 'n/a'}, recommendations=${benchmarkCompanionKnowledgeDomainReleaseGateRecommendations || 'n/a'}`
               : '⏭️ skipped';
+            const benchmarkCompanionKnowledgeDomainReleaseReadinessMatrixStatusLine = benchmarkCompanionSummaryEnabled
+              ? `status=${benchmarkCompanionKnowledgeDomainReleaseReadinessMatrixStatus || 'n/a'}, summary=${benchmarkCompanionKnowledgeDomainReleaseReadinessMatrixSummary || 'n/a'}, priority_domains=${benchmarkCompanionKnowledgeDomainReleaseReadinessMatrixPriorityDomains || 'n/a'}, releasable_domains=${benchmarkCompanionKnowledgeDomainReleaseReadinessMatrixReleasableDomains || 'n/a'}, blocked_domains=${benchmarkCompanionKnowledgeDomainReleaseReadinessMatrixBlockedDomains || 'n/a'}, recommendations=${benchmarkCompanionKnowledgeDomainReleaseReadinessMatrixRecommendations || 'n/a'}`
+              : '⏭️ skipped';
             const benchmarkCompanionKnowledgeReferenceInventoryStatusLine = benchmarkCompanionSummaryEnabled
               ? `status=${benchmarkCompanionKnowledgeReferenceInventoryStatus || 'n/a'}, domains=${benchmarkCompanionKnowledgeReferenceInventoryPriorityDomains || 'n/a'}, total_items=${benchmarkCompanionKnowledgeReferenceInventoryTotalReferenceItems || 'n/a'}`
               : '⏭️ skipped';
@@ -11961,6 +12003,9 @@ jobs:
             const benchmarkReleaseKnowledgeDomainReleaseGateStatusLine = benchmarkReleaseDecisionEnabled
               ? `status=${benchmarkReleaseKnowledgeDomainReleaseGateStatus || 'n/a'}, gate_open=${benchmarkReleaseKnowledgeDomainReleaseGateGateOpen || 'n/a'}, releasable_domains=${benchmarkReleaseKnowledgeDomainReleaseGateReleasableDomains || 'n/a'}, blocked_domains=${benchmarkReleaseKnowledgeDomainReleaseGateBlockedDomains || 'n/a'}, priority_domains=${benchmarkReleaseKnowledgeDomainReleaseGatePriorityDomains || 'n/a'}, blocking_reasons=${benchmarkReleaseKnowledgeDomainReleaseGateBlockingReasons || 'n/a'}, recommendations=${benchmarkReleaseKnowledgeDomainReleaseGateRecommendations || 'n/a'}`
               : '⏭️ skipped';
+            const benchmarkReleaseKnowledgeDomainReleaseReadinessMatrixStatusLine = benchmarkReleaseDecisionEnabled
+              ? `status=${benchmarkReleaseKnowledgeDomainReleaseReadinessMatrixStatus || 'n/a'}, summary=${benchmarkReleaseKnowledgeDomainReleaseReadinessMatrixSummary || 'n/a'}, priority_domains=${benchmarkReleaseKnowledgeDomainReleaseReadinessMatrixPriorityDomains || 'n/a'}, releasable_domains=${benchmarkReleaseKnowledgeDomainReleaseReadinessMatrixReleasableDomains || 'n/a'}, blocked_domains=${benchmarkReleaseKnowledgeDomainReleaseReadinessMatrixBlockedDomains || 'n/a'}, recommendations=${benchmarkReleaseKnowledgeDomainReleaseReadinessMatrixRecommendations || 'n/a'}`
+              : '⏭️ skipped';
             const benchmarkReleaseKnowledgeReferenceInventoryStatusLine = benchmarkReleaseDecisionEnabled
               ? `status=${benchmarkReleaseKnowledgeReferenceInventoryStatus || 'n/a'}, summary=${benchmarkReleaseKnowledgeReferenceInventorySummary || 'n/a'}, priority_domains=${benchmarkReleaseKnowledgeReferenceInventoryPriorityDomains || 'n/a'}, refs=${benchmarkReleaseKnowledgeReferenceInventoryTotalReferenceItems || 'n/a'}, recommendations=${benchmarkReleaseKnowledgeReferenceInventoryRecommendations || 'n/a'}`
               : '⏭️ skipped';
@@ -12021,6 +12066,9 @@ jobs:
               : '⏭️ skipped';
             const benchmarkReleaseRunbookKnowledgeDomainReleaseGateStatusLine = benchmarkReleaseRunbookEnabled
               ? `status=${benchmarkReleaseRunbookKnowledgeDomainReleaseGateStatus || 'n/a'}, gate_open=${benchmarkReleaseRunbookKnowledgeDomainReleaseGateGateOpen || 'n/a'}, releasable_domains=${benchmarkReleaseRunbookKnowledgeDomainReleaseGateReleasableDomains || 'n/a'}, blocked_domains=${benchmarkReleaseRunbookKnowledgeDomainReleaseGateBlockedDomains || 'n/a'}, priority_domains=${benchmarkReleaseRunbookKnowledgeDomainReleaseGatePriorityDomains || 'n/a'}, blocking_reasons=${benchmarkReleaseRunbookKnowledgeDomainReleaseGateBlockingReasons || 'n/a'}, recommendations=${benchmarkReleaseRunbookKnowledgeDomainReleaseGateRecommendations || 'n/a'}`
+              : '⏭️ skipped';
+            const benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessMatrixStatusLine = benchmarkReleaseRunbookEnabled
+              ? `status=${benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessMatrixStatus || 'n/a'}, summary=${benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessMatrixSummary || 'n/a'}, priority_domains=${benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessMatrixPriorityDomains || 'n/a'}, releasable_domains=${benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessMatrixReleasableDomains || 'n/a'}, blocked_domains=${benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessMatrixBlockedDomains || 'n/a'}, recommendations=${benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessMatrixRecommendations || 'n/a'}`
               : '⏭️ skipped';
             const benchmarkReleaseRunbookKnowledgeReferenceInventoryStatusLine = benchmarkReleaseRunbookEnabled
               ? `status=${benchmarkReleaseRunbookKnowledgeReferenceInventoryStatus || 'n/a'}, summary=${benchmarkReleaseRunbookKnowledgeReferenceInventorySummary || 'n/a'}, priority_domains=${benchmarkReleaseRunbookKnowledgeReferenceInventoryPriorityDomains || 'n/a'}, refs=${benchmarkReleaseRunbookKnowledgeReferenceInventoryTotalReferenceItems || 'n/a'}, recommendations=${benchmarkReleaseRunbookKnowledgeReferenceInventoryRecommendations || 'n/a'}`
@@ -12298,13 +12346,18 @@ jobs:
                     : (
                         benchmarkKnowledgeDomainReleaseGateStatus === 'knowledge_domain_release_gate_blocked'
                         || benchmarkKnowledgeDomainReleaseGateStatus === 'knowledge_domain_release_gate_unavailable'
-            const benchmarkKnowledgeDomainReleaseSurfaceAlignmentLight = !benchmarkKnowledgeDomainReleaseSurfaceAlignmentEnabled
+                          ? '🔴'
+                          : '🟡'
+                      )
+                );
+            const benchmarkKnowledgeDomainReleaseReadinessMatrixLight = !benchmarkKnowledgeDomainReleaseReadinessMatrixEnabled
               ? '⚪'
               : (
-                  benchmarkKnowledgeDomainReleaseSurfaceAlignmentStatus === 'aligned'
+                  benchmarkKnowledgeDomainReleaseReadinessMatrixStatus === 'knowledge_domain_release_readiness_ready'
                     ? '🟢'
                     : (
-                        benchmarkKnowledgeDomainReleaseSurfaceAlignmentStatus === 'diverged'
+                        benchmarkKnowledgeDomainReleaseReadinessMatrixStatus === 'knowledge_domain_release_readiness_blocked'
+                        || benchmarkKnowledgeDomainReleaseReadinessMatrixStatus === 'knowledge_domain_release_readiness_unavailable'
                           ? '🔴'
                           : '🟡'
                       )
@@ -12318,7 +12371,7 @@ jobs:
                         benchmarkKnowledgeDomainReleaseSurfaceAlignmentStatus === 'diverged'
                           ? '🔴'
                           : '🟡'
-                        )
+                      )
                 );
             const benchmarkKnowledgeReferenceInventoryLight = !benchmarkKnowledgeReferenceInventoryEnabled
               ? '⚪'
@@ -12654,6 +12707,18 @@ jobs:
                       : '🟡'
                   )
               );
+            const benchmarkReleaseDecisionKnowledgeDomainReleaseReadinessMatrixLight = !benchmarkReleaseDecisionEnabled
+              ? '⚪'
+              : (
+                benchmarkReleaseKnowledgeDomainReleaseReadinessMatrixStatus === 'knowledge_domain_release_readiness_ready'
+                  ? '🟢'
+                  : (
+                    benchmarkReleaseKnowledgeDomainReleaseReadinessMatrixStatus === 'knowledge_domain_release_readiness_blocked' ||
+                    benchmarkReleaseKnowledgeDomainReleaseReadinessMatrixStatus === 'knowledge_domain_release_readiness_unavailable'
+                      ? '🔴'
+                      : '🟡'
+                  )
+              );
             const benchmarkReleaseDecisionKnowledgeReferenceInventoryLight = !benchmarkReleaseDecisionEnabled
               ? '⚪'
               : (
@@ -12735,6 +12800,18 @@ jobs:
                   : (
                     benchmarkReleaseRunbookKnowledgeDomainReleaseGateStatus === 'knowledge_domain_release_gate_blocked' ||
                     benchmarkReleaseRunbookKnowledgeDomainReleaseGateStatus === 'knowledge_domain_release_gate_unavailable'
+                      ? '🔴'
+                      : '🟡'
+                  )
+              );
+            const benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessMatrixLight = !benchmarkReleaseRunbookEnabled
+              ? '⚪'
+              : (
+                benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessMatrixStatus === 'knowledge_domain_release_readiness_ready'
+                  ? '🟢'
+                  : (
+                    benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessMatrixStatus === 'knowledge_domain_release_readiness_blocked' ||
+                    benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessMatrixStatus === 'knowledge_domain_release_readiness_unavailable'
                       ? '🔴'
                       : '🟡'
                   )
@@ -12825,6 +12902,7 @@ jobs:
             | **Benchmark Knowledge Domain Control Plane** | ${benchmarkKnowledgeDomainControlPlaneStatusLine} |
             | **Benchmark Knowledge Domain Control Plane Drift** | ${benchmarkKnowledgeDomainControlPlaneDriftStatusLine} |
             | **Benchmark Knowledge Domain Release Gate** | ${benchmarkKnowledgeDomainReleaseGateStatusLine} |
+            | **Benchmark Knowledge Domain Release Readiness Matrix** | ${benchmarkKnowledgeDomainReleaseReadinessMatrixStatusLine} |
             | **Benchmark Knowledge Domain Release Surface Alignment** | ${benchmarkKnowledgeDomainReleaseSurfaceAlignmentStatusLine} |
             | **Benchmark Knowledge Reference Inventory** | ${benchmarkKnowledgeReferenceInventoryStatusLine} |
             | **Benchmark Knowledge Source Coverage** | ${benchmarkKnowledgeSourceCoverageStatusLine} |
@@ -12857,6 +12935,7 @@ jobs:
             | **Benchmark Artifact Bundle Knowledge Domain Control Plane** | ${benchmarkArtifactBundleKnowledgeDomainControlPlaneStatusLine} |
             | **Benchmark Artifact Bundle Knowledge Domain Control Plane Drift** | ${benchmarkArtifactBundleKnowledgeDomainControlPlaneDriftStatusLine} |
             | **Benchmark Artifact Bundle Knowledge Domain Release Gate** | ${benchmarkArtifactBundleKnowledgeDomainReleaseGateStatusLine} |
+            | **Benchmark Artifact Bundle Knowledge Domain Release Readiness Matrix** | ${benchmarkArtifactBundleKnowledgeDomainReleaseReadinessMatrixStatusLine} |
             | **Benchmark Artifact Bundle Knowledge Source Coverage** | ${benchmarkArtifactBundleKnowledgeSourceCoverageStatusLine} |
             | **Benchmark Artifact Bundle Knowledge Source Action Plan** | ${benchmarkArtifactBundleKnowledgeSourceActionPlanStatusLine} |
             | **Benchmark Artifact Bundle Knowledge Source Drift** | ${benchmarkArtifactBundleKnowledgeSourceDriftStatusLine} |
@@ -12879,6 +12958,7 @@ jobs:
             | **Benchmark Companion Knowledge Domain Control Plane** | ${benchmarkCompanionKnowledgeDomainControlPlaneStatusLine} |
             | **Benchmark Companion Knowledge Domain Control Plane Drift** | ${benchmarkCompanionKnowledgeDomainControlPlaneDriftStatusLine} |
             | **Benchmark Companion Knowledge Domain Release Gate** | ${benchmarkCompanionKnowledgeDomainReleaseGateStatusLine} |
+            | **Benchmark Companion Knowledge Domain Release Readiness Matrix** | ${benchmarkCompanionKnowledgeDomainReleaseReadinessMatrixStatusLine} |
             | **Benchmark Companion Knowledge Source Coverage** | ${benchmarkCompanionKnowledgeSourceCoverageStatusLine} |
             | **Benchmark Companion Knowledge Source Action Plan** | ${benchmarkCompanionKnowledgeSourceActionPlanStatusLine} |
             | **Benchmark Companion Knowledge Source Drift** | ${benchmarkCompanionKnowledgeSourceDriftStatusLine} |
@@ -12904,6 +12984,7 @@ jobs:
             | **Benchmark Release Decision Knowledge Domain Control Plane** | ${benchmarkReleaseKnowledgeDomainControlPlaneStatusLine} |
             | **Benchmark Release Decision Knowledge Domain Control Plane Drift** | ${benchmarkReleaseKnowledgeDomainControlPlaneDriftStatusLine} |
             | **Benchmark Release Decision Knowledge Domain Release Gate** | ${benchmarkReleaseKnowledgeDomainReleaseGateStatusLine} |
+            | **Benchmark Release Decision Knowledge Domain Release Readiness Matrix** | ${benchmarkReleaseKnowledgeDomainReleaseReadinessMatrixStatusLine} |
             | **Benchmark Release Decision Knowledge Source Coverage** | ${benchmarkReleaseKnowledgeSourceCoverageStatusLine} |
             | **Benchmark Release Decision Knowledge Source Action Plan** | ${benchmarkReleaseKnowledgeSourceActionPlanStatusLine} |
             | **Benchmark Release Decision Knowledge Source Drift** | ${benchmarkReleaseKnowledgeSourceDriftStatusLine} |
@@ -12957,6 +13038,7 @@ jobs:
             | **Benchmark Release Runbook Knowledge Domain Control Plane** | ${benchmarkReleaseRunbookKnowledgeDomainControlPlaneStatusLine} |
             | **Benchmark Release Runbook Knowledge Domain Control Plane Drift** | ${benchmarkReleaseRunbookKnowledgeDomainControlPlaneDriftStatusLine} |
             | **Benchmark Release Runbook Knowledge Domain Release Gate** | ${benchmarkReleaseRunbookKnowledgeDomainReleaseGateStatusLine} |
+            | **Benchmark Release Runbook Knowledge Domain Release Readiness Matrix** | ${benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessMatrixStatusLine} |
             | **Benchmark Release Runbook Knowledge Source Coverage** | ${benchmarkReleaseRunbookKnowledgeSourceCoverageStatusLine} |
             | **Benchmark Release Runbook Knowledge Source Action Plan** | ${benchmarkReleaseRunbookKnowledgeSourceActionPlanStatusLine} |
             | **Benchmark Release Runbook Knowledge Source Drift** | ${benchmarkReleaseRunbookKnowledgeSourceDriftStatusLine} |
@@ -13012,8 +13094,7 @@ jobs:
             | **Benchmark Knowledge Domain Control Plane** | ${benchmarkKnowledgeDomainControlPlaneLight} | ${benchmarkKnowledgeDomainControlPlaneStatusLine} |
             | **Benchmark Knowledge Domain Control Plane Drift** | ${benchmarkKnowledgeDomainControlPlaneDriftLight} | ${benchmarkKnowledgeDomainControlPlaneDriftStatusLine} |
             | **Benchmark Knowledge Domain Release Gate** | ${benchmarkKnowledgeDomainReleaseGateLight} | ${benchmarkKnowledgeDomainReleaseGateStatusLine} |
-            | **Benchmark Knowledge Domain Release Surface Alignment** | ${benchmarkKnowledgeDomainReleaseSurfaceAlignmentLight} | ${benchmarkKnowledgeDomainReleaseSurfaceAlignmentStatusLine} |
-            | **Benchmark Knowledge Domain Release Gate** | ${benchmarkKnowledgeDomainReleaseGateLight} | ${benchmarkKnowledgeDomainReleaseGateStatusLine} |
+            | **Benchmark Knowledge Domain Release Readiness Matrix** | ${benchmarkKnowledgeDomainReleaseReadinessMatrixLight} | ${benchmarkKnowledgeDomainReleaseReadinessMatrixStatusLine} |
             | **Benchmark Knowledge Domain Release Surface Alignment** | ${benchmarkKnowledgeDomainReleaseSurfaceAlignmentLight} | ${benchmarkKnowledgeDomainReleaseSurfaceAlignmentStatusLine} |
             | **Benchmark Knowledge Reference Inventory** | ${benchmarkKnowledgeReferenceInventoryLight} | ${benchmarkKnowledgeReferenceInventoryStatusLine} |
             | **Benchmark Knowledge Source Coverage** | ${benchmarkKnowledgeSourceCoverageLight} | ${benchmarkKnowledgeSourceCoverageStatusLine} |
@@ -13042,6 +13123,7 @@ jobs:
             | **Benchmark Release Decision Operational Operator Outcome Drift** | ${benchmarkReleaseDecisionOperationalOperatorOutcomeDriftLight} | ${benchmarkReleaseOperationalOperatorAdoptionKnowledgeOutcomeDriftStatus || 'n/a'} / ${benchmarkReleaseOperationalOperatorAdoptionKnowledgeOutcomeDriftSummary || 'n/a'} |
             | **Benchmark Release Decision Release Surface Alignment** | ${benchmarkReleaseDecisionReleaseSurfaceAlignmentLight} | ${benchmarkReleaseOperatorAdoptionReleaseSurfaceAlignmentStatus || 'n/a'} / ${benchmarkReleaseOperatorAdoptionReleaseSurfaceAlignmentSummary || 'n/a'} |
             | **Benchmark Release Decision Knowledge Domain Release Gate** | ${benchmarkReleaseDecisionKnowledgeDomainReleaseGateLight} | ${benchmarkReleaseKnowledgeDomainReleaseGateStatusLine} |
+            | **Benchmark Release Decision Knowledge Domain Release Readiness Matrix** | ${benchmarkReleaseDecisionKnowledgeDomainReleaseReadinessMatrixLight} | ${benchmarkReleaseKnowledgeDomainReleaseReadinessMatrixStatusLine} |
             | **Benchmark Release Decision Knowledge Reference Inventory** | ${benchmarkReleaseDecisionKnowledgeReferenceInventoryLight} | ${benchmarkReleaseKnowledgeReferenceInventoryStatusLine} |
             | **Benchmark Release Runbook** | ${benchmarkReleaseRunbookLight} | ${benchmarkReleaseRunbookStatusLine} |
             | **Benchmark Release Runbook Competitive Surpass** | ${benchmarkReleaseRunbookCompetitiveSurpassLight} | ${benchmarkReleaseRunbookCompetitiveSurpassStatusLine} |
@@ -13053,6 +13135,7 @@ jobs:
             | **Benchmark Release Runbook Operational Operator Outcome Drift** | ${benchmarkReleaseRunbookOperationalOperatorOutcomeDriftLight} | ${benchmarkReleaseRunbookOperationalOperatorAdoptionKnowledgeOutcomeDriftStatus || 'n/a'} / ${benchmarkReleaseRunbookOperationalOperatorAdoptionKnowledgeOutcomeDriftSummary || 'n/a'} |
             | **Benchmark Release Runbook Release Surface Alignment** | ${benchmarkReleaseRunbookReleaseSurfaceAlignmentLight} | ${benchmarkReleaseRunbookOperatorAdoptionReleaseSurfaceAlignmentStatus || 'n/a'} / ${benchmarkReleaseRunbookOperatorAdoptionReleaseSurfaceAlignmentSummary || 'n/a'} |
             | **Benchmark Release Runbook Knowledge Domain Release Gate** | ${benchmarkReleaseRunbookKnowledgeDomainReleaseGateLight} | ${benchmarkReleaseRunbookKnowledgeDomainReleaseGateStatusLine} |
+            | **Benchmark Release Runbook Knowledge Domain Release Readiness Matrix** | ${benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessMatrixLight} | ${benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessMatrixStatusLine} |
             | **Benchmark Release Runbook Knowledge Reference Inventory** | ${benchmarkReleaseRunbookKnowledgeReferenceInventoryLight} | ${benchmarkReleaseRunbookKnowledgeReferenceInventoryStatusLine} |
             | **Benchmark Operator Adoption** | ${benchmarkOperatorAdoptionLight} | ${benchmarkOperatorAdoptionStatusLine} |
             | **Benchmark Operator Adoption Release Surface Alignment** | ${benchmarkOperatorAdoptionReleaseAlignmentLight} | ${benchmarkOperatorAdoptionReleaseSurfaceAlignmentStatus || 'n/a'} / ${benchmarkOperatorAdoptionReleaseSurfaceAlignmentSummary || 'n/a'} |

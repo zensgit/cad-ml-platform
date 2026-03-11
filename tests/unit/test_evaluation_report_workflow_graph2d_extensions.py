@@ -4872,3 +4872,67 @@ def test_workflow_wires_benchmark_knowledge_reference_inventory_pr_comment() -> 
         pr_comment_script
     )
     assert "Benchmark Companion Knowledge Reference Inventory" in pr_comment_script
+
+
+def test_workflow_wires_benchmark_knowledge_domain_release_readiness_matrix_pr_comment(
+) -> None:
+    workflow = _load_workflow()
+
+    pr_comment_step = _get_step(
+        workflow,
+        "evaluate",
+        "Comment PR with results",
+    )
+    pr_comment_script = pr_comment_step["with"]["script"]
+
+    assert "benchmarkKnowledgeDomainReleaseReadinessMatrixEnabled" in pr_comment_script
+    assert (
+        "benchmarkKnowledgeDomainReleaseReadinessMatrixStatusLine"
+        in pr_comment_script
+    )
+    assert (
+        "benchmarkArtifactBundleKnowledgeDomainReleaseReadinessMatrixStatusLine"
+        in pr_comment_script
+    )
+    assert (
+        "benchmarkCompanionKnowledgeDomainReleaseReadinessMatrixStatusLine"
+        in pr_comment_script
+    )
+    assert (
+        "benchmarkReleaseKnowledgeDomainReleaseReadinessMatrixStatusLine"
+        in pr_comment_script
+    )
+    assert (
+        "benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessMatrixStatusLine"
+        in pr_comment_script
+    )
+    assert (
+        "benchmarkKnowledgeDomainReleaseReadinessMatrixLight" in pr_comment_script
+    )
+    assert (
+        "benchmarkReleaseDecisionKnowledgeDomainReleaseReadinessMatrixLight"
+        in pr_comment_script
+    )
+    assert (
+        "benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessMatrixLight"
+        in pr_comment_script
+    )
+    assert (
+        "Benchmark Knowledge Domain Release Readiness Matrix" in pr_comment_script
+    )
+    assert (
+        "Benchmark Artifact Bundle Knowledge Domain Release Readiness Matrix"
+        in pr_comment_script
+    )
+    assert (
+        "Benchmark Companion Knowledge Domain Release Readiness Matrix"
+        in pr_comment_script
+    )
+    assert (
+        "Benchmark Release Decision Knowledge Domain Release Readiness Matrix"
+        in pr_comment_script
+    )
+    assert (
+        "Benchmark Release Runbook Knowledge Domain Release Readiness Matrix"
+        in pr_comment_script
+    )
