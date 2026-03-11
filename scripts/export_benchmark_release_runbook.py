@@ -1343,6 +1343,10 @@ def build_release_runbook(
             "benchmark_operator_adoption",
             "benchmark_knowledge_readiness",
             "benchmark_knowledge_drift",
+            # API surface matrix is an advisory benchmark plane. Keep it visible in
+            # the artifact table, but do not let a missing export outrank existing
+            # review-signal semantics in the release runbook.
+            "benchmark_knowledge_domain_api_surface_matrix",
             "benchmark_knowledge_domain_control_plane",
             "benchmark_realdata_scorecard",
         }
