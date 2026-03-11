@@ -4560,3 +4560,122 @@ def test_workflow_wires_benchmark_knowledge_reference_inventory_pr_comment() -> 
         pr_comment_script
     )
     assert "Benchmark Companion Knowledge Reference Inventory" in pr_comment_script
+
+
+def test_workflow_dispatch_inputs_include_release_readiness_action_plan() -> None:
+    workflow = _load_workflow()
+    dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
+    env = workflow["env"]
+    matrix_input = (
+        "benchmark_knowledge_domain_release_readiness_action_plan_"
+        "knowledge_domain_release_readiness_matrix_json"
+    )
+    drift_input = (
+        "benchmark_knowledge_domain_release_readiness_action_plan_"
+        "knowledge_domain_release_readiness_drift_json"
+    )
+    gate_input = (
+        "benchmark_knowledge_domain_release_readiness_action_plan_"
+        "knowledge_domain_release_gate_json"
+    )
+    matrix_env = (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_"
+        "KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_JSON"
+    )
+    drift_env = (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_"
+        "KNOWLEDGE_DOMAIN_RELEASE_READINESS_DRIFT_JSON"
+    )
+    gate_env = (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_"
+        "KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON"
+    )
+
+    assert "benchmark_knowledge_domain_release_readiness_action_plan_enable" in (
+        dispatch_inputs
+    )
+    assert matrix_input in dispatch_inputs
+    assert drift_input in dispatch_inputs
+    assert gate_input in dispatch_inputs
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_ENABLE" in env
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_TITLE" in env
+    )
+    assert matrix_env in env
+    assert drift_env in env
+    assert gate_env in env
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_OUTPUT_JSON"
+        in env
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_OUTPUT_MD"
+        in env
+    )
+
+
+def test_workflow_builds_release_readiness_action_plan_artifact() -> None:
+    workflow = _load_workflow()
+    matrix_ref = (
+        "benchmark_knowledge_domain_release_readiness_action_plan_"
+        "knowledge_domain_release_readiness_matrix_json"
+    )
+    drift_ref = (
+        "benchmark_knowledge_domain_release_readiness_action_plan_"
+        "knowledge_domain_release_readiness_drift_json"
+    )
+    gate_ref = (
+        "benchmark_knowledge_domain_release_readiness_action_plan_"
+        "knowledge_domain_release_gate_json"
+    )
+    upload_if = (
+        "steps.benchmark_knowledge_domain_release_readiness_action_plan.outputs."
+        "enabled == 'true'"
+    )
+
+    step = _get_step(
+        workflow,
+        "evaluate",
+        "Build benchmark knowledge domain release readiness action plan (optional)",
+    )
+    script = step["run"]
+
+    assert (
+        "scripts/export_benchmark_knowledge_domain_release_readiness_action_plan.py"
+        in script
+    )
+    assert matrix_ref in script
+    assert drift_ref in script
+    assert gate_ref in script
+    assert (
+        "steps.benchmark_knowledge_domain_release_gate.outputs.output_json" in script
+    )
+    assert "total_action_count=" in script
+    assert "high_priority_action_count=" in script
+    assert "medium_priority_action_count=" in script
+    assert "priority_domains=" in script
+    assert "recommended_first_actions=" in script
+    assert "recommendations=" in script
+
+    upload_step = _get_step(
+        workflow,
+        "evaluate",
+        "Upload benchmark knowledge domain release readiness action plan",
+    )
+    assert upload_step["if"] == upload_if
+
+
+def test_workflow_summarizes_release_readiness_action_plan() -> None:
+    workflow = _load_workflow()
+    summary_step = _get_step(workflow, "evaluate", "Create job summary")
+    summary_script = summary_step["run"]
+
+    assert (
+        "Benchmark knowledge domain release readiness action plan" in summary_script
+    )
+    assert "total actions" in summary_script
+    assert "high priority actions" in summary_script
+    assert "medium priority actions" in summary_script
+    assert "first actions" in summary_script
