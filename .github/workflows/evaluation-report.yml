@@ -310,6 +310,22 @@ on:
         description: 'Optional benchmark knowledge domain release gate release surface alignment JSON'
         required: false
         default: ''
+      benchmark_knowledge_domain_release_readiness_action_plan_enable:
+        description: 'Override: enable benchmark knowledge domain release readiness action plan export (true/false)'
+        required: false
+        default: ''
+      benchmark_knowledge_domain_release_readiness_action_plan_knowledge_domain_release_readiness_matrix_json:
+        description: 'Optional benchmark knowledge domain release readiness action plan matrix JSON'
+        required: false
+        default: ''
+      benchmark_knowledge_domain_release_readiness_action_plan_knowledge_domain_release_readiness_drift_json:
+        description: 'Optional benchmark knowledge domain release readiness action plan drift JSON'
+        required: false
+        default: ''
+      benchmark_knowledge_domain_release_readiness_action_plan_knowledge_domain_release_gate_json:
+        description: 'Optional benchmark knowledge domain release readiness action plan release gate JSON'
+        required: false
+        default: ''
       benchmark_knowledge_reference_inventory_enable:
         description: 'Override: enable benchmark knowledge reference inventory export (true/false)'
         required: false
@@ -1159,6 +1175,13 @@ env:
   BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_JSON }}
   BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_OUTPUT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_knowledge_domain_release_gate.json' }}
   BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_OUTPUT_MD: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_knowledge_domain_release_gate.md' }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_ENABLE: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_ENABLE || 'false' }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_TITLE: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_TITLE || 'Benchmark Knowledge Domain Release Readiness Action Plan' }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_JSON }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_KNOWLEDGE_DOMAIN_RELEASE_READINESS_DRIFT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_KNOWLEDGE_DOMAIN_RELEASE_READINESS_DRIFT_JSON }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_OUTPUT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_knowledge_domain_release_readiness_action_plan.json' }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_OUTPUT_MD: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_knowledge_domain_release_readiness_action_plan.md' }}
   BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_ENABLE: ${{ vars.BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_ENABLE || 'false' }}
   BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_TITLE: ${{ vars.BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_TITLE || 'Benchmark Knowledge Reference Inventory' }}
   BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_SNAPSHOT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_SNAPSHOT_JSON }}
@@ -3629,6 +3652,117 @@ jobs:
             f.write(
                 "recommended_first_action="
                 f"{compact([component.get('recommended_first_action')])}\n"
+            )
+            f.write(f"recommendations={compact(recommendations)}\n")
+        PY
+
+    - name: Build benchmark knowledge domain release readiness action plan (optional)
+      id: benchmark_knowledge_domain_release_readiness_action_plan
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_domain_release_readiness_action_plan_enable || '' }}"
+        ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+
+        OUTPUT_JSON="${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_OUTPUT_JSON:-reports/history_sequence_eval/benchmark_knowledge_domain_release_readiness_action_plan.json}"
+        OUTPUT_MD="${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_OUTPUT_MD:-reports/history_sequence_eval/benchmark_knowledge_domain_release_readiness_action_plan.md}"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+        mkdir -p "$(dirname "$OUTPUT_MD")"
+
+        CMD=(
+          python3 scripts/export_benchmark_knowledge_domain_release_readiness_action_plan.py
+          --title "${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_TITLE:-Benchmark Knowledge Domain Release Readiness Action Plan}"
+          --output-json "$OUTPUT_JSON"
+          --output-md "$OUTPUT_MD"
+        )
+        INPUT_COUNT=0
+
+        add_if_exists() {
+          local flag="$1"
+          local candidate="$2"
+          if [[ -n "$candidate" && -f "$candidate" ]]; then
+            CMD+=("$flag" "$candidate")
+            INPUT_COUNT=$((INPUT_COUNT + 1))
+          fi
+        }
+
+        add_if_exists --benchmark-knowledge-domain-release-readiness-matrix "${{ github.event.inputs.benchmark_knowledge_domain_release_readiness_action_plan_knowledge_domain_release_readiness_matrix_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-readiness-matrix "${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_JSON:-}"
+        add_if_exists --benchmark-knowledge-domain-release-readiness-drift "${{ github.event.inputs.benchmark_knowledge_domain_release_readiness_action_plan_knowledge_domain_release_readiness_drift_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-readiness-drift "${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_KNOWLEDGE_DOMAIN_RELEASE_READINESS_DRIFT_JSON:-}"
+        add_if_exists --benchmark-knowledge-domain-release-gate "${{ github.event.inputs.benchmark_knowledge_domain_release_readiness_action_plan_knowledge_domain_release_gate_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-gate "${{ steps.benchmark_knowledge_domain_release_gate.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-gate "${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON:-}"
+
+        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
+          if [[ "$INPUT_COUNT" -eq 0 ]]; then
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_ENABLE is not true and no inputs found; skip."
+            exit 0
+          fi
+        fi
+
+        if [[ "$INPUT_COUNT" -eq 0 ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "No benchmark knowledge domain release readiness action plan inputs found; skip."
+          exit 0
+        fi
+
+        "${CMD[@]}"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path(
+                os.environ[
+                    "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_OUTPUT_JSON"
+                ]
+            ).read_text(encoding="utf-8")
+        )
+        component = payload.get("knowledge_domain_release_readiness_action_plan") or {}
+        recommendations = payload.get("recommendations") or []
+
+        def compact(items):
+            return "; ".join(str(item).strip() for item in items[:3] if str(item).strip())
+
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"status={component.get('status', 'unknown')}\n")
+            f.write(
+                f"total_action_count={component.get('total_action_count', 0)}\n"
+            )
+            f.write(
+                "high_priority_action_count="
+                f"{component.get('high_priority_action_count', 0)}\n"
+            )
+            f.write(
+                "medium_priority_action_count="
+                f"{component.get('medium_priority_action_count', 0)}\n"
+            )
+            f.write(
+                "priority_domains="
+                f"{compact(component.get('priority_domains') or [])}\n"
+            )
+            f.write(
+                "recommended_first_actions="
+                + compact(
+                    [
+                        row.get("id")
+                        for row in (
+                            component.get("recommended_first_actions") or []
+                        )
+                        if row.get("id")
+                    ]
+                )
+                + "\n"
             )
             f.write(f"recommendations={compact(recommendations)}\n")
         PY
@@ -9263,6 +9397,14 @@ jobs:
         path: |
           ${{ steps.benchmark_knowledge_domain_release_gate.outputs.output_json }}
           ${{ steps.benchmark_knowledge_domain_release_gate.outputs.output_md }}
+    - name: Upload benchmark knowledge domain release readiness action plan
+      if: steps.benchmark_knowledge_domain_release_readiness_action_plan.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-knowledge-domain-release-readiness-action-plan-${{ github.run_number }}
+        path: |
+          ${{ steps.benchmark_knowledge_domain_release_readiness_action_plan.outputs.output_json }}
+          ${{ steps.benchmark_knowledge_domain_release_readiness_action_plan.outputs.output_md }}
     - name: Upload benchmark knowledge domain release surface alignment
       if: steps.benchmark_knowledge_domain_release_surface_alignment.outputs.enabled == 'true'
       uses: actions/upload-artifact@v4
@@ -9815,6 +9957,19 @@ jobs:
           echo "- Benchmark knowledge domain release gate artifact: ${{ steps.benchmark_knowledge_domain_release_gate.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
         else
           echo "- Benchmark knowledge domain release gate: skipped (BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_ENABLE!=true or no inputs)" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [[ "${{ steps.benchmark_knowledge_domain_release_readiness_action_plan.outputs.enabled }}" == "true" ]]; then
+          echo "- Benchmark knowledge domain release readiness action plan: ${{ steps.benchmark_knowledge_domain_release_readiness_action_plan.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain release readiness action plan total actions: ${{ steps.benchmark_knowledge_domain_release_readiness_action_plan.outputs.total_action_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain release readiness action plan high priority actions: ${{ steps.benchmark_knowledge_domain_release_readiness_action_plan.outputs.high_priority_action_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain release readiness action plan medium priority actions: ${{ steps.benchmark_knowledge_domain_release_readiness_action_plan.outputs.medium_priority_action_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain release readiness action plan priority domains: ${{ steps.benchmark_knowledge_domain_release_readiness_action_plan.outputs.priority_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain release readiness action plan first actions: ${{ steps.benchmark_knowledge_domain_release_readiness_action_plan.outputs.recommended_first_actions }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain release readiness action plan recommendations: ${{ steps.benchmark_knowledge_domain_release_readiness_action_plan.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain release readiness action plan artifact: ${{ steps.benchmark_knowledge_domain_release_readiness_action_plan.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Benchmark knowledge domain release readiness action plan: skipped (BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_ENABLE!=true or no inputs)" >> $GITHUB_STEP_SUMMARY
+        fi
         if [[ "${{ steps.benchmark_knowledge_domain_release_surface_alignment.outputs.enabled }}" == "true" ]]; then
           echo "- Benchmark knowledge domain release surface alignment status: ${{ steps.benchmark_knowledge_domain_release_surface_alignment.outputs.status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark knowledge domain release surface alignment summary: ${{ steps.benchmark_knowledge_domain_release_surface_alignment.outputs.summary }}" >> $GITHUB_STEP_SUMMARY
