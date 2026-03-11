@@ -2606,6 +2606,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert (
         upload_knowledge_domain_release_gate["if"]
         == "steps.benchmark_knowledge_domain_release_gate.outputs.enabled == 'true'"
+    )
     upload_knowledge_domain_release_surface_alignment = _get_step(
         workflow,
         "evaluate",
