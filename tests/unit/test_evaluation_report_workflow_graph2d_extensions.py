@@ -5153,3 +5153,61 @@ def test_workflow_wires_benchmark_knowledge_domain_release_readiness_matrix_pr_c
         "Benchmark Release Runbook Knowledge Domain Release Readiness Matrix"
         in pr_comment_script
     )
+
+
+def test_workflow_wires_benchmark_knowledge_domain_release_readiness_drift_pr_comment(
+) -> None:
+    workflow = _load_workflow()
+
+    pr_comment_step = _get_step(
+        workflow,
+        "evaluate",
+        "Comment PR with results",
+    )
+    pr_comment_script = pr_comment_step["with"]["script"]
+
+    assert "benchmarkKnowledgeDomainReleaseReadinessDriftEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeDomainReleaseReadinessDriftStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkArtifactBundleKnowledgeDomainReleaseReadinessDriftStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkCompanionKnowledgeDomainReleaseReadinessDriftStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkReleaseKnowledgeDomainReleaseReadinessDriftStatusLine" in (
+        pr_comment_script
+    )
+    assert (
+        "benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessDriftStatusLine"
+        in pr_comment_script
+    )
+    assert "benchmarkKnowledgeDomainReleaseReadinessDriftLight" in pr_comment_script
+    assert (
+        "benchmarkReleaseDecisionKnowledgeDomainReleaseReadinessDriftLight"
+        in pr_comment_script
+    )
+    assert (
+        "benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessDriftLight"
+        in pr_comment_script
+    )
+    assert (
+        "Benchmark Knowledge Domain Release Readiness Drift" in pr_comment_script
+    )
+    assert (
+        "Benchmark Artifact Bundle Knowledge Domain Release Readiness Drift"
+        in pr_comment_script
+    )
+    assert (
+        "Benchmark Companion Knowledge Domain Release Readiness Drift"
+        in pr_comment_script
+    )
+    assert (
+        "Benchmark Release Decision Knowledge Domain Release Readiness Drift"
+        in pr_comment_script
+    )
+    assert (
+        "Benchmark Release Runbook Knowledge Domain Release Readiness Drift"
+        in pr_comment_script
+    )
