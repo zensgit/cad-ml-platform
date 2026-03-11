@@ -1231,6 +1231,7 @@ def build_release_runbook(
             "benchmark_operator_adoption",
             "benchmark_knowledge_readiness",
             "benchmark_knowledge_drift",
+            "benchmark_knowledge_domain_control_plane",
             "benchmark_realdata_scorecard",
         }
         and not row["present"]
