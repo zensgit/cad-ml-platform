@@ -296,6 +296,80 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
     assert "## Knowledge Source Coverage" in markdown
 
 
+def test_build_companion_summary_exposes_knowledge_reference_inventory_passthrough() -> None:
+    payload = build_companion_summary(
+        title="Benchmark Companion",
+        benchmark_scorecard={
+            "overall_status": "healthy",
+            "components": {"hybrid": {"status": "healthy"}},
+        },
+        benchmark_operational_summary={},
+        benchmark_artifact_bundle={},
+        benchmark_knowledge_readiness={},
+        benchmark_knowledge_drift={},
+        benchmark_engineering_signals={},
+        benchmark_realdata_signals={},
+        benchmark_operator_adoption={},
+        benchmark_knowledge_reference_inventory={
+            "knowledge_reference_inventory": {
+                "status": "knowledge_reference_inventory_partial",
+                "ready_domain_count": 2,
+                "total_domain_count": 3,
+                "total_reference_items": 24,
+                "populated_table_count": 4,
+                "total_table_count": 5,
+                "priority_domains": ["standards"],
+                "domains": {
+                    "standards": {
+                        "status": "partial",
+                        "total_reference_items": 9,
+                        "populated_table_count": 1,
+                        "total_table_count": 2,
+                        "missing_tables": ["thread_series"],
+                    }
+                },
+                "focus_tables_detail": [
+                    {
+                        "domain": "standards",
+                        "missing_tables": ["thread_series"],
+                        "action": "Backfill standards reference tables: thread_series",
+                    }
+                ],
+            },
+            "recommendations": [
+                "Backfill standards reference tables: thread_series"
+            ],
+        },
+        artifact_paths={
+            "benchmark_knowledge_reference_inventory": (
+                "knowledge_reference_inventory.json"
+            )
+        },
+    )
+
+    assert payload["component_statuses"]["knowledge_reference_inventory"] == (
+        "knowledge_reference_inventory_partial"
+    )
+    assert payload["artifacts"]["benchmark_knowledge_reference_inventory"]["present"] is True
+    assert payload["knowledge_reference_inventory_status"] == (
+        "knowledge_reference_inventory_partial"
+    )
+    assert payload["knowledge_reference_inventory_summary"] == (
+        "domains=2/3 ready, references=24, tables=4/5"
+    )
+    assert payload["knowledge_reference_inventory_priority_domains"] == ["standards"]
+    assert payload["knowledge_reference_inventory_total_reference_items"] == 24
+    assert payload["knowledge_reference_inventory_recommendations"] == [
+        "Backfill standards reference tables: thread_series"
+    ]
+    assert payload["recommended_actions"] == [
+        "Backfill standards reference tables: thread_series"
+    ]
+    markdown = render_markdown(payload)
+    assert "## Knowledge Reference Inventory" in markdown
+    assert "Backfill standards reference tables: thread_series" in markdown
+
+
 def test_render_markdown_includes_sections() -> None:
     payload = {
         "title": "Benchmark Companion",
@@ -685,6 +759,44 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    knowledge_reference_inventory = tmp_path / "knowledge_reference_inventory.json"
+    knowledge_reference_inventory.write_text(
+        json.dumps(
+            {
+                "knowledge_reference_inventory": {
+                    "status": "knowledge_reference_inventory_partial",
+                    "ready_domain_count": 2,
+                    "total_domain_count": 3,
+                    "total_reference_items": 31,
+                    "populated_table_count": 4,
+                    "total_table_count": 5,
+                    "priority_domains": ["standards"],
+                    "domains": {
+                        "standards": {
+                            "status": "partial",
+                            "total_reference_items": 9,
+                            "populated_table_count": 1,
+                            "total_table_count": 2,
+                            "missing_tables": ["thread_series"],
+                        }
+                    },
+                    "focus_tables_detail": [
+                        {
+                            "domain": "standards",
+                            "missing_tables": ["thread_series"],
+                            "action": (
+                                "Backfill standards reference tables: thread_series"
+                            ),
+                        }
+                    ],
+                },
+                "recommendations": [
+                    "Backfill standards reference tables: thread_series"
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     subprocess.run(
         [
@@ -714,6 +826,8 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
             str(knowledge_domain_matrix),
             "--benchmark-knowledge-domain-capability-matrix",
             str(knowledge_domain_capability_matrix),
+            "--benchmark-knowledge-reference-inventory",
+            str(knowledge_reference_inventory),
             "--benchmark-knowledge-outcome-correlation",
             str(knowledge_outcome_correlation),
             "--output-json",
@@ -740,6 +854,9 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     assert payload["component_statuses"]["knowledge_domain_capability_matrix"] == (
         "knowledge_domain_capability_ready"
     )
+    assert payload["component_statuses"]["knowledge_reference_inventory"] == (
+        "knowledge_reference_inventory_partial"
+    )
     assert payload["component_statuses"]["knowledge_outcome_correlation"] == (
         "knowledge_outcome_correlation_ready"
     )
@@ -756,12 +873,17 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     assert payload["knowledge_domain_capability_matrix_status"] == (
         "knowledge_domain_capability_ready"
     )
+    assert payload["knowledge_reference_inventory_status"] == (
+        "knowledge_reference_inventory_partial"
+    )
     assert payload["knowledge_outcome_correlation_status"] == (
         "knowledge_outcome_correlation_ready"
     )
     assert payload["knowledge_drift_domain_improvements"] == []
     assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
+    assert payload["artifacts"]["benchmark_knowledge_reference_inventory"]["present"] is True
     assert output_md.exists()
+    assert "## Knowledge Reference Inventory" in output_md.read_text(encoding="utf-8")
 
 
 def test_build_companion_summary_exposes_knowledge_drift_passthrough() -> None:
@@ -1158,3 +1280,47 @@ def test_build_companion_summary_exposes_competitive_surpass_action_plan_passthr
     ] is True
     markdown = render_markdown(payload)
     assert "## Competitive Surpass Action Plan" in markdown
+
+
+def test_build_companion_summary_exposes_knowledge_reference_inventory() -> None:
+    payload = build_companion_summary(
+        title="Benchmark Companion",
+        benchmark_scorecard={},
+        benchmark_operational_summary={},
+        benchmark_artifact_bundle={},
+        benchmark_knowledge_readiness={},
+        benchmark_knowledge_drift={},
+        benchmark_engineering_signals={},
+        benchmark_realdata_signals={},
+        benchmark_operator_adoption={},
+        benchmark_knowledge_reference_inventory={
+            "knowledge_reference_inventory": {
+                "status": "knowledge_reference_inventory_partial",
+                "priority_domains": ["tolerance", "standards"],
+                "total_reference_items": 42,
+                "domains": {
+                    "tolerance": {"status": "partial"},
+                    "standards": {"status": "blocked"},
+                },
+            },
+            "recommendations": ["Backfill tolerance and standards reference tables."],
+        },
+        artifact_paths={
+            "benchmark_knowledge_reference_inventory": (
+                "knowledge_reference_inventory.json"
+            )
+        },
+    )
+
+    assert payload["component_statuses"]["knowledge_reference_inventory"] == (
+        "knowledge_reference_inventory_partial"
+    )
+    assert payload["knowledge_reference_inventory_status"] == (
+        "knowledge_reference_inventory_partial"
+    )
+    assert payload["knowledge_reference_inventory_priority_domains"] == [
+        "tolerance",
+        "standards",
+    ]
+    assert payload["knowledge_reference_inventory_total_reference_items"] == 42
+    assert payload["artifacts"]["benchmark_knowledge_reference_inventory"]["present"] is True

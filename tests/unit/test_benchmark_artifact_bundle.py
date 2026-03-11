@@ -561,6 +561,39 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
             "recommendations": ["Promote machining source coverage next."],
         },
     )
+    knowledge_reference_inventory = _write_json(
+        tmp_path / "knowledge_reference_inventory.json",
+        {
+            "knowledge_reference_inventory": {
+                "status": "knowledge_reference_inventory_partial",
+                "ready_domain_count": 2,
+                "total_domain_count": 3,
+                "total_reference_items": 31,
+                "populated_table_count": 4,
+                "total_table_count": 5,
+                "priority_domains": ["standards"],
+                "domains": {
+                    "standards": {
+                        "status": "partial",
+                        "total_reference_items": 9,
+                        "populated_table_count": 1,
+                        "total_table_count": 2,
+                        "missing_tables": ["thread_series"],
+                    }
+                },
+                "focus_tables_detail": [
+                    {
+                        "domain": "standards",
+                        "missing_tables": ["thread_series"],
+                        "action": "Backfill standards reference tables: thread_series",
+                    }
+                ],
+            },
+            "recommendations": [
+                "Backfill standards reference tables: thread_series"
+            ],
+        },
+    )
     output_json = tmp_path / "bundle.json"
     output_md = tmp_path / "bundle.md"
 
@@ -586,6 +619,8 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
             str(realdata),
             "--benchmark-operator-adoption",
             str(operator),
+            "--benchmark-knowledge-reference-inventory",
+            str(knowledge_reference_inventory),
             "--benchmark-knowledge-source-action-plan",
             str(knowledge_source_action_plan),
             "--benchmark-knowledge-source-coverage",
@@ -619,6 +654,9 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
     assert payload["component_statuses"]["realdata_signals"] == "realdata_foundation_partial"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
+    assert payload["component_statuses"]["knowledge_reference_inventory"] == (
+        "knowledge_reference_inventory_partial"
+    )
     assert payload["component_statuses"]["knowledge_source_coverage"] == (
         "knowledge_source_coverage_ready"
     )
@@ -632,6 +670,10 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
     )
     assert payload["artifacts"]["benchmark_knowledge_source_coverage"]["present"] is True
     assert payload["artifacts"]["benchmark_knowledge_source_action_plan"]["present"] is True
+    assert payload["artifacts"]["benchmark_knowledge_reference_inventory"]["present"] is True
+    assert payload["knowledge_reference_inventory_status"] == (
+        "knowledge_reference_inventory_partial"
+    )
     assert payload["knowledge_source_action_plan_status"] == (
         "knowledge_source_action_plan_ready"
     )
@@ -645,6 +687,7 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
     assert "review queue backlog" in output_md.read_text(encoding="utf-8")
     assert "## Knowledge Domains" in output_md.read_text(encoding="utf-8")
     assert "## Knowledge Domain Matrix" in output_md.read_text(encoding="utf-8")
+    assert "## Knowledge Reference Inventory" in output_md.read_text(encoding="utf-8")
     assert "## Knowledge Source Coverage" in output_md.read_text(encoding="utf-8")
     assert "## Operator Adoption Release Surface Alignment" in output_md.read_text(
         encoding="utf-8"
@@ -708,6 +751,102 @@ def test_build_bundle_prefers_companion_summary_when_present() -> None:
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_partial"
     assert payload["component_statuses"]["engineering_signals"] == "partial_engineering_semantics"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
+
+
+def test_build_bundle_exposes_knowledge_reference_inventory_passthrough() -> None:
+    payload = module.build_bundle(
+        title="Benchmark Artifact Bundle",
+        benchmark_scorecard={
+            "overall_status": "benchmark_ready_with_multisignal_evidence",
+            "components": {"hybrid": {"status": "ready"}},
+        },
+        benchmark_operational_summary={},
+        benchmark_companion_summary={},
+        benchmark_release_decision={},
+        benchmark_knowledge_readiness={},
+        benchmark_knowledge_drift={},
+        benchmark_engineering_signals={},
+        benchmark_realdata_signals={},
+        benchmark_operator_adoption={},
+        benchmark_knowledge_reference_inventory={
+            "knowledge_reference_inventory": {
+                "status": "knowledge_reference_inventory_partial",
+                "ready_domain_count": 1,
+                "total_domain_count": 3,
+                "total_reference_items": 19,
+                "populated_table_count": 3,
+                "total_table_count": 5,
+                "priority_domains": ["standards", "gdt"],
+                "domains": {
+                    "tolerance": {
+                        "status": "ready",
+                        "total_reference_items": 11,
+                        "populated_table_count": 2,
+                        "total_table_count": 2,
+                        "missing_tables": [],
+                    },
+                    "standards": {
+                        "status": "partial",
+                        "total_reference_items": 8,
+                        "populated_table_count": 1,
+                        "total_table_count": 2,
+                        "missing_tables": ["thread_series"],
+                    },
+                    "gdt": {
+                        "status": "blocked",
+                        "total_reference_items": 0,
+                        "populated_table_count": 0,
+                        "total_table_count": 1,
+                        "missing_tables": ["datum_symbols"],
+                    },
+                },
+                "focus_tables_detail": [
+                    {
+                        "domain": "standards",
+                        "missing_tables": ["thread_series"],
+                        "action": "Backfill standards reference tables: thread_series",
+                    }
+                ],
+            },
+            "recommendations": [
+                "Backfill standards reference tables: thread_series"
+            ],
+        },
+        feedback_flywheel={},
+        assistant_evidence={},
+        review_queue={},
+        ocr_review={},
+        artifact_paths={
+            "benchmark_knowledge_reference_inventory": (
+                "knowledge_reference_inventory.json"
+            )
+        },
+    )
+
+    assert payload["component_statuses"]["knowledge_reference_inventory"] == (
+        "knowledge_reference_inventory_partial"
+    )
+    assert payload["artifacts"]["benchmark_knowledge_reference_inventory"]["present"] is True
+    assert payload["knowledge_reference_inventory_status"] == (
+        "knowledge_reference_inventory_partial"
+    )
+    assert payload["knowledge_reference_inventory_summary"] == (
+        "domains=1/3 ready, references=19, tables=3/5"
+    )
+    assert payload["knowledge_reference_inventory_priority_domains"] == [
+        "standards",
+        "gdt",
+    ]
+    assert payload["knowledge_reference_inventory_total_reference_items"] == 19
+    assert payload["knowledge_reference_inventory_recommendations"] == [
+        "Backfill standards reference tables: thread_series"
+    ]
+    assert payload["recommendations"] == [
+        "Backfill standards reference tables: thread_series"
+    ]
+    markdown = module.render_markdown(payload)
+    assert "## Knowledge Reference Inventory" in markdown
+    assert "Backfill standards reference tables: thread_series" in markdown
 
 
 def test_build_bundle_prefers_release_decision_when_present() -> None:
@@ -1099,3 +1238,54 @@ def test_build_bundle_exposes_competitive_surpass_action_plan_passthrough() -> N
     ] is True
     markdown = module.render_markdown(payload)
     assert "## Competitive Surpass Action Plan" in markdown
+
+
+def test_build_bundle_exposes_knowledge_reference_inventory() -> None:
+    payload = module.build_bundle(
+        title="Benchmark Artifact Bundle",
+        benchmark_scorecard={},
+        benchmark_operational_summary={},
+        benchmark_companion_summary={},
+        benchmark_release_decision={},
+        benchmark_knowledge_readiness={},
+        benchmark_knowledge_drift={},
+        benchmark_engineering_signals={},
+        benchmark_realdata_signals={},
+        benchmark_operator_adoption={},
+        benchmark_knowledge_reference_inventory={
+            "knowledge_reference_inventory": {
+                "status": "knowledge_reference_inventory_partial",
+                "priority_domains": ["tolerance", "standards"],
+                "total_reference_items": 42,
+                "domains": {
+                    "tolerance": {"status": "partial"},
+                    "standards": {"status": "blocked"},
+                },
+            },
+            "recommendations": ["Backfill tolerance and standards reference tables."],
+        },
+        artifact_paths={
+            "benchmark_knowledge_reference_inventory": (
+                "knowledge_reference_inventory.json"
+            )
+        },
+        feedback_flywheel={},
+        assistant_evidence={},
+        review_queue={},
+        ocr_review={},
+    )
+
+    assert payload["component_statuses"]["knowledge_reference_inventory"] == (
+        "knowledge_reference_inventory_partial"
+    )
+    assert payload["knowledge_reference_inventory_status"] == (
+        "knowledge_reference_inventory_partial"
+    )
+    assert payload["knowledge_reference_inventory_priority_domains"] == [
+        "tolerance",
+        "standards",
+    ]
+    assert payload["knowledge_reference_inventory_total_reference_items"] == 42
+    assert payload["artifacts"]["benchmark_knowledge_reference_inventory"]["present"] is True
+    markdown = module.render_markdown(payload)
+    assert "## Knowledge Reference Inventory" in markdown
