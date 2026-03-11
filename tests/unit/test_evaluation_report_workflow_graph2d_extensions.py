@@ -386,6 +386,28 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
         "benchmark_knowledge_domain_release_gate_knowledge_domain_release_surface_alignment_json"
         in dispatch_inputs
     )
+    assert (
+        "benchmark_knowledge_domain_release_readiness_matrix_enable"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_knowledge_domain_release_readiness_matrix_knowledge_domain_"
+        "validation_matrix_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_knowledge_domain_release_readiness_matrix_knowledge_domain_release_gate_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_knowledge_domain_release_readiness_matrix_knowledge_reference_inventory_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_knowledge_domain_release_readiness_matrix_knowledge_domain_"
+        "release_surface_alignment_json"
+        in dispatch_inputs
+    )
     assert "benchmark_knowledge_source_coverage_enable" in dispatch_inputs
     assert "benchmark_knowledge_source_action_plan_enable" in dispatch_inputs
     assert (
@@ -515,6 +537,10 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_artifact_bundle_knowledge_application_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_knowledge_domain_action_plan_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_knowledge_domain_release_gate_json" in dispatch_inputs
+    assert (
+        "benchmark_artifact_bundle_knowledge_domain_release_readiness_matrix_json"
+        in dispatch_inputs
+    )
     assert "benchmark_artifact_bundle_knowledge_source_coverage_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_knowledge_source_action_plan_json" in dispatch_inputs
     assert (
@@ -538,6 +564,10 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_companion_summary_knowledge_application_json" in dispatch_inputs
     assert "benchmark_companion_summary_knowledge_domain_action_plan_json" in dispatch_inputs
     assert "benchmark_companion_summary_knowledge_domain_release_gate_json" in dispatch_inputs
+    assert (
+        "benchmark_companion_summary_knowledge_domain_release_readiness_matrix_json"
+        in dispatch_inputs
+    )
     assert "benchmark_companion_summary_knowledge_source_coverage_json" in dispatch_inputs
     assert "benchmark_companion_summary_knowledge_source_action_plan_json" in dispatch_inputs
     assert "benchmark_companion_summary_competitive_surpass_index_json" in dispatch_inputs
@@ -569,6 +599,10 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_release_decision_knowledge_application_json" in dispatch_inputs
     assert "benchmark_release_decision_knowledge_domain_release_gate_json" in dispatch_inputs
     assert (
+        "benchmark_release_decision_knowledge_domain_release_readiness_matrix_json"
+        in dispatch_inputs
+    )
+    assert (
         "benchmark_release_decision_knowledge_reference_inventory_json"
         in dispatch_inputs
     )
@@ -598,6 +632,10 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_release_runbook_knowledge_drift_json" in dispatch_inputs
     assert "benchmark_release_runbook_knowledge_application_json" in dispatch_inputs
     assert "benchmark_release_runbook_knowledge_domain_release_gate_json" in dispatch_inputs
+    assert (
+        "benchmark_release_runbook_knowledge_domain_release_readiness_matrix_json"
+        in dispatch_inputs
+    )
     assert (
         "benchmark_release_runbook_knowledge_reference_inventory_json"
         in dispatch_inputs
@@ -1678,6 +1716,27 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_domain_release_gate_blocked_domains=" in benchmark_bundle_script
     assert "knowledge_domain_release_gate_priority_domains=" in benchmark_bundle_script
     assert "knowledge_domain_release_gate_recommendations=" in benchmark_bundle_script
+    assert "--benchmark-knowledge-domain-release-readiness-matrix" in (
+        benchmark_bundle_script
+    )
+    assert "knowledge_domain_release_readiness_matrix_status=" in benchmark_bundle_script
+    assert "knowledge_domain_release_readiness_matrix_summary=" in benchmark_bundle_script
+    assert (
+        "knowledge_domain_release_readiness_matrix_priority_domains="
+        in benchmark_bundle_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_matrix_releasable_domains="
+        in benchmark_bundle_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_matrix_blocked_domains="
+        in benchmark_bundle_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_matrix_recommendations="
+        in benchmark_bundle_script
+    )
     assert "knowledge_source_coverage_status=" in benchmark_bundle_script
     assert "knowledge_source_coverage_domain_statuses=" in benchmark_bundle_script
     assert "knowledge_source_coverage_expansion_candidates=" in benchmark_bundle_script
@@ -1865,6 +1924,33 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_domain_release_gate_blocked_domains=" in benchmark_companion_script
     assert "knowledge_domain_release_gate_priority_domains=" in benchmark_companion_script
     assert "knowledge_domain_release_gate_recommendations=" in benchmark_companion_script
+    assert "--benchmark-knowledge-domain-release-readiness-matrix" in (
+        benchmark_companion_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_matrix_status="
+        in benchmark_companion_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_matrix_summary="
+        in benchmark_companion_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_matrix_priority_domains="
+        in benchmark_companion_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_matrix_releasable_domains="
+        in benchmark_companion_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_matrix_blocked_domains="
+        in benchmark_companion_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_matrix_recommendations="
+        in benchmark_companion_script
+    )
     assert "knowledge_source_coverage_status=" in benchmark_companion_script
     assert "knowledge_source_coverage_domain_statuses=" in benchmark_companion_script
     assert "knowledge_source_coverage_expansion_candidates=" in benchmark_companion_script
@@ -2041,6 +2127,41 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_domain_release_gate_priority_domains=" in benchmark_release_script
     assert "knowledge_domain_release_gate_blocking_reasons=" in benchmark_release_script
     assert "knowledge_domain_release_gate_recommendations=" in benchmark_release_script
+    assert "--benchmark-knowledge-domain-release-readiness-matrix" in (
+        benchmark_release_script
+    )
+    assert (
+        "benchmark_release_decision_knowledge_domain_release_readiness_matrix_json"
+        in benchmark_release_script
+    )
+    assert (
+        "steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.output_json"
+        in benchmark_release_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_matrix_status="
+        in benchmark_release_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_matrix_summary="
+        in benchmark_release_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_matrix_priority_domains="
+        in benchmark_release_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_matrix_releasable_domains="
+        in benchmark_release_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_matrix_blocked_domains="
+        in benchmark_release_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_matrix_recommendations="
+        in benchmark_release_script
+    )
     assert "--benchmark-knowledge-reference-inventory" in benchmark_release_script
     assert (
         "benchmark_release_decision_knowledge_reference_inventory_json"
@@ -2238,6 +2359,41 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_domain_release_gate_priority_domains=" in benchmark_runbook_script
     assert "knowledge_domain_release_gate_blocking_reasons=" in benchmark_runbook_script
     assert "knowledge_domain_release_gate_recommendations=" in benchmark_runbook_script
+    assert "--benchmark-knowledge-domain-release-readiness-matrix" in (
+        benchmark_runbook_script
+    )
+    assert (
+        "benchmark_release_runbook_knowledge_domain_release_readiness_matrix_json"
+        in benchmark_runbook_script
+    )
+    assert (
+        "steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.output_json"
+        in benchmark_runbook_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_matrix_status="
+        in benchmark_runbook_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_matrix_summary="
+        in benchmark_runbook_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_matrix_priority_domains="
+        in benchmark_runbook_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_matrix_releasable_domains="
+        in benchmark_runbook_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_matrix_blocked_domains="
+        in benchmark_runbook_script
+    )
+    assert (
+        "knowledge_domain_release_readiness_matrix_recommendations="
+        in benchmark_runbook_script
+    )
     assert "--benchmark-knowledge-reference-inventory" in benchmark_runbook_script
     assert (
         "benchmark_release_runbook_knowledge_reference_inventory_json"
@@ -4534,6 +4690,162 @@ def test_workflow_wires_benchmark_knowledge_reference_inventory() -> None:
     assert "Benchmark knowledge reference inventory status" in summary_script
     assert "Benchmark artifact bundle knowledge reference inventory" in summary_script
     assert "Benchmark companion knowledge reference inventory" in summary_script
+
+
+def test_workflow_wires_benchmark_knowledge_domain_release_readiness_matrix() -> None:
+    workflow = _load_workflow()
+    env = workflow["env"]
+    dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
+
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_ENABLE"
+        in env
+    )
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_TITLE" in env
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_KNOWLEDGE_DOMAIN_"
+        "VALIDATION_MATRIX_JSON"
+        in env
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON"
+        in env
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_KNOWLEDGE_REFERENCE_INVENTORY_JSON"
+        in env
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_KNOWLEDGE_DOMAIN_"
+        "RELEASE_SURFACE_ALIGNMENT_JSON"
+        in env
+    )
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_OUTPUT_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_OUTPUT_MD" in env
+    assert (
+        "BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_JSON"
+        in env
+    )
+    assert (
+        "BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_JSON"
+        in env
+    )
+    assert (
+        "BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_JSON"
+        in env
+    )
+    assert (
+        "BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_JSON"
+        in env
+    )
+
+    assert (
+        "benchmark_knowledge_domain_release_readiness_matrix_enable"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_knowledge_domain_release_readiness_matrix_knowledge_domain_"
+        "validation_matrix_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_knowledge_domain_release_readiness_matrix_knowledge_domain_release_gate_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_knowledge_domain_release_readiness_matrix_knowledge_reference_inventory_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_knowledge_domain_release_readiness_matrix_knowledge_domain_"
+        "release_surface_alignment_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_artifact_bundle_knowledge_domain_release_readiness_matrix_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_companion_summary_knowledge_domain_release_readiness_matrix_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_release_decision_knowledge_domain_release_readiness_matrix_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_release_runbook_knowledge_domain_release_readiness_matrix_json"
+        in dispatch_inputs
+    )
+
+    build_step = _get_step(
+        workflow,
+        "evaluate",
+        "Build benchmark knowledge domain release readiness matrix (optional)",
+    )
+    build_script = build_step["run"]
+    assert (
+        "scripts/export_benchmark_knowledge_domain_release_readiness_matrix.py"
+        in build_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_ENABLE"
+        in build_script
+    )
+    assert (
+        "benchmark_knowledge_domain_release_readiness_matrix_knowledge_domain_"
+        "validation_matrix_json"
+        in build_script
+    )
+    assert (
+        "benchmark_knowledge_domain_release_readiness_matrix_knowledge_domain_release_gate_json"
+        in build_script
+    )
+    assert (
+        "benchmark_knowledge_domain_release_readiness_matrix_knowledge_reference_inventory_json"
+        in build_script
+    )
+    assert (
+        "benchmark_knowledge_domain_release_readiness_matrix_knowledge_domain_"
+        "release_surface_alignment_json"
+        in build_script
+    )
+    assert "ready_domain_count=" in build_script
+    assert "partial_domain_count=" in build_script
+    assert "blocked_domain_count=" in build_script
+    assert "priority_domains=" in build_script
+    assert "releasable_domains=" in build_script
+    assert "blocked_domains=" in build_script
+    assert "recommendations=" in build_script
+
+    upload_step = _get_step(
+        workflow,
+        "evaluate",
+        "Upload benchmark knowledge domain release readiness matrix",
+    )
+    assert (
+        upload_step["if"]
+        == "steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.enabled == 'true'"
+    )
+
+    summary_step = _get_step(workflow, "evaluate", "Create job summary")
+    summary_script = summary_step["run"]
+    assert "Benchmark knowledge domain release readiness matrix status" in summary_script
+    assert (
+        "Benchmark artifact bundle knowledge domain release readiness matrix"
+        in summary_script
+    )
+    assert (
+        "Benchmark companion knowledge domain release readiness matrix"
+        in summary_script
+    )
+    assert (
+        "Benchmark release knowledge domain release readiness matrix" in summary_script
+    )
+    assert (
+        "Benchmark release runbook knowledge domain release readiness matrix"
+        in summary_script
+    )
 
 
 def test_workflow_wires_benchmark_knowledge_reference_inventory_pr_comment() -> None:

@@ -310,6 +310,26 @@ on:
         description: 'Optional benchmark knowledge domain release gate release surface alignment JSON'
         required: false
         default: ''
+      benchmark_knowledge_domain_release_readiness_matrix_enable:
+        description: 'Override: enable benchmark knowledge domain release readiness matrix export (true/false)'
+        required: false
+        default: ''
+      benchmark_knowledge_domain_release_readiness_matrix_knowledge_domain_validation_matrix_json:
+        description: 'Optional benchmark knowledge domain release readiness matrix validation matrix JSON'
+        required: false
+        default: ''
+      benchmark_knowledge_domain_release_readiness_matrix_knowledge_domain_release_gate_json:
+        description: 'Optional benchmark knowledge domain release readiness matrix release gate JSON'
+        required: false
+        default: ''
+      benchmark_knowledge_domain_release_readiness_matrix_knowledge_reference_inventory_json:
+        description: 'Optional benchmark knowledge domain release readiness matrix reference inventory JSON'
+        required: false
+        default: ''
+      benchmark_knowledge_domain_release_readiness_matrix_knowledge_domain_release_surface_alignment_json:
+        description: 'Optional benchmark knowledge domain release readiness matrix release surface alignment JSON'
+        required: false
+        default: ''
       benchmark_knowledge_reference_inventory_enable:
         description: 'Override: enable benchmark knowledge reference inventory export (true/false)'
         required: false
@@ -598,6 +618,10 @@ on:
         description: 'Optional benchmark artifact bundle knowledge domain release gate JSON'
         required: false
         default: ''
+      benchmark_artifact_bundle_knowledge_domain_release_readiness_matrix_json:
+        description: 'Optional benchmark artifact bundle knowledge domain release readiness matrix JSON'
+        required: false
+        default: ''
       benchmark_artifact_bundle_knowledge_domain_action_plan_json:
         description: 'Optional benchmark artifact bundle knowledge domain action plan JSON'
         required: false
@@ -700,6 +724,10 @@ on:
         default: ''
       benchmark_companion_summary_knowledge_domain_release_gate_json:
         description: 'Optional benchmark companion summary knowledge domain release gate JSON'
+        required: false
+        default: ''
+      benchmark_companion_summary_knowledge_domain_release_readiness_matrix_json:
+        description: 'Optional benchmark companion summary knowledge domain release readiness matrix JSON'
         required: false
         default: ''
       benchmark_companion_summary_knowledge_domain_action_plan_json:
@@ -814,6 +842,10 @@ on:
         description: 'Optional benchmark release decision knowledge domain release gate JSON'
         required: false
         default: ''
+      benchmark_release_decision_knowledge_domain_release_readiness_matrix_json:
+        description: 'Optional benchmark release decision knowledge domain release readiness matrix JSON'
+        required: false
+        default: ''
       benchmark_release_decision_knowledge_reference_inventory_json:
         description: 'Optional benchmark release decision knowledge reference inventory JSON'
         required: false
@@ -916,6 +948,10 @@ on:
         default: ''
       benchmark_release_runbook_knowledge_domain_release_gate_json:
         description: 'Optional benchmark release runbook knowledge domain release gate JSON'
+        required: false
+        default: ''
+      benchmark_release_runbook_knowledge_domain_release_readiness_matrix_json:
+        description: 'Optional benchmark release runbook knowledge domain release readiness matrix JSON'
         required: false
         default: ''
       benchmark_release_runbook_knowledge_reference_inventory_json:
@@ -1159,6 +1195,14 @@ env:
   BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_JSON }}
   BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_OUTPUT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_knowledge_domain_release_gate.json' }}
   BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_OUTPUT_MD: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_knowledge_domain_release_gate.md' }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_ENABLE: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_ENABLE || 'false' }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_TITLE: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_TITLE || 'Benchmark Knowledge Domain Release Readiness Matrix' }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_JSON }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_KNOWLEDGE_REFERENCE_INVENTORY_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_KNOWLEDGE_REFERENCE_INVENTORY_JSON }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_JSON }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_OUTPUT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_knowledge_domain_release_readiness_matrix.json' }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_OUTPUT_MD: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_knowledge_domain_release_readiness_matrix.md' }}
   BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_ENABLE: ${{ vars.BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_ENABLE || 'false' }}
   BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_TITLE: ${{ vars.BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_TITLE || 'Benchmark Knowledge Reference Inventory' }}
   BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_SNAPSHOT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_SNAPSHOT_JSON }}
@@ -1272,6 +1316,7 @@ env:
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON }}
+  BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_REFERENCE_INVENTORY_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_REFERENCE_INVENTORY_JSON }}
@@ -1299,6 +1344,7 @@ env:
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON }}
+  BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_REFERENCE_INVENTORY_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_REFERENCE_INVENTORY_JSON }}
@@ -1327,6 +1373,9 @@ env:
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_MATRIX_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_MATRIX_JSON }}
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON }}
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON }}
+  BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON }}
+  BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_JSON }}
+  BENCHMARK_RELEASE_DECISION_KNOWLEDGE_REFERENCE_INVENTORY_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_REFERENCE_INVENTORY_JSON }}
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON }}
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON }}
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_SOURCE_COVERAGE_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_SOURCE_COVERAGE_JSON }}
@@ -1353,6 +1402,9 @@ env:
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_MATRIX_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_MATRIX_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON }}
+  BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON }}
+  BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_JSON }}
+  BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_REFERENCE_INVENTORY_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_REFERENCE_INVENTORY_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_SOURCE_COVERAGE_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_SOURCE_COVERAGE_JSON }}
@@ -3633,6 +3685,118 @@ jobs:
             f.write(f"recommendations={compact(recommendations)}\n")
         PY
 
+    - name: Build benchmark knowledge domain release readiness matrix (optional)
+      id: benchmark_knowledge_domain_release_readiness_matrix
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_domain_release_readiness_matrix_enable || '' }}"
+        ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+
+        OUTPUT_JSON="${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_OUTPUT_JSON:-reports/history_sequence_eval/benchmark_knowledge_domain_release_readiness_matrix.json}"
+        OUTPUT_MD="${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_OUTPUT_MD:-reports/history_sequence_eval/benchmark_knowledge_domain_release_readiness_matrix.md}"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+        mkdir -p "$(dirname "$OUTPUT_MD")"
+
+        CMD=(
+          python3 scripts/export_benchmark_knowledge_domain_release_readiness_matrix.py
+          --title "${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_TITLE:-Benchmark Knowledge Domain Release Readiness Matrix}"
+          --output-json "$OUTPUT_JSON"
+          --output-md "$OUTPUT_MD"
+        )
+        INPUT_COUNT=0
+
+        add_if_exists() {
+          local flag="$1"
+          local candidate="$2"
+          if [[ -n "$candidate" && -f "$candidate" ]]; then
+            CMD+=("$flag" "$candidate")
+            INPUT_COUNT=$((INPUT_COUNT + 1))
+          fi
+        }
+
+        add_if_exists --benchmark-knowledge-domain-validation-matrix "${{ github.event.inputs.benchmark_knowledge_domain_release_readiness_matrix_knowledge_domain_validation_matrix_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-gate "${{ github.event.inputs.benchmark_knowledge_domain_release_readiness_matrix_knowledge_domain_release_gate_json || '' }}"
+        add_if_exists --benchmark-knowledge-reference-inventory "${{ github.event.inputs.benchmark_knowledge_domain_release_readiness_matrix_knowledge_reference_inventory_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-surface-alignment "${{ github.event.inputs.benchmark_knowledge_domain_release_readiness_matrix_knowledge_domain_release_surface_alignment_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-validation-matrix "${{ steps.benchmark_knowledge_domain_validation_matrix.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-validation-matrix "${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_JSON:-}"
+        add_if_exists --benchmark-knowledge-domain-release-gate "${{ steps.benchmark_knowledge_domain_release_gate.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-gate "${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON:-}"
+        add_if_exists --benchmark-knowledge-reference-inventory "${{ steps.benchmark_knowledge_reference_inventory.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-reference-inventory "${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_KNOWLEDGE_REFERENCE_INVENTORY_JSON:-}"
+        add_if_exists --benchmark-knowledge-domain-release-surface-alignment "${{ steps.benchmark_knowledge_domain_release_surface_alignment.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-surface-alignment "${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_JSON:-}"
+
+        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
+          if [[ "$INPUT_COUNT" -eq 0 ]]; then
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_ENABLE is not true and no inputs found; skip."
+            exit 0
+          fi
+        fi
+
+        if [[ "$INPUT_COUNT" -eq 0 ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "No benchmark knowledge domain release readiness matrix inputs found; skip."
+          exit 0
+        fi
+
+        "${CMD[@]}"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path(
+                os.environ[
+                    "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_OUTPUT_JSON"
+                ]
+            ).read_text(encoding="utf-8")
+        )
+        component = payload.get("knowledge_domain_release_readiness_matrix") or {}
+        recommendations = payload.get("recommendations") or []
+
+        def compact(items):
+            return "; ".join(str(item).strip() for item in items[:4] if str(item).strip())
+
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"status={component.get('status', 'unknown')}\n")
+            f.write(
+                f"ready_domain_count={component.get('ready_domain_count', 0)}\n"
+            )
+            f.write(
+                f"partial_domain_count={component.get('partial_domain_count', 0)}\n"
+            )
+            f.write(
+                f"blocked_domain_count={component.get('blocked_domain_count', 0)}\n"
+            )
+            f.write(
+                f"summary={compact([component.get('summary') or ''])}\n"
+            )
+            f.write(
+                "priority_domains="
+                f"{compact(component.get('priority_domains') or [])}\n"
+            )
+            f.write(
+                "releasable_domains="
+                f"{compact(component.get('releasable_domains') or [])}\n"
+            )
+            f.write(
+                "blocked_domains="
+                f"{compact(component.get('blocked_domains') or [])}\n"
+            )
+            f.write(f"recommendations={compact(recommendations)}\n")
+        PY
+
     - name: Build benchmark knowledge domain capability matrix (optional)
       id: benchmark_knowledge_domain_capability_matrix
       continue-on-error: true
@@ -4625,6 +4789,9 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-release-gate "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_domain_release_gate_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-release-gate "${{ steps.benchmark_knowledge_domain_release_gate.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-release-gate "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON:-}"
+        add_if_exists --benchmark-knowledge-domain-release-readiness-matrix "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_domain_release_readiness_matrix_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-readiness-matrix "${{ steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-readiness-matrix "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ steps.benchmark_knowledge_domain_action_plan.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-control-plane "${{ steps.benchmark_knowledge_domain_control_plane.outputs.output_json || '' }}"
@@ -5035,6 +5202,30 @@ jobs:
             f.write(
                 "knowledge_domain_release_gate_recommendations="
                 f"{compact(payload.get('knowledge_domain_release_gate_recommendations') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_release_readiness_matrix_status="
+                f"{payload.get('knowledge_domain_release_readiness_matrix_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_domain_release_readiness_matrix_summary="
+                f"{compact([payload.get('knowledge_domain_release_readiness_matrix_summary')])}\n"
+            )
+            f.write(
+                "knowledge_domain_release_readiness_matrix_priority_domains="
+                f"{compact(payload.get('knowledge_domain_release_readiness_matrix_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_release_readiness_matrix_releasable_domains="
+                f"{compact(payload.get('knowledge_domain_release_readiness_matrix_releasable_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_release_readiness_matrix_blocked_domains="
+                f"{compact(payload.get('knowledge_domain_release_readiness_matrix_blocked_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_release_readiness_matrix_recommendations="
+                f"{compact(payload.get('knowledge_domain_release_readiness_matrix_recommendations') or [])}\n"
             )
             f.write(
                 "knowledge_reference_inventory_status="
@@ -5582,6 +5773,9 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-release-gate "${{ github.event.inputs.benchmark_companion_summary_knowledge_domain_release_gate_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-release-gate "${{ steps.benchmark_knowledge_domain_release_gate.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-release-gate "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON:-}"
+        add_if_exists --benchmark-knowledge-domain-release-readiness-matrix "${{ github.event.inputs.benchmark_companion_summary_knowledge_domain_release_readiness_matrix_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-readiness-matrix "${{ steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-readiness-matrix "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ steps.benchmark_knowledge_domain_action_plan.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-control-plane "${{ steps.benchmark_knowledge_domain_control_plane.outputs.output_json || '' }}"
@@ -5993,6 +6187,30 @@ jobs:
             f.write(
                 "knowledge_domain_release_gate_recommendations="
                 f"{compact(payload.get('knowledge_domain_release_gate_recommendations') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_release_readiness_matrix_status="
+                f"{payload.get('knowledge_domain_release_readiness_matrix_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_domain_release_readiness_matrix_summary="
+                f"{compact([payload.get('knowledge_domain_release_readiness_matrix_summary')])}\n"
+            )
+            f.write(
+                "knowledge_domain_release_readiness_matrix_priority_domains="
+                f"{compact(payload.get('knowledge_domain_release_readiness_matrix_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_release_readiness_matrix_releasable_domains="
+                f"{compact(payload.get('knowledge_domain_release_readiness_matrix_releasable_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_release_readiness_matrix_blocked_domains="
+                f"{compact(payload.get('knowledge_domain_release_readiness_matrix_blocked_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_release_readiness_matrix_recommendations="
+                f"{compact(payload.get('knowledge_domain_release_readiness_matrix_recommendations') or [])}\n"
             )
             f.write(
                 "knowledge_reference_inventory_status="
@@ -6571,6 +6789,9 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-control-plane-drift "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-release-gate "${{ steps.benchmark_knowledge_domain_release_gate.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-release-gate "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON:-}"
+        add_if_exists --benchmark-knowledge-domain-release-readiness-matrix "${{ github.event.inputs.benchmark_release_decision_knowledge_domain_release_readiness_matrix_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-readiness-matrix "${{ steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-readiness-matrix "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-reference-inventory "${{ steps.benchmark_knowledge_reference_inventory.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-reference-inventory "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_REFERENCE_INVENTORY_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ steps.benchmark_knowledge_domain_action_plan.outputs.output_json || '' }}"
@@ -6783,6 +7004,33 @@ jobs:
             f.write(
                 "knowledge_domain_release_gate_recommendations="
                 f"{compact(knowledge_domain_release_gate.get('recommendations') or [])}\n"
+            )
+            knowledge_domain_release_readiness_matrix = (
+                payload.get("knowledge_domain_release_readiness_matrix") or {}
+            )
+            f.write(
+                "knowledge_domain_release_readiness_matrix_status="
+                f"{knowledge_domain_release_readiness_matrix.get('status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_domain_release_readiness_matrix_summary="
+                f"{compact([payload.get('knowledge_domain_release_readiness_matrix_summary')])}\n"
+            )
+            f.write(
+                "knowledge_domain_release_readiness_matrix_priority_domains="
+                f"{compact(knowledge_domain_release_readiness_matrix.get('priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_release_readiness_matrix_releasable_domains="
+                f"{compact(knowledge_domain_release_readiness_matrix.get('releasable_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_release_readiness_matrix_blocked_domains="
+                f"{compact(knowledge_domain_release_readiness_matrix.get('blocked_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_release_readiness_matrix_recommendations="
+                f"{compact(knowledge_domain_release_readiness_matrix.get('recommendations') or [])}\n"
             )
             knowledge_reference_inventory = (
                 payload.get("knowledge_reference_inventory") or {}
@@ -7352,6 +7600,9 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-control-plane-drift "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-release-gate "${{ steps.benchmark_knowledge_domain_release_gate.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-release-gate "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON:-}"
+        add_if_exists --benchmark-knowledge-domain-release-readiness-matrix "${{ github.event.inputs.benchmark_release_runbook_knowledge_domain_release_readiness_matrix_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-readiness-matrix "${{ steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-readiness-matrix "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-reference-inventory "${{ steps.benchmark_knowledge_reference_inventory.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-reference-inventory "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_REFERENCE_INVENTORY_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ steps.benchmark_knowledge_domain_action_plan.outputs.output_json || '' }}"
@@ -7580,6 +7831,33 @@ jobs:
             f.write(
                 "knowledge_domain_release_gate_recommendations="
                 f"{compact(knowledge_domain_release_gate.get('recommendations') or [])}\n"
+            )
+            knowledge_domain_release_readiness_matrix = (
+                payload.get("knowledge_domain_release_readiness_matrix") or {}
+            )
+            f.write(
+                "knowledge_domain_release_readiness_matrix_status="
+                f"{knowledge_domain_release_readiness_matrix.get('status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_domain_release_readiness_matrix_summary="
+                f"{compact([payload.get('knowledge_domain_release_readiness_matrix_summary')])}\n"
+            )
+            f.write(
+                "knowledge_domain_release_readiness_matrix_priority_domains="
+                f"{compact(knowledge_domain_release_readiness_matrix.get('priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_release_readiness_matrix_releasable_domains="
+                f"{compact(knowledge_domain_release_readiness_matrix.get('releasable_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_release_readiness_matrix_blocked_domains="
+                f"{compact(knowledge_domain_release_readiness_matrix.get('blocked_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_domain_release_readiness_matrix_recommendations="
+                f"{compact(knowledge_domain_release_readiness_matrix.get('recommendations') or [])}\n"
             )
             knowledge_reference_inventory = (
                 payload.get("knowledge_reference_inventory") or {}
@@ -9263,6 +9541,15 @@ jobs:
         path: |
           ${{ steps.benchmark_knowledge_domain_release_gate.outputs.output_json }}
           ${{ steps.benchmark_knowledge_domain_release_gate.outputs.output_md }}
+    - name: Upload benchmark knowledge domain release readiness matrix
+      if: steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-knowledge-domain-release-readiness-matrix-${{ github.run_number }}
+        path: |
+          ${{ steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.output_json }}
+          ${{ steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.output_md }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
     - name: Upload benchmark knowledge domain release surface alignment
       if: steps.benchmark_knowledge_domain_release_surface_alignment.outputs.enabled == 'true'
       uses: actions/upload-artifact@v4
@@ -9815,6 +10102,21 @@ jobs:
           echo "- Benchmark knowledge domain release gate artifact: ${{ steps.benchmark_knowledge_domain_release_gate.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
         else
           echo "- Benchmark knowledge domain release gate: skipped (BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_ENABLE!=true or no inputs)" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [[ "${{ steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.enabled }}" == "true" ]]; then
+          echo "- Benchmark knowledge domain release readiness matrix status: ${{ steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain release readiness matrix ready domains: ${{ steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.ready_domain_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain release readiness matrix partial domains: ${{ steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.partial_domain_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain release readiness matrix blocked domains: ${{ steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.blocked_domain_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain release readiness matrix summary: ${{ steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain release readiness matrix priority domains: ${{ steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.priority_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain release readiness matrix releasable domains: ${{ steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.releasable_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain release readiness matrix blocked domains: ${{ steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.blocked_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain release readiness matrix recommendations: ${{ steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain release readiness matrix artifact: ${{ steps.benchmark_knowledge_domain_release_readiness_matrix.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Benchmark knowledge domain release readiness matrix: skipped (BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_ENABLE!=true or no inputs)" >> $GITHUB_STEP_SUMMARY
+        fi
         if [[ "${{ steps.benchmark_knowledge_domain_release_surface_alignment.outputs.enabled }}" == "true" ]]; then
           echo "- Benchmark knowledge domain release surface alignment status: ${{ steps.benchmark_knowledge_domain_release_surface_alignment.outputs.status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark knowledge domain release surface alignment summary: ${{ steps.benchmark_knowledge_domain_release_surface_alignment.outputs.summary }}" >> $GITHUB_STEP_SUMMARY
@@ -10000,6 +10302,11 @@ jobs:
           echo "- Benchmark artifact bundle knowledge domain release gate releasable domains: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_release_gate_releasable_domains }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle knowledge domain release gate blocked domains: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_release_gate_blocked_domains }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle knowledge domain release gate recommendations: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_release_gate_recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge domain release readiness matrix: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_release_readiness_matrix_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge domain release readiness matrix domains: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_release_readiness_matrix_priority_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge domain release readiness matrix releasable domains: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_release_readiness_matrix_releasable_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge domain release readiness matrix blocked domains: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_release_readiness_matrix_blocked_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge domain release readiness matrix recommendations: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_release_readiness_matrix_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle knowledge reference inventory: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_reference_inventory_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle knowledge reference inventory domains: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_reference_inventory_priority_domains }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle knowledge reference inventory total items: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_reference_inventory_total_reference_items }}" >> $GITHUB_STEP_SUMMARY
@@ -10106,6 +10413,11 @@ jobs:
           echo "- Benchmark companion knowledge domain release gate releasable domains: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_release_gate_releasable_domains }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion knowledge domain release gate blocked domains: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_release_gate_blocked_domains }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion knowledge domain release gate recommendations: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_release_gate_recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge domain release readiness matrix: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_release_readiness_matrix_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge domain release readiness matrix domains: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_release_readiness_matrix_priority_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge domain release readiness matrix releasable domains: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_release_readiness_matrix_releasable_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge domain release readiness matrix blocked domains: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_release_readiness_matrix_blocked_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge domain release readiness matrix recommendations: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_release_readiness_matrix_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion knowledge reference inventory: ${{ steps.benchmark_companion_summary.outputs.knowledge_reference_inventory_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion knowledge reference inventory domains: ${{ steps.benchmark_companion_summary.outputs.knowledge_reference_inventory_priority_domains }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion knowledge reference inventory total items: ${{ steps.benchmark_companion_summary.outputs.knowledge_reference_inventory_total_reference_items }}" >> $GITHUB_STEP_SUMMARY
@@ -10252,6 +10564,12 @@ jobs:
           echo "- Benchmark release knowledge domain release gate priority domains: ${{ steps.benchmark_release_decision.outputs.knowledge_domain_release_gate_priority_domains }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release knowledge domain release gate blocking reasons: ${{ steps.benchmark_release_decision.outputs.knowledge_domain_release_gate_blocking_reasons }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release knowledge domain release gate recommendations: ${{ steps.benchmark_release_decision.outputs.knowledge_domain_release_gate_recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge domain release readiness matrix: ${{ steps.benchmark_release_decision.outputs.knowledge_domain_release_readiness_matrix_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge domain release readiness matrix summary: ${{ steps.benchmark_release_decision.outputs.knowledge_domain_release_readiness_matrix_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge domain release readiness matrix priority domains: ${{ steps.benchmark_release_decision.outputs.knowledge_domain_release_readiness_matrix_priority_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge domain release readiness matrix releasable domains: ${{ steps.benchmark_release_decision.outputs.knowledge_domain_release_readiness_matrix_releasable_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge domain release readiness matrix blocked domains: ${{ steps.benchmark_release_decision.outputs.knowledge_domain_release_readiness_matrix_blocked_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge domain release readiness matrix recommendations: ${{ steps.benchmark_release_decision.outputs.knowledge_domain_release_readiness_matrix_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release knowledge reference inventory: ${{ steps.benchmark_release_decision.outputs.knowledge_reference_inventory_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release knowledge reference inventory summary: ${{ steps.benchmark_release_decision.outputs.knowledge_reference_inventory_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release knowledge reference inventory priority domains: ${{ steps.benchmark_release_decision.outputs.knowledge_reference_inventory_priority_domains }}" >> $GITHUB_STEP_SUMMARY
@@ -10351,6 +10669,12 @@ jobs:
           echo "- Benchmark release runbook knowledge domain release gate priority domains: ${{ steps.benchmark_release_runbook.outputs.knowledge_domain_release_gate_priority_domains }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook knowledge domain release gate blocking reasons: ${{ steps.benchmark_release_runbook.outputs.knowledge_domain_release_gate_blocking_reasons }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook knowledge domain release gate recommendations: ${{ steps.benchmark_release_runbook.outputs.knowledge_domain_release_gate_recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge domain release readiness matrix: ${{ steps.benchmark_release_runbook.outputs.knowledge_domain_release_readiness_matrix_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge domain release readiness matrix summary: ${{ steps.benchmark_release_runbook.outputs.knowledge_domain_release_readiness_matrix_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge domain release readiness matrix priority domains: ${{ steps.benchmark_release_runbook.outputs.knowledge_domain_release_readiness_matrix_priority_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge domain release readiness matrix releasable domains: ${{ steps.benchmark_release_runbook.outputs.knowledge_domain_release_readiness_matrix_releasable_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge domain release readiness matrix blocked domains: ${{ steps.benchmark_release_runbook.outputs.knowledge_domain_release_readiness_matrix_blocked_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge domain release readiness matrix recommendations: ${{ steps.benchmark_release_runbook.outputs.knowledge_domain_release_readiness_matrix_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook knowledge reference inventory: ${{ steps.benchmark_release_runbook.outputs.knowledge_reference_inventory_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook knowledge reference inventory summary: ${{ steps.benchmark_release_runbook.outputs.knowledge_reference_inventory_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook knowledge reference inventory priority domains: ${{ steps.benchmark_release_runbook.outputs.knowledge_reference_inventory_priority_domains }}" >> $GITHUB_STEP_SUMMARY
