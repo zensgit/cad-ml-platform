@@ -4464,3 +4464,29 @@ def test_workflow_wires_benchmark_knowledge_reference_inventory() -> None:
     assert "Benchmark knowledge reference inventory status" in summary_script
     assert "Benchmark artifact bundle knowledge reference inventory" in summary_script
     assert "Benchmark companion knowledge reference inventory" in summary_script
+
+
+def test_workflow_wires_benchmark_knowledge_reference_inventory_pr_comment() -> None:
+    workflow = _load_workflow()
+
+    pr_comment_step = _get_step(
+        workflow,
+        "evaluate",
+        "Comment PR with results",
+    )
+    pr_comment_script = pr_comment_step["with"]["script"]
+
+    assert "benchmarkKnowledgeReferenceInventoryEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeReferenceInventoryStatusLine" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeReferenceInventoryStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkCompanionKnowledgeReferenceInventoryStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeReferenceInventoryLight" in pr_comment_script
+    assert "Benchmark Knowledge Reference Inventory" in pr_comment_script
+    assert "Benchmark Artifact Bundle Knowledge Reference Inventory" in (
+        pr_comment_script
+    )
+    assert "Benchmark Companion Knowledge Reference Inventory" in pr_comment_script
