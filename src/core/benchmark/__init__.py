@@ -54,6 +54,11 @@ from .knowledge_domain_capability_drift import (  # noqa: F401
     knowledge_domain_capability_drift_recommendations,
     render_knowledge_domain_capability_drift_markdown,
 )
+from .knowledge_domain_validation_matrix import (  # noqa: F401
+    build_knowledge_domain_validation_matrix,
+    knowledge_domain_validation_matrix_recommendations,
+    render_knowledge_domain_validation_matrix_markdown,
+)
 from .knowledge_domain_control_plane import (  # noqa: F401
     build_knowledge_domain_control_plane,
     knowledge_domain_control_plane_recommendations,
