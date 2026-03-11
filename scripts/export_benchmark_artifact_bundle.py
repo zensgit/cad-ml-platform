@@ -183,6 +183,29 @@ def _knowledge_domain_release_readiness_matrix(
     }
 
 
+def _knowledge_domain_release_readiness_drift(
+    benchmark_knowledge_domain_release_readiness_drift: Dict[str, Any] | None,
+) -> Dict[str, Any]:
+    benchmark_knowledge_domain_release_readiness_drift = (
+        benchmark_knowledge_domain_release_readiness_drift or {}
+    )
+    drift = (
+        benchmark_knowledge_domain_release_readiness_drift.get(
+            "knowledge_domain_release_readiness_drift"
+        )
+        or benchmark_knowledge_domain_release_readiness_drift
+        or {}
+    )
+    return {
+        "status": str(drift.get("status") or "unknown"),
+        "summary": str(drift.get("summary") or "none"),
+        "current_status": str(drift.get("current_status") or "unknown"),
+        "previous_status": str(drift.get("previous_status") or "unknown"),
+        "domain_regressions": list(drift.get("domain_regressions") or []),
+        "domain_improvements": list(drift.get("domain_improvements") or []),
+    }
+
+
 def _artifact_row(
     *,
     name: str,
@@ -220,6 +243,7 @@ def _component_statuses(
     benchmark_knowledge_domain_control_plane_drift: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_release_gate: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_release_readiness_matrix: Dict[str, Any] | None = None,
+    benchmark_knowledge_domain_release_readiness_drift: Dict[str, Any] | None = None,
     benchmark_knowledge_reference_inventory: Dict[str, Any] | None = None,
     benchmark_knowledge_source_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_coverage: Dict[str, Any] | None = None,
@@ -260,6 +284,9 @@ def _component_statuses(
     )
     benchmark_knowledge_domain_release_readiness_matrix = (
         benchmark_knowledge_domain_release_readiness_matrix or {}
+    )
+    benchmark_knowledge_domain_release_readiness_drift = (
+        benchmark_knowledge_domain_release_readiness_drift or {}
     )
     benchmark_knowledge_reference_inventory = (
         benchmark_knowledge_reference_inventory or {}
@@ -386,6 +413,11 @@ def _component_statuses(
     knowledge_domain_release_readiness_matrix_component = (
         _knowledge_domain_release_readiness_matrix(
             benchmark_knowledge_domain_release_readiness_matrix
+        )
+    )
+    knowledge_domain_release_readiness_drift_component = (
+        _knowledge_domain_release_readiness_drift(
+            benchmark_knowledge_domain_release_readiness_drift
         )
     )
     knowledge_reference_inventory_component = _knowledge_reference_inventory(
@@ -619,6 +651,17 @@ def _component_statuses(
         )
         or "unknown"
     )
+    component_rows["knowledge_domain_release_readiness_drift"] = str(
+        companion_components.get("knowledge_domain_release_readiness_drift")
+        or operational_components.get("knowledge_domain_release_readiness_drift")
+        or knowledge_domain_release_readiness_drift_component.get("status")
+        or (
+            (components.get("knowledge_domain_release_readiness_drift") or {}).get(
+                "status"
+            )
+        )
+        or "unknown"
+    )
     component_rows["knowledge_reference_inventory"] = str(
         companion_components.get("knowledge_reference_inventory")
         or operational_components.get("knowledge_reference_inventory")
@@ -798,6 +841,7 @@ def _pick_summary_items(
     benchmark_knowledge_domain_control_plane_drift: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_release_gate: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_release_readiness_matrix: Dict[str, Any] | None = None,
+    benchmark_knowledge_domain_release_readiness_drift: Dict[str, Any] | None = None,
     benchmark_knowledge_reference_inventory: Dict[str, Any] | None = None,
     benchmark_knowledge_source_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_coverage: Dict[str, Any] | None = None,
@@ -834,6 +878,9 @@ def _pick_summary_items(
     benchmark_knowledge_domain_release_gate = benchmark_knowledge_domain_release_gate or {}
     benchmark_knowledge_domain_release_readiness_matrix = (
         benchmark_knowledge_domain_release_readiness_matrix or {}
+    )
+    benchmark_knowledge_domain_release_readiness_drift = (
+        benchmark_knowledge_domain_release_readiness_drift or {}
     )
     benchmark_knowledge_reference_inventory = benchmark_knowledge_reference_inventory or {}
     benchmark_knowledge_source_action_plan = (
@@ -884,6 +931,7 @@ def _pick_summary_items(
         or benchmark_knowledge_domain_control_plane.get("recommendations")
         or benchmark_knowledge_domain_release_gate.get("recommendations")
         or benchmark_knowledge_domain_release_readiness_matrix.get("recommendations")
+        or benchmark_knowledge_domain_release_readiness_drift.get("recommendations")
         or benchmark_knowledge_reference_inventory.get("recommendations")
         or benchmark_knowledge_source_action_plan.get("recommendations")
         or benchmark_knowledge_source_coverage.get("recommendations")
@@ -970,6 +1018,7 @@ def build_bundle(
     benchmark_knowledge_domain_control_plane_drift: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_release_gate: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_release_readiness_matrix: Dict[str, Any] | None = None,
+    benchmark_knowledge_domain_release_readiness_drift: Dict[str, Any] | None = None,
     benchmark_knowledge_reference_inventory: Dict[str, Any] | None = None,
     benchmark_knowledge_source_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_coverage: Dict[str, Any] | None = None,
@@ -1016,6 +1065,9 @@ def build_bundle(
     benchmark_knowledge_domain_release_readiness_matrix = (
         benchmark_knowledge_domain_release_readiness_matrix or {}
     )
+    benchmark_knowledge_domain_release_readiness_drift = (
+        benchmark_knowledge_domain_release_readiness_drift or {}
+    )
     benchmark_knowledge_reference_inventory = (
         benchmark_knowledge_reference_inventory or {}
     )
@@ -1058,6 +1110,9 @@ def build_bundle(
         benchmark_knowledge_domain_release_gate=benchmark_knowledge_domain_release_gate,
         benchmark_knowledge_domain_release_readiness_matrix=(
             benchmark_knowledge_domain_release_readiness_matrix
+        ),
+        benchmark_knowledge_domain_release_readiness_drift=(
+            benchmark_knowledge_domain_release_readiness_drift
         ),
         benchmark_knowledge_reference_inventory=(
             benchmark_knowledge_reference_inventory
@@ -1209,6 +1264,11 @@ def build_bundle(
             benchmark_knowledge_domain_release_readiness_matrix
         )
     )
+    knowledge_domain_release_readiness_drift_component = (
+        _knowledge_domain_release_readiness_drift(
+            benchmark_knowledge_domain_release_readiness_drift
+        )
+    )
     knowledge_domains = knowledge_component.get("domains") or {}
     knowledge_domain_focus_areas = list(
         knowledge_component.get("domain_focus_areas") or []
@@ -1256,6 +1316,10 @@ def build_bundle(
     )
     knowledge_domain_release_readiness_matrix_recommendations = _compact_list(
         benchmark_knowledge_domain_release_readiness_matrix.get("recommendations")
+        or []
+    )
+    knowledge_domain_release_readiness_drift_recommendations = _compact_list(
+        benchmark_knowledge_domain_release_readiness_drift.get("recommendations")
         or []
     )
     knowledge_source_action_plan_recommendations = _compact_list(
@@ -1425,6 +1489,14 @@ def build_bundle(
                 "",
             ),
             payload=benchmark_knowledge_domain_release_readiness_matrix,
+        ),
+        "benchmark_knowledge_domain_release_readiness_drift": _artifact_row(
+            name="benchmark_knowledge_domain_release_readiness_drift",
+            path_text=artifact_paths.get(
+                "benchmark_knowledge_domain_release_readiness_drift",
+                "",
+            ),
+            payload=benchmark_knowledge_domain_release_readiness_drift,
         ),
         "benchmark_knowledge_domain_release_surface_alignment": _artifact_row(
             name="benchmark_knowledge_domain_release_surface_alignment",
@@ -1804,6 +1876,32 @@ def build_bundle(
         "knowledge_domain_release_readiness_matrix_recommendations": (
             knowledge_domain_release_readiness_matrix_recommendations
         ),
+        "knowledge_domain_release_readiness_drift_status": (
+            knowledge_domain_release_readiness_drift_component.get("status")
+            or "unknown"
+        ),
+        "knowledge_domain_release_readiness_drift": (
+            knowledge_domain_release_readiness_drift_component
+        ),
+        "knowledge_domain_release_readiness_drift_summary": (
+            knowledge_domain_release_readiness_drift_component.get("summary")
+            or "none"
+        ),
+        "knowledge_domain_release_readiness_drift_domain_regressions": list(
+            knowledge_domain_release_readiness_drift_component.get(
+                "domain_regressions"
+            )
+            or []
+        ),
+        "knowledge_domain_release_readiness_drift_domain_improvements": list(
+            knowledge_domain_release_readiness_drift_component.get(
+                "domain_improvements"
+            )
+            or []
+        ),
+        "knowledge_domain_release_readiness_drift_recommendations": (
+            knowledge_domain_release_readiness_drift_recommendations
+        ),
         "knowledge_domain_release_surface_alignment_status": (
             knowledge_domain_release_surface_alignment.get("status") or "unknown"
         ),
@@ -1974,6 +2072,9 @@ def build_bundle(
             ),
             benchmark_knowledge_domain_release_readiness_matrix=(
                 benchmark_knowledge_domain_release_readiness_matrix
+            ),
+            benchmark_knowledge_domain_release_readiness_drift=(
+                benchmark_knowledge_domain_release_readiness_drift
             ),
             benchmark_knowledge_reference_inventory=(
                 benchmark_knowledge_reference_inventory
@@ -2904,6 +3005,10 @@ def main() -> None:
         default="",
     )
     parser.add_argument(
+        "--benchmark-knowledge-domain-release-readiness-drift",
+        default="",
+    )
+    parser.add_argument(
         "--benchmark-knowledge-domain-release-surface-alignment",
         default="",
     )
@@ -2965,6 +3070,9 @@ def main() -> None:
         ),
         "benchmark_knowledge_domain_release_readiness_matrix": (
             args.benchmark_knowledge_domain_release_readiness_matrix
+        ),
+        "benchmark_knowledge_domain_release_readiness_drift": (
+            args.benchmark_knowledge_domain_release_readiness_drift
         ),
         "benchmark_knowledge_domain_release_surface_alignment": (
             args.benchmark_knowledge_domain_release_surface_alignment
@@ -3047,6 +3155,9 @@ def main() -> None:
         ),
         benchmark_knowledge_domain_release_readiness_matrix=_maybe_load_json(
             args.benchmark_knowledge_domain_release_readiness_matrix
+        ),
+        benchmark_knowledge_domain_release_readiness_drift=_maybe_load_json(
+            args.benchmark_knowledge_domain_release_readiness_drift
         ),
         benchmark_knowledge_domain_release_surface_alignment=_maybe_load_json(
             args.benchmark_knowledge_domain_release_surface_alignment

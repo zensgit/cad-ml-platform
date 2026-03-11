@@ -101,6 +101,12 @@ def _knowledge_domain_release_readiness_matrix_component(
     return payload.get("knowledge_domain_release_readiness_matrix") or payload or {}
 
 
+def _knowledge_domain_release_readiness_drift_component(
+    payload: Dict[str, Any],
+) -> Dict[str, Any]:
+    return payload.get("knowledge_domain_release_readiness_drift") or payload or {}
+
+
 def _artifact_row(name: str, path_text: str) -> Dict[str, Any]:
     path_value = _text(path_text)
     return {
@@ -132,6 +138,7 @@ def _component_statuses(
     benchmark_knowledge_domain_control_plane_drift: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_release_gate: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_release_readiness_matrix: Dict[str, Any] | None = None,
+    benchmark_knowledge_domain_release_readiness_drift: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_release_surface_alignment: Dict[str, Any] | None = None,
     benchmark_knowledge_reference_inventory: Dict[str, Any] | None = None,
     benchmark_knowledge_source_action_plan: Dict[str, Any] | None = None,
@@ -172,6 +179,9 @@ def _component_statuses(
     )
     benchmark_knowledge_domain_release_readiness_matrix = (
         benchmark_knowledge_domain_release_readiness_matrix or {}
+    )
+    benchmark_knowledge_domain_release_readiness_drift = (
+        benchmark_knowledge_domain_release_readiness_drift or {}
     )
     benchmark_knowledge_domain_release_surface_alignment = (
         benchmark_knowledge_domain_release_surface_alignment or {}
@@ -274,6 +284,11 @@ def _component_statuses(
     knowledge_domain_release_readiness_matrix_component = (
         _knowledge_domain_release_readiness_matrix_component(
             benchmark_knowledge_domain_release_readiness_matrix
+        )
+    )
+    knowledge_domain_release_readiness_drift_component = (
+        _knowledge_domain_release_readiness_drift_component(
+            benchmark_knowledge_domain_release_readiness_drift
         )
     )
     knowledge_domain_release_surface_alignment_component = (
@@ -471,6 +486,12 @@ def _component_statuses(
             companion_components.get("knowledge_domain_release_readiness_matrix")
             or bundle_components.get("knowledge_domain_release_readiness_matrix")
             or knowledge_domain_release_readiness_matrix_component.get("status")
+            or "unknown"
+        ),
+        "knowledge_domain_release_readiness_drift": str(
+            companion_components.get("knowledge_domain_release_readiness_drift")
+            or bundle_components.get("knowledge_domain_release_readiness_drift")
+            or knowledge_domain_release_readiness_drift_component.get("status")
             or "unknown"
         ),
         "knowledge_domain_release_surface_alignment": str(
@@ -728,6 +749,22 @@ def _knowledge_domain_release_gate_review_signals(
     return _compact(
         benchmark_knowledge_domain_release_gate.get("warning_reasons")
         or benchmark_knowledge_domain_release_gate.get("recommendations")
+        or [],
+        limit=6,
+    )
+
+
+def _knowledge_domain_release_readiness_drift_review_signals(
+    benchmark_knowledge_domain_release_readiness_drift: Dict[str, Any],
+    component_statuses: Dict[str, str],
+) -> List[str]:
+    status = str(
+        component_statuses.get("knowledge_domain_release_readiness_drift") or ""
+    ).strip()
+    if status in {"stable", "improved", "baseline_missing", "unknown", ""}:
+        return []
+    return _compact(
+        benchmark_knowledge_domain_release_readiness_drift.get("recommendations")
         or [],
         limit=6,
     )
@@ -1025,6 +1062,7 @@ def build_release_decision(
     benchmark_knowledge_domain_control_plane_drift: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_release_gate: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_release_readiness_matrix: Dict[str, Any] | None = None,
+    benchmark_knowledge_domain_release_readiness_drift: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_release_surface_alignment: Dict[str, Any] | None = None,
     benchmark_knowledge_reference_inventory: Dict[str, Any] | None = None,
     benchmark_knowledge_source_action_plan: Dict[str, Any] | None = None,
@@ -1065,6 +1103,9 @@ def build_release_decision(
     )
     benchmark_knowledge_domain_release_readiness_matrix = (
         benchmark_knowledge_domain_release_readiness_matrix or {}
+    )
+    benchmark_knowledge_domain_release_readiness_drift = (
+        benchmark_knowledge_domain_release_readiness_drift or {}
     )
     benchmark_knowledge_domain_release_surface_alignment = (
         benchmark_knowledge_domain_release_surface_alignment or {}
@@ -1110,6 +1151,7 @@ def build_release_decision(
         benchmark_knowledge_domain_control_plane_drift,
         benchmark_knowledge_domain_release_gate,
         benchmark_knowledge_domain_release_readiness_matrix,
+        benchmark_knowledge_domain_release_readiness_drift,
         benchmark_knowledge_domain_release_surface_alignment,
         benchmark_knowledge_reference_inventory,
         benchmark_knowledge_source_action_plan,
@@ -1187,6 +1229,11 @@ def build_release_decision(
     knowledge_domain_release_readiness_matrix_component = (
         _knowledge_domain_release_readiness_matrix_component(
             benchmark_knowledge_domain_release_readiness_matrix
+        )
+    )
+    knowledge_domain_release_readiness_drift_component = (
+        _knowledge_domain_release_readiness_drift_component(
+            benchmark_knowledge_domain_release_readiness_drift
         )
     )
     knowledge_domain_release_surface_alignment_component = (
@@ -1330,6 +1377,11 @@ def build_release_decision(
         or [],
         limit=6,
     )
+    knowledge_domain_release_readiness_drift_recommendations = _compact(
+        benchmark_knowledge_domain_release_readiness_drift.get("recommendations")
+        or [],
+        limit=6,
+    )
     knowledge_reference_inventory_recommendations = _compact(
         benchmark_knowledge_reference_inventory.get("recommendations") or [],
         limit=6,
@@ -1416,6 +1468,14 @@ def build_release_decision(
         for item in knowledge_domain_release_readiness_matrix_recommendations:
             if item not in review_signals:
                 review_signals.append(item)
+    review_signals.extend(
+        item
+        for item in _knowledge_domain_release_readiness_drift_review_signals(
+            benchmark_knowledge_domain_release_readiness_drift,
+            component_statuses,
+        )
+        if item not in review_signals
+    )
     review_signals.extend(
         item
         for item in _engineering_review_signals(
@@ -1902,6 +1962,32 @@ def build_release_decision(
         "knowledge_domain_release_readiness_matrix_recommendations": (
             knowledge_domain_release_readiness_matrix_recommendations
         ),
+        "knowledge_domain_release_readiness_drift_status": (
+            knowledge_domain_release_readiness_drift_component.get("status")
+            or "unknown"
+        ),
+        "knowledge_domain_release_readiness_drift": (
+            knowledge_domain_release_readiness_drift_component
+        ),
+        "knowledge_domain_release_readiness_drift_summary": (
+            knowledge_domain_release_readiness_drift_component.get("summary")
+            or "none"
+        ),
+        "knowledge_domain_release_readiness_drift_domain_regressions": list(
+            knowledge_domain_release_readiness_drift_component.get(
+                "domain_regressions"
+            )
+            or []
+        ),
+        "knowledge_domain_release_readiness_drift_domain_improvements": list(
+            knowledge_domain_release_readiness_drift_component.get(
+                "domain_improvements"
+            )
+            or []
+        ),
+        "knowledge_domain_release_readiness_drift_recommendations": (
+            knowledge_domain_release_readiness_drift_recommendations
+        ),
         "knowledge_domain_release_surface_alignment_status": (
             knowledge_domain_release_surface_alignment_component.get("status")
             or "unknown"
@@ -2209,6 +2295,13 @@ def build_release_decision(
                 "benchmark_knowledge_domain_release_readiness_matrix",
                 artifact_paths.get(
                     "benchmark_knowledge_domain_release_readiness_matrix",
+                    "",
+                ),
+            ),
+            "benchmark_knowledge_domain_release_readiness_drift": _artifact_row(
+                "benchmark_knowledge_domain_release_readiness_drift",
+                artifact_paths.get(
+                    "benchmark_knowledge_domain_release_readiness_drift",
                     "",
                 ),
             ),
@@ -3212,6 +3305,9 @@ def main() -> None:
         "--benchmark-knowledge-domain-release-readiness-matrix", default=""
     )
     parser.add_argument(
+        "--benchmark-knowledge-domain-release-readiness-drift", default=""
+    )
+    parser.add_argument(
         "--benchmark-knowledge-domain-release-surface-alignment", default=""
     )
     parser.add_argument("--benchmark-knowledge-reference-inventory", default="")
@@ -3266,6 +3362,9 @@ def main() -> None:
         ),
         "benchmark_knowledge_domain_release_readiness_matrix": (
             args.benchmark_knowledge_domain_release_readiness_matrix
+        ),
+        "benchmark_knowledge_domain_release_readiness_drift": (
+            args.benchmark_knowledge_domain_release_readiness_drift
         ),
         "benchmark_knowledge_domain_release_surface_alignment": (
             args.benchmark_knowledge_domain_release_surface_alignment
@@ -3352,6 +3451,9 @@ def main() -> None:
         ),
         benchmark_knowledge_domain_release_readiness_matrix=_maybe_load_json(
             args.benchmark_knowledge_domain_release_readiness_matrix
+        ),
+        benchmark_knowledge_domain_release_readiness_drift=_maybe_load_json(
+            args.benchmark_knowledge_domain_release_readiness_drift
         ),
         benchmark_knowledge_domain_release_surface_alignment=_maybe_load_json(
             args.benchmark_knowledge_domain_release_surface_alignment
