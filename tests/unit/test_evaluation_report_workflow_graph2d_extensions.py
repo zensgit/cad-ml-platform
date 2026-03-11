@@ -4387,3 +4387,80 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "ocrReviewPackEnabled" in pr_comment_script
     assert "OCR Review Pack" in pr_comment_script
     assert "OCR Review Insights" in pr_comment_script
+
+
+def test_workflow_wires_benchmark_knowledge_reference_inventory() -> None:
+    workflow = _load_workflow()
+    env = workflow["env"]
+    dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
+
+    assert "BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_ENABLE" in env
+    assert "BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_TITLE" in env
+    assert "BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_SNAPSHOT_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_OUTPUT_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_OUTPUT_MD" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_REFERENCE_INVENTORY_JSON" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_REFERENCE_INVENTORY_JSON" in env
+
+    assert "benchmark_knowledge_reference_inventory_enable" in dispatch_inputs
+    assert "benchmark_knowledge_reference_inventory_snapshot_json" in dispatch_inputs
+    assert (
+        "benchmark_artifact_bundle_knowledge_reference_inventory_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_companion_summary_knowledge_reference_inventory_json"
+        in dispatch_inputs
+    )
+
+    build_step = _get_step(
+        workflow,
+        "evaluate",
+        "Build benchmark knowledge reference inventory (optional)",
+    )
+    build_script = build_step["run"]
+    assert (
+        "scripts/export_benchmark_knowledge_reference_inventory.py" in build_script
+    )
+    assert "BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_ENABLE" in build_script
+    assert "benchmark_knowledge_reference_inventory_snapshot_json" in build_script
+    assert "ready_domain_count=" in build_script
+    assert "partial_domain_count=" in build_script
+    assert "blocked_domain_count=" in build_script
+    assert "total_reference_items=" in build_script
+    assert "focus_tables=" in build_script
+    assert "recommendations=" in build_script
+
+    bundle_step = _get_step(
+        workflow, "evaluate", "Build benchmark artifact bundle (optional)"
+    )
+    bundle_script = bundle_step["run"]
+    assert "--benchmark-knowledge-reference-inventory" in bundle_script
+    assert (
+        "benchmark_artifact_bundle_knowledge_reference_inventory_json"
+        in bundle_script
+    )
+
+    companion_step = _get_step(
+        workflow, "evaluate", "Build benchmark companion summary (optional)"
+    )
+    companion_script = companion_step["run"]
+    assert "--benchmark-knowledge-reference-inventory" in companion_script
+    assert (
+        "benchmark_companion_summary_knowledge_reference_inventory_json"
+        in companion_script
+    )
+
+    upload_step = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge reference inventory"
+    )
+    assert (
+        upload_step["if"]
+        == "steps.benchmark_knowledge_reference_inventory.outputs.enabled == 'true'"
+    )
+
+    summary_step = _get_step(workflow, "evaluate", "Create job summary")
+    summary_script = summary_step["run"]
+    assert "Benchmark knowledge reference inventory status" in summary_script
+    assert "Benchmark artifact bundle knowledge reference inventory" in summary_script
+    assert "Benchmark companion knowledge reference inventory" in summary_script
