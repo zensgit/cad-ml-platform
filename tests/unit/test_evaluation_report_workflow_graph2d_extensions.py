@@ -543,6 +543,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_release_decision_knowledge_readiness_json" in dispatch_inputs
     assert "benchmark_release_decision_knowledge_drift_json" in dispatch_inputs
     assert "benchmark_release_decision_knowledge_application_json" in dispatch_inputs
+    assert "benchmark_release_decision_knowledge_domain_release_gate_json" in dispatch_inputs
     assert "benchmark_release_decision_knowledge_domain_action_plan_json" in dispatch_inputs
     assert "benchmark_release_decision_knowledge_source_coverage_json" in dispatch_inputs
     assert "benchmark_release_decision_knowledge_source_action_plan_json" in dispatch_inputs
@@ -568,6 +569,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_release_runbook_knowledge_readiness_json" in dispatch_inputs
     assert "benchmark_release_runbook_knowledge_drift_json" in dispatch_inputs
     assert "benchmark_release_runbook_knowledge_application_json" in dispatch_inputs
+    assert "benchmark_release_runbook_knowledge_domain_release_gate_json" in dispatch_inputs
     assert "benchmark_release_runbook_knowledge_domain_action_plan_json" in dispatch_inputs
     assert "benchmark_release_runbook_knowledge_source_coverage_json" in dispatch_inputs
     assert "benchmark_release_runbook_knowledge_source_action_plan_json" in dispatch_inputs
@@ -1843,6 +1845,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-knowledge-drift" in benchmark_release_script
     assert "--benchmark-knowledge-application" in benchmark_release_script
     assert "--benchmark-knowledge-domain-capability-matrix" in benchmark_release_script
+    assert "--benchmark-knowledge-domain-release-gate" in benchmark_release_script
     assert "--benchmark-knowledge-domain-action-plan" in benchmark_release_script
     assert "--benchmark-knowledge-source-action-plan" in benchmark_release_script
     assert "--benchmark-knowledge-outcome-correlation" in benchmark_release_script
@@ -1928,6 +1931,13 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         "knowledge_domain_control_plane_recommendations="
         in benchmark_release_script
     )
+    assert "knowledge_domain_release_gate_status=" in benchmark_release_script
+    assert "knowledge_domain_release_gate_gate_open=" in benchmark_release_script
+    assert "knowledge_domain_release_gate_releasable_domains=" in benchmark_release_script
+    assert "knowledge_domain_release_gate_blocked_domains=" in benchmark_release_script
+    assert "knowledge_domain_release_gate_priority_domains=" in benchmark_release_script
+    assert "knowledge_domain_release_gate_blocking_reasons=" in benchmark_release_script
+    assert "knowledge_domain_release_gate_recommendations=" in benchmark_release_script
     assert "knowledge_source_coverage_status=" in benchmark_release_script
     assert "knowledge_source_coverage_domain_statuses=" in benchmark_release_script
     assert "knowledge_source_coverage_expansion_candidates=" in benchmark_release_script
@@ -2013,6 +2023,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-knowledge-drift" in benchmark_runbook_script
     assert "--benchmark-knowledge-application" in benchmark_runbook_script
     assert "--benchmark-knowledge-domain-capability-matrix" in benchmark_runbook_script
+    assert "--benchmark-knowledge-domain-release-gate" in benchmark_runbook_script
     assert "--benchmark-knowledge-domain-action-plan" in benchmark_runbook_script
     assert "--benchmark-knowledge-source-action-plan" in benchmark_runbook_script
     assert "--benchmark-knowledge-outcome-correlation" in benchmark_runbook_script
@@ -2097,6 +2108,13 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         "knowledge_domain_control_plane_recommendations="
         in benchmark_runbook_script
     )
+    assert "knowledge_domain_release_gate_status=" in benchmark_runbook_script
+    assert "knowledge_domain_release_gate_gate_open=" in benchmark_runbook_script
+    assert "knowledge_domain_release_gate_releasable_domains=" in benchmark_runbook_script
+    assert "knowledge_domain_release_gate_blocked_domains=" in benchmark_runbook_script
+    assert "knowledge_domain_release_gate_priority_domains=" in benchmark_runbook_script
+    assert "knowledge_domain_release_gate_blocking_reasons=" in benchmark_runbook_script
+    assert "knowledge_domain_release_gate_recommendations=" in benchmark_runbook_script
     assert "knowledge_source_coverage_status=" in benchmark_runbook_script
     assert "knowledge_source_coverage_domain_statuses=" in benchmark_runbook_script
     assert "knowledge_source_coverage_expansion_candidates=" in benchmark_runbook_script
@@ -4051,6 +4069,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Release Decision Release Surface Alignment" in (
         pr_comment_script
     )
+    assert "Benchmark Release Decision Knowledge Domain Release Gate" in (
+        pr_comment_script
+    )
     assert "knowledge=${benchmarkReleaseKnowledgeStatus}" in pr_comment_script
     assert "knowledge_drift=${benchmarkReleaseKnowledgeDriftStatus}" in pr_comment_script
     assert "benchmarkReleaseKnowledgeDriftDomainRegressions" in pr_comment_script
@@ -4067,6 +4088,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
         "benchmarkReleaseOperatorAdoptionReleaseSurfaceAlignmentStatus || 'n/a'"
         in pr_comment_script
     )
+    assert "benchmarkReleaseKnowledgeDomainReleaseGateStatusLine" in pr_comment_script
     assert "Benchmark Release Decision Knowledge Domains" in pr_comment_script
     assert "Benchmark Release Runbook Knowledge Drift" in pr_comment_script
     assert (
@@ -4089,6 +4111,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Release Runbook Release Surface Alignment" in (
         pr_comment_script
     )
+    assert "Benchmark Release Runbook Knowledge Domain Release Gate" in (
+        pr_comment_script
+    )
     assert "knowledge=${benchmarkReleaseRunbookKnowledgeStatus}" in pr_comment_script
     assert "knowledge_drift=${benchmarkReleaseRunbookKnowledgeDriftStatus}" in pr_comment_script
     assert "benchmarkReleaseRunbookKnowledgeDriftDomainRegressions" in pr_comment_script
@@ -4106,6 +4131,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert (
         "benchmarkReleaseRunbookOperatorAdoptionReleaseSurfaceAlignmentStatus || 'n/a'"
         in pr_comment_script
+    )
+    assert "benchmarkReleaseRunbookKnowledgeDomainReleaseGateStatusLine" in (
+        pr_comment_script
     )
     assert (
         "operator_drift=${benchmarkReleaseRunbookOperatorAdoptionKnowledgeDriftStatus}"
