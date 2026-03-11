@@ -310,6 +310,14 @@ on:
         description: 'Optional benchmark knowledge domain release gate release surface alignment JSON'
         required: false
         default: ''
+      benchmark_knowledge_reference_inventory_enable:
+        description: 'Override: enable benchmark knowledge reference inventory export (true/false)'
+        required: false
+        default: ''
+      benchmark_knowledge_reference_inventory_snapshot_json:
+        description: 'Optional benchmark knowledge reference inventory snapshot JSON'
+        required: false
+        default: ''
       benchmark_knowledge_source_coverage_enable:
         description: 'Override: enable benchmark knowledge source coverage export (true/false)'
         required: false
@@ -594,6 +602,10 @@ on:
         description: 'Optional benchmark artifact bundle knowledge domain action plan JSON'
         required: false
         default: ''
+      benchmark_artifact_bundle_knowledge_reference_inventory_json:
+        description: 'Optional benchmark artifact bundle knowledge reference inventory JSON'
+        required: false
+        default: ''
       benchmark_artifact_bundle_knowledge_source_coverage_json:
         description: 'Optional benchmark artifact bundle knowledge source coverage JSON'
         required: false
@@ -692,6 +704,10 @@ on:
         default: ''
       benchmark_companion_summary_knowledge_domain_action_plan_json:
         description: 'Optional benchmark companion summary knowledge domain action plan JSON'
+        required: false
+        default: ''
+      benchmark_companion_summary_knowledge_reference_inventory_json:
+        description: 'Optional benchmark companion summary knowledge reference inventory JSON'
         required: false
         default: ''
       benchmark_companion_summary_knowledge_source_coverage_json:
@@ -1135,6 +1151,11 @@ env:
   BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_JSON }}
   BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_OUTPUT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_knowledge_domain_release_gate.json' }}
   BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_OUTPUT_MD: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_knowledge_domain_release_gate.md' }}
+  BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_ENABLE: ${{ vars.BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_ENABLE || 'false' }}
+  BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_TITLE: ${{ vars.BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_TITLE || 'Benchmark Knowledge Reference Inventory' }}
+  BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_SNAPSHOT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_SNAPSHOT_JSON }}
+  BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_OUTPUT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_knowledge_reference_inventory.json' }}
+  BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_OUTPUT_MD: ${{ vars.BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_knowledge_reference_inventory.md' }}
   BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_ENABLE: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_ENABLE || 'false' }}
   BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_TITLE: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_TITLE || 'Benchmark Knowledge Domain Release Surface Alignment' }}
   BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_RELEASE_DECISION_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_RELEASE_DECISION_JSON }}
@@ -1245,6 +1266,7 @@ env:
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON }}
+  BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_REFERENCE_INVENTORY_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_REFERENCE_INVENTORY_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_SOURCE_COVERAGE_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_SOURCE_COVERAGE_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_OUTCOME_CORRELATION_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_OUTCOME_CORRELATION_JSON }}
@@ -1271,6 +1293,7 @@ env:
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON }}
+  BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_REFERENCE_INVENTORY_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_REFERENCE_INVENTORY_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_SOURCE_COVERAGE_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_SOURCE_COVERAGE_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_OUTCOME_CORRELATION_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_OUTCOME_CORRELATION_JSON }}
@@ -3952,6 +3975,82 @@ jobs:
             f.write(f"recommendations={compact(recommendations)}\n")
         PY
 
+    - name: Build benchmark knowledge reference inventory (optional)
+      id: benchmark_knowledge_reference_inventory
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_reference_inventory_enable || '' }}"
+        ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+
+        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_ENABLE is not true; skip."
+          exit 0
+        fi
+
+        SNAPSHOT_JSON="${{ github.event.inputs.benchmark_knowledge_reference_inventory_snapshot_json || '' }}"
+        if [[ -z "$SNAPSHOT_JSON" ]]; then
+          SNAPSHOT_JSON="${BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_SNAPSHOT_JSON:-}"
+        fi
+        OUTPUT_JSON="${BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_OUTPUT_JSON:-reports/history_sequence_eval/benchmark_knowledge_reference_inventory.json}"
+        OUTPUT_MD="${BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_OUTPUT_MD:-reports/history_sequence_eval/benchmark_knowledge_reference_inventory.md}"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+        mkdir -p "$(dirname "$OUTPUT_MD")"
+
+        EXTRA_ARGS=()
+        if [[ -n "$SNAPSHOT_JSON" ]]; then
+          EXTRA_ARGS+=(--snapshot-json "$SNAPSHOT_JSON")
+        fi
+
+        python3 scripts/export_benchmark_knowledge_reference_inventory.py \
+          --title "${BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_TITLE:-Benchmark Knowledge Reference Inventory}" \
+          --output-json "$OUTPUT_JSON" \
+          --output-md "$OUTPUT_MD" \
+          "${EXTRA_ARGS[@]}"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path(
+                os.environ["BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_OUTPUT_JSON"]
+            ).read_text(encoding="utf-8")
+        )
+        component = payload.get("knowledge_reference_inventory") or {}
+        recommendations = payload.get("recommendations") or []
+        focus = component.get("focus_tables_detail") or []
+
+        def compact(items):
+            return "; ".join(str(item).strip() for item in items[:4] if str(item).strip())
+
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"status={component.get('status', 'unknown')}\n")
+            f.write(f"ready_domain_count={component.get('ready_domain_count', 0)}\n")
+            f.write(f"partial_domain_count={component.get('partial_domain_count', 0)}\n")
+            f.write(f"blocked_domain_count={component.get('blocked_domain_count', 0)}\n")
+            f.write(f"total_domain_count={component.get('total_domain_count', 0)}\n")
+            f.write(f"total_reference_items={component.get('total_reference_items', 0)}\n")
+            f.write(f"total_table_count={component.get('total_table_count', 0)}\n")
+            f.write(
+                f"populated_table_count={component.get('populated_table_count', 0)}\n"
+            )
+            f.write(f"priority_domains={compact(component.get('priority_domains') or [])}\n")
+            f.write(
+                "focus_tables="
+                f"{compact(row.get('domain') for row in focus if row.get('domain'))}\n"
+            )
+            f.write(f"recommendations={compact(recommendations)}\n")
+        PY
+
     - name: Build benchmark knowledge source action plan (optional)
       id: benchmark_knowledge_source_action_plan
       continue-on-error: true
@@ -4522,6 +4621,9 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-action-plan "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-control-plane "${{ steps.benchmark_knowledge_domain_control_plane.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-control-plane "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON:-}"
+        add_if_exists --benchmark-knowledge-reference-inventory "${{ steps.benchmark_knowledge_reference_inventory.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-reference-inventory "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_reference_inventory_json || '' }}"
+        add_if_exists --benchmark-knowledge-reference-inventory "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_REFERENCE_INVENTORY_JSON:-}"
         add_if_exists --benchmark-knowledge-source-coverage "${{ steps.benchmark_knowledge_source_coverage.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-source-coverage "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_SOURCE_COVERAGE_JSON:-}"
         add_if_exists --benchmark-knowledge-source-action-plan "${{ steps.benchmark_knowledge_source_action_plan.outputs.output_json || '' }}"
@@ -4925,6 +5027,18 @@ jobs:
             f.write(
                 "knowledge_domain_release_gate_recommendations="
                 f"{compact(payload.get('knowledge_domain_release_gate_recommendations') or [])}\n"
+            )
+            f.write(
+                "knowledge_reference_inventory_status="
+                f"{payload.get('knowledge_reference_inventory_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_reference_inventory_priority_domains="
+                f"{compact(payload.get('knowledge_reference_inventory_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_reference_inventory_total_reference_items="
+                f"{payload.get('knowledge_reference_inventory_total_reference_items', 0)}\n"
             )
             f.write(
                 "knowledge_source_coverage_status="
@@ -5464,6 +5578,9 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-action-plan "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-control-plane "${{ steps.benchmark_knowledge_domain_control_plane.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-control-plane "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON:-}"
+        add_if_exists --benchmark-knowledge-reference-inventory "${{ steps.benchmark_knowledge_reference_inventory.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-reference-inventory "${{ github.event.inputs.benchmark_companion_summary_knowledge_reference_inventory_json || '' }}"
+        add_if_exists --benchmark-knowledge-reference-inventory "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_REFERENCE_INVENTORY_JSON:-}"
         add_if_exists --benchmark-knowledge-source-coverage "${{ steps.benchmark_knowledge_source_coverage.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-source-coverage "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_SOURCE_COVERAGE_JSON:-}"
         add_if_exists --benchmark-knowledge-source-action-plan "${{ steps.benchmark_knowledge_source_action_plan.outputs.output_json || '' }}"
@@ -5868,6 +5985,18 @@ jobs:
             f.write(
                 "knowledge_domain_release_gate_recommendations="
                 f"{compact(payload.get('knowledge_domain_release_gate_recommendations') or [])}\n"
+            )
+            f.write(
+                "knowledge_reference_inventory_status="
+                f"{payload.get('knowledge_reference_inventory_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_reference_inventory_priority_domains="
+                f"{compact(payload.get('knowledge_reference_inventory_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_reference_inventory_total_reference_items="
+                f"{payload.get('knowledge_reference_inventory_total_reference_items', 0)}\n"
             )
             f.write(
                 "knowledge_source_coverage_status="
@@ -9084,6 +9213,16 @@ jobs:
           ${{ steps.benchmark_knowledge_domain_release_surface_alignment.outputs.output_md }}
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
+    - name: Upload benchmark knowledge reference inventory
+      if: steps.benchmark_knowledge_reference_inventory.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-knowledge-reference-inventory-${{ github.run_number }}
+        path: |
+          ${{ steps.benchmark_knowledge_reference_inventory.outputs.output_json }}
+          ${{ steps.benchmark_knowledge_reference_inventory.outputs.output_md }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
     - name: Upload benchmark knowledge source coverage
       if: steps.benchmark_knowledge_source_coverage.outputs.enabled == 'true'
       uses: actions/upload-artifact@v4
@@ -9624,6 +9763,22 @@ jobs:
         else
           echo "- Benchmark knowledge domain release surface alignment: skipped (BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_ENABLE!=true or no inputs)" >> $GITHUB_STEP_SUMMARY
         fi
+        if [[ "${{ steps.benchmark_knowledge_reference_inventory.outputs.enabled }}" == "true" ]]; then
+          echo "- Benchmark knowledge reference inventory status: ${{ steps.benchmark_knowledge_reference_inventory.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge reference inventory ready domains: ${{ steps.benchmark_knowledge_reference_inventory.outputs.ready_domain_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge reference inventory partial domains: ${{ steps.benchmark_knowledge_reference_inventory.outputs.partial_domain_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge reference inventory blocked domains: ${{ steps.benchmark_knowledge_reference_inventory.outputs.blocked_domain_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge reference inventory total domains: ${{ steps.benchmark_knowledge_reference_inventory.outputs.total_domain_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge reference inventory total reference items: ${{ steps.benchmark_knowledge_reference_inventory.outputs.total_reference_items }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge reference inventory total tables: ${{ steps.benchmark_knowledge_reference_inventory.outputs.total_table_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge reference inventory populated tables: ${{ steps.benchmark_knowledge_reference_inventory.outputs.populated_table_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge reference inventory priority domains: ${{ steps.benchmark_knowledge_reference_inventory.outputs.priority_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge reference inventory focus tables: ${{ steps.benchmark_knowledge_reference_inventory.outputs.focus_tables }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge reference inventory recommendations: ${{ steps.benchmark_knowledge_reference_inventory.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge reference inventory artifact: ${{ steps.benchmark_knowledge_reference_inventory.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Benchmark knowledge reference inventory: skipped (BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_ENABLE!=true)" >> $GITHUB_STEP_SUMMARY
+        fi
         if [[ "${{ steps.benchmark_knowledge_source_coverage.outputs.enabled }}" == "true" ]]; then
           echo "- Benchmark knowledge source coverage status: ${{ steps.benchmark_knowledge_source_coverage.outputs.status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark knowledge source coverage ready source groups: ${{ steps.benchmark_knowledge_source_coverage.outputs.ready_source_group_count }}" >> $GITHUB_STEP_SUMMARY
@@ -9785,6 +9940,9 @@ jobs:
           echo "- Benchmark artifact bundle knowledge domain release gate releasable domains: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_release_gate_releasable_domains }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle knowledge domain release gate blocked domains: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_release_gate_blocked_domains }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle knowledge domain release gate recommendations: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_release_gate_recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge reference inventory: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_reference_inventory_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge reference inventory domains: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_reference_inventory_priority_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge reference inventory total items: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_reference_inventory_total_reference_items }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle knowledge source coverage: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_coverage_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle knowledge source coverage domains: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_coverage_domain_statuses }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle knowledge source coverage expansion candidates: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_coverage_expansion_candidates }}" >> $GITHUB_STEP_SUMMARY
@@ -9888,6 +10046,9 @@ jobs:
           echo "- Benchmark companion knowledge domain release gate releasable domains: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_release_gate_releasable_domains }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion knowledge domain release gate blocked domains: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_release_gate_blocked_domains }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion knowledge domain release gate recommendations: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_release_gate_recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge reference inventory: ${{ steps.benchmark_companion_summary.outputs.knowledge_reference_inventory_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge reference inventory domains: ${{ steps.benchmark_companion_summary.outputs.knowledge_reference_inventory_priority_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge reference inventory total items: ${{ steps.benchmark_companion_summary.outputs.knowledge_reference_inventory_total_reference_items }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion knowledge source coverage: ${{ steps.benchmark_companion_summary.outputs.knowledge_source_coverage_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion knowledge source coverage domains: ${{ steps.benchmark_companion_summary.outputs.knowledge_source_coverage_domain_statuses }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion knowledge source coverage expansion candidates: ${{ steps.benchmark_companion_summary.outputs.knowledge_source_coverage_expansion_candidates }}" >> $GITHUB_STEP_SUMMARY
