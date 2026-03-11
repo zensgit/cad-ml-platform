@@ -3441,6 +3441,15 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkArtifactBundleOperatorAdoptionReleaseSurfaceAlignmentMismatches" in (
         pr_comment_script
     )
+    assert "benchmarkArtifactBundleKnowledgeDomainReleaseSurfaceAlignmentStatus" in (
+        pr_comment_script
+    )
+    assert "benchmarkArtifactBundleKnowledgeDomainReleaseSurfaceAlignmentSummary" in (
+        pr_comment_script
+    )
+    assert "benchmarkArtifactBundleKnowledgeDomainReleaseSurfaceAlignmentMismatches" in (
+        pr_comment_script
+    )
     assert (
         "benchmarkArtifactBundleScorecardOperatorAdoptionKnowledgeOutcomeDriftStatus"
         in pr_comment_script
@@ -3469,6 +3478,15 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
         pr_comment_script
     )
     assert "benchmarkCompanionOperatorAdoptionReleaseSurfaceAlignmentMismatches" in (
+        pr_comment_script
+    )
+    assert "benchmarkCompanionKnowledgeDomainReleaseSurfaceAlignmentStatus" in (
+        pr_comment_script
+    )
+    assert "benchmarkCompanionKnowledgeDomainReleaseSurfaceAlignmentSummary" in (
+        pr_comment_script
+    )
+    assert "benchmarkCompanionKnowledgeDomainReleaseSurfaceAlignmentMismatches" in (
         pr_comment_script
     )
     assert (
@@ -3646,6 +3664,16 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
         pr_comment_script
     )
     assert "benchmarkKnowledgeDomainReleaseGateRecommendations" in pr_comment_script
+    assert "benchmarkKnowledgeDomainReleaseSurfaceAlignmentEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeDomainReleaseSurfaceAlignmentStatus" in pr_comment_script
+    assert "benchmarkKnowledgeDomainReleaseSurfaceAlignmentSummary" in pr_comment_script
+    assert "benchmarkKnowledgeDomainReleaseSurfaceAlignmentMismatches" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeDomainReleaseSurfaceAlignmentStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeDomainReleaseSurfaceAlignmentLight" in pr_comment_script
     assert "benchmarkKnowledgeSourceActionPlanEnabled" in pr_comment_script
     assert "benchmarkKnowledgeSourceActionPlanStatus" in pr_comment_script
     assert "benchmarkKnowledgeSourceActionPlanStatusLine" in pr_comment_script
@@ -3869,6 +3897,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Knowledge Domain Control Plane" in pr_comment_script
     assert "Benchmark Knowledge Domain Control Plane Drift" in pr_comment_script
     assert "Benchmark Knowledge Domain Release Gate" in pr_comment_script
+    assert "Benchmark Knowledge Domain Release Surface Alignment" in pr_comment_script
+    assert "Benchmark Knowledge Domain Release Gate" in pr_comment_script
+    assert "Benchmark Knowledge Domain Release Surface Alignment" in pr_comment_script
     assert "Benchmark Knowledge Source Coverage" in pr_comment_script
     assert "Benchmark Knowledge Source Action Plan" in pr_comment_script
     assert "Benchmark Knowledge Source Drift" in pr_comment_script
@@ -4282,6 +4313,12 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     )
     assert "Benchmark Artifact Bundle Release Surface Alignment" in pr_comment_script
     assert "Benchmark Artifact Bundle Release Surface Mismatches" in pr_comment_script
+    assert "Benchmark Artifact Bundle Knowledge Domain Release Surface Alignment" in (
+        pr_comment_script
+    )
+    assert "Benchmark Artifact Bundle Knowledge Domain Release Surface Mismatches" in (
+        pr_comment_script
+    )
     assert "Benchmark Companion Operator Drift" in pr_comment_script
     assert "Benchmark Companion Operator Outcome Drift" in pr_comment_script
     assert "Benchmark Companion Scorecard Operator Adoption" in pr_comment_script
@@ -4294,6 +4331,12 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     )
     assert "Benchmark Companion Release Surface Alignment" in pr_comment_script
     assert "Benchmark Companion Release Surface Mismatches" in pr_comment_script
+    assert "Benchmark Companion Knowledge Domain Release Surface Alignment" in (
+        pr_comment_script
+    )
+    assert "Benchmark Companion Knowledge Domain Release Surface Mismatches" in (
+        pr_comment_script
+    )
     assert "Benchmark Release Decision Operator Drift" in pr_comment_script
     assert "Benchmark Release Runbook Operator Drift" in pr_comment_script
     assert "Benchmark Operator Adoption Knowledge Drift" in pr_comment_script
