@@ -4679,3 +4679,70 @@ def test_workflow_summarizes_release_readiness_action_plan() -> None:
     assert "high priority actions" in summary_script
     assert "medium priority actions" in summary_script
     assert "first actions" in summary_script
+
+
+def test_workflow_wires_release_readiness_action_plan_pr_comment() -> None:
+    workflow = _load_workflow()
+
+    pr_comment_step = _get_step(
+        workflow,
+        "evaluate",
+        "Comment PR with results",
+    )
+    pr_comment_script = pr_comment_step["with"]["script"]
+
+    assert "benchmarkKnowledgeDomainReleaseReadinessActionPlanEnabled" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeDomainReleaseReadinessActionPlanStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeDomainReleaseReadinessActionPlanLight" in (
+        pr_comment_script
+    )
+    assert "benchmarkArtifactBundleKnowledgeDomainReleaseReadinessActionPlanStatus" in (
+        pr_comment_script
+    )
+    assert (
+        "benchmarkArtifactBundleKnowledgeDomainReleaseReadinessActionPlanStatusLine"
+        in pr_comment_script
+    )
+    assert "benchmarkCompanionKnowledgeDomainReleaseReadinessActionPlanStatus" in (
+        pr_comment_script
+    )
+    assert (
+        "benchmarkCompanionKnowledgeDomainReleaseReadinessActionPlanStatusLine"
+        in pr_comment_script
+    )
+    assert "benchmarkReleaseKnowledgeDomainReleaseReadinessActionPlanStatus" in (
+        pr_comment_script
+    )
+    assert (
+        "benchmarkReleaseKnowledgeDomainReleaseReadinessActionPlanStatusLine"
+        in pr_comment_script
+    )
+    assert "benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessActionPlanStatus" in (
+        pr_comment_script
+    )
+    assert (
+        "benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessActionPlanStatusLine"
+        in pr_comment_script
+    )
+    assert "Benchmark Knowledge Domain Release Readiness Action Plan" in (
+        pr_comment_script
+    )
+    assert (
+        "Benchmark Artifact Bundle Knowledge Domain Release Readiness Action Plan"
+        in pr_comment_script
+    )
+    assert "Benchmark Companion Knowledge Domain Release Readiness Action Plan" in (
+        pr_comment_script
+    )
+    assert (
+        "Benchmark Release Decision Knowledge Domain Release Readiness Action Plan"
+        in pr_comment_script
+    )
+    assert (
+        "Benchmark Release Runbook Knowledge Domain Release Readiness Action Plan"
+        in pr_comment_script
+    )
