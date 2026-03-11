@@ -226,6 +226,10 @@ on:
         description: 'Optional benchmark knowledge domain capability matrix knowledge domain matrix JSON'
         required: false
         default: ''
+      benchmark_knowledge_domain_validation_matrix_enable:
+        description: 'Override: enable benchmark knowledge domain validation matrix export (true/false)'
+        required: false
+        default: ''
       benchmark_knowledge_domain_capability_drift_enable:
         description: 'Override: enable benchmark knowledge domain capability drift export (true/false)'
         required: false
@@ -586,6 +590,10 @@ on:
         description: 'Optional benchmark artifact bundle knowledge domain capability matrix JSON'
         required: false
         default: ''
+      benchmark_artifact_bundle_knowledge_domain_validation_matrix_json:
+        description: 'Optional benchmark artifact bundle knowledge domain validation matrix JSON'
+        required: false
+        default: ''
       benchmark_artifact_bundle_knowledge_domain_capability_drift_json:
         description: 'Optional benchmark artifact bundle knowledge domain capability drift JSON'
         required: false
@@ -688,6 +696,10 @@ on:
         default: ''
       benchmark_companion_summary_knowledge_domain_capability_matrix_json:
         description: 'Optional benchmark companion summary knowledge domain capability matrix JSON'
+        required: false
+        default: ''
+      benchmark_companion_summary_knowledge_domain_validation_matrix_json:
+        description: 'Optional benchmark companion summary knowledge domain validation matrix JSON'
         required: false
         default: ''
       benchmark_companion_summary_knowledge_domain_capability_drift_json:
@@ -802,6 +814,10 @@ on:
         description: 'Optional benchmark release decision knowledge domain capability matrix JSON'
         required: false
         default: ''
+      benchmark_release_decision_knowledge_domain_validation_matrix_json:
+        description: 'Optional benchmark release decision knowledge domain validation matrix JSON'
+        required: false
+        default: ''
       benchmark_release_decision_knowledge_domain_capability_drift_json:
         description: 'Optional benchmark release decision knowledge domain capability drift JSON'
         required: false
@@ -904,6 +920,10 @@ on:
         default: ''
       benchmark_release_runbook_knowledge_domain_capability_matrix_json:
         description: 'Optional benchmark release runbook knowledge domain capability matrix JSON'
+        required: false
+        default: ''
+      benchmark_release_runbook_knowledge_domain_validation_matrix_json:
+        description: 'Optional benchmark release runbook knowledge domain validation matrix JSON'
         required: false
         default: ''
       benchmark_release_runbook_knowledge_domain_capability_drift_json:
@@ -1123,6 +1143,10 @@ env:
   BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_KNOWLEDGE_DOMAIN_MATRIX_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_KNOWLEDGE_DOMAIN_MATRIX_JSON }}
   BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_OUTPUT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_knowledge_domain_capability_matrix.json' }}
   BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_OUTPUT_MD: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_knowledge_domain_capability_matrix.md' }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_ENABLE: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_ENABLE || 'false' }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_TITLE: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_TITLE || 'Benchmark Knowledge Domain Validation Matrix' }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_OUTPUT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_knowledge_domain_validation_matrix.json' }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_OUTPUT_MD: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_knowledge_domain_validation_matrix.md' }}
   BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_ENABLE: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_ENABLE || 'false' }}
   BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_TITLE: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_TITLE || 'Benchmark Knowledge Domain Capability Drift' }}
   BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_CURRENT_SUMMARY_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_CURRENT_SUMMARY_JSON }}
@@ -1270,6 +1294,7 @@ env:
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_REALDATA_CORRELATION_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_REALDATA_CORRELATION_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_MATRIX_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_MATRIX_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON }}
+  BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON }}
@@ -1297,6 +1322,7 @@ env:
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_REALDATA_CORRELATION_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_REALDATA_CORRELATION_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_MATRIX_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_MATRIX_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON }}
+  BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON }}
@@ -1326,6 +1352,7 @@ env:
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_REALDATA_CORRELATION_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_REALDATA_CORRELATION_JSON }}
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_MATRIX_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_MATRIX_JSON }}
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON }}
+  BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_JSON }}
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON }}
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON }}
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON }}
@@ -1352,6 +1379,7 @@ env:
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_REALDATA_CORRELATION_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_REALDATA_CORRELATION_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_MATRIX_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_MATRIX_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON }}
+  BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON }}
@@ -3751,6 +3779,88 @@ jobs:
             f.write(f"recommendations={compact(recommendations)}\n")
         PY
 
+    - name: Build benchmark knowledge domain validation matrix (optional)
+      id: benchmark_knowledge_domain_validation_matrix
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_domain_validation_matrix_enable || '' }}"
+        ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+
+        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "BENCHMARK_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_ENABLE is not true; skip."
+          exit 0
+        fi
+
+        OUTPUT_JSON="${BENCHMARK_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_OUTPUT_JSON:-reports/history_sequence_eval/benchmark_knowledge_domain_validation_matrix.json}"
+        OUTPUT_MD="${BENCHMARK_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_OUTPUT_MD:-reports/history_sequence_eval/benchmark_knowledge_domain_validation_matrix.md}"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+        mkdir -p "$(dirname "$OUTPUT_MD")"
+
+        python3 scripts/export_benchmark_knowledge_domain_validation_matrix.py \
+          --title "${BENCHMARK_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_TITLE:-Benchmark Knowledge Domain Validation Matrix}" \
+          --output-json "$OUTPUT_JSON" \
+          --output-md "$OUTPUT_MD"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path(
+                os.environ["BENCHMARK_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_OUTPUT_JSON"]
+            ).read_text(encoding="utf-8")
+        )
+        component = payload.get("knowledge_domain_validation_matrix") or {}
+        recommendations = payload.get("recommendations") or []
+        focus_areas = component.get("focus_areas_detail") or []
+        priority_domains = component.get("priority_domains") or []
+        domains = component.get("domains") or {}
+
+        def compact(items):
+            return "; ".join(str(item).strip() for item in items[:3] if str(item).strip())
+
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"status={component.get('status', 'unknown')}\n")
+            f.write(f"ready_domain_count={component.get('ready_domain_count', 0)}\n")
+            f.write(f"partial_domain_count={component.get('partial_domain_count', 0)}\n")
+            f.write(f"blocked_domain_count={component.get('blocked_domain_count', 0)}\n")
+            f.write(f"total_domain_count={component.get('total_domain_count', 0)}\n")
+            f.write(f"focus_area_count={len(focus_areas)}\n")
+            f.write(
+                "focus_areas="
+                + compact(
+                    [
+                        f"{row.get('domain')}:{row.get('priority')}"
+                        for row in focus_areas
+                        if row.get("domain")
+                    ]
+                )
+                + "\n"
+            )
+            f.write(f"priority_domains={compact(priority_domains)}\n")
+            f.write(
+                "domain_statuses="
+                + compact(
+                    [
+                        f"{key}:{(value or {}).get('status', 'unknown')}"
+                        for key, value in domains.items()
+                    ]
+                )
+                + "\n"
+            )
+            f.write(f"total_test_count={component.get('total_test_count', 0)}\n")
+            f.write(f"recommendations={compact(recommendations)}\n")
+        PY
+
     - name: Build benchmark knowledge domain capability drift (optional)
       id: benchmark_knowledge_domain_capability_drift
       continue-on-error: true
@@ -4618,6 +4728,9 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-matrix "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${{ steps.benchmark_knowledge_domain_capability_matrix.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON:-}"
+        add_if_exists --benchmark-knowledge-domain-validation-matrix "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_domain_validation_matrix_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-validation-matrix "${{ steps.benchmark_knowledge_domain_validation_matrix.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-validation-matrix "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-capability-drift "${{ steps.benchmark_knowledge_domain_capability_drift.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-control-plane-drift "${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-release-surface-alignment "${{ steps.benchmark_knowledge_domain_release_surface_alignment.outputs.output_json || '' }}"
@@ -5575,6 +5688,9 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-matrix "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${{ steps.benchmark_knowledge_domain_capability_matrix.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON:-}"
+        add_if_exists --benchmark-knowledge-domain-validation-matrix "${{ github.event.inputs.benchmark_companion_summary_knowledge_domain_validation_matrix_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-validation-matrix "${{ steps.benchmark_knowledge_domain_validation_matrix.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-validation-matrix "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-capability-drift "${{ steps.benchmark_knowledge_domain_capability_drift.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-control-plane-drift "${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-release-surface-alignment "${{ steps.benchmark_knowledge_domain_release_surface_alignment.outputs.output_json || '' }}"
@@ -6566,6 +6682,9 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-matrix "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${{ steps.benchmark_knowledge_domain_capability_matrix.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON:-}"
+        add_if_exists --benchmark-knowledge-domain-validation-matrix "${{ github.event.inputs.benchmark_release_decision_knowledge_domain_validation_matrix_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-validation-matrix "${{ steps.benchmark_knowledge_domain_validation_matrix.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-validation-matrix "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-capability-drift "${{ steps.benchmark_knowledge_domain_capability_drift.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-control-plane-drift "${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-control-plane-drift "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON:-}"
@@ -7347,6 +7466,9 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-matrix "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${{ steps.benchmark_knowledge_domain_capability_matrix.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON:-}"
+        add_if_exists --benchmark-knowledge-domain-validation-matrix "${{ github.event.inputs.benchmark_release_runbook_knowledge_domain_validation_matrix_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-validation-matrix "${{ steps.benchmark_knowledge_domain_validation_matrix.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-validation-matrix "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-capability-drift "${{ steps.benchmark_knowledge_domain_capability_drift.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-control-plane-drift "${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-control-plane-drift "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON:-}"
@@ -9214,6 +9336,15 @@ jobs:
         path: |
           ${{ steps.benchmark_knowledge_domain_capability_matrix.outputs.output_json }}
           ${{ steps.benchmark_knowledge_domain_capability_matrix.outputs.output_md }}
+
+    - name: Upload benchmark knowledge domain validation matrix
+      if: steps.benchmark_knowledge_domain_validation_matrix.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-knowledge-domain-validation-matrix-${{ github.run_number }}
+        path: |
+          ${{ steps.benchmark_knowledge_domain_validation_matrix.outputs.output_json }}
+          ${{ steps.benchmark_knowledge_domain_validation_matrix.outputs.output_md }}
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
     - name: Upload benchmark knowledge domain capability drift
@@ -9740,6 +9871,25 @@ jobs:
           echo "- Benchmark knowledge domain capability matrix artifact: ${{ steps.benchmark_knowledge_domain_capability_matrix.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
         else
           echo "- Benchmark knowledge domain capability matrix: skipped (BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_ENABLE!=true or no inputs)" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [[ "${{ steps.benchmark_knowledge_domain_validation_matrix.outputs.enabled }}" == "true" ]]; then
+          echo "- Benchmark knowledge domain validation matrix status: ${{ steps.benchmark_knowledge_domain_validation_matrix.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain validation matrix ready domains: ${{ steps.benchmark_knowledge_domain_validation_matrix.outputs.ready_domain_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain validation matrix partial domains: ${{ steps.benchmark_knowledge_domain_validation_matrix.outputs.partial_domain_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain validation matrix blocked domains: ${{ steps.benchmark_knowledge_domain_validation_matrix.outputs.blocked_domain_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain validation matrix total domains: ${{ steps.benchmark_knowledge_domain_validation_matrix.outputs.total_domain_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain validation matrix total tests: ${{ steps.benchmark_knowledge_domain_validation_matrix.outputs.total_test_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain validation matrix focus areas: ${{ steps.benchmark_knowledge_domain_validation_matrix.outputs.focus_areas }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain validation matrix priority domains: ${{ steps.benchmark_knowledge_domain_validation_matrix.outputs.priority_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain validation matrix domain statuses: ${{ steps.benchmark_knowledge_domain_validation_matrix.outputs.domain_statuses }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain validation matrix recommendations: ${{ steps.benchmark_knowledge_domain_validation_matrix.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain validation matrix artifact: ${{ steps.benchmark_knowledge_domain_validation_matrix.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge domain validation matrix: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_validation_matrix_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge domain validation matrix: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_validation_matrix_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release decision knowledge domain validation matrix: ${{ steps.benchmark_release_decision.outputs.knowledge_domain_validation_matrix_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge domain validation matrix: ${{ steps.benchmark_release_runbook.outputs.knowledge_domain_validation_matrix_status }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Benchmark knowledge domain validation matrix: skipped (BENCHMARK_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_ENABLE!=true)" >> $GITHUB_STEP_SUMMARY
         fi
         if [[ "${{ steps.benchmark_knowledge_domain_capability_drift.outputs.enabled }}" == "true" ]]; then
           echo "- Benchmark knowledge domain capability drift status: ${{ steps.benchmark_knowledge_domain_capability_drift.outputs.status }}" >> $GITHUB_STEP_SUMMARY

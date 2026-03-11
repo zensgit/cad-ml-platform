@@ -4560,3 +4560,90 @@ def test_workflow_wires_benchmark_knowledge_reference_inventory_pr_comment() -> 
         pr_comment_script
     )
     assert "Benchmark Companion Knowledge Reference Inventory" in pr_comment_script
+
+
+def test_workflow_wires_benchmark_knowledge_domain_validation_matrix() -> None:
+    workflow = _load_workflow()
+    env = workflow["env"]
+    dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
+
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_ENABLE" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_TITLE" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_OUTPUT_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_OUTPUT_MD" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_JSON" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_JSON" in env
+    assert "BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_JSON" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_JSON" in env
+
+    assert "benchmark_knowledge_domain_validation_matrix_enable" in dispatch_inputs
+    assert (
+        "benchmark_artifact_bundle_knowledge_domain_validation_matrix_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_companion_summary_knowledge_domain_validation_matrix_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_release_decision_knowledge_domain_validation_matrix_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_release_runbook_knowledge_domain_validation_matrix_json"
+        in dispatch_inputs
+    )
+
+    build_step = _get_step(
+        workflow,
+        "evaluate",
+        "Build benchmark knowledge domain validation matrix (optional)",
+    )
+    build_script = build_step["run"]
+    assert (
+        "scripts/export_benchmark_knowledge_domain_validation_matrix.py"
+        in build_script
+    )
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_VALIDATION_MATRIX_ENABLE" in build_script
+    assert "ready_domain_count=" in build_script
+    assert "partial_domain_count=" in build_script
+    assert "blocked_domain_count=" in build_script
+    assert "total_domain_count=" in build_script
+    assert "total_test_count=" in build_script
+    assert "focus_areas=" in build_script
+    assert "priority_domains=" in build_script
+    assert "domain_statuses=" in build_script
+    assert "recommendations=" in build_script
+
+    bundle_step = _get_step(
+        workflow, "evaluate", "Build benchmark artifact bundle (optional)"
+    )
+    assert "--benchmark-knowledge-domain-validation-matrix" in bundle_step["run"]
+    companion_step = _get_step(
+        workflow, "evaluate", "Build benchmark companion summary (optional)"
+    )
+    assert "--benchmark-knowledge-domain-validation-matrix" in companion_step["run"]
+    release_step = _get_step(
+        workflow, "evaluate", "Build benchmark release decision (optional)"
+    )
+    assert "--benchmark-knowledge-domain-validation-matrix" in release_step["run"]
+    runbook_step = _get_step(
+        workflow, "evaluate", "Build benchmark release runbook (optional)"
+    )
+    assert "--benchmark-knowledge-domain-validation-matrix" in runbook_step["run"]
+
+    upload_step = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge domain validation matrix"
+    )
+    assert (
+        upload_step["if"]
+        == "steps.benchmark_knowledge_domain_validation_matrix.outputs.enabled == 'true'"
+    )
+
+    summary_step = _get_step(workflow, "evaluate", "Create job summary")
+    summary_script = summary_step["run"]
+    assert "Benchmark knowledge domain validation matrix status" in summary_script
+    assert "Benchmark artifact bundle knowledge domain validation matrix" in summary_script
+    assert "Benchmark companion knowledge domain validation matrix" in summary_script
+    assert "Benchmark release decision knowledge domain validation matrix" in summary_script
+    assert "Benchmark release runbook knowledge domain validation matrix" in summary_script
