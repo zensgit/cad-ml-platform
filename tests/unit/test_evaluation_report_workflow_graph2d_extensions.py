@@ -116,6 +116,46 @@ def test_workflow_wires_knowledge_domain_surface_action_plan() -> None:
     assert "Benchmark knowledge domain surface action plan priority domains" in summary_script
 
 
+def test_workflow_wires_knowledge_subdomain_surface_matrix() -> None:
+    workflow = _load_workflow()
+    env = workflow["env"]
+    dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
+
+    assert "BENCHMARK_KNOWLEDGE_SUBDOMAIN_SURFACE_MATRIX_ENABLE" in env
+    assert "BENCHMARK_KNOWLEDGE_SUBDOMAIN_SURFACE_MATRIX_TITLE" in env
+    assert "BENCHMARK_KNOWLEDGE_SUBDOMAIN_SURFACE_MATRIX_OUTPUT_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_SUBDOMAIN_SURFACE_MATRIX_OUTPUT_MD" in env
+    assert "benchmark_knowledge_subdomain_surface_matrix_enable" in dispatch_inputs
+
+    step = _get_step(
+        workflow,
+        "evaluate",
+        "Build benchmark knowledge subdomain surface matrix (optional)",
+    )
+    script = step["run"]
+    assert "scripts/export_benchmark_knowledge_subdomain_surface_matrix.py" in script
+    assert "BENCHMARK_KNOWLEDGE_SUBDOMAIN_SURFACE_MATRIX_ENABLE" in script
+    assert "total_subdomain_count=" in script
+    assert "priority_subdomains=" in script
+    assert "public_api_gap_subdomains=" in script
+    assert "reference_gap_subdomains=" in script
+
+    upload_step = _get_step(
+        workflow,
+        "evaluate",
+        "Upload benchmark knowledge subdomain surface matrix",
+    )
+    assert (
+        upload_step["if"]
+        == "steps.benchmark_knowledge_subdomain_surface_matrix.outputs.enabled == 'true'"
+    )
+
+    summary_step = _get_step(workflow, "evaluate", "Create job summary")
+    summary_script = summary_step["run"]
+    assert "Benchmark knowledge subdomain surface matrix status" in summary_script
+    assert "Benchmark knowledge subdomain surface matrix priority subdomains" in summary_script
+
+
 def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     workflow = _load_workflow()
     env = workflow["env"]
