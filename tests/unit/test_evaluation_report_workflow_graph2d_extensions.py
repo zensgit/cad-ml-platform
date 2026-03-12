@@ -4863,3 +4863,17 @@ def test_workflow_wires_knowledge_api_surface_matrix_pr_comment() -> None:
     assert "benchmarkKnowledgeDomainApiSurfaceMatrixPublicApiGapDomains" in pr_comment_script
     assert "benchmarkKnowledgeDomainApiSurfaceMatrixReferenceGapDomains" in pr_comment_script
     assert "Benchmark Knowledge Domain API Surface Matrix" in pr_comment_script
+
+
+def test_workflow_wires_knowledge_surface_matrix_pr_comment() -> None:
+    workflow = _load_workflow()
+
+    pr_comment_step = _get_step(workflow, "evaluate", "Comment PR with results")
+    pr_comment_script = pr_comment_step["with"]["script"]
+
+    assert "benchmarkKnowledgeDomainSurfaceMatrixEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeDomainSurfaceMatrixStatusLine" in pr_comment_script
+    assert "benchmarkKnowledgeDomainSurfaceMatrixLight" in pr_comment_script
+    assert "benchmarkKnowledgeDomainSurfaceMatrixPublicSurfaceGapDomains" in pr_comment_script
+    assert "benchmarkKnowledgeDomainSurfaceMatrixReferenceGapDomains" in pr_comment_script
+    assert "Benchmark Knowledge Domain Surface Matrix" in pr_comment_script
