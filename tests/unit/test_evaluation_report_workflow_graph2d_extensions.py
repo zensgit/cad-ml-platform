@@ -4123,6 +4123,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Knowledge Domain Capability Drift" in pr_comment_script
     assert "Benchmark Knowledge Domain Action Plan" in pr_comment_script
     assert "Benchmark Knowledge Domain Surface Action Plan" in pr_comment_script
+    assert "Benchmark Knowledge Subdomain Surface Matrix" in pr_comment_script
     assert "Benchmark Knowledge Domain Control Plane" in pr_comment_script
     assert "Benchmark Knowledge Domain Control Plane Drift" in pr_comment_script
     assert "Benchmark Knowledge Domain Release Gate" in pr_comment_script

@@ -11262,6 +11262,17 @@ jobs:
             const benchmarkKnowledgeDomainSurfaceActionPlanDomainActionCounts = '${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.domain_action_counts }}';
             const benchmarkKnowledgeDomainSurfaceActionPlanRecommendations = '${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.recommendations }}';
             const benchmarkKnowledgeDomainSurfaceActionPlanArtifact = '${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.output_md }}';
+            const benchmarkKnowledgeSubdomainSurfaceMatrixEnabled = '${{ steps.benchmark_knowledge_subdomain_surface_matrix.outputs.enabled }}' === 'true';
+            const benchmarkKnowledgeSubdomainSurfaceMatrixStatus = '${{ steps.benchmark_knowledge_subdomain_surface_matrix.outputs.status }}';
+            const benchmarkKnowledgeSubdomainSurfaceMatrixTotalSubdomainCount = '${{ steps.benchmark_knowledge_subdomain_surface_matrix.outputs.total_subdomain_count }}';
+            const benchmarkKnowledgeSubdomainSurfaceMatrixReadySubdomainCount = '${{ steps.benchmark_knowledge_subdomain_surface_matrix.outputs.ready_subdomain_count }}';
+            const benchmarkKnowledgeSubdomainSurfaceMatrixPartialSubdomainCount = '${{ steps.benchmark_knowledge_subdomain_surface_matrix.outputs.partial_subdomain_count }}';
+            const benchmarkKnowledgeSubdomainSurfaceMatrixBlockedSubdomainCount = '${{ steps.benchmark_knowledge_subdomain_surface_matrix.outputs.blocked_subdomain_count }}';
+            const benchmarkKnowledgeSubdomainSurfaceMatrixPrioritySubdomains = '${{ steps.benchmark_knowledge_subdomain_surface_matrix.outputs.priority_subdomains }}';
+            const benchmarkKnowledgeSubdomainSurfaceMatrixPublicApiGapSubdomains = '${{ steps.benchmark_knowledge_subdomain_surface_matrix.outputs.public_api_gap_subdomains }}';
+            const benchmarkKnowledgeSubdomainSurfaceMatrixReferenceGapSubdomains = '${{ steps.benchmark_knowledge_subdomain_surface_matrix.outputs.reference_gap_subdomains }}';
+            const benchmarkKnowledgeSubdomainSurfaceMatrixRecommendations = '${{ steps.benchmark_knowledge_subdomain_surface_matrix.outputs.recommendations }}';
+            const benchmarkKnowledgeSubdomainSurfaceMatrixArtifact = '${{ steps.benchmark_knowledge_subdomain_surface_matrix.outputs.output_md }}';
             const benchmarkKnowledgeDomainReleaseReadinessActionPlanEnabled = '${{ steps.benchmark_knowledge_domain_release_readiness_action_plan.outputs.enabled }}' === 'true';
             const benchmarkKnowledgeDomainReleaseReadinessActionPlanStatus = '${{ steps.benchmark_knowledge_domain_release_readiness_action_plan.outputs.status }}';
             const benchmarkKnowledgeDomainReleaseReadinessActionPlanTotalActionCount = '${{ steps.benchmark_knowledge_domain_release_readiness_action_plan.outputs.total_action_count }}';
@@ -12077,6 +12088,9 @@ jobs:
             const benchmarkKnowledgeDomainSurfaceActionPlanStatusLine = benchmarkKnowledgeDomainSurfaceActionPlanEnabled
               ? `status=${benchmarkKnowledgeDomainSurfaceActionPlanStatus || 'n/a'}, subcapabilities=${benchmarkKnowledgeDomainSurfaceActionPlanTotalSubcapabilityCount || 'n/a'}, actions=${benchmarkKnowledgeDomainSurfaceActionPlanTotalActionCount || 'n/a'}, high=${benchmarkKnowledgeDomainSurfaceActionPlanHighPriorityActionCount || 'n/a'}, medium=${benchmarkKnowledgeDomainSurfaceActionPlanMediumPriorityActionCount || 'n/a'}, priority_domains=${benchmarkKnowledgeDomainSurfaceActionPlanPriorityDomains || 'n/a'}, first_actions=${benchmarkKnowledgeDomainSurfaceActionPlanRecommendedFirstActions || 'n/a'}, domain_action_counts=${benchmarkKnowledgeDomainSurfaceActionPlanDomainActionCounts || 'n/a'}, recommendations=${benchmarkKnowledgeDomainSurfaceActionPlanRecommendations || 'n/a'}, artifact=${benchmarkKnowledgeDomainSurfaceActionPlanArtifact || 'n/a'}`
               : '⏭️ skipped';
+            const benchmarkKnowledgeSubdomainSurfaceMatrixStatusLine = benchmarkKnowledgeSubdomainSurfaceMatrixEnabled
+              ? `status=${benchmarkKnowledgeSubdomainSurfaceMatrixStatus || 'n/a'}, total=${benchmarkKnowledgeSubdomainSurfaceMatrixTotalSubdomainCount || 'n/a'}, ready=${benchmarkKnowledgeSubdomainSurfaceMatrixReadySubdomainCount || 'n/a'}, partial=${benchmarkKnowledgeSubdomainSurfaceMatrixPartialSubdomainCount || 'n/a'}, blocked=${benchmarkKnowledgeSubdomainSurfaceMatrixBlockedSubdomainCount || 'n/a'}, priority_subdomains=${benchmarkKnowledgeSubdomainSurfaceMatrixPrioritySubdomains || 'n/a'}, public_api_gaps=${benchmarkKnowledgeSubdomainSurfaceMatrixPublicApiGapSubdomains || 'n/a'}, reference_gaps=${benchmarkKnowledgeSubdomainSurfaceMatrixReferenceGapSubdomains || 'n/a'}, recommendations=${benchmarkKnowledgeSubdomainSurfaceMatrixRecommendations || 'n/a'}, artifact=${benchmarkKnowledgeSubdomainSurfaceMatrixArtifact || 'n/a'}`
+              : '⏭️ skipped';
             const benchmarkKnowledgeDomainReleaseReadinessActionPlanStatusLine = benchmarkKnowledgeDomainReleaseReadinessActionPlanEnabled
               ? `status=${benchmarkKnowledgeDomainReleaseReadinessActionPlanStatus || 'n/a'}, actions=${benchmarkKnowledgeDomainReleaseReadinessActionPlanTotalActionCount || 'n/a'}, high=${benchmarkKnowledgeDomainReleaseReadinessActionPlanHighPriorityActionCount || 'n/a'}, medium=${benchmarkKnowledgeDomainReleaseReadinessActionPlanMediumPriorityActionCount || 'n/a'}, gate_open=${benchmarkKnowledgeDomainReleaseReadinessActionPlanGateOpen || 'n/a'}, priority_domains=${benchmarkKnowledgeDomainReleaseReadinessActionPlanPriorityDomains || 'n/a'}, first_actions=${benchmarkKnowledgeDomainReleaseReadinessActionPlanRecommendedFirstActions || 'n/a'}, recommendations=${benchmarkKnowledgeDomainReleaseReadinessActionPlanRecommendations || 'n/a'}, artifact=${benchmarkKnowledgeDomainReleaseReadinessActionPlanArtifact || 'n/a'}`
               : '⏭️ skipped';
@@ -12607,6 +12621,17 @@ jobs:
                     ? '🟢'
                     : (
                         benchmarkKnowledgeDomainSurfaceActionPlanStatus === 'knowledge_domain_surface_action_plan_blocked'
+                          ? '🔴'
+                          : '🟡'
+                        )
+                );
+            const benchmarkKnowledgeSubdomainSurfaceMatrixLight = !benchmarkKnowledgeSubdomainSurfaceMatrixEnabled
+              ? '⚪'
+              : (
+                  benchmarkKnowledgeSubdomainSurfaceMatrixStatus === 'knowledge_subdomain_surface_matrix_ready'
+                    ? '🟢'
+                    : (
+                        benchmarkKnowledgeSubdomainSurfaceMatrixStatus === 'knowledge_subdomain_surface_matrix_blocked'
                           ? '🔴'
                           : '🟡'
                         )
@@ -13172,6 +13197,7 @@ jobs:
             | **Benchmark Knowledge Domain Capability Drift** | ${benchmarkKnowledgeDomainCapabilityDriftStatusLine} |
             | **Benchmark Knowledge Domain Action Plan** | ${benchmarkKnowledgeDomainActionPlanStatusLine} |
             | **Benchmark Knowledge Domain Surface Action Plan** | ${benchmarkKnowledgeDomainSurfaceActionPlanStatusLine} |
+            | **Benchmark Knowledge Subdomain Surface Matrix** | ${benchmarkKnowledgeSubdomainSurfaceMatrixStatusLine} |
             | **Benchmark Knowledge Domain Release Readiness Action Plan** | ${benchmarkKnowledgeDomainReleaseReadinessActionPlanStatusLine} |
             | **Benchmark Knowledge Domain Control Plane** | ${benchmarkKnowledgeDomainControlPlaneStatusLine} |
             | **Benchmark Knowledge Domain Control Plane Drift** | ${benchmarkKnowledgeDomainControlPlaneDriftStatusLine} |
@@ -13366,6 +13392,7 @@ jobs:
             | **Benchmark Knowledge Domain Capability Drift** | ${benchmarkKnowledgeDomainCapabilityDriftLight} | ${benchmarkKnowledgeDomainCapabilityDriftStatusLine} |
             | **Benchmark Knowledge Domain Action Plan** | ${benchmarkKnowledgeDomainActionPlanLight} | ${benchmarkKnowledgeDomainActionPlanStatusLine} |
             | **Benchmark Knowledge Domain Surface Action Plan** | ${benchmarkKnowledgeDomainSurfaceActionPlanLight} | ${benchmarkKnowledgeDomainSurfaceActionPlanStatusLine} |
+            | **Benchmark Knowledge Subdomain Surface Matrix** | ${benchmarkKnowledgeSubdomainSurfaceMatrixLight} | ${benchmarkKnowledgeSubdomainSurfaceMatrixStatusLine} |
             | **Benchmark Knowledge Domain Release Readiness Action Plan** | ${benchmarkKnowledgeDomainReleaseReadinessActionPlanLight} | ${benchmarkKnowledgeDomainReleaseReadinessActionPlanStatusLine} |
             | **Benchmark Knowledge Domain Control Plane** | ${benchmarkKnowledgeDomainControlPlaneLight} | ${benchmarkKnowledgeDomainControlPlaneStatusLine} |
             | **Benchmark Knowledge Domain Control Plane Drift** | ${benchmarkKnowledgeDomainControlPlaneDriftLight} | ${benchmarkKnowledgeDomainControlPlaneDriftStatusLine} |
