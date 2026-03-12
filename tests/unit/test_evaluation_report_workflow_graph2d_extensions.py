@@ -20,6 +20,48 @@ def _get_step(workflow: dict, job_name: str, step_name: str) -> dict:
     raise AssertionError(f"Missing step {step_name!r} in job {job_name!r}")
 
 
+def test_workflow_wires_knowledge_domain_api_surface_matrix() -> None:
+    workflow = _load_workflow()
+    env = workflow["env"]
+    dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
+
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_ENABLE" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_TITLE" in env
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON"
+        in env
+    )
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_OUTPUT_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_OUTPUT_MD" in env
+    assert "benchmark_knowledge_domain_api_surface_matrix_enable" in dispatch_inputs
+    assert (
+        "benchmark_knowledge_domain_api_surface_matrix_knowledge_domain_capability_matrix_json"
+        in dispatch_inputs
+    )
+
+    step = _get_step(
+        workflow,
+        "evaluate",
+        "Build benchmark knowledge domain API surface matrix (optional)",
+    )
+    script = step["run"]
+    assert "scripts/export_benchmark_knowledge_domain_api_surface_matrix.py" in script
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_ENABLE" in script
+    assert (
+        "benchmark_knowledge_domain_api_surface_matrix_knowledge_domain_capability_matrix_json"
+        in script
+    )
+    assert "steps.benchmark_knowledge_domain_capability_matrix.outputs.output_json" in script
+    assert "total_api_route_count=" in script
+    assert "public_api_gap_domains=" in script
+    assert "reference_gap_domains=" in script
+
+    summary_step = _get_step(workflow, "evaluate", "Create job summary")
+    summary_script = summary_step["run"]
+    assert "Benchmark knowledge domain API surface matrix status" in summary_script
+    assert "Benchmark knowledge domain API surface matrix public API gaps" in summary_script
+
+
 def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     workflow = _load_workflow()
     env = workflow["env"]
@@ -318,6 +360,11 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     )
     assert (
         "benchmark_knowledge_domain_capability_matrix_knowledge_domain_matrix_json"
+        in dispatch_inputs
+    )
+    assert "benchmark_knowledge_domain_api_surface_matrix_enable" in dispatch_inputs
+    assert (
+        "benchmark_knowledge_domain_api_surface_matrix_knowledge_domain_capability_matrix_json"
         in dispatch_inputs
     )
     assert "benchmark_knowledge_domain_capability_drift_enable" in dispatch_inputs
@@ -2621,6 +2668,13 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert (
         upload_knowledge_domain_capability_matrix["if"]
         == "steps.benchmark_knowledge_domain_capability_matrix.outputs.enabled == 'true'"
+    )
+    upload_knowledge_domain_api_surface_matrix = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge domain API surface matrix"
+    )
+    assert (
+        upload_knowledge_domain_api_surface_matrix["if"]
+        == "steps.benchmark_knowledge_domain_api_surface_matrix.outputs.enabled == 'true'"
     )
     upload_knowledge_domain_capability_drift = _get_step(
         workflow, "evaluate", "Upload benchmark knowledge domain capability drift"
