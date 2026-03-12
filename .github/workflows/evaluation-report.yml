@@ -234,6 +234,14 @@ on:
         description: 'Optional benchmark knowledge domain API surface matrix capability matrix JSON'
         required: false
         default: ''
+      benchmark_knowledge_domain_surface_action_plan_enable:
+        description: 'Override: enable benchmark knowledge domain surface action plan export (true/false)'
+        required: false
+        default: ''
+      benchmark_knowledge_domain_surface_action_plan_knowledge_domain_surface_matrix_json:
+        description: 'Optional benchmark knowledge domain surface action plan surface matrix JSON'
+        required: false
+        default: ''
       benchmark_knowledge_domain_capability_drift_enable:
         description: 'Override: enable benchmark knowledge domain capability drift export (true/false)'
         required: false
@@ -1152,6 +1160,11 @@ env:
   BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON }}
   BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_OUTPUT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_knowledge_domain_api_surface_matrix.json' }}
   BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_OUTPUT_MD: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_knowledge_domain_api_surface_matrix.md' }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_ENABLE: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_ENABLE || 'false' }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_TITLE: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_TITLE || 'Benchmark Knowledge Domain Surface Action Plan' }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_KNOWLEDGE_DOMAIN_SURFACE_MATRIX_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_KNOWLEDGE_DOMAIN_SURFACE_MATRIX_JSON }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_OUTPUT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_knowledge_domain_surface_action_plan.json' }}
+  BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_OUTPUT_MD: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_knowledge_domain_surface_action_plan.md' }}
   BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_ENABLE: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_ENABLE || 'false' }}
   BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_TITLE: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_TITLE || 'Benchmark Knowledge Domain Capability Drift' }}
   BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_CURRENT_SUMMARY_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_CURRENT_SUMMARY_JSON }}
@@ -4010,6 +4023,119 @@ jobs:
             f.write(f"recommendations={compact(recommendations)}\n")
         PY
 
+    - name: Build benchmark knowledge domain surface action plan (optional)
+      id: benchmark_knowledge_domain_surface_action_plan
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_domain_surface_action_plan_enable || '' }}"
+        ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+
+        OUTPUT_JSON="${BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_OUTPUT_JSON:-reports/history_sequence_eval/benchmark_knowledge_domain_surface_action_plan.json}"
+        OUTPUT_MD="${BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_OUTPUT_MD:-reports/history_sequence_eval/benchmark_knowledge_domain_surface_action_plan.md}"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+        mkdir -p "$(dirname "$OUTPUT_MD")"
+
+        CMD=(
+          python3 scripts/export_benchmark_knowledge_domain_surface_action_plan.py
+          --title "${BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_TITLE:-Benchmark Knowledge Domain Surface Action Plan}"
+          --output-json "$OUTPUT_JSON"
+          --output-md "$OUTPUT_MD"
+        )
+        INPUT_COUNT=0
+
+        add_if_exists() {
+          local flag="$1"
+          local candidate="$2"
+          if [[ -n "$candidate" && -f "$candidate" ]]; then
+            CMD+=("$flag" "$candidate")
+            INPUT_COUNT=$((INPUT_COUNT + 1))
+          fi
+        }
+
+        add_if_exists --benchmark-knowledge-domain-surface-matrix "${{ github.event.inputs.benchmark_knowledge_domain_surface_action_plan_knowledge_domain_surface_matrix_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-surface-matrix "${BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_KNOWLEDGE_DOMAIN_SURFACE_MATRIX_JSON:-}"
+
+        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
+          if [[ "$INPUT_COUNT" -eq 0 ]]; then
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_ENABLE is not true and no inputs found; skip."
+            exit 0
+          fi
+        fi
+
+        if [[ "$INPUT_COUNT" -eq 0 ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "No benchmark knowledge domain surface action plan inputs found; skip."
+          exit 0
+        fi
+
+        "${CMD[@]}"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path(
+                os.environ["BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_OUTPUT_JSON"]
+            ).read_text(encoding="utf-8")
+        )
+        component = payload.get("knowledge_domain_surface_action_plan") or {}
+        recommendations = payload.get("recommendations") or []
+        actions = component.get("actions") or []
+        priority_domains = component.get("priority_domains") or []
+        recommended_first_actions = component.get("recommended_first_actions") or []
+        domain_action_counts = component.get("domain_action_counts") or {}
+
+        def compact(items):
+            return "; ".join(str(item).strip() for item in items[:3] if str(item).strip())
+
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"status={component.get('status', 'unknown')}\n")
+            f.write(
+                f"total_subcapability_count={component.get('total_subcapability_count', 0)}\n"
+            )
+            f.write(f"total_action_count={component.get('total_action_count', 0)}\n")
+            f.write(
+                f"high_priority_action_count={component.get('high_priority_action_count', 0)}\n"
+            )
+            f.write(
+                f"medium_priority_action_count={component.get('medium_priority_action_count', 0)}\n"
+            )
+            f.write(f"priority_domains={compact(priority_domains)}\n")
+            f.write(
+                "recommended_first_actions="
+                + compact(
+                    [
+                        f"{row.get('domain')}:{row.get('subcapability')}"
+                        for row in recommended_first_actions
+                        if row.get("domain")
+                    ]
+                )
+                + "\n"
+            )
+            f.write(
+                "domain_action_counts="
+                + compact(
+                    [
+                        f"{name}:{count}"
+                        for name, count in domain_action_counts.items()
+                        if name
+                    ]
+                )
+                + "\n"
+            )
+            f.write(f"recommendations={compact(recommendations)}\n")
+        PY
+
     - name: Build benchmark knowledge domain capability drift (optional)
       id: benchmark_knowledge_domain_capability_drift
       continue-on-error: true
@@ -4878,6 +5004,8 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${{ steps.benchmark_knowledge_domain_capability_matrix.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-api-surface-matrix "${{ steps.benchmark_knowledge_domain_api_surface_matrix.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-surface-action-plan "${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-surface-action-plan "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-capability-drift "${{ steps.benchmark_knowledge_domain_capability_drift.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-control-plane-drift "${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-release-surface-alignment "${{ steps.benchmark_knowledge_domain_release_surface_alignment.outputs.output_json || '' }}"
@@ -5836,6 +5964,8 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${{ steps.benchmark_knowledge_domain_capability_matrix.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-api-surface-matrix "${{ steps.benchmark_knowledge_domain_api_surface_matrix.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-surface-action-plan "${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-surface-action-plan "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-capability-drift "${{ steps.benchmark_knowledge_domain_capability_drift.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-control-plane-drift "${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-release-surface-alignment "${{ steps.benchmark_knowledge_domain_release_surface_alignment.outputs.output_json || '' }}"
@@ -6828,6 +6958,8 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${{ steps.benchmark_knowledge_domain_capability_matrix.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-api-surface-matrix "${{ steps.benchmark_knowledge_domain_api_surface_matrix.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-surface-action-plan "${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-surface-action-plan "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-capability-drift "${{ steps.benchmark_knowledge_domain_capability_drift.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-control-plane-drift "${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-control-plane-drift "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON:-}"
@@ -7610,6 +7742,8 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${{ steps.benchmark_knowledge_domain_capability_matrix.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-api-surface-matrix "${{ steps.benchmark_knowledge_domain_api_surface_matrix.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-surface-action-plan "${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-surface-action-plan "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-capability-drift "${{ steps.benchmark_knowledge_domain_capability_drift.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-control-plane-drift "${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-control-plane-drift "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON:-}"
@@ -9508,6 +9642,15 @@ jobs:
           ${{ steps.benchmark_knowledge_domain_action_plan.outputs.output_json }}
           ${{ steps.benchmark_knowledge_domain_action_plan.outputs.output_md }}
 
+    - name: Upload benchmark knowledge domain surface action plan
+      if: steps.benchmark_knowledge_domain_surface_action_plan.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-knowledge-domain-surface-action-plan-${{ github.run_number }}
+        path: |
+          ${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.output_json }}
+          ${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.output_md }}
+
     - name: Upload benchmark knowledge domain control plane
       if: steps.benchmark_knowledge_domain_control_plane.outputs.enabled == 'true'
       uses: actions/upload-artifact@v4
@@ -10066,6 +10209,20 @@ jobs:
           echo "- Benchmark knowledge domain action plan artifact: ${{ steps.benchmark_knowledge_domain_action_plan.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
         else
           echo "- Benchmark knowledge domain action plan: skipped (BENCHMARK_KNOWLEDGE_DOMAIN_ACTION_PLAN_ENABLE!=true or no inputs)" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [[ "${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.enabled }}" == "true" ]]; then
+          echo "- Benchmark knowledge domain surface action plan status: ${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain surface action plan subcapabilities: ${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.total_subcapability_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain surface action plan actions: ${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.total_action_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain surface action plan high-priority actions: ${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.high_priority_action_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain surface action plan medium-priority actions: ${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.medium_priority_action_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain surface action plan priority domains: ${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.priority_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain surface action plan first actions: ${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.recommended_first_actions }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain surface action plan domain action counts: ${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.domain_action_counts }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain surface action plan recommendations: ${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain surface action plan artifact: ${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Benchmark knowledge domain surface action plan: skipped (BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_ENABLE!=true or no inputs)" >> $GITHUB_STEP_SUMMARY
         fi
         if [[ "${{ steps.benchmark_knowledge_domain_control_plane.outputs.enabled }}" == "true" ]]; then
           echo "- Benchmark knowledge domain control plane status: ${{ steps.benchmark_knowledge_domain_control_plane.outputs.status }}" >> $GITHUB_STEP_SUMMARY
