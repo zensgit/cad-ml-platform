@@ -11153,6 +11153,17 @@ jobs:
             const benchmarkKnowledgeDomainActionPlanDomainActionCounts = '${{ steps.benchmark_knowledge_domain_action_plan.outputs.domain_action_counts }}';
             const benchmarkKnowledgeDomainActionPlanRecommendations = '${{ steps.benchmark_knowledge_domain_action_plan.outputs.recommendations }}';
             const benchmarkKnowledgeDomainActionPlanArtifact = '${{ steps.benchmark_knowledge_domain_action_plan.outputs.output_md }}';
+            const benchmarkKnowledgeDomainSurfaceActionPlanEnabled = '${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.enabled }}' === 'true';
+            const benchmarkKnowledgeDomainSurfaceActionPlanStatus = '${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.status }}';
+            const benchmarkKnowledgeDomainSurfaceActionPlanTotalSubcapabilityCount = '${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.total_subcapability_count }}';
+            const benchmarkKnowledgeDomainSurfaceActionPlanTotalActionCount = '${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.total_action_count }}';
+            const benchmarkKnowledgeDomainSurfaceActionPlanHighPriorityActionCount = '${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.high_priority_action_count }}';
+            const benchmarkKnowledgeDomainSurfaceActionPlanMediumPriorityActionCount = '${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.medium_priority_action_count }}';
+            const benchmarkKnowledgeDomainSurfaceActionPlanPriorityDomains = '${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.priority_domains }}';
+            const benchmarkKnowledgeDomainSurfaceActionPlanRecommendedFirstActions = '${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.recommended_first_actions }}';
+            const benchmarkKnowledgeDomainSurfaceActionPlanDomainActionCounts = '${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.domain_action_counts }}';
+            const benchmarkKnowledgeDomainSurfaceActionPlanRecommendations = '${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.recommendations }}';
+            const benchmarkKnowledgeDomainSurfaceActionPlanArtifact = '${{ steps.benchmark_knowledge_domain_surface_action_plan.outputs.output_md }}';
             const benchmarkKnowledgeDomainReleaseReadinessActionPlanEnabled = '${{ steps.benchmark_knowledge_domain_release_readiness_action_plan.outputs.enabled }}' === 'true';
             const benchmarkKnowledgeDomainReleaseReadinessActionPlanStatus = '${{ steps.benchmark_knowledge_domain_release_readiness_action_plan.outputs.status }}';
             const benchmarkKnowledgeDomainReleaseReadinessActionPlanTotalActionCount = '${{ steps.benchmark_knowledge_domain_release_readiness_action_plan.outputs.total_action_count }}';
@@ -11965,6 +11976,9 @@ jobs:
             const benchmarkKnowledgeDomainActionPlanStatusLine = benchmarkKnowledgeDomainActionPlanEnabled
               ? `status=${benchmarkKnowledgeDomainActionPlanStatus || 'n/a'}, ready=${benchmarkKnowledgeDomainActionPlanReadyDomains || 'n/a'}, partial=${benchmarkKnowledgeDomainActionPlanPartialDomains || 'n/a'}, blocked=${benchmarkKnowledgeDomainActionPlanBlockedDomains || 'n/a'}, total=${benchmarkKnowledgeDomainActionPlanTotalDomains || 'n/a'}, actions=${benchmarkKnowledgeDomainActionPlanTotalActions || 'n/a'}, high=${benchmarkKnowledgeDomainActionPlanHighPriorityActions || 'n/a'}, medium=${benchmarkKnowledgeDomainActionPlanMediumPriorityActions || 'n/a'}, priority_domains=${benchmarkKnowledgeDomainActionPlanPriorityDomains || 'n/a'}, first_actions=${benchmarkKnowledgeDomainActionPlanRecommendedFirstActions || 'n/a'}, domain_action_counts=${benchmarkKnowledgeDomainActionPlanDomainActionCounts || 'n/a'}, recommendations=${benchmarkKnowledgeDomainActionPlanRecommendations || 'n/a'}, artifact=${benchmarkKnowledgeDomainActionPlanArtifact || 'n/a'}`
               : '⏭️ skipped';
+            const benchmarkKnowledgeDomainSurfaceActionPlanStatusLine = benchmarkKnowledgeDomainSurfaceActionPlanEnabled
+              ? `status=${benchmarkKnowledgeDomainSurfaceActionPlanStatus || 'n/a'}, subcapabilities=${benchmarkKnowledgeDomainSurfaceActionPlanTotalSubcapabilityCount || 'n/a'}, actions=${benchmarkKnowledgeDomainSurfaceActionPlanTotalActionCount || 'n/a'}, high=${benchmarkKnowledgeDomainSurfaceActionPlanHighPriorityActionCount || 'n/a'}, medium=${benchmarkKnowledgeDomainSurfaceActionPlanMediumPriorityActionCount || 'n/a'}, priority_domains=${benchmarkKnowledgeDomainSurfaceActionPlanPriorityDomains || 'n/a'}, first_actions=${benchmarkKnowledgeDomainSurfaceActionPlanRecommendedFirstActions || 'n/a'}, domain_action_counts=${benchmarkKnowledgeDomainSurfaceActionPlanDomainActionCounts || 'n/a'}, recommendations=${benchmarkKnowledgeDomainSurfaceActionPlanRecommendations || 'n/a'}, artifact=${benchmarkKnowledgeDomainSurfaceActionPlanArtifact || 'n/a'}`
+              : '⏭️ skipped';
             const benchmarkKnowledgeDomainReleaseReadinessActionPlanStatusLine = benchmarkKnowledgeDomainReleaseReadinessActionPlanEnabled
               ? `status=${benchmarkKnowledgeDomainReleaseReadinessActionPlanStatus || 'n/a'}, actions=${benchmarkKnowledgeDomainReleaseReadinessActionPlanTotalActionCount || 'n/a'}, high=${benchmarkKnowledgeDomainReleaseReadinessActionPlanHighPriorityActionCount || 'n/a'}, medium=${benchmarkKnowledgeDomainReleaseReadinessActionPlanMediumPriorityActionCount || 'n/a'}, gate_open=${benchmarkKnowledgeDomainReleaseReadinessActionPlanGateOpen || 'n/a'}, priority_domains=${benchmarkKnowledgeDomainReleaseReadinessActionPlanPriorityDomains || 'n/a'}, first_actions=${benchmarkKnowledgeDomainReleaseReadinessActionPlanRecommendedFirstActions || 'n/a'}, recommendations=${benchmarkKnowledgeDomainReleaseReadinessActionPlanRecommendations || 'n/a'}, artifact=${benchmarkKnowledgeDomainReleaseReadinessActionPlanArtifact || 'n/a'}`
               : '⏭️ skipped';
@@ -12484,6 +12498,17 @@ jobs:
                     ? '🟢'
                     : (
                         benchmarkKnowledgeDomainActionPlanStatus === 'knowledge_domain_action_plan_blocked'
+                          ? '🔴'
+                          : '🟡'
+                        )
+                );
+            const benchmarkKnowledgeDomainSurfaceActionPlanLight = !benchmarkKnowledgeDomainSurfaceActionPlanEnabled
+              ? '⚪'
+              : (
+                  benchmarkKnowledgeDomainSurfaceActionPlanStatus === 'knowledge_domain_surface_action_plan_ready'
+                    ? '🟢'
+                    : (
+                        benchmarkKnowledgeDomainSurfaceActionPlanStatus === 'knowledge_domain_surface_action_plan_blocked'
                           ? '🔴'
                           : '🟡'
                         )
@@ -13048,6 +13073,7 @@ jobs:
             | **Benchmark Knowledge Domain API Surface Matrix** | ${benchmarkKnowledgeDomainApiSurfaceMatrixStatusLine} |
             | **Benchmark Knowledge Domain Capability Drift** | ${benchmarkKnowledgeDomainCapabilityDriftStatusLine} |
             | **Benchmark Knowledge Domain Action Plan** | ${benchmarkKnowledgeDomainActionPlanStatusLine} |
+            | **Benchmark Knowledge Domain Surface Action Plan** | ${benchmarkKnowledgeDomainSurfaceActionPlanStatusLine} |
             | **Benchmark Knowledge Domain Release Readiness Action Plan** | ${benchmarkKnowledgeDomainReleaseReadinessActionPlanStatusLine} |
             | **Benchmark Knowledge Domain Control Plane** | ${benchmarkKnowledgeDomainControlPlaneStatusLine} |
             | **Benchmark Knowledge Domain Control Plane Drift** | ${benchmarkKnowledgeDomainControlPlaneDriftStatusLine} |
@@ -13241,6 +13267,7 @@ jobs:
             | **Benchmark Knowledge Domain API Surface Matrix** | ${benchmarkKnowledgeDomainApiSurfaceMatrixLight} | ${benchmarkKnowledgeDomainApiSurfaceMatrixStatusLine} |
             | **Benchmark Knowledge Domain Capability Drift** | ${benchmarkKnowledgeDomainCapabilityDriftLight} | ${benchmarkKnowledgeDomainCapabilityDriftStatusLine} |
             | **Benchmark Knowledge Domain Action Plan** | ${benchmarkKnowledgeDomainActionPlanLight} | ${benchmarkKnowledgeDomainActionPlanStatusLine} |
+            | **Benchmark Knowledge Domain Surface Action Plan** | ${benchmarkKnowledgeDomainSurfaceActionPlanLight} | ${benchmarkKnowledgeDomainSurfaceActionPlanStatusLine} |
             | **Benchmark Knowledge Domain Release Readiness Action Plan** | ${benchmarkKnowledgeDomainReleaseReadinessActionPlanLight} | ${benchmarkKnowledgeDomainReleaseReadinessActionPlanStatusLine} |
             | **Benchmark Knowledge Domain Control Plane** | ${benchmarkKnowledgeDomainControlPlaneLight} | ${benchmarkKnowledgeDomainControlPlaneStatusLine} |
             | **Benchmark Knowledge Domain Control Plane Drift** | ${benchmarkKnowledgeDomainControlPlaneDriftLight} | ${benchmarkKnowledgeDomainControlPlaneDriftStatusLine} |
