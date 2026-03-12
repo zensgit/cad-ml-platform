@@ -333,6 +333,7 @@ def _component_statuses(
     benchmark_knowledge_domain_api_surface_matrix: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_surface_matrix: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_surface_action_plan: Dict[str, Any] | None = None,
+    benchmark_knowledge_subdomain_surface_matrix: Dict[str, Any] | None = None,
     knowledge_domain_capability_drift_summary: Dict[str, Any] | None = None,
     knowledge_domain_action_plan_summary: Dict[str, Any] | None = None,
     knowledge_domain_control_plane_summary: Dict[str, Any] | None = None,
@@ -364,6 +365,9 @@ def _component_statuses(
     )
     benchmark_knowledge_domain_surface_action_plan = (
         benchmark_knowledge_domain_surface_action_plan or {}
+    )
+    benchmark_knowledge_subdomain_surface_matrix = (
+        benchmark_knowledge_subdomain_surface_matrix or {}
     )
     knowledge_domain_capability_drift_summary = (
         knowledge_domain_capability_drift_summary or {}
@@ -466,6 +470,13 @@ def _component_statuses(
             "knowledge_domain_surface_action_plan"
         )
         or benchmark_knowledge_domain_surface_action_plan
+        or {}
+    )
+    knowledge_subdomain_surface_matrix_component = (
+        benchmark_knowledge_subdomain_surface_matrix.get(
+            "knowledge_subdomain_surface_matrix"
+        )
+        or benchmark_knowledge_subdomain_surface_matrix
         or {}
     )
     knowledge_domain_capability_drift_component = (
@@ -642,6 +653,15 @@ def _component_statuses(
             ).get("status")
             or "unknown"
         ),
+        "knowledge_subdomain_surface_matrix": str(
+            bundle_components.get("knowledge_subdomain_surface_matrix")
+            or operational_components.get("knowledge_subdomain_surface_matrix")
+            or knowledge_subdomain_surface_matrix_component.get("status")
+            or (
+                scorecard_components.get("knowledge_subdomain_surface_matrix") or {}
+            ).get("status")
+            or "unknown"
+        ),
         "knowledge_domain_capability_drift": str(
             bundle_components.get("knowledge_domain_capability_drift")
             or operational_components.get("knowledge_domain_capability_drift")
@@ -813,6 +833,7 @@ def _artifact_rows(
     knowledge_domain_capability_drift_path: str,
     knowledge_domain_action_plan_path: str,
     knowledge_domain_surface_action_plan_path: str,
+    knowledge_subdomain_surface_matrix_path: str,
     knowledge_domain_control_plane_path: str,
     knowledge_domain_control_plane_drift_path: str,
     knowledge_domain_release_readiness_action_plan_path: str,
@@ -887,6 +908,10 @@ def _artifact_rows(
         "benchmark_knowledge_domain_surface_action_plan": row(
             "benchmark_knowledge_domain_surface_action_plan",
             knowledge_domain_surface_action_plan_path,
+        ),
+        "benchmark_knowledge_subdomain_surface_matrix": row(
+            "benchmark_knowledge_subdomain_surface_matrix",
+            knowledge_subdomain_surface_matrix_path,
         ),
         "benchmark_knowledge_domain_control_plane": row(
             "benchmark_knowledge_domain_control_plane",
@@ -1010,6 +1035,7 @@ def build_companion_summary(
     benchmark_knowledge_domain_api_surface_matrix: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_surface_matrix: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_surface_action_plan: Dict[str, Any] | None = None,
+    benchmark_knowledge_subdomain_surface_matrix: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_capability_drift: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_control_plane: Dict[str, Any] | None = None,
@@ -1046,6 +1072,9 @@ def build_companion_summary(
     )
     benchmark_knowledge_domain_surface_action_plan = (
         benchmark_knowledge_domain_surface_action_plan or {}
+    )
+    benchmark_knowledge_subdomain_surface_matrix = (
+        benchmark_knowledge_subdomain_surface_matrix or {}
     )
     benchmark_knowledge_domain_capability_drift = (
         benchmark_knowledge_domain_capability_drift or {}
@@ -1168,6 +1197,13 @@ def build_companion_summary(
         or benchmark_knowledge_domain_surface_action_plan
         or {}
     )
+    knowledge_subdomain_surface_matrix_root = (
+        benchmark_knowledge_subdomain_surface_matrix.get(
+            "knowledge_subdomain_surface_matrix"
+        )
+        or benchmark_knowledge_subdomain_surface_matrix
+        or {}
+    )
     knowledge_domain_capability_drift_root = (
         _knowledge_domain_capability_drift_component(
             benchmark_knowledge_domain_capability_drift
@@ -1233,6 +1269,9 @@ def build_companion_summary(
     )
     knowledge_domain_surface_action_plan_recommendations = (
         benchmark_knowledge_domain_surface_action_plan.get("recommendations") or []
+    )
+    knowledge_subdomain_surface_matrix_recommendations = (
+        benchmark_knowledge_subdomain_surface_matrix.get("recommendations") or []
     )
     knowledge_domain_capability_drift_recommendations = (
         benchmark_knowledge_domain_capability_drift.get("recommendations") or []
@@ -1320,6 +1359,7 @@ def build_companion_summary(
         benchmark_knowledge_domain_api_surface_matrix,
         benchmark_knowledge_domain_surface_matrix,
         benchmark_knowledge_domain_surface_action_plan,
+        benchmark_knowledge_subdomain_surface_matrix,
         benchmark_knowledge_domain_capability_drift,
         benchmark_knowledge_domain_action_plan,
         benchmark_knowledge_domain_control_plane,
@@ -1489,6 +1529,7 @@ def build_companion_summary(
         artifact_paths.get("benchmark_knowledge_domain_capability_drift", ""),
         artifact_paths.get("benchmark_knowledge_domain_action_plan", ""),
         artifact_paths.get("benchmark_knowledge_domain_surface_action_plan", ""),
+        artifact_paths.get("benchmark_knowledge_subdomain_surface_matrix", ""),
         artifact_paths.get("benchmark_knowledge_domain_control_plane", ""),
         artifact_paths.get("benchmark_knowledge_domain_control_plane_drift", ""),
         artifact_paths.get(
@@ -1651,6 +1692,20 @@ def build_companion_summary(
         ),
         "knowledge_domain_surface_action_plan_recommendations": _compact(
             knowledge_domain_surface_action_plan_recommendations,
+            limit=5,
+        ),
+        "knowledge_subdomain_surface_matrix": knowledge_subdomain_surface_matrix_root,
+        "knowledge_subdomain_surface_matrix_status": (
+            knowledge_subdomain_surface_matrix_root.get("status") or "unknown"
+        ),
+        "knowledge_subdomain_surface_matrix_subdomains": (
+            knowledge_subdomain_surface_matrix_root.get("subdomains") or {}
+        ),
+        "knowledge_subdomain_surface_matrix_priority_subdomains": list(
+            knowledge_subdomain_surface_matrix_root.get("priority_subdomains") or []
+        ),
+        "knowledge_subdomain_surface_matrix_recommendations": _compact(
+            knowledge_subdomain_surface_matrix_recommendations,
             limit=5,
         ),
         "knowledge_domain_capability_drift": knowledge_domain_capability_drift_root,
@@ -2458,6 +2513,29 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     if surface_action_plan_recommendations:
         for item in surface_action_plan_recommendations:
             lines.append(f"- recommendation: {item}")
+    lines.extend(["", "## Knowledge Subdomain Surface Matrix", ""])
+    lines.append(
+        "- `status`: "
+        f"`{payload.get('knowledge_subdomain_surface_matrix_status') or 'unknown'}`"
+    )
+    subdomains = payload.get("knowledge_subdomain_surface_matrix_subdomains") or {}
+    if subdomains:
+        for name, row in list(subdomains.items())[:6]:
+            lines.append(
+                "- "
+                f"`{name}` "
+                f"status=`{row.get('status')}` "
+                f"present_routes=`{row.get('present_route_count')}` "
+                f"expected_routes=`{row.get('expected_route_count')}`"
+            )
+    else:
+        lines.append("- none")
+    subdomain_recommendations = (
+        payload.get("knowledge_subdomain_surface_matrix_recommendations") or []
+    )
+    if subdomain_recommendations:
+        for item in subdomain_recommendations:
+            lines.append(f"- recommendation: {item}")
     lines.extend(["", "## Knowledge Domain Capability Drift", ""])
     capability_drift_regressions = ", ".join(
         payload.get("knowledge_domain_capability_drift_domain_regressions") or []
@@ -2848,6 +2926,7 @@ def main() -> None:
     parser.add_argument("--benchmark-knowledge-domain-api-surface-matrix", default="")
     parser.add_argument("--benchmark-knowledge-domain-surface-matrix", default="")
     parser.add_argument("--benchmark-knowledge-domain-surface-action-plan", default="")
+    parser.add_argument("--benchmark-knowledge-subdomain-surface-matrix", default="")
     parser.add_argument("--benchmark-knowledge-domain-capability-drift", default="")
     parser.add_argument("--benchmark-knowledge-domain-action-plan", default="")
     parser.add_argument("--benchmark-knowledge-domain-control-plane", default="")
@@ -2899,6 +2978,9 @@ def main() -> None:
         ),
         "benchmark_knowledge_domain_surface_action_plan": (
             args.benchmark_knowledge_domain_surface_action_plan
+        ),
+        "benchmark_knowledge_subdomain_surface_matrix": (
+            args.benchmark_knowledge_subdomain_surface_matrix
         ),
         "benchmark_knowledge_domain_capability_drift": (
             args.benchmark_knowledge_domain_capability_drift
@@ -2981,6 +3063,9 @@ def main() -> None:
         ),
         benchmark_knowledge_domain_surface_action_plan=_maybe_load_json(
             args.benchmark_knowledge_domain_surface_action_plan
+        ),
+        benchmark_knowledge_subdomain_surface_matrix=_maybe_load_json(
+            args.benchmark_knowledge_subdomain_surface_matrix
         ),
         benchmark_knowledge_domain_capability_drift=_maybe_load_json(
             args.benchmark_knowledge_domain_capability_drift
