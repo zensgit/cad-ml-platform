@@ -59,6 +59,11 @@ from .knowledge_domain_surface_matrix import (  # noqa: F401
     knowledge_domain_surface_matrix_recommendations,
     render_knowledge_domain_surface_matrix_markdown,
 )
+from .knowledge_domain_surface_action_plan import (  # noqa: F401
+    build_knowledge_domain_surface_action_plan,
+    knowledge_domain_surface_action_plan_recommendations,
+    render_knowledge_domain_surface_action_plan_markdown,
+)
 from .knowledge_domain_capability_drift import (  # noqa: F401
     build_knowledge_domain_capability_drift_status,
     knowledge_domain_capability_drift_recommendations,
