@@ -1426,7 +1426,11 @@ jobs:
       run: |
         echo "Validating evaluation history against schema..."
         # With jsonschema installed, this will perform full validation
-        python3 scripts/validate_eval_history.py --dir reports/eval_history --summary
+        python3 scripts/validate_eval_history.py \
+          --dir reports/eval_history \
+          --summary \
+          --exclude-glob hybrid_blind_drift_alert_report.json \
+          --exclude-glob hybrid_blind_drift_threshold_suggestion.json
         echo "✅ Schema validation passed"
 
     - name: Generate insights and detect anomalies

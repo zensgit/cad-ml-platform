@@ -442,3 +442,12 @@ def test_workflow_runs_hybrid_calibration_regression_tests() -> None:
     assert "pytest -q" in run_script
     assert "tests/unit/test_calibrate_hybrid_confidence_script.py" in run_script
     assert "tests/unit/test_hybrid_confidence_calibration_gate_check.py" in run_script
+
+
+def test_workflow_validate_history_excludes_non_history_sidecar_reports() -> None:
+    workflow = _load_workflow()
+    step = _get_step(workflow, "evaluate", "Validate history with JSON Schema")
+    run_script = step["run"]
+    assert "scripts/validate_eval_history.py" in run_script
+    assert "--exclude-glob hybrid_blind_drift_alert_report.json" in run_script
+    assert "--exclude-glob hybrid_blind_drift_threshold_suggestion.json" in run_script
