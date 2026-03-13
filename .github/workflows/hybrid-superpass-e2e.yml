@@ -1,4 +1,5 @@
 name: Hybrid Superpass E2E
+run-name: Hybrid Superpass E2E${{ github.event.inputs.dispatch_trace_id && format(' [{0}]', github.event.inputs.dispatch_trace_id) || '' }}
 
 on:
   workflow_dispatch:
@@ -31,6 +32,10 @@ on:
         description: 'Optional superpass report output path'
         required: false
         default: 'reports/history_sequence_eval/hybrid_superpass_report.json'
+      dispatch_trace_id:
+        description: 'Optional trace id for concurrent dispatch correlation'
+        required: false
+        default: ''
 
 jobs:
   superpass:
