@@ -78,6 +78,17 @@ def _yes_no(value: bool) -> str:
     return "YES" if value else "NO"
 
 
+def _trace_pair_consistent(fail_trace_id: str, success_trace_id: str) -> bool:
+    fail_suffix = "-fail"
+    success_suffix = "-success"
+    if not fail_trace_id.endswith(fail_suffix) or not success_trace_id.endswith(success_suffix):
+        return False
+
+    fail_prefix = fail_trace_id[: -len(fail_suffix)]
+    success_prefix = success_trace_id[: -len(success_suffix)]
+    return fail_prefix == success_prefix
+
+
 def build_summary(
     fail_payload: Dict[str, Any],
     success_payload: Dict[str, Any],
@@ -107,6 +118,10 @@ def build_summary(
         success_case["matched_expectation"]
         and success_case["expected_conclusion"] == "success"
     )
+    trace_pair_consistent = _trace_pair_consistent(
+        _normalize_text(fail_case.get("dispatch_trace_id")),
+        _normalize_text(success_case.get("dispatch_trace_id")),
+    )
 
     warnings: list[str] = []
     if not fail_run_id or not success_run_id:
@@ -117,6 +132,10 @@ def build_summary(
         warnings.append(
             "fail/success scenarios share the same run_id; possible parallel dispatch mix-up"
         )
+    if not trace_pair_consistent:
+        warnings.append(
+            "dispatch_trace_id pair is inconsistent; expected *-fail/*-success with the same prefix"
+        )
 
     return {
         "fail": fail_case,
@@ -125,6 +144,7 @@ def build_summary(
         "checks": {
             "fail_expected_failure": fail_expected_failure,
             "success_expected_success": success_expected_success,
+            "trace_pair_consistent": trace_pair_consistent,
         },
         "warnings": warnings,
     }
@@ -135,6 +155,7 @@ def build_markdown(
     *,
     strict: bool,
     strict_require_distinct_run_ids: bool,
+    strict_require_trace_pair: bool,
     exit_code: int,
 ) -> str:
     fail_case = summary.get("fail", {})
@@ -173,8 +194,12 @@ def build_markdown(
         f"**{_yes_no(_coerce_bool(checks.get('fail_expected_failure')))}**",
         "- Success scenario succeeded as expected: "
         f"**{_yes_no(_coerce_bool(checks.get('success_expected_success')))}**",
+        "- Trace pair consistent (same prefix + -fail/-success suffixes): "
+        f"**{_yes_no(_coerce_bool(checks.get('trace_pair_consistent')))}**",
         "- Distinct run_id required under strict mode: "
         f"**{_yes_no(bool(strict_require_distinct_run_ids))}**",
+        "- Trace pair required under strict mode: "
+        f"**{_yes_no(bool(strict_require_trace_pair))}**",
         "- Strict mode result: "
         + (
             "**FAILED (exit 1)**"
@@ -245,6 +270,14 @@ def _build_parser() -> argparse.ArgumentParser:
             "otherwise exit with code 1."
         ),
     )
+    parser.add_argument(
+        "--strict-require-trace-pair",
+        action="store_true",
+        help=(
+            "When strict is enabled, also require dispatch_trace_id to be paired as "
+            "<prefix>-fail / <prefix>-success; otherwise exit with code 1."
+        ),
+    )
     return parser
 
 
@@ -265,10 +298,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     success_matched = _coerce_bool(summary.get("success", {}).get("matched_expectation"))
     run_id_is_different = _coerce_bool(summary.get("run_id_is_different"))
     strict_require_distinct = bool(args.strict_require_distinct_run_ids)
+    trace_pair_consistent = _coerce_bool(summary.get("checks", {}).get("trace_pair_consistent"))
+    strict_require_trace_pair = bool(args.strict_require_trace_pair)
     strict_failed = bool(args.strict) and (
         (not fail_matched)
         or (not success_matched)
         or (strict_require_distinct and not run_id_is_different)
+        or (strict_require_trace_pair and not trace_pair_consistent)
     )
     exit_code = 1 if strict_failed else 0
 
@@ -276,6 +312,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         **summary,
         "strict_mode": bool(args.strict),
         "strict_require_distinct_run_ids": strict_require_distinct,
+        "strict_require_trace_pair": strict_require_trace_pair,
         "strict_failed": strict_failed,
         "overall_exit_code": exit_code,
     }
@@ -284,6 +321,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         output_payload,
         strict=bool(args.strict),
         strict_require_distinct_run_ids=strict_require_distinct,
+        strict_require_trace_pair=strict_require_trace_pair,
         exit_code=exit_code,
     )
     _write_json(Path(str(args.output_json)).expanduser(), output_payload)

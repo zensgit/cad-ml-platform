@@ -91,6 +91,7 @@ def _build_compare_command(
     compare_output_md: str,
     strict: bool,
     strict_require_distinct_run_ids: bool,
+    strict_require_trace_pair: bool,
 ) -> list[str]:
     command = [
         sys.executable,
@@ -108,6 +109,8 @@ def _build_compare_command(
         command.append("--strict")
     if strict_require_distinct_run_ids:
         command.append("--strict-require-distinct-run-ids")
+    if strict_require_trace_pair:
+        command.append("--strict-require-trace-pair")
     return command
 
 
@@ -134,6 +137,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--strict", action="store_true")
     parser.add_argument("--strict-require-distinct-run-ids", action="store_true")
+    parser.add_argument("--strict-require-trace-pair", action="store_true")
     parser.add_argument("--print-only", action="store_true")
     parser.add_argument(
         "--dispatch-script",
@@ -198,6 +202,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         compare_output_md=str(args.compare_output_md),
         strict=bool(args.strict),
         strict_require_distinct_run_ids=bool(args.strict_require_distinct_run_ids),
+        strict_require_trace_pair=bool(args.strict_require_trace_pair),
     )
 
     print("fail_dispatch_command=" + shlex.join(fail_dispatch_cmd))

@@ -228,6 +228,7 @@ def test_main_returns_one_when_compare_fails(
         [
             "--strict",
             "--strict-require-distinct-run-ids",
+            "--strict-require-trace-pair",
             "--dispatch-trace-prefix",
             "dsp-compare-fail",
             "--fail-output-json",
@@ -246,6 +247,7 @@ def test_main_returns_one_when_compare_fails(
     assert len(run_calls) == 1
     assert "--strict" in run_calls[0]
     assert "--strict-require-distinct-run-ids" in run_calls[0]
+    assert "--strict-require-trace-pair" in run_calls[0]
 
     payload = _read_json(compare_json)
     assert payload["fail_dispatch_exit_code"] == 0

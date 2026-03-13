@@ -67,12 +67,16 @@ def test_compare_hybrid_superpass_reports_normal(tmp_path: Path) -> None:
     assert payload["run_id_is_different"] is True
     assert payload["checks"]["fail_expected_failure"] is True
     assert payload["checks"]["success_expected_success"] is True
+    assert payload["checks"]["trace_pair_consistent"] is True
+    assert payload["strict_require_trace_pair"] is False
     assert payload["overall_exit_code"] == 0
 
     markdown = output_md.read_text(encoding="utf-8")
     assert "Runs are different (parallel run isolation check): **YES**" in markdown
     assert "Fail scenario failed as expected: **YES**" in markdown
     assert "Success scenario succeeded as expected: **YES**" in markdown
+    assert "Trace pair consistent (same prefix + -fail/-success suffixes): **YES**" in markdown
+    assert "Trace pair required under strict mode: **NO**" in markdown
 
 
 def test_compare_hybrid_superpass_reports_warns_when_run_id_same(tmp_path: Path) -> None:
@@ -122,6 +126,8 @@ def test_compare_hybrid_superpass_reports_warns_when_run_id_same(tmp_path: Path)
     assert rc == 0
     payload = _read_json(output_json)
     assert payload["run_id_is_different"] is False
+    assert payload["checks"]["trace_pair_consistent"] is False
+    assert payload["strict_require_trace_pair"] is False
     assert payload["warnings"]
     assert "share the same run_id" in payload["warnings"][0]
 
@@ -182,12 +188,15 @@ def test_compare_hybrid_superpass_reports_strict_fails_when_run_id_not_distinct(
     payload = _read_json(output_json)
     assert payload["strict_mode"] is True
     assert payload["strict_require_distinct_run_ids"] is True
+    assert payload["strict_require_trace_pair"] is False
     assert payload["run_id_is_different"] is False
+    assert payload["checks"]["trace_pair_consistent"] is False
     assert payload["strict_failed"] is True
     assert payload["overall_exit_code"] == 1
 
     markdown = output_md.read_text(encoding="utf-8")
     assert "Distinct run_id required under strict mode: **YES**" in markdown
+    assert "Trace pair required under strict mode: **NO**" in markdown
     assert "Strict mode result: **FAILED (exit 1)**" in markdown
 
 
@@ -240,9 +249,137 @@ def test_compare_hybrid_superpass_reports_strict_fails_on_mismatch(tmp_path: Pat
     payload = _read_json(output_json)
     assert payload["strict_mode"] is True
     assert payload["strict_require_distinct_run_ids"] is False
+    assert payload["strict_require_trace_pair"] is False
+    assert payload["checks"]["trace_pair_consistent"] is True
     assert payload["strict_failed"] is True
     assert payload["overall_exit_code"] == 1
 
     markdown = output_md.read_text(encoding="utf-8")
     assert "Distinct run_id required under strict mode: **NO**" in markdown
+    assert "Trace pair required under strict mode: **NO**" in markdown
+    assert "Trace pair consistent (same prefix + -fail/-success suffixes): **YES**" in markdown
+    assert "Strict mode result: **FAILED (exit 1)**" in markdown
+
+
+def test_compare_hybrid_superpass_reports_strict_require_trace_pair_passes(
+    tmp_path: Path,
+) -> None:
+    from scripts.ci import compare_hybrid_superpass_reports as mod
+
+    fail_json = tmp_path / "in" / "fail.json"
+    success_json = tmp_path / "in" / "success.json"
+    output_json = tmp_path / "out" / "summary.json"
+    output_md = tmp_path / "out" / "summary.md"
+
+    _write_json(
+        fail_json,
+        {
+            "run_id": 401,
+            "conclusion": "failure",
+            "expected_conclusion": "failure",
+            "matched_expectation": True,
+            "dispatch_trace_id": "batch-401-fail",
+            "run_url": "https://example.com/runs/401",
+        },
+    )
+    _write_json(
+        success_json,
+        {
+            "run_id": 402,
+            "conclusion": "success",
+            "expected_conclusion": "success",
+            "matched_expectation": True,
+            "dispatch_trace_id": "batch-401-success",
+            "run_url": "https://example.com/runs/402",
+        },
+    )
+
+    rc = mod.main(
+        [
+            "--fail-json",
+            str(fail_json),
+            "--success-json",
+            str(success_json),
+            "--output-json",
+            str(output_json),
+            "--output-md",
+            str(output_md),
+            "--strict",
+            "--strict-require-trace-pair",
+        ]
+    )
+
+    assert rc == 0
+    payload = _read_json(output_json)
+    assert payload["strict_mode"] is True
+    assert payload["strict_require_trace_pair"] is True
+    assert payload["checks"]["trace_pair_consistent"] is True
+    assert payload["strict_failed"] is False
+    assert payload["overall_exit_code"] == 0
+
+    markdown = output_md.read_text(encoding="utf-8")
+    assert "Trace pair required under strict mode: **YES**" in markdown
+    assert "Trace pair consistent (same prefix + -fail/-success suffixes): **YES**" in markdown
+    assert "Strict mode result: **PASSED (exit 0)**" in markdown
+
+
+def test_compare_hybrid_superpass_reports_strict_require_trace_pair_fails(
+    tmp_path: Path,
+) -> None:
+    from scripts.ci import compare_hybrid_superpass_reports as mod
+
+    fail_json = tmp_path / "in" / "fail.json"
+    success_json = tmp_path / "in" / "success.json"
+    output_json = tmp_path / "out" / "summary.json"
+    output_md = tmp_path / "out" / "summary.md"
+
+    _write_json(
+        fail_json,
+        {
+            "run_id": 501,
+            "conclusion": "failure",
+            "expected_conclusion": "failure",
+            "matched_expectation": True,
+            "dispatch_trace_id": "batch-501-fail",
+            "run_url": "https://example.com/runs/501",
+        },
+    )
+    _write_json(
+        success_json,
+        {
+            "run_id": 502,
+            "conclusion": "success",
+            "expected_conclusion": "success",
+            "matched_expectation": True,
+            "dispatch_trace_id": "batch-999-success",
+            "run_url": "https://example.com/runs/502",
+        },
+    )
+
+    rc = mod.main(
+        [
+            "--fail-json",
+            str(fail_json),
+            "--success-json",
+            str(success_json),
+            "--output-json",
+            str(output_json),
+            "--output-md",
+            str(output_md),
+            "--strict",
+            "--strict-require-trace-pair",
+        ]
+    )
+
+    assert rc == 1
+    payload = _read_json(output_json)
+    assert payload["strict_mode"] is True
+    assert payload["strict_require_trace_pair"] is True
+    assert payload["checks"]["trace_pair_consistent"] is False
+    assert payload["strict_failed"] is True
+    assert payload["overall_exit_code"] == 1
+
+    markdown = output_md.read_text(encoding="utf-8")
+    assert "Trace pair required under strict mode: **YES**" in markdown
+    assert "Trace pair consistent (same prefix + -fail/-success suffixes): **NO**" in markdown
     assert "Strict mode result: **FAILED (exit 1)**" in markdown

@@ -197,3 +197,48 @@ make validate-hybrid-superpass-nightly-workflow
 - `pytest tests/unit/test_compare_hybrid_superpass_reports.py tests/unit/test_run_hybrid_superpass_dual_dispatch.py tests/unit/test_graph2d_parallel_make_targets.py tests/unit/test_hybrid_superpass_nightly_workflow.py -q`：`28 passed, 1 warning`
 - `make validate-hybrid-superpass-workflow`：`65 passed, 1 warning`
 - `make validate-hybrid-superpass-nightly-workflow`：`25 passed, 1 warning`
+
+## 增量强化（同日第六轮：trace 配对硬门禁）
+
+### Compare 增强（严格模式可强制 trace 成对）
+- 文件：`scripts/ci/compare_hybrid_superpass_reports.py`
+- 新增参数：
+  - `--strict-require-trace-pair`
+- 规则：
+  - fail 的 `dispatch_trace_id` 必须为 `<prefix>-fail`
+  - success 的 `dispatch_trace_id` 必须为 `<prefix>-success`
+  - 两者 `<prefix>` 必须一致
+- strict 行为：
+  - 当 `--strict` + `--strict-require-trace-pair` 启用且不满足规则时，直接失败（exit 1）。
+- 输出增强：
+  - `checks.trace_pair_consistent`
+  - `strict_require_trace_pair`
+  - markdown 增加 trace 配对结论和该 strict 开关状态。
+
+### Orchestrator / Make / Nightly 透传
+- 文件：
+  - `scripts/ci/run_hybrid_superpass_dual_dispatch.py`
+  - `Makefile`
+  - `.github/workflows/hybrid-superpass-nightly.yml`
+- 改动：
+  - orchestrator 新增 `--strict-require-trace-pair` 透传到 compare。
+  - Makefile：
+    - 新增 `HYBRID_SUPERPASS_DUAL_STRICT_REQUIRE_TRACE_PAIR ?= 1`
+    - 新增 `HYBRID_SUPERPASS_COMPARE_STRICT_REQUIRE_TRACE_PAIR ?= 0`
+    - dual 目标默认强制 trace 配对门禁；compare 目标可按需开启。
+  - nightly workflow dual 步骤默认开启 `--strict-require-trace-pair`。
+
+### 测试覆盖增强
+- 文件：
+  - `tests/unit/test_compare_hybrid_superpass_reports.py`
+  - `tests/unit/test_run_hybrid_superpass_dual_dispatch.py`
+  - `tests/unit/test_graph2d_parallel_make_targets.py`
+  - `tests/unit/test_hybrid_superpass_nightly_workflow.py`
+- 新增断言：
+  - strict+trace-pair 正常配对通过、异常配对失败。
+  - orchestrator/Make/nightly 都透传新参数。
+
+### 第六轮验证结果
+- `pytest tests/unit/test_compare_hybrid_superpass_reports.py tests/unit/test_run_hybrid_superpass_dual_dispatch.py tests/unit/test_graph2d_parallel_make_targets.py tests/unit/test_hybrid_superpass_nightly_workflow.py -q`：`31 passed, 1 warning`
+- `make validate-hybrid-superpass-workflow`：`68 passed, 1 warning`
+- `make validate-hybrid-superpass-nightly-workflow`：`26 passed, 1 warning`

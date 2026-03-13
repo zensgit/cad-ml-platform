@@ -77,7 +77,8 @@ jobs:
             --output-json "$DUAL_SUMMARY_JSON" \
             --dispatch-trace-prefix "$NIGHTLY_TRACE_ID" \
             --strict \
-            --strict-require-distinct-run-ids
+            --strict-require-distinct-run-ids \
+            --strict-require-trace-pair
           echo "dual_summary_json=$DUAL_SUMMARY_JSON" >> "$GITHUB_OUTPUT"
 
       - name: Upload nightly superpass compare artifacts

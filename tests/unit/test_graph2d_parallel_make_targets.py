@@ -142,6 +142,16 @@ def test_make_n_hybrid_superpass_compare_contains_expected_flags() -> None:
     assert "--strict-require-distinct-run-ids" in result.stdout
 
 
+def test_make_n_hybrid_superpass_compare_supports_trace_pair_flag() -> None:
+    result = _run_make(
+        "-n",
+        "hybrid-superpass-compare",
+        "HYBRID_SUPERPASS_COMPARE_STRICT_REQUIRE_TRACE_PAIR=1",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "--strict-require-trace-pair" in result.stdout
+
+
 def test_make_n_hybrid_superpass_e2e_dual_gh_contains_expected_steps() -> None:
     result = _run_make("-n", "hybrid-superpass-e2e-dual-gh")
     assert result.returncode == 0, result.stderr
@@ -152,6 +162,7 @@ def test_make_n_hybrid_superpass_e2e_dual_gh_contains_expected_steps() -> None:
     assert "--compare-output-md" in result.stdout
     assert "--strict" in result.stdout
     assert "--strict-require-distinct-run-ids" in result.stdout
+    assert "--strict-require-trace-pair" in result.stdout
 
 
 def test_make_n_hybrid_superpass_e2e_dual_gh_sequential_contains_expected_steps() -> None:

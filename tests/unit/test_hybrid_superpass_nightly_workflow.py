@@ -70,6 +70,7 @@ def test_workflow_has_dual_dispatch_compare_artifact_and_summary_steps() -> None
     assert "--dispatch-trace-prefix \"$NIGHTLY_TRACE_ID\"" in dual_script
     assert "--strict" in dual_script
     assert "--strict-require-distinct-run-ids" in dual_script
+    assert "--strict-require-trace-pair" in dual_script
 
     upload_step = _get_step(
         workflow, job_name, "Upload nightly superpass compare artifacts"
