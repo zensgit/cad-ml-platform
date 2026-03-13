@@ -1020,6 +1020,15 @@ HYBRID_SUPERPASS_APPLY_EXECUTE ?= 0
 HYBRID_SUPERPASS_NIGHTLY_WORKFLOW ?= hybrid-superpass-nightly.yml
 HYBRID_SUPERPASS_NIGHTLY_REF ?= main
 HYBRID_SUPERPASS_NIGHTLY_REPO ?=
+HYBRID_SUPERPASS_NIGHTLY_TARGET_REPO ?=
+HYBRID_SUPERPASS_NIGHTLY_TARGET_REF ?= main
+HYBRID_SUPERPASS_NIGHTLY_TARGET_WORKFLOW ?= hybrid-superpass-e2e.yml
+HYBRID_SUPERPASS_NIGHTLY_DISPATCH_TRACE_ID ?=
+HYBRID_SUPERPASS_NIGHTLY_EXPECTED_CONCLUSION ?= success
+HYBRID_SUPERPASS_NIGHTLY_TIMEOUT ?= 900
+HYBRID_SUPERPASS_NIGHTLY_POLL_INTERVAL ?= 3
+HYBRID_SUPERPASS_NIGHTLY_LIST_LIMIT ?= 20
+HYBRID_SUPERPASS_NIGHTLY_OUTPUT_JSON ?= $(GRAPH2D_REVIEW_OUT_DIR)/hybrid_superpass_nightly_dispatch.json
 HYBRID_SUPERPASS_NIGHTLY_PRINT_ONLY ?= 0
 
 graph2d-review-summary: ## 汇总 Graph2D soft-override 复核模板（生成 summary + correct-label counts）
@@ -1159,10 +1168,22 @@ hybrid-superpass-e2e-dual-gh: ## 顺序执行 fail+success 两次 superpass E2E�
 
 hybrid-superpass-nightly-gh: ## 触发 nightly superpass 巡检 workflow（可手动）
 	@echo "$(GREEN)Dispatching hybrid superpass nightly workflow...$(NC)"
-	@cmd="gh workflow run $(HYBRID_SUPERPASS_NIGHTLY_WORKFLOW) --ref $(HYBRID_SUPERPASS_NIGHTLY_REF)"; \
-	if [ -n "$(HYBRID_SUPERPASS_NIGHTLY_REPO)" ]; then cmd="$$cmd --repo $(HYBRID_SUPERPASS_NIGHTLY_REPO)"; fi; \
-	if [ "$(HYBRID_SUPERPASS_NIGHTLY_PRINT_ONLY)" = "1" ]; then echo "$$cmd"; exit 0; fi; \
-	eval "$$cmd"
+	@extra_flags=""; \
+	if [ "$(HYBRID_SUPERPASS_NIGHTLY_PRINT_ONLY)" = "1" ]; then extra_flags="$$extra_flags --print-only"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_NIGHTLY_REPO)" ]; then extra_flags="$$extra_flags --repo $(HYBRID_SUPERPASS_NIGHTLY_REPO)"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_NIGHTLY_TARGET_REPO)" ]; then extra_flags="$$extra_flags --target-repo $(HYBRID_SUPERPASS_NIGHTLY_TARGET_REPO)"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_NIGHTLY_TARGET_REF)" ]; then extra_flags="$$extra_flags --target-ref $(HYBRID_SUPERPASS_NIGHTLY_TARGET_REF)"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_NIGHTLY_TARGET_WORKFLOW)" ]; then extra_flags="$$extra_flags --target-workflow $(HYBRID_SUPERPASS_NIGHTLY_TARGET_WORKFLOW)"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_NIGHTLY_DISPATCH_TRACE_ID)" ]; then extra_flags="$$extra_flags --dispatch-trace-id $(HYBRID_SUPERPASS_NIGHTLY_DISPATCH_TRACE_ID)"; fi; \
+	$(PYTHON) scripts/ci/dispatch_hybrid_superpass_nightly_workflow.py \
+		--workflow "$(HYBRID_SUPERPASS_NIGHTLY_WORKFLOW)" \
+		--ref "$(HYBRID_SUPERPASS_NIGHTLY_REF)" \
+		--expected-conclusion "$(HYBRID_SUPERPASS_NIGHTLY_EXPECTED_CONCLUSION)" \
+		--wait-timeout-seconds "$(HYBRID_SUPERPASS_NIGHTLY_TIMEOUT)" \
+		--poll-interval-seconds "$(HYBRID_SUPERPASS_NIGHTLY_POLL_INTERVAL)" \
+		--list-limit "$(HYBRID_SUPERPASS_NIGHTLY_LIST_LIMIT)" \
+		--output-json "$(HYBRID_SUPERPASS_NIGHTLY_OUTPUT_JSON)" \
+		$$extra_flags
 
 hybrid-superpass-apply-gh-vars: ## 将 superpass 推荐变量同步到 GitHub Variables（默认仅预览）
 	@echo "$(GREEN)Applying hybrid superpass variables to GitHub...$(NC)"
@@ -1196,6 +1217,7 @@ validate-hybrid-superpass-workflow: ## 校验 superpass gh 自动化与 workflow
 validate-hybrid-superpass-nightly-workflow: ## 校验 superpass nightly workflow 编排
 	@echo "$(GREEN)Validating hybrid superpass nightly workflow...$(NC)"
 	$(PYTEST) \
+		$(TEST_DIR)/unit/test_dispatch_hybrid_superpass_nightly_workflow.py \
 		$(TEST_DIR)/unit/test_hybrid_superpass_nightly_workflow.py \
 		$(TEST_DIR)/unit/test_graph2d_parallel_make_targets.py -q
 

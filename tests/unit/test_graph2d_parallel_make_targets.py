@@ -153,9 +153,28 @@ def test_make_n_hybrid_superpass_e2e_dual_gh_contains_expected_steps() -> None:
 def test_make_n_hybrid_superpass_nightly_gh_contains_expected_flags() -> None:
     result = _run_make("-n", "hybrid-superpass-nightly-gh")
     assert result.returncode == 0, result.stderr
-    assert "gh workflow run" in result.stdout
+    assert "scripts/ci/dispatch_hybrid_superpass_nightly_workflow.py" in result.stdout
+    assert "--workflow" in result.stdout
     assert "hybrid-superpass-nightly.yml" in result.stdout
     assert "--ref" in result.stdout
+    assert "--target-repo" in result.stdout
+    assert "--target-ref" in result.stdout
+    assert "--target-workflow" in result.stdout
+    assert "--expected-conclusion" in result.stdout
+    assert "--wait-timeout-seconds" in result.stdout
+    assert "--poll-interval-seconds" in result.stdout
+    assert "--list-limit" in result.stdout
+    assert "--output-json" in result.stdout
+
+
+def test_make_n_hybrid_superpass_nightly_gh_print_only_flag() -> None:
+    result = _run_make(
+        "-n",
+        "hybrid-superpass-nightly-gh",
+        "HYBRID_SUPERPASS_NIGHTLY_PRINT_ONLY=1",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "--print-only" in result.stdout
 
 
 def test_make_n_hybrid_superpass_apply_gh_vars_contains_expected_flags() -> None:
@@ -183,5 +202,6 @@ def test_make_n_validate_hybrid_superpass_workflow_runs_expected_tests() -> None
 def test_make_n_validate_hybrid_superpass_nightly_workflow_runs_expected_tests() -> None:
     result = _run_make("-n", "validate-hybrid-superpass-nightly-workflow")
     assert result.returncode == 0, result.stderr
+    assert "test_dispatch_hybrid_superpass_nightly_workflow.py" in result.stdout
     assert "test_hybrid_superpass_nightly_workflow.py" in result.stdout
     assert "test_graph2d_parallel_make_targets.py" in result.stdout

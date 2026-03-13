@@ -85,3 +85,32 @@ make validate-hybrid-superpass-nightly-workflow
 - 建议下一步在主仓执行一次真实手动 dispatch：
   - `make hybrid-superpass-e2e-dual-gh`
   - 核验输出的 compare JSON/MD 与 Actions run 链接一致性。
+
+## 增量强化（同日第二轮）
+
+### 新增 nightly dispatcher 脚本
+- 文件：`scripts/ci/dispatch_hybrid_superpass_nightly_workflow.py`
+- 能力：
+  - 支持 `workflow_dispatch` 的完整参数透传（repo/ref/target_*）。
+  - 支持 `--print-only`、`--output-json`、`--expected-conclusion`、`watch`。
+  - 自动生成 `dispatch_trace_id`（`nsp-<12hex>`），并用于并发 run 识别过滤。
+
+### Nightly workflow traceability 强化
+- 文件：`.github/workflows/hybrid-superpass-nightly.yml`
+- 改动：
+  - 新增 `run-name`（包含可选 `dispatch_trace_id`）。
+  - 新增 `workflow_dispatch.inputs.dispatch_trace_id`。
+  - 新增 `NIGHTLY_TRACE_ID` 环境变量（输入优先，默认 `nsp-${{ github.run_id }}`）。
+  - fail/success dispatch 分别传递 `--dispatch-trace-id "${NIGHTLY_TRACE_ID}-fail/-success"`。
+  - step summary 增加 Trace ID 输出。
+
+### Makefile 夜检入口升级
+- 文件：`Makefile`
+- 改动：
+  - `hybrid-superpass-nightly-gh` 改为调用 `dispatch_hybrid_superpass_nightly_workflow.py`，支持等待与结果判定。
+  - 新增夜检变量：`HYBRID_SUPERPASS_NIGHTLY_TARGET_*`、`HYBRID_SUPERPASS_NIGHTLY_DISPATCH_TRACE_ID`、`HYBRID_SUPERPASS_NIGHTLY_TIMEOUT/POLL/LIST/OUTPUT_JSON/EXPECTED_CONCLUSION`。
+  - `validate-hybrid-superpass-nightly-workflow` 纳入 `test_dispatch_hybrid_superpass_nightly_workflow.py`。
+
+### 增量验证结果
+- `make validate-hybrid-superpass-workflow`：`59 passed, 1 warning`
+- `make validate-hybrid-superpass-nightly-workflow`：`24 passed, 1 warning`

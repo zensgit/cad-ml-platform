@@ -1,4 +1,6 @@
 name: Hybrid Superpass Nightly
+run-name: >-
+  Hybrid Superpass Nightly${{ github.event.inputs.dispatch_trace_id != '' && format(' (trace: {0})', github.event.inputs.dispatch_trace_id) || '' }}
 
 on:
   schedule:
@@ -17,6 +19,10 @@ on:
         description: 'Target workflow file to dispatch.'
         required: false
         default: 'hybrid-superpass-e2e.yml'
+      dispatch_trace_id:
+        description: 'Optional trace id for nightly dispatch lineage.'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -33,6 +39,7 @@ jobs:
       TARGET_REPO: ${{ github.event.inputs.target_repo || github.repository }}
       TARGET_REF: ${{ github.event.inputs.target_ref || 'main' }}
       TARGET_WORKFLOW: ${{ github.event.inputs.target_workflow || 'hybrid-superpass-e2e.yml' }}
+      NIGHTLY_TRACE_ID: ${{ github.event.inputs.dispatch_trace_id || format('nsp-{0}', github.run_id) }}
       ARTIFACT_DIR: artifacts/hybrid-superpass-nightly
       FAIL_JSON: artifacts/hybrid-superpass-nightly/fail-dispatch.json
       SUCCESS_JSON: artifacts/hybrid-superpass-nightly/success-dispatch.json
@@ -62,6 +69,7 @@ jobs:
             --hybrid-superpass-missing-mode fail \
             --hybrid-superpass-fail-on-failed true \
             --expected-conclusion failure \
+            --dispatch-trace-id "${NIGHTLY_TRACE_ID}-fail" \
             --output-json "$FAIL_JSON"
 
       - name: Run success scenario dispatch (expected success)
@@ -78,6 +86,7 @@ jobs:
             --hybrid-superpass-missing-mode skip \
             --hybrid-superpass-fail-on-failed false \
             --expected-conclusion success \
+            --dispatch-trace-id "${NIGHTLY_TRACE_ID}-success" \
             --output-json "$SUCCESS_JSON"
 
       - name: Compare nightly superpass fail/success results
@@ -114,6 +123,7 @@ jobs:
           echo "- Target repo: $TARGET_REPO" >> "$GITHUB_STEP_SUMMARY"
           echo "- Target ref: $TARGET_REF" >> "$GITHUB_STEP_SUMMARY"
           echo "- Target workflow: $TARGET_WORKFLOW" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Trace ID: $NIGHTLY_TRACE_ID" >> "$GITHUB_STEP_SUMMARY"
           echo "- Fail scenario step outcome: ${{ steps.fail_dispatch.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Success scenario step outcome: ${{ steps.success_dispatch.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Compare JSON: $COMPARE_JSON" >> "$GITHUB_STEP_SUMMARY"

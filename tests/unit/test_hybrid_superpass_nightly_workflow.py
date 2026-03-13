@@ -23,12 +23,14 @@ def test_workflow_has_daily_schedule_and_manual_dispatch_inputs() -> None:
     workflow = _load_workflow()
 
     assert workflow["name"] == "Hybrid Superpass Nightly"
+    assert "dispatch_trace_id" in workflow["run-name"]
     assert workflow["on"]["schedule"][0]["cron"] == "15 2 * * *"
 
     inputs = workflow["on"]["workflow_dispatch"]["inputs"]
     assert inputs["target_repo"]["default"] == ""
     assert inputs["target_ref"]["default"] == "main"
     assert inputs["target_workflow"]["default"] == "hybrid-superpass-e2e.yml"
+    assert inputs["dispatch_trace_id"]["default"] == ""
 
 
 def test_workflow_permissions_and_default_repo_ref_wiring() -> None:
@@ -44,6 +46,9 @@ def test_workflow_permissions_and_default_repo_ref_wiring() -> None:
     assert "github.repository" in env["TARGET_REPO"]
     assert "github.event.inputs.target_ref" in env["TARGET_REF"]
     assert "'main'" in env["TARGET_REF"]
+    assert "github.event.inputs.dispatch_trace_id" in env["NIGHTLY_TRACE_ID"]
+    assert "nsp-" in env["NIGHTLY_TRACE_ID"]
+    assert "github.run_id" in env["NIGHTLY_TRACE_ID"]
 
 
 def test_workflow_has_dual_dispatch_compare_artifact_and_summary_steps() -> None:
@@ -54,6 +59,7 @@ def test_workflow_has_dual_dispatch_compare_artifact_and_summary_steps() -> None
     fail_script = fail_step["run"]
     assert "scripts/ci/dispatch_hybrid_superpass_workflow.py" in fail_script
     assert "--expected-conclusion failure" in fail_script
+    assert "--dispatch-trace-id \"${NIGHTLY_TRACE_ID}-fail\"" in fail_script
     assert "--repo \"$TARGET_REPO\"" in fail_script
     assert "--ref \"$TARGET_REF\"" in fail_script
 
@@ -63,6 +69,7 @@ def test_workflow_has_dual_dispatch_compare_artifact_and_summary_steps() -> None
     success_script = success_step["run"]
     assert "scripts/ci/dispatch_hybrid_superpass_workflow.py" in success_script
     assert "--expected-conclusion success" in success_script
+    assert "--dispatch-trace-id \"${NIGHTLY_TRACE_ID}-success\"" in success_script
     assert "--hybrid-superpass-missing-mode skip" in success_script
     assert "--hybrid-superpass-fail-on-failed false" in success_script
 
@@ -90,5 +97,7 @@ def test_workflow_has_dual_dispatch_compare_artifact_and_summary_steps() -> None
     summary_script = summary_step["run"]
     assert summary_step["if"] == "always()"
     assert "GITHUB_STEP_SUMMARY" in summary_script
+    assert "Trace ID" in summary_script
+    assert "$NIGHTLY_TRACE_ID" in summary_script
     assert "Fail scenario step outcome" in summary_script
     assert "Success scenario step outcome" in summary_script
