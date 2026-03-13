@@ -106,48 +106,8 @@ on:
         description: 'Override: enable label-slice drift checks (true/false)'
         required: false
         default: ''
-      hybrid_blind_drift_alert_label_slice_min_common:
-        description: 'Override: min shared label slices required for drift comparison'
-        required: false
-        default: ''
-      hybrid_blind_drift_alert_label_slice_auto_cap_min_common:
-        description: 'Override: auto-cap label-slice min_common to reachable overlap range (true/false)'
-        required: false
-        default: ''
-      hybrid_blind_drift_alert_label_slice_min_support:
-        description: 'Override: min support per label slice for drift comparison'
-        required: false
-        default: ''
-      hybrid_blind_drift_alert_label_slice_max_acc_drop:
-        description: 'Override: max allowed worst label-slice hybrid accuracy drop'
-        required: false
-        default: ''
-      hybrid_blind_drift_alert_label_slice_max_gain_drop:
-        description: 'Override: max allowed worst label-slice gain drop'
-        required: false
-        default: ''
       hybrid_blind_drift_alert_family_slice_enable:
         description: 'Override: enable family-slice drift checks (true/false)'
-        required: false
-        default: ''
-      hybrid_blind_drift_alert_family_slice_min_common:
-        description: 'Override: min shared family slices required for drift comparison'
-        required: false
-        default: ''
-      hybrid_blind_drift_alert_family_slice_auto_cap_min_common:
-        description: 'Override: auto-cap family-slice min_common to reachable overlap range (true/false)'
-        required: false
-        default: ''
-      hybrid_blind_drift_alert_family_slice_min_support:
-        description: 'Override: min support per family slice for drift comparison'
-        required: false
-        default: ''
-      hybrid_blind_drift_alert_family_slice_max_acc_drop:
-        description: 'Override: max allowed worst family-slice hybrid accuracy drop'
-        required: false
-        default: ''
-      hybrid_blind_drift_alert_family_slice_max_gain_drop:
-        description: 'Override: max allowed worst family-slice gain drop'
         required: false
         default: ''
 
@@ -775,61 +735,21 @@ jobs:
         if [[ -n "$LABEL_SLICE_ENABLE_OVERRIDE" ]]; then
           LABEL_SLICE_ENABLE_VALUE="$LABEL_SLICE_ENABLE_OVERRIDE"
         fi
-        LABEL_SLICE_MIN_COMMON_OVERRIDE="${{ github.event.inputs.hybrid_blind_drift_alert_label_slice_min_common || '' }}"
         LABEL_SLICE_MIN_COMMON="${HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MIN_COMMON:-3}"
-        if [[ -n "$LABEL_SLICE_MIN_COMMON_OVERRIDE" ]]; then
-          LABEL_SLICE_MIN_COMMON="$LABEL_SLICE_MIN_COMMON_OVERRIDE"
-        fi
-        LABEL_SLICE_AUTO_CAP_MIN_COMMON_OVERRIDE="${{ github.event.inputs.hybrid_blind_drift_alert_label_slice_auto_cap_min_common || '' }}"
         LABEL_SLICE_AUTO_CAP_MIN_COMMON_VALUE="${HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_AUTO_CAP_MIN_COMMON:-true}"
-        if [[ -n "$LABEL_SLICE_AUTO_CAP_MIN_COMMON_OVERRIDE" ]]; then
-          LABEL_SLICE_AUTO_CAP_MIN_COMMON_VALUE="$LABEL_SLICE_AUTO_CAP_MIN_COMMON_OVERRIDE"
-        fi
-        LABEL_SLICE_MIN_SUPPORT_OVERRIDE="${{ github.event.inputs.hybrid_blind_drift_alert_label_slice_min_support || '' }}"
         LABEL_SLICE_MIN_SUPPORT="${HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MIN_SUPPORT:-3}"
-        if [[ -n "$LABEL_SLICE_MIN_SUPPORT_OVERRIDE" ]]; then
-          LABEL_SLICE_MIN_SUPPORT="$LABEL_SLICE_MIN_SUPPORT_OVERRIDE"
-        fi
-        LABEL_SLICE_MAX_ACC_DROP_OVERRIDE="${{ github.event.inputs.hybrid_blind_drift_alert_label_slice_max_acc_drop || '' }}"
         LABEL_SLICE_MAX_ACC_DROP="${HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MAX_ACC_DROP:-0.15}"
-        if [[ -n "$LABEL_SLICE_MAX_ACC_DROP_OVERRIDE" ]]; then
-          LABEL_SLICE_MAX_ACC_DROP="$LABEL_SLICE_MAX_ACC_DROP_OVERRIDE"
-        fi
-        LABEL_SLICE_MAX_GAIN_DROP_OVERRIDE="${{ github.event.inputs.hybrid_blind_drift_alert_label_slice_max_gain_drop || '' }}"
         LABEL_SLICE_MAX_GAIN_DROP="${HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MAX_GAIN_DROP:-0.15}"
-        if [[ -n "$LABEL_SLICE_MAX_GAIN_DROP_OVERRIDE" ]]; then
-          LABEL_SLICE_MAX_GAIN_DROP="$LABEL_SLICE_MAX_GAIN_DROP_OVERRIDE"
-        fi
         FAMILY_SLICE_ENABLE_OVERRIDE="${{ github.event.inputs.hybrid_blind_drift_alert_family_slice_enable || '' }}"
         FAMILY_SLICE_ENABLE_VALUE="${HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_ENABLE:-true}"
         if [[ -n "$FAMILY_SLICE_ENABLE_OVERRIDE" ]]; then
           FAMILY_SLICE_ENABLE_VALUE="$FAMILY_SLICE_ENABLE_OVERRIDE"
         fi
-        FAMILY_SLICE_MIN_COMMON_OVERRIDE="${{ github.event.inputs.hybrid_blind_drift_alert_family_slice_min_common || '' }}"
         FAMILY_SLICE_MIN_COMMON="${HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MIN_COMMON:-2}"
-        if [[ -n "$FAMILY_SLICE_MIN_COMMON_OVERRIDE" ]]; then
-          FAMILY_SLICE_MIN_COMMON="$FAMILY_SLICE_MIN_COMMON_OVERRIDE"
-        fi
-        FAMILY_SLICE_AUTO_CAP_MIN_COMMON_OVERRIDE="${{ github.event.inputs.hybrid_blind_drift_alert_family_slice_auto_cap_min_common || '' }}"
         FAMILY_SLICE_AUTO_CAP_MIN_COMMON_VALUE="${HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_AUTO_CAP_MIN_COMMON:-true}"
-        if [[ -n "$FAMILY_SLICE_AUTO_CAP_MIN_COMMON_OVERRIDE" ]]; then
-          FAMILY_SLICE_AUTO_CAP_MIN_COMMON_VALUE="$FAMILY_SLICE_AUTO_CAP_MIN_COMMON_OVERRIDE"
-        fi
-        FAMILY_SLICE_MIN_SUPPORT_OVERRIDE="${{ github.event.inputs.hybrid_blind_drift_alert_family_slice_min_support || '' }}"
         FAMILY_SLICE_MIN_SUPPORT="${HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MIN_SUPPORT:-5}"
-        if [[ -n "$FAMILY_SLICE_MIN_SUPPORT_OVERRIDE" ]]; then
-          FAMILY_SLICE_MIN_SUPPORT="$FAMILY_SLICE_MIN_SUPPORT_OVERRIDE"
-        fi
-        FAMILY_SLICE_MAX_ACC_DROP_OVERRIDE="${{ github.event.inputs.hybrid_blind_drift_alert_family_slice_max_acc_drop || '' }}"
         FAMILY_SLICE_MAX_ACC_DROP="${HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MAX_ACC_DROP:-0.20}"
-        if [[ -n "$FAMILY_SLICE_MAX_ACC_DROP_OVERRIDE" ]]; then
-          FAMILY_SLICE_MAX_ACC_DROP="$FAMILY_SLICE_MAX_ACC_DROP_OVERRIDE"
-        fi
-        FAMILY_SLICE_MAX_GAIN_DROP_OVERRIDE="${{ github.event.inputs.hybrid_blind_drift_alert_family_slice_max_gain_drop || '' }}"
         FAMILY_SLICE_MAX_GAIN_DROP="${HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MAX_GAIN_DROP:-0.20}"
-        if [[ -n "$FAMILY_SLICE_MAX_GAIN_DROP_OVERRIDE" ]]; then
-          FAMILY_SLICE_MAX_GAIN_DROP="$FAMILY_SLICE_MAX_GAIN_DROP_OVERRIDE"
-        fi
         CMD=(
           python3 scripts/ci/check_hybrid_blind_drift_alerts.py
           --eval-history-dir reports/eval_history

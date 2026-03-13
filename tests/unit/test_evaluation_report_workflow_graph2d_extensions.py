@@ -96,17 +96,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "hybrid_blind_drift_alert_enable" in dispatch_inputs
     assert "hybrid_blind_drift_alert_consecutive_window" in dispatch_inputs
     assert "hybrid_blind_drift_alert_label_slice_enable" in dispatch_inputs
-    assert "hybrid_blind_drift_alert_label_slice_min_common" in dispatch_inputs
-    assert "hybrid_blind_drift_alert_label_slice_auto_cap_min_common" in dispatch_inputs
-    assert "hybrid_blind_drift_alert_label_slice_min_support" in dispatch_inputs
-    assert "hybrid_blind_drift_alert_label_slice_max_acc_drop" in dispatch_inputs
-    assert "hybrid_blind_drift_alert_label_slice_max_gain_drop" in dispatch_inputs
     assert "hybrid_blind_drift_alert_family_slice_enable" in dispatch_inputs
-    assert "hybrid_blind_drift_alert_family_slice_min_common" in dispatch_inputs
-    assert "hybrid_blind_drift_alert_family_slice_auto_cap_min_common" in dispatch_inputs
-    assert "hybrid_blind_drift_alert_family_slice_min_support" in dispatch_inputs
-    assert "hybrid_blind_drift_alert_family_slice_max_acc_drop" in dispatch_inputs
-    assert "hybrid_blind_drift_alert_family_slice_max_gain_drop" in dispatch_inputs
 
 
 def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> None:
@@ -273,7 +263,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "hybrid_blind_drift_alert_label_slice_enable" in hybrid_blind_drift_script
     assert "--label-slice-enable" in hybrid_blind_drift_script
     assert "--label-slice-min-common" in hybrid_blind_drift_script
-    assert "hybrid_blind_drift_alert_label_slice_auto_cap_min_common" in hybrid_blind_drift_script
+    assert "HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_AUTO_CAP_MIN_COMMON" in hybrid_blind_drift_script
     assert "--label-slice-auto-cap-min-common" in hybrid_blind_drift_script
     assert "--no-label-slice-auto-cap-min-common" in hybrid_blind_drift_script
     assert "--label-slice-min-support" in hybrid_blind_drift_script
@@ -282,7 +272,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "hybrid_blind_drift_alert_family_slice_enable" in hybrid_blind_drift_script
     assert "--family-slice-enable" in hybrid_blind_drift_script
     assert "--family-slice-min-common" in hybrid_blind_drift_script
-    assert "hybrid_blind_drift_alert_family_slice_auto_cap_min_common" in hybrid_blind_drift_script
+    assert "HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_AUTO_CAP_MIN_COMMON" in hybrid_blind_drift_script
     assert "--family-slice-auto-cap-min-common" in hybrid_blind_drift_script
     assert "--no-family-slice-auto-cap-min-common" in hybrid_blind_drift_script
     assert "--family-slice-min-support" in hybrid_blind_drift_script
