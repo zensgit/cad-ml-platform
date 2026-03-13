@@ -46,6 +46,18 @@ on:
         description: 'Override: enable strict fail on review-pack gate failed (true/false)'
         required: false
         default: ''
+      hybrid_superpass_enable:
+        description: 'Override: enable hybrid superpass target gate (true/false)'
+        required: false
+        default: ''
+      hybrid_superpass_missing_mode:
+        description: 'Override: hybrid superpass missing-mode (skip/fail)'
+        required: false
+        default: ''
+      hybrid_superpass_fail_on_failed:
+        description: 'Override: strict fail when hybrid superpass status is not passed (true/false)'
+        required: false
+        default: ''
       review_pack_input_csv:
         description: 'Optional review-pack input CSV path (relative to repository root)'
         required: false
@@ -1073,6 +1085,13 @@ env:
   GRAPH2D_REVIEW_PACK_GATE_CONFIG: ${{ vars.GRAPH2D_REVIEW_PACK_GATE_CONFIG || 'config/graph2d_review_pack_gate.yaml' }}
   GRAPH2D_REVIEW_PACK_GATE_REPORT: ${{ vars.GRAPH2D_REVIEW_PACK_GATE_REPORT || 'reports/history_sequence_eval/graph2d_review_pack_gate_report.json' }}
   GRAPH2D_REVIEW_PACK_GATE_STRICT: ${{ vars.GRAPH2D_REVIEW_PACK_GATE_STRICT || 'false' }}
+  HYBRID_SUPERPASS_ENABLE: ${{ vars.HYBRID_SUPERPASS_ENABLE || 'false' }}
+  HYBRID_SUPERPASS_CONFIG: ${{ vars.HYBRID_SUPERPASS_CONFIG || 'config/hybrid_superpass_targets.yaml' }}
+  HYBRID_SUPERPASS_OUTPUT_JSON: ${{ vars.HYBRID_SUPERPASS_OUTPUT_JSON || 'reports/history_sequence_eval/hybrid_superpass_report.json' }}
+  HYBRID_SUPERPASS_MISSING_MODE: ${{ vars.HYBRID_SUPERPASS_MISSING_MODE || 'skip' }}
+  HYBRID_SUPERPASS_GATE_REPORT_JSON: ${{ vars.HYBRID_SUPERPASS_GATE_REPORT_JSON || 'reports/history_sequence_eval/hybrid_blind_gate_report.json' }}
+  HYBRID_SUPERPASS_CALIBRATION_JSON: ${{ vars.HYBRID_SUPERPASS_CALIBRATION_JSON || 'models/calibration/hybrid_confidence_calibration.json' }}
+  HYBRID_SUPERPASS_FAIL_ON_FAILED: ${{ vars.HYBRID_SUPERPASS_FAIL_ON_FAILED || 'false' }}
   GRAPH2D_TRAIN_SWEEP_ENABLE: ${{ vars.GRAPH2D_TRAIN_SWEEP_ENABLE || 'false' }}
   GRAPH2D_TRAIN_SWEEP_EXECUTE: ${{ vars.GRAPH2D_TRAIN_SWEEP_EXECUTE || 'false' }}
   GRAPH2D_TRAIN_SWEEP_FAIL_ON_ERROR: ${{ vars.GRAPH2D_TRAIN_SWEEP_FAIL_ON_ERROR || 'false' }}
@@ -9406,6 +9425,116 @@ jobs:
         echo "reason=gate_passed_under_strict_mode" >> $GITHUB_OUTPUT
         echo "Graph2D review gate strict mode enabled and gate passed."
 
+    - name: Check Hybrid superpass gate (optional)
+      id: hybrid_superpass_gate
+      if: always()
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.hybrid_superpass_enable || '' }}"
+        ENABLE_VALUE="${HYBRID_SUPERPASS_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        token="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+        is_enabled="false"
+        if [[ "$token" == "1" || "$token" == "true" || "$token" == "yes" || "$token" == "on" ]]; then
+          is_enabled="true"
+        fi
+        if [[ "$is_enabled" != "true" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "status=skipped" >> $GITHUB_OUTPUT
+          echo "headline=disabled" >> $GITHUB_OUTPUT
+          echo "exit_code=0" >> $GITHUB_OUTPUT
+          echo "report_path=" >> $GITHUB_OUTPUT
+          echo "missing_mode=${HYBRID_SUPERPASS_MISSING_MODE:-skip}" >> $GITHUB_OUTPUT
+          echo "Hybrid superpass gate disabled."
+          exit 0
+        fi
+
+        REPORT_PATH="${HYBRID_SUPERPASS_OUTPUT_JSON:-reports/history_sequence_eval/hybrid_superpass_report.json}"
+        mkdir -p "$(dirname "$REPORT_PATH")"
+        GATE_JSON="${HYBRID_SUPERPASS_GATE_REPORT_JSON:-reports/history_sequence_eval/hybrid_blind_gate_report.json}"
+        CALIBRATION_JSON="${HYBRID_SUPERPASS_CALIBRATION_JSON:-models/calibration/hybrid_confidence_calibration.json}"
+        MISSING_OVERRIDE="${{ github.event.inputs.hybrid_superpass_missing_mode || '' }}"
+        MISSING_MODE="${HYBRID_SUPERPASS_MISSING_MODE:-skip}"
+        if [[ -n "$MISSING_OVERRIDE" ]]; then
+          MISSING_MODE="$MISSING_OVERRIDE"
+        fi
+
+        set +e
+        python3 scripts/ci/check_hybrid_superpass_targets.py \
+          --hybrid-blind-gate-report "$GATE_JSON" \
+          --hybrid-calibration-json "$CALIBRATION_JSON" \
+          --config "${HYBRID_SUPERPASS_CONFIG:-config/hybrid_superpass_targets.yaml}" \
+          --missing-mode "$MISSING_MODE" \
+          --output "$REPORT_PATH"
+        GATE_EXIT_CODE=$?
+        set -e
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "report_path=$REPORT_PATH" >> $GITHUB_OUTPUT
+        echo "exit_code=$GATE_EXIT_CODE" >> $GITHUB_OUTPUT
+        echo "missing_mode=$MISSING_MODE" >> $GITHUB_OUTPUT
+        export HYBRID_SUPERPASS_REPORT="$REPORT_PATH"
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(Path(os.environ["HYBRID_SUPERPASS_REPORT"]).read_text(encoding="utf-8"))
+        failures = payload.get("failures") if isinstance(payload.get("failures"), list) else []
+        warnings = payload.get("warnings") if isinstance(payload.get("warnings"), list) else []
+        first_failure = str(failures[0]).replace("\n", " ").replace("\r", " ").strip() if failures else ""
+        first_warning = str(warnings[0]).replace("\n", " ").replace("\r", " ").strip() if warnings else ""
+        headline = "passed"
+        if payload.get("status") != "passed":
+            headline = f"failed: {first_failure or 'unknown reason'}"
+        elif first_warning:
+            headline = f"passed_with_warning: {first_warning}"
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"status={payload.get('status', 'unknown')}\n")
+            f.write(f"headline={headline}\n")
+            f.write(f"failure_count={len(failures)}\n")
+            f.write(f"warning_count={len(warnings)}\n")
+            f.write(f"first_failure={first_failure}\n")
+            f.write(f"first_warning={first_warning}\n")
+        PY
+
+    - name: Evaluate Hybrid superpass strict mode (optional)
+      id: hybrid_superpass_gate_strict
+      if: steps.hybrid_superpass_gate.outputs.enabled == 'true'
+      continue-on-error: true
+      run: |
+        STRICT_OVERRIDE="${{ github.event.inputs.hybrid_superpass_fail_on_failed || '' }}"
+        STRICT_VALUE="${HYBRID_SUPERPASS_FAIL_ON_FAILED:-false}"
+        if [[ -n "$STRICT_OVERRIDE" ]]; then
+          STRICT_VALUE="$STRICT_OVERRIDE"
+        fi
+        token="$(echo "$STRICT_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+        is_strict="false"
+        if [[ "$token" == "1" || "$token" == "true" || "$token" == "yes" || "$token" == "on" ]]; then
+          is_strict="true"
+        fi
+        gate_status="${{ steps.hybrid_superpass_gate.outputs.status }}"
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "strict_mode=$is_strict" >> $GITHUB_OUTPUT
+        echo "gate_status=$gate_status" >> $GITHUB_OUTPUT
+        if [[ "$is_strict" != "true" ]]; then
+          echo "should_fail=false" >> $GITHUB_OUTPUT
+          echo "reason=strict_mode_disabled" >> $GITHUB_OUTPUT
+          echo "Hybrid superpass strict mode disabled."
+          exit 0
+        fi
+        if [[ "$gate_status" != "passed" ]]; then
+          echo "should_fail=true" >> $GITHUB_OUTPUT
+          echo "reason=superpass_failed_under_strict_mode" >> $GITHUB_OUTPUT
+          echo "Hybrid superpass strict mode enabled and status is not passed."
+          exit 0
+        fi
+        echo "should_fail=false" >> $GITHUB_OUTPUT
+        echo "reason=superpass_passed_under_strict_mode" >> $GITHUB_OUTPUT
+        echo "Hybrid superpass strict mode enabled and status passed."
+
     - name: Generate trend charts
       run: |
         python3 scripts/eval_trend.py --out reports/eval_history/plots
@@ -9503,6 +9632,14 @@ jobs:
           ${{ steps.graph2d_review_pack.outputs.output_csv }}
           ${{ steps.graph2d_review_pack.outputs.summary_json }}
           ${{ steps.graph2d_review_gate.outputs.report_path }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Upload Hybrid superpass gate artifact
+      if: steps.hybrid_superpass_gate.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: hybrid-superpass-gate-${{ github.run_number }}
+        path: ${{ steps.hybrid_superpass_gate.outputs.report_path }}
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
     - name: Upload Graph2D train sweep
@@ -9991,6 +10128,17 @@ jobs:
           fi
         else
           echo "- Graph2D review pack: skipped (no configured input csv)" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [[ "${{ steps.hybrid_superpass_gate.outputs.enabled }}" == "true" ]]; then
+          echo "- Hybrid superpass gate status: ${{ steps.hybrid_superpass_gate.outputs.status }} (exit=${{ steps.hybrid_superpass_gate.outputs.exit_code }})" >> $GITHUB_STEP_SUMMARY
+          echo "- Hybrid superpass gate headline: ${{ steps.hybrid_superpass_gate.outputs.headline }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Hybrid superpass gate report: ${{ steps.hybrid_superpass_gate.outputs.report_path }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Hybrid superpass gate missing_mode: ${{ steps.hybrid_superpass_gate.outputs.missing_mode }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Hybrid superpass gate strict_mode: ${{ steps.hybrid_superpass_gate_strict.outputs.strict_mode || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Hybrid superpass gate strict_should_fail: ${{ steps.hybrid_superpass_gate_strict.outputs.should_fail || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Hybrid superpass gate strict_reason: ${{ steps.hybrid_superpass_gate_strict.outputs.reason || 'n/a' }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Hybrid superpass gate: skipped" >> $GITHUB_STEP_SUMMARY
         fi
         if [[ "${{ steps.graph2d_train_sweep.outputs.enabled }}" == "true" ]]; then
           echo "- Graph2D train sweep exit_code: ${{ steps.graph2d_train_sweep.outputs.exit_code }}" >> $GITHUB_STEP_SUMMARY
@@ -13358,6 +13506,13 @@ jobs:
           } catch (error) {
             console.warn(`PR comment skipped: ${error.message}`);
           }
+
+    - name: Fail workflow when Hybrid superpass strict check requires blocking
+      if: steps.hybrid_superpass_gate_strict.outputs.should_fail == 'true'
+      run: |
+        echo "Hybrid superpass strict-mode check requested failure."
+        echo "Failure reason: ${{ steps.hybrid_superpass_gate_strict.outputs.reason }}"
+        exit 1
 
     - name: Fail workflow when Graph2D review gate strict check requires blocking
       if: steps.graph2d_review_gate_strict.outputs.should_fail == 'true'
