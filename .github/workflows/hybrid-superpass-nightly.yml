@@ -1,0 +1,126 @@
+name: Hybrid Superpass Nightly
+
+on:
+  schedule:
+    - cron: '15 2 * * *'
+  workflow_dispatch:
+    inputs:
+      target_repo:
+        description: 'Target owner/repo for dispatch. Empty means current repository.'
+        required: false
+        default: ''
+      target_ref:
+        description: 'Target ref/branch for dispatch.'
+        required: false
+        default: 'main'
+      target_workflow:
+        description: 'Target workflow file to dispatch.'
+        required: false
+        default: 'hybrid-superpass-e2e.yml'
+
+permissions:
+  contents: read
+  actions: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  nightly-superpass:
+    name: Nightly hybrid superpass dual-scenario check
+    runs-on: ubuntu-latest
+    env:
+      TARGET_REPO: ${{ github.event.inputs.target_repo || github.repository }}
+      TARGET_REF: ${{ github.event.inputs.target_ref || 'main' }}
+      TARGET_WORKFLOW: ${{ github.event.inputs.target_workflow || 'hybrid-superpass-e2e.yml' }}
+      ARTIFACT_DIR: artifacts/hybrid-superpass-nightly
+      FAIL_JSON: artifacts/hybrid-superpass-nightly/fail-dispatch.json
+      SUCCESS_JSON: artifacts/hybrid-superpass-nightly/success-dispatch.json
+      COMPARE_JSON: artifacts/hybrid-superpass-nightly/compare.json
+      COMPARE_MD: artifacts/hybrid-superpass-nightly/compare.md
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run fail scenario dispatch (expected failure)
+        id: fail_dispatch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p "$ARTIFACT_DIR"
+          python scripts/ci/dispatch_hybrid_superpass_workflow.py \
+            --workflow "$TARGET_WORKFLOW" \
+            --repo "$TARGET_REPO" \
+            --ref "$TARGET_REF" \
+            --hybrid-superpass-enable true \
+            --hybrid-superpass-missing-mode fail \
+            --hybrid-superpass-fail-on-failed true \
+            --expected-conclusion failure \
+            --output-json "$FAIL_JSON"
+
+      - name: Run success scenario dispatch (expected success)
+        id: success_dispatch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p "$ARTIFACT_DIR"
+          python scripts/ci/dispatch_hybrid_superpass_workflow.py \
+            --workflow "$TARGET_WORKFLOW" \
+            --repo "$TARGET_REPO" \
+            --ref "$TARGET_REF" \
+            --hybrid-superpass-enable true \
+            --hybrid-superpass-missing-mode skip \
+            --hybrid-superpass-fail-on-failed false \
+            --expected-conclusion success \
+            --output-json "$SUCCESS_JSON"
+
+      - name: Compare nightly superpass fail/success results
+        if: always()
+        id: compare
+        run: |
+          mkdir -p "$ARTIFACT_DIR"
+          python scripts/ci/compare_hybrid_superpass_reports.py \
+            --fail-json "$FAIL_JSON" \
+            --success-json "$SUCCESS_JSON" \
+            --output-json "$COMPARE_JSON" \
+            --output-md "$COMPARE_MD" \
+            --strict
+          echo "compare_json=$COMPARE_JSON" >> "$GITHUB_OUTPUT"
+          echo "compare_md=$COMPARE_MD" >> "$GITHUB_OUTPUT"
+
+      - name: Upload nightly superpass compare artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hybrid-superpass-nightly-${{ github.run_number }}
+          path: |
+            ${{ env.FAIL_JSON }}
+            ${{ env.SUCCESS_JSON }}
+            ${{ env.COMPARE_JSON }}
+            ${{ env.COMPARE_MD }}
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Write nightly superpass step summary
+        if: always()
+        run: |
+          echo "# Hybrid Superpass Nightly" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Target repo: $TARGET_REPO" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Target ref: $TARGET_REF" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Target workflow: $TARGET_WORKFLOW" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Fail scenario step outcome: ${{ steps.fail_dispatch.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Success scenario step outcome: ${{ steps.success_dispatch.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Compare JSON: $COMPARE_JSON" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Compare Markdown: $COMPARE_MD" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -f "$COMPARE_MD" ]]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            cat "$COMPARE_MD" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Compare markdown file not generated." >> "$GITHUB_STEP_SUMMARY"
+          fi

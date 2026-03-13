@@ -24,6 +24,7 @@ def test_hybrid_superpass_e2e_workflow_dispatch_inputs() -> None:
     workflow = _load_workflow()
     dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
     run_name = workflow.get("run-name", "")
+    env = workflow.get("env", {})
 
     assert "hybrid_superpass_enable" in dispatch_inputs
     assert "hybrid_superpass_missing_mode" in dispatch_inputs
@@ -34,6 +35,7 @@ def test_hybrid_superpass_e2e_workflow_dispatch_inputs() -> None:
     assert "hybrid_superpass_output_json" in dispatch_inputs
     assert "dispatch_trace_id" in dispatch_inputs
     assert "dispatch_trace_id" in str(run_name)
+    assert env.get("FORCE_JAVASCRIPT_ACTIONS_TO_NODE24") == "true"
 
 
 def test_hybrid_superpass_e2e_workflow_contains_gate_and_strict_steps() -> None:
