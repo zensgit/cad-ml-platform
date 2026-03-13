@@ -1095,6 +1095,9 @@ HYBRID_BLIND_STRICT_TEMPLATE_REF ?= main
 HYBRID_BLIND_STRICT_TEMPLATE_DXF_DIR ?= datasets/hybrid_blind_real
 HYBRID_BLIND_STRICT_TEMPLATE_MANIFEST_CSV ?=
 HYBRID_BLIND_STRICT_TEMPLATE_SYNTH_MANIFEST ?= tests/golden/golden_dxf_hybrid_cases.json
+HYBRID_BLIND_STRICT_APPLY_REPO ?=
+HYBRID_BLIND_STRICT_APPLY_DXF_DIR ?= datasets/hybrid_blind_real
+HYBRID_BLIND_STRICT_APPLY_EXECUTE ?= 0
 EVAL_WEEKLY_SUMMARY_DAYS ?= 7
 EVAL_WEEKLY_SUMMARY_OUTPUT ?= reports/eval_history/weekly_summary.md
 
@@ -1348,6 +1351,15 @@ hybrid-blind-strict-real-template-gh: ## 打印 strict-real blind 的 gh 变量/
 		--workflow "$(HYBRID_BLIND_STRICT_TEMPLATE_WORKFLOW)" \
 		--ref "$(HYBRID_BLIND_STRICT_TEMPLATE_REF)" \
 		--dxf-dir "$(HYBRID_BLIND_STRICT_TEMPLATE_DXF_DIR)" \
+		$$extra_flags
+
+hybrid-blind-strict-real-apply-gh-vars: ## 将 strict-real 建议变量同步到 GitHub Variables（默认仅预览）
+	@echo "$(GREEN)Applying hybrid blind strict-real variables to GitHub...$(NC)"
+	@extra_flags=""; \
+	if [ "$(HYBRID_BLIND_STRICT_APPLY_EXECUTE)" = "1" ]; then extra_flags="$$extra_flags --apply"; fi; \
+	$(PYTHON) scripts/ci/apply_hybrid_blind_strict_real_gh_vars.py \
+		--repo "$(HYBRID_BLIND_STRICT_APPLY_REPO)" \
+		--dxf-dir "$(HYBRID_BLIND_STRICT_APPLY_DXF_DIR)" \
 		$$extra_flags
 
 hybrid-blind-drift-alert: ## 检查 Hybrid blind 最新两次评测漂移（accuracy/gain/coverage）

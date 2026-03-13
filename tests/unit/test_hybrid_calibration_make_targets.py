@@ -165,6 +165,16 @@ def test_make_n_hybrid_blind_strict_real_template_gh_contains_expected_flags() -
     assert "$extra_flags" in result.stdout
 
 
+def test_make_n_hybrid_blind_strict_real_apply_gh_vars_contains_expected_flags() -> None:
+    result = _run_make("-n", "hybrid-blind-strict-real-apply-gh-vars")
+    assert result.returncode == 0, result.stderr
+    assert "scripts/ci/apply_hybrid_blind_strict_real_gh_vars.py" in result.stdout
+    assert "--repo" in result.stdout
+    assert "--dxf-dir" in result.stdout
+    assert "--apply" in result.stdout
+    assert "$extra_flags" in result.stdout
+
+
 def test_make_n_hybrid_blind_drift_alert_contains_expected_flags() -> None:
     result = _run_make("-n", "hybrid-blind-drift-alert")
     assert result.returncode == 0, result.stderr
