@@ -37,6 +37,22 @@ def test_build_workflow_run_command_contains_required_inputs() -> None:
     assert "hybrid_calibration_input_csv=reports/review.csv" in text
 
 
+def test_build_workflow_run_command_contains_dispatch_trace_when_provided() -> None:
+    from scripts.ci.dispatch_hybrid_superpass_workflow import build_workflow_run_command
+
+    command = build_workflow_run_command(
+        workflow="hybrid-superpass-e2e.yml",
+        ref="main",
+        repo="zensgit/cad-ml-platform",
+        hybrid_superpass_enable="true",
+        hybrid_superpass_missing_mode="fail",
+        hybrid_superpass_fail_on_failed="true",
+        dispatch_trace_id="sp-test-trace",
+    )
+    text = " ".join(command)
+    assert "dispatch_trace_id=sp-test-trace" in text
+
+
 def test_main_print_only_outputs_dispatch_and_watch_commands(capsys: Any) -> None:
     from scripts.ci import dispatch_hybrid_superpass_workflow as mod
 
@@ -58,6 +74,16 @@ def test_main_print_only_outputs_dispatch_and_watch_commands(capsys: Any) -> Non
     assert "hybrid_superpass_fail_on_failed=true" in out
     assert "gh run watch '<run_id>' --exit-status" in out
     assert "gh run view '<run_id>' --json conclusion,url" in out
+
+
+def test_main_print_only_auto_generates_trace_for_hybrid_workflow(capsys: Any) -> None:
+    from scripts.ci import dispatch_hybrid_superpass_workflow as mod
+
+    rc = mod.main(["--print-only"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "dispatch_trace_id=sp-" in out
+    assert "dispatch_trace_id=sp-" in out
 
 
 def test_main_returns_nonzero_when_gh_not_ready(monkeypatch: Any) -> None:
@@ -190,3 +216,27 @@ def test_main_returns_nonzero_when_workflow_not_on_default_branch(
     assert "not available on default branch yet" in out
     payload = json.loads(output_json.read_text(encoding="utf-8"))
     assert payload["reason"] == "workflow_not_on_default_branch"
+
+
+def test_wait_for_new_dispatched_run_id_filters_by_trace(monkeypatch: Any) -> None:
+    from scripts.ci import dispatch_hybrid_superpass_workflow as mod
+
+    monkeypatch.setattr(
+        mod,
+        "list_dispatched_runs",
+        lambda *_args, **_kwargs: [
+            {"databaseId": 1001, "displayTitle": "Hybrid Superpass E2E [sp-a]"},
+            {"databaseId": 1002, "displayTitle": "Hybrid Superpass E2E [sp-b]"},
+        ],
+    )
+    run_id = mod.wait_for_new_dispatched_run_id(
+        workflow="hybrid-superpass-e2e.yml",
+        ref="main",
+        repo="zensgit/cad-ml-platform",
+        known_run_ids=[900],
+        timeout_seconds=1,
+        poll_interval_seconds=1,
+        list_limit=10,
+        dispatch_trace_id="sp-b",
+    )
+    assert run_id == 1002

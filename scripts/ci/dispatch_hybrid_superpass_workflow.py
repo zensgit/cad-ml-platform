@@ -8,6 +8,7 @@ from pathlib import Path
 import shlex
 import subprocess
 import time
+import uuid
 from typing import Any, Optional, Sequence
 
 
@@ -62,6 +63,7 @@ def build_workflow_run_command(
     hybrid_blind_strict_require_real_data: str = "",
     hybrid_calibration_enable: str = "",
     hybrid_calibration_input_csv: str = "",
+    dispatch_trace_id: str = "",
 ) -> list[str]:
     command = [
         "gh",
@@ -96,6 +98,7 @@ def build_workflow_run_command(
     )
     _append_if_present("hybrid_calibration_enable", hybrid_calibration_enable)
     _append_if_present("hybrid_calibration_input_csv", hybrid_calibration_input_csv)
+    _append_if_present("dispatch_trace_id", dispatch_trace_id)
     return command
 
 
@@ -117,7 +120,7 @@ def _build_list_dispatched_runs_command(
         "--event",
         "workflow_dispatch",
         "--json",
-        "databaseId",
+        "databaseId,displayTitle",
         "--limit",
         str(max(1, int(limit))),
     ]
@@ -126,7 +129,9 @@ def _build_list_dispatched_runs_command(
     return command
 
 
-def list_dispatched_run_ids(workflow: str, ref: str, repo: str, *, limit: int) -> list[int]:
+def list_dispatched_runs(
+    workflow: str, ref: str, repo: str, *, limit: int
+) -> list[dict[str, Any]]:
     command = _build_list_dispatched_runs_command(workflow, ref, repo, limit=limit)
     result = subprocess.run(command, capture_output=True, text=True, check=False)
     if result.returncode != 0:
@@ -137,15 +142,26 @@ def list_dispatched_run_ids(workflow: str, ref: str, repo: str, *, limit: int) -
         return []
     if not isinstance(payload, list):
         return []
-    run_ids: list[int] = []
+    runs: list[dict[str, Any]] = []
     for item in payload:
         if not isinstance(item, dict):
             continue
         try:
-            run_ids.append(int(item.get("databaseId")))
+            run_id = int(item.get("databaseId"))
         except (TypeError, ValueError):
             continue
-    return run_ids
+        runs.append(
+            {
+                "databaseId": run_id,
+                "displayTitle": str(item.get("displayTitle") or ""),
+            }
+        )
+    return runs
+
+
+def list_dispatched_run_ids(workflow: str, ref: str, repo: str, *, limit: int) -> list[int]:
+    runs = list_dispatched_runs(workflow, ref, repo, limit=limit)
+    return [int(item["databaseId"]) for item in runs if "databaseId" in item]
 
 
 def wait_for_new_dispatched_run_id(
@@ -157,13 +173,20 @@ def wait_for_new_dispatched_run_id(
     timeout_seconds: int,
     poll_interval_seconds: int,
     list_limit: int,
+    dispatch_trace_id: str = "",
 ) -> Optional[int]:
     known = set(int(item) for item in known_run_ids)
     deadline = time.time() + max(0, int(timeout_seconds))
     interval = max(1, int(poll_interval_seconds))
+    trace_token = _normalize_optional(dispatch_trace_id)
     while True:
-        run_ids = list_dispatched_run_ids(workflow, ref, repo, limit=list_limit)
-        for run_id in run_ids:
+        runs = list_dispatched_runs(workflow, ref, repo, limit=list_limit)
+        for run in runs:
+            run_id = int(run.get("databaseId", 0))
+            if run_id <= 0:
+                continue
+            if trace_token and trace_token not in str(run.get("displayTitle") or ""):
+                continue
             if run_id not in known:
                 return int(run_id)
         if time.time() >= deadline:
@@ -304,6 +327,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--hybrid-calibration-enable", default="")
     parser.add_argument("--hybrid-calibration-input-csv", default="")
     parser.add_argument(
+        "--dispatch-trace-id",
+        default="",
+        help="Optional trace id for run correlation under concurrent dispatch.",
+    )
+    parser.add_argument(
         "--expected-conclusion",
         default="success",
         choices=("success", "failure", "cancelled"),
@@ -330,6 +358,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
+    resolved_dispatch_trace_id = _normalize_optional(str(args.dispatch_trace_id))
+    if (
+        not resolved_dispatch_trace_id
+        and str(args.workflow).strip() == "hybrid-superpass-e2e.yml"
+    ):
+        resolved_dispatch_trace_id = f"sp-{uuid.uuid4().hex[:12]}"
+
     dispatch_cmd = build_workflow_run_command(
         workflow=str(args.workflow),
         ref=str(args.ref),
@@ -345,6 +380,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
         hybrid_calibration_enable=str(args.hybrid_calibration_enable),
         hybrid_calibration_input_csv=str(args.hybrid_calibration_input_csv),
+        dispatch_trace_id=resolved_dispatch_trace_id,
     )
 
     watch_hint_cmd = ["gh", "run", "watch", "<run_id>", "--exit-status"]
@@ -356,6 +392,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     view_hint = shlex.join(view_hint_cmd)
 
     print("dispatch_command=" + shlex.join(dispatch_cmd))
+    if resolved_dispatch_trace_id:
+        print("dispatch_trace_id=" + resolved_dispatch_trace_id)
     print("watch_hint=" + watch_hint)
     print("view_hint=" + view_hint)
 
@@ -363,6 +401,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         payload = {
             "mode": "print_only",
             "dispatch_command": dispatch_cmd,
+            "dispatch_trace_id": resolved_dispatch_trace_id,
             "watch_hint": watch_hint,
             "view_hint": view_hint,
         }
@@ -444,12 +483,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         timeout_seconds=int(args.wait_timeout_seconds),
         poll_interval_seconds=int(args.poll_interval_seconds),
         list_limit=int(args.list_limit),
+        dispatch_trace_id=resolved_dispatch_trace_id,
     )
     if run_id is None:
         print("error: timed out waiting for dispatched workflow run id.")
         payload = {
             "overall_exit_code": 1,
             "dispatch_command": dispatch_cmd,
+            "dispatch_trace_id": resolved_dispatch_trace_id,
             "reason": "run_id_timeout",
         }
         if args.output_json:
@@ -471,6 +512,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "workflow": str(args.workflow),
         "ref": str(args.ref),
         "repo": str(args.repo),
+        "dispatch_trace_id": resolved_dispatch_trace_id,
         "run_id": int(run_id),
         "run_url": run_url,
         "conclusion": conclusion,

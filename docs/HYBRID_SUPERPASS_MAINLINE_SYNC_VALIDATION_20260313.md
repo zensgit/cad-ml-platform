@@ -109,7 +109,7 @@ python3 -m pytest tests/unit/test_evaluation_report_workflow_hybrid_superpass_st
 # 17 passed
 
 make validate-hybrid-superpass-workflow
-# 48 passed, 1 warning (PendingDeprecationWarning from python_multipart import path)
+# 51 passed, 1 warning (PendingDeprecationWarning from python_multipart import path)
 ```
 
 结论：superpass 相关脚本、Makefile 编排与 workflow 接线均通过。
@@ -126,3 +126,23 @@ make validate-hybrid-superpass-workflow
 1. 在该分支提交并推送。
 2. 使用 `make hybrid-superpass-e2e-gh ...` 跑一次 strict fail / success 双场景 GH 验证。
 3. 创建 PR 到 `main` 并在描述中附上本 MD。
+
+## 9. Post-Merge Runtime Validation (Main Branch)
+
+在 `main` 上执行了真实 dispatch 验证：
+
+- 失败场景（`missing_mode=fail`, `fail_on_failed=true`）  
+  run: `23038415772`  
+  url: `https://github.com/zensgit/cad-ml-platform/actions/runs/23038415772`  
+  结果：`failure`，与预期一致。
+
+- 成功场景（`missing_mode=skip`, `fail_on_failed=false`）  
+  run: `23038473346`  
+  url: `https://github.com/zensgit/cad-ml-platform/actions/runs/23038473346`  
+  结果：`success`，与预期一致。
+
+并发 dispatch 时发现 run 归属竞态（两个客户端可能绑定同一 run）。已补充修复：
+
+1. `hybrid-superpass-e2e.yml` 新增 `dispatch_trace_id` input，`run-name` 带 trace。
+2. `dispatch_hybrid_superpass_workflow.py` 新增 trace 注入与 run 过滤匹配逻辑。
+3. 新增单测覆盖 trace 构建与过滤路径。
