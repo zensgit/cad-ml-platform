@@ -90,6 +90,7 @@ def _build_compare_command(
     compare_output_json: str,
     compare_output_md: str,
     strict: bool,
+    strict_require_distinct_run_ids: bool,
 ) -> list[str]:
     command = [
         sys.executable,
@@ -105,6 +106,8 @@ def _build_compare_command(
     ]
     if strict:
         command.append("--strict")
+    if strict_require_distinct_run_ids:
+        command.append("--strict-require-distinct-run-ids")
     return command
 
 
@@ -130,6 +133,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional orchestrator summary JSON path.",
     )
     parser.add_argument("--strict", action="store_true")
+    parser.add_argument("--strict-require-distinct-run-ids", action="store_true")
     parser.add_argument("--print-only", action="store_true")
     parser.add_argument(
         "--dispatch-script",
@@ -193,6 +197,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         compare_output_json=str(args.compare_output_json),
         compare_output_md=str(args.compare_output_md),
         strict=bool(args.strict),
+        strict_require_distinct_run_ids=bool(args.strict_require_distinct_run_ids),
     )
 
     print("fail_dispatch_command=" + shlex.join(fail_dispatch_cmd))

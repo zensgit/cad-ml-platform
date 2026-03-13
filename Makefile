@@ -1016,6 +1016,7 @@ HYBRID_SUPERPASS_COMPARE_SUCCESS_JSON ?= $(HYBRID_SUPERPASS_DUAL_SUCCESS_JSON)
 HYBRID_SUPERPASS_COMPARE_OUTPUT_JSON ?= $(GRAPH2D_REVIEW_OUT_DIR)/hybrid_superpass_compare.json
 HYBRID_SUPERPASS_COMPARE_OUTPUT_MD ?= $(GRAPH2D_REVIEW_OUT_DIR)/hybrid_superpass_compare.md
 HYBRID_SUPERPASS_COMPARE_STRICT ?= 1
+HYBRID_SUPERPASS_COMPARE_STRICT_REQUIRE_DISTINCT_RUN_IDS ?= 1
 HYBRID_SUPERPASS_APPLY_REPO ?=
 HYBRID_SUPERPASS_APPLY_CONFIG_PATH ?= config/hybrid_superpass_targets.yaml
 HYBRID_SUPERPASS_APPLY_EXECUTE ?= 0
@@ -1129,6 +1130,7 @@ hybrid-superpass-compare: ## 对比 superpass fail/success 双场景 dispatch �
 	@echo "$(GREEN)Comparing hybrid superpass fail/success reports...$(NC)"
 	@extra_flags=""; \
 	if [ "$(HYBRID_SUPERPASS_COMPARE_STRICT)" = "1" ]; then extra_flags="$$extra_flags --strict"; fi; \
+	if [ "$(HYBRID_SUPERPASS_COMPARE_STRICT_REQUIRE_DISTINCT_RUN_IDS)" = "1" ]; then extra_flags="$$extra_flags --strict-require-distinct-run-ids"; fi; \
 	$(PYTHON) scripts/ci/compare_hybrid_superpass_reports.py \
 		--fail-json "$(HYBRID_SUPERPASS_COMPARE_FAIL_JSON)" \
 		--success-json "$(HYBRID_SUPERPASS_COMPARE_SUCCESS_JSON)" \
@@ -1140,6 +1142,7 @@ hybrid-superpass-e2e-dual-gh: ## 并发执行 fail+success 两次 superpass E2E�
 	@echo "$(GREEN)Running hybrid superpass dual e2e in parallel (fail + success)...$(NC)"
 	@extra_flags=""; \
 	if [ "$(HYBRID_SUPERPASS_COMPARE_STRICT)" = "1" ]; then extra_flags="$$extra_flags --strict"; fi; \
+	if [ "$(HYBRID_SUPERPASS_COMPARE_STRICT_REQUIRE_DISTINCT_RUN_IDS)" = "1" ]; then extra_flags="$$extra_flags --strict-require-distinct-run-ids"; fi; \
 	if [ -n "$(HYBRID_SUPERPASS_E2E_REPO)" ]; then extra_flags="$$extra_flags --repo $(HYBRID_SUPERPASS_E2E_REPO)"; fi; \
 	if [ "$(HYBRID_SUPERPASS_E2E_PRINT_ONLY)" = "1" ]; then extra_flags="$$extra_flags --print-only"; fi; \
 	if [ -n "$(HYBRID_SUPERPASS_DUAL_DISPATCH_TRACE_PREFIX)" ]; then extra_flags="$$extra_flags --dispatch-trace-prefix $(HYBRID_SUPERPASS_DUAL_DISPATCH_TRACE_PREFIX)"; fi; \

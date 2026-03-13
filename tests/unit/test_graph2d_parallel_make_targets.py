@@ -139,6 +139,7 @@ def test_make_n_hybrid_superpass_compare_contains_expected_flags() -> None:
     assert "--output-json" in result.stdout
     assert "--output-md" in result.stdout
     assert "--strict" in result.stdout
+    assert "--strict-require-distinct-run-ids" in result.stdout
 
 
 def test_make_n_hybrid_superpass_e2e_dual_gh_contains_expected_steps() -> None:
@@ -150,6 +151,7 @@ def test_make_n_hybrid_superpass_e2e_dual_gh_contains_expected_steps() -> None:
     assert "--compare-output-json" in result.stdout
     assert "--compare-output-md" in result.stdout
     assert "--strict" in result.stdout
+    assert "--strict-require-distinct-run-ids" in result.stdout
 
 
 def test_make_n_hybrid_superpass_e2e_dual_gh_sequential_contains_expected_steps() -> None:

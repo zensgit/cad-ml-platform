@@ -130,7 +130,13 @@ def build_summary(
     }
 
 
-def build_markdown(summary: Dict[str, Any], *, strict: bool, exit_code: int) -> str:
+def build_markdown(
+    summary: Dict[str, Any],
+    *,
+    strict: bool,
+    strict_require_distinct_run_ids: bool,
+    exit_code: int,
+) -> str:
     fail_case = summary.get("fail", {})
     success_case = summary.get("success", {})
     checks = summary.get("checks", {})
@@ -167,6 +173,8 @@ def build_markdown(summary: Dict[str, Any], *, strict: bool, exit_code: int) -> 
         f"**{_yes_no(_coerce_bool(checks.get('fail_expected_failure')))}**",
         "- Success scenario succeeded as expected: "
         f"**{_yes_no(_coerce_bool(checks.get('success_expected_success')))}**",
+        "- Distinct run_id required under strict mode: "
+        f"**{_yes_no(bool(strict_require_distinct_run_ids))}**",
         "- Strict mode result: "
         + (
             "**FAILED (exit 1)**"
@@ -229,6 +237,14 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Exit with code 1 if fail/success scenario does not match expectation",
     )
+    parser.add_argument(
+        "--strict-require-distinct-run-ids",
+        action="store_true",
+        help=(
+            "When strict is enabled, also require fail/success run_id to be different; "
+            "otherwise exit with code 1."
+        ),
+    )
     return parser
 
 
@@ -247,17 +263,29 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     fail_matched = _coerce_bool(summary.get("fail", {}).get("matched_expectation"))
     success_matched = _coerce_bool(summary.get("success", {}).get("matched_expectation"))
-    strict_failed = bool(args.strict) and (not fail_matched or not success_matched)
+    run_id_is_different = _coerce_bool(summary.get("run_id_is_different"))
+    strict_require_distinct = bool(args.strict_require_distinct_run_ids)
+    strict_failed = bool(args.strict) and (
+        (not fail_matched)
+        or (not success_matched)
+        or (strict_require_distinct and not run_id_is_different)
+    )
     exit_code = 1 if strict_failed else 0
 
     output_payload: Dict[str, Any] = {
         **summary,
         "strict_mode": bool(args.strict),
+        "strict_require_distinct_run_ids": strict_require_distinct,
         "strict_failed": strict_failed,
         "overall_exit_code": exit_code,
     }
 
-    markdown = build_markdown(output_payload, strict=bool(args.strict), exit_code=exit_code)
+    markdown = build_markdown(
+        output_payload,
+        strict=bool(args.strict),
+        strict_require_distinct_run_ids=strict_require_distinct,
+        exit_code=exit_code,
+    )
     _write_json(Path(str(args.output_json)).expanduser(), output_payload)
     _write_text(Path(str(args.output_md)).expanduser(), markdown)
 

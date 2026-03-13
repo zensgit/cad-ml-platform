@@ -162,3 +162,38 @@ make validate-hybrid-superpass-nightly-workflow
 - `pytest tests/unit/test_hybrid_superpass_nightly_workflow.py tests/unit/test_run_hybrid_superpass_dual_dispatch.py tests/unit/test_graph2d_parallel_make_targets.py -q`：`24 passed, 1 warning`
 - `make validate-hybrid-superpass-workflow`：`64 passed, 1 warning`
 - `make validate-hybrid-superpass-nightly-workflow`：`25 passed, 1 warning`
+
+## 增量强化（同日第五轮：并发隔离硬门禁）
+
+### Compare 脚本增强（严格模式可强制 run_id 不同）
+- 文件：`scripts/ci/compare_hybrid_superpass_reports.py`
+- 新增参数：
+  - `--strict-require-distinct-run-ids`
+- 行为：
+  - 当 `--strict` + `--strict-require-distinct-run-ids` 同时启用时，若 fail/success `run_id` 相同（或无法判定为不同）则直接失败（exit 1）。
+  - 报告中新增该策略开关状态。
+
+### 并发 orchestrator 与流程默认启用该门禁
+- 文件：
+  - `scripts/ci/run_hybrid_superpass_dual_dispatch.py`
+  - `Makefile`
+  - `.github/workflows/hybrid-superpass-nightly.yml`
+- 改动：
+  - orchestrator 支持透传 `--strict-require-distinct-run-ids` 到 compare。
+  - Makefile 新增 `HYBRID_SUPERPASS_COMPARE_STRICT_REQUIRE_DISTINCT_RUN_IDS ?= 1`（默认开启）。
+  - nightly workflow 的 dual-dispatch 步骤默认携带该参数。
+
+### 测试覆盖增强
+- 文件：
+  - `tests/unit/test_compare_hybrid_superpass_reports.py`
+  - `tests/unit/test_run_hybrid_superpass_dual_dispatch.py`
+  - `tests/unit/test_graph2d_parallel_make_targets.py`
+  - `tests/unit/test_hybrid_superpass_nightly_workflow.py`
+- 新增断言：
+  - strict + require-distinct 时 run_id 相同必须失败。
+  - orchestrator/Make/nightly workflow 都包含新参数透传。
+
+### 第五轮验证结果
+- `pytest tests/unit/test_compare_hybrid_superpass_reports.py tests/unit/test_run_hybrid_superpass_dual_dispatch.py tests/unit/test_graph2d_parallel_make_targets.py tests/unit/test_hybrid_superpass_nightly_workflow.py -q`：`28 passed, 1 warning`
+- `make validate-hybrid-superpass-workflow`：`65 passed, 1 warning`
+- `make validate-hybrid-superpass-nightly-workflow`：`25 passed, 1 warning`
