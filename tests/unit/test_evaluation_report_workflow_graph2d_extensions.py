@@ -99,9 +99,6 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "hybrid_blind_fail_on_gate_failed" in dispatch_inputs
     assert "hybrid_blind_strict_require_real_data" in dispatch_inputs
     assert "hybrid_blind_drift_alert_enable" in dispatch_inputs
-    assert "hybrid_blind_drift_alert_consecutive_window" in dispatch_inputs
-    assert "hybrid_blind_drift_alert_label_slice_enable" in dispatch_inputs
-    assert "hybrid_blind_drift_alert_family_slice_enable" in dispatch_inputs
     assert "hybrid_superpass_enable" in dispatch_inputs
     assert "hybrid_superpass_missing_mode" in dispatch_inputs
     assert "hybrid_superpass_fail_on_failed" in dispatch_inputs

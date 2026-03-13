@@ -56,6 +56,8 @@
 
 ### 4) Workflow behavior refinement
 - `evaluation-report.yml` keeps superpass gate step as `if: always()` to support independent superpass execution path.
+- `workflow_dispatch` input count has been reduced to GitHub limit (`25`) to avoid
+  dispatch-time HTTP 422 (`you may only define up to 25 inputs`).
 
 ## Tests
 Added:

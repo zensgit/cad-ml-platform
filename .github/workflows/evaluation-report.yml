@@ -98,18 +98,6 @@ on:
         description: 'Override: enable hybrid blind drift alert check (true/false)'
         required: false
         default: ''
-      hybrid_blind_drift_alert_consecutive_window:
-        description: 'Override: required consecutive drops before drift alert fails (integer >=1)'
-        required: false
-        default: ''
-      hybrid_blind_drift_alert_label_slice_enable:
-        description: 'Override: enable label-slice drift checks (true/false)'
-        required: false
-        default: ''
-      hybrid_blind_drift_alert_family_slice_enable:
-        description: 'Override: enable family-slice drift checks (true/false)'
-        required: false
-        default: ''
       hybrid_superpass_enable:
         description: 'Override: enable hybrid superpass target gate (true/false)'
         required: false
