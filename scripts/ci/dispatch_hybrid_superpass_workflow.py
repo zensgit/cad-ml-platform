@@ -278,7 +278,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "optionally watch result."
         )
     )
-    parser.add_argument("--workflow", default="evaluation-report.yml")
+    parser.add_argument("--workflow", default="hybrid-superpass-e2e.yml")
     parser.add_argument("--ref", default="main")
     parser.add_argument("--repo", default="", help="Optional owner/repo for gh commands.")
     parser.add_argument(
@@ -410,13 +410,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     if dispatch_result.returncode != 0:
         msg = _extract_short_error(dispatch_result, "failed to dispatch workflow")
         print(f"error: {msg}")
+        reason = "dispatch_failed"
+        if "not found on the default branch" in dispatch_output and "workflow" in dispatch_output:
+            reason = "workflow_not_on_default_branch"
+            print(
+                "error: target workflow file is not available on default branch yet. "
+                "Merge/sync workflow definition to default branch, or dispatch a workflow "
+                "that already exists on default branch."
+            )
         if "Unexpected inputs provided:" in dispatch_output and "hybrid_superpass_" in dispatch_output:
+            reason = "missing_remote_workflow_inputs"
             print(
                 "error: remote workflow does not recognize hybrid superpass inputs. "
                 "Sync .github/workflows/evaluation-report.yml first."
             )
         payload = {
             "overall_exit_code": 1,
+            "reason": reason,
             "dispatch_exit_code": int(dispatch_result.returncode),
             "dispatch_stdout": dispatch_result.stdout or "",
             "dispatch_stderr": dispatch_result.stderr or "",

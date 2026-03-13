@@ -24,6 +24,7 @@
 ### Workflow / Build
 
 - `.github/workflows/evaluation-report.yml`
+- `.github/workflows/hybrid-superpass-e2e.yml`
 - `Makefile`
 
 ### New Config
@@ -78,6 +79,11 @@
 
 并在 `Create job summary` 中新增 superpass 状态输出（status/headline/report/missing_mode/strict flags）。
 
+### 4.4 Dedicated Dispatch Workflow
+
+新增轻量 dispatch 工作流：`hybrid-superpass-e2e.yml`，用于规避 `evaluation-report.yml` 体量过大导致的 `workflow_dispatch` 解析失败风险。  
+`dispatch_hybrid_superpass_workflow.py` 与 Make 默认 workflow 已切换到该文件，可按需通过 `--workflow` 覆盖。
+
 ## 5. Makefile Targets
 
 新增：
@@ -103,7 +109,7 @@ python3 -m pytest tests/unit/test_evaluation_report_workflow_hybrid_superpass_st
 # 17 passed
 
 make validate-hybrid-superpass-workflow
-# 44 passed, 1 warning (PendingDeprecationWarning from python_multipart import path)
+# 48 passed, 1 warning (PendingDeprecationWarning from python_multipart import path)
 ```
 
 结论：superpass 相关脚本、Makefile 编排与 workflow 接线均通过。
@@ -112,10 +118,10 @@ make validate-hybrid-superpass-workflow
 
 - 本次以 `main` 当前结构为基线做增量补丁，避免了将旧分支里大量不相关历史变更带入。
 - `dispatch_hybrid_superpass_workflow.py` 包含 remote workflow input 预检与 `--skip-remote-input-check` 兜底参数，便于排查远端分支未同步场景。
+- 线上 `evaluation-report.yml` 当前存在 `workflow_dispatch` 表达式长度限制问题（HTTP 422 / Exceeded max expression length 21000）；本次通过新增专用 workflow 避免阻塞 superpass E2E。
 
 ## 8. Suggested Next Step
 
 1. 在该分支提交并推送。
 2. 使用 `make hybrid-superpass-e2e-gh ...` 跑一次 strict fail / success 双场景 GH 验证。
 3. 创建 PR 到 `main` 并在描述中附上本 MD。
-

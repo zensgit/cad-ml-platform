@@ -161,3 +161,32 @@ def test_main_returns_nonzero_when_remote_workflow_missing_required_inputs(
     out = capsys.readouterr().out
     assert rc == 1
     assert "missing required superpass inputs" in out
+
+
+def test_main_returns_nonzero_when_workflow_not_on_default_branch(
+    monkeypatch: Any, capsys: Any, tmp_path: Any
+) -> None:
+    from scripts.ci import dispatch_hybrid_superpass_workflow as mod
+
+    monkeypatch.setattr(mod, "check_gh_ready", lambda: (True, ""))
+    monkeypatch.setattr(mod, "list_dispatched_run_ids", lambda *_args, **_kwargs: [])
+
+    def _fake_run(*_args: Any, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            args=[],
+            returncode=1,
+            stdout="",
+            stderr=(
+                "HTTP 404: workflow hybrid-superpass-e2e.yml not found on the default branch"
+            ),
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", _fake_run)
+
+    output_json = tmp_path / "dispatch_fail.json"
+    rc = mod.main(["--output-json", str(output_json)])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "not available on default branch yet" in out
+    payload = json.loads(output_json.read_text(encoding="utf-8"))
+    assert payload["reason"] == "workflow_not_on_default_branch"

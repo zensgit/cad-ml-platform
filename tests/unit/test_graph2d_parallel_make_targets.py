@@ -116,6 +116,7 @@ def test_make_n_hybrid_superpass_e2e_gh_contains_expected_flags() -> None:
     assert result.returncode == 0, result.stderr
     assert "scripts/ci/dispatch_hybrid_superpass_workflow.py" in result.stdout
     assert "--workflow" in result.stdout
+    assert "hybrid-superpass-e2e.yml" in result.stdout
     assert "--ref" in result.stdout
     assert "--repo" in result.stdout
     assert "--hybrid-superpass-enable" in result.stdout

@@ -988,7 +988,7 @@ HYBRID_SUPERPASS_CALIBRATION_JSON ?= models/calibration/hybrid_confidence_calibr
 HYBRID_SUPERPASS_CONFIG ?= config/hybrid_superpass_targets.yaml
 HYBRID_SUPERPASS_OUTPUT_JSON ?= reports/history_sequence_eval/hybrid_superpass_report.json
 HYBRID_SUPERPASS_MISSING_MODE ?= skip
-HYBRID_SUPERPASS_E2E_WORKFLOW ?= evaluation-report.yml
+HYBRID_SUPERPASS_E2E_WORKFLOW ?= hybrid-superpass-e2e.yml
 HYBRID_SUPERPASS_E2E_REF ?= main
 HYBRID_SUPERPASS_E2E_REPO ?=
 HYBRID_SUPERPASS_E2E_ENABLE ?= true
@@ -1124,6 +1124,7 @@ validate-hybrid-superpass-workflow: ## 校验 superpass gh 自动化与 workflow
 		$(TEST_DIR)/unit/test_dispatch_hybrid_superpass_workflow.py \
 		$(TEST_DIR)/unit/test_apply_hybrid_superpass_gh_vars.py \
 		$(TEST_DIR)/unit/test_check_hybrid_superpass_targets.py \
+		$(TEST_DIR)/unit/test_hybrid_superpass_e2e_workflow.py \
 		$(TEST_DIR)/unit/test_evaluation_report_workflow_hybrid_superpass_step.py \
 		$(TEST_DIR)/unit/test_hybrid_superpass_workflow_integration.py \
 		$(TEST_DIR)/unit/test_graph2d_parallel_make_targets.py \
