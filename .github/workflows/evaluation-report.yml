@@ -50,6 +50,106 @@ on:
         description: 'Optional review-pack input CSV path (relative to repository root)'
         required: false
         default: ''
+      hybrid_calibration_enable:
+        description: 'Override: enable hybrid confidence calibration flow (true/false)'
+        required: false
+        default: ''
+      hybrid_calibration_input_csv:
+        description: 'Override: hybrid calibration input CSV path (relative to repository root)'
+        required: false
+        default: ''
+      hybrid_calibration_missing_mode:
+        description: 'Override: hybrid calibration gate missing-mode (skip/fail)'
+        required: false
+        default: ''
+      hybrid_calibration_fail_on_gate_failed:
+        description: 'Override: strict fail when hybrid calibration gate status is not passed (true/false)'
+        required: false
+        default: ''
+      hybrid_calibration_update_baseline:
+        description: 'Override: update hybrid calibration baseline when gate passed (true/false)'
+        required: false
+        default: ''
+      hybrid_blind_enable:
+        description: 'Override: enable hybrid blind benchmark+gate flow (true/false)'
+        required: false
+        default: ''
+      hybrid_blind_dxf_dir:
+        description: 'Override: hybrid blind DXF directory path (relative to repository root)'
+        required: false
+        default: ''
+      hybrid_blind_manifest_csv:
+        description: 'Override: hybrid blind manifest CSV path (relative to repository root)'
+        required: false
+        default: ''
+      hybrid_blind_synth_manifest:
+        description: 'Override: synthetic manifest JSON path used when hybrid blind DXF dir is missing'
+        required: false
+        default: ''
+      hybrid_blind_fail_on_gate_failed:
+        description: 'Override: strict fail when hybrid blind gate status is not passed (true/false)'
+        required: false
+        default: ''
+      hybrid_blind_strict_require_real_data:
+        description: 'Override: strict mode requires configured real DXF dataset source (true/false)'
+        required: false
+        default: ''
+      hybrid_blind_drift_alert_enable:
+        description: 'Override: enable hybrid blind drift alert check (true/false)'
+        required: false
+        default: ''
+      hybrid_blind_drift_alert_consecutive_window:
+        description: 'Override: required consecutive drops before drift alert fails (integer >=1)'
+        required: false
+        default: ''
+      hybrid_blind_drift_alert_label_slice_enable:
+        description: 'Override: enable label-slice drift checks (true/false)'
+        required: false
+        default: ''
+      hybrid_blind_drift_alert_label_slice_min_common:
+        description: 'Override: min shared label slices required for drift comparison'
+        required: false
+        default: ''
+      hybrid_blind_drift_alert_label_slice_auto_cap_min_common:
+        description: 'Override: auto-cap label-slice min_common to reachable overlap range (true/false)'
+        required: false
+        default: ''
+      hybrid_blind_drift_alert_label_slice_min_support:
+        description: 'Override: min support per label slice for drift comparison'
+        required: false
+        default: ''
+      hybrid_blind_drift_alert_label_slice_max_acc_drop:
+        description: 'Override: max allowed worst label-slice hybrid accuracy drop'
+        required: false
+        default: ''
+      hybrid_blind_drift_alert_label_slice_max_gain_drop:
+        description: 'Override: max allowed worst label-slice gain drop'
+        required: false
+        default: ''
+      hybrid_blind_drift_alert_family_slice_enable:
+        description: 'Override: enable family-slice drift checks (true/false)'
+        required: false
+        default: ''
+      hybrid_blind_drift_alert_family_slice_min_common:
+        description: 'Override: min shared family slices required for drift comparison'
+        required: false
+        default: ''
+      hybrid_blind_drift_alert_family_slice_auto_cap_min_common:
+        description: 'Override: auto-cap family-slice min_common to reachable overlap range (true/false)'
+        required: false
+        default: ''
+      hybrid_blind_drift_alert_family_slice_min_support:
+        description: 'Override: min support per family slice for drift comparison'
+        required: false
+        default: ''
+      hybrid_blind_drift_alert_family_slice_max_acc_drop:
+        description: 'Override: max allowed worst family-slice hybrid accuracy drop'
+        required: false
+        default: ''
+      hybrid_blind_drift_alert_family_slice_max_gain_drop:
+        description: 'Override: max allowed worst family-slice gain drop'
+        required: false
+        default: ''
 
 env:
   PYTHON_VERSION: '3.11'
@@ -85,6 +185,62 @@ env:
   GRAPH2D_TRAIN_SWEEP_MAX_RUNS: ${{ vars.GRAPH2D_TRAIN_SWEEP_MAX_RUNS || '0' }}
   GRAPH2D_TRAIN_SWEEP_BASE_ARGS_JSON: ${{ vars.GRAPH2D_TRAIN_SWEEP_BASE_ARGS_JSON || '[]' }}
   GRAPH2D_TRAIN_SWEEP_WORK_ROOT: ${{ vars.GRAPH2D_TRAIN_SWEEP_WORK_ROOT || 'reports/history_sequence_eval/graph2d_train_recipe_sweep' }}
+  HYBRID_CONFIDENCE_CALIBRATION_ENABLE: ${{ vars.HYBRID_CONFIDENCE_CALIBRATION_ENABLE || 'false' }}
+  HYBRID_CONFIDENCE_CALIBRATION_INPUT_CSV: ${{ vars.HYBRID_CONFIDENCE_CALIBRATION_INPUT_CSV }}
+  HYBRID_CONFIDENCE_CALIBRATION_OUTPUT_JSON: ${{ vars.HYBRID_CONFIDENCE_CALIBRATION_OUTPUT_JSON || 'reports/calibration/hybrid_confidence_calibration_latest.json' }}
+  HYBRID_CONFIDENCE_CALIBRATION_METHOD: ${{ vars.HYBRID_CONFIDENCE_CALIBRATION_METHOD || 'temperature_scaling' }}
+  HYBRID_CONFIDENCE_CALIBRATION_PER_SOURCE: ${{ vars.HYBRID_CONFIDENCE_CALIBRATION_PER_SOURCE || 'true' }}
+  HYBRID_CONFIDENCE_CALIBRATION_CONFIDENCE_COL: ${{ vars.HYBRID_CONFIDENCE_CALIBRATION_CONFIDENCE_COL || 'confidence' }}
+  HYBRID_CONFIDENCE_CALIBRATION_CORRECT_COL: ${{ vars.HYBRID_CONFIDENCE_CALIBRATION_CORRECT_COL || 'is_correct' }}
+  HYBRID_CONFIDENCE_CALIBRATION_PRED_LABEL_COL: ${{ vars.HYBRID_CONFIDENCE_CALIBRATION_PRED_LABEL_COL || 'predicted_label' }}
+  HYBRID_CONFIDENCE_CALIBRATION_TRUTH_LABEL_COL: ${{ vars.HYBRID_CONFIDENCE_CALIBRATION_TRUTH_LABEL_COL || 'correct_label' }}
+  HYBRID_CONFIDENCE_CALIBRATION_SOURCE_COL: ${{ vars.HYBRID_CONFIDENCE_CALIBRATION_SOURCE_COL || 'source' }}
+  HYBRID_CONFIDENCE_CALIBRATION_MIN_SAMPLES: ${{ vars.HYBRID_CONFIDENCE_CALIBRATION_MIN_SAMPLES || '30' }}
+  HYBRID_CONFIDENCE_CALIBRATION_MIN_SAMPLES_PER_SOURCE: ${{ vars.HYBRID_CONFIDENCE_CALIBRATION_MIN_SAMPLES_PER_SOURCE || '10' }}
+  HYBRID_CONFIDENCE_CALIBRATION_MAX_ROWS: ${{ vars.HYBRID_CONFIDENCE_CALIBRATION_MAX_ROWS || '0' }}
+  HYBRID_CONFIDENCE_CALIBRATION_INCLUDE_FIT_DATA: ${{ vars.HYBRID_CONFIDENCE_CALIBRATION_INCLUDE_FIT_DATA || 'false' }}
+  HYBRID_CONFIDENCE_CALIBRATION_FAIL_ON_INSUFFICIENT: ${{ vars.HYBRID_CONFIDENCE_CALIBRATION_FAIL_ON_INSUFFICIENT || 'false' }}
+  HYBRID_CONFIDENCE_CALIBRATION_GATE_CONFIG: ${{ vars.HYBRID_CONFIDENCE_CALIBRATION_GATE_CONFIG || 'config/hybrid_confidence_calibration_gate.yaml' }}
+  HYBRID_CONFIDENCE_CALIBRATION_GATE_BASELINE_JSON: ${{ vars.HYBRID_CONFIDENCE_CALIBRATION_GATE_BASELINE_JSON || 'config/hybrid_confidence_calibration_baseline.json' }}
+  HYBRID_CONFIDENCE_CALIBRATION_GATE_MISSING_MODE: ${{ vars.HYBRID_CONFIDENCE_CALIBRATION_GATE_MISSING_MODE || 'skip' }}
+  HYBRID_CONFIDENCE_CALIBRATION_FAIL_ON_GATE_FAILED: ${{ vars.HYBRID_CONFIDENCE_CALIBRATION_FAIL_ON_GATE_FAILED || 'false' }}
+  HYBRID_CONFIDENCE_CALIBRATION_BASELINE_UPDATE_ENABLE: ${{ vars.HYBRID_CONFIDENCE_CALIBRATION_BASELINE_UPDATE_ENABLE || 'false' }}
+  HYBRID_CONFIDENCE_CALIBRATION_BASELINE_OUTPUT_JSON: ${{ vars.HYBRID_CONFIDENCE_CALIBRATION_BASELINE_OUTPUT_JSON || 'config/hybrid_confidence_calibration_baseline.json' }}
+  HYBRID_CONFIDENCE_CALIBRATION_BASELINE_SNAPSHOT_JSON: ${{ vars.HYBRID_CONFIDENCE_CALIBRATION_BASELINE_SNAPSHOT_JSON || '' }}
+  HYBRID_BLIND_ENABLE: ${{ vars.HYBRID_BLIND_ENABLE || 'false' }}
+  HYBRID_BLIND_DXF_DIR: ${{ vars.HYBRID_BLIND_DXF_DIR }}
+  HYBRID_BLIND_MANIFEST_CSV: ${{ vars.HYBRID_BLIND_MANIFEST_CSV || '' }}
+  HYBRID_BLIND_SYNTH_MANIFEST: ${{ vars.HYBRID_BLIND_SYNTH_MANIFEST || 'tests/golden/golden_dxf_hybrid_cases.json' }}
+  HYBRID_BLIND_SYNTH_OUTPUT_DIR: ${{ vars.HYBRID_BLIND_SYNTH_OUTPUT_DIR || 'reports/history_sequence_eval/hybrid_blind_synth' }}
+  HYBRID_BLIND_MAX_FILES: ${{ vars.HYBRID_BLIND_MAX_FILES || '200' }}
+  HYBRID_BLIND_SEED: ${{ vars.HYBRID_BLIND_SEED || '22' }}
+  HYBRID_BLIND_OUTPUT_DIR: ${{ vars.HYBRID_BLIND_OUTPUT_DIR || 'reports/history_sequence_eval/hybrid_blind' }}
+  HYBRID_BLIND_LABEL_SLICE_MAX_SNAPSHOTS: ${{ vars.HYBRID_BLIND_LABEL_SLICE_MAX_SNAPSHOTS || '20' }}
+  HYBRID_BLIND_FAMILY_PREFIX_LEN: ${{ vars.HYBRID_BLIND_FAMILY_PREFIX_LEN || '2' }}
+  HYBRID_BLIND_FAMILY_MAP_JSON: ${{ vars.HYBRID_BLIND_FAMILY_MAP_JSON || 'config/hybrid_blind_family_map.json' }}
+  HYBRID_BLIND_FAMILY_SLICE_MAX_SNAPSHOTS: ${{ vars.HYBRID_BLIND_FAMILY_SLICE_MAX_SNAPSHOTS || '20' }}
+  HYBRID_BLIND_GATE_CONFIG: ${{ vars.HYBRID_BLIND_GATE_CONFIG || 'config/hybrid_blind_gate.yaml' }}
+  HYBRID_BLIND_FAIL_ON_GATE_FAILED: ${{ vars.HYBRID_BLIND_FAIL_ON_GATE_FAILED || 'false' }}
+  HYBRID_BLIND_STRICT_REQUIRE_REAL_DATA: ${{ vars.HYBRID_BLIND_STRICT_REQUIRE_REAL_DATA || 'true' }}
+  HYBRID_BLIND_DRIFT_ALERT_ENABLE: ${{ vars.HYBRID_BLIND_DRIFT_ALERT_ENABLE || 'true' }}
+  HYBRID_BLIND_DRIFT_ALERT_MIN_REPORTS: ${{ vars.HYBRID_BLIND_DRIFT_ALERT_MIN_REPORTS || '2' }}
+  HYBRID_BLIND_DRIFT_ALERT_MAX_ACC_DROP: ${{ vars.HYBRID_BLIND_DRIFT_ALERT_MAX_ACC_DROP || '0.05' }}
+  HYBRID_BLIND_DRIFT_ALERT_MAX_GAIN_DROP: ${{ vars.HYBRID_BLIND_DRIFT_ALERT_MAX_GAIN_DROP || '0.05' }}
+  HYBRID_BLIND_DRIFT_ALERT_MAX_COVERAGE_DROP: ${{ vars.HYBRID_BLIND_DRIFT_ALERT_MAX_COVERAGE_DROP || '0.10' }}
+  HYBRID_BLIND_DRIFT_ALERT_CONSECUTIVE_WINDOW: ${{ vars.HYBRID_BLIND_DRIFT_ALERT_CONSECUTIVE_WINDOW || '2' }}
+  HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_ENABLE: ${{ vars.HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_ENABLE || 'true' }}
+  HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MIN_COMMON: ${{ vars.HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MIN_COMMON || '3' }}
+  HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_AUTO_CAP_MIN_COMMON: ${{ vars.HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_AUTO_CAP_MIN_COMMON || 'true' }}
+  HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MIN_SUPPORT: ${{ vars.HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MIN_SUPPORT || '3' }}
+  HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MAX_ACC_DROP: ${{ vars.HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MAX_ACC_DROP || '0.15' }}
+  HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MAX_GAIN_DROP: ${{ vars.HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MAX_GAIN_DROP || '0.15' }}
+  HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_ENABLE: ${{ vars.HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_ENABLE || 'true' }}
+  HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MIN_COMMON: ${{ vars.HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MIN_COMMON || '2' }}
+  HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_AUTO_CAP_MIN_COMMON: ${{ vars.HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_AUTO_CAP_MIN_COMMON || 'true' }}
+  HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MIN_SUPPORT: ${{ vars.HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MIN_SUPPORT || '5' }}
+  HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MAX_ACC_DROP: ${{ vars.HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MAX_ACC_DROP || '0.20' }}
+  HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MAX_GAIN_DROP: ${{ vars.HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MAX_GAIN_DROP || '0.20' }}
+  HYBRID_BLIND_DRIFT_ALERT_ALLOW_MISSING: ${{ vars.HYBRID_BLIND_DRIFT_ALERT_ALLOW_MISSING || 'true' }}
 
 jobs:
   evaluate:
@@ -117,6 +273,18 @@ jobs:
         pip install -r requirements-dev.txt
         # Install optional dependencies for enhanced validation
         pip install jsonschema==4.21.1
+
+    - name: Run eval_with_history regression unit tests
+      run: |
+        pytest -q \
+          tests/unit/test_eval_with_history_script_history_sequence.py \
+          tests/unit/test_validate_eval_history_history_sequence.py
+
+    - name: Run hybrid calibration regression unit tests
+      run: |
+        pytest -q \
+          tests/unit/test_calibrate_hybrid_confidence_script.py \
+          tests/unit/test_hybrid_confidence_calibration_gate_check.py
 
     - name: Run combined evaluation
       id: evaluation
@@ -300,6 +468,464 @@ jobs:
             f.write(f"top_pred_ratio={metrics.get('top_pred_ratio', 0)}\n")
             f.write(f"distinct_pred_labels={metrics.get('distinct_pred_labels', 0)}\n")
             f.write(f"low_conf_rate={metrics.get('low_conf_rate', 0)}\n")
+        PY
+
+    - name: Run Hybrid blind benchmark (optional)
+      id: hybrid_blind_eval
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.hybrid_blind_enable || '' }}"
+        ENABLE_VALUE="${HYBRID_BLIND_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        token="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+        is_enabled="false"
+        if [[ "$token" == "1" || "$token" == "true" || "$token" == "yes" || "$token" == "on" ]]; then
+          is_enabled="true"
+        fi
+        if [[ "$is_enabled" != "true" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "Hybrid blind benchmark disabled."
+          exit 0
+        fi
+
+        DXF_DIR="${{ github.event.inputs.hybrid_blind_dxf_dir || '' }}"
+        if [[ -z "$DXF_DIR" ]]; then
+          DXF_DIR="${HYBRID_BLIND_DXF_DIR:-}"
+        fi
+        DATASET_SOURCE="configured_dxf_dir"
+        SYNTH_MANIFEST="${{ github.event.inputs.hybrid_blind_synth_manifest || '' }}"
+        if [[ -z "$SYNTH_MANIFEST" ]]; then
+          SYNTH_MANIFEST="${HYBRID_BLIND_SYNTH_MANIFEST:-tests/golden/golden_dxf_hybrid_cases.json}"
+        fi
+        SYNTH_OUT_DIR="${HYBRID_BLIND_SYNTH_OUTPUT_DIR:-reports/history_sequence_eval/hybrid_blind_synth}"
+        if [[ -n "$DXF_DIR" && ! -d "$DXF_DIR" ]]; then
+          echo "Configured hybrid blind DXF dir not found: $DXF_DIR"
+          DXF_DIR=""
+        fi
+        if [[ -z "$DXF_DIR" ]]; then
+          if [[ ! -f "$SYNTH_MANIFEST" ]]; then
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "Hybrid blind dxf dir is missing and synthetic manifest is unavailable: $SYNTH_MANIFEST"
+            exit 0
+          fi
+          mkdir -p "$SYNTH_OUT_DIR"
+          set +e
+          synth_output=$(python3 scripts/ci/build_hybrid_blind_synthetic_dxf_dataset.py \
+            --manifest "$SYNTH_MANIFEST" \
+            --output-dir "$SYNTH_OUT_DIR" \
+            --max-files "${HYBRID_BLIND_MAX_FILES:-200}" 2>&1)
+          synth_exit_code=$?
+          set -e
+          echo "$synth_output"
+          generated_count="$(echo "$synth_output" | sed -n 's/^generated=//p' | tail -n 1)"
+          if [[ "$synth_exit_code" -ne 0 || -z "$generated_count" || "$generated_count" == "0" ]]; then
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "Hybrid blind synthetic dataset build failed or empty."
+            exit 0
+          fi
+          DXF_DIR="$SYNTH_OUT_DIR"
+          DATASET_SOURCE="synthetic_manifest"
+        fi
+
+        MANIFEST_CSV="${{ github.event.inputs.hybrid_blind_manifest_csv || '' }}"
+        if [[ -z "$MANIFEST_CSV" ]]; then
+          MANIFEST_CSV="${HYBRID_BLIND_MANIFEST_CSV:-}"
+        fi
+        OUT_DIR="${HYBRID_BLIND_OUTPUT_DIR:-reports/history_sequence_eval/hybrid_blind}"
+        mkdir -p "$OUT_DIR"
+        CMD=(
+          python3 scripts/batch_analyze_dxf_local.py
+          --dxf-dir "$DXF_DIR"
+          --output-dir "$OUT_DIR"
+          --max-files "${HYBRID_BLIND_MAX_FILES:-200}"
+          --seed "${HYBRID_BLIND_SEED:-22}"
+          --geometry-only
+        )
+        if [[ -n "$MANIFEST_CSV" ]]; then
+          if [[ -f "$MANIFEST_CSV" ]]; then
+            CMD+=(--manifest "$MANIFEST_CSV")
+          else
+            echo "Manifest not found: $MANIFEST_CSV (ignored)"
+          fi
+        fi
+
+        set +e
+        "${CMD[@]}"
+        EVAL_EXIT_CODE=$?
+        set -e
+
+        SUMMARY_JSON="$OUT_DIR/summary.json"
+        if [[ ! -f "$SUMMARY_JSON" ]]; then
+          echo "enabled=true" >> $GITHUB_OUTPUT
+          echo "status=missing_summary" >> $GITHUB_OUTPUT
+          echo "exit_code=$EVAL_EXIT_CODE" >> $GITHUB_OUTPUT
+          echo "summary_json=$SUMMARY_JSON" >> $GITHUB_OUTPUT
+          echo "dataset_source=$DATASET_SOURCE" >> $GITHUB_OUTPUT
+          echo "dxf_dir=$DXF_DIR" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "status=ok" >> $GITHUB_OUTPUT
+        echo "exit_code=$EVAL_EXIT_CODE" >> $GITHUB_OUTPUT
+        echo "summary_json=$SUMMARY_JSON" >> $GITHUB_OUTPUT
+        echo "dataset_source=$DATASET_SOURCE" >> $GITHUB_OUTPUT
+        echo "dxf_dir=$DXF_DIR" >> $GITHUB_OUTPUT
+        echo "manifest_csv=$MANIFEST_CSV" >> $GITHUB_OUTPUT
+        export HYBRID_BLIND_SUMMARY_JSON="$SUMMARY_JSON"
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(Path(os.environ["HYBRID_BLIND_SUMMARY_JSON"]).read_text(encoding="utf-8"))
+        weak = payload.get("weak_labels") if isinstance(payload.get("weak_labels"), dict) else {}
+        acc = weak.get("accuracy") if isinstance(weak.get("accuracy"), dict) else {}
+        hybrid = acc.get("hybrid_label") if isinstance(acc.get("hybrid_label"), dict) else {}
+        graph2d = acc.get("graph2d_label") if isinstance(acc.get("graph2d_label"), dict) else {}
+        hybrid_acc = float(hybrid.get("accuracy") or 0.0)
+        graph2d_acc = float(graph2d.get("accuracy") or 0.0)
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"sample_size={payload.get('sample_size', 0)}\n")
+            f.write(f"weak_label_coverage={weak.get('covered_rate', 0)}\n")
+            f.write(f"hybrid_accuracy={hybrid_acc}\n")
+            f.write(f"graph2d_accuracy={graph2d_acc}\n")
+            f.write(f"hybrid_gain_vs_graph2d={hybrid_acc - graph2d_acc}\n")
+        PY
+
+    - name: Check Hybrid blind gate (optional)
+      id: hybrid_blind_gate
+      if: steps.hybrid_blind_eval.outputs.enabled == 'true' && steps.hybrid_blind_eval.outputs.status == 'ok'
+      continue-on-error: true
+      run: |
+        SUMMARY_JSON="${{ steps.hybrid_blind_eval.outputs.summary_json }}"
+        if [[ -z "$SUMMARY_JSON" || ! -f "$SUMMARY_JSON" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "Hybrid blind summary missing: $SUMMARY_JSON"
+          exit 0
+        fi
+        REPORT_PATH="reports/history_sequence_eval/hybrid_blind_gate_report.json"
+        mkdir -p "$(dirname "$REPORT_PATH")"
+
+        set +e
+        python3 scripts/ci/check_hybrid_blind_gate.py \
+          --summary-json "$SUMMARY_JSON" \
+          --config "${HYBRID_BLIND_GATE_CONFIG:-config/hybrid_blind_gate.yaml}" \
+          --output "$REPORT_PATH"
+        GATE_EXIT_CODE=$?
+        set -e
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "report_path=$REPORT_PATH" >> $GITHUB_OUTPUT
+        echo "exit_code=$GATE_EXIT_CODE" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(Path("reports/history_sequence_eval/hybrid_blind_gate_report.json").read_text(encoding="utf-8"))
+        metrics = payload.get("metrics") if isinstance(payload.get("metrics"), dict) else {}
+        failures = payload.get("failures") if isinstance(payload.get("failures"), list) else []
+        warnings = payload.get("warnings") if isinstance(payload.get("warnings"), list) else []
+        first_failure = str(failures[0]).replace("\n", " ").replace("\r", " ").strip() if failures else ""
+        first_warning = str(warnings[0]).replace("\n", " ").replace("\r", " ").strip() if warnings else ""
+        headline = "passed"
+        if payload.get("status") != "passed":
+            headline = f"failed: {first_failure or 'unknown reason'}"
+        elif first_warning:
+            headline = f"passed_with_warning: {first_warning}"
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"status={payload.get('status', 'unknown')}\n")
+            f.write(f"hybrid_accuracy={metrics.get('hybrid_accuracy', 0)}\n")
+            f.write(f"graph2d_accuracy={metrics.get('graph2d_accuracy', 0)}\n")
+            f.write(f"hybrid_gain_vs_graph2d={metrics.get('hybrid_gain_vs_graph2d', 0)}\n")
+            f.write(f"weak_label_coverage={metrics.get('weak_label_coverage', 0)}\n")
+            f.write(f"failure_count={len(failures)}\n")
+            f.write(f"warning_count={len(warnings)}\n")
+            f.write(f"headline={headline}\n")
+        PY
+
+    - name: Evaluate Hybrid blind gate strict mode (optional)
+      id: hybrid_blind_gate_strict
+      if: steps.hybrid_blind_gate.outputs.enabled == 'true'
+      continue-on-error: true
+      run: |
+        STRICT_OVERRIDE="${{ github.event.inputs.hybrid_blind_fail_on_gate_failed || '' }}"
+        STRICT_VALUE="${HYBRID_BLIND_FAIL_ON_GATE_FAILED:-false}"
+        if [[ -n "$STRICT_OVERRIDE" ]]; then
+          STRICT_VALUE="$STRICT_OVERRIDE"
+        fi
+        token="$(echo "$STRICT_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+        is_strict="false"
+        if [[ "$token" == "1" || "$token" == "true" || "$token" == "yes" || "$token" == "on" ]]; then
+          is_strict="true"
+        fi
+        gate_status="${{ steps.hybrid_blind_gate.outputs.status }}"
+        dataset_source="${{ steps.hybrid_blind_eval.outputs.dataset_source }}"
+        STRICT_REAL_OVERRIDE="${{ github.event.inputs.hybrid_blind_strict_require_real_data || '' }}"
+        STRICT_REAL_VALUE="${HYBRID_BLIND_STRICT_REQUIRE_REAL_DATA:-true}"
+        if [[ -n "$STRICT_REAL_OVERRIDE" ]]; then
+          STRICT_REAL_VALUE="$STRICT_REAL_OVERRIDE"
+        fi
+        strict_real_token="$(echo "$STRICT_REAL_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+        strict_require_real_data="false"
+        if [[ "$strict_real_token" == "1" || "$strict_real_token" == "true" || "$strict_real_token" == "yes" || "$strict_real_token" == "on" ]]; then
+          strict_require_real_data="true"
+        fi
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "strict_mode=$is_strict" >> $GITHUB_OUTPUT
+        echo "gate_status=$gate_status" >> $GITHUB_OUTPUT
+        echo "dataset_source=$dataset_source" >> $GITHUB_OUTPUT
+        echo "strict_require_real_data=$strict_require_real_data" >> $GITHUB_OUTPUT
+        if [[ "$is_strict" != "true" ]]; then
+          echo "should_fail=false" >> $GITHUB_OUTPUT
+          echo "reason=strict_mode_disabled" >> $GITHUB_OUTPUT
+          echo "Hybrid blind strict mode disabled."
+          exit 0
+        fi
+        if [[ "$strict_require_real_data" == "true" && "$dataset_source" != "configured_dxf_dir" ]]; then
+          echo "should_fail=true" >> $GITHUB_OUTPUT
+          echo "reason=strict_mode_requires_real_dataset" >> $GITHUB_OUTPUT
+          echo "Hybrid blind strict mode requires configured_dxf_dir dataset source."
+          exit 0
+        fi
+        if [[ "$gate_status" != "passed" ]]; then
+          echo "should_fail=true" >> $GITHUB_OUTPUT
+          echo "reason=gate_failed_under_strict_mode" >> $GITHUB_OUTPUT
+          echo "Hybrid blind strict mode enabled and gate status is not passed."
+          exit 0
+        fi
+        echo "should_fail=false" >> $GITHUB_OUTPUT
+        echo "reason=gate_passed_under_strict_mode" >> $GITHUB_OUTPUT
+        echo "Hybrid blind strict mode enabled and gate passed."
+
+    - name: Archive Hybrid blind eval history snapshot (optional)
+      id: hybrid_blind_history
+      if: steps.hybrid_blind_eval.outputs.enabled == 'true' && steps.hybrid_blind_eval.outputs.status == 'ok'
+      continue-on-error: true
+      run: |
+        SUMMARY_JSON="${{ steps.hybrid_blind_eval.outputs.summary_json }}"
+        if [[ -z "$SUMMARY_JSON" || ! -f "$SUMMARY_JSON" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "Hybrid blind summary missing; skip history archive."
+          exit 0
+        fi
+        GATE_REPORT_JSON="${{ steps.hybrid_blind_gate.outputs.report_path }}"
+        COMMIT_SHORT="$(echo "${GITHUB_SHA:-unknown}" | cut -c1-7)"
+        PY_VERSION="$(python3 --version 2>&1 | awk '{print $2}')"
+        set +e
+        output_line=$(python3 scripts/ci/archive_hybrid_blind_eval_history.py \
+          --summary-json "$SUMMARY_JSON" \
+          --gate-report-json "$GATE_REPORT_JSON" \
+          --output-dir reports/eval_history \
+          --label-slice-min-support "${HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MIN_SUPPORT:-3}" \
+          --label-slice-max-slices "${HYBRID_BLIND_LABEL_SLICE_MAX_SNAPSHOTS:-20}" \
+          --family-prefix-len "${HYBRID_BLIND_FAMILY_PREFIX_LEN:-2}" \
+          --family-map-json "${HYBRID_BLIND_FAMILY_MAP_JSON:-}" \
+          --family-slice-max-slices "${HYBRID_BLIND_FAMILY_SLICE_MAX_SNAPSHOTS:-20}" \
+          --branch "${GITHUB_REF_NAME:-unknown}" \
+          --commit "$COMMIT_SHORT" \
+          --runner "${{ runner.os }}" \
+          --machine "$(hostname)" \
+          --os-info "$(uname -s) $(uname -r)" \
+          --python-version "$PY_VERSION" \
+          --ci-job-id "${GITHUB_RUN_ID:-}" \
+          --ci-workflow "${GITHUB_WORKFLOW:-}" 2>&1)
+        archive_exit_code=$?
+        set -e
+        echo "$output_line"
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "exit_code=$archive_exit_code" >> $GITHUB_OUTPUT
+        output_path="$(echo "$output_line" | tail -n 1 | sed -n 's/^output=//p')"
+        echo "output_json=$output_path" >> $GITHUB_OUTPUT
+
+    - name: Check Hybrid blind drift alerts (optional)
+      id: hybrid_blind_drift_alert
+      if: steps.hybrid_blind_eval.outputs.enabled == 'true' && steps.hybrid_blind_eval.outputs.status == 'ok'
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.hybrid_blind_drift_alert_enable || '' }}"
+        ENABLE_VALUE="${HYBRID_BLIND_DRIFT_ALERT_ENABLE:-true}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        token="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+        is_enabled="false"
+        if [[ "$token" == "1" || "$token" == "true" || "$token" == "yes" || "$token" == "on" ]]; then
+          is_enabled="true"
+        fi
+        if [[ "$is_enabled" != "true" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "Hybrid blind drift alert disabled."
+          exit 0
+        fi
+
+        REPORT_PATH="reports/eval_history/hybrid_blind_drift_alert_report.json"
+        REPORT_MD_PATH="reports/eval_history/hybrid_blind_drift_alert_report.md"
+        mkdir -p "$(dirname "$REPORT_PATH")"
+        CONSECUTIVE_OVERRIDE="${{ github.event.inputs.hybrid_blind_drift_alert_consecutive_window || '' }}"
+        CONSECUTIVE_WINDOW="${HYBRID_BLIND_DRIFT_ALERT_CONSECUTIVE_WINDOW:-2}"
+        if [[ -n "$CONSECUTIVE_OVERRIDE" ]]; then
+          CONSECUTIVE_WINDOW="$CONSECUTIVE_OVERRIDE"
+        fi
+        LABEL_SLICE_ENABLE_OVERRIDE="${{ github.event.inputs.hybrid_blind_drift_alert_label_slice_enable || '' }}"
+        LABEL_SLICE_ENABLE_VALUE="${HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_ENABLE:-true}"
+        if [[ -n "$LABEL_SLICE_ENABLE_OVERRIDE" ]]; then
+          LABEL_SLICE_ENABLE_VALUE="$LABEL_SLICE_ENABLE_OVERRIDE"
+        fi
+        LABEL_SLICE_MIN_COMMON_OVERRIDE="${{ github.event.inputs.hybrid_blind_drift_alert_label_slice_min_common || '' }}"
+        LABEL_SLICE_MIN_COMMON="${HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MIN_COMMON:-3}"
+        if [[ -n "$LABEL_SLICE_MIN_COMMON_OVERRIDE" ]]; then
+          LABEL_SLICE_MIN_COMMON="$LABEL_SLICE_MIN_COMMON_OVERRIDE"
+        fi
+        LABEL_SLICE_AUTO_CAP_MIN_COMMON_OVERRIDE="${{ github.event.inputs.hybrid_blind_drift_alert_label_slice_auto_cap_min_common || '' }}"
+        LABEL_SLICE_AUTO_CAP_MIN_COMMON_VALUE="${HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_AUTO_CAP_MIN_COMMON:-true}"
+        if [[ -n "$LABEL_SLICE_AUTO_CAP_MIN_COMMON_OVERRIDE" ]]; then
+          LABEL_SLICE_AUTO_CAP_MIN_COMMON_VALUE="$LABEL_SLICE_AUTO_CAP_MIN_COMMON_OVERRIDE"
+        fi
+        LABEL_SLICE_MIN_SUPPORT_OVERRIDE="${{ github.event.inputs.hybrid_blind_drift_alert_label_slice_min_support || '' }}"
+        LABEL_SLICE_MIN_SUPPORT="${HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MIN_SUPPORT:-3}"
+        if [[ -n "$LABEL_SLICE_MIN_SUPPORT_OVERRIDE" ]]; then
+          LABEL_SLICE_MIN_SUPPORT="$LABEL_SLICE_MIN_SUPPORT_OVERRIDE"
+        fi
+        LABEL_SLICE_MAX_ACC_DROP_OVERRIDE="${{ github.event.inputs.hybrid_blind_drift_alert_label_slice_max_acc_drop || '' }}"
+        LABEL_SLICE_MAX_ACC_DROP="${HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MAX_ACC_DROP:-0.15}"
+        if [[ -n "$LABEL_SLICE_MAX_ACC_DROP_OVERRIDE" ]]; then
+          LABEL_SLICE_MAX_ACC_DROP="$LABEL_SLICE_MAX_ACC_DROP_OVERRIDE"
+        fi
+        LABEL_SLICE_MAX_GAIN_DROP_OVERRIDE="${{ github.event.inputs.hybrid_blind_drift_alert_label_slice_max_gain_drop || '' }}"
+        LABEL_SLICE_MAX_GAIN_DROP="${HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MAX_GAIN_DROP:-0.15}"
+        if [[ -n "$LABEL_SLICE_MAX_GAIN_DROP_OVERRIDE" ]]; then
+          LABEL_SLICE_MAX_GAIN_DROP="$LABEL_SLICE_MAX_GAIN_DROP_OVERRIDE"
+        fi
+        FAMILY_SLICE_ENABLE_OVERRIDE="${{ github.event.inputs.hybrid_blind_drift_alert_family_slice_enable || '' }}"
+        FAMILY_SLICE_ENABLE_VALUE="${HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_ENABLE:-true}"
+        if [[ -n "$FAMILY_SLICE_ENABLE_OVERRIDE" ]]; then
+          FAMILY_SLICE_ENABLE_VALUE="$FAMILY_SLICE_ENABLE_OVERRIDE"
+        fi
+        FAMILY_SLICE_MIN_COMMON_OVERRIDE="${{ github.event.inputs.hybrid_blind_drift_alert_family_slice_min_common || '' }}"
+        FAMILY_SLICE_MIN_COMMON="${HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MIN_COMMON:-2}"
+        if [[ -n "$FAMILY_SLICE_MIN_COMMON_OVERRIDE" ]]; then
+          FAMILY_SLICE_MIN_COMMON="$FAMILY_SLICE_MIN_COMMON_OVERRIDE"
+        fi
+        FAMILY_SLICE_AUTO_CAP_MIN_COMMON_OVERRIDE="${{ github.event.inputs.hybrid_blind_drift_alert_family_slice_auto_cap_min_common || '' }}"
+        FAMILY_SLICE_AUTO_CAP_MIN_COMMON_VALUE="${HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_AUTO_CAP_MIN_COMMON:-true}"
+        if [[ -n "$FAMILY_SLICE_AUTO_CAP_MIN_COMMON_OVERRIDE" ]]; then
+          FAMILY_SLICE_AUTO_CAP_MIN_COMMON_VALUE="$FAMILY_SLICE_AUTO_CAP_MIN_COMMON_OVERRIDE"
+        fi
+        FAMILY_SLICE_MIN_SUPPORT_OVERRIDE="${{ github.event.inputs.hybrid_blind_drift_alert_family_slice_min_support || '' }}"
+        FAMILY_SLICE_MIN_SUPPORT="${HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MIN_SUPPORT:-5}"
+        if [[ -n "$FAMILY_SLICE_MIN_SUPPORT_OVERRIDE" ]]; then
+          FAMILY_SLICE_MIN_SUPPORT="$FAMILY_SLICE_MIN_SUPPORT_OVERRIDE"
+        fi
+        FAMILY_SLICE_MAX_ACC_DROP_OVERRIDE="${{ github.event.inputs.hybrid_blind_drift_alert_family_slice_max_acc_drop || '' }}"
+        FAMILY_SLICE_MAX_ACC_DROP="${HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MAX_ACC_DROP:-0.20}"
+        if [[ -n "$FAMILY_SLICE_MAX_ACC_DROP_OVERRIDE" ]]; then
+          FAMILY_SLICE_MAX_ACC_DROP="$FAMILY_SLICE_MAX_ACC_DROP_OVERRIDE"
+        fi
+        FAMILY_SLICE_MAX_GAIN_DROP_OVERRIDE="${{ github.event.inputs.hybrid_blind_drift_alert_family_slice_max_gain_drop || '' }}"
+        FAMILY_SLICE_MAX_GAIN_DROP="${HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MAX_GAIN_DROP:-0.20}"
+        if [[ -n "$FAMILY_SLICE_MAX_GAIN_DROP_OVERRIDE" ]]; then
+          FAMILY_SLICE_MAX_GAIN_DROP="$FAMILY_SLICE_MAX_GAIN_DROP_OVERRIDE"
+        fi
+        CMD=(
+          python3 scripts/ci/check_hybrid_blind_drift_alerts.py
+          --eval-history-dir reports/eval_history
+          --output-json "$REPORT_PATH"
+          --output-md "$REPORT_MD_PATH"
+          --min-reports "${HYBRID_BLIND_DRIFT_ALERT_MIN_REPORTS:-2}"
+          --max-hybrid-accuracy-drop "${HYBRID_BLIND_DRIFT_ALERT_MAX_ACC_DROP:-0.05}"
+          --max-gain-drop "${HYBRID_BLIND_DRIFT_ALERT_MAX_GAIN_DROP:-0.05}"
+          --max-coverage-drop "${HYBRID_BLIND_DRIFT_ALERT_MAX_COVERAGE_DROP:-0.10}"
+          --consecutive-drop-window "$CONSECUTIVE_WINDOW"
+        )
+        label_slice_token="$(echo "$LABEL_SLICE_ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+        if [[ "$label_slice_token" == "1" || "$label_slice_token" == "true" || "$label_slice_token" == "yes" || "$label_slice_token" == "on" ]]; then
+          CMD+=(
+            --label-slice-enable
+            --label-slice-min-common "$LABEL_SLICE_MIN_COMMON"
+            --label-slice-min-support "$LABEL_SLICE_MIN_SUPPORT"
+            --label-slice-max-hybrid-accuracy-drop "$LABEL_SLICE_MAX_ACC_DROP"
+            --label-slice-max-gain-drop "$LABEL_SLICE_MAX_GAIN_DROP"
+          )
+          label_slice_auto_cap_token="$(echo "$LABEL_SLICE_AUTO_CAP_MIN_COMMON_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+          if [[ "$label_slice_auto_cap_token" == "1" || "$label_slice_auto_cap_token" == "true" || "$label_slice_auto_cap_token" == "yes" || "$label_slice_auto_cap_token" == "on" ]]; then
+            CMD+=(--label-slice-auto-cap-min-common)
+          else
+            CMD+=(--no-label-slice-auto-cap-min-common)
+          fi
+        fi
+        family_slice_token="$(echo "$FAMILY_SLICE_ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+        if [[ "$family_slice_token" == "1" || "$family_slice_token" == "true" || "$family_slice_token" == "yes" || "$family_slice_token" == "on" ]]; then
+          CMD+=(
+            --family-slice-enable
+            --family-slice-min-common "$FAMILY_SLICE_MIN_COMMON"
+            --family-slice-min-support "$FAMILY_SLICE_MIN_SUPPORT"
+            --family-slice-max-hybrid-accuracy-drop "$FAMILY_SLICE_MAX_ACC_DROP"
+            --family-slice-max-gain-drop "$FAMILY_SLICE_MAX_GAIN_DROP"
+          )
+          family_slice_auto_cap_token="$(echo "$FAMILY_SLICE_AUTO_CAP_MIN_COMMON_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+          if [[ "$family_slice_auto_cap_token" == "1" || "$family_slice_auto_cap_token" == "true" || "$family_slice_auto_cap_token" == "yes" || "$family_slice_auto_cap_token" == "on" ]]; then
+            CMD+=(--family-slice-auto-cap-min-common)
+          else
+            CMD+=(--no-family-slice-auto-cap-min-common)
+          fi
+        fi
+        allow_missing_token="$(echo "${HYBRID_BLIND_DRIFT_ALERT_ALLOW_MISSING:-true}" | tr '[:upper:]' '[:lower:]' | xargs)"
+        if [[ "$allow_missing_token" == "1" || "$allow_missing_token" == "true" || "$allow_missing_token" == "yes" || "$allow_missing_token" == "on" ]]; then
+          CMD+=(--allow-missing)
+        fi
+
+        set +e
+        "${CMD[@]}"
+        DRIFT_EXIT_CODE=$?
+        set -e
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "report_path=$REPORT_PATH" >> $GITHUB_OUTPUT
+        echo "report_md_path=$REPORT_MD_PATH" >> $GITHUB_OUTPUT
+        echo "exit_code=$DRIFT_EXIT_CODE" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(Path("reports/eval_history/hybrid_blind_drift_alert_report.json").read_text(encoding="utf-8"))
+        metrics = payload.get("metrics") if isinstance(payload.get("metrics"), dict) else {}
+        thresholds = payload.get("thresholds") if isinstance(payload.get("thresholds"), dict) else {}
+        failures = payload.get("failures") if isinstance(payload.get("failures"), list) else []
+        warnings = payload.get("warnings") if isinstance(payload.get("warnings"), list) else []
+        first_failure = str(failures[0]).replace("\n", " ").replace("\r", " ").strip() if failures else ""
+        first_warning = str(warnings[0]).replace("\n", " ").replace("\r", " ").strip() if warnings else ""
+        headline = "passed"
+        if payload.get("status") != "passed":
+            headline = f"{payload.get('status', 'unknown')}: {first_failure or first_warning or 'no-detail'}"
+        elif first_warning:
+            headline = f"passed_with_warning: {first_warning}"
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"status={payload.get('status', 'unknown')}\n")
+            f.write(f"delta_hybrid_accuracy={metrics.get('delta_hybrid_accuracy', 0)}\n")
+            f.write(f"delta_hybrid_gain_vs_graph2d={metrics.get('delta_hybrid_gain_vs_graph2d', 0)}\n")
+            f.write(f"delta_weak_label_coverage={metrics.get('delta_weak_label_coverage', 0)}\n")
+            f.write(f"label_slice_enabled={str(thresholds.get('label_slice_enable', False)).lower()}\n")
+            f.write(f"label_slice_auto_cap_min_common={str(thresholds.get('label_slice_auto_cap_min_common', True)).lower()}\n")
+            f.write(f"label_slice_common_count={metrics.get('common_label_slice_count', 0)}\n")
+            f.write(f"label_slice_effective_min_common={metrics.get('effective_label_slice_min_common', 0)}\n")
+            f.write(f"label_slice_worst_acc_drop={metrics.get('worst_label_slice_hybrid_accuracy_drop', '')}\n")
+            f.write(f"label_slice_worst_acc_drop_label={metrics.get('worst_label_slice_hybrid_accuracy_drop_label', '')}\n")
+            f.write(f"label_slice_worst_gain_drop={metrics.get('worst_label_slice_hybrid_gain_drop', '')}\n")
+            f.write(f"label_slice_worst_gain_drop_label={metrics.get('worst_label_slice_hybrid_gain_drop_label', '')}\n")
+            f.write(f"family_slice_enabled={str(thresholds.get('family_slice_enable', False)).lower()}\n")
+            f.write(f"family_slice_auto_cap_min_common={str(thresholds.get('family_slice_auto_cap_min_common', True)).lower()}\n")
+            f.write(f"family_slice_common_count={metrics.get('common_family_slice_count', 0)}\n")
+            f.write(f"family_slice_effective_min_common={metrics.get('effective_family_slice_min_common', 0)}\n")
+            f.write(f"family_slice_worst_acc_drop={metrics.get('worst_family_slice_hybrid_accuracy_drop', '')}\n")
+            f.write(f"family_slice_worst_acc_drop_family={metrics.get('worst_family_slice_hybrid_accuracy_drop_family', '')}\n")
+            f.write(f"family_slice_worst_gain_drop={metrics.get('worst_family_slice_hybrid_gain_drop', '')}\n")
+            f.write(f"family_slice_worst_gain_drop_family={metrics.get('worst_family_slice_hybrid_gain_drop_family', '')}\n")
+            f.write(f"headline={headline}\n")
         PY
 
     - name: Build hybrid rejection review pack (optional)
@@ -564,6 +1190,266 @@ jobs:
         echo "reason=gate_passed_under_strict_mode" >> $GITHUB_OUTPUT
         echo "Graph2D review gate strict mode enabled and gate passed."
 
+    - name: Calibrate Hybrid confidence from review CSV (optional)
+      id: hybrid_calibration
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.hybrid_calibration_enable || '' }}"
+        ENABLE_VALUE="${HYBRID_CONFIDENCE_CALIBRATION_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        token="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+        is_enabled="false"
+        if [[ "$token" == "1" || "$token" == "true" || "$token" == "yes" || "$token" == "on" ]]; then
+          is_enabled="true"
+        fi
+        if [[ "$is_enabled" != "true" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "Hybrid calibration disabled."
+          exit 0
+        fi
+
+        INPUT_CSV="${{ github.event.inputs.hybrid_calibration_input_csv || '' }}"
+        if [[ -z "$INPUT_CSV" ]]; then
+          INPUT_CSV="${HYBRID_CONFIDENCE_CALIBRATION_INPUT_CSV:-}"
+        fi
+        if [[ -z "$INPUT_CSV" && "${{ steps.graph2d_review_pack.outputs.enabled }}" == "true" ]]; then
+          INPUT_CSV="${{ steps.graph2d_review_pack.outputs.input_csv }}"
+        fi
+        if [[ -z "$INPUT_CSV" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "Hybrid calibration input CSV not configured; skip."
+          exit 0
+        fi
+        if [[ ! -f "$INPUT_CSV" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "Hybrid calibration input CSV not found: $INPUT_CSV"
+          exit 0
+        fi
+
+        OUTPUT_JSON="${HYBRID_CONFIDENCE_CALIBRATION_OUTPUT_JSON:-reports/calibration/hybrid_confidence_calibration_latest.json}"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+
+        CMD=(
+          python3 scripts/calibrate_hybrid_confidence.py
+          --input-csv "$INPUT_CSV"
+          --output-json "$OUTPUT_JSON"
+          --method "${HYBRID_CONFIDENCE_CALIBRATION_METHOD:-temperature_scaling}"
+          --confidence-col "${HYBRID_CONFIDENCE_CALIBRATION_CONFIDENCE_COL:-confidence}"
+          --correct-col "${HYBRID_CONFIDENCE_CALIBRATION_CORRECT_COL:-is_correct}"
+          --pred-label-col "${HYBRID_CONFIDENCE_CALIBRATION_PRED_LABEL_COL:-predicted_label}"
+          --truth-label-col "${HYBRID_CONFIDENCE_CALIBRATION_TRUTH_LABEL_COL:-correct_label}"
+          --source-col "${HYBRID_CONFIDENCE_CALIBRATION_SOURCE_COL:-source}"
+          --min-samples "${HYBRID_CONFIDENCE_CALIBRATION_MIN_SAMPLES:-30}"
+          --min-samples-per-source "${HYBRID_CONFIDENCE_CALIBRATION_MIN_SAMPLES_PER_SOURCE:-10}"
+          --max-rows "${HYBRID_CONFIDENCE_CALIBRATION_MAX_ROWS:-0}"
+        )
+        per_source_token="$(echo "${HYBRID_CONFIDENCE_CALIBRATION_PER_SOURCE:-true}" | tr '[:upper:]' '[:lower:]' | xargs)"
+        if [[ "$per_source_token" == "1" || "$per_source_token" == "true" || "$per_source_token" == "yes" || "$per_source_token" == "on" ]]; then
+          CMD+=(--per-source)
+        fi
+        include_fit_token="$(echo "${HYBRID_CONFIDENCE_CALIBRATION_INCLUDE_FIT_DATA:-false}" | tr '[:upper:]' '[:lower:]' | xargs)"
+        if [[ "$include_fit_token" == "1" || "$include_fit_token" == "true" || "$include_fit_token" == "yes" || "$include_fit_token" == "on" ]]; then
+          CMD+=(--include-fit-data)
+        fi
+        fail_insufficient_token="$(echo "${HYBRID_CONFIDENCE_CALIBRATION_FAIL_ON_INSUFFICIENT:-false}" | tr '[:upper:]' '[:lower:]' | xargs)"
+        if [[ "$fail_insufficient_token" == "1" || "$fail_insufficient_token" == "true" || "$fail_insufficient_token" == "yes" || "$fail_insufficient_token" == "on" ]]; then
+          CMD+=(--fail-on-insufficient-data)
+        fi
+
+        set +e
+        "${CMD[@]}"
+        CAL_EXIT_CODE=$?
+        set -e
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "input_csv=$INPUT_CSV" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        echo "exit_code=$CAL_EXIT_CODE" >> $GITHUB_OUTPUT
+        if [[ ! -f "$OUTPUT_JSON" ]]; then
+          echo "status=missing_output" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        export HYBRID_CAL_OUTPUT_JSON="$OUTPUT_JSON"
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(Path(os.environ["HYBRID_CAL_OUTPUT_JSON"]).read_text(encoding="utf-8"))
+        after = payload.get("metrics_after") if isinstance(payload.get("metrics_after"), dict) else {}
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"status={payload.get('status', 'unknown')}\n")
+            f.write(f"n_samples={payload.get('n_samples', 0)}\n")
+            f.write(f"ece={after.get('ece', 0)}\n")
+            f.write(f"brier_score={after.get('brier_score', 0)}\n")
+            f.write(f"mce={after.get('mce', 0)}\n")
+        PY
+
+    - name: Check Hybrid confidence calibration gate (optional)
+      id: hybrid_calibration_gate
+      if: steps.hybrid_calibration.outputs.enabled == 'true'
+      continue-on-error: true
+      run: |
+        CURRENT_JSON="${{ steps.hybrid_calibration.outputs.output_json }}"
+        if [[ -z "$CURRENT_JSON" || ! -f "$CURRENT_JSON" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "Hybrid calibration output missing: $CURRENT_JSON"
+          exit 0
+        fi
+        REPORT_PATH="reports/calibration/hybrid_confidence_calibration_gate_report.json"
+        mkdir -p "$(dirname "$REPORT_PATH")"
+        MISSING_OVERRIDE="${{ github.event.inputs.hybrid_calibration_missing_mode || '' }}"
+        MISSING_MODE="${HYBRID_CONFIDENCE_CALIBRATION_GATE_MISSING_MODE:-skip}"
+        if [[ -n "$MISSING_OVERRIDE" ]]; then
+          MISSING_MODE="$MISSING_OVERRIDE"
+        fi
+
+        set +e
+        python3 scripts/ci/check_hybrid_confidence_calibration_gate.py \
+          --current-json "$CURRENT_JSON" \
+          --baseline-json "${HYBRID_CONFIDENCE_CALIBRATION_GATE_BASELINE_JSON:-config/hybrid_confidence_calibration_baseline.json}" \
+          --config "${HYBRID_CONFIDENCE_CALIBRATION_GATE_CONFIG:-config/hybrid_confidence_calibration_gate.yaml}" \
+          --missing-mode "$MISSING_MODE" \
+          --output-json "$REPORT_PATH"
+        GATE_EXIT_CODE=$?
+        set -e
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "report_path=$REPORT_PATH" >> $GITHUB_OUTPUT
+        echo "missing_mode=$MISSING_MODE" >> $GITHUB_OUTPUT
+        echo "exit_code=$GATE_EXIT_CODE" >> $GITHUB_OUTPUT
+
+        export HYBRID_CAL_GATE_REPORT="$REPORT_PATH"
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(Path(os.environ["HYBRID_CAL_GATE_REPORT"]).read_text(encoding="utf-8"))
+        failures = payload.get("failures") if isinstance(payload.get("failures"), list) else []
+        warnings = payload.get("warnings") if isinstance(payload.get("warnings"), list) else []
+        first_failure = str(failures[0]).replace("\n", " ").replace("\r", " ").strip() if failures else ""
+        first_warning = str(warnings[0]).replace("\n", " ").replace("\r", " ").strip() if warnings else ""
+        headline = "passed"
+        if payload.get("status") != "passed":
+            headline = f"failed: {first_failure or 'unknown reason'}"
+        elif first_warning:
+            headline = f"passed_with_warning: {first_warning}"
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"status={payload.get('status', 'unknown')}\n")
+            f.write(f"failure_count={len(failures)}\n")
+            f.write(f"warning_count={len(warnings)}\n")
+            f.write(f"first_failure={first_failure}\n")
+            f.write(f"first_warning={first_warning}\n")
+            f.write(f"headline={headline}\n")
+        PY
+
+    - name: Append Hybrid confidence calibration gate summary (optional)
+      if: steps.hybrid_calibration_gate.outputs.enabled == 'true'
+      continue-on-error: true
+      run: |
+        python3 scripts/ci/summarize_hybrid_confidence_calibration_gate.py \
+          --report-json "${{ steps.hybrid_calibration_gate.outputs.report_path }}" \
+          --title "Hybrid Confidence Calibration Gate (Evaluation Report Workflow)" \
+          >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Evaluate Hybrid calibration gate strict mode (optional)
+      id: hybrid_calibration_gate_strict
+      if: steps.hybrid_calibration_gate.outputs.enabled == 'true'
+      continue-on-error: true
+      run: |
+        STRICT_OVERRIDE="${{ github.event.inputs.hybrid_calibration_fail_on_gate_failed || '' }}"
+        STRICT_VALUE="${HYBRID_CONFIDENCE_CALIBRATION_FAIL_ON_GATE_FAILED:-false}"
+        if [[ -n "$STRICT_OVERRIDE" ]]; then
+          STRICT_VALUE="$STRICT_OVERRIDE"
+        fi
+        token="$(echo "$STRICT_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+        is_strict="false"
+        if [[ "$token" == "1" || "$token" == "true" || "$token" == "yes" || "$token" == "on" ]]; then
+          is_strict="true"
+        fi
+        gate_status="${{ steps.hybrid_calibration_gate.outputs.status }}"
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "strict_mode=$is_strict" >> $GITHUB_OUTPUT
+        echo "gate_status=$gate_status" >> $GITHUB_OUTPUT
+        if [[ "$is_strict" != "true" ]]; then
+          echo "should_fail=false" >> $GITHUB_OUTPUT
+          echo "reason=strict_mode_disabled" >> $GITHUB_OUTPUT
+          echo "Hybrid calibration strict mode disabled."
+          exit 0
+        fi
+        if [[ "$gate_status" != "passed" ]]; then
+          echo "should_fail=true" >> $GITHUB_OUTPUT
+          echo "reason=gate_failed_under_strict_mode" >> $GITHUB_OUTPUT
+          echo "Hybrid calibration strict mode enabled and gate status is not passed."
+          exit 0
+        fi
+        echo "should_fail=false" >> $GITHUB_OUTPUT
+        echo "reason=gate_passed_under_strict_mode" >> $GITHUB_OUTPUT
+        echo "Hybrid calibration strict mode enabled and gate passed."
+
+    - name: Update Hybrid calibration baseline (optional)
+      id: hybrid_calibration_baseline_update
+      if: steps.hybrid_calibration_gate.outputs.enabled == 'true'
+      continue-on-error: true
+      run: |
+        UPDATE_OVERRIDE="${{ github.event.inputs.hybrid_calibration_update_baseline || '' }}"
+        UPDATE_VALUE="${HYBRID_CONFIDENCE_CALIBRATION_BASELINE_UPDATE_ENABLE:-false}"
+        if [[ -n "$UPDATE_OVERRIDE" ]]; then
+          UPDATE_VALUE="$UPDATE_OVERRIDE"
+        fi
+        token="$(echo "$UPDATE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+        should_update="false"
+        if [[ "$token" == "1" || "$token" == "true" || "$token" == "yes" || "$token" == "on" ]]; then
+          should_update="true"
+        fi
+        if [[ "$should_update" != "true" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "Hybrid calibration baseline update disabled."
+          exit 0
+        fi
+
+        if [[ "${{ steps.hybrid_calibration_gate.outputs.status }}" != "passed" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "Hybrid calibration gate not passed; skip baseline update."
+          exit 0
+        fi
+
+        CURRENT_JSON="${{ steps.hybrid_calibration.outputs.output_json }}"
+        if [[ -z "$CURRENT_JSON" || ! -f "$CURRENT_JSON" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "Hybrid calibration output missing: $CURRENT_JSON"
+          exit 0
+        fi
+
+        BASELINE_JSON="${HYBRID_CONFIDENCE_CALIBRATION_BASELINE_OUTPUT_JSON:-config/hybrid_confidence_calibration_baseline.json}"
+        SNAPSHOT_JSON="${HYBRID_CONFIDENCE_CALIBRATION_BASELINE_SNAPSHOT_JSON:-}"
+        CMD=(
+          python3 scripts/ci/update_hybrid_confidence_calibration_baseline.py
+          --current-json "$CURRENT_JSON"
+          --output-baseline-json "$BASELINE_JSON"
+        )
+        if [[ -n "$SNAPSHOT_JSON" ]]; then
+          CMD+=(--snapshot-output-json "$SNAPSHOT_JSON")
+        fi
+
+        set +e
+        "${CMD[@]}"
+        BASELINE_EXIT_CODE=$?
+        set -e
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "exit_code=$BASELINE_EXIT_CODE" >> $GITHUB_OUTPUT
+        echo "baseline_json=$BASELINE_JSON" >> $GITHUB_OUTPUT
+        if [[ -f "$BASELINE_JSON" ]]; then
+          echo "status=updated" >> $GITHUB_OUTPUT
+        else
+          echo "status=missing_output" >> $GITHUB_OUTPUT
+        fi
+
     - name: Generate trend charts
       run: |
         python3 scripts/eval_trend.py --out reports/eval_history/plots
@@ -610,6 +1496,23 @@ jobs:
           echo "✅ No anomalies detected"
         fi
 
+    - name: Generate weekly rolling summary
+      id: weekly_summary
+      run: |
+        OUTPUT_MD="reports/eval_history/weekly_summary.md"
+        python3 scripts/ci/generate_eval_weekly_summary.py \
+          --eval-history-dir reports/eval_history \
+          --output-md "$OUTPUT_MD" \
+          --days 7 \
+          --graph2d-blind-status "${{ steps.graph2d_blind_gate.outputs.status || 'unknown' }}" \
+          --graph2d-blind-accuracy "${{ steps.graph2d_blind_gate.outputs.accuracy || 'n/a' }}" \
+          --hybrid-blind-status "${{ steps.hybrid_blind_gate.outputs.status || 'unknown' }}" \
+          --hybrid-blind-accuracy "${{ steps.hybrid_blind_gate.outputs.hybrid_accuracy || 'n/a' }}" \
+          --hybrid-blind-gain "${{ steps.hybrid_blind_gate.outputs.hybrid_gain_vs_graph2d || 'n/a' }}" \
+          --hybrid-calibration-status "${{ steps.hybrid_calibration.outputs.status || 'unknown' }}" \
+          --hybrid-calibration-gate-status "${{ steps.hybrid_calibration_gate.outputs.status || 'unknown' }}"
+        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
+
     - name: Export metrics for monitoring
       run: |
         echo "Exporting metrics in multiple formats..."
@@ -644,6 +1547,14 @@ jobs:
         path: reports/eval_history/*.json
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
+    - name: Upload weekly summary
+      uses: actions/upload-artifact@v4
+      with:
+        name: evaluation-weekly-summary-${{ github.run_number }}
+        path: ${{ steps.weekly_summary.outputs.output_md }}
+        if-no-files-found: ignore
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
     - name: Upload history-sequence evaluation
       if: steps.history_eval.outputs.enabled == 'true'
       uses: actions/upload-artifact@v4
@@ -669,6 +1580,56 @@ jobs:
       with:
         name: graph2d-train-sweep-${{ github.run_number }}
         path: ${{ steps.graph2d_train_sweep.outputs.work_root }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Upload Hybrid blind benchmark artifacts
+      if: steps.hybrid_blind_eval.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: hybrid-blind-eval-${{ github.run_number }}
+        path: |
+          ${{ steps.hybrid_blind_eval.outputs.summary_json }}
+          ${{ steps.hybrid_blind_gate.outputs.report_path }}
+        if-no-files-found: ignore
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Upload Hybrid blind history snapshot
+      if: steps.hybrid_blind_history.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: hybrid-blind-history-${{ github.run_number }}
+        path: ${{ steps.hybrid_blind_history.outputs.output_json }}
+        if-no-files-found: ignore
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Upload Hybrid blind drift alert report
+      if: steps.hybrid_blind_drift_alert.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: hybrid-blind-drift-alert-${{ github.run_number }}
+        path: |
+          ${{ steps.hybrid_blind_drift_alert.outputs.report_path }}
+          ${{ steps.hybrid_blind_drift_alert.outputs.report_md_path }}
+        if-no-files-found: ignore
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Upload Hybrid confidence calibration artifacts
+      if: steps.hybrid_calibration.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: hybrid-confidence-calibration-${{ github.run_number }}
+        path: |
+          ${{ steps.hybrid_calibration.outputs.output_json }}
+          ${{ steps.hybrid_calibration_gate.outputs.report_path }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Upload Hybrid confidence calibration baseline artifact
+      if: steps.hybrid_calibration_baseline_update.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: hybrid-confidence-calibration-baseline-${{ github.run_number }}
+        path: ${{ steps.hybrid_calibration_baseline_update.outputs.baseline_json }}
+        if-no-files-found: ignore
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
     - name: Send notifications
@@ -716,6 +1677,7 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "## Artifacts" >> $GITHUB_STEP_SUMMARY
         echo "- [Download Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+        echo "- Weekly summary: ${{ steps.weekly_summary.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
         if [[ "${{ steps.history_eval.outputs.enabled }}" == "true" ]]; then
           echo "- History coverage: ${{ steps.history_eval.outputs.coverage }}" >> $GITHUB_STEP_SUMMARY
           echo "- History accuracy(overall): ${{ steps.history_eval.outputs.accuracy_overall }}" >> $GITHUB_STEP_SUMMARY
@@ -736,6 +1698,55 @@ jobs:
           echo "- Graph2D blind low_conf_rate: ${{ steps.graph2d_blind_gate.outputs.low_conf_rate }}" >> $GITHUB_STEP_SUMMARY
         else
           echo "- Graph2D blind gate: skipped (no configured summary path)" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [[ "${{ steps.hybrid_blind_eval.outputs.enabled }}" == "true" ]]; then
+          echo "- Hybrid blind eval status: ${{ steps.hybrid_blind_eval.outputs.status }} (exit=${{ steps.hybrid_blind_eval.outputs.exit_code }})" >> $GITHUB_STEP_SUMMARY
+          echo "- Hybrid blind dataset_source: ${{ steps.hybrid_blind_eval.outputs.dataset_source || 'unknown' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Hybrid blind dxf_dir: ${{ steps.hybrid_blind_eval.outputs.dxf_dir || 'n/a' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Hybrid blind sample_size: ${{ steps.hybrid_blind_eval.outputs.sample_size }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Hybrid blind weak_label_coverage: ${{ steps.hybrid_blind_eval.outputs.weak_label_coverage }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Hybrid blind hybrid_accuracy: ${{ steps.hybrid_blind_eval.outputs.hybrid_accuracy }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Hybrid blind graph2d_accuracy: ${{ steps.hybrid_blind_eval.outputs.graph2d_accuracy }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Hybrid blind gain_vs_graph2d: ${{ steps.hybrid_blind_eval.outputs.hybrid_gain_vs_graph2d }}" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ steps.hybrid_blind_gate.outputs.enabled }}" == "true" ]]; then
+            echo "- Hybrid blind gate status: ${{ steps.hybrid_blind_gate.outputs.status }} (exit=${{ steps.hybrid_blind_gate.outputs.exit_code }})" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid blind gate headline: ${{ steps.hybrid_blind_gate.outputs.headline }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid blind gate strict_mode: ${{ steps.hybrid_blind_gate_strict.outputs.strict_mode || 'false' }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid blind strict_require_real_data: ${{ steps.hybrid_blind_gate_strict.outputs.strict_require_real_data || 'true' }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid blind gate strict_should_fail: ${{ steps.hybrid_blind_gate_strict.outputs.should_fail || 'false' }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid blind gate strict_reason: ${{ steps.hybrid_blind_gate_strict.outputs.reason || 'n/a' }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Hybrid blind gate: skipped" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [[ "${{ steps.hybrid_blind_history.outputs.enabled }}" == "true" ]]; then
+            echo "- Hybrid blind history snapshot: ${{ steps.hybrid_blind_history.outputs.output_json }} (exit=${{ steps.hybrid_blind_history.outputs.exit_code }})" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Hybrid blind history snapshot: skipped" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [[ "${{ steps.hybrid_blind_drift_alert.outputs.enabled }}" == "true" ]]; then
+            echo "- Hybrid blind drift alert status: ${{ steps.hybrid_blind_drift_alert.outputs.status }} (exit=${{ steps.hybrid_blind_drift_alert.outputs.exit_code }})" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid blind drift alert headline: ${{ steps.hybrid_blind_drift_alert.outputs.headline }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid blind drift report: ${{ steps.hybrid_blind_drift_alert.outputs.report_md_path }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid blind delta_hybrid_accuracy: ${{ steps.hybrid_blind_drift_alert.outputs.delta_hybrid_accuracy }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid blind delta_gain_vs_graph2d: ${{ steps.hybrid_blind_drift_alert.outputs.delta_hybrid_gain_vs_graph2d }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid blind delta_coverage: ${{ steps.hybrid_blind_drift_alert.outputs.delta_weak_label_coverage }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid blind label_slice_enabled: ${{ steps.hybrid_blind_drift_alert.outputs.label_slice_enabled }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid blind label_slice_auto_cap_min_common: ${{ steps.hybrid_blind_drift_alert.outputs.label_slice_auto_cap_min_common }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid blind label_slice_effective_min_common: ${{ steps.hybrid_blind_drift_alert.outputs.label_slice_effective_min_common }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid blind label_slice_common_count: ${{ steps.hybrid_blind_drift_alert.outputs.label_slice_common_count }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid blind label_slice_worst_acc_drop: ${{ steps.hybrid_blind_drift_alert.outputs.label_slice_worst_acc_drop }} (label=${{ steps.hybrid_blind_drift_alert.outputs.label_slice_worst_acc_drop_label }})" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid blind label_slice_worst_gain_drop: ${{ steps.hybrid_blind_drift_alert.outputs.label_slice_worst_gain_drop }} (label=${{ steps.hybrid_blind_drift_alert.outputs.label_slice_worst_gain_drop_label }})" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid blind family_slice_enabled: ${{ steps.hybrid_blind_drift_alert.outputs.family_slice_enabled }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid blind family_slice_auto_cap_min_common: ${{ steps.hybrid_blind_drift_alert.outputs.family_slice_auto_cap_min_common }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid blind family_slice_effective_min_common: ${{ steps.hybrid_blind_drift_alert.outputs.family_slice_effective_min_common }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid blind family_slice_common_count: ${{ steps.hybrid_blind_drift_alert.outputs.family_slice_common_count }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid blind family_slice_worst_acc_drop: ${{ steps.hybrid_blind_drift_alert.outputs.family_slice_worst_acc_drop }} (family=${{ steps.hybrid_blind_drift_alert.outputs.family_slice_worst_acc_drop_family }})" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid blind family_slice_worst_gain_drop: ${{ steps.hybrid_blind_drift_alert.outputs.family_slice_worst_gain_drop }} (family=${{ steps.hybrid_blind_drift_alert.outputs.family_slice_worst_gain_drop_family }})" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Hybrid blind drift alert: skipped" >> $GITHUB_STEP_SUMMARY
+          fi
+        else
+          echo "- Hybrid blind eval: skipped (HYBRID_BLIND_ENABLE!=true or no dxf dir)" >> $GITHUB_STEP_SUMMARY
         fi
         if [[ "${{ steps.graph2d_review_pack.outputs.enabled }}" == "true" ]]; then
           echo "- Graph2D review candidates: ${{ steps.graph2d_review_pack.outputs.candidate_rows }}" >> $GITHUB_STEP_SUMMARY
@@ -772,6 +1783,30 @@ jobs:
           echo "- Graph2D train sweep best run script: ${{ steps.graph2d_train_sweep.outputs.best_run_script }}" >> $GITHUB_STEP_SUMMARY
         else
           echo "- Graph2D train sweep: skipped (GRAPH2D_TRAIN_SWEEP_ENABLE!=true)" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [[ "${{ steps.hybrid_calibration.outputs.enabled }}" == "true" ]]; then
+          echo "- Hybrid calibration status: ${{ steps.hybrid_calibration.outputs.status }} (exit=${{ steps.hybrid_calibration.outputs.exit_code }})" >> $GITHUB_STEP_SUMMARY
+          echo "- Hybrid calibration input: ${{ steps.hybrid_calibration.outputs.input_csv }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Hybrid calibration output: ${{ steps.hybrid_calibration.outputs.output_json }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Hybrid calibration n_samples: ${{ steps.hybrid_calibration.outputs.n_samples }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Hybrid calibration metrics_after: ece=${{ steps.hybrid_calibration.outputs.ece }}, brier=${{ steps.hybrid_calibration.outputs.brier_score }}, mce=${{ steps.hybrid_calibration.outputs.mce }}" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ steps.hybrid_calibration_gate.outputs.enabled }}" == "true" ]]; then
+            echo "- Hybrid calibration gate status: ${{ steps.hybrid_calibration_gate.outputs.status }} (exit=${{ steps.hybrid_calibration_gate.outputs.exit_code }})" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid calibration gate headline: ${{ steps.hybrid_calibration_gate.outputs.headline }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid calibration gate strict_mode: ${{ steps.hybrid_calibration_gate_strict.outputs.strict_mode || 'false' }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid calibration gate strict_should_fail: ${{ steps.hybrid_calibration_gate_strict.outputs.should_fail || 'false' }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid calibration gate strict_reason: ${{ steps.hybrid_calibration_gate_strict.outputs.reason || 'n/a' }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Hybrid calibration gate: skipped" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [[ "${{ steps.hybrid_calibration_baseline_update.outputs.enabled }}" == "true" ]]; then
+            echo "- Hybrid calibration baseline update: ${{ steps.hybrid_calibration_baseline_update.outputs.status }} (exit=${{ steps.hybrid_calibration_baseline_update.outputs.exit_code }})" >> $GITHUB_STEP_SUMMARY
+            echo "- Hybrid calibration baseline path: ${{ steps.hybrid_calibration_baseline_update.outputs.baseline_json }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Hybrid calibration baseline update: skipped" >> $GITHUB_STEP_SUMMARY
+          fi
+        else
+          echo "- Hybrid calibration: skipped (HYBRID_CONFIDENCE_CALIBRATION_ENABLE!=true or no input CSV)" >> $GITHUB_STEP_SUMMARY
         fi
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "---" >> $GITHUB_STEP_SUMMARY
@@ -823,9 +1858,71 @@ jobs:
             const sweepBestSeed = '${{ steps.graph2d_train_sweep.outputs.best_seed }}';
             const sweepRecommendedEnv = '${{ steps.graph2d_train_sweep.outputs.recommended_env_file }}';
             const sweepBestRunScript = '${{ steps.graph2d_train_sweep.outputs.best_run_script }}';
+            const graph2dBlindEnabled = '${{ steps.graph2d_blind_gate.outputs.enabled }}' === 'true';
+            const graph2dBlindAccuracyRaw = '${{ steps.graph2d_blind_gate.outputs.accuracy }}';
+            const hybridBlindEnabled = '${{ steps.hybrid_blind_eval.outputs.enabled }}' === 'true';
+            const hybridBlindStatusRaw = '${{ steps.hybrid_blind_eval.outputs.status }}';
+            const hybridBlindExitCode = '${{ steps.hybrid_blind_eval.outputs.exit_code }}';
+            const hybridBlindDatasetSource = '${{ steps.hybrid_blind_eval.outputs.dataset_source }}';
+            const hybridBlindAccuracyRaw = '${{ steps.hybrid_blind_eval.outputs.hybrid_accuracy }}';
+            const hybridBlindGraph2dAccuracyRaw = '${{ steps.hybrid_blind_eval.outputs.graph2d_accuracy }}';
+            const hybridBlindGainRaw = '${{ steps.hybrid_blind_eval.outputs.hybrid_gain_vs_graph2d }}';
+            const hybridBlindCoverageRaw = '${{ steps.hybrid_blind_eval.outputs.weak_label_coverage }}';
+            const hybridBlindGateEnabled = '${{ steps.hybrid_blind_gate.outputs.enabled }}' === 'true';
+            const hybridBlindGateStatusRaw = '${{ steps.hybrid_blind_gate.outputs.status }}';
+            const hybridBlindGateExitCode = '${{ steps.hybrid_blind_gate.outputs.exit_code }}';
+            const hybridBlindGateHeadline = '${{ steps.hybrid_blind_gate.outputs.headline }}';
+            const hybridBlindStrictMode = '${{ steps.hybrid_blind_gate_strict.outputs.strict_mode }}';
+            const hybridBlindStrictShouldFail = '${{ steps.hybrid_blind_gate_strict.outputs.should_fail }}';
+            const hybridBlindStrictReason = '${{ steps.hybrid_blind_gate_strict.outputs.reason }}';
+            const hybridBlindStrictRequireReal = '${{ steps.hybrid_blind_gate_strict.outputs.strict_require_real_data }}';
+            const hybridBlindDriftEnabled = '${{ steps.hybrid_blind_drift_alert.outputs.enabled }}' === 'true';
+            const hybridBlindDriftStatusRaw = '${{ steps.hybrid_blind_drift_alert.outputs.status }}';
+            const hybridBlindDriftExitCode = '${{ steps.hybrid_blind_drift_alert.outputs.exit_code }}';
+            const hybridBlindDriftHeadline = '${{ steps.hybrid_blind_drift_alert.outputs.headline }}';
+            const hybridBlindDeltaAcc = '${{ steps.hybrid_blind_drift_alert.outputs.delta_hybrid_accuracy }}';
+            const hybridBlindDeltaGain = '${{ steps.hybrid_blind_drift_alert.outputs.delta_hybrid_gain_vs_graph2d }}';
+            const hybridBlindDeltaCoverage = '${{ steps.hybrid_blind_drift_alert.outputs.delta_weak_label_coverage }}';
+            const hybridBlindLabelSliceEnabled = '${{ steps.hybrid_blind_drift_alert.outputs.label_slice_enabled }}';
+            const hybridBlindLabelSliceAutoCap = '${{ steps.hybrid_blind_drift_alert.outputs.label_slice_auto_cap_min_common }}';
+            const hybridBlindLabelSliceEffectiveMinCommon = '${{ steps.hybrid_blind_drift_alert.outputs.label_slice_effective_min_common }}';
+            const hybridBlindLabelSliceCommonCount = '${{ steps.hybrid_blind_drift_alert.outputs.label_slice_common_count }}';
+            const hybridBlindLabelSliceWorstAccDrop = '${{ steps.hybrid_blind_drift_alert.outputs.label_slice_worst_acc_drop }}';
+            const hybridBlindLabelSliceWorstAccDropLabel = '${{ steps.hybrid_blind_drift_alert.outputs.label_slice_worst_acc_drop_label }}';
+            const hybridBlindLabelSliceWorstGainDrop = '${{ steps.hybrid_blind_drift_alert.outputs.label_slice_worst_gain_drop }}';
+            const hybridBlindLabelSliceWorstGainDropLabel = '${{ steps.hybrid_blind_drift_alert.outputs.label_slice_worst_gain_drop_label }}';
+            const hybridBlindFamilySliceEnabled = '${{ steps.hybrid_blind_drift_alert.outputs.family_slice_enabled }}';
+            const hybridBlindFamilySliceAutoCap = '${{ steps.hybrid_blind_drift_alert.outputs.family_slice_auto_cap_min_common }}';
+            const hybridBlindFamilySliceEffectiveMinCommon = '${{ steps.hybrid_blind_drift_alert.outputs.family_slice_effective_min_common }}';
+            const hybridBlindFamilySliceCommonCount = '${{ steps.hybrid_blind_drift_alert.outputs.family_slice_common_count }}';
+            const hybridBlindFamilySliceWorstAccDrop = '${{ steps.hybrid_blind_drift_alert.outputs.family_slice_worst_acc_drop }}';
+            const hybridBlindFamilySliceWorstAccDropFamily = '${{ steps.hybrid_blind_drift_alert.outputs.family_slice_worst_acc_drop_family }}';
+            const hybridBlindFamilySliceWorstGainDrop = '${{ steps.hybrid_blind_drift_alert.outputs.family_slice_worst_gain_drop }}';
+            const hybridBlindFamilySliceWorstGainDropFamily = '${{ steps.hybrid_blind_drift_alert.outputs.family_slice_worst_gain_drop_family }}';
+            const hybridCalibrationEnabled = '${{ steps.hybrid_calibration.outputs.enabled }}' === 'true';
+            const hybridCalibrationStatusRaw = '${{ steps.hybrid_calibration.outputs.status }}';
+            const hybridCalibrationExitCode = '${{ steps.hybrid_calibration.outputs.exit_code }}';
+            const hybridCalibrationSamples = '${{ steps.hybrid_calibration.outputs.n_samples }}';
+            const hybridCalibrationEce = '${{ steps.hybrid_calibration.outputs.ece }}';
+            const hybridCalibrationBrier = '${{ steps.hybrid_calibration.outputs.brier_score }}';
+            const hybridCalibrationMce = '${{ steps.hybrid_calibration.outputs.mce }}';
+            const hybridCalibrationGateEnabled = '${{ steps.hybrid_calibration_gate.outputs.enabled }}' === 'true';
+            const hybridCalibrationGateStatusRaw = '${{ steps.hybrid_calibration_gate.outputs.status }}';
+            const hybridCalibrationGateExitCode = '${{ steps.hybrid_calibration_gate.outputs.exit_code }}';
+            const hybridCalibrationGateHeadline = '${{ steps.hybrid_calibration_gate.outputs.headline }}';
+            const hybridCalibrationStrictMode = '${{ steps.hybrid_calibration_gate_strict.outputs.strict_mode }}';
+            const hybridCalibrationStrictShouldFail = '${{ steps.hybrid_calibration_gate_strict.outputs.should_fail }}';
+            const hybridCalibrationStrictReason = '${{ steps.hybrid_calibration_gate_strict.outputs.reason }}';
+            const hybridCalibrationBaselineUpdateEnabled = '${{ steps.hybrid_calibration_baseline_update.outputs.enabled }}' === 'true';
+            const hybridCalibrationBaselineUpdateStatus = '${{ steps.hybrid_calibration_baseline_update.outputs.status }}';
+            const hybridCalibrationBaselineUpdateExitCode = '${{ steps.hybrid_calibration_baseline_update.outputs.exit_code }}';
+            const hybridCalibrationBaselinePath = '${{ steps.hybrid_calibration_baseline_update.outputs.baseline_json }}';
             const reviewCandidateCount = parseInt(reviewCandidates || '0', 10);
             const sweepTotalRunsInt = parseInt(sweepTotalRuns || '0', 10);
             const sweepFailedRunsInt = parseInt(sweepFailedRuns || '0', 10);
+            const graph2dBlindAccuracy = parseFloat(graph2dBlindAccuracyRaw || 'NaN');
+            const hybridBlindAccuracy = parseFloat(hybridBlindAccuracyRaw || 'NaN');
+            const hybridBlindGain = parseFloat(hybridBlindGainRaw || 'NaN');
 
             const reviewPackStatus = reviewPackEnabled
               ? `🧪 candidates=${reviewCandidates}, rejected=${reviewRejected}, conflict=${reviewConflicts}`
@@ -842,6 +1939,36 @@ jobs:
             const trainSweepStatus = trainSweepEnabled
               ? `runs=${sweepTotalRuns}, failed=${sweepFailedRuns}, best=${sweepBestRecipe}@${sweepBestSeed}, env=${sweepRecommendedEnv}, script=${sweepBestRunScript}`
               : '⏭️ skipped';
+            const hybridBlindEvalStatus = hybridBlindEnabled
+              ? `${hybridBlindStatusRaw || 'unknown'} (source=${hybridBlindDatasetSource || 'unknown'}, exit=${hybridBlindExitCode || 'n/a'}, coverage=${hybridBlindCoverageRaw || 'n/a'}, hybrid_acc=${hybridBlindAccuracyRaw || 'n/a'}, graph2d_acc=${hybridBlindGraph2dAccuracyRaw || 'n/a'}, gain=${hybridBlindGainRaw || 'n/a'})`
+              : '⏭️ skipped';
+            const hybridBlindGateStatus = hybridBlindGateEnabled
+              ? `${hybridBlindGateStatusRaw || 'unknown'} (exit=${hybridBlindGateExitCode || 'n/a'}, headline=${hybridBlindGateHeadline || 'n/a'})`
+              : '⏭️ skipped';
+            const hybridBlindStrictStatus = hybridBlindGateEnabled
+              ? `strict=${hybridBlindStrictMode || 'false'}, require_real=${hybridBlindStrictRequireReal || 'true'}, should_fail=${hybridBlindStrictShouldFail || 'false'}, reason=${hybridBlindStrictReason || 'n/a'}`
+              : '⏭️ skipped';
+            const hybridBlindDriftStatus = hybridBlindDriftEnabled
+              ? `${hybridBlindDriftStatusRaw || 'unknown'} (exit=${hybridBlindDriftExitCode || 'n/a'}, headline=${hybridBlindDriftHeadline || 'n/a'}, delta_acc=${hybridBlindDeltaAcc || 'n/a'}, delta_gain=${hybridBlindDeltaGain || 'n/a'}, delta_cov=${hybridBlindDeltaCoverage || 'n/a'}, label_slice_enabled=${hybridBlindLabelSliceEnabled || 'false'}, label_auto_cap=${hybridBlindLabelSliceAutoCap || 'true'}, label_effective_min_common=${hybridBlindLabelSliceEffectiveMinCommon || 'n/a'}, label_common=${hybridBlindLabelSliceCommonCount || 'n/a'}, worst_label_acc_drop=${hybridBlindLabelSliceWorstAccDrop || 'n/a'}@${hybridBlindLabelSliceWorstAccDropLabel || 'n/a'}, worst_label_gain_drop=${hybridBlindLabelSliceWorstGainDrop || 'n/a'}@${hybridBlindLabelSliceWorstGainDropLabel || 'n/a'}, family_slice_enabled=${hybridBlindFamilySliceEnabled || 'false'}, family_auto_cap=${hybridBlindFamilySliceAutoCap || 'true'}, family_effective_min_common=${hybridBlindFamilySliceEffectiveMinCommon || 'n/a'}, family_common=${hybridBlindFamilySliceCommonCount || 'n/a'}, worst_family_acc_drop=${hybridBlindFamilySliceWorstAccDrop || 'n/a'}@${hybridBlindFamilySliceWorstAccDropFamily || 'n/a'}, worst_family_gain_drop=${hybridBlindFamilySliceWorstGainDrop || 'n/a'}@${hybridBlindFamilySliceWorstGainDropFamily || 'n/a'})`
+              : '⏭️ skipped';
+            let blindGainSummary = 'n/a';
+            if (!Number.isNaN(hybridBlindGain)) {
+              blindGainSummary = hybridBlindGain.toFixed(4);
+            } else if (!Number.isNaN(hybridBlindAccuracy) && !Number.isNaN(graph2dBlindAccuracy)) {
+              blindGainSummary = (hybridBlindAccuracy - graph2dBlindAccuracy).toFixed(4);
+            }
+            const hybridCalibrationStatus = hybridCalibrationEnabled
+              ? `${hybridCalibrationStatusRaw || 'unknown'} (exit=${hybridCalibrationExitCode || 'n/a'}, n_samples=${hybridCalibrationSamples || '0'}, ece=${hybridCalibrationEce || '0'}, brier=${hybridCalibrationBrier || '0'}, mce=${hybridCalibrationMce || '0'})`
+              : '⏭️ skipped';
+            const hybridCalibrationGateStatus = hybridCalibrationGateEnabled
+              ? `${hybridCalibrationGateStatusRaw || 'unknown'} (exit=${hybridCalibrationGateExitCode || 'n/a'}, headline=${hybridCalibrationGateHeadline || 'n/a'})`
+              : '⏭️ skipped';
+            const hybridCalibrationStrictStatus = hybridCalibrationGateEnabled
+              ? `strict=${hybridCalibrationStrictMode || 'false'}, should_fail=${hybridCalibrationStrictShouldFail || 'false'}, reason=${hybridCalibrationStrictReason || 'n/a'}`
+              : '⏭️ skipped';
+            const hybridCalibrationBaselineStatus = hybridCalibrationBaselineUpdateEnabled
+              ? `${hybridCalibrationBaselineUpdateStatus || 'unknown'} (exit=${hybridCalibrationBaselineUpdateExitCode || 'n/a'}, path=${hybridCalibrationBaselinePath || 'n/a'})`
+              : '⏭️ skipped';
 
             const reviewPackLight = !reviewPackEnabled
               ? '⚪'
@@ -852,6 +1979,12 @@ jobs:
             const trainSweepLight = !trainSweepEnabled
               ? '⚪'
               : (sweepTotalRunsInt <= 0 ? '🟡' : (sweepFailedRunsInt > 0 ? '🔴' : '🟢'));
+            const hybridBlindLight = !hybridBlindEnabled
+              ? '⚪'
+              : ((hybridBlindGateEnabled && hybridBlindGateStatusRaw === 'passed') ? '🟢' : (hybridBlindGateEnabled && hybridBlindGateStatusRaw !== 'passed' ? '🔴' : '🟡'));
+            const hybridCalibrationLight = !hybridCalibrationEnabled
+              ? '⚪'
+              : ((hybridCalibrationStatusRaw === 'ok' && (!hybridCalibrationGateEnabled || hybridCalibrationGateStatusRaw === 'passed')) ? '🟢' : (hybridCalibrationGateEnabled && hybridCalibrationGateStatusRaw !== 'passed' ? '🔴' : '🟡'));
 
             const body = `## 📊 CAD ML Platform - Evaluation Results
 
@@ -877,13 +2010,24 @@ jobs:
             | **Graph2D Review Gate** | ${reviewGateStatus} |
             | **Graph2D Review Gate Strict** | ${reviewGateStrictStatus} |
             | **Graph2D Train Sweep** | ${trainSweepStatus} |
+            | **Hybrid Blind Eval** | ${hybridBlindEvalStatus} |
+            | **Hybrid Blind Gate** | ${hybridBlindGateStatus} |
+            | **Hybrid Blind Strict** | ${hybridBlindStrictStatus} |
+            | **Hybrid Blind Drift Alert** | ${hybridBlindDriftStatus} |
+            | **Blind Gain (Hybrid-Graph2D)** | ${blindGainSummary} |
+            | **Hybrid Calibration** | ${hybridCalibrationStatus} |
+            | **Hybrid Calibration Gate** | ${hybridCalibrationGateStatus} |
+            | **Hybrid Calibration Strict** | ${hybridCalibrationStrictStatus} |
+            | **Hybrid Calibration Baseline** | ${hybridCalibrationBaselineStatus} |
 
-            ### Graph2D Signal Lights
+            ### Signal Lights
             | Signal | State | Detail |
             |--------|-------|--------|
             | **Review Pack** | ${reviewPackLight} | ${reviewPackStatus} |
             | **Review Gate** | ${reviewGateLight} | ${reviewGateStatus} |
             | **Train Sweep** | ${trainSweepLight} | ${trainSweepStatus} |
+            | **Hybrid Blind** | ${hybridBlindLight} | ${hybridBlindEvalStatus} |
+            | **Hybrid Calibration** | ${hybridCalibrationLight} | ${hybridCalibrationStatus} |
 
             ### Quick Actions
             - 📋 [View Full Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
@@ -929,6 +2073,20 @@ jobs:
       run: |
         echo "Graph2D review gate strict mode is enabled and gate status is '${{ steps.graph2d_review_gate_strict.outputs.gate_status }}'."
         echo "Failure reason: ${{ steps.graph2d_review_gate_strict.outputs.reason }}"
+        exit 1
+
+    - name: Fail workflow when Hybrid blind gate strict check requires blocking
+      if: steps.hybrid_blind_gate_strict.outputs.should_fail == 'true'
+      run: |
+        echo "Hybrid blind gate strict mode is enabled and gate status is '${{ steps.hybrid_blind_gate_strict.outputs.gate_status }}'."
+        echo "Failure reason: ${{ steps.hybrid_blind_gate_strict.outputs.reason }}"
+        exit 1
+
+    - name: Fail workflow when Hybrid calibration gate strict check requires blocking
+      if: steps.hybrid_calibration_gate_strict.outputs.should_fail == 'true'
+      run: |
+        echo "Hybrid calibration gate strict mode is enabled and gate status is '${{ steps.hybrid_calibration_gate_strict.outputs.gate_status }}'."
+        echo "Failure reason: ${{ steps.hybrid_calibration_gate_strict.outputs.reason }}"
         exit 1
 
   deploy-pages:
