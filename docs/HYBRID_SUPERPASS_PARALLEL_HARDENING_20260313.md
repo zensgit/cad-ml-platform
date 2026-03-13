@@ -114,3 +114,31 @@ make validate-hybrid-superpass-nightly-workflow
 ### 增量验证结果
 - `make validate-hybrid-superpass-workflow`：`59 passed, 1 warning`
 - `make validate-hybrid-superpass-nightly-workflow`：`24 passed, 1 warning`
+
+## 增量强化（同日第三轮：并发提速）
+
+### 并发双场景 orchestrator（新增）
+- 文件：`scripts/ci/run_hybrid_superpass_dual_dispatch.py`
+- 能力：
+  - fail/success 两个 dispatch 子进程并发执行（`subprocess.Popen`）。
+  - 两者结束后统一执行 compare（`compare_hybrid_superpass_reports.py`）。
+  - 支持 `--strict`、`--print-only`、`--dispatch-trace-prefix`。
+  - 输出统一汇总字段：三条命令、各子任务 exit code、overall_exit_code。
+  - 自动 trace 前缀：`dsp-<12hex>`，并派生 `-fail/-success`。
+
+### Makefile 并发入口切换
+- 文件：`Makefile`
+- 改动：
+  - `hybrid-superpass-e2e-dual-gh` 改为并发 orchestrator 路径。
+  - 保留 `hybrid-superpass-e2e-dual-gh-sequential` 作为回退模式。
+  - 新增并发汇总变量：`HYBRID_SUPERPASS_DUAL_PARALLEL_SUMMARY_JSON`、`HYBRID_SUPERPASS_DUAL_DISPATCH_TRACE_PREFIX`。
+  - `validate-hybrid-superpass-workflow` 纳入 orchestrator 单测。
+
+### 增量测试
+- 新增：`tests/unit/test_run_hybrid_superpass_dual_dispatch.py`
+- 更新：`tests/unit/test_graph2d_parallel_make_targets.py`
+
+### 第三轮验证结果
+- `pytest tests/unit/test_run_hybrid_superpass_dual_dispatch.py tests/unit/test_graph2d_parallel_make_targets.py -q`：`21 passed, 1 warning`
+- `make validate-hybrid-superpass-workflow`：`64 passed, 1 warning`
+- `make validate-hybrid-superpass-nightly-workflow`：`25 passed, 1 warning`

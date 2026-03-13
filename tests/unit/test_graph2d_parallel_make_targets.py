@@ -144,6 +144,17 @@ def test_make_n_hybrid_superpass_compare_contains_expected_flags() -> None:
 def test_make_n_hybrid_superpass_e2e_dual_gh_contains_expected_steps() -> None:
     result = _run_make("-n", "hybrid-superpass-e2e-dual-gh")
     assert result.returncode == 0, result.stderr
+    assert "scripts/ci/run_hybrid_superpass_dual_dispatch.py" in result.stdout
+    assert "--fail-output-json" in result.stdout
+    assert "--success-output-json" in result.stdout
+    assert "--compare-output-json" in result.stdout
+    assert "--compare-output-md" in result.stdout
+    assert "--strict" in result.stdout
+
+
+def test_make_n_hybrid_superpass_e2e_dual_gh_sequential_contains_expected_steps() -> None:
+    result = _run_make("-n", "hybrid-superpass-e2e-dual-gh-sequential")
+    assert result.returncode == 0, result.stderr
     assert result.stdout.count("scripts/ci/dispatch_hybrid_superpass_workflow.py") >= 2
     assert "--hybrid-superpass-missing-mode \"fail\"" in result.stdout
     assert "--hybrid-superpass-missing-mode \"skip\"" in result.stdout
@@ -191,6 +202,7 @@ def test_make_n_validate_hybrid_superpass_workflow_runs_expected_tests() -> None
     result = _run_make("-n", "validate-hybrid-superpass-workflow")
     assert result.returncode == 0, result.stderr
     assert "test_dispatch_hybrid_superpass_workflow.py" in result.stdout
+    assert "test_run_hybrid_superpass_dual_dispatch.py" in result.stdout
     assert "test_apply_hybrid_superpass_gh_vars.py" in result.stdout
     assert "test_check_hybrid_superpass_targets.py" in result.stdout
     assert "test_compare_hybrid_superpass_reports.py" in result.stdout
