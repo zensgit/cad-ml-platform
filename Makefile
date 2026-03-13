@@ -26,7 +26,9 @@
 				clean-ci-watch-artifacts watch-commit-workflows-safe-auto \
 				generate-ci-watch-validation-report validate-generate-ci-watch-validation-report \
 				graph2d-review-pack graph2d-review-pack-gate graph2d-train-sweep \
-				graph2d-review-pack-gate-strict-e2e validate-graph2d-review-pack-gate-strict-e2e
+				graph2d-review-pack-gate-strict-e2e validate-graph2d-review-pack-gate-strict-e2e \
+				hybrid-superpass-gate hybrid-superpass-e2e-gh hybrid-superpass-apply-gh-vars \
+				validate-hybrid-superpass-workflow
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -981,6 +983,32 @@ GRAPH2D_REVIEW_PACK_GATE_E2E_POLL_INTERVAL ?= 3
 GRAPH2D_REVIEW_PACK_GATE_E2E_LIST_LIMIT ?= 20
 GRAPH2D_REVIEW_PACK_GATE_E2E_OUTPUT_JSON ?= $(GRAPH2D_REVIEW_OUT_DIR)/graph2d_review_pack_gate_strict_e2e.json
 GRAPH2D_REVIEW_PACK_GATE_E2E_PRINT_ONLY ?= 0
+HYBRID_SUPERPASS_GATE_REPORT_JSON ?= reports/history_sequence_eval/hybrid_blind_gate_report.json
+HYBRID_SUPERPASS_CALIBRATION_JSON ?= models/calibration/hybrid_confidence_calibration.json
+HYBRID_SUPERPASS_CONFIG ?= config/hybrid_superpass_targets.yaml
+HYBRID_SUPERPASS_OUTPUT_JSON ?= reports/history_sequence_eval/hybrid_superpass_report.json
+HYBRID_SUPERPASS_MISSING_MODE ?= skip
+HYBRID_SUPERPASS_E2E_WORKFLOW ?= evaluation-report.yml
+HYBRID_SUPERPASS_E2E_REF ?= main
+HYBRID_SUPERPASS_E2E_REPO ?=
+HYBRID_SUPERPASS_E2E_ENABLE ?= true
+HYBRID_SUPERPASS_E2E_MISSING_MODE ?= fail
+HYBRID_SUPERPASS_E2E_FAIL_ON_FAILED ?= true
+HYBRID_SUPERPASS_E2E_HYBRID_BLIND_ENABLE ?=
+HYBRID_SUPERPASS_E2E_HYBRID_BLIND_DXF_DIR ?=
+HYBRID_SUPERPASS_E2E_HYBRID_BLIND_FAIL_ON_GATE_FAILED ?=
+HYBRID_SUPERPASS_E2E_HYBRID_BLIND_STRICT_REQUIRE_REAL_DATA ?=
+HYBRID_SUPERPASS_E2E_HYBRID_CALIBRATION_ENABLE ?=
+HYBRID_SUPERPASS_E2E_HYBRID_CALIBRATION_INPUT_CSV ?=
+HYBRID_SUPERPASS_E2E_EXPECTED_CONCLUSION ?= success
+HYBRID_SUPERPASS_E2E_TIMEOUT ?= 600
+HYBRID_SUPERPASS_E2E_POLL_INTERVAL ?= 3
+HYBRID_SUPERPASS_E2E_LIST_LIMIT ?= 20
+HYBRID_SUPERPASS_E2E_OUTPUT_JSON ?= $(GRAPH2D_REVIEW_OUT_DIR)/hybrid_superpass_e2e.json
+HYBRID_SUPERPASS_E2E_PRINT_ONLY ?= 0
+HYBRID_SUPERPASS_APPLY_REPO ?=
+HYBRID_SUPERPASS_APPLY_CONFIG_PATH ?= config/hybrid_superpass_targets.yaml
+HYBRID_SUPERPASS_APPLY_EXECUTE ?= 0
 
 graph2d-review-summary: ## 汇总 Graph2D soft-override 复核模板（生成 summary + correct-label counts）
 	@echo "$(GREEN)Summarizing Graph2D soft-override review...$(NC)"
@@ -1039,10 +1067,65 @@ graph2d-review-pack-gate-strict-e2e: ## 触发 strict=false/true 两次 workflow
 		--output-json "$(GRAPH2D_REVIEW_PACK_GATE_E2E_OUTPUT_JSON)" \
 		$$extra_flags
 
+hybrid-superpass-gate: ## 检查 Hybrid 超越目标门禁（盲测精度/增益 + 校准ECE）
+	@echo "$(GREEN)Checking hybrid superpass targets...$(NC)"
+	@extra_flags=""; \
+	if [ -n "$(HYBRID_SUPERPASS_GATE_REPORT_JSON)" ]; then extra_flags="$$extra_flags --hybrid-blind-gate-report $(HYBRID_SUPERPASS_GATE_REPORT_JSON)"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_CALIBRATION_JSON)" ]; then extra_flags="$$extra_flags --hybrid-calibration-json $(HYBRID_SUPERPASS_CALIBRATION_JSON)"; fi; \
+	$(PYTHON) scripts/ci/check_hybrid_superpass_targets.py \
+		--config "$(HYBRID_SUPERPASS_CONFIG)" \
+		--missing-mode "$(HYBRID_SUPERPASS_MISSING_MODE)" \
+		--output "$(HYBRID_SUPERPASS_OUTPUT_JSON)" \
+		$$extra_flags
+
+hybrid-superpass-e2e-gh: ## 通过 gh workflow_dispatch 触发 superpass E2E 并等待结果
+	@echo "$(GREEN)Dispatching hybrid superpass workflow e2e...$(NC)"
+	@extra_flags=""; \
+	if [ "$(HYBRID_SUPERPASS_E2E_PRINT_ONLY)" = "1" ]; then extra_flags="$$extra_flags --print-only"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_E2E_REPO)" ]; then extra_flags="$$extra_flags --repo $(HYBRID_SUPERPASS_E2E_REPO)"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_E2E_HYBRID_BLIND_ENABLE)" ]; then extra_flags="$$extra_flags --hybrid-blind-enable $(HYBRID_SUPERPASS_E2E_HYBRID_BLIND_ENABLE)"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_E2E_HYBRID_BLIND_DXF_DIR)" ]; then extra_flags="$$extra_flags --hybrid-blind-dxf-dir $(HYBRID_SUPERPASS_E2E_HYBRID_BLIND_DXF_DIR)"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_E2E_HYBRID_BLIND_FAIL_ON_GATE_FAILED)" ]; then extra_flags="$$extra_flags --hybrid-blind-fail-on-gate-failed $(HYBRID_SUPERPASS_E2E_HYBRID_BLIND_FAIL_ON_GATE_FAILED)"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_E2E_HYBRID_BLIND_STRICT_REQUIRE_REAL_DATA)" ]; then extra_flags="$$extra_flags --hybrid-blind-strict-require-real-data $(HYBRID_SUPERPASS_E2E_HYBRID_BLIND_STRICT_REQUIRE_REAL_DATA)"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_E2E_HYBRID_CALIBRATION_ENABLE)" ]; then extra_flags="$$extra_flags --hybrid-calibration-enable $(HYBRID_SUPERPASS_E2E_HYBRID_CALIBRATION_ENABLE)"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_E2E_HYBRID_CALIBRATION_INPUT_CSV)" ]; then extra_flags="$$extra_flags --hybrid-calibration-input-csv $(HYBRID_SUPERPASS_E2E_HYBRID_CALIBRATION_INPUT_CSV)"; fi; \
+	$(PYTHON) scripts/ci/dispatch_hybrid_superpass_workflow.py \
+		--workflow "$(HYBRID_SUPERPASS_E2E_WORKFLOW)" \
+		--ref "$(HYBRID_SUPERPASS_E2E_REF)" \
+		--hybrid-superpass-enable "$(HYBRID_SUPERPASS_E2E_ENABLE)" \
+		--hybrid-superpass-missing-mode "$(HYBRID_SUPERPASS_E2E_MISSING_MODE)" \
+		--hybrid-superpass-fail-on-failed "$(HYBRID_SUPERPASS_E2E_FAIL_ON_FAILED)" \
+		--expected-conclusion "$(HYBRID_SUPERPASS_E2E_EXPECTED_CONCLUSION)" \
+		--wait-timeout-seconds "$(HYBRID_SUPERPASS_E2E_TIMEOUT)" \
+		--poll-interval-seconds "$(HYBRID_SUPERPASS_E2E_POLL_INTERVAL)" \
+		--list-limit "$(HYBRID_SUPERPASS_E2E_LIST_LIMIT)" \
+		--output-json "$(HYBRID_SUPERPASS_E2E_OUTPUT_JSON)" \
+		$$extra_flags
+
+hybrid-superpass-apply-gh-vars: ## 将 superpass 推荐变量同步到 GitHub Variables（默认仅预览）
+	@echo "$(GREEN)Applying hybrid superpass variables to GitHub...$(NC)"
+	@extra_flags=""; \
+	if [ "$(HYBRID_SUPERPASS_APPLY_EXECUTE)" = "1" ]; then extra_flags="$$extra_flags --apply"; fi; \
+	$(PYTHON) scripts/ci/apply_hybrid_superpass_gh_vars.py \
+		--repo "$(HYBRID_SUPERPASS_APPLY_REPO)" \
+		--config-path "$(HYBRID_SUPERPASS_APPLY_CONFIG_PATH)" \
+		$$extra_flags
+
 validate-graph2d-review-pack-gate-strict-e2e: ## 校验 strict e2e dispatcher（脚本 + Make 参数透传 + workflow 绑定）
 	@echo "$(GREEN)Validating Graph2D review-pack gate strict e2e dispatcher...$(NC)"
 	$(PYTEST) \
 		$(TEST_DIR)/unit/test_dispatch_graph2d_review_gate_strict_e2e.py \
+		$(TEST_DIR)/unit/test_graph2d_parallel_make_targets.py \
+		$(TEST_DIR)/unit/test_evaluation_report_workflow_graph2d_extensions.py -q
+
+validate-hybrid-superpass-workflow: ## 校验 superpass gh 自动化与 workflow 集成
+	@echo "$(GREEN)Validating hybrid superpass workflow integration...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_dispatch_hybrid_superpass_workflow.py \
+		$(TEST_DIR)/unit/test_apply_hybrid_superpass_gh_vars.py \
+		$(TEST_DIR)/unit/test_check_hybrid_superpass_targets.py \
+		$(TEST_DIR)/unit/test_evaluation_report_workflow_hybrid_superpass_step.py \
+		$(TEST_DIR)/unit/test_hybrid_superpass_workflow_integration.py \
 		$(TEST_DIR)/unit/test_graph2d_parallel_make_targets.py \
 		$(TEST_DIR)/unit/test_evaluation_report_workflow_graph2d_extensions.py -q
 

@@ -1,0 +1,7 @@
+hybrid_superpass:
+  # Benchmark-aligned targets (see docs/BENCHMARK_TARGETS_20260312.md)
+  min_hybrid_accuracy: 0.60
+  min_hybrid_gain_vs_graph2d: 0.00
+  max_calibration_ece: 0.08
+  # skip: record warnings for missing inputs; fail: mark gate failed
+  missing_mode: skip
