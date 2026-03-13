@@ -34,7 +34,9 @@
 						hybrid-blind-strict-real-template-gh \
 						hybrid-blind-strict-real-e2e-gh validate-hybrid-blind-strict-real-e2e-gh \
 						hybrid-blind-drift-alert hybrid-blind-drift-suggest-thresholds hybrid-blind-history-bootstrap hybrid-blind-drift-activate \
-						hybrid-blind-drift-apply-suggestion-gh \
+						hybrid-blind-drift-apply-suggestion-gh hybrid-superpass-gate \
+						hybrid-superpass-e2e-gh hybrid-superpass-apply-gh-vars \
+						validate-hybrid-superpass-workflow \
 						eval-weekly-summary validate-hybrid-blind-workflow
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
@@ -1014,6 +1016,32 @@ HYBRID_CALIBRATION_BASELINE_SOURCE_JSON ?= $(HYBRID_CALIBRATION_OUTPUT_JSON)
 HYBRID_CALIBRATION_BASELINE_OUTPUT_JSON ?= config/hybrid_confidence_calibration_baseline.json
 HYBRID_CALIBRATION_BASELINE_SNAPSHOT_JSON ?=
 HYBRID_CALIBRATION_BASELINE_ALLOW_NON_OK ?= 0
+HYBRID_SUPERPASS_GATE_REPORT_JSON ?= reports/history_sequence_eval/hybrid_blind_gate_report.json
+HYBRID_SUPERPASS_CALIBRATION_JSON ?= models/calibration/hybrid_confidence_calibration.json
+HYBRID_SUPERPASS_CONFIG ?= config/hybrid_superpass_targets.yaml
+HYBRID_SUPERPASS_OUTPUT_JSON ?= reports/history_sequence_eval/hybrid_superpass_report.json
+HYBRID_SUPERPASS_MISSING_MODE ?= skip
+HYBRID_SUPERPASS_E2E_WORKFLOW ?= evaluation-report.yml
+HYBRID_SUPERPASS_E2E_REF ?= main
+HYBRID_SUPERPASS_E2E_REPO ?=
+HYBRID_SUPERPASS_E2E_ENABLE ?= true
+HYBRID_SUPERPASS_E2E_MISSING_MODE ?= fail
+HYBRID_SUPERPASS_E2E_FAIL_ON_FAILED ?= true
+HYBRID_SUPERPASS_E2E_HYBRID_BLIND_ENABLE ?=
+HYBRID_SUPERPASS_E2E_HYBRID_BLIND_DXF_DIR ?=
+HYBRID_SUPERPASS_E2E_HYBRID_BLIND_FAIL_ON_GATE_FAILED ?=
+HYBRID_SUPERPASS_E2E_HYBRID_BLIND_STRICT_REQUIRE_REAL_DATA ?=
+HYBRID_SUPERPASS_E2E_HYBRID_CALIBRATION_ENABLE ?=
+HYBRID_SUPERPASS_E2E_HYBRID_CALIBRATION_INPUT_CSV ?=
+HYBRID_SUPERPASS_E2E_EXPECTED_CONCLUSION ?= success
+HYBRID_SUPERPASS_E2E_TIMEOUT ?= 600
+HYBRID_SUPERPASS_E2E_POLL_INTERVAL ?= 3
+HYBRID_SUPERPASS_E2E_LIST_LIMIT ?= 20
+HYBRID_SUPERPASS_E2E_OUTPUT_JSON ?= $(GRAPH2D_REVIEW_OUT_DIR)/hybrid_superpass_e2e.json
+HYBRID_SUPERPASS_E2E_PRINT_ONLY ?= 0
+HYBRID_SUPERPASS_APPLY_REPO ?=
+HYBRID_SUPERPASS_APPLY_CONFIG_PATH ?= config/hybrid_superpass_targets.yaml
+HYBRID_SUPERPASS_APPLY_EXECUTE ?= 0
 HYBRID_BLIND_DXF_DIR ?=
 HYBRID_BLIND_MANIFEST_CSV ?=
 HYBRID_BLIND_OUTPUT_DIR ?= reports/history_sequence_eval/hybrid_blind
@@ -1098,6 +1126,8 @@ HYBRID_BLIND_STRICT_TEMPLATE_SYNTH_MANIFEST ?= tests/golden/golden_dxf_hybrid_ca
 HYBRID_BLIND_STRICT_APPLY_REPO ?=
 HYBRID_BLIND_STRICT_APPLY_DXF_DIR ?= datasets/hybrid_blind_real
 HYBRID_BLIND_STRICT_APPLY_EXECUTE ?= 0
+HYBRID_SUPERPASS_HYBRID_BLIND_GATE_REPORT ?= $(HYBRID_SUPERPASS_GATE_REPORT_JSON)
+HYBRID_SUPERPASS_HYBRID_CALIBRATION_JSON ?= $(HYBRID_SUPERPASS_CALIBRATION_JSON)
 EVAL_WEEKLY_SUMMARY_DAYS ?= 7
 EVAL_WEEKLY_SUMMARY_OUTPUT ?= reports/eval_history/weekly_summary.md
 
@@ -1421,12 +1451,71 @@ hybrid-blind-drift-apply-suggestion-gh: ## 将建议阈值同步到 GitHub Varia
 		--repo "$(HYBRID_BLIND_DRIFT_SUGGEST_APPLY_REPO)" \
 		$$extra_flags
 
+hybrid-superpass-gate: ## 检查 Hybrid “超越目标”门禁（盲测精度/增益 + 校准ECE）
+	@echo "$(GREEN)Checking hybrid superpass targets...$(NC)"
+	@gate_report="$(HYBRID_SUPERPASS_HYBRID_BLIND_GATE_REPORT)"; \
+	if [ -z "$$gate_report" ]; then gate_report="$(HYBRID_SUPERPASS_GATE_REPORT_JSON)"; fi; \
+	calibration_json="$(HYBRID_SUPERPASS_HYBRID_CALIBRATION_JSON)"; \
+	if [ -z "$$calibration_json" ]; then calibration_json="$(HYBRID_SUPERPASS_CALIBRATION_JSON)"; fi; \
+	extra_flags=""; \
+	$(PYTHON) scripts/ci/check_hybrid_superpass_targets.py \
+		--hybrid-blind-gate-report "$$gate_report" \
+		--hybrid-calibration-json "$$calibration_json" \
+		--config "$(HYBRID_SUPERPASS_CONFIG)" \
+		--missing-mode "$(HYBRID_SUPERPASS_MISSING_MODE)" \
+		--output "$(HYBRID_SUPERPASS_OUTPUT_JSON)" \
+		$$extra_flags
+
+hybrid-superpass-e2e-gh: ## 通过 gh workflow_dispatch 触发 superpass E2E 并等待结果
+	@echo "$(GREEN)Dispatching hybrid superpass workflow e2e...$(NC)"
+	@extra_flags=""; \
+	if [ "$(HYBRID_SUPERPASS_E2E_PRINT_ONLY)" = "1" ]; then extra_flags="$$extra_flags --print-only"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_E2E_REPO)" ]; then extra_flags="$$extra_flags --repo $(HYBRID_SUPERPASS_E2E_REPO)"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_E2E_HYBRID_BLIND_ENABLE)" ]; then extra_flags="$$extra_flags --hybrid-blind-enable $(HYBRID_SUPERPASS_E2E_HYBRID_BLIND_ENABLE)"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_E2E_HYBRID_BLIND_DXF_DIR)" ]; then extra_flags="$$extra_flags --hybrid-blind-dxf-dir $(HYBRID_SUPERPASS_E2E_HYBRID_BLIND_DXF_DIR)"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_E2E_HYBRID_BLIND_FAIL_ON_GATE_FAILED)" ]; then extra_flags="$$extra_flags --hybrid-blind-fail-on-gate-failed $(HYBRID_SUPERPASS_E2E_HYBRID_BLIND_FAIL_ON_GATE_FAILED)"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_E2E_HYBRID_BLIND_STRICT_REQUIRE_REAL_DATA)" ]; then extra_flags="$$extra_flags --hybrid-blind-strict-require-real-data $(HYBRID_SUPERPASS_E2E_HYBRID_BLIND_STRICT_REQUIRE_REAL_DATA)"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_E2E_HYBRID_CALIBRATION_ENABLE)" ]; then extra_flags="$$extra_flags --hybrid-calibration-enable $(HYBRID_SUPERPASS_E2E_HYBRID_CALIBRATION_ENABLE)"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_E2E_HYBRID_CALIBRATION_INPUT_CSV)" ]; then extra_flags="$$extra_flags --hybrid-calibration-input-csv $(HYBRID_SUPERPASS_E2E_HYBRID_CALIBRATION_INPUT_CSV)"; fi; \
+	$(PYTHON) scripts/ci/dispatch_hybrid_superpass_workflow.py \
+		--workflow "$(HYBRID_SUPERPASS_E2E_WORKFLOW)" \
+		--ref "$(HYBRID_SUPERPASS_E2E_REF)" \
+		--hybrid-superpass-enable "$(HYBRID_SUPERPASS_E2E_ENABLE)" \
+		--hybrid-superpass-missing-mode "$(HYBRID_SUPERPASS_E2E_MISSING_MODE)" \
+		--hybrid-superpass-fail-on-failed "$(HYBRID_SUPERPASS_E2E_FAIL_ON_FAILED)" \
+		--expected-conclusion "$(HYBRID_SUPERPASS_E2E_EXPECTED_CONCLUSION)" \
+		--wait-timeout-seconds "$(HYBRID_SUPERPASS_E2E_TIMEOUT)" \
+		--poll-interval-seconds "$(HYBRID_SUPERPASS_E2E_POLL_INTERVAL)" \
+		--list-limit "$(HYBRID_SUPERPASS_E2E_LIST_LIMIT)" \
+		--output-json "$(HYBRID_SUPERPASS_E2E_OUTPUT_JSON)" \
+		$$extra_flags
+
+hybrid-superpass-apply-gh-vars: ## 将 superpass 推荐变量同步到 GitHub Variables（默认仅预览）
+	@echo "$(GREEN)Applying hybrid superpass variables to GitHub...$(NC)"
+	@extra_flags=""; \
+	if [ "$(HYBRID_SUPERPASS_APPLY_EXECUTE)" = "1" ]; then extra_flags="$$extra_flags --apply"; fi; \
+	$(PYTHON) scripts/ci/apply_hybrid_superpass_gh_vars.py \
+		--repo "$(HYBRID_SUPERPASS_APPLY_REPO)" \
+		--config-path "$(HYBRID_SUPERPASS_APPLY_CONFIG_PATH)" \
+		$$extra_flags
+
 validate-hybrid-blind-strict-real-e2e-gh: ## 校验 strict-real gh dispatch 脚本与 Make 参数透传
 	@echo "$(GREEN)Validating hybrid blind strict-real gh dispatch integration...$(NC)"
 	$(PYTEST) \
 		$(TEST_DIR)/unit/test_dispatch_hybrid_blind_strict_real_workflow.py \
 		$(TEST_DIR)/unit/test_print_hybrid_blind_strict_real_gh_template.py \
 		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py -q
+
+validate-hybrid-superpass-workflow: ## 校验 superpass gh 自动化与 workflow 集成
+	@echo "$(GREEN)Validating hybrid superpass workflow integration...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_dispatch_hybrid_superpass_workflow.py \
+		$(TEST_DIR)/unit/test_apply_hybrid_superpass_gh_vars.py \
+		$(TEST_DIR)/unit/test_check_hybrid_superpass_targets.py \
+		$(TEST_DIR)/unit/test_evaluation_report_workflow_hybrid_superpass_step.py \
+		$(TEST_DIR)/unit/test_hybrid_superpass_workflow_integration.py \
+		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py \
+		$(TEST_DIR)/unit/test_evaluation_report_workflow_graph2d_extensions.py -q
 
 eval-weekly-summary: ## 生成滚动7天评测周报（Markdown）
 	@echo "$(GREEN)Generating rolling weekly eval summary...$(NC)"
@@ -1449,6 +1538,10 @@ validate-hybrid-blind-workflow: ## 校验 Hybrid 盲测 workflow 集成（workfl
 		$(TEST_DIR)/unit/test_suggest_hybrid_blind_drift_thresholds.py \
 		$(TEST_DIR)/unit/test_validate_eval_history_hybrid_blind.py \
 		$(TEST_DIR)/unit/test_generate_eval_weekly_summary.py \
+		$(TEST_DIR)/unit/test_check_hybrid_superpass_targets.py \
+		$(TEST_DIR)/unit/test_dispatch_hybrid_superpass_workflow.py \
+		$(TEST_DIR)/unit/test_apply_hybrid_superpass_gh_vars.py \
+		$(TEST_DIR)/unit/test_evaluation_report_workflow_hybrid_superpass_step.py \
 		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py \
 		$(TEST_DIR)/unit/test_evaluation_report_workflow_graph2d_extensions.py -q
 

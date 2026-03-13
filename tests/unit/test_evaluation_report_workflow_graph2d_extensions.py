@@ -73,6 +73,11 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MIN_SUPPORT" in env
     assert "HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MAX_ACC_DROP" in env
     assert "HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MAX_GAIN_DROP" in env
+    assert "HYBRID_SUPERPASS_ENABLE" in env
+    assert "HYBRID_SUPERPASS_CONFIG" in env
+    assert "HYBRID_SUPERPASS_OUTPUT_JSON" in env
+    assert "HYBRID_SUPERPASS_MISSING_MODE" in env
+    assert "HYBRID_SUPERPASS_FAIL_ON_FAILED" in env
 
     dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
     assert "review_gate_min_total_rows" in dispatch_inputs
@@ -97,6 +102,9 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "hybrid_blind_drift_alert_consecutive_window" in dispatch_inputs
     assert "hybrid_blind_drift_alert_label_slice_enable" in dispatch_inputs
     assert "hybrid_blind_drift_alert_family_slice_enable" in dispatch_inputs
+    assert "hybrid_superpass_enable" in dispatch_inputs
+    assert "hybrid_superpass_missing_mode" in dispatch_inputs
+    assert "hybrid_superpass_fail_on_failed" in dispatch_inputs
 
 
 def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> None:
@@ -280,6 +288,37 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--family-slice-max-hybrid-accuracy-drop" in hybrid_blind_drift_script
     assert "--family-slice-max-gain-drop" in hybrid_blind_drift_script
 
+    hybrid_superpass_step = _get_step(
+        workflow, "evaluate", "Check Hybrid superpass gate (optional)"
+    )
+    hybrid_superpass_script = hybrid_superpass_step["run"]
+    assert "scripts/ci/check_hybrid_superpass_targets.py" in hybrid_superpass_script
+    assert "hybrid_superpass_enable" in hybrid_superpass_script
+    assert "--hybrid-blind-gate-report" in hybrid_superpass_script
+    assert "--hybrid-calibration-json" in hybrid_superpass_script
+    assert "--config" in hybrid_superpass_script
+    assert "--missing-mode" in hybrid_superpass_script
+    assert "--output" in hybrid_superpass_script
+
+    hybrid_superpass_strict_step = _get_step(
+        workflow, "evaluate", "Evaluate Hybrid superpass strict mode (optional)"
+    )
+    hybrid_superpass_strict_script = hybrid_superpass_strict_step["run"]
+    assert "HYBRID_SUPERPASS_FAIL_ON_FAILED" in hybrid_superpass_strict_script
+    assert "hybrid_superpass_fail_on_failed" in hybrid_superpass_strict_script
+    assert "status is not passed" in hybrid_superpass_strict_script
+
+    hybrid_superpass_fail_step = _get_step(
+        workflow,
+        "evaluate",
+        "Fail workflow when Hybrid superpass strict check requires blocking",
+    )
+    assert (
+        hybrid_superpass_fail_step["if"]
+        == "steps.hybrid_superpass_gate_strict.outputs.should_fail == 'true'"
+    )
+    assert "Failure reason" in hybrid_superpass_fail_step["run"]
+
     hybrid_final_fail_step = _get_step(
         workflow,
         "evaluate",
@@ -347,6 +386,15 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     )
     assert "report_md_path" in upload_hybrid_blind_drift["with"]["path"]
 
+    upload_hybrid_superpass = _get_step(
+        workflow, "evaluate", "Upload Hybrid superpass gate artifact"
+    )
+    assert (
+        upload_hybrid_superpass["if"]
+        == "steps.hybrid_superpass_gate.outputs.enabled == 'true'"
+    )
+    assert "report_path" in upload_hybrid_superpass["with"]["path"]
+
     weekly_summary_step = _get_step(workflow, "evaluate", "Generate weekly rolling summary")
     weekly_summary_script = weekly_summary_step["run"]
     assert "scripts/ci/generate_eval_weekly_summary.py" in weekly_summary_script
@@ -396,6 +444,10 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Hybrid blind family_slice_effective_min_common" in summary_script
     assert "Hybrid blind family_slice_common_count" in summary_script
     assert "Hybrid blind family_slice_worst_acc_drop" in summary_script
+    assert "Hybrid superpass gate status" in summary_script
+    assert "Hybrid superpass gate headline" in summary_script
+    assert "Hybrid superpass gate report" in summary_script
+    assert "Hybrid superpass gate strict_should_fail" in summary_script
 
     pr_comment_step = _get_step(workflow, "evaluate", "Comment PR with results")
     pr_comment_script = pr_comment_step["with"]["script"]
