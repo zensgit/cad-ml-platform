@@ -66,6 +66,7 @@ jobs:
       COMPARE_JSON: artifacts/hybrid-superpass-nightly/compare.json
       COMPARE_MD: artifacts/hybrid-superpass-nightly/compare.md
       DUAL_SUMMARY_JSON: artifacts/hybrid-superpass-nightly/dual-summary.json
+      DUAL_SUMMARY_MD: artifacts/hybrid-superpass-nightly/dual-summary.md
       DUAL_WAIT_TIMEOUT_SECONDS: ${{ github.event.inputs.dual_wait_timeout_seconds || '900' }}
       DUAL_POLL_INTERVAL_SECONDS: ${{ github.event.inputs.dual_poll_interval_seconds || '3' }}
       DUAL_LIST_LIMIT: ${{ github.event.inputs.dual_list_limit || '20' }}
@@ -112,6 +113,26 @@ jobs:
             "${strict_flags[@]}"
           echo "dual_summary_json=$DUAL_SUMMARY_JSON" >> "$GITHUB_OUTPUT"
 
+      - name: Render nightly dual summary markdown
+        if: always()
+        id: render_summary
+        run: |
+          mkdir -p "$ARTIFACT_DIR"
+          compare_json_args=()
+          if [[ -f "$COMPARE_JSON" ]]; then
+            compare_json_args+=(--compare-json "$COMPARE_JSON")
+          fi
+          compare_md_args=()
+          if [[ -f "$COMPARE_MD" ]]; then
+            compare_md_args+=(--compare-md "$COMPARE_MD")
+          fi
+          python scripts/ci/render_hybrid_superpass_dual_summary.py \
+            --dual-summary-json "$DUAL_SUMMARY_JSON" \
+            "${compare_json_args[@]}" \
+            "${compare_md_args[@]}" \
+            --output-md "$DUAL_SUMMARY_MD"
+          echo "dual_summary_md=$DUAL_SUMMARY_MD" >> "$GITHUB_OUTPUT"
+
       - name: Upload nightly superpass compare artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -123,6 +144,7 @@ jobs:
             ${{ env.COMPARE_JSON }}
             ${{ env.COMPARE_MD }}
             ${{ env.DUAL_SUMMARY_JSON }}
+            ${{ env.DUAL_SUMMARY_MD }}
           if-no-files-found: warn
           retention-days: 30
 
@@ -141,11 +163,12 @@ jobs:
           echo "- Strict require trace pair: $STRICT_REQUIRE_TRACE_PAIR" >> "$GITHUB_STEP_SUMMARY"
           echo "- Dual dispatch step outcome: ${{ steps.dual_dispatch.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Dual summary JSON: $DUAL_SUMMARY_JSON" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Dual summary Markdown: $DUAL_SUMMARY_MD" >> "$GITHUB_STEP_SUMMARY"
           echo "- Compare JSON: $COMPARE_JSON" >> "$GITHUB_STEP_SUMMARY"
           echo "- Compare Markdown: $COMPARE_MD" >> "$GITHUB_STEP_SUMMARY"
-          if [[ -f "$COMPARE_MD" ]]; then
+          if [[ -f "$DUAL_SUMMARY_MD" ]]; then
             echo "" >> "$GITHUB_STEP_SUMMARY"
-            cat "$COMPARE_MD" >> "$GITHUB_STEP_SUMMARY"
+            cat "$DUAL_SUMMARY_MD" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "- Compare markdown file not generated." >> "$GITHUB_STEP_SUMMARY"
+            echo "- Dual summary markdown file not generated." >> "$GITHUB_STEP_SUMMARY"
           fi

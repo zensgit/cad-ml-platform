@@ -232,6 +232,7 @@ def test_make_n_validate_hybrid_superpass_workflow_runs_expected_tests() -> None
 def test_make_n_validate_hybrid_superpass_nightly_workflow_runs_expected_tests() -> None:
     result = _run_make("-n", "validate-hybrid-superpass-nightly-workflow")
     assert result.returncode == 0, result.stderr
+    assert "test_render_hybrid_superpass_dual_summary.py" in result.stdout
     assert "test_dispatch_hybrid_superpass_nightly_workflow.py" in result.stdout
     assert "test_hybrid_superpass_nightly_workflow.py" in result.stdout
     assert "test_graph2d_parallel_make_targets.py" in result.stdout

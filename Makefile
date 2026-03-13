@@ -1257,6 +1257,7 @@ validate-hybrid-superpass-workflow: ## 校验 superpass gh 自动化与 workflow
 validate-hybrid-superpass-nightly-workflow: ## 校验 superpass nightly workflow 编排
 	@echo "$(GREEN)Validating hybrid superpass nightly workflow...$(NC)"
 	$(PYTEST) \
+		$(TEST_DIR)/unit/test_render_hybrid_superpass_dual_summary.py \
 		$(TEST_DIR)/unit/test_dispatch_hybrid_superpass_nightly_workflow.py \
 		$(TEST_DIR)/unit/test_hybrid_superpass_nightly_workflow.py \
 		$(TEST_DIR)/unit/test_graph2d_parallel_make_targets.py -q

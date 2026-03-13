@@ -97,6 +97,20 @@ def test_workflow_has_dual_dispatch_compare_artifact_and_summary_steps() -> None
     assert "--strict" in dual_script
     assert "\"${strict_flags[@]}\"" in dual_script
 
+    render_step = _get_step(workflow, job_name, "Render nightly dual summary markdown")
+    render_script = render_step["run"]
+    assert render_step["if"] == "always()"
+    assert "scripts/ci/render_hybrid_superpass_dual_summary.py" in render_script
+    assert "--dual-summary-json \"$DUAL_SUMMARY_JSON\"" in render_script
+    assert "compare_json_args=()" in render_script
+    assert "compare_json_args+=(--compare-json \"$COMPARE_JSON\")" in render_script
+    assert "compare_md_args=()" in render_script
+    assert "compare_md_args+=(--compare-md \"$COMPARE_MD\")" in render_script
+    assert "\"${compare_json_args[@]}\"" in render_script
+    assert "\"${compare_md_args[@]}\"" in render_script
+    assert "--output-md \"$DUAL_SUMMARY_MD\"" in render_script
+    assert "dual_summary_md=$DUAL_SUMMARY_MD" in render_script
+
     upload_step = _get_step(
         workflow, job_name, "Upload nightly superpass compare artifacts"
     )
@@ -107,6 +121,7 @@ def test_workflow_has_dual_dispatch_compare_artifact_and_summary_steps() -> None
     assert "${{ env.COMPARE_JSON }}" in upload_step["with"]["path"]
     assert "${{ env.COMPARE_MD }}" in upload_step["with"]["path"]
     assert "${{ env.DUAL_SUMMARY_JSON }}" in upload_step["with"]["path"]
+    assert "${{ env.DUAL_SUMMARY_MD }}" in upload_step["with"]["path"]
 
     summary_step = _get_step(workflow, job_name, "Write nightly superpass step summary")
     summary_script = summary_step["run"]
@@ -126,3 +141,5 @@ def test_workflow_has_dual_dispatch_compare_artifact_and_summary_steps() -> None
     assert "$STRICT_REQUIRE_TRACE_PAIR" in summary_script
     assert "Dual dispatch step outcome" in summary_script
     assert "Dual summary JSON" in summary_script
+    assert "Dual summary Markdown" in summary_script
+    assert "$DUAL_SUMMARY_MD" in summary_script

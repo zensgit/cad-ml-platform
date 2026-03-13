@@ -293,3 +293,44 @@ make validate-hybrid-superpass-nightly-workflow
 - `pytest tests/unit/test_compare_hybrid_superpass_reports.py tests/unit/test_run_hybrid_superpass_dual_dispatch.py tests/unit/test_dispatch_hybrid_superpass_nightly_workflow.py tests/unit/test_hybrid_superpass_nightly_workflow.py tests/unit/test_graph2d_parallel_make_targets.py -q`：`36 passed, 1 warning`
 - `make validate-hybrid-superpass-workflow`：`68 passed, 1 warning`
 - `make validate-hybrid-superpass-nightly-workflow`：`26 passed, 1 warning`
+
+## 增量强化（同日第八轮：dual summary 渲染与夜检可读性）
+
+### 新增 dual summary 渲染脚本
+- 文件：`scripts/ci/render_hybrid_superpass_dual_summary.py`
+- 能力：
+  - 读取 `dual-summary.json`（必需）和 `compare.json`（可选）。
+  - 产出统一 markdown，包含：
+    - Exit codes（overall/fail/success/compare）
+    - Key checks（run_id/trace/strict 等）
+    - fail/success run 信息
+    - 可选附加 compare markdown 内容。
+  - dual json 非法时返回非零，便于 CI 直接失败。
+
+### Nightly workflow 接入渲染步骤
+- 文件：`.github/workflows/hybrid-superpass-nightly.yml`
+- 改动：
+  - 新增 `DUAL_SUMMARY_MD` 产物路径。
+  - 新增步骤 `Render nightly dual summary markdown`。
+  - artifact 增加 `DUAL_SUMMARY_MD`。
+  - step summary 优先附加 `DUAL_SUMMARY_MD`，提升可读性与排障效率。
+
+### Nightly 验证链纳入渲染器单测
+- 文件：
+  - `Makefile`
+  - `tests/unit/test_graph2d_parallel_make_targets.py`
+- 改动：
+  - `validate-hybrid-superpass-nightly-workflow` 新增 `test_render_hybrid_superpass_dual_summary.py`。
+  - Make 目标断言同步更新。
+
+### 测试覆盖增强
+- 文件：
+  - `tests/unit/test_render_hybrid_superpass_dual_summary.py`
+  - `tests/unit/test_hybrid_superpass_nightly_workflow.py`
+  - `tests/unit/test_dispatch_hybrid_superpass_nightly_workflow.py`
+  - `tests/unit/test_graph2d_parallel_make_targets.py`
+
+### 第八轮验证结果
+- `pytest tests/unit/test_render_hybrid_superpass_dual_summary.py tests/unit/test_dispatch_hybrid_superpass_nightly_workflow.py tests/unit/test_hybrid_superpass_nightly_workflow.py tests/unit/test_graph2d_parallel_make_targets.py -q`：`29 passed, 1 warning`
+- `make validate-hybrid-superpass-workflow`：`68 passed, 1 warning`
+- `make validate-hybrid-superpass-nightly-workflow`：`29 passed, 1 warning`
