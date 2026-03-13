@@ -115,6 +115,22 @@ make hybrid-superpass-e2e-gh \
 With remote pre-check enabled, this mismatch is now detected before dispatch and returns
 an actionable error instead of relying on HTTP 422 post-dispatch.
 
+Branch-ref E2E after sync (`feat/hybrid-blind-drift-autotune-e2e`):
+
+```bash
+make hybrid-superpass-e2e-gh \
+  HYBRID_SUPERPASS_E2E_REPO=zensgit/cad-ml-platform \
+  HYBRID_SUPERPASS_E2E_REF=feat/hybrid-blind-drift-autotune-e2e \
+  HYBRID_SUPERPASS_E2E_EXPECTED_CONCLUSION=failure \
+  HYBRID_SUPERPASS_E2E_PRINT_ONLY=0
+```
+
+- Run URL: `https://github.com/zensgit/cad-ml-platform/actions/runs/23037797407`
+- Conclusion: `failure`
+- Expected: `failure`
+- `matched_expectation=true`
+- Failure reason in logs: `superpass_failed_under_strict_mode`
+
 ## Next Action
 - For strict enforcement in GitHub Actions:
   1. `make hybrid-superpass-apply-gh-vars HYBRID_SUPERPASS_APPLY_REPO=<owner/repo> HYBRID_SUPERPASS_APPLY_EXECUTE=1`
