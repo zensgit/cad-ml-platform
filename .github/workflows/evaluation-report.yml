@@ -173,6 +173,7 @@ env:
   HYBRID_SUPERPASS_MISSING_MODE: ${{ vars.HYBRID_SUPERPASS_MISSING_MODE || 'skip' }}
   HYBRID_SUPERPASS_GATE_REPORT_JSON: ${{ vars.HYBRID_SUPERPASS_GATE_REPORT_JSON || 'reports/history_sequence_eval/hybrid_blind_gate_report.json' }}
   HYBRID_SUPERPASS_CALIBRATION_JSON: ${{ vars.HYBRID_SUPERPASS_CALIBRATION_JSON || 'models/calibration/hybrid_confidence_calibration.json' }}
+  HYBRID_SUPERPASS_VALIDATION_JSON: ${{ vars.HYBRID_SUPERPASS_VALIDATION_JSON || 'reports/history_sequence_eval/hybrid_superpass_validation.json' }}
   HYBRID_SUPERPASS_FAIL_ON_FAILED: ${{ vars.HYBRID_SUPERPASS_FAIL_ON_FAILED || 'false' }}
   HYBRID_BLIND_ENABLE: ${{ vars.HYBRID_BLIND_ENABLE || 'false' }}
   HYBRID_BLIND_DXF_DIR: ${{ vars.HYBRID_BLIND_DXF_DIR }}
@@ -1520,11 +1521,103 @@ jobs:
         echo "reason=superpass_passed_under_strict_mode" >> $GITHUB_OUTPUT
         echo "Hybrid superpass strict mode enabled and status passed."
 
+    - name: Validate Hybrid superpass report structure (optional)
+      id: hybrid_superpass_validate
+      if: steps.hybrid_superpass_gate.outputs.enabled == 'true'
+      continue-on-error: true
+      run: |
+        REPORT_PATH="${{ steps.hybrid_superpass_gate.outputs.report_path }}"
+        if [[ -z "$REPORT_PATH" || ! -f "$REPORT_PATH" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "status=skipped_missing_superpass_report" >> $GITHUB_OUTPUT
+          echo "warning_count=1" >> $GITHUB_OUTPUT
+          echo "error_count=0" >> $GITHUB_OUTPUT
+          echo "report_path=" >> $GITHUB_OUTPUT
+          echo "Hybrid superpass report missing; skip structural validation."
+          exit 0
+        fi
+
+        VALIDATION_JSON="${HYBRID_SUPERPASS_VALIDATION_JSON:-reports/history_sequence_eval/hybrid_superpass_validation.json}"
+        mkdir -p "$(dirname "$VALIDATION_JSON")"
+
+        GATE_JSON="${{ steps.hybrid_blind_gate.outputs.report_path }}"
+        if [[ -z "$GATE_JSON" ]]; then
+          GATE_JSON="${HYBRID_SUPERPASS_GATE_REPORT_JSON:-reports/history_sequence_eval/hybrid_blind_gate_report.json}"
+        fi
+        CALIBRATION_JSON="${{ steps.hybrid_calibration.outputs.output_json }}"
+        if [[ -z "$CALIBRATION_JSON" ]]; then
+          CALIBRATION_JSON="${HYBRID_SUPERPASS_CALIBRATION_JSON:-models/calibration/hybrid_confidence_calibration.json}"
+        fi
+
+        STRICT_MODE="${{ steps.hybrid_superpass_gate_strict.outputs.strict_mode || 'false' }}"
+        args=(
+          python3 scripts/ci/validate_hybrid_superpass_reports.py
+          --superpass-json "$REPORT_PATH"
+          --output-json "$VALIDATION_JSON"
+        )
+        if [[ -n "$GATE_JSON" ]]; then
+          args+=(--hybrid-blind-gate-report "$GATE_JSON")
+        fi
+        if [[ -n "$CALIBRATION_JSON" ]]; then
+          args+=(--hybrid-calibration-json "$CALIBRATION_JSON")
+        fi
+        if [[ "$STRICT_MODE" == "true" ]]; then
+          args+=(--strict)
+        fi
+
+        set +e
+        "${args[@]}"
+        VALIDATE_EXIT_CODE=$?
+        set -e
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "exit_code=$VALIDATE_EXIT_CODE" >> $GITHUB_OUTPUT
+        echo "report_path=$VALIDATION_JSON" >> $GITHUB_OUTPUT
+        if [[ ! -f "$VALIDATION_JSON" ]]; then
+          echo "status=missing_output" >> $GITHUB_OUTPUT
+          echo "warning_count=0" >> $GITHUB_OUTPUT
+          echo "error_count=1" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        export HYBRID_SUPERPASS_VALIDATION_REPORT="$VALIDATION_JSON"
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path(os.environ["HYBRID_SUPERPASS_VALIDATION_REPORT"]).read_text(encoding="utf-8")
+        )
+        status = str(payload.get("status", "unknown"))
+        warnings = payload.get("warnings") if isinstance(payload.get("warnings"), list) else []
+        errors = payload.get("errors") if isinstance(payload.get("errors"), list) else []
+        if status == "error":
+            headline = f"error: {str(errors[0]).strip() if errors else 'unknown'}"
+        elif status == "warn":
+            headline = f"warn: {str(warnings[0]).strip() if warnings else 'warning'}"
+        else:
+            headline = "ok"
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"status={status}\n")
+            f.write(f"warning_count={len(warnings)}\n")
+            f.write(f"error_count={len(errors)}\n")
+            f.write(f"headline={headline}\n")
+        PY
+
     - name: Fail workflow when Hybrid superpass strict check requires blocking
       if: steps.hybrid_superpass_gate_strict.outputs.should_fail == 'true'
       run: |
         echo "Hybrid superpass strict-mode check requested failure."
         echo "Failure reason: ${{ steps.hybrid_superpass_gate_strict.outputs.reason }}"
+        exit 1
+
+    - name: Fail workflow when Hybrid superpass structure validation requires blocking
+      if: steps.hybrid_superpass_gate_strict.outputs.strict_mode == 'true' && steps.hybrid_superpass_validate.outputs.exit_code != '0'
+      run: |
+        echo "Hybrid superpass structure validation failed in strict mode."
+        echo "Validation status: ${{ steps.hybrid_superpass_validate.outputs.status }}"
+        echo "Validation headline: ${{ steps.hybrid_superpass_validate.outputs.headline || 'n/a' }}"
         exit 1
 
     - name: Generate trend charts
@@ -1709,7 +1802,9 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: hybrid-superpass-gate-${{ github.run_number }}
-        path: ${{ steps.hybrid_superpass_gate.outputs.report_path }}
+        path: |
+          ${{ steps.hybrid_superpass_gate.outputs.report_path }}
+          ${{ steps.hybrid_superpass_validate.outputs.report_path }}
         if-no-files-found: ignore
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
@@ -1903,6 +1998,11 @@ jobs:
           echo "- Hybrid superpass gate headline: ${{ steps.hybrid_superpass_gate.outputs.headline }}" >> $GITHUB_STEP_SUMMARY
           echo "- Hybrid superpass gate report: ${{ steps.hybrid_superpass_gate.outputs.report_path }}" >> $GITHUB_STEP_SUMMARY
           echo "- Hybrid superpass gate missing_mode: ${{ steps.hybrid_superpass_gate.outputs.missing_mode }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Hybrid superpass structure validation status: ${{ steps.hybrid_superpass_validate.outputs.status || 'unknown' }} (exit=${{ steps.hybrid_superpass_validate.outputs.exit_code || 'n/a' }})" >> $GITHUB_STEP_SUMMARY
+          echo "- Hybrid superpass structure validation report: ${{ steps.hybrid_superpass_validate.outputs.report_path || 'n/a' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Hybrid superpass structure validation headline: ${{ steps.hybrid_superpass_validate.outputs.headline || 'n/a' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Hybrid superpass structure validation warnings: ${{ steps.hybrid_superpass_validate.outputs.warning_count || '0' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Hybrid superpass structure validation errors: ${{ steps.hybrid_superpass_validate.outputs.error_count || '0' }}" >> $GITHUB_STEP_SUMMARY
           echo "- Hybrid superpass gate strict_mode: ${{ steps.hybrid_superpass_gate_strict.outputs.strict_mode || 'false' }}" >> $GITHUB_STEP_SUMMARY
           echo "- Hybrid superpass gate strict_should_fail: ${{ steps.hybrid_superpass_gate_strict.outputs.should_fail || 'false' }}" >> $GITHUB_STEP_SUMMARY
           echo "- Hybrid superpass gate strict_reason: ${{ steps.hybrid_superpass_gate_strict.outputs.reason || 'n/a' }}" >> $GITHUB_STEP_SUMMARY

@@ -34,6 +34,7 @@ def test_workflow_dispatch_and_env_expose_hybrid_superpass_controls() -> None:
     assert "HYBRID_SUPERPASS_MISSING_MODE" in env
     assert "HYBRID_SUPERPASS_GATE_REPORT_JSON" in env
     assert "HYBRID_SUPERPASS_CALIBRATION_JSON" in env
+    assert "HYBRID_SUPERPASS_VALIDATION_JSON" in env
     assert "HYBRID_SUPERPASS_FAIL_ON_FAILED" in env
 
 
@@ -63,6 +64,7 @@ def test_workflow_uploads_superpass_artifact_and_summary_lines() -> None:
         == "hybrid-superpass-gate-${{ github.run_number }}"
     )
     assert "steps.hybrid_superpass_gate.outputs.report_path" in upload_step["with"]["path"]
+    assert "steps.hybrid_superpass_validate.outputs.report_path" in upload_step["with"]["path"]
 
     summary_step = _get_step(workflow, "evaluate", "Create job summary")
     summary_script = summary_step["run"]
@@ -70,6 +72,24 @@ def test_workflow_uploads_superpass_artifact_and_summary_lines() -> None:
     assert "Hybrid superpass gate headline" in summary_script
     assert "Hybrid superpass gate report" in summary_script
     assert "Hybrid superpass gate missing_mode" in summary_script
+    assert "Hybrid superpass structure validation status" in summary_script
+    assert "Hybrid superpass structure validation report" in summary_script
+    assert "Hybrid superpass structure validation headline" in summary_script
+    assert "Hybrid superpass structure validation warnings" in summary_script
+    assert "Hybrid superpass structure validation errors" in summary_script
+
+
+def test_workflow_has_superpass_structure_validation_step() -> None:
+    workflow = _load_workflow()
+    validate_step = _get_step(workflow, "evaluate", "Validate Hybrid superpass report structure (optional)")
+    assert validate_step["if"] == "steps.hybrid_superpass_gate.outputs.enabled == 'true'"
+    validate_script = validate_step["run"]
+    assert "scripts/ci/validate_hybrid_superpass_reports.py" in validate_script
+    assert "--superpass-json" in validate_script
+    assert "--hybrid-blind-gate-report" in validate_script
+    assert "--hybrid-calibration-json" in validate_script
+    assert "--output-json" in validate_script
+    assert "--strict" in validate_script
 
 
 def test_workflow_has_superpass_strict_mode_steps() -> None:
@@ -90,3 +110,14 @@ def test_workflow_has_superpass_strict_mode_steps() -> None:
         == "steps.hybrid_superpass_gate_strict.outputs.should_fail == 'true'"
     )
     assert "Failure reason" in final_fail_step["run"]
+
+    validation_fail_step = _get_step(
+        workflow,
+        "evaluate",
+        "Fail workflow when Hybrid superpass structure validation requires blocking",
+    )
+    assert (
+        validation_fail_step["if"]
+        == "steps.hybrid_superpass_gate_strict.outputs.strict_mode == 'true' && steps.hybrid_superpass_validate.outputs.exit_code != '0'"
+    )
+    assert "structure validation failed in strict mode" in validation_fail_step["run"]

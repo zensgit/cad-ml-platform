@@ -97,3 +97,23 @@ def test_make_n_validate_graph2d_review_pack_gate_strict_e2e_runs_expected_tests
     assert "test_dispatch_graph2d_review_gate_strict_e2e.py" in result.stdout
     assert "test_graph2d_parallel_make_targets.py" in result.stdout
     assert "test_evaluation_report_workflow_graph2d_extensions.py" in result.stdout
+
+
+def test_make_n_validate_eval_with_history_ci_workflows_runs_expected_tests() -> None:
+    result = _run_make("-n", "validate-eval-with-history-ci-workflows")
+    assert result.returncode == 0, result.stderr
+    assert "test_eval_with_history_script_history_sequence.py" in result.stdout
+    assert "test_validate_eval_history_history_sequence.py" in result.stdout
+    assert "test_evaluation_report_workflow_graph2d_extensions.py" in result.stdout
+    assert "test_ci_workflow_eval_with_history_regression_step.py" in result.stdout
+    assert "test_ci_enhanced_eval_with_history_regression_step.py" in result.stdout
+    assert "test_ci_tiered_eval_with_history_regression_step.py" in result.stdout
+
+
+def test_make_n_validate_hybrid_superpass_workflow_runs_expected_tests() -> None:
+    result = _run_make("-n", "validate-hybrid-superpass-workflow")
+    assert result.returncode == 0, result.stderr
+    assert "test_dispatch_hybrid_superpass_workflow.py" in result.stdout
+    assert "test_check_hybrid_superpass_targets.py" in result.stdout
+    assert "test_validate_hybrid_superpass_reports.py" in result.stdout
+    assert "test_hybrid_superpass_workflow_integration.py" in result.stdout

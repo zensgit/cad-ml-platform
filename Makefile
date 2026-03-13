@@ -1512,6 +1512,7 @@ validate-hybrid-superpass-workflow: ## 校验 superpass gh 自动化与 workflow
 		$(TEST_DIR)/unit/test_dispatch_hybrid_superpass_workflow.py \
 		$(TEST_DIR)/unit/test_apply_hybrid_superpass_gh_vars.py \
 		$(TEST_DIR)/unit/test_check_hybrid_superpass_targets.py \
+		$(TEST_DIR)/unit/test_validate_hybrid_superpass_reports.py \
 		$(TEST_DIR)/unit/test_evaluation_report_workflow_hybrid_superpass_step.py \
 		$(TEST_DIR)/unit/test_hybrid_superpass_workflow_integration.py \
 		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py \
