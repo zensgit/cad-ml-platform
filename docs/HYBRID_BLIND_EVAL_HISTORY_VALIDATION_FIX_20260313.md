@@ -25,6 +25,10 @@
   - `--exclude-glob hybrid_blind_drift_alert_report.json`
   - `--exclude-glob hybrid_blind_drift_threshold_suggestion.json`
 
+5. `scripts/ci/generate_eval_weekly_summary.py`
+- 补齐 workflow 必需脚本（此前仓库缺失导致 `Generate weekly rolling summary` 直接失败）。
+- 对应测试：`tests/unit/test_generate_eval_weekly_summary.py`。
+
 ## 新增/更新测试
 - `tests/unit/test_validate_eval_history_exclude_sidecar_reports.py`（新增）
   - 默认排除 sidecar 报告文件
@@ -53,6 +57,15 @@ pytest -q \
 结果：
 - `17 passed`（本地）
 
+另执行：
+
+```bash
+pytest -q tests/unit/test_generate_eval_weekly_summary.py tests/unit/test_hybrid_calibration_make_targets.py
+```
+
+结果：
+- `21 passed`（本地）
+
 额外链路验证：
 
 ```bash
@@ -62,6 +75,15 @@ python3 scripts/validate_eval_history.py --dir <temp_eval_history> --summary
 
 结果：
 - 生成 2 个快照，均通过 schema 校验。
+
+## 远端 CI 验证
+- 运行 `evaluation-report.yml`（branch: `feat/hybrid-blind-drift-autotune-e2e`）
+- Run `23034741828`
+  - 结论：`failure`
+  - 关键观察：`Validate history with JSON Schema` 已通过；失败点转移到 `Generate weekly rolling summary`（缺失脚本）。
+- 修复后 Run `23034796317`
+  - 结论：`success`
+  - `Validate history with JSON Schema` 与 `Generate weekly rolling summary` 均通过。
 
 ## 影响
 - 解决 sidecar 报告误入 schema 校验导致的流程阻塞。
