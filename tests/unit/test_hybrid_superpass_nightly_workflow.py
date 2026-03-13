@@ -55,33 +55,20 @@ def test_workflow_has_dual_dispatch_compare_artifact_and_summary_steps() -> None
     workflow = _load_workflow()
     job_name = "nightly-superpass"
 
-    fail_step = _get_step(workflow, job_name, "Run fail scenario dispatch (expected failure)")
-    fail_script = fail_step["run"]
-    assert "scripts/ci/dispatch_hybrid_superpass_workflow.py" in fail_script
-    assert "--expected-conclusion failure" in fail_script
-    assert "--dispatch-trace-id \"${NIGHTLY_TRACE_ID}-fail\"" in fail_script
-    assert "--repo \"$TARGET_REPO\"" in fail_script
-    assert "--ref \"$TARGET_REF\"" in fail_script
-
-    success_step = _get_step(
-        workflow, job_name, "Run success scenario dispatch (expected success)"
-    )
-    success_script = success_step["run"]
-    assert "scripts/ci/dispatch_hybrid_superpass_workflow.py" in success_script
-    assert "--expected-conclusion success" in success_script
-    assert "--dispatch-trace-id \"${NIGHTLY_TRACE_ID}-success\"" in success_script
-    assert "--hybrid-superpass-missing-mode skip" in success_script
-    assert "--hybrid-superpass-fail-on-failed false" in success_script
-
-    compare_step = _get_step(
-        workflow, job_name, "Compare nightly superpass fail/success results"
-    )
-    compare_script = compare_step["run"]
-    assert compare_step["if"] == "always()"
-    assert "scripts/ci/compare_hybrid_superpass_reports.py" in compare_script
-    assert "--output-json \"$COMPARE_JSON\"" in compare_script
-    assert "--output-md \"$COMPARE_MD\"" in compare_script
-    assert "--strict" in compare_script
+    dual_step = _get_step(workflow, job_name, "Run nightly dual dispatch and compare")
+    dual_script = dual_step["run"]
+    assert dual_step["if"] == "always()"
+    assert "scripts/ci/run_hybrid_superpass_dual_dispatch.py" in dual_script
+    assert "--workflow \"$TARGET_WORKFLOW\"" in dual_script
+    assert "--repo \"$TARGET_REPO\"" in dual_script
+    assert "--ref \"$TARGET_REF\"" in dual_script
+    assert "--fail-output-json \"$FAIL_JSON\"" in dual_script
+    assert "--success-output-json \"$SUCCESS_JSON\"" in dual_script
+    assert "--compare-output-json \"$COMPARE_JSON\"" in dual_script
+    assert "--compare-output-md \"$COMPARE_MD\"" in dual_script
+    assert "--output-json \"$DUAL_SUMMARY_JSON\"" in dual_script
+    assert "--dispatch-trace-prefix \"$NIGHTLY_TRACE_ID\"" in dual_script
+    assert "--strict" in dual_script
 
     upload_step = _get_step(
         workflow, job_name, "Upload nightly superpass compare artifacts"
@@ -92,6 +79,7 @@ def test_workflow_has_dual_dispatch_compare_artifact_and_summary_steps() -> None
     assert "${{ env.SUCCESS_JSON }}" in upload_step["with"]["path"]
     assert "${{ env.COMPARE_JSON }}" in upload_step["with"]["path"]
     assert "${{ env.COMPARE_MD }}" in upload_step["with"]["path"]
+    assert "${{ env.DUAL_SUMMARY_JSON }}" in upload_step["with"]["path"]
 
     summary_step = _get_step(workflow, job_name, "Write nightly superpass step summary")
     summary_script = summary_step["run"]
@@ -99,5 +87,5 @@ def test_workflow_has_dual_dispatch_compare_artifact_and_summary_steps() -> None
     assert "GITHUB_STEP_SUMMARY" in summary_script
     assert "Trace ID" in summary_script
     assert "$NIGHTLY_TRACE_ID" in summary_script
-    assert "Fail scenario step outcome" in summary_script
-    assert "Success scenario step outcome" in summary_script
+    assert "Dual dispatch step outcome" in summary_script
+    assert "Dual summary JSON" in summary_script

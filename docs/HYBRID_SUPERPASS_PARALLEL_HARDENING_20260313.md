@@ -142,3 +142,23 @@ make validate-hybrid-superpass-nightly-workflow
 - `pytest tests/unit/test_run_hybrid_superpass_dual_dispatch.py tests/unit/test_graph2d_parallel_make_targets.py -q`：`21 passed, 1 warning`
 - `make validate-hybrid-superpass-workflow`：`64 passed, 1 warning`
 - `make validate-hybrid-superpass-nightly-workflow`：`25 passed, 1 warning`
+
+## 增量强化（同日第四轮：nightly 编排收敛）
+
+### Nightly workflow 改为单步 orchestrator
+- 文件：`.github/workflows/hybrid-superpass-nightly.yml`
+- 改动：
+  - 将原先 `fail dispatch + success dispatch + compare` 三步，收敛为单步 `run_hybrid_superpass_dual_dispatch.py`。
+  - 继续保留 strict compare 语义，且产物路径保持兼容（`FAIL_JSON/SUCCESS_JSON/COMPARE_JSON/COMPARE_MD`）。
+  - 新增 `DUAL_SUMMARY_JSON` 产物，step summary 增加 dual step outcome 与 dual summary 路径。
+
+### 对应单测更新
+- 文件：`tests/unit/test_hybrid_superpass_nightly_workflow.py`
+- 改动：
+  - 从三步断言改为单步 orchestrator 断言。
+  - 校验 dual summary artifact 与 summary 输出字段。
+
+### 第四轮验证结果
+- `pytest tests/unit/test_hybrid_superpass_nightly_workflow.py tests/unit/test_run_hybrid_superpass_dual_dispatch.py tests/unit/test_graph2d_parallel_make_targets.py -q`：`24 passed, 1 warning`
+- `make validate-hybrid-superpass-workflow`：`64 passed, 1 warning`
+- `make validate-hybrid-superpass-nightly-workflow`：`25 passed, 1 warning`
