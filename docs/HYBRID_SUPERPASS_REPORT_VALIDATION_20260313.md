@@ -19,6 +19,7 @@
   - `--hybrid-calibration-json`（可选）
   - `--output-json`（可选）
   - `--strict`（可选）
+  - `--schema-mode`（可选，`builtin|off`，默认 `builtin`）
 - 校验范围：
   - `superpass` 必备字段与类型：
     - `status`(str), `headline`(str), `thresholds`(dict),
@@ -28,6 +29,9 @@
     - `metrics.hybrid_accuracy`
     - `metrics.hybrid_gain_vs_graph2d`
     - `metrics_after.ece`
+  - JSON Schema 模式：
+    - `builtin`：对 superpass/gate/calibration 执行 schema 校验，补充嵌套字段类型约束
+    - `off`：仅执行脚本内基础结构检查
 - 输出：
   - stdout 打印 JSON
   - 可选写入 `--output-json`
@@ -46,10 +50,11 @@
   - `Validate Hybrid superpass report structure (optional)`
 - 行为：
   - 在 superpass gate 启用后执行；
-  - 当 superpass strict 模式启用时，自动透传 `--strict` 给校验脚本；
+  - 支持独立灰度开关 `hybrid_superpass_validation_strict`（workflow_dispatch / env）；
+  - 当 validation strict 开启时，透传 `--strict` 给校验脚本；
   - 读取 gate 输出报表并进行结构校验；
   - 输出状态、headline、warning/error 数量到 step outputs；
-  - strict 模式下，若结构校验返回非 0，新增阻断步骤失败 workflow；
+  - validation strict 模式下，若结构校验返回非 0，新增阻断步骤失败 workflow；
   - 将校验 JSON 一并纳入 artifact。
 
 ### 3) 测试与 Make 集成
@@ -82,7 +87,22 @@ pytest -q \
 make validate-hybrid-superpass-workflow
 ```
 
-结果：`56 passed`
+结果：`58 passed`
+
+### Schema + 灰度开关回归（本轮追加）
+
+```bash
+pytest -q \
+  tests/unit/test_validate_hybrid_superpass_reports.py \
+  tests/unit/test_dispatch_hybrid_superpass_workflow.py \
+  tests/unit/test_apply_hybrid_superpass_gh_vars.py \
+  tests/unit/test_hybrid_superpass_workflow_integration.py \
+  tests/unit/test_evaluation_report_workflow_hybrid_superpass_step.py \
+  tests/unit/test_evaluation_report_workflow_graph2d_extensions.py \
+  tests/unit/test_hybrid_calibration_make_targets.py
+```
+
+结果：`54 passed`
 
 ## 回滚与风险控制
 

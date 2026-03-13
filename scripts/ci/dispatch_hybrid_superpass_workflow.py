@@ -56,6 +56,7 @@ def build_workflow_run_command(
     hybrid_superpass_enable: str,
     hybrid_superpass_missing_mode: str,
     hybrid_superpass_fail_on_failed: str,
+    hybrid_superpass_validation_strict: str = "",
     hybrid_blind_enable: str = "",
     hybrid_blind_dxf_dir: str = "",
     hybrid_blind_fail_on_gate_failed: str = "",
@@ -86,6 +87,10 @@ def build_workflow_run_command(
             command.extend(["-f", f"{key}={value}"])
 
     _append_if_present("hybrid_blind_enable", hybrid_blind_enable)
+    _append_if_present(
+        "hybrid_superpass_validation_strict",
+        hybrid_superpass_validation_strict,
+    )
     _append_if_present("hybrid_blind_dxf_dir", hybrid_blind_dxf_dir)
     _append_if_present(
         "hybrid_blind_fail_on_gate_failed", hybrid_blind_fail_on_gate_failed
@@ -126,7 +131,9 @@ def _build_list_dispatched_runs_command(
     return command
 
 
-def list_dispatched_run_ids(workflow: str, ref: str, repo: str, *, limit: int) -> list[int]:
+def list_dispatched_run_ids(
+    workflow: str, ref: str, repo: str, *, limit: int
+) -> list[int]:
     command = _build_list_dispatched_runs_command(workflow, ref, repo, limit=limit)
     result = subprocess.run(command, capture_output=True, text=True, check=False)
     if result.returncode != 0:
@@ -225,7 +232,9 @@ def _write_output_json(path_value: str, payload: dict[str, Any]) -> None:
     path = Path(path_value).expanduser()
     if path.parent != Path("."):
         path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(f"{json.dumps(payload, ensure_ascii=False, indent=2)}\n", encoding="utf-8")
+    path.write_text(
+        f"{json.dumps(payload, ensure_ascii=False, indent=2)}\n", encoding="utf-8"
+    )
 
 
 def fetch_remote_workflow_text(repo: str, workflow: str, ref: str) -> str:
@@ -263,6 +272,7 @@ def find_missing_superpass_inputs(workflow_text: str) -> list[str]:
         "hybrid_superpass_enable",
         "hybrid_superpass_missing_mode",
         "hybrid_superpass_fail_on_failed",
+        "hybrid_superpass_validation_strict",
     ]
     missing: list[str] = []
     for key in required:
@@ -280,7 +290,9 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--workflow", default="evaluation-report.yml")
     parser.add_argument("--ref", default="main")
-    parser.add_argument("--repo", default="", help="Optional owner/repo for gh commands.")
+    parser.add_argument(
+        "--repo", default="", help="Optional owner/repo for gh commands."
+    )
     parser.add_argument(
         "--hybrid-superpass-enable",
         default="true",
@@ -296,6 +308,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "--hybrid-superpass-fail-on-failed",
         default="true",
         help="workflow_dispatch.hybrid_superpass_fail_on_failed (true/false)",
+    )
+    parser.add_argument(
+        "--hybrid-superpass-validation-strict",
+        default="",
+        help=(
+            "workflow_dispatch.hybrid_superpass_validation_strict "
+            "(true/false, optional gray switch)"
+        ),
     )
     parser.add_argument("--hybrid-blind-enable", default="")
     parser.add_argument("--hybrid-blind-dxf-dir", default="")
@@ -337,6 +357,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         hybrid_superpass_enable=str(args.hybrid_superpass_enable),
         hybrid_superpass_missing_mode=str(args.hybrid_superpass_missing_mode),
         hybrid_superpass_fail_on_failed=str(args.hybrid_superpass_fail_on_failed),
+        hybrid_superpass_validation_strict=str(args.hybrid_superpass_validation_strict),
         hybrid_blind_enable=str(args.hybrid_blind_enable),
         hybrid_blind_dxf_dir=str(args.hybrid_blind_dxf_dir),
         hybrid_blind_fail_on_gate_failed=str(args.hybrid_blind_fail_on_gate_failed),
@@ -405,12 +426,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         str(args.workflow), str(args.ref), str(args.repo), limit=int(args.list_limit)
     )
 
-    dispatch_result = subprocess.run(dispatch_cmd, capture_output=True, text=True, check=False)
+    dispatch_result = subprocess.run(
+        dispatch_cmd, capture_output=True, text=True, check=False
+    )
     dispatch_output = (dispatch_result.stdout or dispatch_result.stderr or "").strip()
     if dispatch_result.returncode != 0:
         msg = _extract_short_error(dispatch_result, "failed to dispatch workflow")
         print(f"error: {msg}")
-        if "Unexpected inputs provided:" in dispatch_output and "hybrid_superpass_" in dispatch_output:
+        if (
+            "Unexpected inputs provided:" in dispatch_output
+            and "hybrid_superpass_" in dispatch_output
+        ):
             print(
                 "error: remote workflow does not recognize hybrid superpass inputs. "
                 "Sync .github/workflows/evaluation-report.yml first."

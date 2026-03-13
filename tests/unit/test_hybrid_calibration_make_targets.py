@@ -53,13 +53,17 @@ def test_make_n_hybrid_calibration_gate_contains_expected_flags() -> None:
 def test_make_n_update_hybrid_calibration_baseline_contains_expected_flags() -> None:
     result = _run_make("-n", "update-hybrid-calibration-baseline")
     assert result.returncode == 0, result.stderr
-    assert "scripts/ci/update_hybrid_confidence_calibration_baseline.py" in result.stdout
+    assert (
+        "scripts/ci/update_hybrid_confidence_calibration_baseline.py" in result.stdout
+    )
     assert "--current-json" in result.stdout
     assert "--output-baseline-json" in result.stdout
     assert "$extra_flags" in result.stdout
 
 
-def test_make_n_refresh_hybrid_calibration_baseline_runs_calibrate_then_update() -> None:
+def test_make_n_refresh_hybrid_calibration_baseline_runs_calibrate_then_update() -> (
+    None
+):
     result = _run_make("-n", "refresh-hybrid-calibration-baseline")
     assert result.returncode == 0, result.stderr
     assert "make hybrid-calibrate-confidence" in result.stdout.lower()
@@ -165,7 +169,9 @@ def test_make_n_hybrid_blind_strict_real_template_gh_contains_expected_flags() -
     assert "$extra_flags" in result.stdout
 
 
-def test_make_n_hybrid_blind_strict_real_apply_gh_vars_contains_expected_flags() -> None:
+def test_make_n_hybrid_blind_strict_real_apply_gh_vars_contains_expected_flags() -> (
+    None
+):
     result = _run_make("-n", "hybrid-blind-strict-real-apply-gh-vars")
     assert result.returncode == 0, result.stderr
     assert "scripts/ci/apply_hybrid_blind_strict_real_gh_vars.py" in result.stdout
@@ -225,10 +231,14 @@ def test_make_n_hybrid_blind_drift_suggest_thresholds_contains_expected_flags() 
     assert "--floor-family-gain-drop" in result.stdout
 
 
-def test_make_n_hybrid_blind_drift_apply_suggestion_gh_contains_expected_flags() -> None:
+def test_make_n_hybrid_blind_drift_apply_suggestion_gh_contains_expected_flags() -> (
+    None
+):
     result = _run_make("-n", "hybrid-blind-drift-apply-suggestion-gh")
     assert result.returncode == 0, result.stderr
-    assert "scripts/ci/apply_hybrid_blind_drift_suggestion_to_gh_vars.py" in result.stdout
+    assert (
+        "scripts/ci/apply_hybrid_blind_drift_suggestion_to_gh_vars.py" in result.stdout
+    )
     assert "--suggestion-json" in result.stdout
     assert "--repo" in result.stdout
     assert "--apply" in result.stdout
@@ -256,6 +266,7 @@ def test_make_n_hybrid_superpass_e2e_gh_contains_expected_flags() -> None:
     assert "--hybrid-superpass-enable" in result.stdout
     assert "--hybrid-superpass-missing-mode" in result.stdout
     assert "--hybrid-superpass-fail-on-failed" in result.stdout
+    assert "--hybrid-superpass-validation-strict" in result.stdout
     assert "--expected-conclusion" in result.stdout
     assert "--wait-timeout-seconds" in result.stdout
     assert "--poll-interval-seconds" in result.stdout
@@ -280,6 +291,7 @@ def test_make_n_validate_hybrid_superpass_workflow_runs_expected_tests() -> None
     assert "test_dispatch_hybrid_superpass_workflow.py" in result.stdout
     assert "test_apply_hybrid_superpass_gh_vars.py" in result.stdout
     assert "test_check_hybrid_superpass_targets.py" in result.stdout
+    assert "test_validate_hybrid_superpass_reports.py" in result.stdout
     assert "test_evaluation_report_workflow_hybrid_superpass_step.py" in result.stdout
     assert "test_hybrid_superpass_workflow_integration.py" in result.stdout
     assert "test_hybrid_calibration_make_targets.py" in result.stdout

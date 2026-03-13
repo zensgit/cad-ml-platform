@@ -18,8 +18,85 @@ REQUIRED_SUPERPASS_FIELDS: Dict[str, type] = {
     "warnings": list,
 }
 
+SUPERPASS_JSON_SCHEMA: Dict[str, Any] = {
+    "type": "object",
+    "required": ["status", "headline", "thresholds", "checks", "failures", "warnings"],
+    "properties": {
+        "status": {"type": "string"},
+        "headline": {"type": "string"},
+        "thresholds": {"type": "object"},
+        "checks": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["name", "passed"],
+                "properties": {
+                    "name": {"type": "string"},
+                    "passed": {"type": "boolean"},
+                },
+            },
+        },
+        "failures": {"type": "array"},
+        "warnings": {"type": "array"},
+    },
+}
 
-def _read_json_object(path: Path, *, label: str, errors: list[str]) -> Optional[Dict[str, Any]]:
+HYBRID_BLIND_GATE_JSON_SCHEMA: Dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "metrics": {
+            "type": "object",
+            "properties": {
+                "hybrid_accuracy": {"type": "number"},
+                "hybrid_gain_vs_graph2d": {"type": "number"},
+            },
+        }
+    },
+}
+
+HYBRID_CALIBRATION_JSON_SCHEMA: Dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "metrics_after": {
+            "type": "object",
+            "properties": {"ece": {"type": "number"}},
+        }
+    },
+}
+
+
+def _schema_path(error: Any) -> str:
+    path_items = [str(item) for item in list(getattr(error, "path", []))]
+    return ".".join(path_items) if path_items else "<root>"
+
+
+def _validate_with_json_schema(
+    *,
+    payload: Optional[Dict[str, Any]],
+    label: str,
+    schema: Dict[str, Any],
+    schema_mode: str,
+    errors: list[str],
+    warnings: list[str],
+) -> None:
+    if payload is None:
+        return
+    if schema_mode != "builtin":
+        return
+    try:
+        from jsonschema import Draft7Validator  # type: ignore
+    except Exception:
+        warnings.append("jsonschema package unavailable, skip schema checks")
+        return
+    validator = Draft7Validator(schema)
+    for item in validator.iter_errors(payload):
+        message = str(getattr(item, "message", "schema validation error")).strip()
+        errors.append(f"{label} schema violation at {_schema_path(item)}: {message}")
+
+
+def _read_json_object(
+    path: Path, *, label: str, errors: list[str]
+) -> Optional[Dict[str, Any]]:
     if not path.exists() or not path.is_file():
         errors.append(f"{label} file not found: {path}")
         return None
@@ -89,14 +166,20 @@ def _validate_superpass_payload(
 
     status = str(payload.get("status", "")).strip().lower()
     if status and status not in {"passed", "failed"}:
-        warnings.append(f"superpass.status has unexpected value: {payload.get('status')!r}")
+        warnings.append(
+            f"superpass.status has unexpected value: {payload.get('status')!r}"
+        )
 
     summary["superpass_status"] = payload.get("status")
     summary["superpass_failure_count"] = (
-        len(payload.get("failures")) if isinstance(payload.get("failures"), list) else None
+        len(payload.get("failures"))
+        if isinstance(payload.get("failures"), list)
+        else None
     )
     summary["superpass_warning_count"] = (
-        len(payload.get("warnings")) if isinstance(payload.get("warnings"), list) else None
+        len(payload.get("warnings"))
+        if isinstance(payload.get("warnings"), list)
+        else None
     )
 
 
@@ -116,9 +199,13 @@ def _validate_hybrid_blind_gate_payload(
     hybrid_accuracy = _as_float(metrics.get("hybrid_accuracy"))
     hybrid_gain = _as_float(metrics.get("hybrid_gain_vs_graph2d"))
     if hybrid_accuracy is None:
-        warnings.append("hybrid_blind_gate.metrics.hybrid_accuracy missing or non-numeric")
+        warnings.append(
+            "hybrid_blind_gate.metrics.hybrid_accuracy missing or non-numeric"
+        )
     if hybrid_gain is None:
-        warnings.append("hybrid_blind_gate.metrics.hybrid_gain_vs_graph2d missing or non-numeric")
+        warnings.append(
+            "hybrid_blind_gate.metrics.hybrid_gain_vs_graph2d missing or non-numeric"
+        )
     summary["gate_hybrid_accuracy"] = hybrid_accuracy
     summary["gate_hybrid_gain_vs_graph2d"] = hybrid_gain
 
@@ -146,7 +233,9 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Validate Hybrid superpass report json and related gate/calibration payloads."
     )
-    parser.add_argument("--superpass-json", required=True, help="Path to superpass report json.")
+    parser.add_argument(
+        "--superpass-json", required=True, help="Path to superpass report json."
+    )
     parser.add_argument(
         "--hybrid-blind-gate-report",
         default="",
@@ -167,12 +256,20 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Treat warnings as failure (exit 1).",
     )
+    parser.add_argument(
+        "--schema-mode",
+        choices=("off", "builtin"),
+        default="builtin",
+        help="JSON schema validation mode for report payloads.",
+    )
     return parser
 
 
 def _write_json(path: Path, payload: Dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(f"{json.dumps(payload, ensure_ascii=False, indent=2)}\n", encoding="utf-8")
+    path.write_text(
+        f"{json.dumps(payload, ensure_ascii=False, indent=2)}\n", encoding="utf-8"
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -183,7 +280,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     summary: Dict[str, Any] = {}
 
     superpass_path = Path(str(args.superpass_json)).expanduser()
-    superpass_payload = _read_json_object(superpass_path, label="superpass", errors=errors)
+    superpass_payload = _read_json_object(
+        superpass_path, label="superpass", errors=errors
+    )
+    _validate_with_json_schema(
+        payload=superpass_payload,
+        label="superpass",
+        schema=SUPERPASS_JSON_SCHEMA,
+        schema_mode=str(args.schema_mode),
+        errors=errors,
+        warnings=warnings,
+    )
     if superpass_payload is not None:
         _validate_superpass_payload(
             superpass_payload, errors=errors, warnings=warnings, summary=summary
@@ -197,7 +304,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             label="hybrid_blind_gate",
             errors=errors,
         )
-    _validate_hybrid_blind_gate_payload(payload=gate_payload, warnings=warnings, summary=summary)
+    _validate_with_json_schema(
+        payload=gate_payload,
+        label="hybrid_blind_gate",
+        schema=HYBRID_BLIND_GATE_JSON_SCHEMA,
+        schema_mode=str(args.schema_mode),
+        errors=errors,
+        warnings=warnings,
+    )
+    _validate_hybrid_blind_gate_payload(
+        payload=gate_payload, warnings=warnings, summary=summary
+    )
 
     calibration_payload: Optional[Dict[str, Any]] = None
     calibration_path_text = str(args.hybrid_calibration_json or "").strip()
@@ -207,6 +324,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             label="hybrid_calibration",
             errors=errors,
         )
+    _validate_with_json_schema(
+        payload=calibration_payload,
+        label="hybrid_calibration",
+        schema=HYBRID_CALIBRATION_JSON_SCHEMA,
+        schema_mode=str(args.schema_mode),
+        errors=errors,
+        warnings=warnings,
+    )
     _validate_calibration_payload(
         payload=calibration_payload,
         warnings=warnings,
@@ -230,6 +355,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     output_payload: Dict[str, Any] = {
         "status": status,
         "strict": bool(args.strict),
+        "schema_mode": str(args.schema_mode),
         "errors": errors,
         "warnings": warnings,
         "summary": summary,

@@ -78,6 +78,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "HYBRID_SUPERPASS_OUTPUT_JSON" in env
     assert "HYBRID_SUPERPASS_MISSING_MODE" in env
     assert "HYBRID_SUPERPASS_FAIL_ON_FAILED" in env
+    assert "HYBRID_SUPERPASS_VALIDATION_STRICT" in env
 
     dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
     assert "review_gate_min_total_rows" in dispatch_inputs
@@ -102,11 +103,14 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "hybrid_superpass_enable" in dispatch_inputs
     assert "hybrid_superpass_missing_mode" in dispatch_inputs
     assert "hybrid_superpass_fail_on_failed" in dispatch_inputs
+    assert "hybrid_superpass_validation_strict" in dispatch_inputs
 
 
 def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> None:
     workflow = _load_workflow()
-    review_step = _get_step(workflow, "evaluate", "Build hybrid rejection review pack (optional)")
+    review_step = _get_step(
+        workflow, "evaluate", "Build hybrid rejection review pack (optional)"
+    )
     review_script = review_step["run"]
     assert "scripts/export_hybrid_rejection_review_pack.py" in review_script
     assert "github.event.inputs.review_pack_input_csv" in review_script
@@ -116,14 +120,18 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "top_primary_sources=" in review_script
     assert "sample_explanations=" in review_script
 
-    sweep_step = _get_step(workflow, "evaluate", "Run Graph2D train recipe sweep (optional)")
+    sweep_step = _get_step(
+        workflow, "evaluate", "Run Graph2D train recipe sweep (optional)"
+    )
     sweep_script = sweep_step["run"]
     assert "scripts/sweep_graph2d_train_recipes.py" in sweep_script
     assert "--recipes" in sweep_script
     assert "--seeds" in sweep_script
     assert "--base-args-json" in sweep_script
 
-    gate_step = _get_step(workflow, "evaluate", "Check Graph2D review-pack gate (optional)")
+    gate_step = _get_step(
+        workflow, "evaluate", "Check Graph2D review-pack gate (optional)"
+    )
     gate_script = gate_step["run"]
     assert "scripts/ci/check_graph2d_review_pack_gate.py" in gate_script
     assert "--summary-json" in gate_script
@@ -135,7 +143,9 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         workflow, "evaluate", "Emit Graph2D review gate annotations (optional)"
     )
     annotation_script = annotation_step["run"]
-    assert "scripts/ci/emit_graph2d_review_pack_gate_annotations.py" in annotation_script
+    assert (
+        "scripts/ci/emit_graph2d_review_pack_gate_annotations.py" in annotation_script
+    )
 
     strict_step = _get_step(
         workflow, "evaluate", "Evaluate Graph2D review gate strict mode (optional)"
@@ -170,7 +180,9 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         workflow, "evaluate", "Check Hybrid confidence calibration gate (optional)"
     )
     hybrid_gate_script = hybrid_gate_step["run"]
-    assert "scripts/ci/check_hybrid_confidence_calibration_gate.py" in hybrid_gate_script
+    assert (
+        "scripts/ci/check_hybrid_confidence_calibration_gate.py" in hybrid_gate_script
+    )
     assert "--current-json" in hybrid_gate_script
     assert "--baseline-json" in hybrid_gate_script
     assert "--config" in hybrid_gate_script
@@ -205,7 +217,9 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         in hybrid_baseline_script
     )
     assert "hybrid_calibration_update_baseline" in hybrid_baseline_script
-    assert "HYBRID_CONFIDENCE_CALIBRATION_BASELINE_UPDATE_ENABLE" in hybrid_baseline_script
+    assert (
+        "HYBRID_CONFIDENCE_CALIBRATION_BASELINE_UPDATE_ENABLE" in hybrid_baseline_script
+    )
     assert "--current-json" in hybrid_baseline_script
     assert "--output-baseline-json" in hybrid_baseline_script
 
@@ -214,7 +228,10 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     )
     hybrid_blind_eval_script = hybrid_blind_eval_step["run"]
     assert "scripts/batch_analyze_dxf_local.py" in hybrid_blind_eval_script
-    assert "scripts/ci/build_hybrid_blind_synthetic_dxf_dataset.py" in hybrid_blind_eval_script
+    assert (
+        "scripts/ci/build_hybrid_blind_synthetic_dxf_dataset.py"
+        in hybrid_blind_eval_script
+    )
     assert "hybrid_blind_enable" in hybrid_blind_eval_script
     assert "hybrid_blind_synth_manifest" in hybrid_blind_eval_script
     assert "--geometry-only" in hybrid_blind_eval_script
@@ -243,7 +260,9 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         workflow, "evaluate", "Archive Hybrid blind eval history snapshot (optional)"
     )
     hybrid_blind_history_script = hybrid_blind_history_step["run"]
-    assert "scripts/ci/archive_hybrid_blind_eval_history.py" in hybrid_blind_history_script
+    assert (
+        "scripts/ci/archive_hybrid_blind_eval_history.py" in hybrid_blind_history_script
+    )
     assert "--summary-json" in hybrid_blind_history_script
     assert "--gate-report-json" in hybrid_blind_history_script
     assert "--output-dir reports/eval_history" in hybrid_blind_history_script
@@ -269,7 +288,10 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "hybrid_blind_drift_alert_label_slice_enable" in hybrid_blind_drift_script
     assert "--label-slice-enable" in hybrid_blind_drift_script
     assert "--label-slice-min-common" in hybrid_blind_drift_script
-    assert "HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_AUTO_CAP_MIN_COMMON" in hybrid_blind_drift_script
+    assert (
+        "HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_AUTO_CAP_MIN_COMMON"
+        in hybrid_blind_drift_script
+    )
     assert "--label-slice-auto-cap-min-common" in hybrid_blind_drift_script
     assert "--no-label-slice-auto-cap-min-common" in hybrid_blind_drift_script
     assert "--label-slice-min-support" in hybrid_blind_drift_script
@@ -278,7 +300,10 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "hybrid_blind_drift_alert_family_slice_enable" in hybrid_blind_drift_script
     assert "--family-slice-enable" in hybrid_blind_drift_script
     assert "--family-slice-min-common" in hybrid_blind_drift_script
-    assert "HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_AUTO_CAP_MIN_COMMON" in hybrid_blind_drift_script
+    assert (
+        "HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_AUTO_CAP_MIN_COMMON"
+        in hybrid_blind_drift_script
+    )
     assert "--family-slice-auto-cap-min-common" in hybrid_blind_drift_script
     assert "--no-family-slice-auto-cap-min-common" in hybrid_blind_drift_script
     assert "--family-slice-min-support" in hybrid_blind_drift_script
@@ -305,6 +330,17 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "hybrid_superpass_fail_on_failed" in hybrid_superpass_strict_script
     assert "status is not passed" in hybrid_superpass_strict_script
 
+    hybrid_superpass_validate_step = _get_step(
+        workflow, "evaluate", "Validate Hybrid superpass report structure (optional)"
+    )
+    hybrid_superpass_validate_script = hybrid_superpass_validate_step["run"]
+    assert (
+        "scripts/ci/validate_hybrid_superpass_reports.py"
+        in hybrid_superpass_validate_script
+    )
+    assert "hybrid_superpass_validation_strict" in hybrid_superpass_validate_script
+    assert "--schema-mode" not in hybrid_superpass_validate_script  # default builtin
+
     hybrid_superpass_fail_step = _get_step(
         workflow,
         "evaluate",
@@ -315,6 +351,16 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         == "steps.hybrid_superpass_gate_strict.outputs.should_fail == 'true'"
     )
     assert "Failure reason" in hybrid_superpass_fail_step["run"]
+
+    hybrid_superpass_validate_fail_step = _get_step(
+        workflow,
+        "evaluate",
+        "Fail workflow when Hybrid superpass structure validation requires blocking",
+    )
+    assert (
+        hybrid_superpass_validate_fail_step["if"]
+        == "steps.hybrid_superpass_validate.outputs.strict_mode == 'true' && steps.hybrid_superpass_validate.outputs.exit_code != '0'"
+    )
 
     hybrid_final_fail_step = _get_step(
         workflow,
@@ -364,7 +410,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     upload_hybrid_blind = _get_step(
         workflow, "evaluate", "Upload Hybrid blind benchmark artifacts"
     )
-    assert upload_hybrid_blind["if"] == "steps.hybrid_blind_eval.outputs.enabled == 'true'"
+    assert (
+        upload_hybrid_blind["if"] == "steps.hybrid_blind_eval.outputs.enabled == 'true'"
+    )
 
     upload_hybrid_blind_history = _get_step(
         workflow, "evaluate", "Upload Hybrid blind history snapshot"
@@ -391,8 +439,14 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
         == "steps.hybrid_superpass_gate.outputs.enabled == 'true'"
     )
     assert "report_path" in upload_hybrid_superpass["with"]["path"]
+    assert (
+        "steps.hybrid_superpass_validate.outputs.report_path"
+        in upload_hybrid_superpass["with"]["path"]
+    )
 
-    weekly_summary_step = _get_step(workflow, "evaluate", "Generate weekly rolling summary")
+    weekly_summary_step = _get_step(
+        workflow, "evaluate", "Generate weekly rolling summary"
+    )
     weekly_summary_script = weekly_summary_step["run"]
     assert "scripts/ci/generate_eval_weekly_summary.py" in weekly_summary_script
     assert "--eval-history-dir" in weekly_summary_script
@@ -400,7 +454,10 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "--days 7" in weekly_summary_script
 
     upload_weekly_summary = _get_step(workflow, "evaluate", "Upload weekly summary")
-    assert upload_weekly_summary["with"]["name"] == "evaluation-weekly-summary-${{ github.run_number }}"
+    assert (
+        upload_weekly_summary["with"]["name"]
+        == "evaluation-weekly-summary-${{ github.run_number }}"
+    )
 
     summary_step = _get_step(workflow, "evaluate", "Create job summary")
     summary_script = summary_step["run"]
@@ -444,6 +501,8 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Hybrid superpass gate status" in summary_script
     assert "Hybrid superpass gate headline" in summary_script
     assert "Hybrid superpass gate report" in summary_script
+    assert "Hybrid superpass structure validation status" in summary_script
+    assert "Hybrid superpass structure validation strict_mode" in summary_script
     assert "Hybrid superpass gate strict_should_fail" in summary_script
 
     pr_comment_step = _get_step(workflow, "evaluate", "Comment PR with results")
@@ -464,12 +523,23 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "require_real=${hybridBlindStrictRequireReal" in pr_comment_script
     assert "label_slice_enabled=${hybridBlindLabelSliceEnabled" in pr_comment_script
     assert "label_auto_cap=${hybridBlindLabelSliceAutoCap" in pr_comment_script
-    assert "label_effective_min_common=${hybridBlindLabelSliceEffectiveMinCommon" in pr_comment_script
-    assert "worst_label_acc_drop=${hybridBlindLabelSliceWorstAccDrop" in pr_comment_script
+    assert (
+        "label_effective_min_common=${hybridBlindLabelSliceEffectiveMinCommon"
+        in pr_comment_script
+    )
+    assert (
+        "worst_label_acc_drop=${hybridBlindLabelSliceWorstAccDrop" in pr_comment_script
+    )
     assert "family_slice_enabled=${hybridBlindFamilySliceEnabled" in pr_comment_script
     assert "family_auto_cap=${hybridBlindFamilySliceAutoCap" in pr_comment_script
-    assert "family_effective_min_common=${hybridBlindFamilySliceEffectiveMinCommon" in pr_comment_script
-    assert "worst_family_acc_drop=${hybridBlindFamilySliceWorstAccDrop" in pr_comment_script
+    assert (
+        "family_effective_min_common=${hybridBlindFamilySliceEffectiveMinCommon"
+        in pr_comment_script
+    )
+    assert (
+        "worst_family_acc_drop=${hybridBlindFamilySliceWorstAccDrop"
+        in pr_comment_script
+    )
     assert "Blind Gain (Hybrid-Graph2D)" in pr_comment_script
     assert "| **Hybrid Blind** | ${hybridBlindLight}" in pr_comment_script
     assert "Signal Lights" in pr_comment_script
@@ -478,7 +548,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
 
 def test_workflow_runs_eval_with_history_regression_tests() -> None:
     workflow = _load_workflow()
-    step = _get_step(workflow, "evaluate", "Run eval_with_history regression unit tests")
+    step = _get_step(
+        workflow, "evaluate", "Run eval_with_history regression unit tests"
+    )
     run_script = step["run"]
     assert "pytest -q" in run_script
     assert "tests/unit/test_eval_with_history_script_history_sequence.py" in run_script
@@ -487,7 +559,9 @@ def test_workflow_runs_eval_with_history_regression_tests() -> None:
 
 def test_workflow_runs_hybrid_calibration_regression_tests() -> None:
     workflow = _load_workflow()
-    step = _get_step(workflow, "evaluate", "Run hybrid calibration regression unit tests")
+    step = _get_step(
+        workflow, "evaluate", "Run hybrid calibration regression unit tests"
+    )
     run_script = step["run"]
     assert "pytest -q" in run_script
     assert "tests/unit/test_calibrate_hybrid_confidence_script.py" in run_script

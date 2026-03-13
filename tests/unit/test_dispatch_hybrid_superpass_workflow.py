@@ -15,6 +15,7 @@ def test_build_workflow_run_command_contains_required_inputs() -> None:
         hybrid_superpass_enable="true",
         hybrid_superpass_missing_mode="fail",
         hybrid_superpass_fail_on_failed="true",
+        hybrid_superpass_validation_strict="true",
         hybrid_blind_enable="true",
         hybrid_blind_dxf_dir="data/blind_dxf",
         hybrid_blind_fail_on_gate_failed="true",
@@ -29,6 +30,7 @@ def test_build_workflow_run_command_contains_required_inputs() -> None:
     assert "hybrid_superpass_enable=true" in text
     assert "hybrid_superpass_missing_mode=fail" in text
     assert "hybrid_superpass_fail_on_failed=true" in text
+    assert "hybrid_superpass_validation_strict=true" in text
     assert "hybrid_blind_enable=true" in text
     assert "hybrid_blind_dxf_dir=data/blind_dxf" in text
     assert "hybrid_blind_fail_on_gate_failed=true" in text
@@ -49,6 +51,8 @@ def test_main_print_only_outputs_dispatch_and_watch_commands(capsys: Any) -> Non
             "main",
             "--repo",
             "zensgit/cad-ml-platform",
+            "--hybrid-superpass-validation-strict",
+            "true",
         ]
     )
     out = capsys.readouterr().out
@@ -56,6 +60,7 @@ def test_main_print_only_outputs_dispatch_and_watch_commands(capsys: Any) -> Non
     assert "hybrid_superpass_enable=true" in out
     assert "hybrid_superpass_missing_mode=fail" in out
     assert "hybrid_superpass_fail_on_failed=true" in out
+    assert "hybrid_superpass_validation_strict=true" in out
     assert "gh run watch '<run_id>' --exit-status" in out
     assert "gh run view '<run_id>' --json conclusion,url" in out
 
@@ -72,7 +77,9 @@ def test_main_success_when_expectation_matches(monkeypatch: Any, tmp_path: Any) 
     from scripts.ci import dispatch_hybrid_superpass_workflow as mod
 
     monkeypatch.setattr(mod, "check_gh_ready", lambda: (True, ""))
-    monkeypatch.setattr(mod, "list_dispatched_run_ids", lambda *_args, **_kwargs: [1, 2])
+    monkeypatch.setattr(
+        mod, "list_dispatched_run_ids", lambda *_args, **_kwargs: [1, 2]
+    )
     monkeypatch.setattr(mod, "wait_for_new_dispatched_run_id", lambda **_kwargs: 3001)
     monkeypatch.setattr(mod, "watch_run", lambda _run_id, _repo: 0)
     monkeypatch.setattr(
@@ -87,12 +94,14 @@ def test_main_success_when_expectation_matches(monkeypatch: Any, tmp_path: Any) 
     monkeypatch.setattr(mod.subprocess, "run", _fake_run)
 
     output_json = tmp_path / "hybrid_superpass_dispatch.json"
-    rc = mod.main([
-        "--output-json",
-        str(output_json),
-        "--expected-conclusion",
-        "success",
-    ])
+    rc = mod.main(
+        [
+            "--output-json",
+            str(output_json),
+            "--expected-conclusion",
+            "success",
+        ]
+    )
     assert rc == 0
     payload = json.loads(output_json.read_text(encoding="utf-8"))
     assert payload["overall_exit_code"] == 0
@@ -131,6 +140,7 @@ def test_find_missing_superpass_inputs_detects_expected_keys() -> None:
     assert "hybrid_superpass_enable" in missing
     assert "hybrid_superpass_missing_mode" in missing
     assert "hybrid_superpass_fail_on_failed" in missing
+    assert "hybrid_superpass_validation_strict" in missing
 
 
 def test_main_returns_nonzero_when_remote_workflow_missing_required_inputs(

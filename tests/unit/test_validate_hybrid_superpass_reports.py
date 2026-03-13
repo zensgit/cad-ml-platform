@@ -87,8 +87,12 @@ def test_validate_superpass_reports_warn_and_strict_fail_on_warning(
     assert rc == 0
     non_strict = json.loads(capsys.readouterr().out.strip())
     assert non_strict["status"] == "warn"
-    assert any("hybrid_blind_gate report missing" in msg for msg in non_strict["warnings"])
-    assert any("hybrid calibration report missing" in msg for msg in non_strict["warnings"])
+    assert any(
+        "hybrid_blind_gate report missing" in msg for msg in non_strict["warnings"]
+    )
+    assert any(
+        "hybrid calibration report missing" in msg for msg in non_strict["warnings"]
+    )
 
     rc_strict = mod.main(["--superpass-json", str(superpass), "--strict"])
     assert rc_strict == 1
@@ -116,3 +120,37 @@ def test_validate_superpass_reports_output_json_written(tmp_path: Path) -> None:
     payload = json.loads(output.read_text(encoding="utf-8"))
     assert payload["status"] == "warn"
     assert payload["overall_exit_code"] == 0
+
+
+def test_validate_superpass_reports_schema_mode_off_skips_schema_type_checks(
+    tmp_path: Path, capsys
+) -> None:
+    from scripts.ci import validate_hybrid_superpass_reports as mod
+
+    superpass = tmp_path / "superpass.json"
+    payload = _valid_superpass_payload()
+    payload["checks"][0]["passed"] = "yes"
+    _write_json(superpass, payload)
+
+    rc = mod.main(["--superpass-json", str(superpass), "--schema-mode", "off"])
+    assert rc == 0
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["status"] == "warn"
+    assert not any("schema violation" in item for item in output["errors"])
+
+
+def test_validate_superpass_reports_schema_mode_builtin_checks_nested_types(
+    tmp_path: Path, capsys
+) -> None:
+    from scripts.ci import validate_hybrid_superpass_reports as mod
+
+    superpass = tmp_path / "superpass.json"
+    payload = _valid_superpass_payload()
+    payload["checks"][0]["passed"] = "yes"
+    _write_json(superpass, payload)
+
+    rc = mod.main(["--superpass-json", str(superpass), "--schema-mode", "builtin"])
+    assert rc == 1
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["status"] == "error"
+    assert any("schema violation" in item for item in output["errors"])

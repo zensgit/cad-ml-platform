@@ -26,6 +26,7 @@ def test_workflow_dispatch_and_env_expose_hybrid_superpass_controls() -> None:
     assert "hybrid_superpass_enable" in dispatch_inputs
     assert "hybrid_superpass_missing_mode" in dispatch_inputs
     assert "hybrid_superpass_fail_on_failed" in dispatch_inputs
+    assert "hybrid_superpass_validation_strict" in dispatch_inputs
 
     env = workflow["env"]
     assert "HYBRID_SUPERPASS_ENABLE" in env
@@ -36,6 +37,7 @@ def test_workflow_dispatch_and_env_expose_hybrid_superpass_controls() -> None:
     assert "HYBRID_SUPERPASS_CALIBRATION_JSON" in env
     assert "HYBRID_SUPERPASS_VALIDATION_JSON" in env
     assert "HYBRID_SUPERPASS_FAIL_ON_FAILED" in env
+    assert "HYBRID_SUPERPASS_VALIDATION_STRICT" in env
 
 
 def test_workflow_has_optional_hybrid_superpass_gate_step() -> None:
@@ -57,14 +59,20 @@ def test_workflow_has_optional_hybrid_superpass_gate_step() -> None:
 
 def test_workflow_uploads_superpass_artifact_and_summary_lines() -> None:
     workflow = _load_workflow()
-    upload_step = _get_step(workflow, "evaluate", "Upload Hybrid superpass gate artifact")
+    upload_step = _get_step(
+        workflow, "evaluate", "Upload Hybrid superpass gate artifact"
+    )
     assert upload_step["if"] == "steps.hybrid_superpass_gate.outputs.enabled == 'true'"
     assert (
-        upload_step["with"]["name"]
-        == "hybrid-superpass-gate-${{ github.run_number }}"
+        upload_step["with"]["name"] == "hybrid-superpass-gate-${{ github.run_number }}"
     )
-    assert "steps.hybrid_superpass_gate.outputs.report_path" in upload_step["with"]["path"]
-    assert "steps.hybrid_superpass_validate.outputs.report_path" in upload_step["with"]["path"]
+    assert (
+        "steps.hybrid_superpass_gate.outputs.report_path" in upload_step["with"]["path"]
+    )
+    assert (
+        "steps.hybrid_superpass_validate.outputs.report_path"
+        in upload_step["with"]["path"]
+    )
 
     summary_step = _get_step(workflow, "evaluate", "Create job summary")
     summary_script = summary_step["run"]
@@ -77,12 +85,17 @@ def test_workflow_uploads_superpass_artifact_and_summary_lines() -> None:
     assert "Hybrid superpass structure validation headline" in summary_script
     assert "Hybrid superpass structure validation warnings" in summary_script
     assert "Hybrid superpass structure validation errors" in summary_script
+    assert "Hybrid superpass structure validation strict_mode" in summary_script
 
 
 def test_workflow_has_superpass_structure_validation_step() -> None:
     workflow = _load_workflow()
-    validate_step = _get_step(workflow, "evaluate", "Validate Hybrid superpass report structure (optional)")
-    assert validate_step["if"] == "steps.hybrid_superpass_gate.outputs.enabled == 'true'"
+    validate_step = _get_step(
+        workflow, "evaluate", "Validate Hybrid superpass report structure (optional)"
+    )
+    assert (
+        validate_step["if"] == "steps.hybrid_superpass_gate.outputs.enabled == 'true'"
+    )
     validate_script = validate_step["run"]
     assert "scripts/ci/validate_hybrid_superpass_reports.py" in validate_script
     assert "--superpass-json" in validate_script
@@ -90,11 +103,14 @@ def test_workflow_has_superpass_structure_validation_step() -> None:
     assert "--hybrid-calibration-json" in validate_script
     assert "--output-json" in validate_script
     assert "--strict" in validate_script
+    assert "hybrid_superpass_validation_strict" in validate_script
 
 
 def test_workflow_has_superpass_strict_mode_steps() -> None:
     workflow = _load_workflow()
-    strict_step = _get_step(workflow, "evaluate", "Evaluate Hybrid superpass strict mode (optional)")
+    strict_step = _get_step(
+        workflow, "evaluate", "Evaluate Hybrid superpass strict mode (optional)"
+    )
     strict_script = strict_step["run"]
     assert "HYBRID_SUPERPASS_FAIL_ON_FAILED" in strict_script
     assert "hybrid_superpass_fail_on_failed" in strict_script
@@ -118,6 +134,6 @@ def test_workflow_has_superpass_strict_mode_steps() -> None:
     )
     assert (
         validation_fail_step["if"]
-        == "steps.hybrid_superpass_gate_strict.outputs.strict_mode == 'true' && steps.hybrid_superpass_validate.outputs.exit_code != '0'"
+        == "steps.hybrid_superpass_validate.outputs.strict_mode == 'true' && steps.hybrid_superpass_validate.outputs.exit_code != '0'"
     )
     assert "structure validation failed in strict mode" in validation_fail_step["run"]
