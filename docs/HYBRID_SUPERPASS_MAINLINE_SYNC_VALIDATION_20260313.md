@@ -119,6 +119,7 @@ make validate-hybrid-superpass-workflow
 - 本次以 `main` 当前结构为基线做增量补丁，避免了将旧分支里大量不相关历史变更带入。
 - `dispatch_hybrid_superpass_workflow.py` 包含 remote workflow input 预检与 `--skip-remote-input-check` 兜底参数，便于排查远端分支未同步场景。
 - 线上 `evaluation-report.yml` 当前存在 `workflow_dispatch` 表达式长度限制问题（HTTP 422 / Exceeded max expression length 21000）；本次通过新增专用 workflow 避免阻塞 superpass E2E。
+- GitHub 仅允许 dispatch 默认分支已存在的 workflow 文件。PR 分支内新增的 `hybrid-superpass-e2e.yml` 在合入 `main` 前会返回 HTTP 404（workflow not found on default branch），脚本已给出明确提示与 reason 标记。
 
 ## 8. Suggested Next Step
 
