@@ -97,3 +97,55 @@ def test_make_n_validate_graph2d_review_pack_gate_strict_e2e_runs_expected_tests
     assert "test_dispatch_graph2d_review_gate_strict_e2e.py" in result.stdout
     assert "test_graph2d_parallel_make_targets.py" in result.stdout
     assert "test_evaluation_report_workflow_graph2d_extensions.py" in result.stdout
+
+
+def test_make_n_hybrid_superpass_gate_contains_expected_flags() -> None:
+    result = _run_make("-n", "hybrid-superpass-gate")
+    assert result.returncode == 0, result.stderr
+    assert "scripts/ci/check_hybrid_superpass_targets.py" in result.stdout
+    assert "--config" in result.stdout
+    assert "--missing-mode" in result.stdout
+    assert "--output" in result.stdout
+    assert "--hybrid-blind-gate-report" in result.stdout
+    assert "--hybrid-calibration-json" in result.stdout
+    assert "$extra_flags" in result.stdout
+
+
+def test_make_n_hybrid_superpass_e2e_gh_contains_expected_flags() -> None:
+    result = _run_make("-n", "hybrid-superpass-e2e-gh")
+    assert result.returncode == 0, result.stderr
+    assert "scripts/ci/dispatch_hybrid_superpass_workflow.py" in result.stdout
+    assert "--workflow" in result.stdout
+    assert "hybrid-superpass-e2e.yml" in result.stdout
+    assert "--ref" in result.stdout
+    assert "--repo" in result.stdout
+    assert "--hybrid-superpass-enable" in result.stdout
+    assert "--hybrid-superpass-missing-mode" in result.stdout
+    assert "--hybrid-superpass-fail-on-failed" in result.stdout
+    assert "--expected-conclusion" in result.stdout
+    assert "--wait-timeout-seconds" in result.stdout
+    assert "--poll-interval-seconds" in result.stdout
+    assert "--list-limit" in result.stdout
+    assert "--output-json" in result.stdout
+    assert "$extra_flags" in result.stdout
+
+
+def test_make_n_hybrid_superpass_apply_gh_vars_contains_expected_flags() -> None:
+    result = _run_make("-n", "hybrid-superpass-apply-gh-vars")
+    assert result.returncode == 0, result.stderr
+    assert "scripts/ci/apply_hybrid_superpass_gh_vars.py" in result.stdout
+    assert "--repo" in result.stdout
+    assert "--config-path" in result.stdout
+    assert "--apply" in result.stdout
+    assert "$extra_flags" in result.stdout
+
+
+def test_make_n_validate_hybrid_superpass_workflow_runs_expected_tests() -> None:
+    result = _run_make("-n", "validate-hybrid-superpass-workflow")
+    assert result.returncode == 0, result.stderr
+    assert "test_dispatch_hybrid_superpass_workflow.py" in result.stdout
+    assert "test_apply_hybrid_superpass_gh_vars.py" in result.stdout
+    assert "test_check_hybrid_superpass_targets.py" in result.stdout
+    assert "test_evaluation_report_workflow_hybrid_superpass_step.py" in result.stdout
+    assert "test_hybrid_superpass_workflow_integration.py" in result.stdout
+    assert "test_graph2d_parallel_make_targets.py" in result.stdout
