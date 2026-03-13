@@ -57,6 +57,11 @@ def build_workflow_run_command(
     target_ref: str,
     target_workflow: str,
     dispatch_trace_id: str = "",
+    dual_wait_timeout_seconds: str = "900",
+    dual_poll_interval_seconds: str = "3",
+    dual_list_limit: str = "20",
+    strict_require_distinct_run_ids: str = "true",
+    strict_require_trace_pair: str = "true",
 ) -> list[str]:
     command = [
         "gh",
@@ -78,6 +83,14 @@ def build_workflow_run_command(
     _append_if_present("target_ref", target_ref)
     _append_if_present("target_workflow", target_workflow)
     _append_if_present("dispatch_trace_id", dispatch_trace_id)
+    _append_if_present("dual_wait_timeout_seconds", dual_wait_timeout_seconds)
+    _append_if_present("dual_poll_interval_seconds", dual_poll_interval_seconds)
+    _append_if_present("dual_list_limit", dual_list_limit)
+    _append_if_present(
+        "strict_require_distinct_run_ids",
+        strict_require_distinct_run_ids,
+    )
+    _append_if_present("strict_require_trace_pair", strict_require_trace_pair)
     return command
 
 
@@ -253,6 +266,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--target-repo", default="")
     parser.add_argument("--target-ref", default="main")
     parser.add_argument("--target-workflow", default="hybrid-superpass-e2e.yml")
+    parser.add_argument("--dual-wait-timeout-seconds", default="900")
+    parser.add_argument("--dual-poll-interval-seconds", default="3")
+    parser.add_argument("--dual-list-limit", default="20")
+    parser.add_argument("--strict-require-distinct-run-ids", default="true")
+    parser.add_argument("--strict-require-trace-pair", default="true")
     parser.add_argument(
         "--dispatch-trace-id",
         default="",
@@ -295,6 +313,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         target_ref=str(args.target_ref),
         target_workflow=str(args.target_workflow),
         dispatch_trace_id=resolved_dispatch_trace_id,
+        dual_wait_timeout_seconds=str(args.dual_wait_timeout_seconds),
+        dual_poll_interval_seconds=str(args.dual_poll_interval_seconds),
+        dual_list_limit=str(args.dual_list_limit),
+        strict_require_distinct_run_ids=str(args.strict_require_distinct_run_ids),
+        strict_require_trace_pair=str(args.strict_require_trace_pair),
     )
 
     watch_hint_cmd = ["gh", "run", "watch", "<run_id>", "--exit-status"]

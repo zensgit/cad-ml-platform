@@ -242,3 +242,54 @@ make validate-hybrid-superpass-nightly-workflow
 - `pytest tests/unit/test_compare_hybrid_superpass_reports.py tests/unit/test_run_hybrid_superpass_dual_dispatch.py tests/unit/test_graph2d_parallel_make_targets.py tests/unit/test_hybrid_superpass_nightly_workflow.py -q`：`31 passed, 1 warning`
 - `make validate-hybrid-superpass-workflow`：`68 passed, 1 warning`
 - `make validate-hybrid-superpass-nightly-workflow`：`26 passed, 1 warning`
+
+## 增量强化（同日第七轮：nightly 参数化加速）
+
+### Nightly workflow 参数化
+- 文件：`.github/workflows/hybrid-superpass-nightly.yml`
+- 新增 `workflow_dispatch` 输入：
+  - `dual_wait_timeout_seconds`（默认 `900`）
+  - `dual_poll_interval_seconds`（默认 `3`）
+  - `dual_list_limit`（默认 `20`）
+  - `strict_require_distinct_run_ids`（默认 `true`）
+  - `strict_require_trace_pair`（默认 `true`）
+- dual step 改动：
+  - `--wait-timeout-seconds/--poll-interval-seconds/--list-limit` 读取 env 映射参数。
+  - 使用 shell 条件逻辑按 strict 策略值决定是否追加：
+    - `--strict-require-distinct-run-ids`
+    - `--strict-require-trace-pair`
+- summary 增加上述参数与策略输出，便于排障。
+
+### Nightly dispatcher 参数透传
+- 文件：`scripts/ci/dispatch_hybrid_superpass_nightly_workflow.py`
+- 新增 CLI 参数并透传到 `gh workflow run -f`：
+  - `--dual-wait-timeout-seconds`
+  - `--dual-poll-interval-seconds`
+  - `--dual-list-limit`
+  - `--strict-require-distinct-run-ids`
+  - `--strict-require-trace-pair`
+- `print-only` 输出格式保持兼容。
+
+### Make 夜检入口扩展
+- 文件：`Makefile`
+- 新增变量：
+  - `HYBRID_SUPERPASS_NIGHTLY_DUAL_WAIT_TIMEOUT`
+  - `HYBRID_SUPERPASS_NIGHTLY_DUAL_POLL_INTERVAL`
+  - `HYBRID_SUPERPASS_NIGHTLY_DUAL_LIST_LIMIT`
+  - `HYBRID_SUPERPASS_NIGHTLY_STRICT_REQUIRE_DISTINCT_RUN_IDS`
+  - `HYBRID_SUPERPASS_NIGHTLY_STRICT_REQUIRE_TRACE_PAIR`
+- `hybrid-superpass-nightly-gh` 透传上述参数到 dispatcher，实现不改代码调参。
+
+### 测试覆盖增强
+- 文件：
+  - `tests/unit/test_dispatch_hybrid_superpass_nightly_workflow.py`
+  - `tests/unit/test_hybrid_superpass_nightly_workflow.py`
+  - `tests/unit/test_graph2d_parallel_make_targets.py`
+- 覆盖点：
+  - 输入默认值、env 映射、命令透传、summary 输出。
+  - nightly Make 目标含 dual 参数与 strict 参数透传。
+
+### 第七轮验证结果
+- `pytest tests/unit/test_compare_hybrid_superpass_reports.py tests/unit/test_run_hybrid_superpass_dual_dispatch.py tests/unit/test_dispatch_hybrid_superpass_nightly_workflow.py tests/unit/test_hybrid_superpass_nightly_workflow.py tests/unit/test_graph2d_parallel_make_targets.py -q`：`36 passed, 1 warning`
+- `make validate-hybrid-superpass-workflow`：`68 passed, 1 warning`
+- `make validate-hybrid-superpass-nightly-workflow`：`26 passed, 1 warning`

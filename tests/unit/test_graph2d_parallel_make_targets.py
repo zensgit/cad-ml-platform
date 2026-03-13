@@ -188,6 +188,11 @@ def test_make_n_hybrid_superpass_nightly_gh_contains_expected_flags() -> None:
     assert "--wait-timeout-seconds" in result.stdout
     assert "--poll-interval-seconds" in result.stdout
     assert "--list-limit" in result.stdout
+    assert "--dual-wait-timeout-seconds" in result.stdout
+    assert "--dual-poll-interval-seconds" in result.stdout
+    assert "--dual-list-limit" in result.stdout
+    assert "--strict-require-distinct-run-ids" in result.stdout
+    assert "--strict-require-trace-pair" in result.stdout
     assert "--output-json" in result.stdout
 
 

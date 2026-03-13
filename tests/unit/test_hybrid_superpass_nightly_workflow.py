@@ -31,6 +31,11 @@ def test_workflow_has_daily_schedule_and_manual_dispatch_inputs() -> None:
     assert inputs["target_ref"]["default"] == "main"
     assert inputs["target_workflow"]["default"] == "hybrid-superpass-e2e.yml"
     assert inputs["dispatch_trace_id"]["default"] == ""
+    assert inputs["dual_wait_timeout_seconds"]["default"] == "900"
+    assert inputs["dual_poll_interval_seconds"]["default"] == "3"
+    assert inputs["dual_list_limit"]["default"] == "20"
+    assert inputs["strict_require_distinct_run_ids"]["default"] == "true"
+    assert inputs["strict_require_trace_pair"]["default"] == "true"
 
 
 def test_workflow_permissions_and_default_repo_ref_wiring() -> None:
@@ -49,6 +54,19 @@ def test_workflow_permissions_and_default_repo_ref_wiring() -> None:
     assert "github.event.inputs.dispatch_trace_id" in env["NIGHTLY_TRACE_ID"]
     assert "nsp-" in env["NIGHTLY_TRACE_ID"]
     assert "github.run_id" in env["NIGHTLY_TRACE_ID"]
+    assert "github.event.inputs.dual_wait_timeout_seconds" in env["DUAL_WAIT_TIMEOUT_SECONDS"]
+    assert "'900'" in env["DUAL_WAIT_TIMEOUT_SECONDS"]
+    assert "github.event.inputs.dual_poll_interval_seconds" in env["DUAL_POLL_INTERVAL_SECONDS"]
+    assert "'3'" in env["DUAL_POLL_INTERVAL_SECONDS"]
+    assert "github.event.inputs.dual_list_limit" in env["DUAL_LIST_LIMIT"]
+    assert "'20'" in env["DUAL_LIST_LIMIT"]
+    assert (
+        "github.event.inputs.strict_require_distinct_run_ids"
+        in env["STRICT_REQUIRE_DISTINCT_RUN_IDS"]
+    )
+    assert "'true'" in env["STRICT_REQUIRE_DISTINCT_RUN_IDS"]
+    assert "github.event.inputs.strict_require_trace_pair" in env["STRICT_REQUIRE_TRACE_PAIR"]
+    assert "'true'" in env["STRICT_REQUIRE_TRACE_PAIR"]
 
 
 def test_workflow_has_dual_dispatch_compare_artifact_and_summary_steps() -> None:
@@ -62,15 +80,22 @@ def test_workflow_has_dual_dispatch_compare_artifact_and_summary_steps() -> None
     assert "--workflow \"$TARGET_WORKFLOW\"" in dual_script
     assert "--repo \"$TARGET_REPO\"" in dual_script
     assert "--ref \"$TARGET_REF\"" in dual_script
+    assert "--wait-timeout-seconds \"$DUAL_WAIT_TIMEOUT_SECONDS\"" in dual_script
+    assert "--poll-interval-seconds \"$DUAL_POLL_INTERVAL_SECONDS\"" in dual_script
+    assert "--list-limit \"$DUAL_LIST_LIMIT\"" in dual_script
     assert "--fail-output-json \"$FAIL_JSON\"" in dual_script
     assert "--success-output-json \"$SUCCESS_JSON\"" in dual_script
     assert "--compare-output-json \"$COMPARE_JSON\"" in dual_script
     assert "--compare-output-md \"$COMPARE_MD\"" in dual_script
     assert "--output-json \"$DUAL_SUMMARY_JSON\"" in dual_script
     assert "--dispatch-trace-prefix \"$NIGHTLY_TRACE_ID\"" in dual_script
+    assert "strict_flags=()" in dual_script
+    assert "STRICT_REQUIRE_DISTINCT_RUN_IDS,,}" in dual_script
+    assert "strict_flags+=(--strict-require-distinct-run-ids)" in dual_script
+    assert "STRICT_REQUIRE_TRACE_PAIR,,}" in dual_script
+    assert "strict_flags+=(--strict-require-trace-pair)" in dual_script
     assert "--strict" in dual_script
-    assert "--strict-require-distinct-run-ids" in dual_script
-    assert "--strict-require-trace-pair" in dual_script
+    assert "\"${strict_flags[@]}\"" in dual_script
 
     upload_step = _get_step(
         workflow, job_name, "Upload nightly superpass compare artifacts"
@@ -89,5 +114,15 @@ def test_workflow_has_dual_dispatch_compare_artifact_and_summary_steps() -> None
     assert "GITHUB_STEP_SUMMARY" in summary_script
     assert "Trace ID" in summary_script
     assert "$NIGHTLY_TRACE_ID" in summary_script
+    assert "Dual wait timeout seconds" in summary_script
+    assert "$DUAL_WAIT_TIMEOUT_SECONDS" in summary_script
+    assert "Dual poll interval seconds" in summary_script
+    assert "$DUAL_POLL_INTERVAL_SECONDS" in summary_script
+    assert "Dual list limit" in summary_script
+    assert "$DUAL_LIST_LIMIT" in summary_script
+    assert "Strict require distinct run ids" in summary_script
+    assert "$STRICT_REQUIRE_DISTINCT_RUN_IDS" in summary_script
+    assert "Strict require trace pair" in summary_script
+    assert "$STRICT_REQUIRE_TRACE_PAIR" in summary_script
     assert "Dual dispatch step outcome" in summary_script
     assert "Dual summary JSON" in summary_script

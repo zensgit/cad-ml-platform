@@ -23,6 +23,26 @@ on:
         description: 'Optional trace id for nightly dispatch lineage.'
         required: false
         default: ''
+      dual_wait_timeout_seconds:
+        description: 'Wait timeout seconds for dual dispatch polling.'
+        required: false
+        default: '900'
+      dual_poll_interval_seconds:
+        description: 'Polling interval seconds for dual dispatch polling.'
+        required: false
+        default: '3'
+      dual_list_limit:
+        description: 'Workflow run list limit when locating dispatched runs.'
+        required: false
+        default: '20'
+      strict_require_distinct_run_ids:
+        description: 'When true, require fail/success run ids to be distinct in strict mode.'
+        required: false
+        default: 'true'
+      strict_require_trace_pair:
+        description: 'When true, require fail/success trace pair in strict mode.'
+        required: false
+        default: 'true'
 
 permissions:
   contents: read
@@ -46,6 +66,11 @@ jobs:
       COMPARE_JSON: artifacts/hybrid-superpass-nightly/compare.json
       COMPARE_MD: artifacts/hybrid-superpass-nightly/compare.md
       DUAL_SUMMARY_JSON: artifacts/hybrid-superpass-nightly/dual-summary.json
+      DUAL_WAIT_TIMEOUT_SECONDS: ${{ github.event.inputs.dual_wait_timeout_seconds || '900' }}
+      DUAL_POLL_INTERVAL_SECONDS: ${{ github.event.inputs.dual_poll_interval_seconds || '3' }}
+      DUAL_LIST_LIMIT: ${{ github.event.inputs.dual_list_limit || '20' }}
+      STRICT_REQUIRE_DISTINCT_RUN_IDS: ${{ github.event.inputs.strict_require_distinct_run_ids || 'true' }}
+      STRICT_REQUIRE_TRACE_PAIR: ${{ github.event.inputs.strict_require_trace_pair || 'true' }}
 
     steps:
       - name: Checkout repository
@@ -63,13 +88,20 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p "$ARTIFACT_DIR"
+          strict_flags=()
+          if [[ "${STRICT_REQUIRE_DISTINCT_RUN_IDS,,}" == "true" ]]; then
+            strict_flags+=(--strict-require-distinct-run-ids)
+          fi
+          if [[ "${STRICT_REQUIRE_TRACE_PAIR,,}" == "true" ]]; then
+            strict_flags+=(--strict-require-trace-pair)
+          fi
           python scripts/ci/run_hybrid_superpass_dual_dispatch.py \
             --workflow "$TARGET_WORKFLOW" \
             --repo "$TARGET_REPO" \
             --ref "$TARGET_REF" \
-            --wait-timeout-seconds 900 \
-            --poll-interval-seconds 3 \
-            --list-limit 20 \
+            --wait-timeout-seconds "$DUAL_WAIT_TIMEOUT_SECONDS" \
+            --poll-interval-seconds "$DUAL_POLL_INTERVAL_SECONDS" \
+            --list-limit "$DUAL_LIST_LIMIT" \
             --fail-output-json "$FAIL_JSON" \
             --success-output-json "$SUCCESS_JSON" \
             --compare-output-json "$COMPARE_JSON" \
@@ -77,8 +109,7 @@ jobs:
             --output-json "$DUAL_SUMMARY_JSON" \
             --dispatch-trace-prefix "$NIGHTLY_TRACE_ID" \
             --strict \
-            --strict-require-distinct-run-ids \
-            --strict-require-trace-pair
+            "${strict_flags[@]}"
           echo "dual_summary_json=$DUAL_SUMMARY_JSON" >> "$GITHUB_OUTPUT"
 
       - name: Upload nightly superpass compare artifacts
@@ -103,6 +134,11 @@ jobs:
           echo "- Target ref: $TARGET_REF" >> "$GITHUB_STEP_SUMMARY"
           echo "- Target workflow: $TARGET_WORKFLOW" >> "$GITHUB_STEP_SUMMARY"
           echo "- Trace ID: $NIGHTLY_TRACE_ID" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Dual wait timeout seconds: $DUAL_WAIT_TIMEOUT_SECONDS" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Dual poll interval seconds: $DUAL_POLL_INTERVAL_SECONDS" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Dual list limit: $DUAL_LIST_LIMIT" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Strict require distinct run ids: $STRICT_REQUIRE_DISTINCT_RUN_IDS" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Strict require trace pair: $STRICT_REQUIRE_TRACE_PAIR" >> "$GITHUB_STEP_SUMMARY"
           echo "- Dual dispatch step outcome: ${{ steps.dual_dispatch.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Dual summary JSON: $DUAL_SUMMARY_JSON" >> "$GITHUB_STEP_SUMMARY"
           echo "- Compare JSON: $COMPARE_JSON" >> "$GITHUB_STEP_SUMMARY"
