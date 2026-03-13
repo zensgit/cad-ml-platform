@@ -247,6 +247,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--family-prefix-len" in hybrid_blind_history_script
     assert "--family-map-json" in hybrid_blind_history_script
     assert "--family-slice-max-slices" in hybrid_blind_history_script
+    assert '--runner "ci"' in hybrid_blind_history_script
 
     hybrid_blind_drift_step = _get_step(
         workflow, "evaluate", "Check Hybrid blind drift alerts (optional)"

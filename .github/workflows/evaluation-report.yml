@@ -715,7 +715,7 @@ jobs:
           --family-slice-max-slices "${HYBRID_BLIND_FAMILY_SLICE_MAX_SNAPSHOTS:-20}" \
           --branch "${GITHUB_REF_NAME:-unknown}" \
           --commit "$COMMIT_SHORT" \
-          --runner "${{ runner.os }}" \
+          --runner "ci" \
           --machine "$(hostname)" \
           --os-info "$(uname -s) $(uname -r)" \
           --python-version "$PY_VERSION" \
