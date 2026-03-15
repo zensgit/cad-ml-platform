@@ -116,6 +116,7 @@ env:
   REPORT_PATH: reports/eval_history/report
   ARTIFACT_RETENTION_DAYS: 30
   CI_WATCH_SUMMARY_JSON_FOR_COMMENT: ${{ vars.CI_WATCH_SUMMARY_JSON_FOR_COMMENT || '' }}
+  WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT: ${{ vars.WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT || '' }}
   # Optimize Matplotlib in CI
   MPLCONFIGDIR: /tmp/matplotlib
   XDG_CACHE_HOME: /tmp/cache
@@ -2035,309 +2036,102 @@ jobs:
     - name: Comment PR with results
       if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
       uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
+      env:
+        EVAL_COMBINED_SCORE: ${{ steps.evaluation.outputs.combined_score }}
+        EVAL_VISION_SCORE: ${{ steps.evaluation.outputs.vision_score }}
+        EVAL_OCR_SCORE: ${{ steps.evaluation.outputs.ocr_score }}
+        EVAL_MIN_COMBINED: ${{ github.event.inputs.min_combined || '0.8' }}
+        EVAL_MIN_VISION: ${{ github.event.inputs.min_vision || '0.65' }}
+        EVAL_MIN_OCR: ${{ github.event.inputs.min_ocr || '0.9' }}
+        INSIGHTS_HAS_ANOMALIES: ${{ steps.insights.outputs.has_anomalies }}
+        SECURITY_STATUS: ${{ steps.security.outputs.security_status }}
+        GRAPH2D_REVIEW_PACK_ENABLED: ${{ steps.graph2d_review_pack.outputs.enabled }}
+        GRAPH2D_REVIEW_GATE_ENABLED: ${{ steps.graph2d_review_gate.outputs.enabled }}
+        GRAPH2D_TRAIN_SWEEP_ENABLED: ${{ steps.graph2d_train_sweep.outputs.enabled }}
+        GRAPH2D_REVIEW_CANDIDATES: ${{ steps.graph2d_review_pack.outputs.candidate_rows }}
+        GRAPH2D_REVIEW_REJECTED: ${{ steps.graph2d_review_pack.outputs.hybrid_rejected_count }}
+        GRAPH2D_REVIEW_CONFLICTS: ${{ steps.graph2d_review_pack.outputs.conflict_count }}
+        GRAPH2D_REVIEW_TOP_REASONS: ${{ steps.graph2d_review_pack.outputs.top_review_reasons }}
+        GRAPH2D_REVIEW_TOP_SOURCES: ${{ steps.graph2d_review_pack.outputs.top_primary_sources }}
+        GRAPH2D_REVIEW_EXAMPLE_EXPLANATIONS: ${{ steps.graph2d_review_pack.outputs.sample_explanations }}
+        GRAPH2D_REVIEW_GATE_STATUS: ${{ steps.graph2d_review_gate.outputs.status }}
+        GRAPH2D_REVIEW_GATE_EXIT_CODE: ${{ steps.graph2d_review_gate.outputs.exit_code }}
+        GRAPH2D_REVIEW_GATE_HEADLINE: ${{ steps.graph2d_review_gate.outputs.headline }}
+        GRAPH2D_REVIEW_GATE_STRICT_MODE: ${{ steps.graph2d_review_gate_strict.outputs.strict_mode }}
+        GRAPH2D_REVIEW_GATE_STRICT_SHOULD_FAIL: ${{ steps.graph2d_review_gate_strict.outputs.should_fail }}
+        GRAPH2D_REVIEW_GATE_STRICT_REASON: ${{ steps.graph2d_review_gate_strict.outputs.reason }}
+        GRAPH2D_SWEEP_TOTAL_RUNS: ${{ steps.graph2d_train_sweep.outputs.total_runs }}
+        GRAPH2D_SWEEP_FAILED_RUNS: ${{ steps.graph2d_train_sweep.outputs.failed_runs }}
+        GRAPH2D_SWEEP_BEST_RECIPE: ${{ steps.graph2d_train_sweep.outputs.best_recipe }}
+        GRAPH2D_SWEEP_BEST_SEED: ${{ steps.graph2d_train_sweep.outputs.best_seed }}
+        GRAPH2D_SWEEP_RECOMMENDED_ENV: ${{ steps.graph2d_train_sweep.outputs.recommended_env_file }}
+        GRAPH2D_SWEEP_BEST_RUN_SCRIPT: ${{ steps.graph2d_train_sweep.outputs.best_run_script }}
+        GRAPH2D_BLIND_ENABLED: ${{ steps.graph2d_blind_gate.outputs.enabled }}
+        GRAPH2D_BLIND_ACCURACY: ${{ steps.graph2d_blind_gate.outputs.accuracy }}
+        HYBRID_BLIND_ENABLED: ${{ steps.hybrid_blind_eval.outputs.enabled }}
+        HYBRID_BLIND_STATUS: ${{ steps.hybrid_blind_eval.outputs.status }}
+        HYBRID_BLIND_EXIT_CODE: ${{ steps.hybrid_blind_eval.outputs.exit_code }}
+        HYBRID_BLIND_DATASET_SOURCE: ${{ steps.hybrid_blind_eval.outputs.dataset_source }}
+        HYBRID_BLIND_ACCURACY: ${{ steps.hybrid_blind_eval.outputs.hybrid_accuracy }}
+        HYBRID_BLIND_GRAPH2D_ACCURACY: ${{ steps.hybrid_blind_eval.outputs.graph2d_accuracy }}
+        HYBRID_BLIND_GAIN: ${{ steps.hybrid_blind_eval.outputs.hybrid_gain_vs_graph2d }}
+        HYBRID_BLIND_COVERAGE: ${{ steps.hybrid_blind_eval.outputs.weak_label_coverage }}
+        HYBRID_BLIND_GATE_ENABLED: ${{ steps.hybrid_blind_gate.outputs.enabled }}
+        HYBRID_BLIND_GATE_STATUS: ${{ steps.hybrid_blind_gate.outputs.status }}
+        HYBRID_BLIND_GATE_EXIT_CODE: ${{ steps.hybrid_blind_gate.outputs.exit_code }}
+        HYBRID_BLIND_GATE_HEADLINE: ${{ steps.hybrid_blind_gate.outputs.headline }}
+        HYBRID_BLIND_STRICT_MODE: ${{ steps.hybrid_blind_gate_strict.outputs.strict_mode }}
+        HYBRID_BLIND_STRICT_SHOULD_FAIL: ${{ steps.hybrid_blind_gate_strict.outputs.should_fail }}
+        HYBRID_BLIND_STRICT_REASON: ${{ steps.hybrid_blind_gate_strict.outputs.reason }}
+        HYBRID_BLIND_STRICT_REQUIRE_REAL: ${{ steps.hybrid_blind_gate_strict.outputs.strict_require_real_data }}
+        HYBRID_BLIND_DRIFT_ENABLED: ${{ steps.hybrid_blind_drift_alert.outputs.enabled }}
+        HYBRID_BLIND_DRIFT_STATUS: ${{ steps.hybrid_blind_drift_alert.outputs.status }}
+        HYBRID_BLIND_DRIFT_EXIT_CODE: ${{ steps.hybrid_blind_drift_alert.outputs.exit_code }}
+        HYBRID_BLIND_DRIFT_HEADLINE: ${{ steps.hybrid_blind_drift_alert.outputs.headline }}
+        HYBRID_BLIND_DELTA_ACC: ${{ steps.hybrid_blind_drift_alert.outputs.delta_hybrid_accuracy }}
+        HYBRID_BLIND_DELTA_GAIN: ${{ steps.hybrid_blind_drift_alert.outputs.delta_hybrid_gain_vs_graph2d }}
+        HYBRID_BLIND_DELTA_COVERAGE: ${{ steps.hybrid_blind_drift_alert.outputs.delta_weak_label_coverage }}
+        HYBRID_BLIND_LABEL_SLICE_ENABLED: ${{ steps.hybrid_blind_drift_alert.outputs.label_slice_enabled }}
+        HYBRID_BLIND_LABEL_SLICE_AUTO_CAP: ${{ steps.hybrid_blind_drift_alert.outputs.label_slice_auto_cap_min_common }}
+        HYBRID_BLIND_LABEL_SLICE_EFFECTIVE_MIN_COMMON: ${{ steps.hybrid_blind_drift_alert.outputs.label_slice_effective_min_common }}
+        HYBRID_BLIND_LABEL_SLICE_COMMON_COUNT: ${{ steps.hybrid_blind_drift_alert.outputs.label_slice_common_count }}
+        HYBRID_BLIND_LABEL_SLICE_WORST_ACC_DROP: ${{ steps.hybrid_blind_drift_alert.outputs.label_slice_worst_acc_drop }}
+        HYBRID_BLIND_LABEL_SLICE_WORST_ACC_DROP_LABEL: ${{ steps.hybrid_blind_drift_alert.outputs.label_slice_worst_acc_drop_label }}
+        HYBRID_BLIND_LABEL_SLICE_WORST_GAIN_DROP: ${{ steps.hybrid_blind_drift_alert.outputs.label_slice_worst_gain_drop }}
+        HYBRID_BLIND_LABEL_SLICE_WORST_GAIN_DROP_LABEL: ${{ steps.hybrid_blind_drift_alert.outputs.label_slice_worst_gain_drop_label }}
+        HYBRID_BLIND_FAMILY_SLICE_ENABLED: ${{ steps.hybrid_blind_drift_alert.outputs.family_slice_enabled }}
+        HYBRID_BLIND_FAMILY_SLICE_AUTO_CAP: ${{ steps.hybrid_blind_drift_alert.outputs.family_slice_auto_cap_min_common }}
+        HYBRID_BLIND_FAMILY_SLICE_EFFECTIVE_MIN_COMMON: ${{ steps.hybrid_blind_drift_alert.outputs.family_slice_effective_min_common }}
+        HYBRID_BLIND_FAMILY_SLICE_COMMON_COUNT: ${{ steps.hybrid_blind_drift_alert.outputs.family_slice_common_count }}
+        HYBRID_BLIND_FAMILY_SLICE_WORST_ACC_DROP: ${{ steps.hybrid_blind_drift_alert.outputs.family_slice_worst_acc_drop }}
+        HYBRID_BLIND_FAMILY_SLICE_WORST_ACC_DROP_FAMILY: ${{ steps.hybrid_blind_drift_alert.outputs.family_slice_worst_acc_drop_family }}
+        HYBRID_BLIND_FAMILY_SLICE_WORST_GAIN_DROP: ${{ steps.hybrid_blind_drift_alert.outputs.family_slice_worst_gain_drop }}
+        HYBRID_BLIND_FAMILY_SLICE_WORST_GAIN_DROP_FAMILY: ${{ steps.hybrid_blind_drift_alert.outputs.family_slice_worst_gain_drop_family }}
+        HYBRID_CALIBRATION_ENABLED: ${{ steps.hybrid_calibration.outputs.enabled }}
+        HYBRID_CALIBRATION_STATUS: ${{ steps.hybrid_calibration.outputs.status }}
+        HYBRID_CALIBRATION_EXIT_CODE: ${{ steps.hybrid_calibration.outputs.exit_code }}
+        HYBRID_CALIBRATION_SAMPLES: ${{ steps.hybrid_calibration.outputs.n_samples }}
+        HYBRID_CALIBRATION_ECE: ${{ steps.hybrid_calibration.outputs.ece }}
+        HYBRID_CALIBRATION_BRIER: ${{ steps.hybrid_calibration.outputs.brier_score }}
+        HYBRID_CALIBRATION_MCE: ${{ steps.hybrid_calibration.outputs.mce }}
+        HYBRID_CALIBRATION_GATE_ENABLED: ${{ steps.hybrid_calibration_gate.outputs.enabled }}
+        HYBRID_CALIBRATION_GATE_STATUS: ${{ steps.hybrid_calibration_gate.outputs.status }}
+        HYBRID_CALIBRATION_GATE_EXIT_CODE: ${{ steps.hybrid_calibration_gate.outputs.exit_code }}
+        HYBRID_CALIBRATION_GATE_HEADLINE: ${{ steps.hybrid_calibration_gate.outputs.headline }}
+        HYBRID_CALIBRATION_STRICT_MODE: ${{ steps.hybrid_calibration_gate_strict.outputs.strict_mode }}
+        HYBRID_CALIBRATION_STRICT_SHOULD_FAIL: ${{ steps.hybrid_calibration_gate_strict.outputs.should_fail }}
+        HYBRID_CALIBRATION_STRICT_REASON: ${{ steps.hybrid_calibration_gate_strict.outputs.reason }}
+        HYBRID_CALIBRATION_BASELINE_UPDATE_ENABLED: ${{ steps.hybrid_calibration_baseline_update.outputs.enabled }}
+        HYBRID_CALIBRATION_BASELINE_UPDATE_STATUS: ${{ steps.hybrid_calibration_baseline_update.outputs.status }}
+        HYBRID_CALIBRATION_BASELINE_UPDATE_EXIT_CODE: ${{ steps.hybrid_calibration_baseline_update.outputs.exit_code }}
+        HYBRID_CALIBRATION_BASELINE_PATH: ${{ steps.hybrid_calibration_baseline_update.outputs.baseline_json }}
+        CI_WATCH_SUMMARY_JSON_FOR_COMMENT: ${{ env.CI_WATCH_SUMMARY_JSON_FOR_COMMENT }}
+        WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT: ${{ env.WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT }}
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
-          try {
-            const combined = parseFloat('${{ steps.evaluation.outputs.combined_score }}' || '0');
-            const vision = parseFloat('${{ steps.evaluation.outputs.vision_score }}' || '0');
-            const ocr = parseFloat('${{ steps.evaluation.outputs.ocr_score }}' || '0');
-
-            const minCombined = parseFloat('${{ github.event.inputs.min_combined || '0.8' }}');
-            const minVision = parseFloat('${{ github.event.inputs.min_vision || '0.65' }}');
-            const minOcr = parseFloat('${{ github.event.inputs.min_ocr || '0.9' }}');
-
-            const combinedStatus = combined >= minCombined ? '✅ Pass' : '❌ Fail';
-            const visionStatus = vision >= minVision ? '✅ Pass' : '❌ Fail';
-            const ocrStatus = ocr >= minOcr ? '✅ Pass' : '❌ Fail';
-
-            const overallStatus = (combined >= minCombined && vision >= minVision && ocr >= minOcr)
-              ? '✅ **All checks passed!**'
-              : '⚠️ **Some checks failed - review required**';
-
-            const hasAnomalies = '${{ steps.insights.outputs.has_anomalies }}' === 'true';
-            const securityStatus = '${{ steps.security.outputs.security_status }}';
-            const reviewPackEnabled = '${{ steps.graph2d_review_pack.outputs.enabled }}' === 'true';
-            const reviewGateEnabled = '${{ steps.graph2d_review_gate.outputs.enabled }}' === 'true';
-            const trainSweepEnabled = '${{ steps.graph2d_train_sweep.outputs.enabled }}' === 'true';
-            const reviewCandidates = '${{ steps.graph2d_review_pack.outputs.candidate_rows }}';
-            const reviewRejected = '${{ steps.graph2d_review_pack.outputs.hybrid_rejected_count }}';
-            const reviewConflicts = '${{ steps.graph2d_review_pack.outputs.conflict_count }}';
-            const reviewTopReasons = '${{ steps.graph2d_review_pack.outputs.top_review_reasons }}';
-            const reviewTopSources = '${{ steps.graph2d_review_pack.outputs.top_primary_sources }}';
-            const reviewExampleExplanations = '${{ steps.graph2d_review_pack.outputs.sample_explanations }}';
-            const reviewGateStatusRaw = '${{ steps.graph2d_review_gate.outputs.status }}';
-            const reviewGateExitCode = '${{ steps.graph2d_review_gate.outputs.exit_code }}';
-            const reviewGateHeadline = '${{ steps.graph2d_review_gate.outputs.headline }}';
-            const reviewGateStrictMode = '${{ steps.graph2d_review_gate_strict.outputs.strict_mode }}';
-            const reviewGateStrictShouldFail = '${{ steps.graph2d_review_gate_strict.outputs.should_fail }}';
-            const reviewGateStrictReason = '${{ steps.graph2d_review_gate_strict.outputs.reason }}';
-            const sweepTotalRuns = '${{ steps.graph2d_train_sweep.outputs.total_runs }}';
-            const sweepFailedRuns = '${{ steps.graph2d_train_sweep.outputs.failed_runs }}';
-            const sweepBestRecipe = '${{ steps.graph2d_train_sweep.outputs.best_recipe }}';
-            const sweepBestSeed = '${{ steps.graph2d_train_sweep.outputs.best_seed }}';
-            const sweepRecommendedEnv = '${{ steps.graph2d_train_sweep.outputs.recommended_env_file }}';
-            const sweepBestRunScript = '${{ steps.graph2d_train_sweep.outputs.best_run_script }}';
-            const graph2dBlindEnabled = '${{ steps.graph2d_blind_gate.outputs.enabled }}' === 'true';
-            const graph2dBlindAccuracyRaw = '${{ steps.graph2d_blind_gate.outputs.accuracy }}';
-            const hybridBlindEnabled = '${{ steps.hybrid_blind_eval.outputs.enabled }}' === 'true';
-            const hybridBlindStatusRaw = '${{ steps.hybrid_blind_eval.outputs.status }}';
-            const hybridBlindExitCode = '${{ steps.hybrid_blind_eval.outputs.exit_code }}';
-            const hybridBlindDatasetSource = '${{ steps.hybrid_blind_eval.outputs.dataset_source }}';
-            const hybridBlindAccuracyRaw = '${{ steps.hybrid_blind_eval.outputs.hybrid_accuracy }}';
-            const hybridBlindGraph2dAccuracyRaw = '${{ steps.hybrid_blind_eval.outputs.graph2d_accuracy }}';
-            const hybridBlindGainRaw = '${{ steps.hybrid_blind_eval.outputs.hybrid_gain_vs_graph2d }}';
-            const hybridBlindCoverageRaw = '${{ steps.hybrid_blind_eval.outputs.weak_label_coverage }}';
-            const hybridBlindGateEnabled = '${{ steps.hybrid_blind_gate.outputs.enabled }}' === 'true';
-            const hybridBlindGateStatusRaw = '${{ steps.hybrid_blind_gate.outputs.status }}';
-            const hybridBlindGateExitCode = '${{ steps.hybrid_blind_gate.outputs.exit_code }}';
-            const hybridBlindGateHeadline = '${{ steps.hybrid_blind_gate.outputs.headline }}';
-            const hybridBlindStrictMode = '${{ steps.hybrid_blind_gate_strict.outputs.strict_mode }}';
-            const hybridBlindStrictShouldFail = '${{ steps.hybrid_blind_gate_strict.outputs.should_fail }}';
-            const hybridBlindStrictReason = '${{ steps.hybrid_blind_gate_strict.outputs.reason }}';
-            const hybridBlindStrictRequireReal = '${{ steps.hybrid_blind_gate_strict.outputs.strict_require_real_data }}';
-            const hybridBlindDriftEnabled = '${{ steps.hybrid_blind_drift_alert.outputs.enabled }}' === 'true';
-            const hybridBlindDriftStatusRaw = '${{ steps.hybrid_blind_drift_alert.outputs.status }}';
-            const hybridBlindDriftExitCode = '${{ steps.hybrid_blind_drift_alert.outputs.exit_code }}';
-            const hybridBlindDriftHeadline = '${{ steps.hybrid_blind_drift_alert.outputs.headline }}';
-            const hybridBlindDeltaAcc = '${{ steps.hybrid_blind_drift_alert.outputs.delta_hybrid_accuracy }}';
-            const hybridBlindDeltaGain = '${{ steps.hybrid_blind_drift_alert.outputs.delta_hybrid_gain_vs_graph2d }}';
-            const hybridBlindDeltaCoverage = '${{ steps.hybrid_blind_drift_alert.outputs.delta_weak_label_coverage }}';
-            const hybridBlindLabelSliceEnabled = '${{ steps.hybrid_blind_drift_alert.outputs.label_slice_enabled }}';
-            const hybridBlindLabelSliceAutoCap = '${{ steps.hybrid_blind_drift_alert.outputs.label_slice_auto_cap_min_common }}';
-            const hybridBlindLabelSliceEffectiveMinCommon = '${{ steps.hybrid_blind_drift_alert.outputs.label_slice_effective_min_common }}';
-            const hybridBlindLabelSliceCommonCount = '${{ steps.hybrid_blind_drift_alert.outputs.label_slice_common_count }}';
-            const hybridBlindLabelSliceWorstAccDrop = '${{ steps.hybrid_blind_drift_alert.outputs.label_slice_worst_acc_drop }}';
-            const hybridBlindLabelSliceWorstAccDropLabel = '${{ steps.hybrid_blind_drift_alert.outputs.label_slice_worst_acc_drop_label }}';
-            const hybridBlindLabelSliceWorstGainDrop = '${{ steps.hybrid_blind_drift_alert.outputs.label_slice_worst_gain_drop }}';
-            const hybridBlindLabelSliceWorstGainDropLabel = '${{ steps.hybrid_blind_drift_alert.outputs.label_slice_worst_gain_drop_label }}';
-            const hybridBlindFamilySliceEnabled = '${{ steps.hybrid_blind_drift_alert.outputs.family_slice_enabled }}';
-            const hybridBlindFamilySliceAutoCap = '${{ steps.hybrid_blind_drift_alert.outputs.family_slice_auto_cap_min_common }}';
-            const hybridBlindFamilySliceEffectiveMinCommon = '${{ steps.hybrid_blind_drift_alert.outputs.family_slice_effective_min_common }}';
-            const hybridBlindFamilySliceCommonCount = '${{ steps.hybrid_blind_drift_alert.outputs.family_slice_common_count }}';
-            const hybridBlindFamilySliceWorstAccDrop = '${{ steps.hybrid_blind_drift_alert.outputs.family_slice_worst_acc_drop }}';
-            const hybridBlindFamilySliceWorstAccDropFamily = '${{ steps.hybrid_blind_drift_alert.outputs.family_slice_worst_acc_drop_family }}';
-            const hybridBlindFamilySliceWorstGainDrop = '${{ steps.hybrid_blind_drift_alert.outputs.family_slice_worst_gain_drop }}';
-            const hybridBlindFamilySliceWorstGainDropFamily = '${{ steps.hybrid_blind_drift_alert.outputs.family_slice_worst_gain_drop_family }}';
-            const hybridCalibrationEnabled = '${{ steps.hybrid_calibration.outputs.enabled }}' === 'true';
-            const hybridCalibrationStatusRaw = '${{ steps.hybrid_calibration.outputs.status }}';
-            const hybridCalibrationExitCode = '${{ steps.hybrid_calibration.outputs.exit_code }}';
-            const hybridCalibrationSamples = '${{ steps.hybrid_calibration.outputs.n_samples }}';
-            const hybridCalibrationEce = '${{ steps.hybrid_calibration.outputs.ece }}';
-            const hybridCalibrationBrier = '${{ steps.hybrid_calibration.outputs.brier_score }}';
-            const hybridCalibrationMce = '${{ steps.hybrid_calibration.outputs.mce }}';
-            const hybridCalibrationGateEnabled = '${{ steps.hybrid_calibration_gate.outputs.enabled }}' === 'true';
-            const hybridCalibrationGateStatusRaw = '${{ steps.hybrid_calibration_gate.outputs.status }}';
-            const hybridCalibrationGateExitCode = '${{ steps.hybrid_calibration_gate.outputs.exit_code }}';
-            const hybridCalibrationGateHeadline = '${{ steps.hybrid_calibration_gate.outputs.headline }}';
-            const hybridCalibrationStrictMode = '${{ steps.hybrid_calibration_gate_strict.outputs.strict_mode }}';
-            const hybridCalibrationStrictShouldFail = '${{ steps.hybrid_calibration_gate_strict.outputs.should_fail }}';
-            const hybridCalibrationStrictReason = '${{ steps.hybrid_calibration_gate_strict.outputs.reason }}';
-            const hybridCalibrationBaselineUpdateEnabled = '${{ steps.hybrid_calibration_baseline_update.outputs.enabled }}' === 'true';
-            const hybridCalibrationBaselineUpdateStatus = '${{ steps.hybrid_calibration_baseline_update.outputs.status }}';
-            const hybridCalibrationBaselineUpdateExitCode = '${{ steps.hybrid_calibration_baseline_update.outputs.exit_code }}';
-            const hybridCalibrationBaselinePath = '${{ steps.hybrid_calibration_baseline_update.outputs.baseline_json }}';
-            const fs = require('fs');
-            const ciWatchSummaryPath = process.env.CI_WATCH_SUMMARY_JSON_FOR_COMMENT || '';
-            let ciWatchFailureSummary = '⏭️ skipped (no summary path)';
-            let ciWatchFailureLight = '⚪';
-            if (ciWatchSummaryPath) {
-              try {
-                if (!fs.existsSync(ciWatchSummaryPath)) {
-                  ciWatchFailureSummary = `⚠️ summary missing at ${ciWatchSummaryPath}`;
-                  ciWatchFailureLight = '🟡';
-                } else {
-                  const ciWatchSummaryPayload = JSON.parse(fs.readFileSync(ciWatchSummaryPath, 'utf8'));
-                  const ciWatchFailureDetails = Array.isArray(ciWatchSummaryPayload.failure_details)
-                    ? ciWatchSummaryPayload.failure_details
-                    : [];
-                  const ciWatchCounts = (
-                    ciWatchSummaryPayload.counts && typeof ciWatchSummaryPayload.counts === 'object'
-                  ) ? ciWatchSummaryPayload.counts : {};
-                  const ciWatchFailedCount = parseInt(
-                    String(ciWatchCounts.failed ?? ciWatchFailureDetails.length ?? 0),
-                    10,
-                  ) || 0;
-                  const ciWatchReason = String(ciWatchSummaryPayload.reason || 'unknown');
-                  const ciWatchTop = ciWatchFailureDetails.slice(0, 3).map((item) => {
-                    if (!item || typeof item !== 'object') {
-                      return 'unknown';
-                    }
-                    const wf = String(item.workflow_name || 'unknown');
-                    const runId = String(item.run_id || 'n/a');
-                    const step = Array.isArray(item.failed_steps) && item.failed_steps.length > 0
-                      ? String(item.failed_steps[0])
-                      : (Array.isArray(item.failed_jobs) && item.failed_jobs.length > 0
-                        ? String(item.failed_jobs[0])
-                        : 'n/a');
-                    return `${wf}#${runId}:${step}`;
-                  }).join('; ');
-                  if (ciWatchFailedCount > 0 || ciWatchFailureDetails.length > 0) {
-                    ciWatchFailureSummary = `failed=${ciWatchFailedCount}, reason=${ciWatchReason}, top=${ciWatchTop || 'n/a'}`;
-                    ciWatchFailureLight = '🔴';
-                  } else {
-                    ciWatchFailureSummary = `failed=0, reason=${ciWatchReason}`;
-                    ciWatchFailureLight = '🟢';
-                  }
-                }
-              } catch (error) {
-                const message = error && error.message ? error.message : String(error);
-                ciWatchFailureSummary = `⚠️ parse_error: ${message}`;
-                ciWatchFailureLight = '🟡';
-              }
-            }
-            const reviewCandidateCount = parseInt(reviewCandidates || '0', 10);
-            const sweepTotalRunsInt = parseInt(sweepTotalRuns || '0', 10);
-            const sweepFailedRunsInt = parseInt(sweepFailedRuns || '0', 10);
-            const graph2dBlindAccuracy = parseFloat(graph2dBlindAccuracyRaw || 'NaN');
-            const hybridBlindAccuracy = parseFloat(hybridBlindAccuracyRaw || 'NaN');
-            const hybridBlindGain = parseFloat(hybridBlindGainRaw || 'NaN');
-
-            const reviewPackStatus = reviewPackEnabled
-              ? `🧪 candidates=${reviewCandidates}, rejected=${reviewRejected}, conflict=${reviewConflicts}`
-              : '⏭️ skipped';
-            const reviewPackInsights = reviewPackEnabled
-              ? `reasons=${reviewTopReasons || 'n/a'}, sources=${reviewTopSources || 'n/a'}, examples=${reviewExampleExplanations || 'n/a'}`
-              : '⏭️ skipped';
-            const reviewGateStatus = reviewGateEnabled
-              ? `${reviewGateStatusRaw} (exit=${reviewGateExitCode}, headline=${reviewGateHeadline || 'n/a'})`
-              : '⏭️ skipped';
-            const reviewGateStrictStatus = reviewGateEnabled
-              ? `strict=${reviewGateStrictMode || 'false'}, should_fail=${reviewGateStrictShouldFail || 'false'}, reason=${reviewGateStrictReason || 'n/a'}`
-              : '⏭️ skipped';
-            const trainSweepStatus = trainSweepEnabled
-              ? `runs=${sweepTotalRuns}, failed=${sweepFailedRuns}, best=${sweepBestRecipe}@${sweepBestSeed}, env=${sweepRecommendedEnv}, script=${sweepBestRunScript}`
-              : '⏭️ skipped';
-            const hybridBlindEvalStatus = hybridBlindEnabled
-              ? `${hybridBlindStatusRaw || 'unknown'} (source=${hybridBlindDatasetSource || 'unknown'}, exit=${hybridBlindExitCode || 'n/a'}, coverage=${hybridBlindCoverageRaw || 'n/a'}, hybrid_acc=${hybridBlindAccuracyRaw || 'n/a'}, graph2d_acc=${hybridBlindGraph2dAccuracyRaw || 'n/a'}, gain=${hybridBlindGainRaw || 'n/a'})`
-              : '⏭️ skipped';
-            const hybridBlindGateStatus = hybridBlindGateEnabled
-              ? `${hybridBlindGateStatusRaw || 'unknown'} (exit=${hybridBlindGateExitCode || 'n/a'}, headline=${hybridBlindGateHeadline || 'n/a'})`
-              : '⏭️ skipped';
-            const hybridBlindStrictStatus = hybridBlindGateEnabled
-              ? `strict=${hybridBlindStrictMode || 'false'}, require_real=${hybridBlindStrictRequireReal || 'true'}, should_fail=${hybridBlindStrictShouldFail || 'false'}, reason=${hybridBlindStrictReason || 'n/a'}`
-              : '⏭️ skipped';
-            const hybridBlindDriftStatus = hybridBlindDriftEnabled
-              ? `${hybridBlindDriftStatusRaw || 'unknown'} (exit=${hybridBlindDriftExitCode || 'n/a'}, headline=${hybridBlindDriftHeadline || 'n/a'}, delta_acc=${hybridBlindDeltaAcc || 'n/a'}, delta_gain=${hybridBlindDeltaGain || 'n/a'}, delta_cov=${hybridBlindDeltaCoverage || 'n/a'}, label_slice_enabled=${hybridBlindLabelSliceEnabled || 'false'}, label_auto_cap=${hybridBlindLabelSliceAutoCap || 'true'}, label_effective_min_common=${hybridBlindLabelSliceEffectiveMinCommon || 'n/a'}, label_common=${hybridBlindLabelSliceCommonCount || 'n/a'}, worst_label_acc_drop=${hybridBlindLabelSliceWorstAccDrop || 'n/a'}@${hybridBlindLabelSliceWorstAccDropLabel || 'n/a'}, worst_label_gain_drop=${hybridBlindLabelSliceWorstGainDrop || 'n/a'}@${hybridBlindLabelSliceWorstGainDropLabel || 'n/a'}, family_slice_enabled=${hybridBlindFamilySliceEnabled || 'false'}, family_auto_cap=${hybridBlindFamilySliceAutoCap || 'true'}, family_effective_min_common=${hybridBlindFamilySliceEffectiveMinCommon || 'n/a'}, family_common=${hybridBlindFamilySliceCommonCount || 'n/a'}, worst_family_acc_drop=${hybridBlindFamilySliceWorstAccDrop || 'n/a'}@${hybridBlindFamilySliceWorstAccDropFamily || 'n/a'}, worst_family_gain_drop=${hybridBlindFamilySliceWorstGainDrop || 'n/a'}@${hybridBlindFamilySliceWorstGainDropFamily || 'n/a'})`
-              : '⏭️ skipped';
-            let blindGainSummary = 'n/a';
-            if (!Number.isNaN(hybridBlindGain)) {
-              blindGainSummary = hybridBlindGain.toFixed(4);
-            } else if (!Number.isNaN(hybridBlindAccuracy) && !Number.isNaN(graph2dBlindAccuracy)) {
-              blindGainSummary = (hybridBlindAccuracy - graph2dBlindAccuracy).toFixed(4);
-            }
-            const hybridCalibrationStatus = hybridCalibrationEnabled
-              ? `${hybridCalibrationStatusRaw || 'unknown'} (exit=${hybridCalibrationExitCode || 'n/a'}, n_samples=${hybridCalibrationSamples || '0'}, ece=${hybridCalibrationEce || '0'}, brier=${hybridCalibrationBrier || '0'}, mce=${hybridCalibrationMce || '0'})`
-              : '⏭️ skipped';
-            const hybridCalibrationGateStatus = hybridCalibrationGateEnabled
-              ? `${hybridCalibrationGateStatusRaw || 'unknown'} (exit=${hybridCalibrationGateExitCode || 'n/a'}, headline=${hybridCalibrationGateHeadline || 'n/a'})`
-              : '⏭️ skipped';
-            const hybridCalibrationStrictStatus = hybridCalibrationGateEnabled
-              ? `strict=${hybridCalibrationStrictMode || 'false'}, should_fail=${hybridCalibrationStrictShouldFail || 'false'}, reason=${hybridCalibrationStrictReason || 'n/a'}`
-              : '⏭️ skipped';
-            const hybridCalibrationBaselineStatus = hybridCalibrationBaselineUpdateEnabled
-              ? `${hybridCalibrationBaselineUpdateStatus || 'unknown'} (exit=${hybridCalibrationBaselineUpdateExitCode || 'n/a'}, path=${hybridCalibrationBaselinePath || 'n/a'})`
-              : '⏭️ skipped';
-
-            const reviewPackLight = !reviewPackEnabled
-              ? '⚪'
-              : (reviewCandidateCount > 0 ? '🟡' : '🟢');
-            const reviewGateLight = !reviewGateEnabled
-              ? '⚪'
-              : (reviewGateStatusRaw === 'passed' ? '🟢' : '🔴');
-            const trainSweepLight = !trainSweepEnabled
-              ? '⚪'
-              : (sweepTotalRunsInt <= 0 ? '🟡' : (sweepFailedRunsInt > 0 ? '🔴' : '🟢'));
-            const hybridBlindLight = !hybridBlindEnabled
-              ? '⚪'
-              : ((hybridBlindGateEnabled && hybridBlindGateStatusRaw === 'passed') ? '🟢' : (hybridBlindGateEnabled && hybridBlindGateStatusRaw !== 'passed' ? '🔴' : '🟡'));
-            const hybridCalibrationLight = !hybridCalibrationEnabled
-              ? '⚪'
-              : ((hybridCalibrationStatusRaw === 'ok' && (!hybridCalibrationGateEnabled || hybridCalibrationGateStatusRaw === 'passed')) ? '🟢' : (hybridCalibrationGateEnabled && hybridCalibrationGateStatusRaw !== 'passed' ? '🔴' : '🟡'));
-
-            const body = `## 📊 CAD ML Platform - Evaluation Results
-
-            ${overallStatus}
-
-            ### Scores
-            | Module | Score | Threshold | Status |
-            |--------|-------|-----------|--------|
-            | **Combined** | ${combined.toFixed(3)} | ${minCombined} | ${combinedStatus} |
-            | **Vision** | ${vision.toFixed(3)} | ${minVision} | ${visionStatus} |
-            | **OCR** | ${ocr.toFixed(3)} | ${minOcr} | ${ocrStatus} |
-
-            ### Formula
-            \`Combined Score = 0.5 × Vision + 0.5 × OCR_normalized\`
-
-            ### Additional Analysis
-            | Check | Status |
-            |-------|--------|
-            | **Anomaly Detection** | ${hasAnomalies ? '⚠️ Anomalies detected' : '✅ No anomalies'} |
-            | **Security Audit** | ${securityStatus === 'pass' ? '✅ Passed' : '⚠️ Issues found'} |
-            | **Graph2D Review Pack** | ${reviewPackStatus} |
-            | **Graph2D Review Insights** | ${reviewPackInsights} |
-            | **Graph2D Review Gate** | ${reviewGateStatus} |
-            | **Graph2D Review Gate Strict** | ${reviewGateStrictStatus} |
-            | **Graph2D Train Sweep** | ${trainSweepStatus} |
-            | **Hybrid Blind Eval** | ${hybridBlindEvalStatus} |
-            | **Hybrid Blind Gate** | ${hybridBlindGateStatus} |
-            | **Hybrid Blind Strict** | ${hybridBlindStrictStatus} |
-            | **Hybrid Blind Drift Alert** | ${hybridBlindDriftStatus} |
-            | **Blind Gain (Hybrid-Graph2D)** | ${blindGainSummary} |
-            | **Hybrid Calibration** | ${hybridCalibrationStatus} |
-            | **Hybrid Calibration Gate** | ${hybridCalibrationGateStatus} |
-            | **Hybrid Calibration Strict** | ${hybridCalibrationStrictStatus} |
-            | **Hybrid Calibration Baseline** | ${hybridCalibrationBaselineStatus} |
-            | **CI Watch Failure Details** | ${ciWatchFailureSummary} |
-
-            ### Signal Lights
-            | Signal | State | Detail |
-            |--------|-------|--------|
-            | **Review Pack** | ${reviewPackLight} | ${reviewPackStatus} |
-            | **Review Gate** | ${reviewGateLight} | ${reviewGateStatus} |
-            | **Train Sweep** | ${trainSweepLight} | ${trainSweepStatus} |
-            | **Hybrid Blind** | ${hybridBlindLight} | ${hybridBlindEvalStatus} |
-            | **Hybrid Calibration** | ${hybridCalibrationLight} | ${hybridCalibrationStatus} |
-            | **CI Watcher** | ${ciWatchFailureLight} | ${ciWatchFailureSummary} |
-
-            ### Quick Actions
-            - 📋 [View Full Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
-            - 📈 [Download Artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)
-            - 🔍 [Check Logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs)
-
-            ---
-            *Updated: ${new Date().toISOString().replace('T', ' ').substring(0, 19)} UTC*
-            *Commit: ${context.sha.substring(0, 7)}*`;
-
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number
-            });
-
-            const botComment = comments.find(comment =>
-              comment.user.type === 'Bot' &&
-              comment.body.includes('CAD ML Platform - Evaluation Results')
-            );
-
-            if (botComment) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: botComment.id,
-                body: body
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: body
-              });
-            }
-          } catch (error) {
-            console.warn(`PR comment skipped: ${error.message}`);
-          }
+          const { commentEvaluationReportPR } = require('./scripts/ci/comment_evaluation_report_pr.js');
+          await commentEvaluationReportPR({ github, context, process });
 
     - name: Fail workflow when Graph2D review gate strict check requires blocking
       if: steps.graph2d_review_gate_strict.outputs.should_fail == 'true'

@@ -81,6 +81,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "HYBRID_SUPERPASS_VALIDATION_STRICT" in env
     assert "HYBRID_SUPERPASS_VALIDATION_SCHEMA_MODE" in env
     assert "CI_WATCH_SUMMARY_JSON_FOR_COMMENT" in env
+    assert "WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT" in env
 
     dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
     assert "review_gate_min_total_rows" in dispatch_inputs
@@ -508,48 +509,54 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
 
     pr_comment_step = _get_step(workflow, "evaluate", "Comment PR with results")
     pr_comment_script = pr_comment_step["with"]["script"]
-    assert "Graph2D Review Gate" in pr_comment_script
-    assert "Graph2D Review Gate Strict" in pr_comment_script
-    assert "Graph2D Train Sweep" in pr_comment_script
-    assert "Graph2D Review Insights" in pr_comment_script
-    assert "Hybrid Calibration" in pr_comment_script
-    assert "Hybrid Calibration Gate" in pr_comment_script
-    assert "Hybrid Calibration Strict" in pr_comment_script
-    assert "Hybrid Calibration Baseline" in pr_comment_script
-    assert "CI Watch Failure Details" in pr_comment_script
-    assert "CI Watcher" in pr_comment_script
-    assert "CI_WATCH_SUMMARY_JSON_FOR_COMMENT" in pr_comment_script
-    assert "fs.existsSync(ciWatchSummaryPath)" in pr_comment_script
-    assert "ciWatchFailureDetails" in pr_comment_script
-    assert "Hybrid Blind Eval" in pr_comment_script
-    assert "Hybrid Blind Gate" in pr_comment_script
-    assert "Hybrid Blind Strict" in pr_comment_script
-    assert "Hybrid Blind Drift Alert" in pr_comment_script
-    assert "source=${hybridBlindDatasetSource" in pr_comment_script
-    assert "require_real=${hybridBlindStrictRequireReal" in pr_comment_script
-    assert "label_slice_enabled=${hybridBlindLabelSliceEnabled" in pr_comment_script
-    assert "label_auto_cap=${hybridBlindLabelSliceAutoCap" in pr_comment_script
+    assert "comment_evaluation_report_pr.js" in pr_comment_script
+    assert "commentEvaluationReportPR" in pr_comment_script
+
+    pr_comment_env = pr_comment_step["env"]
+    assert "CI_WATCH_SUMMARY_JSON_FOR_COMMENT" in pr_comment_env
+    assert "WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT" in pr_comment_env
+
+    module_script = (
+        ROOT / "scripts" / "ci" / "comment_evaluation_report_pr.js"
+    ).read_text(encoding="utf-8")
+    assert "Graph2D Review Gate" in module_script
+    assert "Graph2D Review Gate Strict" in module_script
+    assert "Graph2D Train Sweep" in module_script
+    assert "Graph2D Review Insights" in module_script
+    assert "Hybrid Calibration" in module_script
+    assert "Hybrid Calibration Gate" in module_script
+    assert "Hybrid Calibration Strict" in module_script
+    assert "Hybrid Calibration Baseline" in module_script
+    assert "CI Watch Failure Details" in module_script
+    assert "Workflow File Health" in module_script
+    assert "CI Watcher" in module_script
+    assert "Workflow Health" in module_script
+    assert "fs.existsSync(ciWatchSummaryPath)" in module_script
+    assert "workflowFileHealthSummaryPath" in module_script
+    assert "Hybrid Blind Eval" in module_script
+    assert "Hybrid Blind Gate" in module_script
+    assert "Hybrid Blind Strict" in module_script
+    assert "Hybrid Blind Drift Alert" in module_script
+    assert "source=${hybridBlindDatasetSource" in module_script
+    assert "require_real=${hybridBlindStrictRequireReal" in module_script
+    assert "label_slice_enabled=${hybridBlindLabelSliceEnabled" in module_script
+    assert "label_auto_cap=${hybridBlindLabelSliceAutoCap" in module_script
     assert (
         "label_effective_min_common=${hybridBlindLabelSliceEffectiveMinCommon"
-        in pr_comment_script
+        in module_script
     )
-    assert (
-        "worst_label_acc_drop=${hybridBlindLabelSliceWorstAccDrop" in pr_comment_script
-    )
-    assert "family_slice_enabled=${hybridBlindFamilySliceEnabled" in pr_comment_script
-    assert "family_auto_cap=${hybridBlindFamilySliceAutoCap" in pr_comment_script
+    assert "worst_label_acc_drop=${hybridBlindLabelSliceWorstAccDrop" in module_script
+    assert "family_slice_enabled=${hybridBlindFamilySliceEnabled" in module_script
+    assert "family_auto_cap=${hybridBlindFamilySliceAutoCap" in module_script
     assert (
         "family_effective_min_common=${hybridBlindFamilySliceEffectiveMinCommon"
-        in pr_comment_script
+        in module_script
     )
-    assert (
-        "worst_family_acc_drop=${hybridBlindFamilySliceWorstAccDrop"
-        in pr_comment_script
-    )
-    assert "Blind Gain (Hybrid-Graph2D)" in pr_comment_script
-    assert "| **Hybrid Blind** | ${hybridBlindLight}" in pr_comment_script
-    assert "Signal Lights" in pr_comment_script
-    assert "script=${sweepBestRunScript}" in pr_comment_script
+    assert "worst_family_acc_drop=${hybridBlindFamilySliceWorstAccDrop" in module_script
+    assert "Blind Gain (Hybrid-Graph2D)" in module_script
+    assert "| **Hybrid Blind** | ${hybridBlindLight}" in module_script
+    assert "Signal Lights" in module_script
+    assert "script=${sweepBestRunScript}" in module_script
 
 
 def test_workflow_runs_eval_with_history_regression_tests() -> None:
