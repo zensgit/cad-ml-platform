@@ -18,6 +18,7 @@
   - current-ref unresolvable workflow-file errors.
 - Added fallback reason: `gh_ref_unresolvable_for_local_head`.
 - Warning message unified to `gh parser unavailable for current context; fallback to yaml parser`.
+- `PyYAML` import changed to lazy/optional at runtime so `--mode gh` can run in minimal CI jobs without installing YAML deps.
 
 ### 2) Stress workflow wiring regression tests
 - File: `tests/unit/test_stress_workflow_workflow_file_health.py`
@@ -26,6 +27,8 @@
   - `workflow-file-health` job exists and runs expected script flags
   - upload-artifact wiring
   - downstream `needs: workflow-file-health` for `metrics-consistency` and `stress-unit-tests`
+  - upload action pin aligned with repository policy:
+    `actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f`
 
 ### 3) Make target wiring regression tests
 - File: `tests/unit/test_workflow_file_health_make_target.py`
@@ -38,6 +41,7 @@
 - File: `tests/unit/test_check_workflow_file_issues.py`
 - Added case:
   - `auto` fallback on missing-workflow-for-ref error, with summary assertion on `fallback_reason`.
+  - `gh` mode works even when YAML dependency is unavailable.
 
 ## Validation Executed
 

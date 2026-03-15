@@ -171,3 +171,28 @@ def test_auto_mode_fallbacks_to_yaml_on_missing_workflow_for_ref(
     assert payload["requested_mode"] == "auto"
     assert payload["mode_used"] == "yaml"
     assert payload["fallback_reason"] == "gh_ref_unresolvable_for_local_head"
+
+
+def test_gh_mode_does_not_require_yaml_dependency(tmp_path: Path, monkeypatch: Any) -> None:
+    from scripts.ci import check_workflow_file_issues as mod
+
+    _write_workflow(
+        tmp_path / ".github" / "workflows" / "ci.yml",
+        "name: CI\non:\n  push:\n",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(mod, "_is_gh_available", lambda: True)
+    monkeypatch.setattr(mod, "yaml", None)
+    monkeypatch.setattr(
+        mod,
+        "_check_with_gh",
+        lambda path, ref: mod.WorkflowCheckResult(
+            path=str(path),
+            mode="gh",
+            ok=True,
+            message="ok",
+        ),
+    )
+
+    rc = _invoke_main(mod, ["--mode", "gh", "--glob", ".github/workflows/*.yml"])
+    assert rc == 0

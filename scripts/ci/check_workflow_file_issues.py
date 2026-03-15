@@ -8,7 +8,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
 
-import yaml
+try:
+    import yaml
+except ModuleNotFoundError:  # pragma: no cover - depends on runtime environment
+    yaml = None  # type: ignore[assignment]
 
 
 @dataclass(frozen=True)
@@ -46,6 +49,13 @@ def _is_missing_workflow_on_ref_error(message: str) -> bool:
 
 
 def _check_yaml_parse(path: Path) -> WorkflowCheckResult:
+    if yaml is None:
+        return WorkflowCheckResult(
+            path=str(path),
+            mode="yaml",
+            ok=False,
+            message="PyYAML is required for yaml parsing mode",
+        )
     try:
         payload = yaml.safe_load(path.read_text(encoding="utf-8"))
     except OSError as exc:
