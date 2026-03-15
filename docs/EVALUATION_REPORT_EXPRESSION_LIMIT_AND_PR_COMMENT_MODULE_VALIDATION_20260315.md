@@ -78,8 +78,12 @@ node --check scripts/ci/comment_evaluation_report_pr.js
 
 ## Remote Verification
 - `gh workflow run .github/workflows/evaluation-report.yml ...` no longer returns parse-length 422.
-- New runs on commit `cd17b393`:
+- Runs on parser-fix commit `cd17b393`:
   - `Action Pin Guard` (`23109865480`): **success**
   - `Stress and Observability Checks` (`23109865485`): **success**
-  - `Evaluation Report` (`23109866152`, workflow_dispatch): parser accepted and jobs executed; final status **failure** due strict gate business rule (`superpass_failed_under_strict_mode`), not workflow parse error.
-- Previous noisy `workflow file issue` run pattern for this commit SHA did not reappear.
+  - `Evaluation Report` (`23109866152`, workflow_dispatch): parser accepted; final **failure** due strict gate business rule (`superpass_failed_under_strict_mode`), not parse issue.
+- Runs on auto-summary commit `4b7ddff8`:
+  - `Action Pin Guard` (`23109938078`): **success**
+  - `Stress and Observability Checks` (`23109938077`): **success**
+  - `Evaluation Report` (`23109940135`, workflow_dispatch): parser accepted; final **failure** due strict gate business rule (`superpass_failed_under_strict_mode`), not parse issue.
+- No new `.github/workflows/evaluation-report.yml` `workflow file issue` startup-failure runs appeared for these SHAs.
