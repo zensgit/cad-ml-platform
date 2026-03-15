@@ -15,9 +15,9 @@ jobs:
   lint-type:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -80,9 +80,9 @@ jobs:
     needs: [lint-type]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: "pip"
@@ -107,9 +107,9 @@ jobs:
     needs: lint-type
     if: always()
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -140,9 +140,9 @@ jobs:
       matrix:
         python-version: [ '3.10', '3.11' ]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
@@ -669,6 +669,48 @@ jobs:
         with:
           name: knowledge-test-report-${{ matrix.python-version }}
           path: reports/junit-knowledge.xml
+      - name: Run eval_with_history regression unit tests
+        run: |
+          pytest -q \
+            tests/unit/test_eval_with_history_script_history_sequence.py \
+            tests/unit/test_validate_eval_history_history_sequence.py
+      - name: Run hybrid calibration regression unit tests
+        run: |
+          pytest -q \
+            tests/unit/test_calibrate_hybrid_confidence_script.py \
+            tests/unit/test_hybrid_confidence_calibration_gate_check.py
+      - name: Run Hybrid confidence calibration gate (3.11 only, optional)
+        if: matrix.python-version == '3.11'
+        run: |
+          set -o pipefail
+          python scripts/ci/check_hybrid_confidence_calibration_gate.py \
+            --current-json "${HYBRID_CONFIDENCE_CALIBRATION_GATE_CURRENT_JSON:-reports/calibration/hybrid_confidence_calibration_latest.json}" \
+            --baseline-json "${HYBRID_CONFIDENCE_CALIBRATION_GATE_BASELINE_JSON:-config/hybrid_confidence_calibration_baseline.json}" \
+            --config "${HYBRID_CONFIDENCE_CALIBRATION_GATE_CONFIG:-config/hybrid_confidence_calibration_gate.yaml}" \
+            --missing-mode "${HYBRID_CONFIDENCE_CALIBRATION_GATE_MISSING_MODE:-skip}" \
+            --output-json /tmp/hybrid-confidence-calibration-gate-ci-${{ matrix.python-version }}.json \
+            2>&1 | tee /tmp/hybrid-confidence-calibration-gate-ci.log
+      - name: Upload Hybrid confidence calibration gate log (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hybrid-confidence-calibration-gate-ci-log-${{ matrix.python-version }}
+          path: /tmp/hybrid-confidence-calibration-gate-ci.log
+          if-no-files-found: ignore
+      - name: Upload Hybrid confidence calibration gate report (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hybrid-confidence-calibration-gate-ci-${{ matrix.python-version }}
+          path: /tmp/hybrid-confidence-calibration-gate-ci-${{ matrix.python-version }}.json
+          if-no-files-found: ignore
+      - name: Append Hybrid confidence calibration gate summary (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        run: |
+          python scripts/ci/summarize_hybrid_confidence_calibration_gate.py \
+            --report-json /tmp/hybrid-confidence-calibration-gate-ci-${{ matrix.python-version }}.json \
+            --title "Hybrid Confidence Calibration Gate (CI Tests, Python ${{ matrix.python-version }})" \
+            >> "$GITHUB_STEP_SUMMARY"
       - name: Run unit tests
         run: make test
       - name: Golden evaluation gate (3.11 only)
@@ -687,9 +729,9 @@ jobs:
     env:
       DEDUPCAD_VISION_IMAGE: ${{ vars.DEDUPCAD_VISION_IMAGE || 'ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: 'pip'
