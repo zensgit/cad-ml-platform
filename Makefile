@@ -1027,7 +1027,6 @@ HYBRID_SUPERPASS_E2E_REPO ?=
 HYBRID_SUPERPASS_E2E_ENABLE ?= true
 HYBRID_SUPERPASS_E2E_MISSING_MODE ?= fail
 HYBRID_SUPERPASS_E2E_FAIL_ON_FAILED ?= true
-HYBRID_SUPERPASS_E2E_VALIDATION_STRICT ?=
 HYBRID_SUPERPASS_E2E_HYBRID_BLIND_ENABLE ?=
 HYBRID_SUPERPASS_E2E_HYBRID_BLIND_DXF_DIR ?=
 HYBRID_SUPERPASS_E2E_HYBRID_BLIND_FAIL_ON_GATE_FAILED ?=
@@ -1473,7 +1472,6 @@ hybrid-superpass-e2e-gh: ## 通过 gh workflow_dispatch 触发 superpass E2E 并
 	if [ "$(HYBRID_SUPERPASS_E2E_PRINT_ONLY)" = "1" ]; then extra_flags="$$extra_flags --print-only"; fi; \
 	if [ -n "$(HYBRID_SUPERPASS_E2E_REPO)" ]; then extra_flags="$$extra_flags --repo $(HYBRID_SUPERPASS_E2E_REPO)"; fi; \
 	if [ -n "$(HYBRID_SUPERPASS_E2E_HYBRID_BLIND_ENABLE)" ]; then extra_flags="$$extra_flags --hybrid-blind-enable $(HYBRID_SUPERPASS_E2E_HYBRID_BLIND_ENABLE)"; fi; \
-	if [ -n "$(HYBRID_SUPERPASS_E2E_VALIDATION_STRICT)" ]; then extra_flags="$$extra_flags --hybrid-superpass-validation-strict $(HYBRID_SUPERPASS_E2E_VALIDATION_STRICT)"; fi; \
 	if [ -n "$(HYBRID_SUPERPASS_E2E_HYBRID_BLIND_DXF_DIR)" ]; then extra_flags="$$extra_flags --hybrid-blind-dxf-dir $(HYBRID_SUPERPASS_E2E_HYBRID_BLIND_DXF_DIR)"; fi; \
 	if [ -n "$(HYBRID_SUPERPASS_E2E_HYBRID_BLIND_FAIL_ON_GATE_FAILED)" ]; then extra_flags="$$extra_flags --hybrid-blind-fail-on-gate-failed $(HYBRID_SUPERPASS_E2E_HYBRID_BLIND_FAIL_ON_GATE_FAILED)"; fi; \
 	if [ -n "$(HYBRID_SUPERPASS_E2E_HYBRID_BLIND_STRICT_REQUIRE_REAL_DATA)" ]; then extra_flags="$$extra_flags --hybrid-blind-strict-require-real-data $(HYBRID_SUPERPASS_E2E_HYBRID_BLIND_STRICT_REQUIRE_REAL_DATA)"; fi; \

@@ -110,10 +110,6 @@ on:
         description: 'Override: strict fail when hybrid superpass status is not passed (true/false)'
         required: false
         default: ''
-      hybrid_superpass_validation_strict:
-        description: 'Override: strict fail when hybrid superpass structure validation has warnings/errors (true/false)'
-        required: false
-        default: ''
 
 env:
   PYTHON_VERSION: '3.11'
@@ -1556,11 +1552,7 @@ jobs:
         fi
 
         STRICT_MODE="${{ steps.hybrid_superpass_gate_strict.outputs.strict_mode || 'false' }}"
-        VALIDATION_STRICT_OVERRIDE="${{ github.event.inputs.hybrid_superpass_validation_strict || '' }}"
         VALIDATION_STRICT_VALUE="${HYBRID_SUPERPASS_VALIDATION_STRICT:-$STRICT_MODE}"
-        if [[ -n "$VALIDATION_STRICT_OVERRIDE" ]]; then
-          VALIDATION_STRICT_VALUE="$VALIDATION_STRICT_OVERRIDE"
-        fi
         token="$(echo "$VALIDATION_STRICT_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
         validation_strict="false"
         if [[ "$token" == "1" || "$token" == "true" || "$token" == "yes" || "$token" == "on" ]]; then

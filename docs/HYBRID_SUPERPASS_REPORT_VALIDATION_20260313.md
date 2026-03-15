@@ -50,7 +50,7 @@
   - `Validate Hybrid superpass report structure (optional)`
 - 行为：
   - 在 superpass gate 启用后执行；
-  - 支持独立灰度开关 `hybrid_superpass_validation_strict`（workflow_dispatch / env）；
+  - 支持独立灰度开关 `HYBRID_SUPERPASS_VALIDATION_STRICT`（env）；
   - `schema-mode` 通过环境变量 `HYBRID_SUPERPASS_VALIDATION_SCHEMA_MODE` 灰度控制（`builtin/off`）；
     说明：未新增 workflow_dispatch 输入，避免超过 GitHub `workflow_dispatch.inputs` 上限（25）。
   - 当 validation strict 开启时，透传 `--strict` 给校验脚本；

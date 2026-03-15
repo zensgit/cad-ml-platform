@@ -266,7 +266,6 @@ def test_make_n_hybrid_superpass_e2e_gh_contains_expected_flags() -> None:
     assert "--hybrid-superpass-enable" in result.stdout
     assert "--hybrid-superpass-missing-mode" in result.stdout
     assert "--hybrid-superpass-fail-on-failed" in result.stdout
-    assert "--hybrid-superpass-validation-strict" in result.stdout
     assert "--expected-conclusion" in result.stdout
     assert "--wait-timeout-seconds" in result.stdout
     assert "--poll-interval-seconds" in result.stdout

@@ -15,7 +15,6 @@ def test_build_workflow_run_command_contains_required_inputs() -> None:
         hybrid_superpass_enable="true",
         hybrid_superpass_missing_mode="fail",
         hybrid_superpass_fail_on_failed="true",
-        hybrid_superpass_validation_strict="true",
         hybrid_blind_enable="true",
         hybrid_blind_dxf_dir="data/blind_dxf",
         hybrid_blind_fail_on_gate_failed="true",
@@ -30,7 +29,6 @@ def test_build_workflow_run_command_contains_required_inputs() -> None:
     assert "hybrid_superpass_enable=true" in text
     assert "hybrid_superpass_missing_mode=fail" in text
     assert "hybrid_superpass_fail_on_failed=true" in text
-    assert "hybrid_superpass_validation_strict=true" in text
     assert "hybrid_blind_enable=true" in text
     assert "hybrid_blind_dxf_dir=data/blind_dxf" in text
     assert "hybrid_blind_fail_on_gate_failed=true" in text
@@ -51,8 +49,6 @@ def test_main_print_only_outputs_dispatch_and_watch_commands(capsys: Any) -> Non
             "main",
             "--repo",
             "zensgit/cad-ml-platform",
-            "--hybrid-superpass-validation-strict",
-            "true",
         ]
     )
     out = capsys.readouterr().out
@@ -60,7 +56,6 @@ def test_main_print_only_outputs_dispatch_and_watch_commands(capsys: Any) -> Non
     assert "hybrid_superpass_enable=true" in out
     assert "hybrid_superpass_missing_mode=fail" in out
     assert "hybrid_superpass_fail_on_failed=true" in out
-    assert "hybrid_superpass_validation_strict=true" in out
     assert "gh run watch '<run_id>' --exit-status" in out
     assert "gh run view '<run_id>' --json conclusion,url" in out
 
@@ -140,7 +135,6 @@ def test_find_missing_superpass_inputs_detects_expected_keys() -> None:
     assert "hybrid_superpass_enable" in missing
     assert "hybrid_superpass_missing_mode" in missing
     assert "hybrid_superpass_fail_on_failed" in missing
-    assert "hybrid_superpass_validation_strict" in missing
 
 
 def test_main_returns_nonzero_when_remote_workflow_missing_required_inputs(
