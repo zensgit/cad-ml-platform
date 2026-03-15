@@ -114,10 +114,6 @@ on:
         description: 'Override: strict fail when hybrid superpass structure validation has warnings/errors (true/false)'
         required: false
         default: ''
-      hybrid_superpass_validation_schema_mode:
-        description: 'Override: hybrid superpass structure validation schema mode (builtin/off)'
-        required: false
-        default: ''
 
 env:
   PYTHON_VERSION: '3.11'
@@ -1570,11 +1566,7 @@ jobs:
         if [[ "$token" == "1" || "$token" == "true" || "$token" == "yes" || "$token" == "on" ]]; then
           validation_strict="true"
         fi
-        VALIDATION_SCHEMA_MODE_OVERRIDE="${{ github.event.inputs.hybrid_superpass_validation_schema_mode || '' }}"
         validation_schema_mode="${HYBRID_SUPERPASS_VALIDATION_SCHEMA_MODE:-builtin}"
-        if [[ -n "$VALIDATION_SCHEMA_MODE_OVERRIDE" ]]; then
-          validation_schema_mode="$VALIDATION_SCHEMA_MODE_OVERRIDE"
-        fi
         schema_token="$(echo "$validation_schema_mode" | tr '[:upper:]' '[:lower:]' | xargs)"
         if [[ "$schema_token" != "off" && "$schema_token" != "builtin" ]]; then
           schema_token="builtin"

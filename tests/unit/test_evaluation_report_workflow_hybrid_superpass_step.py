@@ -29,7 +29,6 @@ def test_workflow_has_hybrid_superpass_inputs_and_env() -> None:
     assert "hybrid_superpass_missing_mode" in dispatch_inputs
     assert "hybrid_superpass_fail_on_failed" in dispatch_inputs
     assert "hybrid_superpass_validation_strict" in dispatch_inputs
-    assert "hybrid_superpass_validation_schema_mode" in dispatch_inputs
 
     assert "HYBRID_SUPERPASS_ENABLE" in env
     assert "HYBRID_SUPERPASS_CONFIG" in env
@@ -86,7 +85,6 @@ def test_workflow_has_hybrid_superpass_steps_and_artifacts() -> None:
     assert "--hybrid-calibration-json" in validate_script
     assert "--output-json" in validate_script
     assert "hybrid_superpass_validation_strict" in validate_script
-    assert "hybrid_superpass_validation_schema_mode" in validate_script
     assert "--schema-mode" in validate_script
 
     upload_step = _get_step(

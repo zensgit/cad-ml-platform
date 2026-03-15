@@ -57,7 +57,6 @@ def build_workflow_run_command(
     hybrid_superpass_missing_mode: str,
     hybrid_superpass_fail_on_failed: str,
     hybrid_superpass_validation_strict: str = "",
-    hybrid_superpass_validation_schema_mode: str = "",
     hybrid_blind_enable: str = "",
     hybrid_blind_dxf_dir: str = "",
     hybrid_blind_fail_on_gate_failed: str = "",
@@ -91,10 +90,6 @@ def build_workflow_run_command(
     _append_if_present(
         "hybrid_superpass_validation_strict",
         hybrid_superpass_validation_strict,
-    )
-    _append_if_present(
-        "hybrid_superpass_validation_schema_mode",
-        hybrid_superpass_validation_schema_mode,
     )
     _append_if_present("hybrid_blind_dxf_dir", hybrid_blind_dxf_dir)
     _append_if_present(
@@ -278,7 +273,6 @@ def find_missing_superpass_inputs(workflow_text: str) -> list[str]:
         "hybrid_superpass_missing_mode",
         "hybrid_superpass_fail_on_failed",
         "hybrid_superpass_validation_strict",
-        "hybrid_superpass_validation_schema_mode",
     ]
     missing: list[str] = []
     for key in required:
@@ -323,14 +317,6 @@ def _build_parser() -> argparse.ArgumentParser:
             "(true/false, optional gray switch)"
         ),
     )
-    parser.add_argument(
-        "--hybrid-superpass-validation-schema-mode",
-        default="",
-        help=(
-            "workflow_dispatch.hybrid_superpass_validation_schema_mode "
-            "(builtin/off, optional gray switch)"
-        ),
-    )
     parser.add_argument("--hybrid-blind-enable", default="")
     parser.add_argument("--hybrid-blind-dxf-dir", default="")
     parser.add_argument("--hybrid-blind-fail-on-gate-failed", default="")
@@ -372,9 +358,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         hybrid_superpass_missing_mode=str(args.hybrid_superpass_missing_mode),
         hybrid_superpass_fail_on_failed=str(args.hybrid_superpass_fail_on_failed),
         hybrid_superpass_validation_strict=str(args.hybrid_superpass_validation_strict),
-        hybrid_superpass_validation_schema_mode=str(
-            args.hybrid_superpass_validation_schema_mode
-        ),
         hybrid_blind_enable=str(args.hybrid_blind_enable),
         hybrid_blind_dxf_dir=str(args.hybrid_blind_dxf_dir),
         hybrid_blind_fail_on_gate_failed=str(args.hybrid_blind_fail_on_gate_failed),

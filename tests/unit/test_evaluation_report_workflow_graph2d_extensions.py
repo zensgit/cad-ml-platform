@@ -105,7 +105,6 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "hybrid_superpass_missing_mode" in dispatch_inputs
     assert "hybrid_superpass_fail_on_failed" in dispatch_inputs
     assert "hybrid_superpass_validation_strict" in dispatch_inputs
-    assert "hybrid_superpass_validation_schema_mode" in dispatch_inputs
 
 
 def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> None:
@@ -341,7 +340,6 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         in hybrid_superpass_validate_script
     )
     assert "hybrid_superpass_validation_strict" in hybrid_superpass_validate_script
-    assert "hybrid_superpass_validation_schema_mode" in hybrid_superpass_validate_script
     assert "--schema-mode" in hybrid_superpass_validate_script
 
     hybrid_superpass_fail_step = _get_step(
