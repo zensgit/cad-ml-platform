@@ -100,7 +100,7 @@ jobs:
         run: pip-audit -r requirements.txt --format json > pip-audit-report.json || true
         continue-on-error: true
       - name: Upload security reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         if: always()
         with:
           name: security-reports
@@ -153,7 +153,7 @@ jobs:
             --junitxml=junit-${{ matrix.python-version }}-${{ matrix.shard }}.xml \
             || true
       - name: Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         if: always()
         with:
           name: test-results-${{ matrix.python-version }}-${{ matrix.shard }}
@@ -174,7 +174,7 @@ jobs:
         run: make test-knowledge
       - name: Upload knowledge test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: knowledge-test-report-${{ matrix.python-version }}-${{ matrix.shard }}
           path: reports/junit-knowledge.xml
@@ -231,7 +231,7 @@ jobs:
             --cov-report=term-missing \
             -q || true
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: coverage-report
           path: |

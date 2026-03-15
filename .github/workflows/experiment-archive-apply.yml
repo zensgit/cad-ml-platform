@@ -141,21 +141,21 @@ jobs:
           MANIFEST_PATH: ${{ steps.archive_apply.outputs.manifest_path }}
 
       - name: Upload apply manifest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: experiment-archive-apply-manifest-${{ github.run_id }}
           path: ${{ steps.archive_apply.outputs.manifest_path }}
           retention-days: 30
 
       - name: Upload apply log
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: experiment-archive-apply-log-${{ github.run_id }}
           path: ${{ steps.archive_apply.outputs.log_path }}
           retention-days: 30
 
       - name: Upload generated archives
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: experiment-archive-files-${{ github.run_id }}
           path: ${{ steps.archive_apply.outputs.archive_root }}/*.tar.gz

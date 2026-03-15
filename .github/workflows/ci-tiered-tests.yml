@@ -38,7 +38,7 @@ jobs:
 
       - name: Upload core fast gate log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: core-fast-gate-tiered-log
           path: /tmp/core-fast-gate-tiered.log
@@ -114,7 +114,7 @@ jobs:
 
       - name: Upload local API log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: contract-local-api-log
           path: /tmp/cad_ml_uvicorn.log
@@ -151,7 +151,7 @@ jobs:
 
       - name: Upload local API log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: e2e-local-api-log
           path: /tmp/cad_ml_uvicorn.log

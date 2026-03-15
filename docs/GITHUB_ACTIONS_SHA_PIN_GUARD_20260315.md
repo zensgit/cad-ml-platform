@@ -16,13 +16,16 @@
 
 - `actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd`（tag: `v6.0.2`）
 - `actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405`（tag: `v6.2.0`）
+- `actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f`（tag: `v7.0.0`）
+- `actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c`（tag: `v8.0.1`）
 
 ### 2) 新增 pin 校验脚本
 
 - 新文件：`scripts/ci/check_workflow_action_pins.py`
 - 关键能力：
   - 扫描 workflow 中 `uses:` 行；
-  - 检查 `actions/checkout` 与 `actions/setup-python` 是否为允许 SHA；
+  - 检查 `actions/checkout`、`actions/setup-python`、`actions/upload-artifact`、
+    `actions/download-artifact` 是否为允许 SHA；
   - 拒绝 `@v*`、动态引用、非 SHA 引用、未允许 SHA；
   - 输出结构化 JSON（可写 `--output-json`）。
 

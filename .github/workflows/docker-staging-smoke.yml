@@ -37,7 +37,7 @@ jobs:
 
       - name: Upload smoke artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: docker-staging-smoke
           path: ${{ github.workspace }}/artifacts/docker-staging

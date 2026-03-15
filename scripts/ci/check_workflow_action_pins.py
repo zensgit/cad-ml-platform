@@ -12,6 +12,8 @@ from typing import Any, Dict, Iterable, List
 
 DEFAULT_CHECKOUT_SHA = "de0fac2e4500dabe0009e67214ff5f5447ce83dd"
 DEFAULT_SETUP_PYTHON_SHA = "a309ff8b426b58ec0e2a45f0f869d46889d02405"
+DEFAULT_UPLOAD_ARTIFACT_SHA = "bbbca2ddaa5d8feaa63e36b76fdaad77386f024f"
+DEFAULT_DOWNLOAD_ARTIFACT_SHA = "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"
 
 _USES_RE = re.compile(r"^\s*(?:-\s*)?uses:\s*([^\s#]+)")
 _HEX40_RE = re.compile(r"^[0-9a-fA-F]{40}$")
@@ -78,10 +80,14 @@ def scan_workflow_action_pins(
     workflows_dir: Path,
     checkout_sha: str,
     setup_python_sha: str,
+    upload_artifact_sha: str = DEFAULT_UPLOAD_ARTIFACT_SHA,
+    download_artifact_sha: str = DEFAULT_DOWNLOAD_ARTIFACT_SHA,
 ) -> Dict[str, Any]:
     allowed = {
         "actions/checkout": {_normalize_sha(checkout_sha)},
         "actions/setup-python": {_normalize_sha(setup_python_sha)},
+        "actions/upload-artifact": {_normalize_sha(upload_artifact_sha)},
+        "actions/download-artifact": {_normalize_sha(download_artifact_sha)},
     }
     files = list(_iter_workflow_files(workflows_dir))
     violations: List[Dict[str, Any]] = []
@@ -107,6 +113,10 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--workflows-dir", default=".github/workflows")
     parser.add_argument("--checkout-sha", default=DEFAULT_CHECKOUT_SHA)
     parser.add_argument("--setup-python-sha", default=DEFAULT_SETUP_PYTHON_SHA)
+    parser.add_argument("--upload-artifact-sha", default=DEFAULT_UPLOAD_ARTIFACT_SHA)
+    parser.add_argument(
+        "--download-artifact-sha", default=DEFAULT_DOWNLOAD_ARTIFACT_SHA
+    )
     parser.add_argument("--output-json", default="")
     return parser
 
@@ -128,6 +138,8 @@ def main(argv: list[str] | None = None) -> int:
         workflows_dir=Path(str(args.workflows_dir)).expanduser(),
         checkout_sha=str(args.checkout_sha),
         setup_python_sha=str(args.setup_python_sha),
+        upload_artifact_sha=str(args.upload_artifact_sha),
+        download_artifact_sha=str(args.download_artifact_sha),
     )
     print(json.dumps(report, ensure_ascii=False, indent=2))
     if args.output_json:

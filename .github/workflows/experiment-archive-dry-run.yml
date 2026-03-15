@@ -99,14 +99,14 @@ jobs:
           MANIFEST_PATH: ${{ steps.archive_dry_run.outputs.manifest_path }}
 
       - name: Upload dry-run manifest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: experiment-archive-dry-run-manifest-${{ github.run_id }}
           path: ${{ steps.archive_dry_run.outputs.manifest_path }}
           retention-days: 14
 
       - name: Upload dry-run log
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: experiment-archive-dry-run-log-${{ github.run_id }}
           path: ${{ steps.archive_dry_run.outputs.log_path }}

@@ -1724,21 +1724,21 @@ jobs:
         fi
 
     - name: Upload evaluation report
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: evaluation-report-${{ github.run_number }}
         path: ${{ env.REPORT_PATH }}
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
     - name: Upload evaluation history
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: evaluation-history-${{ github.run_number }}
         path: reports/eval_history/*.json
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
     - name: Upload weekly summary
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: evaluation-weekly-summary-${{ github.run_number }}
         path: ${{ steps.weekly_summary.outputs.output_md }}
@@ -1747,7 +1747,7 @@ jobs:
 
     - name: Upload history-sequence evaluation
       if: steps.history_eval.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: history-sequence-eval-${{ github.run_number }}
         path: reports/history_sequence_eval
@@ -1755,7 +1755,7 @@ jobs:
 
     - name: Upload Graph2D review pack
       if: steps.graph2d_review_pack.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: graph2d-review-pack-${{ github.run_number }}
         path: |
@@ -1766,7 +1766,7 @@ jobs:
 
     - name: Upload Graph2D train sweep
       if: steps.graph2d_train_sweep.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: graph2d-train-sweep-${{ github.run_number }}
         path: ${{ steps.graph2d_train_sweep.outputs.work_root }}
@@ -1774,7 +1774,7 @@ jobs:
 
     - name: Upload Hybrid blind benchmark artifacts
       if: steps.hybrid_blind_eval.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: hybrid-blind-eval-${{ github.run_number }}
         path: |
@@ -1785,7 +1785,7 @@ jobs:
 
     - name: Upload Hybrid blind history snapshot
       if: steps.hybrid_blind_history.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: hybrid-blind-history-${{ github.run_number }}
         path: ${{ steps.hybrid_blind_history.outputs.output_json }}
@@ -1794,7 +1794,7 @@ jobs:
 
     - name: Upload Hybrid blind drift alert report
       if: steps.hybrid_blind_drift_alert.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: hybrid-blind-drift-alert-${{ github.run_number }}
         path: |
@@ -1805,7 +1805,7 @@ jobs:
 
     - name: Upload Hybrid confidence calibration artifacts
       if: steps.hybrid_calibration.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: hybrid-confidence-calibration-${{ github.run_number }}
         path: |
@@ -1815,7 +1815,7 @@ jobs:
 
     - name: Upload Hybrid superpass gate artifact
       if: steps.hybrid_superpass_gate.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: hybrid-superpass-gate-${{ github.run_number }}
         path: |
@@ -1826,7 +1826,7 @@ jobs:
 
     - name: Upload Hybrid confidence calibration baseline artifact
       if: steps.hybrid_calibration_baseline_update.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: hybrid-confidence-calibration-baseline-${{ github.run_number }}
         path: ${{ steps.hybrid_calibration_baseline_update.outputs.baseline_json }}
@@ -2326,7 +2326,7 @@ jobs:
 
     steps:
     - name: Download report artifact
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
       with:
         name: evaluation-report-${{ github.run_number }}
         path: ./public
