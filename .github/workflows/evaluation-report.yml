@@ -22,6 +22,10 @@ on:
         description: 'Minimum OCR score threshold'
         required: false
         default: '0.9'
+      strict_fail_mode:
+        description: 'Strict gate fail mode: hard (block) / soft (warn-only)'
+        required: false
+        default: ''
       review_gate_min_total_rows:
         description: 'Override: review-pack gate min_total_rows'
         required: false
@@ -115,6 +119,7 @@ env:
   PYTHON_VERSION: '3.11'
   REPORT_PATH: reports/eval_history/report
   ARTIFACT_RETENTION_DAYS: 30
+  EVALUATION_STRICT_FAIL_MODE: ${{ vars.EVALUATION_STRICT_FAIL_MODE || 'hard' }}
   CI_WATCH_SUMMARY_JSON_FOR_COMMENT: ${{ vars.CI_WATCH_SUMMARY_JSON_FOR_COMMENT || '' }}
   WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT: ${{ vars.WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT || '' }}
   # Optimize Matplotlib in CI
@@ -1623,15 +1628,49 @@ jobs:
             f.write(f"headline={headline}\n")
         PY
 
+    - name: Resolve strict gate fail mode
+      id: strict_fail_mode
+      run: |
+        MODE_OVERRIDE="${{ github.event.inputs.strict_fail_mode || '' }}"
+        MODE_VALUE="${EVALUATION_STRICT_FAIL_MODE:-hard}"
+        if [[ -n "$MODE_OVERRIDE" ]]; then
+          MODE_VALUE="$MODE_OVERRIDE"
+        fi
+        token="$(echo "$MODE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+        mode="hard"
+        if [[ "$token" == "soft" || "$token" == "warn" || "$token" == "warning" || "$token" == "nonblocking" || "$token" == "non-blocking" ]]; then
+          mode="soft"
+        fi
+        echo "mode=$mode" >> $GITHUB_OUTPUT
+        echo "mode_raw=$MODE_VALUE" >> $GITHUB_OUTPUT
+        echo "Resolved strict fail mode: $mode (raw=$MODE_VALUE)"
+
+    - name: Emit strict gate warning in soft mode
+      if: steps.strict_fail_mode.outputs.mode == 'soft' && (steps.graph2d_review_gate_strict.outputs.should_fail == 'true' || steps.hybrid_blind_gate_strict.outputs.should_fail == 'true' || steps.hybrid_calibration_gate_strict.outputs.should_fail == 'true' || steps.hybrid_superpass_gate_strict.outputs.should_fail == 'true' || (steps.hybrid_superpass_validate.outputs.strict_mode == 'true' && steps.hybrid_superpass_validate.outputs.exit_code != '0'))
+      run: |
+        echo "Strict fail mode is soft; blocking fail steps are downgraded to warning."
+        echo "::warning title=Strict Gate Soft Mode::One or more strict gates requested failure, but EVALUATION_STRICT_FAIL_MODE=soft downgraded to warning."
+        {
+          echo ""
+          echo "## Strict Gate Soft Mode"
+          echo "- mode: soft"
+          echo "- graph2d_review_gate_should_fail: ${{ steps.graph2d_review_gate_strict.outputs.should_fail || 'false' }}"
+          echo "- hybrid_blind_gate_should_fail: ${{ steps.hybrid_blind_gate_strict.outputs.should_fail || 'false' }}"
+          echo "- hybrid_calibration_gate_should_fail: ${{ steps.hybrid_calibration_gate_strict.outputs.should_fail || 'false' }}"
+          echo "- hybrid_superpass_gate_should_fail: ${{ steps.hybrid_superpass_gate_strict.outputs.should_fail || 'false' }}"
+          echo "- hybrid_superpass_validate_strict_mode: ${{ steps.hybrid_superpass_validate.outputs.strict_mode || 'false' }}"
+          echo "- hybrid_superpass_validate_exit_code: ${{ steps.hybrid_superpass_validate.outputs.exit_code || '0' }}"
+        } >> "$GITHUB_STEP_SUMMARY"
+
     - name: Fail workflow when Hybrid superpass strict check requires blocking
-      if: steps.hybrid_superpass_gate_strict.outputs.should_fail == 'true'
+      if: steps.hybrid_superpass_gate_strict.outputs.should_fail == 'true' && steps.strict_fail_mode.outputs.mode != 'soft'
       run: |
         echo "Hybrid superpass strict-mode check requested failure."
         echo "Failure reason: ${{ steps.hybrid_superpass_gate_strict.outputs.reason }}"
         exit 1
 
     - name: Fail workflow when Hybrid superpass structure validation requires blocking
-      if: steps.hybrid_superpass_validate.outputs.strict_mode == 'true' && steps.hybrid_superpass_validate.outputs.exit_code != '0'
+      if: steps.hybrid_superpass_validate.outputs.strict_mode == 'true' && steps.hybrid_superpass_validate.outputs.exit_code != '0' && steps.strict_fail_mode.outputs.mode != 'soft'
       run: |
         echo "Hybrid superpass structure validation failed in strict mode."
         echo "Validation status: ${{ steps.hybrid_superpass_validate.outputs.status }}"
@@ -2155,21 +2194,21 @@ jobs:
           await commentEvaluationReportPR({ github, context, process });
 
     - name: Fail workflow when Graph2D review gate strict check requires blocking
-      if: steps.graph2d_review_gate_strict.outputs.should_fail == 'true'
+      if: steps.graph2d_review_gate_strict.outputs.should_fail == 'true' && steps.strict_fail_mode.outputs.mode != 'soft'
       run: |
         echo "Graph2D review gate strict mode is enabled and gate status is '${{ steps.graph2d_review_gate_strict.outputs.gate_status }}'."
         echo "Failure reason: ${{ steps.graph2d_review_gate_strict.outputs.reason }}"
         exit 1
 
     - name: Fail workflow when Hybrid blind gate strict check requires blocking
-      if: steps.hybrid_blind_gate_strict.outputs.should_fail == 'true'
+      if: steps.hybrid_blind_gate_strict.outputs.should_fail == 'true' && steps.strict_fail_mode.outputs.mode != 'soft'
       run: |
         echo "Hybrid blind gate strict mode is enabled and gate status is '${{ steps.hybrid_blind_gate_strict.outputs.gate_status }}'."
         echo "Failure reason: ${{ steps.hybrid_blind_gate_strict.outputs.reason }}"
         exit 1
 
     - name: Fail workflow when Hybrid calibration gate strict check requires blocking
-      if: steps.hybrid_calibration_gate_strict.outputs.should_fail == 'true'
+      if: steps.hybrid_calibration_gate_strict.outputs.should_fail == 'true' && steps.strict_fail_mode.outputs.mode != 'soft'
       run: |
         echo "Hybrid calibration gate strict mode is enabled and gate status is '${{ steps.hybrid_calibration_gate_strict.outputs.gate_status }}'."
         echo "Failure reason: ${{ steps.hybrid_calibration_gate_strict.outputs.reason }}"

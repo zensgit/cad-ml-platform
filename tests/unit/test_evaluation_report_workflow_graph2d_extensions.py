@@ -165,7 +165,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     )
     assert (
         final_fail_step["if"]
-        == "steps.graph2d_review_gate_strict.outputs.should_fail == 'true'"
+        == "steps.graph2d_review_gate_strict.outputs.should_fail == 'true' && steps.strict_fail_mode.outputs.mode != 'soft'"
     )
     assert "Failure reason" in final_fail_step["run"]
 
@@ -349,7 +349,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     )
     assert (
         hybrid_superpass_fail_step["if"]
-        == "steps.hybrid_superpass_gate_strict.outputs.should_fail == 'true'"
+        == "steps.hybrid_superpass_gate_strict.outputs.should_fail == 'true' && steps.strict_fail_mode.outputs.mode != 'soft'"
     )
     assert "Failure reason" in hybrid_superpass_fail_step["run"]
 
@@ -360,7 +360,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     )
     assert (
         hybrid_superpass_validate_fail_step["if"]
-        == "steps.hybrid_superpass_validate.outputs.strict_mode == 'true' && steps.hybrid_superpass_validate.outputs.exit_code != '0'"
+        == "steps.hybrid_superpass_validate.outputs.strict_mode == 'true' && steps.hybrid_superpass_validate.outputs.exit_code != '0' && steps.strict_fail_mode.outputs.mode != 'soft'"
     )
 
     hybrid_final_fail_step = _get_step(
@@ -370,7 +370,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     )
     assert (
         hybrid_final_fail_step["if"]
-        == "steps.hybrid_calibration_gate_strict.outputs.should_fail == 'true'"
+        == "steps.hybrid_calibration_gate_strict.outputs.should_fail == 'true' && steps.strict_fail_mode.outputs.mode != 'soft'"
     )
     assert "Failure reason" in hybrid_final_fail_step["run"]
 
@@ -381,7 +381,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     )
     assert (
         hybrid_blind_final_fail_step["if"]
-        == "steps.hybrid_blind_gate_strict.outputs.should_fail == 'true'"
+        == "steps.hybrid_blind_gate_strict.outputs.should_fail == 'true' && steps.strict_fail_mode.outputs.mode != 'soft'"
     )
     assert "Failure reason" in hybrid_blind_final_fail_step["run"]
 

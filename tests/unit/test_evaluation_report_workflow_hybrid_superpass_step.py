@@ -25,10 +25,12 @@ def test_workflow_has_hybrid_superpass_inputs_and_env() -> None:
     dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
     env = workflow["env"]
 
+    assert "strict_fail_mode" in dispatch_inputs
     assert "hybrid_superpass_enable" in dispatch_inputs
     assert "hybrid_superpass_missing_mode" in dispatch_inputs
     assert "hybrid_superpass_fail_on_failed" in dispatch_inputs
 
+    assert "EVALUATION_STRICT_FAIL_MODE" in env
     assert "HYBRID_SUPERPASS_ENABLE" in env
     assert "HYBRID_SUPERPASS_CONFIG" in env
     assert "HYBRID_SUPERPASS_OUTPUT_JSON" in env
@@ -41,6 +43,12 @@ def test_workflow_has_hybrid_superpass_inputs_and_env() -> None:
 
 def test_workflow_has_hybrid_superpass_steps_and_artifacts() -> None:
     workflow = _load_workflow()
+
+    resolve_mode_step = _get_step(workflow, "evaluate", "Resolve strict gate fail mode")
+    assert resolve_mode_step["id"] == "strict_fail_mode"
+    assert "MODE_OVERRIDE" in resolve_mode_step["run"]
+    assert 'token" == "soft"' in resolve_mode_step["run"]
+    assert 'echo "mode=$mode"' in resolve_mode_step["run"]
 
     gate_step = _get_step(
         workflow, "evaluate", "Check Hybrid superpass gate (optional)"
@@ -68,7 +76,7 @@ def test_workflow_has_hybrid_superpass_steps_and_artifacts() -> None:
     )
     assert (
         final_fail["if"]
-        == "steps.hybrid_superpass_gate_strict.outputs.should_fail == 'true'"
+        == "steps.hybrid_superpass_gate_strict.outputs.should_fail == 'true' && steps.strict_fail_mode.outputs.mode != 'soft'"
     )
 
     validate_step = _get_step(

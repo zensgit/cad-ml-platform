@@ -124,7 +124,7 @@ def test_workflow_has_superpass_strict_mode_steps() -> None:
     )
     assert (
         final_fail_step["if"]
-        == "steps.hybrid_superpass_gate_strict.outputs.should_fail == 'true'"
+        == "steps.hybrid_superpass_gate_strict.outputs.should_fail == 'true' && steps.strict_fail_mode.outputs.mode != 'soft'"
     )
     assert "Failure reason" in final_fail_step["run"]
 
@@ -135,6 +135,6 @@ def test_workflow_has_superpass_strict_mode_steps() -> None:
     )
     assert (
         validation_fail_step["if"]
-        == "steps.hybrid_superpass_validate.outputs.strict_mode == 'true' && steps.hybrid_superpass_validate.outputs.exit_code != '0'"
+        == "steps.hybrid_superpass_validate.outputs.strict_mode == 'true' && steps.hybrid_superpass_validate.outputs.exit_code != '0' && steps.strict_fail_mode.outputs.mode != 'soft'"
     )
     assert "structure validation failed in strict mode" in validation_fail_step["run"]
