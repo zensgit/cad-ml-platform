@@ -35,6 +35,7 @@ def test_main_generates_success_report_with_explicit_summary(tmp_path: Path) -> 
         {
             "requested_sha": "abc123def4567890abc123def4567890abc123de",
             "resolved_sha": "abc123def4567890abc123def4567890abc123de",
+            "repo": "zensgit/cad-ml-platform",
             "exit_code": 0,
             "reason": "all_workflows_success",
             "counts": {
@@ -83,6 +84,8 @@ def test_main_generates_success_report_with_explicit_summary(tmp_path: Path) -> 
     assert "PASS." in text
     assert summary_path.as_posix() in text
     assert readiness_path.as_posix() in text
+    assert "`repo=zensgit/cad-ml-platform`" in text
+    assert "No structured failure_details in summary payload." in text
 
 
 def test_main_auto_picks_latest_summary(tmp_path: Path) -> None:
@@ -157,10 +160,21 @@ def test_main_generates_fail_report_when_summary_is_not_green(tmp_path: Path) ->
         {
             "resolved_sha": "abcdef1234567890abcdef1234567890abcdef12",
             "requested_sha": "abcdef1234567890abcdef1234567890abcdef12",
+            "repo": "zensgit/cad-ml-platform",
             "exit_code": 1,
             "reason": "workflow_failed",
             "counts": {"observed": 1, "completed": 1, "failed": 1, "missing_required": 0},
             "failed_workflows": ["Code Quality"],
+            "failure_details": [
+                {
+                    "run_id": 12345,
+                    "workflow_name": "Code Quality",
+                    "conclusion": "failure",
+                    "failed_jobs": ["lint"],
+                    "failed_steps": ["lint :: flake8 (failure)"],
+                    "url": "https://example.com/runs/12345",
+                }
+            ],
             "runs": [{"workflow_name": "Code Quality", "conclusion": "failure"}],
         },
     )
@@ -184,3 +198,7 @@ def test_main_generates_fail_report_when_summary_is_not_green(tmp_path: Path) ->
     assert "FAIL." in text
     assert "does not satisfy release-gate CI criteria." in text
     assert "Not found (inferred readiness json is missing)." in text
+    assert "Failure Details" in text
+    assert "Code Quality (run=12345, conclusion=failure)" in text
+    assert "failed_jobs: lint" in text
+    assert "failed_steps: lint :: flake8 (failure)" in text

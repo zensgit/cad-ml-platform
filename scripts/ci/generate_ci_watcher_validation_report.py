@@ -210,6 +210,33 @@ def _render_workflow_rows(summary: dict[str, Any]) -> list[str]:
     return rows
 
 
+def _render_failure_details_rows(summary: dict[str, Any]) -> list[str]:
+    payload = summary.get("failure_details")
+    if not isinstance(payload, list):
+        return []
+    rows: list[str] = []
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        workflow_name = str(item.get("workflow_name") or "").strip() or "unknown"
+        run_id = str(item.get("run_id") or "").strip() or "unknown"
+        conclusion = str(item.get("conclusion") or "").strip() or "unknown"
+        rows.append(f"- {workflow_name} (run={run_id}, conclusion={conclusion})")
+        failed_jobs = item.get("failed_jobs")
+        if isinstance(failed_jobs, list) and failed_jobs:
+            rows.append(f"  - failed_jobs: {', '.join(str(v) for v in failed_jobs)}")
+        failed_steps = item.get("failed_steps")
+        if isinstance(failed_steps, list) and failed_steps:
+            rows.append(f"  - failed_steps: {', '.join(str(v) for v in failed_steps)}")
+        detail_unavailable = str(item.get("detail_unavailable") or "").strip()
+        if detail_unavailable:
+            rows.append(f"  - detail_unavailable: {detail_unavailable}")
+        url = str(item.get("url") or "").strip()
+        if url:
+            rows.append(f"  - url: {url}")
+    return rows
+
+
 def _render_markdown(
     *,
     summary: dict[str, Any],
@@ -254,6 +281,7 @@ def _render_markdown(
             f"- `{summary_path.as_posix()}`",
             f"- `requested_sha={summary.get('requested_sha', '')}`",
             f"- `resolved_sha={summary.get('resolved_sha', '')}`",
+            f"- `repo={summary.get('repo', '')}`",
             f"- `exit_code={summary.get('exit_code', '')}`",
             f"- `reason={summary.get('reason', '')}`",
             f"- `counts.observed={counts['observed']}`",
@@ -271,6 +299,12 @@ def _render_markdown(
         lines.extend(workflow_rows)
     else:
         lines.append("- No workflow runs found in summary payload.")
+    failure_rows = _render_failure_details_rows(summary)
+    lines.extend(["", "## Failure Details", ""])
+    if failure_rows:
+        lines.extend(failure_rows)
+    else:
+        lines.append("- No structured failure_details in summary payload.")
     lines.extend(
         [
             "",

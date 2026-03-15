@@ -193,6 +193,42 @@ def test_get_run_failure_detail_extracts_failed_jobs_and_steps(monkeypatch: Any)
     assert detail.failed_steps == ("tests :: pytest (failure)",)
 
 
+def test_log_failure_details_for_runs_returns_structured_rows(monkeypatch: Any) -> None:
+    from scripts.ci import watch_commit_workflows as mod
+
+    monkeypatch.setattr(
+        mod,
+        "get_run_failure_detail",
+        lambda _run_id, repo="": mod.RunFailureDetail(
+            run_id=321,
+            workflow_name="CI",
+            url="https://example.com/runs/321",
+            failed_jobs=("tests",),
+            failed_steps=("tests :: pytest (failure)",),
+        ),
+    )
+
+    rows = mod._log_failure_details_for_runs(
+        [
+            mod.WorkflowRun(
+                database_id=321,
+                workflow_name="CI",
+                status="completed",
+                conclusion="failure",
+                url="https://example.com/runs/321",
+                event="push",
+            )
+        ],
+        max_runs=3,
+        repo="zensgit/cad-ml-platform",
+    )
+    assert len(rows) == 1
+    assert rows[0]["run_id"] == 321
+    assert rows[0]["workflow_name"] == "CI"
+    assert rows[0]["failed_jobs"] == ["tests"]
+    assert rows[0]["failed_steps"] == ["tests :: pytest (failure)"]
+
+
 def test_build_list_runs_command_includes_repo_when_provided() -> None:
     from scripts.ci import watch_commit_workflows as mod
 
@@ -976,6 +1012,7 @@ def test_main_fails_after_exceeding_max_list_failures(
     assert payload["reason"] == "gh_run_list_failed"
     assert payload["consecutive_list_failures"] == 2
     assert payload["max_list_failures"] == 1
+    assert payload["failure_details"] == []
 
 
 def test_main_print_only_writes_summary_json(tmp_path: Any, monkeypatch: Any) -> None:
@@ -1010,6 +1047,74 @@ def test_main_print_only_writes_summary_json(tmp_path: Any, monkeypatch: Any) ->
     assert payload["counts"]["observed"] == 0
     assert payload["events"] == ["push"]
     assert payload["repo"] == "zensgit/cad-ml-platform"
+    assert payload["failure_details"] == []
+
+
+def test_main_failure_summary_includes_structured_failure_details(
+    tmp_path: Any, monkeypatch: Any
+) -> None:
+    from scripts.ci import watch_commit_workflows as mod
+
+    summary_path = tmp_path / "watch-summary-failure-details.json"
+    _patch_parsed_args(
+        monkeypatch,
+        _Args(
+            sha="HEAD",
+            repo="zensgit/cad-ml-platform",
+            events_csv="push",
+            event=[],
+            require_workflows_csv="CI",
+            require_workflow=[],
+            wait_timeout_seconds=20,
+            poll_interval_seconds=1,
+            list_limit=100,
+            print_failure_details=True,
+            failure_details_max_runs=2,
+            summary_json_out=str(summary_path),
+            print_only=False,
+        ),
+    )
+
+    monkeypatch.setattr(mod, "check_gh_ready", lambda: (True, ""))
+    monkeypatch.setattr(mod, "resolve_head_sha", lambda _value: "sha")
+    monkeypatch.setattr(
+        mod,
+        "list_runs_for_sha",
+        lambda **_kwargs: [
+            mod.WorkflowRun(
+                database_id=991,
+                workflow_name="CI",
+                status="completed",
+                conclusion="failure",
+                url="https://example.com/runs/991",
+                event="push",
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        mod,
+        "_log_failure_details_for_runs",
+        lambda runs, *, max_runs, repo: [
+            {
+                "run_id": runs[0].database_id,
+                "workflow_name": runs[0].workflow_name,
+                "conclusion": runs[0].conclusion,
+                "url": runs[0].url,
+                "failed_jobs": ["tests"],
+                "failed_steps": ["tests :: pytest (failure)"],
+            }
+        ],
+    )
+
+    rc = _invoke_main(mod)
+    assert rc == 1
+    payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert payload["reason"] == "non_success_conclusion"
+    assert len(payload["failure_details"]) == 1
+    detail = payload["failure_details"][0]
+    assert detail["run_id"] == 991
+    assert detail["workflow_name"] == "CI"
+    assert detail["failed_jobs"] == ["tests"]
 
 
 def test_main_returns_non_zero_when_summary_json_write_fails(monkeypatch: Any) -> None:

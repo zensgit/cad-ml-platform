@@ -122,6 +122,7 @@ def _build_summary_payload(
     runs: Sequence[WorkflowRun],
     missing_required: Sequence[str],
     consecutive_list_failures: int,
+    failure_details: Sequence[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     completed_count = sum(1 for run in runs if run.status == "completed")
     normalized_success_conclusions = {item.lower() for item in success_conclusions}
@@ -160,6 +161,7 @@ def _build_summary_payload(
         },
         "missing_required": list(missing_required),
         "failed_workflows": [run.workflow_name for run in failed_runs],
+        "failure_details": list(failure_details or []),
         "runs": [_serialize_run(run) for run in runs],
     }
 
@@ -303,28 +305,44 @@ def get_run_failure_detail(run_id: int, repo: str = "") -> RunFailureDetail:
 
 def _log_failure_details_for_runs(
     failed_runs: Sequence[WorkflowRun], *, max_runs: int, repo: str
-) -> None:
+) -> list[dict[str, Any]]:
     if not failed_runs:
-        return
+        return []
     _log("failure details:")
+    details: list[dict[str, Any]] = []
     for run in list(failed_runs)[: max(1, int(max_runs))]:
         _log(
             f" - {run.workflow_name} ({run.database_id}) "
             f"conclusion={run.conclusion or '-'}"
         )
+        row: dict[str, Any] = {
+            "run_id": int(run.database_id),
+            "workflow_name": str(run.workflow_name),
+            "conclusion": str(run.conclusion or ""),
+            "url": str(run.url or ""),
+            "failed_jobs": [],
+            "failed_steps": [],
+        }
         try:
             detail = get_run_failure_detail(run.database_id, repo=repo)
         except RuntimeError as exc:
             _log(f"   detail_unavailable: {exc}")
+            row["detail_unavailable"] = str(exc)
+            details.append(row)
             continue
         if detail.failed_jobs:
             _log(f"   failed_jobs: {', '.join(detail.failed_jobs)}")
+            row["failed_jobs"] = list(detail.failed_jobs)
         else:
             _log("   failed_jobs: <none-detected>")
         if detail.failed_steps:
             _log(f"   failed_steps: {', '.join(detail.failed_steps)}")
+            row["failed_steps"] = list(detail.failed_steps)
         if detail.url:
             _log(f"   url: {detail.url}")
+            row["url"] = detail.url
+        details.append(row)
+    return details
 
 
 def list_runs_for_sha(
@@ -593,6 +611,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     last_runs: list[WorkflowRun] = []
     last_missing_required: list[str] = []
     consecutive_list_failures = 0
+    last_failure_details: list[dict[str, Any]] = []
 
     def _return_with_summary(exit_code: int, reason: str) -> int:
         if not summary_json_out:
@@ -618,6 +637,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             runs=last_runs,
             missing_required=last_missing_required,
             consecutive_list_failures=consecutive_list_failures,
+            failure_details=last_failure_details,
         )
         try:
             _write_summary_json(summary_json_out, payload)
@@ -714,14 +734,27 @@ def main(argv: Sequence[str] | None = None) -> int:
             if run.status == "completed"
             and (run.conclusion or "").lower() not in success_conclusions
         ]
+        last_failure_details = [
+            {
+                "run_id": int(run.database_id),
+                "workflow_name": str(run.workflow_name),
+                "conclusion": str(run.conclusion or ""),
+                "url": str(run.url or ""),
+                "failed_jobs": [],
+                "failed_steps": [],
+            }
+            for run in failed
+        ]
         if failed and failure_mode == "fail-fast":
             _log("error: detected non-success workflow conclusions.")
             if print_failure_details:
-                _log_failure_details_for_runs(
+                detail_rows = _log_failure_details_for_runs(
                     failed,
                     max_runs=failure_details_max_runs,
                     repo=repo,
                 )
+                if detail_rows:
+                    last_failure_details = detail_rows
             return _return_with_summary(1, "non_success_conclusion")
 
         if all_completed and missing_required and missing_required_mode == "fail-fast":
@@ -732,11 +765,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             if failed:
                 _log("error: detected non-success workflow conclusions.")
                 if print_failure_details:
-                    _log_failure_details_for_runs(
+                    detail_rows = _log_failure_details_for_runs(
                         failed,
                         max_runs=failure_details_max_runs,
                         repo=repo,
                     )
+                    if detail_rows:
+                        last_failure_details = detail_rows
                 return _return_with_summary(1, "non_success_conclusion")
             _log("all observed workflows completed successfully.")
             return _return_with_summary(0, "all_workflows_success")
