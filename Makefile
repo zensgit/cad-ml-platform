@@ -99,6 +99,7 @@ CI_WATCH_FAILURE_DETAILS_MAX_RUNS ?= 3
 CI_WATCH_PRECHECK_STRICT ?= 1
 CI_WATCH_REPORT_SUMMARY_JSON ?=
 CI_WATCH_REPORT_READINESS_JSON ?=
+CI_WATCH_REPORT_SOFT_SMOKE_JSON ?=
 CI_WATCH_REPORT_OUTPUT_MD ?=
 CI_WATCH_REPORT_DIR ?= reports
 CI_WATCH_REPORT_SHA_LEN ?= 7
@@ -354,6 +355,7 @@ generate-ci-watch-validation-report: ## 根据 watcher 产物生成 CI 验证 Ma
 		--summary-dir "$(CI_WATCH_SUMMARY_DIR)" \
 		--summary-json "$(CI_WATCH_REPORT_SUMMARY_JSON)" \
 		--readiness-json "$(CI_WATCH_REPORT_READINESS_JSON)" \
+		--soft-smoke-summary-json "$(CI_WATCH_REPORT_SOFT_SMOKE_JSON)" \
 		--output-md "$(CI_WATCH_REPORT_OUTPUT_MD)" \
 		--report-dir "$(CI_WATCH_REPORT_DIR)" \
 		--report-sha-len "$(CI_WATCH_REPORT_SHA_LEN)" \

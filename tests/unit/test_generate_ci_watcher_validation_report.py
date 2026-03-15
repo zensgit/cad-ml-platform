@@ -28,6 +28,7 @@ def test_main_generates_success_report_with_explicit_summary(tmp_path: Path) -> 
 
     summary_path = tmp_path / "ci" / "watch_commit_abc123def456_summary.json"
     readiness_path = tmp_path / "ci" / "gh_readiness_watch_abc123def456.json"
+    soft_smoke_path = tmp_path / "ci" / "evaluation_soft_mode_smoke_summary.json"
     report_dir = tmp_path / "reports"
 
     _write_json(
@@ -62,6 +63,26 @@ def test_main_generates_success_report_with_explicit_summary(tmp_path: Path) -> 
             ],
         },
     )
+    _write_json(
+        soft_smoke_path,
+        {
+            "overall_exit_code": 0,
+            "dispatch_exit_code": 0,
+            "soft_marker_ok": True,
+            "restore_ok": True,
+            "max_dispatch_attempts": 2,
+            "retry_sleep_seconds": 10,
+            "dispatch": {"run_id": 23111551338, "run_url": "https://example.invalid/run"},
+            "attempts": [
+                {
+                    "attempt": 1,
+                    "dispatch_exit_code": 0,
+                    "soft_marker_ok": True,
+                    "soft_marker_message": "",
+                }
+            ],
+        },
+    )
 
     rc = _invoke_main(
         mod,
@@ -85,6 +106,11 @@ def test_main_generates_success_report_with_explicit_summary(tmp_path: Path) -> 
     assert summary_path.as_posix() in text
     assert readiness_path.as_posix() in text
     assert "`repo=zensgit/cad-ml-platform`" in text
+    assert "## Soft-Mode Smoke Artifact" in text
+    assert soft_smoke_path.as_posix() in text
+    assert "`overall_exit_code=0`" in text
+    assert "`attempts_total=1`" in text
+    assert "attempt#1: dispatch_exit_code=0, soft_marker_ok=True" in text
     assert "No structured failure_details in summary payload." in text
     assert "CI_WATCH_REPO='zensgit/cad-ml-platform'" in text
     assert "CI_WATCH_PRINT_FAILURE_DETAILS=1" in text
@@ -200,6 +226,8 @@ def test_main_generates_fail_report_when_summary_is_not_green(tmp_path: Path) ->
     assert "FAIL." in text
     assert "does not satisfy release-gate CI criteria." in text
     assert "Not found (inferred readiness json is missing)." in text
+    assert "## Soft-Mode Smoke Artifact" in text
+    assert "Not found (inferred soft-smoke summary json is missing)." in text
     assert "Failure Details" in text
     assert "Code Quality (run=12345, conclusion=failure)" in text
     assert "failed_jobs: lint" in text

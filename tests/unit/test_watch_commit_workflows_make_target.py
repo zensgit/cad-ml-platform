@@ -163,6 +163,7 @@ def test_make_n_generate_ci_watch_validation_report_contains_expected_flags() ->
     assert '--summary-dir "reports/ci"' in result.stdout
     assert '--summary-json ""' in result.stdout
     assert '--readiness-json ""' in result.stdout
+    assert '--soft-smoke-summary-json ""' in result.stdout
     assert '--output-md ""' in result.stdout
     assert '--report-dir "reports"' in result.stdout
     assert '--report-sha-len "7"' in result.stdout

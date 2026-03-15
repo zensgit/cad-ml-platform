@@ -80,6 +80,20 @@ def _resolve_readiness_path(readiness_json: str, summary_path: Path) -> Path | N
     return None
 
 
+def _resolve_soft_smoke_path(soft_smoke_json: str, summary_path: Path) -> Path | None:
+    explicit = str(soft_smoke_json or "").strip()
+    if explicit:
+        path = Path(explicit).expanduser()
+        if not path.exists():
+            raise RuntimeError(f"soft smoke summary json does not exist: {path}")
+        return path
+
+    inferred = summary_path.parent / "evaluation_soft_mode_smoke_summary.json"
+    if inferred.exists():
+        return inferred
+    return None
+
+
 def _extract_sha(summary: dict[str, Any]) -> str:
     for key in ("resolved_sha", "requested_sha"):
         raw = str(summary.get(key) or "").strip()
@@ -210,6 +224,58 @@ def _render_workflow_rows(summary: dict[str, Any]) -> list[str]:
     return rows
 
 
+def _render_soft_smoke_section(
+    soft_smoke: dict[str, Any] | None, soft_smoke_path: Path | None
+) -> list[str]:
+    if soft_smoke is None or soft_smoke_path is None:
+        return [
+            "## Soft-Mode Smoke Artifact",
+            "",
+            "- Not found (inferred soft-smoke summary json is missing).",
+            "",
+        ]
+
+    dispatch = soft_smoke.get("dispatch")
+    if not isinstance(dispatch, dict):
+        dispatch = {}
+    attempts_raw = soft_smoke.get("attempts")
+    attempts: list[dict[str, Any]] = []
+    if isinstance(attempts_raw, list):
+        for item in attempts_raw:
+            if isinstance(item, dict):
+                attempts.append(item)
+
+    lines = [
+        "## Soft-Mode Smoke Artifact",
+        "",
+        f"- `{soft_smoke_path.as_posix()}`",
+        f"- `overall_exit_code={soft_smoke.get('overall_exit_code', 'n/a')}`",
+        f"- `dispatch_exit_code={soft_smoke.get('dispatch_exit_code', 'n/a')}`",
+        f"- `soft_marker_ok={soft_smoke.get('soft_marker_ok', 'n/a')}`",
+        f"- `restore_ok={soft_smoke.get('restore_ok', 'n/a')}`",
+        f"- `max_dispatch_attempts={soft_smoke.get('max_dispatch_attempts', 'n/a')}`",
+        f"- `retry_sleep_seconds={soft_smoke.get('retry_sleep_seconds', 'n/a')}`",
+        f"- `attempts_total={len(attempts)}`",
+    ]
+    run_id = dispatch.get("run_id")
+    run_url = dispatch.get("run_url")
+    if run_id:
+        lines.append(f"- `run_id={run_id}`")
+    if run_url:
+        lines.append(f"- `run_url={run_url}`")
+    for idx, item in enumerate(attempts, start=1):
+        attempt_no = item.get("attempt", idx)
+        dispatch_exit = item.get("dispatch_exit_code", "n/a")
+        marker_ok = item.get("soft_marker_ok", "n/a")
+        message = item.get("soft_marker_message", item.get("message", "n/a"))
+        lines.append(
+            f"  - attempt#{attempt_no}: dispatch_exit_code={dispatch_exit}, "
+            f"soft_marker_ok={marker_ok}, message={message}"
+        )
+    lines.extend(["", ""])
+    return lines
+
+
 def _render_failure_details_rows(summary: dict[str, Any]) -> list[str]:
     payload = summary.get("failure_details")
     if not isinstance(payload, list):
@@ -243,6 +309,8 @@ def _render_markdown(
     summary_path: Path,
     readiness: dict[str, Any] | None,
     readiness_path: Path | None,
+    soft_smoke: dict[str, Any] | None,
+    soft_smoke_path: Path | None,
     sha: str,
     date_str: str,
 ) -> str:
@@ -277,6 +345,7 @@ def _render_markdown(
         "",
     ]
     lines.extend(_render_readiness_section(readiness, readiness_path))
+    lines.extend(_render_soft_smoke_section(soft_smoke, soft_smoke_path))
     lines.extend(
         [
             "## Watch Summary Artifact",
@@ -346,6 +415,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional explicit readiness json path. If empty, inferred from summary token.",
     )
     parser.add_argument(
+        "--soft-smoke-summary-json",
+        default="",
+        help=(
+            "Optional soft-mode smoke summary json path. If empty, "
+            "infer <summary-dir>/evaluation_soft_mode_smoke_summary.json."
+        ),
+    )
+    parser.add_argument(
         "--output-md",
         default="",
         help="Optional explicit markdown output path.",
@@ -378,6 +455,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     readiness: dict[str, Any] | None = None
     if readiness_path is not None:
         readiness = _read_json_dict(readiness_path)
+    soft_smoke_path = _resolve_soft_smoke_path(
+        str(args.soft_smoke_summary_json), summary_path
+    )
+    soft_smoke: dict[str, Any] | None = None
+    if soft_smoke_path is not None:
+        soft_smoke = _read_json_dict(soft_smoke_path)
 
     sha = _extract_sha(summary)
     date_str = str(args.date or "").strip() or datetime.now().strftime("%Y%m%d")
@@ -398,6 +481,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         summary_path=summary_path,
         readiness=readiness,
         readiness_path=readiness_path,
+        soft_smoke=soft_smoke,
+        soft_smoke_path=soft_smoke_path,
         sha=sha,
         date_str=date_str,
     )
@@ -407,6 +492,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(
         "readiness_json="
         + (readiness_path.as_posix() if readiness_path is not None else "(not found)"),
+        flush=True,
+    )
+    print(
+        "soft_smoke_json="
+        + (soft_smoke_path.as_posix() if soft_smoke_path is not None else "(not found)"),
         flush=True,
     )
     print(f"output_md={output_path.as_posix()}", flush=True)
