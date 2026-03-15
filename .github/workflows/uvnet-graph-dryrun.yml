@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: Set up micromamba
-        uses: mamba-org/setup-micromamba@v1
+        uses: mamba-org/setup-micromamba@4b9113af4fba0e9e1124b252dd6497a419e7396d
         with:
           micromamba-version: "1.5.8-0"
           environment-name: uvnet

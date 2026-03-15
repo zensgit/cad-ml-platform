@@ -50,10 +50,10 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -61,7 +61,7 @@ jobs:
 
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -71,7 +71,7 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
 
       - name: Build and push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25
         with:
           context: .
           file: ./docker/assistant/Dockerfile
@@ -100,12 +100,12 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Set up Helm
-        uses: azure/setup-helm@v3
+        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78
         with:
           version: v3.13.0
 
       - name: Configure kubectl
-        uses: azure/k8s-set-context@v3
+        uses: azure/k8s-set-context@38d6bc72e5877b8eb640e995218d42b8fedf1a47
         with:
           kubeconfig: ${{ secrets.KUBE_CONFIG_STAGING }}
 
@@ -156,12 +156,12 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Set up Helm
-        uses: azure/setup-helm@v3
+        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78
         with:
           version: v3.13.0
 
       - name: Configure kubectl
-        uses: azure/k8s-set-context@v3
+        uses: azure/k8s-set-context@38d6bc72e5877b8eb640e995218d42b8fedf1a47
         with:
           kubeconfig: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
 
@@ -232,7 +232,7 @@ jobs:
       name: production
     steps:
       - name: Configure kubectl
-        uses: azure/k8s-set-context@v3
+        uses: azure/k8s-set-context@38d6bc72e5877b8eb640e995218d42b8fedf1a47
         with:
           kubeconfig: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
 

@@ -28,7 +28,12 @@ def test_action_pin_guard_workflow_has_expected_triggers_and_steps() -> None:
 
     assert workflow["name"] == "Action Pin Guard"
     assert ".github/workflows/**" in workflow["on"]["push"]["paths"]
+    assert "config/workflow_action_pin_policy.json" in workflow["on"]["push"]["paths"]
     assert ".github/workflows/**" in workflow["on"]["pull_request"]["paths"]
+    assert (
+        "config/workflow_action_pin_policy.json"
+        in workflow["on"]["pull_request"]["paths"]
+    )
 
     checkout_step = _find_step_by_name(workflow, "action-pin-guard", "Checkout")
     assert checkout_step["uses"] == f"actions/checkout@{CHECKOUT_SHA}"
@@ -42,3 +47,5 @@ def test_action_pin_guard_workflow_has_expected_triggers_and_steps() -> None:
     run_script = validate_step["run"]
     assert "scripts/ci/check_workflow_action_pins.py" in run_script
     assert "--workflows-dir .github/workflows" in run_script
+    assert "--policy-json config/workflow_action_pin_policy.json" in run_script
+    assert "--require-policy-for-all-external" in run_script

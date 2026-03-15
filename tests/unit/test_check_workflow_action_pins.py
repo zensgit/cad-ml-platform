@@ -131,3 +131,73 @@ def test_scan_workflow_action_pins_detects_upload_download_tag_refs(
     assert report["violations_count"] == 2
     reasons = sorted(item["reason"] for item in report["violations"])
     assert reasons == ["tag_ref_not_allowed", "tag_ref_not_allowed"]
+
+
+def test_scan_workflow_action_pins_fails_when_action_not_in_policy(tmp_path: Path) -> None:
+    from scripts.ci.check_workflow_action_pins import (
+        DEFAULT_CHECKOUT_SHA,
+        DEFAULT_SETUP_PYTHON_SHA,
+        scan_workflow_action_pins,
+    )
+
+    workflows_dir = tmp_path / "workflows"
+    workflows_dir.mkdir(parents=True, exist_ok=True)
+    _write_workflow(
+        workflows_dir / "unknown_action.yml",
+        [
+            f"actions/checkout@{DEFAULT_CHECKOUT_SHA}",
+            f"actions/setup-python@{DEFAULT_SETUP_PYTHON_SHA}",
+            "docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9",
+        ],
+    )
+
+    report = scan_workflow_action_pins(
+        workflows_dir=workflows_dir,
+        checkout_sha=DEFAULT_CHECKOUT_SHA,
+        setup_python_sha=DEFAULT_SETUP_PYTHON_SHA,
+        require_policy_for_all_external=True,
+    )
+    assert report["status"] == "error"
+    assert report["violations_count"] == 1
+    assert report["violations"][0]["reason"] == "action_not_in_policy"
+
+
+def test_main_passes_when_policy_allows_external_action(tmp_path: Path) -> None:
+    from scripts.ci import check_workflow_action_pins as mod
+
+    workflows_dir = tmp_path / "workflows"
+    workflows_dir.mkdir(parents=True, exist_ok=True)
+    _write_workflow(
+        workflows_dir / "allowed_external.yml",
+        [
+            f"actions/checkout@{mod.DEFAULT_CHECKOUT_SHA}",
+            "docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9",
+        ],
+    )
+    policy_json = tmp_path / "policy.json"
+    policy_json.write_text(
+        json.dumps(
+            {
+                "actions": {
+                    "docker/login-action": [
+                        "c94ce9fb468520275223c153574b00df6fe4bcc9"
+                    ]
+                }
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    rc = mod.main(
+        [
+            "--workflows-dir",
+            str(workflows_dir),
+            "--policy-json",
+            str(policy_json),
+            "--require-policy-for-all-external",
+        ]
+    )
+    assert rc == 0

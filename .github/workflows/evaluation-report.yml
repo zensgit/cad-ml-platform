@@ -2033,7 +2033,7 @@ jobs:
 
     - name: Comment PR with results
       if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-      uses: actions/github-script@v6
+      uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
@@ -2332,14 +2332,14 @@ jobs:
         path: ./public
 
     - name: Setup Pages
-      uses: actions/configure-pages@v4
+      uses: actions/configure-pages@1f0c5cde4bc74cd7e1254d0cb4de8d49e9068c7d
       continue-on-error: true
 
     - name: Upload to Pages
-      uses: actions/upload-pages-artifact@v3
+      uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa
       with:
         path: ./public
 
     - name: Deploy to GitHub Pages
       id: deployment
-      uses: actions/deploy-pages@v4
+      uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e

@@ -19,13 +19,16 @@
 - `actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f`（tag: `v7.0.0`）
 - `actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c`（tag: `v8.0.1`）
 
+并已将其余外部 action（docker/azure/github-script/cache/codeql 等）统一替换为
+commit SHA（按当前 workflow 实际引用解析）。
+
 ### 2) 新增 pin 校验脚本
 
 - 新文件：`scripts/ci/check_workflow_action_pins.py`
 - 关键能力：
   - 扫描 workflow 中 `uses:` 行；
-  - 检查 `actions/checkout`、`actions/setup-python`、`actions/upload-artifact`、
-    `actions/download-artifact` 是否为允许 SHA；
+  - 通过策略文件 `config/workflow_action_pin_policy.json` 校验外部 action；
+  - 支持 `--require-policy-for-all-external`，确保所有外部 action 都必须入策略；
   - 拒绝 `@v*`、动态引用、非 SHA 引用、未允许 SHA；
   - 输出结构化 JSON（可写 `--output-json`）。
 
@@ -41,6 +44,8 @@
 - 新增单测：
   - `tests/unit/test_check_workflow_action_pins.py`
   - `tests/unit/test_action_pin_guard_workflow.py`
+- 新增策略文件：
+  - `config/workflow_action_pin_policy.json`
 - 更新：
   - `tests/unit/test_graph2d_parallel_make_targets.py`
   - `Makefile` 新增目标：`validate-workflow-action-pins`

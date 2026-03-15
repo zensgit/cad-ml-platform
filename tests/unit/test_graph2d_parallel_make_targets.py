@@ -125,3 +125,11 @@ def test_make_n_validate_workflow_action_pins_runs_expected_commands() -> None:
     assert "scripts/ci/check_workflow_action_pins.py" in result.stdout
     assert "test_check_workflow_action_pins.py" in result.stdout
     assert "test_action_pin_guard_workflow.py" in result.stdout
+    assert "test_generate_workflow_action_pin_policy.py" in result.stdout
+
+
+def test_make_n_refresh_workflow_action_pin_policy_runs_generator() -> None:
+    result = _run_make("-n", "refresh-workflow-action-pin-policy")
+    assert result.returncode == 0, result.stderr
+    assert "scripts/ci/generate_workflow_action_pin_policy.py" in result.stdout
+    assert "--strict" in result.stdout

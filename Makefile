@@ -9,6 +9,7 @@
 		uvnet-checkpoint-inspect graph2d-freeze-baseline worktree-bootstrap validate-iso286 validate-tolerance \
 		validate-openapi \
 		validate-workflow-action-pins \
+		refresh-workflow-action-pin-policy \
 		graph2d-review-summary validate-core-fast test-provider-core test-provider-contract \
 		validate-graph2d-seed-gate validate-graph2d-seed-gate-strict \
 		validate-graph2d-seed-gate-regression validate-graph2d-seed-gate-strict-regression \
@@ -213,10 +214,21 @@ validate-openapi: ## 校验 OpenAPI operationId 唯一性
 
 validate-workflow-action-pins: ## 校验 workflow actions 固定 SHA 与版本策略
 	@echo "$(GREEN)Validating workflow action pin policy...$(NC)"
-	$(PYTHON) scripts/ci/check_workflow_action_pins.py --workflows-dir .github/workflows
+	$(PYTHON) scripts/ci/check_workflow_action_pins.py \
+		--workflows-dir .github/workflows \
+		--policy-json config/workflow_action_pin_policy.json \
+		--require-policy-for-all-external
 	$(PYTEST) \
 		$(TEST_DIR)/unit/test_check_workflow_action_pins.py \
-		$(TEST_DIR)/unit/test_action_pin_guard_workflow.py -q
+		$(TEST_DIR)/unit/test_action_pin_guard_workflow.py \
+		$(TEST_DIR)/unit/test_generate_workflow_action_pin_policy.py -q
+
+refresh-workflow-action-pin-policy: ## 根据 workflow 现状刷新 action pin policy
+	@echo "$(GREEN)Refreshing workflow action pin policy...$(NC)"
+	$(PYTHON) scripts/ci/generate_workflow_action_pin_policy.py \
+		--workflows-dir .github/workflows \
+		--output-json config/workflow_action_pin_policy.json \
+		--strict
 
 openapi-snapshot-update: ## 更新 OpenAPI 快照基线
 	@echo "$(GREEN)Updating OpenAPI schema snapshot baseline...$(NC)"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate that critical GitHub Actions use pinned commit SHAs."""
+"""Validate that workflow actions are pinned to approved commit SHAs."""
 
 from __future__ import annotations
 
@@ -7,19 +7,20 @@ import argparse
 import json
 import re
 from pathlib import Path
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Tuple
 
 
 DEFAULT_CHECKOUT_SHA = "de0fac2e4500dabe0009e67214ff5f5447ce83dd"
 DEFAULT_SETUP_PYTHON_SHA = "a309ff8b426b58ec0e2a45f0f869d46889d02405"
 DEFAULT_UPLOAD_ARTIFACT_SHA = "bbbca2ddaa5d8feaa63e36b76fdaad77386f024f"
 DEFAULT_DOWNLOAD_ARTIFACT_SHA = "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"
+DEFAULT_POLICY_JSON = "config/workflow_action_pin_policy.json"
 
 _USES_RE = re.compile(r"^\s*(?:-\s*)?uses:\s*([^\s#]+)")
 _HEX40_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 
 
-def _normalize_sha(value: str) -> str:
+def _normalize_token(value: str) -> str:
     return str(value or "").strip().lower()
 
 
@@ -36,19 +37,90 @@ def _parse_uses_target(line: str) -> str:
     return str(match.group(1) or "").strip()
 
 
-def _scan_one_file(path: Path, allowed: Dict[str, set[str]]) -> List[Dict[str, Any]]:
+def _parse_policy_actions(policy_path: Path) -> Tuple[Dict[str, set[str]], str]:
+    if not policy_path.exists() or not policy_path.is_file():
+        return ({}, "policy_missing")
+
+    try:
+        payload = json.loads(policy_path.read_text(encoding="utf-8"))
+    except Exception:
+        return ({}, "policy_json_decode_failed")
+
+    if isinstance(payload, dict) and isinstance(payload.get("actions"), dict):
+        raw_actions = payload.get("actions")
+    elif isinstance(payload, dict):
+        raw_actions = payload
+    else:
+        return ({}, "policy_invalid_payload")
+
+    actions: Dict[str, set[str]] = {}
+    for key, value in raw_actions.items():
+        action = _normalize_token(str(key))
+        if not action:
+            continue
+        values: List[str] = []
+        if isinstance(value, list):
+            values = [str(item) for item in value]
+        elif isinstance(value, str):
+            values = [value]
+        for item in values:
+            token = _normalize_token(item)
+            if _HEX40_RE.fullmatch(token):
+                actions.setdefault(action, set()).add(token)
+    return (actions, "")
+
+
+def _base_allowed_actions(
+    *,
+    checkout_sha: str,
+    setup_python_sha: str,
+    upload_artifact_sha: str,
+    download_artifact_sha: str,
+) -> Dict[str, set[str]]:
+    return {
+        "actions/checkout": {_normalize_token(checkout_sha)},
+        "actions/setup-python": {_normalize_token(setup_python_sha)},
+        "actions/upload-artifact": {_normalize_token(upload_artifact_sha)},
+        "actions/download-artifact": {_normalize_token(download_artifact_sha)},
+    }
+
+
+def _scan_one_file(
+    *,
+    path: Path,
+    allowed: Dict[str, set[str]],
+    require_policy_for_all_external: bool,
+) -> Tuple[List[Dict[str, Any]], set[str]]:
     violations: List[Dict[str, Any]] = []
+    observed_actions: set[str] = set()
+
     text = path.read_text(encoding="utf-8", errors="ignore")
     for line_no, line in enumerate(text.splitlines(), start=1):
         target = _parse_uses_target(line)
-        if not target or "@" not in target:
-            continue
-        action, ref = target.split("@", 1)
-        if action not in allowed:
+        if not target or target.startswith("./") or "@" not in target:
             continue
 
-        normalized_ref = _normalize_sha(ref)
+        action_raw, ref = target.split("@", 1)
+        action = _normalize_token(action_raw)
+        observed_actions.add(action)
+
+        if action not in allowed:
+            if require_policy_for_all_external:
+                violations.append(
+                    {
+                        "file": str(path),
+                        "line": line_no,
+                        "uses": target,
+                        "action": action_raw,
+                        "ref": ref,
+                        "reason": "action_not_in_policy",
+                        "expected_shas": [],
+                    }
+                )
+            continue
+
         expected = sorted(allowed[action])
+        normalized_ref = _normalize_token(ref)
         reason = ""
         if ref.startswith("${{"):
             reason = "dynamic_ref_not_allowed"
@@ -66,13 +138,14 @@ def _scan_one_file(path: Path, allowed: Dict[str, set[str]]) -> List[Dict[str, A
                     "file": str(path),
                     "line": line_no,
                     "uses": target,
-                    "action": action,
+                    "action": action_raw,
                     "ref": ref,
                     "reason": reason,
                     "expected_shas": expected,
                 }
             )
-    return violations
+
+    return (violations, observed_actions)
 
 
 def scan_workflow_action_pins(
@@ -82,23 +155,42 @@ def scan_workflow_action_pins(
     setup_python_sha: str,
     upload_artifact_sha: str = DEFAULT_UPLOAD_ARTIFACT_SHA,
     download_artifact_sha: str = DEFAULT_DOWNLOAD_ARTIFACT_SHA,
+    policy_actions: Dict[str, set[str]] | None = None,
+    require_policy_for_all_external: bool = False,
 ) -> Dict[str, Any]:
-    allowed = {
-        "actions/checkout": {_normalize_sha(checkout_sha)},
-        "actions/setup-python": {_normalize_sha(setup_python_sha)},
-        "actions/upload-artifact": {_normalize_sha(upload_artifact_sha)},
-        "actions/download-artifact": {_normalize_sha(download_artifact_sha)},
-    }
+    allowed = _base_allowed_actions(
+        checkout_sha=checkout_sha,
+        setup_python_sha=setup_python_sha,
+        upload_artifact_sha=upload_artifact_sha,
+        download_artifact_sha=download_artifact_sha,
+    )
+    if policy_actions:
+        for action, shas in policy_actions.items():
+            key = _normalize_token(action)
+            valid = {item for item in shas if _HEX40_RE.fullmatch(item)}
+            if valid:
+                allowed[key] = set(valid)
+
     files = list(_iter_workflow_files(workflows_dir))
     violations: List[Dict[str, Any]] = []
+    observed: set[str] = set()
     for file_path in files:
-        violations.extend(_scan_one_file(file_path, allowed))
+        file_violations, file_observed = _scan_one_file(
+            path=file_path,
+            allowed=allowed,
+            require_policy_for_all_external=require_policy_for_all_external,
+        )
+        violations.extend(file_violations)
+        observed.update(file_observed)
+
     return {
         "status": "ok" if not violations else "error",
         "workflows_dir": str(workflows_dir),
         "files_scanned": len(files),
+        "actions_observed_count": len(observed),
         "violations_count": len(violations),
-        "allowed": {key: sorted(value) for key, value in allowed.items()},
+        "require_policy_for_all_external": bool(require_policy_for_all_external),
+        "allowed": {key: sorted(value) for key, value in sorted(allowed.items())},
         "violations": violations,
     }
 
@@ -106,8 +198,8 @@ def scan_workflow_action_pins(
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Validate that actions/checkout and actions/setup-python are pinned "
-            "to approved commit SHAs in workflow files."
+            "Validate workflow actions pinning policy. By default checks core actions; "
+            "use --policy-json + --require-policy-for-all-external for strict mode."
         )
     )
     parser.add_argument("--workflows-dir", default=".github/workflows")
@@ -116,6 +208,12 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--upload-artifact-sha", default=DEFAULT_UPLOAD_ARTIFACT_SHA)
     parser.add_argument(
         "--download-artifact-sha", default=DEFAULT_DOWNLOAD_ARTIFACT_SHA
+    )
+    parser.add_argument("--policy-json", default=DEFAULT_POLICY_JSON)
+    parser.add_argument(
+        "--require-policy-for-all-external",
+        action="store_true",
+        help="Fail when a workflow action is not listed in policy.",
     )
     parser.add_argument("--output-json", default="")
     return parser
@@ -134,17 +232,28 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
+    policy_path = Path(str(args.policy_json)).expanduser()
+    policy_actions, policy_error = _parse_policy_actions(policy_path)
+
     report = scan_workflow_action_pins(
         workflows_dir=Path(str(args.workflows_dir)).expanduser(),
         checkout_sha=str(args.checkout_sha),
         setup_python_sha=str(args.setup_python_sha),
         upload_artifact_sha=str(args.upload_artifact_sha),
         download_artifact_sha=str(args.download_artifact_sha),
+        policy_actions=policy_actions,
+        require_policy_for_all_external=bool(args.require_policy_for_all_external),
     )
+    report["policy_json"] = str(policy_path)
+    report["policy_loaded"] = bool(policy_actions)
+    report["policy_error"] = policy_error
+
     print(json.dumps(report, ensure_ascii=False, indent=2))
     if args.output_json:
         _write_output_json(str(args.output_json), report)
 
+    if policy_error and bool(args.require_policy_for_all_external):
+        return 1
     return 0 if report["status"] == "ok" else 1
 
 
