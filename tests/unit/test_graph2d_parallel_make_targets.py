@@ -117,3 +117,11 @@ def test_make_n_validate_hybrid_superpass_workflow_runs_expected_tests() -> None
     assert "test_check_hybrid_superpass_targets.py" in result.stdout
     assert "test_validate_hybrid_superpass_reports.py" in result.stdout
     assert "test_hybrid_superpass_workflow_integration.py" in result.stdout
+
+
+def test_make_n_validate_workflow_action_pins_runs_expected_commands() -> None:
+    result = _run_make("-n", "validate-workflow-action-pins")
+    assert result.returncode == 0, result.stderr
+    assert "scripts/ci/check_workflow_action_pins.py" in result.stdout
+    assert "test_check_workflow_action_pins.py" in result.stdout
+    assert "test_action_pin_guard_workflow.py" in result.stdout

@@ -8,6 +8,7 @@
 	cdp-screenshot-demo cdp-trace-demo playwright-console-demo playwright-trace-demo playwright-install \
 		uvnet-checkpoint-inspect graph2d-freeze-baseline worktree-bootstrap validate-iso286 validate-tolerance \
 		validate-openapi \
+		validate-workflow-action-pins \
 		graph2d-review-summary validate-core-fast test-provider-core test-provider-contract \
 		validate-graph2d-seed-gate validate-graph2d-seed-gate-strict \
 		validate-graph2d-seed-gate-regression validate-graph2d-seed-gate-strict-regression \
@@ -209,6 +210,13 @@ validate-openapi: ## 校验 OpenAPI operationId 唯一性
 		$(TEST_DIR)/contract/test_openapi_operation_ids.py \
 		$(TEST_DIR)/contract/test_openapi_schema_snapshot.py \
 		$(TEST_DIR)/unit/test_api_route_uniqueness.py -q
+
+validate-workflow-action-pins: ## 校验 workflow actions 固定 SHA 与版本策略
+	@echo "$(GREEN)Validating workflow action pin policy...$(NC)"
+	$(PYTHON) scripts/ci/check_workflow_action_pins.py --workflows-dir .github/workflows
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_check_workflow_action_pins.py \
+		$(TEST_DIR)/unit/test_action_pin_guard_workflow.py -q
 
 openapi-snapshot-update: ## 更新 OpenAPI 快照基线
 	@echo "$(GREEN)Updating OpenAPI schema snapshot baseline...$(NC)"
