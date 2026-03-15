@@ -10,6 +10,8 @@ import subprocess
 import time
 from typing import Any, Optional, Sequence
 
+_NON_FAILING_CONCLUSIONS = {"success", "skipped", "neutral"}
+
 
 def _extract_short_error(
     result: subprocess.CompletedProcess[str],
@@ -230,6 +232,107 @@ def _write_output_json(path_value: str, payload: dict[str, Any]) -> None:
     path.write_text(
         f"{json.dumps(payload, ensure_ascii=False, indent=2)}\n", encoding="utf-8"
     )
+
+
+def _is_failed_conclusion(raw_value: Any) -> bool:
+    conclusion = str(raw_value or "").strip().lower()
+    if not conclusion:
+        return False
+    return conclusion not in _NON_FAILING_CONCLUSIONS
+
+
+def summarize_failed_jobs(
+    jobs_payload: Any,
+    *,
+    max_jobs: int = 5,
+) -> dict[str, Any]:
+    if not isinstance(jobs_payload, list):
+        return {
+            "total_jobs": 0,
+            "failed_job_count": 0,
+            "failed_jobs": [],
+            "failed_jobs_truncated": False,
+        }
+
+    failed_jobs: list[dict[str, str]] = []
+    failed_job_count = 0
+    total_jobs = 0
+    max_items = max(1, int(max_jobs))
+    for item in jobs_payload:
+        if not isinstance(item, dict):
+            continue
+        total_jobs += 1
+        job_conclusion = str(item.get("conclusion") or "")
+        if not _is_failed_conclusion(job_conclusion):
+            continue
+        failed_job_count += 1
+
+        first_failed_step_name = ""
+        first_failed_step_conclusion = ""
+        steps_payload = item.get("steps")
+        if isinstance(steps_payload, list):
+            for step in steps_payload:
+                if not isinstance(step, dict):
+                    continue
+                step_conclusion = str(step.get("conclusion") or "")
+                if _is_failed_conclusion(step_conclusion):
+                    first_failed_step_name = str(step.get("name") or "")
+                    first_failed_step_conclusion = step_conclusion
+                    break
+
+        if len(failed_jobs) < max_items:
+            failed_jobs.append(
+                {
+                    "job_name": str(item.get("name") or ""),
+                    "job_conclusion": job_conclusion,
+                    "job_url": str(item.get("url") or ""),
+                    "failed_step_name": first_failed_step_name,
+                    "failed_step_conclusion": first_failed_step_conclusion,
+                }
+            )
+
+    return {
+        "total_jobs": total_jobs,
+        "failed_job_count": failed_job_count,
+        "failed_jobs": failed_jobs,
+        "failed_jobs_truncated": len(failed_jobs) < failed_job_count,
+    }
+
+
+def fetch_run_failure_diagnostics(run_id: int, repo: str) -> dict[str, Any]:
+    command = ["gh", "run", "view", str(run_id), "--json", "jobs"]
+    if _normalize_optional(repo):
+        command.extend(["--repo", _normalize_optional(repo)])
+    result = subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return {
+            "available": False,
+            "reason": "gh_run_view_failed",
+            "stderr": (result.stderr or "").strip(),
+        }
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return {
+            "available": False,
+            "reason": "gh_run_view_json_decode_failed",
+        }
+    if not isinstance(payload, dict):
+        return {
+            "available": False,
+            "reason": "gh_run_view_invalid_payload",
+        }
+    summary = summarize_failed_jobs(payload.get("jobs"))
+    return {
+        "available": True,
+        "reason": "",
+        **summary,
+    }
 
 
 def fetch_remote_workflow_text(repo: str, workflow: str, ref: str) -> str:
@@ -480,13 +583,35 @@ def main(argv: Sequence[str] | None = None) -> int:
         "watch_exit_code": int(watch_exit_code),
         "overall_exit_code": int(overall_exit_code),
     }
+    if overall_exit_code != 0:
+        payload["failure_diagnostics"] = fetch_run_failure_diagnostics(
+            int(run_id), str(args.repo)
+        )
+        diag = payload["failure_diagnostics"]
+        has_failed_jobs = bool(diag.get("available")) and int(
+            diag.get("failed_job_count") or 0
+        ) > 0
+        if has_failed_jobs:
+            first_failed = (diag.get("failed_jobs") or [{}])[0]
+            print(
+                (
+                    "diagnostic first_failed_job={} job_conclusion={} "
+                    "failed_step={} step_conclusion={}"
+                ).format(
+                    first_failed.get("job_name") or "",
+                    first_failed.get("job_conclusion") or "",
+                    first_failed.get("failed_step_name") or "",
+                    first_failed.get("failed_step_conclusion") or "",
+                )
+            )
     if args.output_json:
         _write_output_json(str(args.output_json), payload)
 
     print(
-        "result run_id={} conclusion={} expected={} matched_expectation={} watch_exit_code={}".format(
-            run_id, conclusion, args.expected_conclusion, matched, watch_exit_code
-        )
+        (
+            "result run_id={} conclusion={} expected={} matched_expectation={} "
+            "watch_exit_code={}"
+        ).format(run_id, conclusion, args.expected_conclusion, matched, watch_exit_code)
     )
     if run_url:
         print(f"run_url={run_url}")

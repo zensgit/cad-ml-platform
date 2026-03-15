@@ -126,6 +126,105 @@ def test_main_returns_nonzero_when_expectation_mismatch(monkeypatch: Any) -> Non
     assert rc == 1
 
 
+def test_summarize_failed_jobs_extracts_first_failed_step() -> None:
+    from scripts.ci import dispatch_hybrid_superpass_workflow as mod
+
+    jobs_payload = [
+        {
+            "name": "build",
+            "conclusion": "success",
+            "steps": [{"name": "setup", "conclusion": "success"}],
+        },
+        {
+            "name": "test",
+            "conclusion": "failure",
+            "url": "https://example.com/job/test",
+            "steps": [
+                {"name": "setup", "conclusion": "success"},
+                {"name": "pytest", "conclusion": "failure"},
+            ],
+        },
+    ]
+    summary = mod.summarize_failed_jobs(jobs_payload, max_jobs=5)
+    assert summary["total_jobs"] == 2
+    assert summary["failed_job_count"] == 1
+    failed_jobs = summary["failed_jobs"]
+    assert isinstance(failed_jobs, list) and len(failed_jobs) == 1
+    assert failed_jobs[0]["job_name"] == "test"
+    assert failed_jobs[0]["job_conclusion"] == "failure"
+    assert failed_jobs[0]["failed_step_name"] == "pytest"
+    assert failed_jobs[0]["failed_step_conclusion"] == "failure"
+
+
+def test_main_mismatch_writes_failure_diagnostics(
+    monkeypatch: Any, tmp_path: Any
+) -> None:
+    from scripts.ci import dispatch_hybrid_superpass_workflow as mod
+
+    monkeypatch.setattr(mod, "check_gh_ready", lambda: (True, ""))
+    monkeypatch.setattr(mod, "list_dispatched_run_ids", lambda *_args, **_kwargs: [1])
+    monkeypatch.setattr(mod, "wait_for_new_dispatched_run_id", lambda **_kwargs: 5001)
+    monkeypatch.setattr(mod, "watch_run", lambda _run_id, _repo: 1)
+    monkeypatch.setattr(
+        mod,
+        "wait_for_run_conclusion",
+        lambda **_kwargs: ("failure", "https://example.com/r/5001"),
+    )
+
+    def _fake_run(*args: Any, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+        command = args[0]
+        if command[:3] == ["gh", "workflow", "run"]:
+            return subprocess.CompletedProcess(
+                args=command, returncode=0, stdout="", stderr=""
+            )
+        if command[:4] == ["gh", "run", "view", "5001"] and "jobs" in command:
+            return subprocess.CompletedProcess(
+                args=command,
+                returncode=0,
+                stdout=json.dumps(
+                    {
+                        "jobs": [
+                            {
+                                "name": "hybrid-superpass",
+                                "conclusion": "failure",
+                                "steps": [
+                                    {"name": "Checkout", "conclusion": "success"},
+                                    {
+                                        "name": "Validate Superpass Reports",
+                                        "conclusion": "failure",
+                                    },
+                                ],
+                            }
+                        ]
+                    }
+                ),
+                stderr="",
+            )
+        return subprocess.CompletedProcess(
+            args=command, returncode=0, stdout="", stderr=""
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", _fake_run)
+
+    output_json = tmp_path / "hybrid_superpass_dispatch_mismatch.json"
+    rc = mod.main(
+        [
+            "--output-json",
+            str(output_json),
+            "--expected-conclusion",
+            "success",
+        ]
+    )
+    assert rc == 1
+    payload = json.loads(output_json.read_text(encoding="utf-8"))
+    diagnostics = payload.get("failure_diagnostics") or {}
+    assert diagnostics.get("available") is True
+    assert diagnostics.get("failed_job_count") == 1
+    failed_jobs = diagnostics.get("failed_jobs") or []
+    assert failed_jobs[0]["job_name"] == "hybrid-superpass"
+    assert failed_jobs[0]["failed_step_name"] == "Validate Superpass Reports"
+
+
 def test_find_missing_superpass_inputs_detects_expected_keys() -> None:
     from scripts.ci import dispatch_hybrid_superpass_workflow as mod
 
@@ -146,7 +245,13 @@ def test_main_returns_nonzero_when_remote_workflow_missing_required_inputs(
     monkeypatch.setattr(
         mod,
         "fetch_remote_workflow_text",
-        lambda *_args, **_kwargs: "name: Evaluation Report\non:\n  workflow_dispatch:\n    inputs:\n      min_combined:\n",
+        lambda *_args, **_kwargs: (
+            "name: Evaluation Report\n"
+            "on:\n"
+            "  workflow_dispatch:\n"
+            "    inputs:\n"
+            "      min_combined:\n"
+        ),
     )
     monkeypatch.setattr(
         mod,
