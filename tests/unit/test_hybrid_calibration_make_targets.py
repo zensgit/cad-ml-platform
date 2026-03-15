@@ -320,6 +320,35 @@ def test_make_n_validate_soft_mode_smoke_comment_contains_expected_commands() ->
     assert "pytest -q tests/unit/test_comment_soft_mode_smoke_pr_js.py" in result.stdout
 
 
+def test_make_n_soft_mode_smoke_comment_pr_contains_expected_flags() -> None:
+    result = _run_make(
+        "-n",
+        "soft-mode-smoke-comment-pr",
+        "SOFT_MODE_COMMENT_REPO=zensgit/cad-ml-platform",
+        "SOFT_MODE_COMMENT_PR_NUMBER=369",
+        "SOFT_MODE_COMMENT_SUMMARY_JSON=/tmp/soft_mode_smoke.json",
+        "SOFT_MODE_COMMENT_COMMIT_SHA=abcdef123456",
+        "SOFT_MODE_COMMENT_TITLE=CAD ML Platform - Soft Mode Smoke",
+        "SOFT_MODE_COMMENT_DRY_RUN=1",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "scripts/ci/post_soft_mode_smoke_pr_comment.py" in result.stdout
+    assert '--repo "zensgit/cad-ml-platform"' in result.stdout
+    assert '--pr-number "369"' in result.stdout
+    assert '--summary-json "/tmp/soft_mode_smoke.json"' in result.stdout
+    assert '--commit-sha "abcdef123456"' in result.stdout
+    assert '--title "CAD ML Platform - Soft Mode Smoke"' in result.stdout
+    assert "--output-json" in result.stdout
+    assert "$extra_flags" in result.stdout
+
+
+def test_make_n_validate_soft_mode_smoke_comment_pr_runs_expected_tests() -> None:
+    result = _run_make("-n", "validate-soft-mode-smoke-comment-pr")
+    assert result.returncode == 0, result.stderr
+    assert "test_post_soft_mode_smoke_pr_comment.py" in result.stdout
+    assert "test_hybrid_calibration_make_targets.py" in result.stdout
+
+
 def test_make_n_validate_hybrid_superpass_workflow_runs_expected_tests() -> None:
     result = _run_make("-n", "validate-hybrid-superpass-workflow")
     assert result.returncode == 0, result.stderr

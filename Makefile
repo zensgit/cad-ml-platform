@@ -39,6 +39,7 @@
 						hybrid-blind-drift-apply-suggestion-gh hybrid-superpass-gate \
 							hybrid-superpass-e2e-gh hybrid-superpass-apply-gh-vars \
 							validate-soft-mode-smoke validate-soft-mode-smoke-workflow validate-soft-mode-smoke-comment \
+							soft-mode-smoke-comment-pr validate-soft-mode-smoke-comment-pr \
 							validate-hybrid-superpass-workflow \
 							eval-weekly-summary validate-hybrid-blind-workflow
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
@@ -1105,6 +1106,13 @@ SOFT_MODE_SMOKE_SKIP_LOG_CHECK ?= 0
 SOFT_MODE_SMOKE_SKIP_REMOTE_INPUT_CHECK ?= 0
 SOFT_MODE_SMOKE_MAX_DISPATCH_ATTEMPTS ?= 1
 SOFT_MODE_SMOKE_RETRY_SLEEP_SECONDS ?= 15
+SOFT_MODE_COMMENT_REPO ?=
+SOFT_MODE_COMMENT_PR_NUMBER ?=
+SOFT_MODE_COMMENT_SUMMARY_JSON ?=
+SOFT_MODE_COMMENT_COMMIT_SHA ?=
+SOFT_MODE_COMMENT_TITLE ?= CAD ML Platform - Soft Mode Smoke
+SOFT_MODE_COMMENT_DRY_RUN ?= 1
+SOFT_MODE_COMMENT_OUTPUT_JSON ?= reports/ci/soft_mode_smoke_pr_comment_result.json
 HYBRID_BLIND_DXF_DIR ?=
 HYBRID_BLIND_MANIFEST_CSV ?=
 HYBRID_BLIND_OUTPUT_DIR ?= reports/history_sequence_eval/hybrid_blind
@@ -1593,6 +1601,28 @@ validate-soft-mode-smoke-comment: ## 校验 soft-mode PR 评论脚本（语法 +
 	@echo "$(GREEN)Validating soft-mode smoke PR comment script...$(NC)"
 	node --check scripts/ci/comment_soft_mode_smoke_pr.js
 	$(PYTEST) -q $(TEST_DIR)/unit/test_comment_soft_mode_smoke_pr_js.py
+
+soft-mode-smoke-comment-pr: ## 将 soft-mode smoke summary 回写到 PR 评论（本地 gh api）
+	@echo "$(GREEN)Posting soft-mode smoke summary comment to PR...$(NC)"
+	@test -n "$(SOFT_MODE_COMMENT_REPO)" || (echo "$(RED)SOFT_MODE_COMMENT_REPO is required (e.g. owner/repo)$(NC)"; exit 1)
+	@test -n "$(SOFT_MODE_COMMENT_PR_NUMBER)" || (echo "$(RED)SOFT_MODE_COMMENT_PR_NUMBER is required$(NC)"; exit 1)
+	@test -n "$(SOFT_MODE_COMMENT_SUMMARY_JSON)" || (echo "$(RED)SOFT_MODE_COMMENT_SUMMARY_JSON is required$(NC)"; exit 1)
+	@extra_flags=""; \
+	if [ "$(SOFT_MODE_COMMENT_DRY_RUN)" = "1" ]; then extra_flags="$$extra_flags --dry-run"; fi; \
+	$(PYTHON) scripts/ci/post_soft_mode_smoke_pr_comment.py \
+		--repo "$(SOFT_MODE_COMMENT_REPO)" \
+		--pr-number "$(SOFT_MODE_COMMENT_PR_NUMBER)" \
+		--summary-json "$(SOFT_MODE_COMMENT_SUMMARY_JSON)" \
+		--commit-sha "$(SOFT_MODE_COMMENT_COMMIT_SHA)" \
+		--title "$(SOFT_MODE_COMMENT_TITLE)" \
+		--output-json "$(SOFT_MODE_COMMENT_OUTPUT_JSON)" \
+		$$extra_flags
+
+validate-soft-mode-smoke-comment-pr: ## 校验本地 soft-mode PR 回写脚本与 Make 参数透传
+	@echo "$(GREEN)Validating local soft-mode smoke PR comment bridge...$(NC)"
+	$(PYTEST) -q \
+		$(TEST_DIR)/unit/test_post_soft_mode_smoke_pr_comment.py \
+		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py
 
 validate-hybrid-blind-strict-real-e2e-gh: ## 校验 strict-real gh dispatch 脚本与 Make 参数透传
 	@echo "$(GREEN)Validating hybrid blind strict-real gh dispatch integration...$(NC)"
