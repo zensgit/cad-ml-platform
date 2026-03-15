@@ -61,12 +61,14 @@
 ```bash
 node --check scripts/ci/comment_soft_mode_smoke_pr.js
 pytest -q tests/unit/test_dispatch_evaluation_soft_mode_smoke.py tests/unit/test_evaluation_soft_mode_smoke_workflow.py tests/unit/test_hybrid_calibration_make_targets.py
+make validate-soft-mode-smoke-workflow
 ```
 
 ### 结果
 
 - `node --check`：通过
-- `pytest`：`36 passed`（含 warning 1 条，来自第三方包 `starlette/formparsers.py` 的 PendingDeprecationWarning）
+- `pytest`：`34 passed`（含 warning 1 条，来自第三方包 `starlette/formparsers.py` 的 PendingDeprecationWarning）
+- `make validate-soft-mode-smoke-workflow`：通过（同批用例 `34 passed`）
 
 ## 变更文件
 
