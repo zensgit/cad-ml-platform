@@ -83,9 +83,9 @@ Result: passed.
 
 ### Remote execution notes
 
-- Real soft-mode smoke dispatch via script has already been verified in this branch:
-  - run id: `23110519585`
+- Real soft-mode smoke dispatch via script has been verified in this branch:
+  - run id: `23110740927` (after this change set)
   - conclusion: `success`
   - strict soft marker detected and variable restore succeeded.
+- Previous baseline run before this change set: `23110519585`.
 - Direct `gh workflow run evaluation-soft-mode-smoke.yml` currently returns 404 before merge because GitHub requires the workflow file to exist on the default branch for dispatch lookup.
-
