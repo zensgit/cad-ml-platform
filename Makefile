@@ -92,6 +92,8 @@ CI_WATCH_SUMMARY_JSON ?=
 CI_WATCH_SUMMARY_DIR ?= reports/ci
 CI_WATCH_ARTIFACT_SHA_LEN ?= 12
 CI_WATCH_PRINT_ONLY ?= 0
+CI_WATCH_PRINT_FAILURE_DETAILS ?= 0
+CI_WATCH_FAILURE_DETAILS_MAX_RUNS ?= 3
 CI_WATCH_PRECHECK_STRICT ?= 1
 CI_WATCH_REPORT_SUMMARY_JSON ?=
 CI_WATCH_REPORT_READINESS_JSON ?=
@@ -295,6 +297,8 @@ watch-commit-workflows: ## 监控指定提交 SHA 的 CI 工作流并等待完�
 	@echo "$(GREEN)Watching commit workflows...$(NC)"
 	@print_only_flag=""; \
 	if [ "$(CI_WATCH_PRINT_ONLY)" = "1" ]; then print_only_flag="--print-only"; fi; \
+	print_failure_details_flag=""; \
+	if [ "$(CI_WATCH_PRINT_FAILURE_DETAILS)" = "1" ]; then print_failure_details_flag="--print-failure-details"; fi; \
 	$(PYTHON) scripts/ci/watch_commit_workflows.py \
 		--sha "$(CI_WATCH_SHA)" \
 		--events-csv "$(CI_WATCH_EVENTS)" \
@@ -307,8 +311,9 @@ watch-commit-workflows: ## 监控指定提交 SHA 的 CI 工作流并等待完�
 		--missing-required-mode "$(CI_WATCH_MISSING_REQUIRED_MODE)" \
 		--failure-mode "$(CI_WATCH_FAILURE_MODE)" \
 		--success-conclusions-csv "$(CI_WATCH_SUCCESS_CONCLUSIONS)" \
+		--failure-details-max-runs "$(CI_WATCH_FAILURE_DETAILS_MAX_RUNS)" \
 		--summary-json-out "$(CI_WATCH_SUMMARY_JSON)" \
-		$$print_only_flag
+		$$print_only_flag $$print_failure_details_flag
 
 watch-commit-workflows-safe: ## 先做 gh readiness 预检，再执行 commit workflow watcher
 	@if [ "$(CI_WATCH_PRECHECK_STRICT)" = "1" ]; then \

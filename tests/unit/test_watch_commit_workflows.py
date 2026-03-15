@@ -151,6 +151,46 @@ def test_list_runs_for_sha_raises_on_nonzero(monkeypatch: Any) -> None:
         raise AssertionError("expected RuntimeError")
 
 
+def test_get_run_failure_detail_extracts_failed_jobs_and_steps(monkeypatch: Any) -> None:
+    from scripts.ci import watch_commit_workflows as mod
+
+    payload = {
+        "workflowName": "CI",
+        "url": "https://example.com/run/123",
+        "jobs": [
+            {
+                "name": "lint",
+                "conclusion": "success",
+                "steps": [{"name": "flake8", "conclusion": "success"}],
+            },
+            {
+                "name": "tests",
+                "conclusion": "failure",
+                "steps": [
+                    {"name": "setup", "conclusion": "success"},
+                    {"name": "pytest", "conclusion": "failure"},
+                ],
+            },
+        ],
+    }
+
+    def _fake_run(*_args: Any, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=json.dumps(payload),
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", _fake_run)
+    detail = mod.get_run_failure_detail(123)
+    assert detail.run_id == 123
+    assert detail.workflow_name == "CI"
+    assert detail.url == "https://example.com/run/123"
+    assert detail.failed_jobs == ("tests",)
+    assert detail.failed_steps == ("tests :: pytest (failure)",)
+
+
 def test_extract_auth_error_details_prefers_actionable_lines() -> None:
     from scripts.ci import watch_commit_workflows as mod
 
@@ -386,6 +426,64 @@ def test_main_returns_non_zero_when_detecting_failure(monkeypatch: Any) -> None:
 
     rc = _invoke_main(mod)
     assert rc == 1
+
+
+def test_main_emits_failure_details_when_enabled(monkeypatch: Any) -> None:
+    from scripts.ci import watch_commit_workflows as mod
+
+    _patch_parsed_args(
+        monkeypatch,
+        _Args(
+            sha="HEAD",
+            events_csv="push",
+            event=[],
+            require_workflows_csv="CI",
+            require_workflow=[],
+            wait_timeout_seconds=20,
+            poll_interval_seconds=1,
+            list_limit=100,
+            print_failure_details=True,
+            failure_details_max_runs=2,
+            print_only=False,
+        ),
+    )
+
+    monkeypatch.setattr(mod, "check_gh_ready", lambda: (True, ""))
+    monkeypatch.setattr(mod, "resolve_head_sha", lambda _value: "sha")
+    monkeypatch.setattr(
+        mod,
+        "list_runs_for_sha",
+        lambda **_kwargs: [
+            mod.WorkflowRun(
+                database_id=200,
+                workflow_name="CI",
+                status="completed",
+                conclusion="failure",
+                url="u1",
+                event="push",
+            )
+        ],
+    )
+    called: dict[str, Any] = {"count": 0, "max_runs": None, "run_count": 0}
+
+    def _fake_log_failure_details_for_runs(
+        runs: list[mod.WorkflowRun], *, max_runs: int
+    ) -> None:
+        called["count"] += 1
+        called["max_runs"] = max_runs
+        called["run_count"] = len(runs)
+
+    monkeypatch.setattr(
+        mod,
+        "_log_failure_details_for_runs",
+        _fake_log_failure_details_for_runs,
+    )
+
+    rc = _invoke_main(mod)
+    assert rc == 1
+    assert called["count"] == 1
+    assert called["max_runs"] == 2
+    assert called["run_count"] == 1
 
 
 def test_main_failure_fail_fast_before_all_completed(monkeypatch: Any) -> None:

@@ -40,6 +40,7 @@ def test_make_n_watch_commit_workflows_contains_expected_flags() -> None:
     assert '--missing-required-mode "fail-fast"' in result.stdout
     assert '--failure-mode "fail-fast"' in result.stdout
     assert '--success-conclusions-csv "success,skipped"' in result.stdout
+    assert '--failure-details-max-runs "3"' in result.stdout
     assert '--summary-json-out ""' in result.stdout
 
 
@@ -66,6 +67,18 @@ def test_make_watch_commit_workflows_print_only_outputs_preview() -> None:
     assert "# failure_mode=fail-fast" in result.stdout
     assert "# heartbeat_interval_seconds=120" in result.stdout
     assert "# max_list_failures=5" in result.stdout
+
+
+def test_make_n_watch_commit_workflows_print_failure_details_flag() -> None:
+    result = _run_make(
+        "-n",
+        "watch-commit-workflows",
+        "CI_WATCH_PRINT_FAILURE_DETAILS=1",
+        "CI_WATCH_FAILURE_DETAILS_MAX_RUNS=7",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "--print-failure-details" in result.stdout
+    assert '--failure-details-max-runs "7"' in result.stdout
 
 
 def test_make_n_clean_ci_watch_summaries_contains_expected_pattern() -> None:

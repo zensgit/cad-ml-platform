@@ -23,6 +23,15 @@ class WorkflowRun:
     event: str
 
 
+@dataclass(frozen=True)
+class RunFailureDetail:
+    run_id: int
+    workflow_name: str
+    url: str
+    failed_jobs: tuple[str, ...]
+    failed_steps: tuple[str, ...]
+
+
 def _log(message: str) -> None:
     print(message, flush=True)
 
@@ -220,6 +229,96 @@ def _build_list_runs_command(limit: int) -> list[str]:
     ]
 
 
+def _build_run_view_command(run_id: int) -> list[str]:
+    return [
+        "gh",
+        "run",
+        "view",
+        str(int(run_id)),
+        "--json",
+        "url,workflowName,jobs",
+    ]
+
+
+def _normalize_gh_conclusion(value: object) -> str:
+    return str(value or "").strip().lower()
+
+
+def get_run_failure_detail(run_id: int) -> RunFailureDetail:
+    command = _build_run_view_command(run_id)
+    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        message = _extract_short_error(result, "failed to view gh run")
+        raise RuntimeError(message)
+
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"failed to decode gh run view json: {exc}") from exc
+
+    if not isinstance(payload, dict):
+        raise RuntimeError("invalid gh run view payload: expected object")
+
+    workflow_name = str(payload.get("workflowName") or "").strip() or str(run_id)
+    url = str(payload.get("url") or "").strip()
+    jobs_raw = payload.get("jobs") if isinstance(payload.get("jobs"), list) else []
+    failed_jobs: list[str] = []
+    failed_steps: list[str] = []
+    success_conclusions = {"success", "skipped", "neutral"}
+    for job in jobs_raw:
+        if not isinstance(job, dict):
+            continue
+        job_conclusion = _normalize_gh_conclusion(job.get("conclusion"))
+        if job_conclusion in success_conclusions:
+            continue
+        job_name = str(job.get("name") or "").strip() or "<unnamed-job>"
+        failed_jobs.append(job_name)
+        steps = job.get("steps")
+        if isinstance(steps, list):
+            for step in steps:
+                if not isinstance(step, dict):
+                    continue
+                step_conclusion = _normalize_gh_conclusion(step.get("conclusion"))
+                if step_conclusion in success_conclusions or not step_conclusion:
+                    continue
+                step_name = str(step.get("name") or "").strip() or "<unnamed-step>"
+                failed_steps.append(f"{job_name} :: {step_name} ({step_conclusion})")
+                break
+    return RunFailureDetail(
+        run_id=int(run_id),
+        workflow_name=workflow_name,
+        url=url,
+        failed_jobs=tuple(failed_jobs),
+        failed_steps=tuple(failed_steps),
+    )
+
+
+def _log_failure_details_for_runs(
+    failed_runs: Sequence[WorkflowRun], *, max_runs: int
+) -> None:
+    if not failed_runs:
+        return
+    _log("failure details:")
+    for run in list(failed_runs)[: max(1, int(max_runs))]:
+        _log(
+            f" - {run.workflow_name} ({run.database_id}) "
+            f"conclusion={run.conclusion or '-'}"
+        )
+        try:
+            detail = get_run_failure_detail(run.database_id)
+        except RuntimeError as exc:
+            _log(f"   detail_unavailable: {exc}")
+            continue
+        if detail.failed_jobs:
+            _log(f"   failed_jobs: {', '.join(detail.failed_jobs)}")
+        else:
+            _log("   failed_jobs: <none-detected>")
+        if detail.failed_steps:
+            _log(f"   failed_steps: {', '.join(detail.failed_steps)}")
+        if detail.url:
+            _log(f"   url: {detail.url}")
+
+
 def list_runs_for_sha(
     *,
     head_sha: str,
@@ -384,6 +483,17 @@ def _build_parser() -> argparse.ArgumentParser:
         default="",
         help="Optional output file path for machine-readable final summary JSON.",
     )
+    parser.add_argument(
+        "--print-failure-details",
+        action="store_true",
+        help="When failures are detected, fetch and print failed jobs/steps via gh run view.",
+    )
+    parser.add_argument(
+        "--failure-details-max-runs",
+        type=int,
+        default=3,
+        help="Max failed runs to inspect when --print-failure-details is enabled (default: 3).",
+    )
     return parser
 
 
@@ -421,6 +531,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     heartbeat_interval_seconds = _int_with_default(args.heartbeat_interval_seconds, 120)
     list_limit = _int_with_default(args.list_limit, 100)
     max_list_failures = _int_with_default(args.max_list_failures, 3)
+    failure_details_max_runs = _int_with_default(args.failure_details_max_runs, 3)
 
     if wait_timeout_seconds < 0:
         _log("error: --wait-timeout-seconds must be >= 0")
@@ -436,6 +547,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
     if max_list_failures < 0:
         _log("error: --max-list-failures must be >= 0")
+        return 2
+    if failure_details_max_runs <= 0:
+        _log("error: --failure-details-max-runs must be > 0")
         return 2
 
     events = set(_merge_items(_split_csv_items(str(args.events_csv)), list(args.event)))
@@ -457,6 +571,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     missing_required_mode = str(args.missing_required_mode or "fail-fast")
     failure_mode = str(args.failure_mode or "fail-fast")
     summary_json_out = str(args.summary_json_out or "").strip()
+    print_failure_details = bool(args.print_failure_details)
     requested_sha = str(args.sha or "HEAD")
     resolved_sha = requested_sha
     started_at = time.time()
@@ -583,6 +698,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         ]
         if failed and failure_mode == "fail-fast":
             _log("error: detected non-success workflow conclusions.")
+            if print_failure_details:
+                _log_failure_details_for_runs(
+                    failed, max_runs=failure_details_max_runs
+                )
             return _return_with_summary(1, "non_success_conclusion")
 
         if all_completed and missing_required and missing_required_mode == "fail-fast":
@@ -592,6 +711,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         if all_completed and have_required:
             if failed:
                 _log("error: detected non-success workflow conclusions.")
+                if print_failure_details:
+                    _log_failure_details_for_runs(
+                        failed, max_runs=failure_details_max_runs
+                    )
                 return _return_with_summary(1, "non_success_conclusion")
             _log("all observed workflows completed successfully.")
             return _return_with_summary(0, "all_workflows_success")
