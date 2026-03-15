@@ -70,6 +70,17 @@ make validate-ci-watchers
   - eval-with-history CI regression gates
   - Graph2D strict e2e dispatcher tests
 
+### Action pin policy check
+```bash
+.venv/bin/python scripts/ci/check_workflow_action_pins.py \
+  --workflows-dir .github/workflows \
+  --policy-json config/workflow_action_pin_policy.json \
+  --require-policy-for-all-external
+```
+- Result: passed (`violations_count = 0`)
+- Note: `stress-tests.yml` upload step pin was aligned to policy SHA:
+  `actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f`.
+
 ## Outcome
 - `workflow-file-health` guard is now usable in both CI and local developer contexts.
 - Local validation no longer fails spuriously due to ref-resolution-only `gh` errors in `auto` mode.
