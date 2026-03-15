@@ -70,7 +70,15 @@ def test_main_returns_nonzero_when_gh_not_ready(monkeypatch: Any) -> None:
 def test_find_missing_strict_real_inputs_detects_expected_keys() -> None:
     from scripts.ci import dispatch_hybrid_blind_strict_real_workflow as mod
 
-    missing = mod.find_missing_strict_real_inputs("name: Evaluation Report\non:\n  workflow_dispatch:\n    inputs:\n      min_combined:\n")
+    missing = mod.find_missing_strict_real_inputs(
+        (
+            "name: Evaluation Report\n"
+            "on:\n"
+            "  workflow_dispatch:\n"
+            "    inputs:\n"
+            "      min_combined:\n"
+        )
+    )
     assert "hybrid_blind_enable" in missing
     assert "hybrid_blind_dxf_dir" in missing
     assert "hybrid_blind_fail_on_gate_failed" in missing
@@ -86,7 +94,13 @@ def test_main_returns_nonzero_when_remote_workflow_missing_required_inputs(
     monkeypatch.setattr(
         mod,
         "fetch_remote_workflow_text",
-        lambda *_args, **_kwargs: "name: Evaluation Report\non:\n  workflow_dispatch:\n    inputs:\n      min_combined:\n",
+        lambda *_args, **_kwargs: (
+            "name: Evaluation Report\n"
+            "on:\n"
+            "  workflow_dispatch:\n"
+            "    inputs:\n"
+            "      min_combined:\n"
+        ),
     )
     monkeypatch.setattr(
         mod,
@@ -172,6 +186,103 @@ def test_main_returns_nonzero_when_expectation_mismatch(monkeypatch: Any) -> Non
     assert rc == 1
 
 
+def test_summarize_failed_jobs_extracts_first_failed_step() -> None:
+    from scripts.ci import dispatch_hybrid_blind_strict_real_workflow as mod
+
+    jobs_payload = [
+        {
+            "name": "prepare",
+            "conclusion": "success",
+            "steps": [{"name": "checkout", "conclusion": "success"}],
+        },
+        {
+            "name": "strict-real-gate",
+            "conclusion": "failure",
+            "url": "https://example.com/job/strict-real",
+            "steps": [
+                {"name": "checkout", "conclusion": "success"},
+                {"name": "gate", "conclusion": "failure"},
+            ],
+        },
+    ]
+    summary = mod.summarize_failed_jobs(jobs_payload, max_jobs=5)
+    assert summary["total_jobs"] == 2
+    assert summary["failed_job_count"] == 1
+    failed_jobs = summary["failed_jobs"]
+    assert isinstance(failed_jobs, list) and len(failed_jobs) == 1
+    assert failed_jobs[0]["job_name"] == "strict-real-gate"
+    assert failed_jobs[0]["failed_step_name"] == "gate"
+    assert failed_jobs[0]["failed_step_conclusion"] == "failure"
+
+
+def test_main_mismatch_writes_failure_diagnostics(
+    monkeypatch: Any, tmp_path: Any
+) -> None:
+    from scripts.ci import dispatch_hybrid_blind_strict_real_workflow as mod
+
+    monkeypatch.setattr(mod, "check_gh_ready", lambda: (True, ""))
+    monkeypatch.setattr(mod, "list_dispatched_run_ids", lambda *_args, **_kwargs: [1])
+    monkeypatch.setattr(mod, "wait_for_new_dispatched_run_id", lambda **_kwargs: 4301)
+    monkeypatch.setattr(mod, "watch_run", lambda _run_id, _repo: 1)
+    monkeypatch.setattr(
+        mod,
+        "wait_for_run_conclusion",
+        lambda **_kwargs: ("failure", "https://example.com/r/4301"),
+    )
+
+    def _fake_run(*args: Any, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+        command = args[0]
+        if command[:3] == ["gh", "workflow", "run"]:
+            return subprocess.CompletedProcess(
+                args=command, returncode=0, stdout="", stderr=""
+            )
+        if command[:4] == ["gh", "run", "view", "4301"] and "jobs" in command:
+            return subprocess.CompletedProcess(
+                args=command,
+                returncode=0,
+                stdout=json.dumps(
+                    {
+                        "jobs": [
+                            {
+                                "name": "strict-real-gate",
+                                "conclusion": "failure",
+                                "steps": [
+                                    {"name": "Checkout", "conclusion": "success"},
+                                    {"name": "Check Hybrid Blind Gate", "conclusion": "failure"},
+                                ],
+                            }
+                        ]
+                    }
+                ),
+                stderr="",
+            )
+        return subprocess.CompletedProcess(
+            args=command, returncode=0, stdout="", stderr=""
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", _fake_run)
+
+    output_json = tmp_path / "hybrid_blind_strict_real_dispatch_mismatch.json"
+    rc = mod.main(
+        [
+            "--hybrid-blind-dxf-dir",
+            "data/blind_dxf",
+            "--output-json",
+            str(output_json),
+            "--expected-conclusion",
+            "success",
+        ]
+    )
+    assert rc == 1
+    payload = json.loads(output_json.read_text(encoding="utf-8"))
+    diagnostics = payload.get("failure_diagnostics") or {}
+    assert diagnostics.get("available") is True
+    assert diagnostics.get("failed_job_count") == 1
+    failed_jobs = diagnostics.get("failed_jobs") or []
+    assert failed_jobs[0]["job_name"] == "strict-real-gate"
+    assert failed_jobs[0]["failed_step_name"] == "Check Hybrid Blind Gate"
+
+
 def test_main_returns_nonzero_with_actionable_hint_when_remote_inputs_missing(
     monkeypatch: Any, capsys: Any
 ) -> None:
@@ -185,7 +296,10 @@ def test_main_returns_nonzero_with_actionable_hint_when_remote_inputs_missing(
             args=[],
             returncode=1,
             stdout="",
-            stderr='could not create workflow dispatch event: HTTP 422: Unexpected inputs provided: ["hybrid_blind_enable"]',
+            stderr=(
+                "could not create workflow dispatch event: HTTP 422: "
+                'Unexpected inputs provided: ["hybrid_blind_enable"]'
+            ),
         )
 
     monkeypatch.setattr(mod.subprocess, "run", _fake_run)
