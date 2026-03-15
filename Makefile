@@ -37,9 +37,10 @@
 						hybrid-blind-strict-real-e2e-gh validate-hybrid-blind-strict-real-e2e-gh \
 						hybrid-blind-drift-alert hybrid-blind-drift-suggest-thresholds hybrid-blind-history-bootstrap hybrid-blind-drift-activate \
 						hybrid-blind-drift-apply-suggestion-gh hybrid-superpass-gate \
-						hybrid-superpass-e2e-gh hybrid-superpass-apply-gh-vars \
-						validate-hybrid-superpass-workflow \
-						eval-weekly-summary validate-hybrid-blind-workflow
+							hybrid-superpass-e2e-gh hybrid-superpass-apply-gh-vars \
+							validate-soft-mode-smoke validate-soft-mode-smoke-workflow \
+							validate-hybrid-superpass-workflow \
+							eval-weekly-summary validate-hybrid-blind-workflow
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -1089,6 +1090,17 @@ HYBRID_SUPERPASS_E2E_PRINT_ONLY ?= 0
 HYBRID_SUPERPASS_APPLY_REPO ?=
 HYBRID_SUPERPASS_APPLY_CONFIG_PATH ?= config/hybrid_superpass_targets.yaml
 HYBRID_SUPERPASS_APPLY_EXECUTE ?= 0
+SOFT_MODE_SMOKE_WORKFLOW ?= evaluation-report.yml
+SOFT_MODE_SMOKE_REF ?= main
+SOFT_MODE_SMOKE_REPO ?=
+SOFT_MODE_SMOKE_EXPECTED_CONCLUSION ?= success
+SOFT_MODE_SMOKE_WAIT_TIMEOUT ?= 1200
+SOFT_MODE_SMOKE_POLL_INTERVAL ?= 3
+SOFT_MODE_SMOKE_LIST_LIMIT ?= 30
+SOFT_MODE_SMOKE_OUTPUT_JSON ?= $(GRAPH2D_REVIEW_OUT_DIR)/soft_mode_smoke.json
+SOFT_MODE_SMOKE_KEEP_SOFT ?= 0
+SOFT_MODE_SMOKE_SKIP_LOG_CHECK ?= 0
+SOFT_MODE_SMOKE_SKIP_REMOTE_INPUT_CHECK ?= 0
 HYBRID_BLIND_DXF_DIR ?=
 HYBRID_BLIND_MANIFEST_CSV ?=
 HYBRID_BLIND_OUTPUT_DIR ?= reports/history_sequence_eval/hybrid_blind
@@ -1546,6 +1558,31 @@ hybrid-superpass-apply-gh-vars: ## 将 superpass 推荐变量同步到 GitHub Va
 		--config-path "$(HYBRID_SUPERPASS_APPLY_CONFIG_PATH)" \
 		$$extra_flags
 
+validate-soft-mode-smoke: ## 触发 Evaluation Report soft-mode 冒烟（自动恢复 EVALUATION_STRICT_FAIL_MODE）
+	@echo "$(GREEN)Dispatching evaluation soft-mode smoke run...$(NC)"
+	@test -n "$(SOFT_MODE_SMOKE_REPO)" || (echo "$(RED)SOFT_MODE_SMOKE_REPO is required (e.g. owner/repo)$(NC)"; exit 1)
+	@extra_flags=""; \
+	if [ "$(SOFT_MODE_SMOKE_KEEP_SOFT)" = "1" ]; then extra_flags="$$extra_flags --keep-soft"; fi; \
+	if [ "$(SOFT_MODE_SMOKE_SKIP_LOG_CHECK)" = "1" ]; then extra_flags="$$extra_flags --skip-log-check"; fi; \
+	if [ "$(SOFT_MODE_SMOKE_SKIP_REMOTE_INPUT_CHECK)" = "1" ]; then extra_flags="$$extra_flags --skip-remote-input-check"; fi; \
+	$(PYTHON) scripts/ci/dispatch_evaluation_soft_mode_smoke.py \
+		--repo "$(SOFT_MODE_SMOKE_REPO)" \
+		--workflow "$(SOFT_MODE_SMOKE_WORKFLOW)" \
+		--ref "$(SOFT_MODE_SMOKE_REF)" \
+		--expected-conclusion "$(SOFT_MODE_SMOKE_EXPECTED_CONCLUSION)" \
+		--wait-timeout-seconds "$(SOFT_MODE_SMOKE_WAIT_TIMEOUT)" \
+		--poll-interval-seconds "$(SOFT_MODE_SMOKE_POLL_INTERVAL)" \
+		--list-limit "$(SOFT_MODE_SMOKE_LIST_LIMIT)" \
+		--output-json "$(SOFT_MODE_SMOKE_OUTPUT_JSON)" \
+		$$extra_flags
+
+validate-soft-mode-smoke-workflow: ## 校验 soft-mode 冒烟脚本与 workflow 接线
+	@echo "$(GREEN)Validating evaluation soft-mode smoke workflow integration...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_dispatch_evaluation_soft_mode_smoke.py \
+		$(TEST_DIR)/unit/test_evaluation_soft_mode_smoke_workflow.py \
+		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py -q
+
 validate-hybrid-blind-strict-real-e2e-gh: ## 校验 strict-real gh dispatch 脚本与 Make 参数透传
 	@echo "$(GREEN)Validating hybrid blind strict-real gh dispatch integration...$(NC)"
 	$(PYTEST) \
@@ -1557,10 +1594,12 @@ validate-hybrid-superpass-workflow: ## 校验 superpass gh 自动化与 workflow
 	@echo "$(GREEN)Validating hybrid superpass workflow integration...$(NC)"
 	$(PYTEST) \
 		$(TEST_DIR)/unit/test_dispatch_hybrid_superpass_workflow.py \
+		$(TEST_DIR)/unit/test_dispatch_evaluation_soft_mode_smoke.py \
 		$(TEST_DIR)/unit/test_apply_hybrid_superpass_gh_vars.py \
 		$(TEST_DIR)/unit/test_check_hybrid_superpass_targets.py \
 		$(TEST_DIR)/unit/test_validate_hybrid_superpass_reports.py \
 		$(TEST_DIR)/unit/test_evaluation_report_workflow_hybrid_superpass_step.py \
+		$(TEST_DIR)/unit/test_evaluation_soft_mode_smoke_workflow.py \
 		$(TEST_DIR)/unit/test_hybrid_superpass_workflow_integration.py \
 		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py \
 		$(TEST_DIR)/unit/test_evaluation_report_workflow_graph2d_extensions.py -q

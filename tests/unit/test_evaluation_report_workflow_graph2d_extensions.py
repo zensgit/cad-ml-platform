@@ -550,6 +550,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Hybrid Superpass Validation Strict" in module_script
     assert "Strict Gate Policy" in module_script
     assert "Strict Gate Decision Path" in module_script
+    assert "Strict Gate Playbook" in module_script
+    assert "strictPlaybookAnchor(" in module_script
+    assert "STRICT_GATE_PLAYBOOK.md" in module_script
     assert "Hybrid Calibration Baseline" in module_script
     assert "CI Watch Failure Details" in module_script
     assert "Workflow File Health" in module_script

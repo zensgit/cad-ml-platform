@@ -284,14 +284,43 @@ def test_make_n_hybrid_superpass_apply_gh_vars_contains_expected_flags() -> None
     assert "$extra_flags" in result.stdout
 
 
+def test_make_n_validate_soft_mode_smoke_contains_expected_flags() -> None:
+    result = _run_make(
+        "-n",
+        "validate-soft-mode-smoke",
+        "SOFT_MODE_SMOKE_REPO=zensgit/cad-ml-platform",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "scripts/ci/dispatch_evaluation_soft_mode_smoke.py" in result.stdout
+    assert "--repo \"zensgit/cad-ml-platform\"" in result.stdout
+    assert "--workflow" in result.stdout
+    assert "--ref" in result.stdout
+    assert "--expected-conclusion" in result.stdout
+    assert "--wait-timeout-seconds" in result.stdout
+    assert "--poll-interval-seconds" in result.stdout
+    assert "--list-limit" in result.stdout
+    assert "--output-json" in result.stdout
+    assert "$extra_flags" in result.stdout
+
+
+def test_make_n_validate_soft_mode_smoke_workflow_runs_expected_tests() -> None:
+    result = _run_make("-n", "validate-soft-mode-smoke-workflow")
+    assert result.returncode == 0, result.stderr
+    assert "test_dispatch_evaluation_soft_mode_smoke.py" in result.stdout
+    assert "test_evaluation_soft_mode_smoke_workflow.py" in result.stdout
+    assert "test_hybrid_calibration_make_targets.py" in result.stdout
+
+
 def test_make_n_validate_hybrid_superpass_workflow_runs_expected_tests() -> None:
     result = _run_make("-n", "validate-hybrid-superpass-workflow")
     assert result.returncode == 0, result.stderr
     assert "test_dispatch_hybrid_superpass_workflow.py" in result.stdout
+    assert "test_dispatch_evaluation_soft_mode_smoke.py" in result.stdout
     assert "test_apply_hybrid_superpass_gh_vars.py" in result.stdout
     assert "test_check_hybrid_superpass_targets.py" in result.stdout
     assert "test_validate_hybrid_superpass_reports.py" in result.stdout
     assert "test_evaluation_report_workflow_hybrid_superpass_step.py" in result.stdout
+    assert "test_evaluation_soft_mode_smoke_workflow.py" in result.stdout
     assert "test_hybrid_superpass_workflow_integration.py" in result.stdout
     assert "test_hybrid_calibration_make_targets.py" in result.stdout
     assert "test_evaluation_report_workflow_graph2d_extensions.py" in result.stdout

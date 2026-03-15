@@ -30,6 +30,49 @@ function parseBoolText(raw, fallback = false) {
   return text === "1" || text === "true" || text === "yes" || text === "on";
 }
 
+function strictPlaybookAnchor(channel, reason) {
+  const key = String(channel || "").trim().toLowerCase();
+  const token = String(reason || "").trim().toLowerCase();
+  if (key === "graph2d_review") {
+    if (token.includes("gate_failed_under_strict_mode")) {
+      return "graph2d-review-gate-failed-under-strict-mode";
+    }
+    if (token.includes("strict_mode_disabled")) {
+      return "graph2d-review-strict-mode-disabled";
+    }
+    return "graph2d-review-generic";
+  }
+  if (key === "hybrid_blind") {
+    if (token.includes("strict_mode_requires_real_dataset")) {
+      return "hybrid-blind-strict-mode-requires-real-dataset";
+    }
+    if (token.includes("gate_failed_under_strict_mode")) {
+      return "hybrid-blind-gate-failed-under-strict-mode";
+    }
+    return "hybrid-blind-generic";
+  }
+  if (key === "hybrid_calibration") {
+    if (token.includes("gate_failed_under_strict_mode")) {
+      return "hybrid-calibration-gate-failed-under-strict-mode";
+    }
+    return "hybrid-calibration-generic";
+  }
+  if (key === "hybrid_superpass") {
+    if (token.includes("superpass_failed_under_strict_mode")) {
+      return "hybrid-superpass-superpass-failed-under-strict-mode";
+    }
+    return "hybrid-superpass-generic";
+  }
+  if (key === "hybrid_superpass_validation") {
+    return "hybrid-superpass-validation-nonzero-exit";
+  }
+  return "generic-strict-gate";
+}
+
+function strictPlaybookLabel(channel, reason) {
+  return `${String(channel || "unknown")}:${String(reason || "unknown")}`;
+}
+
 async function commentEvaluationReportPR({ github, context, process }) {
   try {
     const combined = envFloat("EVAL_COMBINED_SCORE", 0.0);
@@ -444,45 +487,66 @@ async function commentEvaluationReportPR({ github, context, process }) {
       ? `${hybridCalibrationBaselineUpdateStatus || "unknown"} (exit=${hybridCalibrationBaselineUpdateExitCode || "n/a"}, path=${hybridCalibrationBaselinePath || "n/a"})`
       : "⏭️ skipped";
 
-    const strictFailureRequests = [];
+    const strictFailureItems = [];
     if (reviewGateEnabled && parseBoolText(reviewGateStrictShouldFail, false)) {
-      strictFailureRequests.push(
-        `graph2d_review:${reviewGateStrictReason || "gate_failed"}`,
-      );
+      strictFailureItems.push({
+        channel: "graph2d_review",
+        reason: reviewGateStrictReason || "gate_failed_under_strict_mode",
+      });
     }
     if (
       hybridBlindGateEnabled &&
       parseBoolText(hybridBlindStrictShouldFail, false)
     ) {
-      strictFailureRequests.push(
-        `hybrid_blind:${hybridBlindStrictReason || "gate_failed"}`,
-      );
+      strictFailureItems.push({
+        channel: "hybrid_blind",
+        reason: hybridBlindStrictReason || "gate_failed_under_strict_mode",
+      });
     }
     if (
       hybridCalibrationGateEnabled &&
       parseBoolText(hybridCalibrationStrictShouldFail, false)
     ) {
-      strictFailureRequests.push(
-        `hybrid_calibration:${hybridCalibrationStrictReason || "gate_failed"}`,
-      );
+      strictFailureItems.push({
+        channel: "hybrid_calibration",
+        reason: hybridCalibrationStrictReason || "gate_failed_under_strict_mode",
+      });
     }
     if (parseBoolText(hybridSuperpassStrictShouldFail, false)) {
-      strictFailureRequests.push(
-        `hybrid_superpass:${hybridSuperpassStrictReason || "gate_failed"}`,
-      );
+      strictFailureItems.push({
+        channel: "hybrid_superpass",
+        reason: hybridSuperpassStrictReason || "superpass_failed_under_strict_mode",
+      });
     }
     if (
       parseBoolText(hybridSuperpassValidationStrictMode, false) &&
       String(hybridSuperpassValidationExitCode || "0") !== "0"
     ) {
-      strictFailureRequests.push(
-        `hybrid_superpass_validation:${hybridSuperpassValidationStatus || "validation_failed"}`,
-      );
+      strictFailureItems.push({
+        channel: "hybrid_superpass_validation",
+        reason: `validation_exit_${hybridSuperpassValidationExitCode || "nonzero"}`,
+      });
     }
+
+    const strictFailureRequests = strictFailureItems.map((item) =>
+      strictPlaybookLabel(item.channel, item.reason),
+    );
     const strictFailureRequestSummary =
       strictFailureRequests.length > 0
         ? strictFailureRequests.join("; ")
         : "none";
+    const strictPlaybookBaseUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/blob/${context.sha}/docs/STRICT_GATE_PLAYBOOK.md`;
+    const strictPlaybookLinks = strictFailureItems
+      .slice(0, 5)
+      .map((item) => {
+        const anchor = strictPlaybookAnchor(item.channel, item.reason);
+        const label = strictPlaybookLabel(item.channel, item.reason);
+        return `[${label}](${strictPlaybookBaseUrl}#${anchor})`;
+      });
+    const strictPlaybookSummary =
+      strictPlaybookLinks.length > 0
+        ? strictPlaybookLinks.join(" ; ")
+        : `[strict-gate-playbook](${strictPlaybookBaseUrl})`;
     const strictDecisionResult =
       strictFailureRequests.length === 0
         ? "no_strict_fail_requests"
@@ -506,11 +570,13 @@ async function commentEvaluationReportPR({ github, context, process }) {
         "- 🔁 Before merge, switch `EVALUATION_STRICT_FAIL_MODE=hard` and rerun.",
       );
       strictActionItems.push(`- 🧭 Fix targets: ${strictFailureRequestSummary}`);
+      strictActionItems.push(`- 📚 Playbook: ${strictPlaybookSummary}`);
     } else {
       strictActionItems.push(
         "- ❌ Hard mode blocking is active and strict gate failure was requested.",
       );
       strictActionItems.push(`- 🧭 Fix targets: ${strictFailureRequestSummary}`);
+      strictActionItems.push(`- 📚 Playbook: ${strictPlaybookSummary}`);
     }
     const strictActionChecklist = strictActionItems.join("\n");
 
@@ -586,6 +652,7 @@ ${overallStatus}
 | **Hybrid Superpass Validation Strict** | ${hybridSuperpassValidationStrictStatus} |
 | **Hybrid Calibration Baseline** | ${hybridCalibrationBaselineStatus} |
 | **Strict Gate Policy** | mode=${evaluationStrictMode}, raw=${evaluationStrictModeRawValue || "n/a"}, result=${strictDecisionResult} |
+| **Strict Gate Playbook** | ${strictPlaybookSummary} |
 | **CI Watch Failure Details** | ${ciWatchFailureSummary} |
 | **Workflow File Health** | ${workflowFileHealthSummary} |
 
@@ -607,6 +674,7 @@ ${overallStatus}
 | **Mode** | ${evaluationStrictMode} (resolved=${evaluationStrictModeResolvedRaw || "n/a"}, raw=${evaluationStrictModeRawValue || "n/a"}) |
 | **Requested Failures** | ${strictFailureRequestSummary} |
 | **Decision** | ${strictDecisionResult} |
+| **Playbook Links** | ${strictPlaybookSummary} |
 | **Recommended Action** | ${strictActionItems[0] || "n/a"} |
 
 ${strictActionChecklist}
