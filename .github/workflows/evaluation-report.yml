@@ -22,10 +22,6 @@ on:
         description: 'Minimum OCR score threshold'
         required: false
         default: '0.9'
-      strict_fail_mode:
-        description: 'Strict gate fail mode: hard (block) / soft (warn-only)'
-        required: false
-        default: ''
       review_gate_min_total_rows:
         description: 'Override: review-pack gate min_total_rows'
         required: false
@@ -1631,11 +1627,7 @@ jobs:
     - name: Resolve strict gate fail mode
       id: strict_fail_mode
       run: |
-        MODE_OVERRIDE="${{ github.event.inputs.strict_fail_mode || '' }}"
         MODE_VALUE="${EVALUATION_STRICT_FAIL_MODE:-hard}"
-        if [[ -n "$MODE_OVERRIDE" ]]; then
-          MODE_VALUE="$MODE_OVERRIDE"
-        fi
         token="$(echo "$MODE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
         mode="hard"
         if [[ "$token" == "soft" || "$token" == "warn" || "$token" == "warning" || "$token" == "nonblocking" || "$token" == "non-blocking" ]]; then

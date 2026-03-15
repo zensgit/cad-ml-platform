@@ -10,11 +10,10 @@ For non-blocking diagnostics and staged rollout, we added a unified strict fail 
 
 ## Implemented Changes
 
-### 1) Workflow dispatch + env control
+### 1) Env control
 
 Updated `.github/workflows/evaluation-report.yml`:
 
-- Added `workflow_dispatch.inputs.strict_fail_mode`
 - Added global env `EVALUATION_STRICT_FAIL_MODE` (default: `hard`)
 
 ### 2) Strict mode resolver step
@@ -66,7 +65,6 @@ Updated unit tests to reflect new strict-mode behavior:
 
 Coverage additions:
 
-- asserts `strict_fail_mode` dispatch input exists
 - asserts `EVALUATION_STRICT_FAIL_MODE` env exists
 - asserts resolver step presence and script key logic
 - asserts strict fail `if` expressions include soft-mode guard
@@ -95,5 +93,5 @@ Result: `19 passed`
 ## Rollout Recommendation
 
 1. Keep default `hard` in repo variables.
-2. Use `workflow_dispatch` with `strict_fail_mode=soft` for staged verification runs.
-3. After stable period, keep hard mode for branch protection runs, and use soft mode for exploratory/manual dispatch only.
+2. Use repository/env variable `EVALUATION_STRICT_FAIL_MODE=soft` for staged verification runs.
+3. After stable period, keep `hard` for branch protection runs, and switch to `soft` only for exploratory/manual scenarios.
