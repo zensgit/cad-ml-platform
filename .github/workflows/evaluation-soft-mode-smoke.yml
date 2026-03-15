@@ -110,6 +110,32 @@ jobs:
             print(
                 f"- overall_exit_code: {payload.get('overall_exit_code')}"
             )
+            print(f"- max_dispatch_attempts: {payload.get('max_dispatch_attempts')}")
+            print(f"- retry_sleep_seconds: {payload.get('retry_sleep_seconds')}")
+            attempts_raw = payload.get("attempts")
+            attempts = attempts_raw if isinstance(attempts_raw, list) else []
+            print(f"- attempts_total: {len(attempts)}")
+            for idx, item in enumerate(attempts, start=1):
+                if isinstance(item, dict):
+                    attempt_no = item.get("attempt")
+                    dispatch_exit_code = item.get("dispatch_exit_code")
+                    soft_marker_ok_value = item.get("soft_marker_ok")
+                    message = item.get("soft_marker_message", item.get("message"))
+                else:
+                    attempt_no = None
+                    dispatch_exit_code = None
+                    soft_marker_ok_value = None
+                    message = None
+                try:
+                    attempt_no_int = int(attempt_no)
+                except (TypeError, ValueError):
+                    attempt_no_int = idx
+                if message is None:
+                    message = "n/a"
+                print(
+                    f"- attempt #{attempt_no_int}: dispatch_exit_code={dispatch_exit_code}, "
+                    f"soft_marker_ok={soft_marker_ok_value}, message={message}"
+                )
             dispatch = payload.get("dispatch") or {}
             if isinstance(dispatch, dict):
                 run_id = dispatch.get("run_id")

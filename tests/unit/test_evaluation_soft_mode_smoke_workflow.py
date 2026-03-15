@@ -76,6 +76,17 @@ def test_workflow_job_permissions_and_dispatch_step_wiring() -> None:
         == "reports/ci/evaluation_soft_mode_smoke_summary.json"
     )
 
+    append_step = _get_step(workflow, "soft-mode-smoke", "Append summary")
+    append_script = append_step["run"]
+    assert "- max_dispatch_attempts:" in append_script
+    assert "- retry_sleep_seconds:" in append_script
+    assert "- attempts_total:" in append_script
+    assert "- attempt #" in append_script
+    assert "dispatch_exit_code=" in append_script
+    assert "soft_marker_ok=" in append_script
+    assert "message=" in append_script
+    assert "isinstance(attempts_raw, list)" in append_script
+
     comment_step = _get_step(
         workflow, "soft-mode-smoke", "Comment PR with soft-mode smoke result"
     )

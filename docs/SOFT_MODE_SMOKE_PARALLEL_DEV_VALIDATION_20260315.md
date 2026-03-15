@@ -54,29 +54,50 @@
   - 全部失败时保留最后一次 attempt 的 dispatch 信息
   - 变量恢复逻辑保持不变（`finally` 中执行）
 
+### C. 并行增量增强（本轮）
+
+- workflow 摘要增强（`Append summary`）：
+  - 输出 `max_dispatch_attempts`、`retry_sleep_seconds`、`attempts_total`
+  - 输出每次 attempt 的详情行（含 `dispatch_exit_code`、`soft_marker_ok`、`message`）
+  - 对 `attempts` 缺失或类型异常做兜底处理，不中断步骤
+- 新增 JS 评论脚本回归测试：
+  - `tests/unit/test_comment_soft_mode_smoke_pr_js.py`
+  - 覆盖“有效 PR 创建评论”和“summary 缺失安全跳过”两个关键场景
+- 新增 make 校验入口：
+  - `validate-soft-mode-smoke-comment`（`node --check` + JS 回归测试）
+- Make soft-mode smoke 触发增强：
+  - 增加 `SOFT_MODE_SMOKE_MAX_DISPATCH_ATTEMPTS`
+  - 增加 `SOFT_MODE_SMOKE_RETRY_SLEEP_SECONDS`
+  - 传递到 `dispatch_evaluation_soft_mode_smoke.py` 参数
+
 ## 测试与验证
 
 ### 执行命令
 
 ```bash
 node --check scripts/ci/comment_soft_mode_smoke_pr.js
-pytest -q tests/unit/test_dispatch_evaluation_soft_mode_smoke.py tests/unit/test_evaluation_soft_mode_smoke_workflow.py tests/unit/test_hybrid_calibration_make_targets.py
+pytest -q tests/unit/test_comment_soft_mode_smoke_pr_js.py tests/unit/test_evaluation_soft_mode_smoke_workflow.py tests/unit/test_dispatch_evaluation_soft_mode_smoke.py tests/unit/test_hybrid_calibration_make_targets.py
+make validate-soft-mode-smoke-comment
 make validate-soft-mode-smoke-workflow
 ```
 
 ### 结果
 
 - `node --check`：通过
-- `pytest`：`34 passed`（含 warning 1 条，来自第三方包 `starlette/formparsers.py` 的 PendingDeprecationWarning）
-- `make validate-soft-mode-smoke-workflow`：通过（同批用例 `34 passed`）
+- 组合 `pytest`：`37 passed`（含 warning 1 条，来自第三方包 `starlette/formparsers.py` 的 PendingDeprecationWarning）
+- `make validate-soft-mode-smoke-comment`：通过（`2 passed`）
+- `make validate-soft-mode-smoke-workflow`：通过（`35 passed`）
 
 ## 变更文件
 
 - `scripts/ci/comment_soft_mode_smoke_pr.js`（新增）
 - `.github/workflows/evaluation-soft-mode-smoke.yml`
+- `Makefile`
 - `scripts/ci/dispatch_evaluation_soft_mode_smoke.py`
+- `tests/unit/test_comment_soft_mode_smoke_pr_js.py`（新增）
 - `tests/unit/test_dispatch_evaluation_soft_mode_smoke.py`
 - `tests/unit/test_evaluation_soft_mode_smoke_workflow.py`
+- `tests/unit/test_hybrid_calibration_make_targets.py`
 - `docs/SOFT_MODE_SMOKE_PARALLEL_DEV_VALIDATION_20260315.md`（新增）
 
 ## 说明

@@ -299,6 +299,8 @@ def test_make_n_validate_soft_mode_smoke_contains_expected_flags() -> None:
     assert "--wait-timeout-seconds" in result.stdout
     assert "--poll-interval-seconds" in result.stdout
     assert "--list-limit" in result.stdout
+    assert "--max-dispatch-attempts" in result.stdout
+    assert "--retry-sleep-seconds" in result.stdout
     assert "--output-json" in result.stdout
     assert "$extra_flags" in result.stdout
 
@@ -309,6 +311,13 @@ def test_make_n_validate_soft_mode_smoke_workflow_runs_expected_tests() -> None:
     assert "test_dispatch_evaluation_soft_mode_smoke.py" in result.stdout
     assert "test_evaluation_soft_mode_smoke_workflow.py" in result.stdout
     assert "test_hybrid_calibration_make_targets.py" in result.stdout
+
+
+def test_make_n_validate_soft_mode_smoke_comment_contains_expected_commands() -> None:
+    result = _run_make("-n", "validate-soft-mode-smoke-comment")
+    assert result.returncode == 0, result.stderr
+    assert "node --check scripts/ci/comment_soft_mode_smoke_pr.js" in result.stdout
+    assert "pytest -q tests/unit/test_comment_soft_mode_smoke_pr_js.py" in result.stdout
 
 
 def test_make_n_validate_hybrid_superpass_workflow_runs_expected_tests() -> None:

@@ -38,7 +38,7 @@
 						hybrid-blind-drift-alert hybrid-blind-drift-suggest-thresholds hybrid-blind-history-bootstrap hybrid-blind-drift-activate \
 						hybrid-blind-drift-apply-suggestion-gh hybrid-superpass-gate \
 							hybrid-superpass-e2e-gh hybrid-superpass-apply-gh-vars \
-							validate-soft-mode-smoke validate-soft-mode-smoke-workflow \
+							validate-soft-mode-smoke validate-soft-mode-smoke-workflow validate-soft-mode-smoke-comment \
 							validate-hybrid-superpass-workflow \
 							eval-weekly-summary validate-hybrid-blind-workflow
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
@@ -1101,6 +1101,8 @@ SOFT_MODE_SMOKE_OUTPUT_JSON ?= $(GRAPH2D_REVIEW_OUT_DIR)/soft_mode_smoke.json
 SOFT_MODE_SMOKE_KEEP_SOFT ?= 0
 SOFT_MODE_SMOKE_SKIP_LOG_CHECK ?= 0
 SOFT_MODE_SMOKE_SKIP_REMOTE_INPUT_CHECK ?= 0
+SOFT_MODE_SMOKE_MAX_DISPATCH_ATTEMPTS ?= 1
+SOFT_MODE_SMOKE_RETRY_SLEEP_SECONDS ?= 15
 HYBRID_BLIND_DXF_DIR ?=
 HYBRID_BLIND_MANIFEST_CSV ?=
 HYBRID_BLIND_OUTPUT_DIR ?= reports/history_sequence_eval/hybrid_blind
@@ -1573,6 +1575,8 @@ validate-soft-mode-smoke: ## 触发 Evaluation Report soft-mode 冒烟（自动�
 		--wait-timeout-seconds "$(SOFT_MODE_SMOKE_WAIT_TIMEOUT)" \
 		--poll-interval-seconds "$(SOFT_MODE_SMOKE_POLL_INTERVAL)" \
 		--list-limit "$(SOFT_MODE_SMOKE_LIST_LIMIT)" \
+		--max-dispatch-attempts "$(SOFT_MODE_SMOKE_MAX_DISPATCH_ATTEMPTS)" \
+		--retry-sleep-seconds "$(SOFT_MODE_SMOKE_RETRY_SLEEP_SECONDS)" \
 		--output-json "$(SOFT_MODE_SMOKE_OUTPUT_JSON)" \
 		$$extra_flags
 
@@ -1582,6 +1586,11 @@ validate-soft-mode-smoke-workflow: ## 校验 soft-mode 冒烟脚本与 workflow 
 		$(TEST_DIR)/unit/test_dispatch_evaluation_soft_mode_smoke.py \
 		$(TEST_DIR)/unit/test_evaluation_soft_mode_smoke_workflow.py \
 		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py -q
+
+validate-soft-mode-smoke-comment: ## 校验 soft-mode PR 评论脚本（语法 + Node 回归）
+	@echo "$(GREEN)Validating soft-mode smoke PR comment script...$(NC)"
+	node --check scripts/ci/comment_soft_mode_smoke_pr.js
+	$(PYTEST) -q $(TEST_DIR)/unit/test_comment_soft_mode_smoke_pr_js.py
 
 validate-hybrid-blind-strict-real-e2e-gh: ## 校验 strict-real gh dispatch 脚本与 Make 参数透传
 	@echo "$(GREEN)Validating hybrid blind strict-real gh dispatch integration...$(NC)"
