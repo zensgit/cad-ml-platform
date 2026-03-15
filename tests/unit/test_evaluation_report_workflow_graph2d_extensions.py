@@ -80,6 +80,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "HYBRID_SUPERPASS_FAIL_ON_FAILED" in env
     assert "HYBRID_SUPERPASS_VALIDATION_STRICT" in env
     assert "HYBRID_SUPERPASS_VALIDATION_SCHEMA_MODE" in env
+    assert "CI_WATCH_SUMMARY_JSON_FOR_COMMENT" in env
 
     dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
     assert "review_gate_min_total_rows" in dispatch_inputs
@@ -515,6 +516,11 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Hybrid Calibration Gate" in pr_comment_script
     assert "Hybrid Calibration Strict" in pr_comment_script
     assert "Hybrid Calibration Baseline" in pr_comment_script
+    assert "CI Watch Failure Details" in pr_comment_script
+    assert "CI Watcher" in pr_comment_script
+    assert "CI_WATCH_SUMMARY_JSON_FOR_COMMENT" in pr_comment_script
+    assert "fs.existsSync(ciWatchSummaryPath)" in pr_comment_script
+    assert "ciWatchFailureDetails" in pr_comment_script
     assert "Hybrid Blind Eval" in pr_comment_script
     assert "Hybrid Blind Gate" in pr_comment_script
     assert "Hybrid Blind Strict" in pr_comment_script

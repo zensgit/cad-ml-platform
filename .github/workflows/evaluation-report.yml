@@ -115,6 +115,7 @@ env:
   PYTHON_VERSION: '3.11'
   REPORT_PATH: reports/eval_history/report
   ARTIFACT_RETENTION_DAYS: 30
+  CI_WATCH_SUMMARY_JSON_FOR_COMMENT: ${{ vars.CI_WATCH_SUMMARY_JSON_FOR_COMMENT || '' }}
   # Optimize Matplotlib in CI
   MPLCONFIGDIR: /tmp/matplotlib
   XDG_CACHE_HOME: /tmp/cache
@@ -2136,6 +2137,55 @@ jobs:
             const hybridCalibrationBaselineUpdateStatus = '${{ steps.hybrid_calibration_baseline_update.outputs.status }}';
             const hybridCalibrationBaselineUpdateExitCode = '${{ steps.hybrid_calibration_baseline_update.outputs.exit_code }}';
             const hybridCalibrationBaselinePath = '${{ steps.hybrid_calibration_baseline_update.outputs.baseline_json }}';
+            const fs = require('fs');
+            const ciWatchSummaryPath = process.env.CI_WATCH_SUMMARY_JSON_FOR_COMMENT || '';
+            let ciWatchFailureSummary = '⏭️ skipped (no summary path)';
+            let ciWatchFailureLight = '⚪';
+            if (ciWatchSummaryPath) {
+              try {
+                if (!fs.existsSync(ciWatchSummaryPath)) {
+                  ciWatchFailureSummary = `⚠️ summary missing at ${ciWatchSummaryPath}`;
+                  ciWatchFailureLight = '🟡';
+                } else {
+                  const ciWatchSummaryPayload = JSON.parse(fs.readFileSync(ciWatchSummaryPath, 'utf8'));
+                  const ciWatchFailureDetails = Array.isArray(ciWatchSummaryPayload.failure_details)
+                    ? ciWatchSummaryPayload.failure_details
+                    : [];
+                  const ciWatchCounts = (
+                    ciWatchSummaryPayload.counts && typeof ciWatchSummaryPayload.counts === 'object'
+                  ) ? ciWatchSummaryPayload.counts : {};
+                  const ciWatchFailedCount = parseInt(
+                    String(ciWatchCounts.failed ?? ciWatchFailureDetails.length ?? 0),
+                    10,
+                  ) || 0;
+                  const ciWatchReason = String(ciWatchSummaryPayload.reason || 'unknown');
+                  const ciWatchTop = ciWatchFailureDetails.slice(0, 3).map((item) => {
+                    if (!item || typeof item !== 'object') {
+                      return 'unknown';
+                    }
+                    const wf = String(item.workflow_name || 'unknown');
+                    const runId = String(item.run_id || 'n/a');
+                    const step = Array.isArray(item.failed_steps) && item.failed_steps.length > 0
+                      ? String(item.failed_steps[0])
+                      : (Array.isArray(item.failed_jobs) && item.failed_jobs.length > 0
+                        ? String(item.failed_jobs[0])
+                        : 'n/a');
+                    return `${wf}#${runId}:${step}`;
+                  }).join('; ');
+                  if (ciWatchFailedCount > 0 || ciWatchFailureDetails.length > 0) {
+                    ciWatchFailureSummary = `failed=${ciWatchFailedCount}, reason=${ciWatchReason}, top=${ciWatchTop || 'n/a'}`;
+                    ciWatchFailureLight = '🔴';
+                  } else {
+                    ciWatchFailureSummary = `failed=0, reason=${ciWatchReason}`;
+                    ciWatchFailureLight = '🟢';
+                  }
+                }
+              } catch (error) {
+                const message = error && error.message ? error.message : String(error);
+                ciWatchFailureSummary = `⚠️ parse_error: ${message}`;
+                ciWatchFailureLight = '🟡';
+              }
+            }
             const reviewCandidateCount = parseInt(reviewCandidates || '0', 10);
             const sweepTotalRunsInt = parseInt(sweepTotalRuns || '0', 10);
             const sweepFailedRunsInt = parseInt(sweepFailedRuns || '0', 10);
@@ -2238,6 +2288,7 @@ jobs:
             | **Hybrid Calibration Gate** | ${hybridCalibrationGateStatus} |
             | **Hybrid Calibration Strict** | ${hybridCalibrationStrictStatus} |
             | **Hybrid Calibration Baseline** | ${hybridCalibrationBaselineStatus} |
+            | **CI Watch Failure Details** | ${ciWatchFailureSummary} |
 
             ### Signal Lights
             | Signal | State | Detail |
@@ -2247,6 +2298,7 @@ jobs:
             | **Train Sweep** | ${trainSweepLight} | ${trainSweepStatus} |
             | **Hybrid Blind** | ${hybridBlindLight} | ${hybridBlindEvalStatus} |
             | **Hybrid Calibration** | ${hybridCalibrationLight} | ${hybridCalibrationStatus} |
+            | **CI Watcher** | ${ciWatchFailureLight} | ${ciWatchFailureSummary} |
 
             ### Quick Actions
             - 📋 [View Full Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
