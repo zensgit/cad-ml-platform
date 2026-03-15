@@ -27,6 +27,7 @@ def test_workflow_dispatch_and_env_expose_hybrid_superpass_controls() -> None:
     assert "hybrid_superpass_missing_mode" in dispatch_inputs
     assert "hybrid_superpass_fail_on_failed" in dispatch_inputs
     assert "hybrid_superpass_validation_strict" in dispatch_inputs
+    assert "hybrid_superpass_validation_schema_mode" in dispatch_inputs
 
     env = workflow["env"]
     assert "HYBRID_SUPERPASS_ENABLE" in env
@@ -38,6 +39,7 @@ def test_workflow_dispatch_and_env_expose_hybrid_superpass_controls() -> None:
     assert "HYBRID_SUPERPASS_VALIDATION_JSON" in env
     assert "HYBRID_SUPERPASS_FAIL_ON_FAILED" in env
     assert "HYBRID_SUPERPASS_VALIDATION_STRICT" in env
+    assert "HYBRID_SUPERPASS_VALIDATION_SCHEMA_MODE" in env
 
 
 def test_workflow_has_optional_hybrid_superpass_gate_step() -> None:
@@ -86,6 +88,7 @@ def test_workflow_uploads_superpass_artifact_and_summary_lines() -> None:
     assert "Hybrid superpass structure validation warnings" in summary_script
     assert "Hybrid superpass structure validation errors" in summary_script
     assert "Hybrid superpass structure validation strict_mode" in summary_script
+    assert "Hybrid superpass structure validation schema_mode" in summary_script
 
 
 def test_workflow_has_superpass_structure_validation_step() -> None:
@@ -104,6 +107,8 @@ def test_workflow_has_superpass_structure_validation_step() -> None:
     assert "--output-json" in validate_script
     assert "--strict" in validate_script
     assert "hybrid_superpass_validation_strict" in validate_script
+    assert "hybrid_superpass_validation_schema_mode" in validate_script
+    assert "--schema-mode" in validate_script
 
 
 def test_workflow_has_superpass_strict_mode_steps() -> None:

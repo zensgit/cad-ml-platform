@@ -114,6 +114,10 @@ on:
         description: 'Override: strict fail when hybrid superpass structure validation has warnings/errors (true/false)'
         required: false
         default: ''
+      hybrid_superpass_validation_schema_mode:
+        description: 'Override: hybrid superpass structure validation schema mode (builtin/off)'
+        required: false
+        default: ''
 
 env:
   PYTHON_VERSION: '3.11'
@@ -180,6 +184,7 @@ env:
   HYBRID_SUPERPASS_VALIDATION_JSON: ${{ vars.HYBRID_SUPERPASS_VALIDATION_JSON || 'reports/history_sequence_eval/hybrid_superpass_validation.json' }}
   HYBRID_SUPERPASS_FAIL_ON_FAILED: ${{ vars.HYBRID_SUPERPASS_FAIL_ON_FAILED || 'false' }}
   HYBRID_SUPERPASS_VALIDATION_STRICT: ${{ vars.HYBRID_SUPERPASS_VALIDATION_STRICT || 'false' }}
+  HYBRID_SUPERPASS_VALIDATION_SCHEMA_MODE: ${{ vars.HYBRID_SUPERPASS_VALIDATION_SCHEMA_MODE || 'builtin' }}
   HYBRID_BLIND_ENABLE: ${{ vars.HYBRID_BLIND_ENABLE || 'false' }}
   HYBRID_BLIND_DXF_DIR: ${{ vars.HYBRID_BLIND_DXF_DIR }}
   HYBRID_BLIND_MANIFEST_CSV: ${{ vars.HYBRID_BLIND_MANIFEST_CSV || '' }}
@@ -1565,10 +1570,20 @@ jobs:
         if [[ "$token" == "1" || "$token" == "true" || "$token" == "yes" || "$token" == "on" ]]; then
           validation_strict="true"
         fi
+        VALIDATION_SCHEMA_MODE_OVERRIDE="${{ github.event.inputs.hybrid_superpass_validation_schema_mode || '' }}"
+        validation_schema_mode="${HYBRID_SUPERPASS_VALIDATION_SCHEMA_MODE:-builtin}"
+        if [[ -n "$VALIDATION_SCHEMA_MODE_OVERRIDE" ]]; then
+          validation_schema_mode="$VALIDATION_SCHEMA_MODE_OVERRIDE"
+        fi
+        schema_token="$(echo "$validation_schema_mode" | tr '[:upper:]' '[:lower:]' | xargs)"
+        if [[ "$schema_token" != "off" && "$schema_token" != "builtin" ]]; then
+          schema_token="builtin"
+        fi
         args=(
           python3 scripts/ci/validate_hybrid_superpass_reports.py
           --superpass-json "$REPORT_PATH"
           --output-json "$VALIDATION_JSON"
+          --schema-mode "$schema_token"
         )
         if [[ -n "$GATE_JSON" ]]; then
           args+=(--hybrid-blind-gate-report "$GATE_JSON")
@@ -1589,6 +1604,7 @@ jobs:
         echo "exit_code=$VALIDATE_EXIT_CODE" >> $GITHUB_OUTPUT
         echo "report_path=$VALIDATION_JSON" >> $GITHUB_OUTPUT
         echo "strict_mode=$validation_strict" >> $GITHUB_OUTPUT
+        echo "schema_mode=$schema_token" >> $GITHUB_OUTPUT
         if [[ ! -f "$VALIDATION_JSON" ]]; then
           echo "status=missing_output" >> $GITHUB_OUTPUT
           echo "warning_count=0" >> $GITHUB_OUTPUT
@@ -2020,6 +2036,7 @@ jobs:
           echo "- Hybrid superpass structure validation warnings: ${{ steps.hybrid_superpass_validate.outputs.warning_count || '0' }}" >> $GITHUB_STEP_SUMMARY
           echo "- Hybrid superpass structure validation errors: ${{ steps.hybrid_superpass_validate.outputs.error_count || '0' }}" >> $GITHUB_STEP_SUMMARY
           echo "- Hybrid superpass structure validation strict_mode: ${{ steps.hybrid_superpass_validate.outputs.strict_mode || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Hybrid superpass structure validation schema_mode: ${{ steps.hybrid_superpass_validate.outputs.schema_mode || 'builtin' }}" >> $GITHUB_STEP_SUMMARY
           echo "- Hybrid superpass gate strict_mode: ${{ steps.hybrid_superpass_gate_strict.outputs.strict_mode || 'false' }}" >> $GITHUB_STEP_SUMMARY
           echo "- Hybrid superpass gate strict_should_fail: ${{ steps.hybrid_superpass_gate_strict.outputs.should_fail || 'false' }}" >> $GITHUB_STEP_SUMMARY
           echo "- Hybrid superpass gate strict_reason: ${{ steps.hybrid_superpass_gate_strict.outputs.reason || 'n/a' }}" >> $GITHUB_STEP_SUMMARY

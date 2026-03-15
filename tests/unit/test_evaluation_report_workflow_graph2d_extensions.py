@@ -79,6 +79,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "HYBRID_SUPERPASS_MISSING_MODE" in env
     assert "HYBRID_SUPERPASS_FAIL_ON_FAILED" in env
     assert "HYBRID_SUPERPASS_VALIDATION_STRICT" in env
+    assert "HYBRID_SUPERPASS_VALIDATION_SCHEMA_MODE" in env
 
     dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
     assert "review_gate_min_total_rows" in dispatch_inputs
@@ -104,6 +105,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "hybrid_superpass_missing_mode" in dispatch_inputs
     assert "hybrid_superpass_fail_on_failed" in dispatch_inputs
     assert "hybrid_superpass_validation_strict" in dispatch_inputs
+    assert "hybrid_superpass_validation_schema_mode" in dispatch_inputs
 
 
 def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> None:
@@ -339,7 +341,8 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         in hybrid_superpass_validate_script
     )
     assert "hybrid_superpass_validation_strict" in hybrid_superpass_validate_script
-    assert "--schema-mode" not in hybrid_superpass_validate_script  # default builtin
+    assert "hybrid_superpass_validation_schema_mode" in hybrid_superpass_validate_script
+    assert "--schema-mode" in hybrid_superpass_validate_script
 
     hybrid_superpass_fail_step = _get_step(
         workflow,
@@ -503,6 +506,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Hybrid superpass gate report" in summary_script
     assert "Hybrid superpass structure validation status" in summary_script
     assert "Hybrid superpass structure validation strict_mode" in summary_script
+    assert "Hybrid superpass structure validation schema_mode" in summary_script
     assert "Hybrid superpass gate strict_should_fail" in summary_script
 
     pr_comment_step = _get_step(workflow, "evaluate", "Comment PR with results")

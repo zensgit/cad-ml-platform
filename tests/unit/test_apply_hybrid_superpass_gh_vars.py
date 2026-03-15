@@ -11,6 +11,7 @@ def test_apply_hybrid_superpass_builds_expected_var_map() -> None:
     assert var_map["HYBRID_SUPERPASS_MISSING_MODE"] == "fail"
     assert var_map["HYBRID_SUPERPASS_FAIL_ON_FAILED"] == "true"
     assert var_map["HYBRID_SUPERPASS_VALIDATION_STRICT"] == "false"
+    assert var_map["HYBRID_SUPERPASS_VALIDATION_SCHEMA_MODE"] == "builtin"
     assert var_map["HYBRID_SUPERPASS_CONFIG"] == "config/hybrid_superpass_targets.yaml"
 
 
@@ -39,7 +40,7 @@ def test_apply_hybrid_superpass_main_apply_mode(monkeypatch: Any) -> None:
     monkeypatch.setattr(mod.subprocess, "run", _fake_run)
     rc = mod.main(["--repo", "zensgit/cad-ml-platform", "--apply"])
     assert rc == 0
-    assert len(calls) == 5
+    assert len(calls) == 6
     assert calls[0][:3] == ["gh", "variable", "set"]
 
 

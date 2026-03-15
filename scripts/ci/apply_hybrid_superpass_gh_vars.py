@@ -15,6 +15,7 @@ def _build_var_map(config_path: str) -> Dict[str, str]:
         "HYBRID_SUPERPASS_MISSING_MODE": "fail",
         "HYBRID_SUPERPASS_FAIL_ON_FAILED": "true",
         "HYBRID_SUPERPASS_VALIDATION_STRICT": "false",
+        "HYBRID_SUPERPASS_VALIDATION_SCHEMA_MODE": "builtin",
         "HYBRID_SUPERPASS_CONFIG": config_text,
     }
 
