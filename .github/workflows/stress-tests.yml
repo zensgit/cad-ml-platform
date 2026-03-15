@@ -7,12 +7,36 @@ on:
       - 'src/**'
       - 'tests/**'
       - 'scripts/stress_*.py'
+      - 'scripts/ci/check_workflow_file_issues.py'
       - 'prometheus/rules/**'
       - 'grafana/dashboards/**'
-      - '.github/workflows/stress-tests.yml'
+      - '.github/workflows/*.yml'
 
 jobs:
+  workflow-file-health:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        with:
+          python-version: '3.11'
+      - name: Validate workflow file health via GitHub parser
+        run: |
+          python3 scripts/ci/check_workflow_file_issues.py \
+            --mode gh \
+            --ref "${GITHUB_SHA}" \
+            --summary-json-out reports/ci/workflow_file_health_summary.json
+      - name: Upload workflow health summary
+        if: always()
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874
+        with:
+          name: workflow-file-health-${{ github.run_number }}
+          path: reports/ci/workflow_file_health_summary.json
+
   metrics-consistency:
+    needs: workflow-file-health
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -47,6 +71,7 @@ jobs:
           python scripts/validate_dashboard_metrics.py
 
   stress-unit-tests:
+    needs: workflow-file-health
     runs-on: ubuntu-latest
     env:
       API_BASE_URL: http://127.0.0.1:8000

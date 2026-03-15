@@ -104,6 +104,10 @@ CI_WATCH_REPORT_SHA_LEN ?= 7
 CI_WATCH_REPORT_DATE ?=
 GH_READY_JSON ?= reports/ci/gh_readiness_latest.json
 GH_READY_SKIP_ACTIONS_API ?= 0
+WORKFLOW_FILE_HEALTH_GLOB ?= .github/workflows/*.yml
+WORKFLOW_FILE_HEALTH_REF ?= HEAD
+WORKFLOW_FILE_HEALTH_MODE ?= auto
+WORKFLOW_FILE_HEALTH_SUMMARY_JSON ?= reports/ci/workflow_file_health_summary.json
 
 # 项目路径
 SRC_DIR := src
@@ -385,11 +389,27 @@ validate-generate-ci-watch-validation-report: ## 校验 CI watcher 验证报告�
 	@echo "$(GREEN)Validating CI watcher validation report generator...$(NC)"
 	$(PYTEST) $(TEST_DIR)/unit/test_generate_ci_watcher_validation_report.py -q
 
+validate-workflow-file-health: ## 校验 GitHub workflow 文件健康（优先 gh 解析，失败回退 yaml）
+	@echo "$(GREEN)Validating workflow file health...$(NC)"
+	$(PYTHON) scripts/ci/check_workflow_file_issues.py \
+		--glob "$(WORKFLOW_FILE_HEALTH_GLOB)" \
+		--ref "$(WORKFLOW_FILE_HEALTH_REF)" \
+		--mode "$(WORKFLOW_FILE_HEALTH_MODE)" \
+		--summary-json-out "$(WORKFLOW_FILE_HEALTH_SUMMARY_JSON)"
+
+validate-workflow-file-health-tests: ## 校验 workflow 文件健康脚本与 stress workflow 接线
+	@echo "$(GREEN)Validating workflow file health tests...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_check_workflow_file_issues.py \
+		$(TEST_DIR)/unit/test_stress_workflow_workflow_file_health.py \
+		$(TEST_DIR)/unit/test_workflow_file_health_make_target.py -q
+
 validate-ci-watchers: ## 一键校验 CI watchers（commit + archive + Graph2D strict e2e dispatcher）
 	@echo "$(GREEN)Validating CI watcher stack...$(NC)"
 	$(MAKE) validate-check-gh-actions-ready
 	$(MAKE) validate-watch-commit-workflows
 	$(MAKE) validate-generate-ci-watch-validation-report
+	$(MAKE) validate-workflow-file-health-tests
 	$(MAKE) validate-archive-workflow-dispatcher
 	$(MAKE) validate-eval-with-history-ci-workflows
 	$(MAKE) validate-graph2d-review-pack-gate-strict-e2e
