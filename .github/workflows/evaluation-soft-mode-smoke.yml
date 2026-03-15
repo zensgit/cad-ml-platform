@@ -11,6 +11,10 @@ on:
         description: "Expected conclusion for dispatched run"
         required: false
         default: "success"
+      pr_number:
+        description: "Optional PR number for posting smoke summary comment"
+        required: false
+        default: ""
       keep_soft:
         description: "Keep EVALUATION_STRICT_FAIL_MODE=soft after run (true/false)"
         required: false
@@ -33,6 +37,11 @@ concurrency:
 jobs:
   soft-mode-smoke:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+      issues: write
+      pull-requests: write
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -115,3 +124,15 @@ jobs:
           else
             echo "- summary_json missing: reports/ci/evaluation_soft_mode_smoke_summary.json"
           fi >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment PR with soft-mode smoke result
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != ''
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
+        env:
+          SOFT_SMOKE_SUMMARY_JSON: reports/ci/evaluation_soft_mode_smoke_summary.json
+          SOFT_SMOKE_TRIGGER_PR: ${{ github.event.inputs.pr_number }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { commentSoftModeSmokePR } = require('./scripts/ci/comment_soft_mode_smoke_pr.js');
+            await commentSoftModeSmokePR({ github, context, process });

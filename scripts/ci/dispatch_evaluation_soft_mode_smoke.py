@@ -6,6 +6,7 @@ import json
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -141,6 +142,18 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--wait-timeout-seconds", type=int, default=900)
     parser.add_argument("--poll-interval-seconds", type=int, default=3)
     parser.add_argument("--list-limit", type=int, default=30)
+    parser.add_argument(
+        "--max-dispatch-attempts",
+        type=int,
+        default=1,
+        help="Maximum dispatch attempts before giving up.",
+    )
+    parser.add_argument(
+        "--retry-sleep-seconds",
+        type=int,
+        default=15,
+        help="Sleep seconds between retries when dispatch or marker check fails.",
+    )
     parser.add_argument("--output-json", default="")
     parser.add_argument("--skip-remote-input-check", action="store_true")
     return parser
@@ -182,71 +195,105 @@ def main(argv: Sequence[str] | None = None) -> int:
     dispatch_exit = 1
     marker_ok = False
     marker_message = "not_checked"
+    attempts_payload: list[dict[str, Any]] = []
+    max_attempts = max(1, int(args.max_dispatch_attempts))
+    retry_sleep_seconds = max(0, int(args.retry_sleep_seconds))
+    payload["max_dispatch_attempts"] = int(max_attempts)
+    payload["retry_sleep_seconds"] = int(retry_sleep_seconds)
 
     with tempfile.TemporaryDirectory(prefix="eval_soft_smoke_") as tmpdir:
-        dispatch_output_json = Path(tmpdir) / "dispatch.json"
         try:
-            dispatch_args = [
-                "--workflow",
-                str(args.workflow),
-                "--ref",
-                str(args.ref),
-                "--repo",
-                str(args.repo),
-                "--hybrid-superpass-enable",
-                str(args.hybrid_superpass_enable),
-                "--hybrid-superpass-missing-mode",
-                str(args.hybrid_superpass_missing_mode),
-                "--hybrid-superpass-fail-on-failed",
-                str(args.hybrid_superpass_fail_on_failed),
-                "--hybrid-blind-enable",
-                str(args.hybrid_blind_enable),
-                "--hybrid-blind-dxf-dir",
-                str(args.hybrid_blind_dxf_dir),
-                "--hybrid-blind-fail-on-gate-failed",
-                str(args.hybrid_blind_fail_on_gate_failed),
-                "--hybrid-blind-strict-require-real-data",
-                str(args.hybrid_blind_strict_require_real_data),
-                "--hybrid-calibration-enable",
-                str(args.hybrid_calibration_enable),
-                "--hybrid-calibration-input-csv",
-                str(args.hybrid_calibration_input_csv),
-                "--expected-conclusion",
-                str(args.expected_conclusion),
-                "--wait-timeout-seconds",
-                str(int(args.wait_timeout_seconds)),
-                "--poll-interval-seconds",
-                str(int(args.poll_interval_seconds)),
-                "--list-limit",
-                str(int(args.list_limit)),
-                "--output-json",
-                str(dispatch_output_json),
-            ]
-            if bool(args.skip_remote_input_check):
-                dispatch_args.append("--skip-remote-input-check")
+            success_reached = False
+            for attempt_index in range(1, max_attempts + 1):
+                attempt_output_json = Path(tmpdir) / f"dispatch_attempt_{attempt_index}.json"
+                dispatch_args = [
+                    "--workflow",
+                    str(args.workflow),
+                    "--ref",
+                    str(args.ref),
+                    "--repo",
+                    str(args.repo),
+                    "--hybrid-superpass-enable",
+                    str(args.hybrid_superpass_enable),
+                    "--hybrid-superpass-missing-mode",
+                    str(args.hybrid_superpass_missing_mode),
+                    "--hybrid-superpass-fail-on-failed",
+                    str(args.hybrid_superpass_fail_on_failed),
+                    "--hybrid-blind-enable",
+                    str(args.hybrid_blind_enable),
+                    "--hybrid-blind-dxf-dir",
+                    str(args.hybrid_blind_dxf_dir),
+                    "--hybrid-blind-fail-on-gate-failed",
+                    str(args.hybrid_blind_fail_on_gate_failed),
+                    "--hybrid-blind-strict-require-real-data",
+                    str(args.hybrid_blind_strict_require_real_data),
+                    "--hybrid-calibration-enable",
+                    str(args.hybrid_calibration_enable),
+                    "--hybrid-calibration-input-csv",
+                    str(args.hybrid_calibration_input_csv),
+                    "--expected-conclusion",
+                    str(args.expected_conclusion),
+                    "--wait-timeout-seconds",
+                    str(int(args.wait_timeout_seconds)),
+                    "--poll-interval-seconds",
+                    str(int(args.poll_interval_seconds)),
+                    "--list-limit",
+                    str(int(args.list_limit)),
+                    "--output-json",
+                    str(attempt_output_json),
+                ]
+                if bool(args.skip_remote_input_check):
+                    dispatch_args.append("--skip-remote-input-check")
 
-            dispatch_exit = dispatcher.main(dispatch_args)
-            payload["dispatch_exit_code"] = int(dispatch_exit)
-            if dispatch_output_json.exists():
-                payload["dispatch"] = json.loads(
-                    dispatch_output_json.read_text(encoding="utf-8")
-                )
+                attempt_entry: dict[str, Any] = {
+                    "attempt": int(attempt_index),
+                }
+                dispatch_exit = dispatcher.main(dispatch_args)
+                attempt_entry["dispatch_exit_code"] = int(dispatch_exit)
+                dispatch_payload: dict[str, Any] = {}
+                if attempt_output_json.exists():
+                    dispatch_payload = json.loads(
+                        attempt_output_json.read_text(encoding="utf-8")
+                    )
+                    attempt_entry["dispatch"] = dispatch_payload
 
-            run_id_value = (
-                (payload.get("dispatch") or {}).get("run_id")
-                if isinstance(payload.get("dispatch"), dict)
-                else None
-            )
-            if run_id_value and not bool(args.skip_log_check):
-                marker_ok, marker_message = detect_soft_mode_marker(
-                    int(run_id_value), str(args.repo)
+                run_id_value = (
+                    dispatch_payload.get("run_id")
+                    if isinstance(dispatch_payload, dict)
+                    else None
                 )
-            elif bool(args.skip_log_check):
-                marker_ok = True
-                marker_message = "skipped"
-            else:
-                marker_ok = False
-                marker_message = "run_id_missing"
+                if run_id_value and not bool(args.skip_log_check):
+                    marker_ok, marker_message = detect_soft_mode_marker(
+                        int(run_id_value), str(args.repo)
+                    )
+                elif bool(args.skip_log_check):
+                    marker_ok = True
+                    marker_message = "skipped"
+                else:
+                    marker_ok = False
+                    marker_message = "run_id_missing"
+
+                attempt_entry["soft_marker_ok"] = bool(marker_ok)
+                attempt_entry["soft_marker_message"] = str(marker_message)
+                attempts_payload.append(attempt_entry)
+
+                if int(dispatch_exit) == 0 and bool(marker_ok):
+                    payload["dispatch_exit_code"] = int(dispatch_exit)
+                    payload["dispatch"] = dispatch_payload
+                    success_reached = True
+                    break
+
+                if attempt_index < max_attempts and retry_sleep_seconds > 0:
+                    time.sleep(retry_sleep_seconds)
+
+            if not success_reached:
+                last_entry = attempts_payload[-1] if attempts_payload else {}
+                payload["dispatch_exit_code"] = int(last_entry.get("dispatch_exit_code", 1))
+                last_dispatch = last_entry.get("dispatch")
+                if isinstance(last_dispatch, dict):
+                    payload["dispatch"] = last_dispatch
+                marker_ok = bool(last_entry.get("soft_marker_ok", False))
+                marker_message = str(last_entry.get("soft_marker_message", "unknown"))
         finally:
             if not bool(args.keep_soft):
                 restore_attempted = True
@@ -261,6 +308,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     payload["soft_marker_ok"] = bool(marker_ok)
     payload["soft_marker_message"] = str(marker_message)
+    payload["attempts"] = attempts_payload
     payload["restore_attempted"] = bool(restore_attempted)
     payload["restore_ok"] = bool(restore_ok)
     payload["restore_message"] = str(restore_message)

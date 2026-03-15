@@ -31,6 +31,7 @@ def test_workflow_has_schedule_and_dispatch_inputs() -> None:
     inputs = workflow["on"]["workflow_dispatch"]["inputs"]
     assert "ref" in inputs
     assert "expected_conclusion" in inputs
+    assert "pr_number" in inputs
     assert "keep_soft" in inputs
     assert "skip_log_check" in inputs
 
@@ -43,6 +44,10 @@ def test_workflow_job_permissions_and_dispatch_step_wiring() -> None:
 
     job = workflow["jobs"]["soft-mode-smoke"]
     assert job["runs-on"] == "ubuntu-latest"
+    assert job["permissions"]["contents"] == "read"
+    assert job["permissions"]["actions"] == "write"
+    assert job["permissions"]["issues"] == "write"
+    assert job["permissions"]["pull-requests"] == "write"
     assert job["env"]["GH_TOKEN"] == "${{ github.token }}"
 
     run_step = _get_step(
@@ -70,3 +75,26 @@ def test_workflow_job_permissions_and_dispatch_step_wiring() -> None:
         upload_step["with"]["path"]
         == "reports/ci/evaluation_soft_mode_smoke_summary.json"
     )
+
+    comment_step = _get_step(
+        workflow, "soft-mode-smoke", "Comment PR with soft-mode smoke result"
+    )
+    assert (
+        comment_step["if"]
+        == "github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != ''"
+    )
+    assert (
+        comment_step["uses"]
+        == "actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410"
+    )
+    assert (
+        comment_step["env"]["SOFT_SMOKE_SUMMARY_JSON"]
+        == "reports/ci/evaluation_soft_mode_smoke_summary.json"
+    )
+    assert (
+        comment_step["env"]["SOFT_SMOKE_TRIGGER_PR"]
+        == "${{ github.event.inputs.pr_number }}"
+    )
+    comment_script = comment_step["with"]["script"]
+    assert "comment_soft_mode_smoke_pr.js" in comment_script
+    assert "commentSoftModeSmokePR" in comment_script
