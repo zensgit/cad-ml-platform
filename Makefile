@@ -78,6 +78,7 @@ ARCHIVE_WORKFLOW_PRINT_ONLY ?= 0
 ARCHIVE_WORKFLOW_WAIT_TIMEOUT ?= 120
 ARCHIVE_WORKFLOW_POLL_INTERVAL ?= 3
 CI_WATCH_SHA ?= HEAD
+CI_WATCH_REPO ?=
 CI_WATCH_EVENTS ?= push
 CI_WATCH_REQUIRED_WORKFLOWS ?= CI,CI Enhanced,CI Tiered Tests,Code Quality,Multi-Architecture Docker Build,Security Audit,Observability Checks,Self-Check,GHCR Publish,Evaluation Report
 CI_WATCH_TIMEOUT ?= 1800
@@ -92,7 +93,7 @@ CI_WATCH_SUMMARY_JSON ?=
 CI_WATCH_SUMMARY_DIR ?= reports/ci
 CI_WATCH_ARTIFACT_SHA_LEN ?= 12
 CI_WATCH_PRINT_ONLY ?= 0
-CI_WATCH_PRINT_FAILURE_DETAILS ?= 0
+CI_WATCH_PRINT_FAILURE_DETAILS ?= 1
 CI_WATCH_FAILURE_DETAILS_MAX_RUNS ?= 3
 CI_WATCH_PRECHECK_STRICT ?= 1
 CI_WATCH_REPORT_SUMMARY_JSON ?=
@@ -301,6 +302,7 @@ watch-commit-workflows: ## 监控指定提交 SHA 的 CI 工作流并等待完�
 	if [ "$(CI_WATCH_PRINT_FAILURE_DETAILS)" = "1" ]; then print_failure_details_flag="--print-failure-details"; fi; \
 	$(PYTHON) scripts/ci/watch_commit_workflows.py \
 		--sha "$(CI_WATCH_SHA)" \
+		--repo "$(CI_WATCH_REPO)" \
 		--events-csv "$(CI_WATCH_EVENTS)" \
 		--require-workflows-csv "$(CI_WATCH_REQUIRED_WORKFLOWS)" \
 		--wait-timeout-seconds "$(CI_WATCH_TIMEOUT)" \

@@ -31,6 +31,7 @@ def test_make_n_watch_commit_workflows_contains_expected_flags() -> None:
     assert result.returncode == 0, result.stderr
     assert "scripts/ci/watch_commit_workflows.py" in result.stdout
     assert '--sha "HEAD"' in result.stdout
+    assert '--repo ""' in result.stdout
     assert '--events-csv "push"' in result.stdout
     assert '--wait-timeout-seconds "1800"' in result.stdout
     assert '--poll-interval-seconds "20"' in result.stdout
@@ -42,6 +43,7 @@ def test_make_n_watch_commit_workflows_contains_expected_flags() -> None:
     assert '--success-conclusions-csv "success,skipped"' in result.stdout
     assert '--failure-details-max-runs "3"' in result.stdout
     assert '--summary-json-out ""' in result.stdout
+    assert "--print-failure-details" in result.stdout
 
 
 def test_make_watch_commit_workflows_print_only_outputs_preview() -> None:
@@ -57,10 +59,12 @@ def test_make_watch_commit_workflows_print_only_outputs_preview() -> None:
         "CI_WATCH_MAX_LIST_FAILURES=5",
         "CI_WATCH_SUCCESS_CONCLUSIONS=success,skipped,neutral",
         "CI_WATCH_SUMMARY_JSON=/tmp/ci-watch-summary.json",
+        "CI_WATCH_REPO=zensgit/cad-ml-platform",
     )
     assert result.returncode == 0, result.stderr
     assert "gh run list --json" in result.stdout
     assert "# events=['push', 'workflow_dispatch']" in result.stdout
+    assert "# repo=zensgit/cad-ml-platform" in result.stdout
     assert "# required_workflows=['CI', 'Code Quality']" in result.stdout
     assert "# success_conclusions=['neutral', 'skipped', 'success']" in result.stdout
     assert "# missing_required_mode=fail-fast" in result.stdout
@@ -79,6 +83,16 @@ def test_make_n_watch_commit_workflows_print_failure_details_flag() -> None:
     assert result.returncode == 0, result.stderr
     assert "--print-failure-details" in result.stdout
     assert '--failure-details-max-runs "7"' in result.stdout
+
+
+def test_make_n_watch_commit_workflows_repo_override() -> None:
+    result = _run_make(
+        "-n",
+        "watch-commit-workflows",
+        "CI_WATCH_REPO=octocat/hello-world",
+    )
+    assert result.returncode == 0, result.stderr
+    assert '--repo "octocat/hello-world"' in result.stdout
 
 
 def test_make_n_clean_ci_watch_summaries_contains_expected_pattern() -> None:

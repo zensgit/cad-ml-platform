@@ -104,6 +104,7 @@ def _build_summary_payload(
     *,
     requested_sha: str,
     resolved_sha: str,
+    repo: str,
     events: Sequence[str],
     required_workflows: Sequence[str],
     success_conclusions: Sequence[str],
@@ -134,6 +135,7 @@ def _build_summary_payload(
         "version": 1,
         "requested_sha": requested_sha,
         "resolved_sha": resolved_sha,
+        "repo": repo,
         "events": list(events),
         "required_workflows": list(required_workflows),
         "success_conclusions": list(success_conclusions),
@@ -217,8 +219,8 @@ def resolve_head_sha(value: str) -> str:
     return sha
 
 
-def _build_list_runs_command(limit: int) -> list[str]:
-    return [
+def _build_list_runs_command(limit: int, repo: str = "") -> list[str]:
+    command = [
         "gh",
         "run",
         "list",
@@ -227,10 +229,13 @@ def _build_list_runs_command(limit: int) -> list[str]:
         "--limit",
         str(max(1, int(limit))),
     ]
+    if repo.strip():
+        command.extend(["--repo", repo.strip()])
+    return command
 
 
-def _build_run_view_command(run_id: int) -> list[str]:
-    return [
+def _build_run_view_command(run_id: int, repo: str = "") -> list[str]:
+    command = [
         "gh",
         "run",
         "view",
@@ -238,14 +243,17 @@ def _build_run_view_command(run_id: int) -> list[str]:
         "--json",
         "url,workflowName,jobs",
     ]
+    if repo.strip():
+        command.extend(["--repo", repo.strip()])
+    return command
 
 
 def _normalize_gh_conclusion(value: object) -> str:
     return str(value or "").strip().lower()
 
 
-def get_run_failure_detail(run_id: int) -> RunFailureDetail:
-    command = _build_run_view_command(run_id)
+def get_run_failure_detail(run_id: int, repo: str = "") -> RunFailureDetail:
+    command = _build_run_view_command(run_id, repo=repo)
     result = subprocess.run(command, capture_output=True, text=True, check=False)
     if result.returncode != 0:
         message = _extract_short_error(result, "failed to view gh run")
@@ -294,7 +302,7 @@ def get_run_failure_detail(run_id: int) -> RunFailureDetail:
 
 
 def _log_failure_details_for_runs(
-    failed_runs: Sequence[WorkflowRun], *, max_runs: int
+    failed_runs: Sequence[WorkflowRun], *, max_runs: int, repo: str
 ) -> None:
     if not failed_runs:
         return
@@ -305,7 +313,7 @@ def _log_failure_details_for_runs(
             f"conclusion={run.conclusion or '-'}"
         )
         try:
-            detail = get_run_failure_detail(run.database_id)
+            detail = get_run_failure_detail(run.database_id, repo=repo)
         except RuntimeError as exc:
             _log(f"   detail_unavailable: {exc}")
             continue
@@ -324,8 +332,9 @@ def list_runs_for_sha(
     head_sha: str,
     events: set[str],
     limit: int,
+    repo: str,
 ) -> list[WorkflowRun]:
-    command = _build_list_runs_command(limit)
+    command = _build_list_runs_command(limit, repo=repo)
     result = subprocess.run(command, capture_output=True, text=True, check=False)
     if result.returncode != 0:
         message = _extract_short_error(result, "failed to list gh runs")
@@ -388,6 +397,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--sha",
         default="HEAD",
         help="Commit SHA to watch (default: HEAD).",
+    )
+    parser.add_argument(
+        "--repo",
+        default="",
+        help="Optional GitHub repository slug (owner/repo) for gh run list/view.",
     )
     parser.add_argument(
         "--events-csv",
@@ -567,7 +581,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         _log("error: --success-conclusions-csv must include at least one conclusion")
         return 2
 
-    command_preview = _build_list_runs_command(list_limit)
+    repo = str(args.repo or "").strip()
+    command_preview = _build_list_runs_command(list_limit, repo=repo)
     missing_required_mode = str(args.missing_required_mode or "fail-fast")
     failure_mode = str(args.failure_mode or "fail-fast")
     summary_json_out = str(args.summary_json_out or "").strip()
@@ -585,6 +600,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         payload = _build_summary_payload(
             requested_sha=requested_sha,
             resolved_sha=resolved_sha,
+            repo=repo,
             events=sorted(events),
             required_workflows=required_workflows,
             success_conclusions=sorted(success_conclusions),
@@ -614,6 +630,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if bool(args.print_only):
         _log(shlex.join(command_preview))
         _log(f"# events={sorted(events)}")
+        _log(f"# repo={repo or '<current>'}")
         _log(f"# required_workflows={required_workflows}")
         _log(f"# success_conclusions={sorted(success_conclusions)}")
         _log(f"# missing_required_mode={missing_required_mode}")
@@ -644,6 +661,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 head_sha=head_sha,
                 events=events,
                 limit=list_limit,
+                repo=repo,
             )
             consecutive_list_failures = 0
         except RuntimeError as exc:
@@ -700,7 +718,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             _log("error: detected non-success workflow conclusions.")
             if print_failure_details:
                 _log_failure_details_for_runs(
-                    failed, max_runs=failure_details_max_runs
+                    failed,
+                    max_runs=failure_details_max_runs,
+                    repo=repo,
                 )
             return _return_with_summary(1, "non_success_conclusion")
 
@@ -713,7 +733,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 _log("error: detected non-success workflow conclusions.")
                 if print_failure_details:
                     _log_failure_details_for_runs(
-                        failed, max_runs=failure_details_max_runs
+                        failed,
+                        max_runs=failure_details_max_runs,
+                        repo=repo,
                     )
                 return _return_with_summary(1, "non_success_conclusion")
             _log("all observed workflows completed successfully.")
