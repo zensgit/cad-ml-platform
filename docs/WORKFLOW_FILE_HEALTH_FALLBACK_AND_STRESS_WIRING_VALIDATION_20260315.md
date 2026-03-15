@@ -25,7 +25,7 @@
 - Coverage:
   - push path triggers include workflow-health inputs
   - `workflow-file-health` job exists and runs expected script flags
-  - upload-artifact wiring
+  - upload-artifact wiring (exact policy-approved SHA assertion)
   - downstream `needs: workflow-file-health` for `metrics-consistency` and `stress-unit-tests`
   - upload action pin aligned with repository policy:
     `actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f`

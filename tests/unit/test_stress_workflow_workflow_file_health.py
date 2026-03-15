@@ -41,7 +41,10 @@ def test_stress_workflow_has_workflow_file_health_job() -> None:
     assert "--summary-json-out reports/ci/workflow_file_health_summary.json" in run_script
 
     upload = _get_step(workflow, "workflow-file-health", "Upload workflow health summary")
-    assert upload["uses"].startswith("actions/upload-artifact@")
+    assert (
+        upload["uses"]
+        == "actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f"
+    )
     assert upload["with"]["name"] == "workflow-file-health-${{ github.run_number }}"
     assert upload["with"]["path"] == "reports/ci/workflow_file_health_summary.json"
 
