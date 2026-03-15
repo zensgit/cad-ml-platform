@@ -31,7 +31,11 @@
 ### 3) Added workflow-file-health summary into PR comment
 - Added global env:
   - `WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT`
-- Comment module now parses this JSON (if configured) and appends:
+- Added optional workflow step:
+  - `Build workflow-file-health summary for PR comment (optional)`
+  - runs `scripts/ci/check_workflow_file_issues.py` and emits `summary_json` output
+- Comment step now uses step output first, then falls back to global env var.
+- Comment module parses this JSON and appends:
   - `Workflow File Health` in Additional Analysis
   - `Workflow Health` in Signal Lights
 

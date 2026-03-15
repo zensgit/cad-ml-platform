@@ -512,9 +512,22 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "comment_evaluation_report_pr.js" in pr_comment_script
     assert "commentEvaluationReportPR" in pr_comment_script
 
+    wf_health_step = _get_step(
+        workflow,
+        "evaluate",
+        "Build workflow-file-health summary for PR comment (optional)",
+    )
+    wf_health_script = wf_health_step["run"]
+    assert "scripts/ci/check_workflow_file_issues.py" in wf_health_script
+    assert "--mode auto" in wf_health_script
+    assert "--summary-json-out reports/ci/workflow_file_health_for_comment.json" in wf_health_script
+
     pr_comment_env = pr_comment_step["env"]
     assert "CI_WATCH_SUMMARY_JSON_FOR_COMMENT" in pr_comment_env
     assert "WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT" in pr_comment_env
+    assert "workflow_file_health_for_comment.outputs.summary_json" in pr_comment_env[
+        "WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT"
+    ]
 
     module_script = (
         ROOT / "scripts" / "ci" / "comment_evaluation_report_pr.js"
