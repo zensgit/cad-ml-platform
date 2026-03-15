@@ -86,6 +86,8 @@ def test_main_generates_success_report_with_explicit_summary(tmp_path: Path) -> 
     assert readiness_path.as_posix() in text
     assert "`repo=zensgit/cad-ml-platform`" in text
     assert "No structured failure_details in summary payload." in text
+    assert "CI_WATCH_REPO='zensgit/cad-ml-platform'" in text
+    assert "CI_WATCH_PRINT_FAILURE_DETAILS=1" in text
 
 
 def test_main_auto_picks_latest_summary(tmp_path: Path) -> None:
@@ -202,3 +204,4 @@ def test_main_generates_fail_report_when_summary_is_not_green(tmp_path: Path) ->
     assert "Code Quality (run=12345, conclusion=failure)" in text
     assert "failed_jobs: lint" in text
     assert "failed_steps: lint :: flake8 (failure)" in text
+    assert "CI_WATCH_REPO='zensgit/cad-ml-platform'" in text
