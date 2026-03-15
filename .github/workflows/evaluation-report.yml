@@ -2095,6 +2095,9 @@ jobs:
         EVAL_MIN_COMBINED: ${{ github.event.inputs.min_combined || '0.8' }}
         EVAL_MIN_VISION: ${{ github.event.inputs.min_vision || '0.65' }}
         EVAL_MIN_OCR: ${{ github.event.inputs.min_ocr || '0.9' }}
+        EVALUATION_STRICT_FAIL_MODE: ${{ env.EVALUATION_STRICT_FAIL_MODE }}
+        EVALUATION_STRICT_FAIL_MODE_RESOLVED: ${{ steps.strict_fail_mode.outputs.mode }}
+        EVALUATION_STRICT_FAIL_MODE_RAW: ${{ steps.strict_fail_mode.outputs.mode_raw }}
         INSIGHTS_HAS_ANOMALIES: ${{ steps.insights.outputs.has_anomalies }}
         SECURITY_STATUS: ${{ steps.security.outputs.security_status }}
         GRAPH2D_REVIEW_PACK_ENABLED: ${{ steps.graph2d_review_pack.outputs.enabled }}
@@ -2177,6 +2180,12 @@ jobs:
         HYBRID_CALIBRATION_BASELINE_UPDATE_STATUS: ${{ steps.hybrid_calibration_baseline_update.outputs.status }}
         HYBRID_CALIBRATION_BASELINE_UPDATE_EXIT_CODE: ${{ steps.hybrid_calibration_baseline_update.outputs.exit_code }}
         HYBRID_CALIBRATION_BASELINE_PATH: ${{ steps.hybrid_calibration_baseline_update.outputs.baseline_json }}
+        HYBRID_SUPERPASS_STRICT_MODE: ${{ steps.hybrid_superpass_gate_strict.outputs.strict_mode }}
+        HYBRID_SUPERPASS_STRICT_SHOULD_FAIL: ${{ steps.hybrid_superpass_gate_strict.outputs.should_fail }}
+        HYBRID_SUPERPASS_STRICT_REASON: ${{ steps.hybrid_superpass_gate_strict.outputs.reason }}
+        HYBRID_SUPERPASS_VALIDATION_STRICT_MODE: ${{ steps.hybrid_superpass_validate.outputs.strict_mode }}
+        HYBRID_SUPERPASS_VALIDATION_EXIT_CODE: ${{ steps.hybrid_superpass_validate.outputs.exit_code }}
+        HYBRID_SUPERPASS_VALIDATION_STATUS: ${{ steps.hybrid_superpass_validate.outputs.status }}
         CI_WATCH_SUMMARY_JSON_FOR_COMMENT: ${{ env.CI_WATCH_SUMMARY_JSON_FOR_COMMENT }}
         WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT: ${{ steps.workflow_file_health_for_comment.outputs.summary_json || env.WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT }}
       with:

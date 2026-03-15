@@ -20,6 +20,16 @@ function envFloat(name, fallback = Number.NaN) {
   return Number.isNaN(value) ? fallback : value;
 }
 
+function parseBoolText(raw, fallback = false) {
+  const text = String(raw === undefined || raw === null ? "" : raw)
+    .trim()
+    .toLowerCase();
+  if (!text) {
+    return Boolean(fallback);
+  }
+  return text === "1" || text === "true" || text === "yes" || text === "on";
+}
+
 async function commentEvaluationReportPR({ github, context, process }) {
   try {
     const combined = envFloat("EVAL_COMBINED_SCORE", 0.0);
@@ -29,6 +39,27 @@ async function commentEvaluationReportPR({ github, context, process }) {
     const minCombined = envFloat("EVAL_MIN_COMBINED", 0.8);
     const minVision = envFloat("EVAL_MIN_VISION", 0.65);
     const minOcr = envFloat("EVAL_MIN_OCR", 0.9);
+    const evaluationStrictModeDefaultRaw = envStr(
+      "EVALUATION_STRICT_FAIL_MODE",
+      "hard",
+    );
+    const evaluationStrictModeResolvedRaw = envStr(
+      "EVALUATION_STRICT_FAIL_MODE_RESOLVED",
+      evaluationStrictModeDefaultRaw,
+    );
+    const evaluationStrictModeRaw = (
+      evaluationStrictModeResolvedRaw ||
+      evaluationStrictModeDefaultRaw ||
+      "hard"
+    )
+      .trim()
+      .toLowerCase();
+    const evaluationStrictModeRawValue = envStr(
+      "EVALUATION_STRICT_FAIL_MODE_RAW",
+      evaluationStrictModeDefaultRaw,
+    );
+    const evaluationStrictMode =
+      evaluationStrictModeRaw === "soft" ? "soft" : "hard";
 
     const combinedStatus = combined >= minCombined ? "✅ Pass" : "❌ Fail";
     const visionStatus = vision >= minVision ? "✅ Pass" : "❌ Fail";
@@ -215,6 +246,30 @@ async function commentEvaluationReportPR({ github, context, process }) {
       "HYBRID_CALIBRATION_STRICT_REASON",
       "",
     );
+    const hybridSuperpassStrictMode = envStr(
+      "HYBRID_SUPERPASS_STRICT_MODE",
+      "false",
+    );
+    const hybridSuperpassStrictShouldFail = envStr(
+      "HYBRID_SUPERPASS_STRICT_SHOULD_FAIL",
+      "false",
+    );
+    const hybridSuperpassStrictReason = envStr(
+      "HYBRID_SUPERPASS_STRICT_REASON",
+      "",
+    );
+    const hybridSuperpassValidationStrictMode = envStr(
+      "HYBRID_SUPERPASS_VALIDATION_STRICT_MODE",
+      "false",
+    );
+    const hybridSuperpassValidationExitCode = envStr(
+      "HYBRID_SUPERPASS_VALIDATION_EXIT_CODE",
+      "0",
+    );
+    const hybridSuperpassValidationStatus = envStr(
+      "HYBRID_SUPERPASS_VALIDATION_STATUS",
+      "unknown",
+    );
 
     const hybridCalibrationBaselineUpdateEnabled = envBool(
       "HYBRID_CALIBRATION_BASELINE_UPDATE_ENABLED",
@@ -383,9 +438,81 @@ async function commentEvaluationReportPR({ github, context, process }) {
     const hybridCalibrationStrictStatus = hybridCalibrationGateEnabled
       ? `strict=${hybridCalibrationStrictMode || "false"}, should_fail=${hybridCalibrationStrictShouldFail || "false"}, reason=${hybridCalibrationStrictReason || "n/a"}`
       : "⏭️ skipped";
+    const hybridSuperpassStrictStatus = `strict=${hybridSuperpassStrictMode || "false"}, should_fail=${hybridSuperpassStrictShouldFail || "false"}, reason=${hybridSuperpassStrictReason || "n/a"}`;
+    const hybridSuperpassValidationStrictStatus = `strict=${hybridSuperpassValidationStrictMode || "false"}, exit=${hybridSuperpassValidationExitCode || "0"}, status=${hybridSuperpassValidationStatus || "unknown"}`;
     const hybridCalibrationBaselineStatus = hybridCalibrationBaselineUpdateEnabled
       ? `${hybridCalibrationBaselineUpdateStatus || "unknown"} (exit=${hybridCalibrationBaselineUpdateExitCode || "n/a"}, path=${hybridCalibrationBaselinePath || "n/a"})`
       : "⏭️ skipped";
+
+    const strictFailureRequests = [];
+    if (reviewGateEnabled && parseBoolText(reviewGateStrictShouldFail, false)) {
+      strictFailureRequests.push(
+        `graph2d_review:${reviewGateStrictReason || "gate_failed"}`,
+      );
+    }
+    if (
+      hybridBlindGateEnabled &&
+      parseBoolText(hybridBlindStrictShouldFail, false)
+    ) {
+      strictFailureRequests.push(
+        `hybrid_blind:${hybridBlindStrictReason || "gate_failed"}`,
+      );
+    }
+    if (
+      hybridCalibrationGateEnabled &&
+      parseBoolText(hybridCalibrationStrictShouldFail, false)
+    ) {
+      strictFailureRequests.push(
+        `hybrid_calibration:${hybridCalibrationStrictReason || "gate_failed"}`,
+      );
+    }
+    if (parseBoolText(hybridSuperpassStrictShouldFail, false)) {
+      strictFailureRequests.push(
+        `hybrid_superpass:${hybridSuperpassStrictReason || "gate_failed"}`,
+      );
+    }
+    if (
+      parseBoolText(hybridSuperpassValidationStrictMode, false) &&
+      String(hybridSuperpassValidationExitCode || "0") !== "0"
+    ) {
+      strictFailureRequests.push(
+        `hybrid_superpass_validation:${hybridSuperpassValidationStatus || "validation_failed"}`,
+      );
+    }
+    const strictFailureRequestSummary =
+      strictFailureRequests.length > 0
+        ? strictFailureRequests.join("; ")
+        : "none";
+    const strictDecisionResult =
+      strictFailureRequests.length === 0
+        ? "no_strict_fail_requests"
+        : evaluationStrictMode === "soft"
+          ? "downgraded_to_warning"
+          : "blocking_failure_expected";
+    const strictDecisionLight =
+      strictFailureRequests.length === 0
+        ? "🟢"
+        : evaluationStrictMode === "soft"
+          ? "🟡"
+          : "🔴";
+    const strictActionItems = [];
+    if (strictFailureRequests.length === 0) {
+      strictActionItems.push("- ✅ No strict gate failure request detected.");
+    } else if (evaluationStrictMode === "soft") {
+      strictActionItems.push(
+        "- ⚠️ Soft mode downgraded strict gate failures to warnings for this run.",
+      );
+      strictActionItems.push(
+        "- 🔁 Before merge, switch `EVALUATION_STRICT_FAIL_MODE=hard` and rerun.",
+      );
+      strictActionItems.push(`- 🧭 Fix targets: ${strictFailureRequestSummary}`);
+    } else {
+      strictActionItems.push(
+        "- ❌ Hard mode blocking is active and strict gate failure was requested.",
+      );
+      strictActionItems.push(`- 🧭 Fix targets: ${strictFailureRequestSummary}`);
+    }
+    const strictActionChecklist = strictActionItems.join("\n");
 
     const reviewPackLight = !reviewPackEnabled
       ? "⚪"
@@ -455,7 +582,10 @@ ${overallStatus}
 | **Hybrid Calibration** | ${hybridCalibrationStatus} |
 | **Hybrid Calibration Gate** | ${hybridCalibrationGateStatus} |
 | **Hybrid Calibration Strict** | ${hybridCalibrationStrictStatus} |
+| **Hybrid Superpass Strict** | ${hybridSuperpassStrictStatus} |
+| **Hybrid Superpass Validation Strict** | ${hybridSuperpassValidationStrictStatus} |
 | **Hybrid Calibration Baseline** | ${hybridCalibrationBaselineStatus} |
+| **Strict Gate Policy** | mode=${evaluationStrictMode}, raw=${evaluationStrictModeRawValue || "n/a"}, result=${strictDecisionResult} |
 | **CI Watch Failure Details** | ${ciWatchFailureSummary} |
 | **Workflow File Health** | ${workflowFileHealthSummary} |
 
@@ -467,8 +597,19 @@ ${overallStatus}
 | **Train Sweep** | ${trainSweepLight} | ${trainSweepStatus} |
 | **Hybrid Blind** | ${hybridBlindLight} | ${hybridBlindEvalStatus} |
 | **Hybrid Calibration** | ${hybridCalibrationLight} | ${hybridCalibrationStatus} |
+| **Strict Gate Policy** | ${strictDecisionLight} | mode=${evaluationStrictMode}, strict_requests=${strictFailureRequests.length}, result=${strictDecisionResult} |
 | **CI Watcher** | ${ciWatchFailureLight} | ${ciWatchFailureSummary} |
 | **Workflow Health** | ${workflowFileHealthLight} | ${workflowFileHealthSummary} |
+
+### Strict Gate Decision Path
+| Item | Value |
+|------|-------|
+| **Mode** | ${evaluationStrictMode} (resolved=${evaluationStrictModeResolvedRaw || "n/a"}, raw=${evaluationStrictModeRawValue || "n/a"}) |
+| **Requested Failures** | ${strictFailureRequestSummary} |
+| **Decision** | ${strictDecisionResult} |
+| **Recommended Action** | ${strictActionItems[0] || "n/a"} |
+
+${strictActionChecklist}
 
 ### Quick Actions
 - 📋 [View Full Report](${runUrl})

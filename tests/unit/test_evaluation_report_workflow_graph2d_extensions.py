@@ -523,6 +523,13 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "--summary-json-out reports/ci/workflow_file_health_for_comment.json" in wf_health_script
 
     pr_comment_env = pr_comment_step["env"]
+    assert "EVALUATION_STRICT_FAIL_MODE" in pr_comment_env
+    assert "EVALUATION_STRICT_FAIL_MODE_RESOLVED" in pr_comment_env
+    assert "EVALUATION_STRICT_FAIL_MODE_RAW" in pr_comment_env
+    assert "HYBRID_SUPERPASS_STRICT_MODE" in pr_comment_env
+    assert "HYBRID_SUPERPASS_STRICT_SHOULD_FAIL" in pr_comment_env
+    assert "HYBRID_SUPERPASS_VALIDATION_STRICT_MODE" in pr_comment_env
+    assert "HYBRID_SUPERPASS_VALIDATION_EXIT_CODE" in pr_comment_env
     assert "CI_WATCH_SUMMARY_JSON_FOR_COMMENT" in pr_comment_env
     assert "WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT" in pr_comment_env
     assert "workflow_file_health_for_comment.outputs.summary_json" in pr_comment_env[
@@ -539,6 +546,10 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Hybrid Calibration" in module_script
     assert "Hybrid Calibration Gate" in module_script
     assert "Hybrid Calibration Strict" in module_script
+    assert "Hybrid Superpass Strict" in module_script
+    assert "Hybrid Superpass Validation Strict" in module_script
+    assert "Strict Gate Policy" in module_script
+    assert "Strict Gate Decision Path" in module_script
     assert "Hybrid Calibration Baseline" in module_script
     assert "CI Watch Failure Details" in module_script
     assert "Workflow File Health" in module_script
@@ -569,6 +580,8 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Blind Gain (Hybrid-Graph2D)" in module_script
     assert "| **Hybrid Blind** | ${hybridBlindLight}" in module_script
     assert "Signal Lights" in module_script
+    assert "strictFailureRequests.length" in module_script
+    assert "parseBoolText(" in module_script
     assert "script=${sweepBestRunScript}" in module_script
 
 

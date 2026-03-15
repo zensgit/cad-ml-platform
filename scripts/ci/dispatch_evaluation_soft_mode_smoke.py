@@ -1,0 +1,307 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+from typing import Any, Sequence
+
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from scripts.ci import dispatch_hybrid_superpass_workflow as dispatcher
+
+
+def _run(command: list[str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(command, capture_output=True, text=True, check=False)
+
+
+def _extract_short_error(result: subprocess.CompletedProcess[str], fallback: str) -> str:
+    text = (result.stderr or result.stdout or "").strip()
+    if not text:
+        return fallback
+    return text.splitlines()[0]
+
+
+def _find_variable_value(payload: Any, name: str) -> tuple[bool, str]:
+    if not isinstance(payload, list):
+        return (False, "")
+    target = str(name or "").strip()
+    if not target:
+        return (False, "")
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("name") or "").strip() != target:
+            continue
+        return (True, str(item.get("value") or ""))
+    return (False, "")
+
+
+def get_repo_variable(repo: str, name: str) -> tuple[bool, str, str]:
+    result = _run(["gh", "variable", "list", "--repo", repo, "--json", "name,value"])
+    if result.returncode != 0:
+        return (
+            False,
+            "",
+            f"gh variable list failed: {_extract_short_error(result, 'unknown error')}",
+        )
+    try:
+        payload = json.loads(result.stdout or "[]")
+    except json.JSONDecodeError:
+        return (False, "", "gh variable list returned invalid JSON")
+    found, value = _find_variable_value(payload, name)
+    return (found, value, "")
+
+
+def set_repo_variable(repo: str, name: str, value: str) -> tuple[bool, str]:
+    result = _run(["gh", "variable", "set", name, "--repo", repo, "--body", value])
+    if result.returncode != 0:
+        return (
+            False,
+            f"gh variable set {name} failed: {_extract_short_error(result, 'unknown error')}",
+        )
+    return (True, "")
+
+
+def delete_repo_variable(repo: str, name: str) -> tuple[bool, str]:
+    result = _run(["gh", "variable", "delete", name, "--repo", repo])
+    if result.returncode != 0:
+        return (
+            False,
+            f"gh variable delete {name} failed: {_extract_short_error(result, 'unknown error')}",
+        )
+    return (True, "")
+
+
+def detect_soft_mode_marker(run_id: int, repo: str) -> tuple[bool, str]:
+    result = _run(["gh", "run", "view", str(run_id), "--repo", repo, "--log"])
+    if result.returncode != 0:
+        return (
+            False,
+            f"gh run view --log failed: {_extract_short_error(result, 'unknown error')}",
+        )
+    marker = "Resolved strict fail mode: soft"
+    if marker in (result.stdout or ""):
+        return (True, "")
+    return (False, f"missing marker: {marker}")
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Temporarily set EVALUATION_STRICT_FAIL_MODE=soft, dispatch "
+            "evaluation-report workflow, then restore variable."
+        )
+    )
+    parser.add_argument("--repo", required=True, help="GitHub repo, e.g. owner/repo")
+    parser.add_argument("--workflow", default="evaluation-report.yml")
+    parser.add_argument("--ref", default="main")
+    parser.add_argument(
+        "--strict-mode-var",
+        default="EVALUATION_STRICT_FAIL_MODE",
+        help="GitHub repository variable controlling strict gate mode.",
+    )
+    parser.add_argument(
+        "--soft-value",
+        default="soft",
+        help="Value written into strict-mode variable during smoke run.",
+    )
+    parser.add_argument(
+        "--keep-soft",
+        action="store_true",
+        help="Do not restore variable after run (default restores automatically).",
+    )
+    parser.add_argument(
+        "--skip-log-check",
+        action="store_true",
+        help="Skip checking run logs for strict-mode soft marker.",
+    )
+    parser.add_argument("--hybrid-superpass-enable", default="true")
+    parser.add_argument(
+        "--hybrid-superpass-missing-mode",
+        default="fail",
+        choices=("skip", "fail"),
+    )
+    parser.add_argument("--hybrid-superpass-fail-on-failed", default="true")
+    parser.add_argument("--hybrid-blind-enable", default="")
+    parser.add_argument("--hybrid-blind-dxf-dir", default="")
+    parser.add_argument("--hybrid-blind-fail-on-gate-failed", default="")
+    parser.add_argument("--hybrid-blind-strict-require-real-data", default="")
+    parser.add_argument("--hybrid-calibration-enable", default="")
+    parser.add_argument("--hybrid-calibration-input-csv", default="")
+    parser.add_argument(
+        "--expected-conclusion",
+        default="success",
+        choices=("success", "failure", "cancelled"),
+    )
+    parser.add_argument("--wait-timeout-seconds", type=int, default=900)
+    parser.add_argument("--poll-interval-seconds", type=int, default=3)
+    parser.add_argument("--list-limit", type=int, default=30)
+    parser.add_argument("--output-json", default="")
+    parser.add_argument("--skip-remote-input-check", action="store_true")
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+
+    ready, message = dispatcher.check_gh_ready()
+    if not ready:
+        print(message)
+        return 1
+
+    found, previous_value, get_err = get_repo_variable(args.repo, args.strict_mode_var)
+    if get_err:
+        print(get_err)
+        return 1
+
+    set_ok, set_err = set_repo_variable(args.repo, args.strict_mode_var, args.soft_value)
+    if not set_ok:
+        print(set_err)
+        return 1
+
+    payload: dict[str, Any] = {
+        "repo": str(args.repo),
+        "workflow": str(args.workflow),
+        "ref": str(args.ref),
+        "strict_mode_var": str(args.strict_mode_var),
+        "soft_value": str(args.soft_value),
+        "variable_found_before": bool(found),
+        "variable_value_before": str(previous_value),
+        "keep_soft": bool(args.keep_soft),
+    }
+
+    restore_attempted = False
+    restore_ok = True
+    restore_message = ""
+    dispatch_exit = 1
+    marker_ok = False
+    marker_message = "not_checked"
+
+    with tempfile.TemporaryDirectory(prefix="eval_soft_smoke_") as tmpdir:
+        dispatch_output_json = Path(tmpdir) / "dispatch.json"
+        try:
+            dispatch_args = [
+                "--workflow",
+                str(args.workflow),
+                "--ref",
+                str(args.ref),
+                "--repo",
+                str(args.repo),
+                "--hybrid-superpass-enable",
+                str(args.hybrid_superpass_enable),
+                "--hybrid-superpass-missing-mode",
+                str(args.hybrid_superpass_missing_mode),
+                "--hybrid-superpass-fail-on-failed",
+                str(args.hybrid_superpass_fail_on_failed),
+                "--hybrid-blind-enable",
+                str(args.hybrid_blind_enable),
+                "--hybrid-blind-dxf-dir",
+                str(args.hybrid_blind_dxf_dir),
+                "--hybrid-blind-fail-on-gate-failed",
+                str(args.hybrid_blind_fail_on_gate_failed),
+                "--hybrid-blind-strict-require-real-data",
+                str(args.hybrid_blind_strict_require_real_data),
+                "--hybrid-calibration-enable",
+                str(args.hybrid_calibration_enable),
+                "--hybrid-calibration-input-csv",
+                str(args.hybrid_calibration_input_csv),
+                "--expected-conclusion",
+                str(args.expected_conclusion),
+                "--wait-timeout-seconds",
+                str(int(args.wait_timeout_seconds)),
+                "--poll-interval-seconds",
+                str(int(args.poll_interval_seconds)),
+                "--list-limit",
+                str(int(args.list_limit)),
+                "--output-json",
+                str(dispatch_output_json),
+            ]
+            if bool(args.skip_remote_input_check):
+                dispatch_args.append("--skip-remote-input-check")
+
+            dispatch_exit = dispatcher.main(dispatch_args)
+            payload["dispatch_exit_code"] = int(dispatch_exit)
+            if dispatch_output_json.exists():
+                payload["dispatch"] = json.loads(
+                    dispatch_output_json.read_text(encoding="utf-8")
+                )
+
+            run_id_value = (
+                (payload.get("dispatch") or {}).get("run_id")
+                if isinstance(payload.get("dispatch"), dict)
+                else None
+            )
+            if run_id_value and not bool(args.skip_log_check):
+                marker_ok, marker_message = detect_soft_mode_marker(
+                    int(run_id_value), str(args.repo)
+                )
+            elif bool(args.skip_log_check):
+                marker_ok = True
+                marker_message = "skipped"
+            else:
+                marker_ok = False
+                marker_message = "run_id_missing"
+        finally:
+            if not bool(args.keep_soft):
+                restore_attempted = True
+                if found:
+                    restore_ok, restore_message = set_repo_variable(
+                        args.repo, args.strict_mode_var, previous_value
+                    )
+                else:
+                    restore_ok, restore_message = delete_repo_variable(
+                        args.repo, args.strict_mode_var
+                    )
+
+    payload["soft_marker_ok"] = bool(marker_ok)
+    payload["soft_marker_message"] = str(marker_message)
+    payload["restore_attempted"] = bool(restore_attempted)
+    payload["restore_ok"] = bool(restore_ok)
+    payload["restore_message"] = str(restore_message)
+
+    overall_exit = 0 if int(dispatch_exit) == 0 else 1
+    if not marker_ok:
+        overall_exit = 1
+    if restore_attempted and not restore_ok:
+        overall_exit = 1
+    payload["overall_exit_code"] = int(overall_exit)
+
+    if args.output_json:
+        out_path = Path(args.output_json).expanduser()
+        if out_path.parent != Path("."):
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(
+            f"{json.dumps(payload, ensure_ascii=False, indent=2)}\n", encoding="utf-8"
+        )
+
+    print(
+        "result overall_exit_code={} dispatch_exit_code={} soft_marker_ok={} restore_ok={}".format(
+            payload["overall_exit_code"],
+            payload.get("dispatch_exit_code", 1),
+            payload["soft_marker_ok"],
+            payload["restore_ok"],
+        )
+    )
+    dispatch_payload = payload.get("dispatch") if isinstance(payload.get("dispatch"), dict) else {}
+    run_id = dispatch_payload.get("run_id", "")
+    run_url = dispatch_payload.get("run_url", "")
+    if run_id:
+        print(f"run_id={run_id}")
+    if run_url:
+        print(f"run_url={run_url}")
+    if payload["soft_marker_message"]:
+        print(f"soft_marker_message={payload['soft_marker_message']}")
+    if restore_attempted:
+        print(f"restore_message={restore_message or 'ok'}")
+
+    return int(overall_exit)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
