@@ -11,6 +11,7 @@
 - 文件：`scripts/ci/dispatch_evaluation_soft_mode_smoke.py`
 - 新增参数：
   - `--comment-pr-number`
+  - `--comment-pr-auto`
   - `--comment-repo`
   - `--comment-title`
   - `--comment-commit-sha`
@@ -19,6 +20,8 @@
   - `--comment-fail-on-error`
 - 行为：
   - 当 `--comment-pr-number > 0` 时，自动调用 `post_soft_mode_smoke_pr_comment.py` 主逻辑。
+  - 当设置 `--comment-pr-auto` 且未传 `--comment-pr-number` 时，按 `--ref`（必要时回退到当前 git 分支）自动查询 open PR。
+  - 当 `--comment-commit-sha` 为空时，自动尝试注入 `git rev-parse HEAD`。
   - 在输出 JSON 中增加 `pr_comment` 字段，记录回写是否启用、退出码与错误信息。
   - 若设置 `--comment-fail-on-error`，回写失败会将 `overall_exit_code` 置为失败。
 
@@ -27,6 +30,7 @@
 - 文件：`Makefile`
 - `validate-soft-mode-smoke` 新增对应变量与参数透传：
   - `SOFT_MODE_SMOKE_COMMENT_PR_NUMBER`
+  - `SOFT_MODE_SMOKE_COMMENT_PR_AUTO`
   - `SOFT_MODE_SMOKE_COMMENT_REPO`
   - `SOFT_MODE_SMOKE_COMMENT_TITLE`
   - `SOFT_MODE_SMOKE_COMMENT_COMMIT_SHA`
@@ -75,6 +79,7 @@ make validate-soft-mode-smoke \
   SOFT_MODE_SMOKE_REPO=zensgit/cad-ml-platform \
   SOFT_MODE_SMOKE_REF=feat/hybrid-blind-drift-autotune-e2e \
   SOFT_MODE_SMOKE_COMMENT_PR_NUMBER=369 \
+  SOFT_MODE_SMOKE_COMMENT_PR_AUTO=1 \
   SOFT_MODE_SMOKE_COMMENT_REPO=zensgit/cad-ml-platform \
   SOFT_MODE_SMOKE_COMMENT_COMMIT_SHA=$(git rev-parse HEAD) \
   SOFT_MODE_SMOKE_COMMENT_DRY_RUN=0 \

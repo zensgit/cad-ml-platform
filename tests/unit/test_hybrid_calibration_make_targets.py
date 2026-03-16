@@ -315,11 +315,13 @@ def test_make_n_validate_soft_mode_smoke_with_comment_flags() -> None:
         "validate-soft-mode-smoke",
         "SOFT_MODE_SMOKE_REPO=zensgit/cad-ml-platform",
         "SOFT_MODE_SMOKE_COMMENT_PR_NUMBER=369",
+        "SOFT_MODE_SMOKE_COMMENT_PR_AUTO=1",
         "SOFT_MODE_SMOKE_COMMENT_DRY_RUN=1",
         "SOFT_MODE_SMOKE_COMMENT_FAIL_ON_ERROR=1",
     )
     assert result.returncode == 0, result.stderr
     assert "--comment-pr-number 369" in result.stdout
+    assert "--comment-pr-auto" in result.stdout
     assert "--comment-dry-run" in result.stdout
     assert "--comment-fail-on-error" in result.stdout
 

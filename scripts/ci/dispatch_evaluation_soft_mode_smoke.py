@@ -92,6 +92,103 @@ def detect_soft_mode_marker(run_id: int, repo: str) -> tuple[bool, str]:
     return (False, f"missing marker: {marker}")
 
 
+def _normalize_branch_ref(ref: str) -> str:
+    branch = str(ref or "").strip()
+    for prefix in ("refs/heads/", "origin/"):
+        if branch.startswith(prefix):
+            branch = branch[len(prefix) :]
+    return branch
+
+
+def _resolve_current_branch() -> tuple[bool, str, str]:
+    result = _run(["git", "rev-parse", "--abbrev-ref", "HEAD"])
+    if result.returncode != 0:
+        return (
+            False,
+            "",
+            f"git rev-parse --abbrev-ref HEAD failed: {_extract_short_error(result, 'unknown error')}",
+        )
+    branch = str(result.stdout or "").strip()
+    if not branch or branch == "HEAD":
+        return (False, "", "unable to resolve current git branch")
+    return (True, branch, "")
+
+
+def _resolve_current_commit_sha() -> tuple[str, str]:
+    result = _run(["git", "rev-parse", "HEAD"])
+    if result.returncode != 0:
+        return (
+            "",
+            f"git rev-parse HEAD failed: {_extract_short_error(result, 'unknown error')}",
+        )
+    sha = str(result.stdout or "").strip()
+    if not sha:
+        return ("", "git rev-parse HEAD returned empty sha")
+    return (sha, "")
+
+
+def _resolve_open_pr_number(repo: str, head_branch: str) -> tuple[int, str]:
+    branch = _normalize_branch_ref(head_branch)
+    if not branch:
+        return (0, "head branch is empty")
+    result = _run(
+        [
+            "gh",
+            "pr",
+            "list",
+            "--repo",
+            str(repo),
+            "--state",
+            "open",
+            "--head",
+            branch,
+            "--json",
+            "number",
+            "--limit",
+            "1",
+        ]
+    )
+    if result.returncode != 0:
+        return (
+            0,
+            f"gh pr list failed: {_extract_short_error(result, 'unknown error')}",
+        )
+    try:
+        payload = json.loads(result.stdout or "[]")
+    except json.JSONDecodeError:
+        return (0, "gh pr list returned invalid JSON")
+    if not isinstance(payload, list) or not payload:
+        return (0, f"no open PR found for head branch: {branch}")
+    first = payload[0]
+    if not isinstance(first, dict):
+        return (0, "gh pr list returned malformed item")
+    try:
+        return (int(first.get("number") or 0), "")
+    except (TypeError, ValueError):
+        return (0, "gh pr list returned non-integer PR number")
+
+
+def resolve_comment_pr_number(
+    *,
+    repo: str,
+    ref: str,
+    explicit_pr_number: int,
+    auto_resolve: bool,
+) -> tuple[int, str, str]:
+    if int(explicit_pr_number or 0) > 0:
+        return (int(explicit_pr_number), "", "")
+    if not bool(auto_resolve):
+        return (0, "", "")
+    head_branch = _normalize_branch_ref(ref)
+    if head_branch in ("", "main", "master"):
+        ok, current_branch, branch_err = _resolve_current_branch()
+        if not ok:
+            return (0, "", branch_err)
+        head_branch = current_branch
+    pr_number, pr_err = _resolve_open_pr_number(str(repo), head_branch)
+    return (int(pr_number), str(head_branch), str(pr_err))
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
@@ -161,6 +258,13 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=0,
         help="Optional PR number for posting soft-mode summary comment.",
+    )
+    parser.add_argument(
+        "--comment-pr-auto",
+        action="store_true",
+        help=(
+            "Auto resolve PR number from branch when --comment-pr-number is not provided."
+        ),
     )
     parser.add_argument(
         "--comment-repo",
@@ -350,19 +454,35 @@ def main(argv: Sequence[str] | None = None) -> int:
     payload["restore_ok"] = bool(restore_ok)
     payload["restore_message"] = str(restore_message)
 
-    comment_pr_number = int(args.comment_pr_number or 0)
-    comment_requested = comment_pr_number > 0
+    comment_pr_number, comment_pr_branch, comment_pr_resolve_error = resolve_comment_pr_number(
+        repo=str(args.repo),
+        ref=str(args.ref),
+        explicit_pr_number=int(args.comment_pr_number or 0),
+        auto_resolve=bool(args.comment_pr_auto),
+    )
+    comment_requested = int(args.comment_pr_number or 0) > 0 or bool(args.comment_pr_auto)
+    comment_enabled = comment_pr_number > 0
     comment_repo = str(args.comment_repo or args.repo)
     comment_payload: dict[str, Any] = {
-        "enabled": bool(comment_requested),
+        "requested": bool(comment_requested),
+        "enabled": bool(comment_enabled),
         "repo": str(comment_repo),
         "pr_number": int(comment_pr_number),
+        "auto_resolve": bool(args.comment_pr_auto),
+        "head_branch": str(comment_pr_branch),
         "dry_run": bool(args.comment_dry_run),
         "fail_on_error": bool(args.comment_fail_on_error),
         "exit_code": 0,
-        "error": "",
+        "error": str(comment_pr_resolve_error),
     }
-    if comment_requested:
+    comment_commit_sha = str(args.comment_commit_sha).strip()
+    if comment_enabled and not comment_commit_sha:
+        resolved_sha, resolved_sha_error = _resolve_current_commit_sha()
+        if resolved_sha:
+            comment_commit_sha = str(resolved_sha)
+        elif not comment_payload["error"]:
+            comment_payload["error"] = str(resolved_sha_error)
+    if comment_enabled:
         with tempfile.TemporaryDirectory(prefix="eval_soft_comment_") as comment_tmpdir:
             comment_summary_json = (
                 Path(comment_tmpdir) / "soft_mode_smoke_summary_for_comment.json"
@@ -381,7 +501,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "--title",
                 str(args.comment_title),
                 "--commit-sha",
-                str(args.comment_commit_sha),
+                str(comment_commit_sha),
             ]
             comment_output_json = str(args.comment_output_json or "").strip()
             if comment_output_json:
@@ -404,7 +524,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     if (
         comment_requested
         and bool(args.comment_fail_on_error)
-        and int(comment_payload.get("exit_code", 0)) != 0
+        and (
+            int(comment_payload.get("exit_code", 0)) != 0
+            or (
+                not comment_enabled
+                and bool(str(comment_payload.get("error") or "").strip())
+            )
+        )
     ):
         overall_exit = 1
     payload["overall_exit_code"] = int(overall_exit)
@@ -436,7 +562,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"soft_marker_message={payload['soft_marker_message']}")
     if restore_attempted:
         print(f"restore_message={restore_message or 'ok'}")
-    if comment_requested:
+    if comment_enabled:
         print(
             "pr_comment exit_code={} repo={} pr_number={} dry_run={}".format(
                 comment_payload.get("exit_code", 0),

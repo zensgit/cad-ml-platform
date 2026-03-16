@@ -1107,6 +1107,7 @@ SOFT_MODE_SMOKE_SKIP_REMOTE_INPUT_CHECK ?= 0
 SOFT_MODE_SMOKE_MAX_DISPATCH_ATTEMPTS ?= 1
 SOFT_MODE_SMOKE_RETRY_SLEEP_SECONDS ?= 15
 SOFT_MODE_SMOKE_COMMENT_PR_NUMBER ?=
+SOFT_MODE_SMOKE_COMMENT_PR_AUTO ?= 0
 SOFT_MODE_SMOKE_COMMENT_REPO ?=
 SOFT_MODE_SMOKE_COMMENT_TITLE ?= CAD ML Platform - Soft Mode Smoke
 SOFT_MODE_SMOKE_COMMENT_COMMIT_SHA ?=
@@ -1585,6 +1586,7 @@ validate-soft-mode-smoke: ## 触发 Evaluation Report soft-mode 冒烟（自动�
 	if [ "$(SOFT_MODE_SMOKE_SKIP_LOG_CHECK)" = "1" ]; then extra_flags="$$extra_flags --skip-log-check"; fi; \
 	if [ "$(SOFT_MODE_SMOKE_SKIP_REMOTE_INPUT_CHECK)" = "1" ]; then extra_flags="$$extra_flags --skip-remote-input-check"; fi; \
 	if [ -n "$(SOFT_MODE_SMOKE_COMMENT_PR_NUMBER)" ]; then extra_flags="$$extra_flags --comment-pr-number $(SOFT_MODE_SMOKE_COMMENT_PR_NUMBER)"; fi; \
+	if [ "$(SOFT_MODE_SMOKE_COMMENT_PR_AUTO)" = "1" ]; then extra_flags="$$extra_flags --comment-pr-auto"; fi; \
 	if [ "$(SOFT_MODE_SMOKE_COMMENT_DRY_RUN)" = "1" ]; then extra_flags="$$extra_flags --comment-dry-run"; fi; \
 	if [ "$(SOFT_MODE_SMOKE_COMMENT_FAIL_ON_ERROR)" = "1" ]; then extra_flags="$$extra_flags --comment-fail-on-error"; fi; \
 	$(PYTHON) scripts/ci/dispatch_evaluation_soft_mode_smoke.py \

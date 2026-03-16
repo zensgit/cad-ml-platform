@@ -528,3 +528,241 @@ def test_main_comment_fail_can_fail_overall(monkeypatch: Any, tmp_path: Path) ->
     assert payload["pr_comment"]["enabled"] is True
     assert payload["pr_comment"]["exit_code"] == 1
     assert payload["overall_exit_code"] == 1
+
+
+def test_main_comment_pr_auto_resolves_pr_and_commit(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    from scripts.ci import dispatch_evaluation_soft_mode_smoke as mod
+
+    comment_calls: list[list[str]] = []
+
+    def _fake_run(
+        command: list[str], capture_output: bool, text: bool, check: bool
+    ) -> subprocess.CompletedProcess[str]:
+        if command[:3] == ["gh", "variable", "list"]:
+            return subprocess.CompletedProcess(
+                args=command,
+                returncode=0,
+                stdout=json.dumps(
+                    [{"name": "EVALUATION_STRICT_FAIL_MODE", "value": "hard"}]
+                ),
+                stderr="",
+            )
+        if command[:4] == ["gh", "run", "view", "9501"] and "--log" in command:
+            return subprocess.CompletedProcess(
+                args=command,
+                returncode=0,
+                stdout="Resolved strict fail mode: soft",
+                stderr="",
+            )
+        if command[:3] == ["gh", "pr", "list"]:
+            return subprocess.CompletedProcess(
+                args=command,
+                returncode=0,
+                stdout=json.dumps([{"number": 369}]),
+                stderr="",
+            )
+        if command[:3] == ["git", "rev-parse", "HEAD"]:
+            return subprocess.CompletedProcess(
+                args=command,
+                returncode=0,
+                stdout="abcdef1234567890\n",
+                stderr="",
+            )
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mod.subprocess, "run", _fake_run)
+    monkeypatch.setattr(mod.dispatcher, "check_gh_ready", lambda: (True, ""))
+
+    def _fake_dispatch_main(argv: list[str]) -> int:
+        output_json = Path(argv[argv.index("--output-json") + 1])
+        output_json.write_text(
+            json.dumps(
+                {
+                    "run_id": 9501,
+                    "run_url": "https://example.com/r/9501",
+                    "conclusion": "success",
+                    "overall_exit_code": 0,
+                }
+            ),
+            encoding="utf-8",
+        )
+        return 0
+
+    def _fake_comment_main(argv: list[str]) -> int:
+        comment_calls.append(argv)
+        return 0
+
+    monkeypatch.setattr(mod.dispatcher, "main", _fake_dispatch_main)
+    monkeypatch.setattr(mod.pr_comment, "main", _fake_comment_main)
+
+    output_json = tmp_path / "soft_smoke_comment_auto.json"
+    rc = mod.main(
+        [
+            "--repo",
+            "zensgit/cad-ml-platform",
+            "--ref",
+            "feat/hybrid-blind-drift-autotune-e2e",
+            "--comment-pr-auto",
+            "--output-json",
+            str(output_json),
+        ]
+    )
+    assert rc == 0
+    assert len(comment_calls) == 1
+    comment_args = comment_calls[0]
+    assert "--pr-number" in comment_args
+    assert "369" in comment_args
+    assert "--commit-sha" in comment_args
+    assert "abcdef1234567890" in comment_args
+
+    payload = json.loads(output_json.read_text(encoding="utf-8"))
+    assert payload["pr_comment"]["requested"] is True
+    assert payload["pr_comment"]["enabled"] is True
+    assert payload["pr_comment"]["pr_number"] == 369
+    assert payload["pr_comment"]["auto_resolve"] is True
+    assert payload["pr_comment"]["error"] == ""
+
+
+def test_main_comment_pr_auto_missing_is_nonfatal_by_default(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    from scripts.ci import dispatch_evaluation_soft_mode_smoke as mod
+
+    def _fake_run(
+        command: list[str], capture_output: bool, text: bool, check: bool
+    ) -> subprocess.CompletedProcess[str]:
+        if command[:3] == ["gh", "variable", "list"]:
+            return subprocess.CompletedProcess(
+                args=command,
+                returncode=0,
+                stdout=json.dumps(
+                    [{"name": "EVALUATION_STRICT_FAIL_MODE", "value": "hard"}]
+                ),
+                stderr="",
+            )
+        if command[:4] == ["gh", "run", "view", "9601"] and "--log" in command:
+            return subprocess.CompletedProcess(
+                args=command,
+                returncode=0,
+                stdout="Resolved strict fail mode: soft",
+                stderr="",
+            )
+        if command[:3] == ["gh", "pr", "list"]:
+            return subprocess.CompletedProcess(
+                args=command, returncode=0, stdout="[]", stderr=""
+            )
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mod.subprocess, "run", _fake_run)
+    monkeypatch.setattr(mod.dispatcher, "check_gh_ready", lambda: (True, ""))
+
+    def _fake_dispatch_main(argv: list[str]) -> int:
+        output_json = Path(argv[argv.index("--output-json") + 1])
+        output_json.write_text(
+            json.dumps(
+                {
+                    "run_id": 9601,
+                    "run_url": "https://example.com/r/9601",
+                    "conclusion": "success",
+                    "overall_exit_code": 0,
+                }
+            ),
+            encoding="utf-8",
+        )
+        return 0
+
+    monkeypatch.setattr(mod.dispatcher, "main", _fake_dispatch_main)
+    monkeypatch.setattr(mod.pr_comment, "main", lambda argv: 0)
+
+    output_json = tmp_path / "soft_smoke_comment_auto_missing.json"
+    rc = mod.main(
+        [
+            "--repo",
+            "zensgit/cad-ml-platform",
+            "--ref",
+            "feat/hybrid-blind-drift-autotune-e2e",
+            "--comment-pr-auto",
+            "--output-json",
+            str(output_json),
+        ]
+    )
+    assert rc == 0
+    payload = json.loads(output_json.read_text(encoding="utf-8"))
+    assert payload["pr_comment"]["requested"] is True
+    assert payload["pr_comment"]["enabled"] is False
+    assert payload["pr_comment"]["pr_number"] == 0
+    assert "no open PR found" in payload["pr_comment"]["error"]
+    assert payload["overall_exit_code"] == 0
+
+
+def test_main_comment_pr_auto_missing_can_fail_when_required(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    from scripts.ci import dispatch_evaluation_soft_mode_smoke as mod
+
+    def _fake_run(
+        command: list[str], capture_output: bool, text: bool, check: bool
+    ) -> subprocess.CompletedProcess[str]:
+        if command[:3] == ["gh", "variable", "list"]:
+            return subprocess.CompletedProcess(
+                args=command,
+                returncode=0,
+                stdout=json.dumps(
+                    [{"name": "EVALUATION_STRICT_FAIL_MODE", "value": "hard"}]
+                ),
+                stderr="",
+            )
+        if command[:4] == ["gh", "run", "view", "9701"] and "--log" in command:
+            return subprocess.CompletedProcess(
+                args=command,
+                returncode=0,
+                stdout="Resolved strict fail mode: soft",
+                stderr="",
+            )
+        if command[:3] == ["gh", "pr", "list"]:
+            return subprocess.CompletedProcess(
+                args=command, returncode=0, stdout="[]", stderr=""
+            )
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mod.subprocess, "run", _fake_run)
+    monkeypatch.setattr(mod.dispatcher, "check_gh_ready", lambda: (True, ""))
+
+    def _fake_dispatch_main(argv: list[str]) -> int:
+        output_json = Path(argv[argv.index("--output-json") + 1])
+        output_json.write_text(
+            json.dumps(
+                {
+                    "run_id": 9701,
+                    "run_url": "https://example.com/r/9701",
+                    "conclusion": "success",
+                    "overall_exit_code": 0,
+                }
+            ),
+            encoding="utf-8",
+        )
+        return 0
+
+    monkeypatch.setattr(mod.dispatcher, "main", _fake_dispatch_main)
+
+    output_json = tmp_path / "soft_smoke_comment_auto_missing_fail.json"
+    rc = mod.main(
+        [
+            "--repo",
+            "zensgit/cad-ml-platform",
+            "--ref",
+            "feat/hybrid-blind-drift-autotune-e2e",
+            "--comment-pr-auto",
+            "--comment-fail-on-error",
+            "--output-json",
+            str(output_json),
+        ]
+    )
+    assert rc == 1
+    payload = json.loads(output_json.read_text(encoding="utf-8"))
+    assert payload["pr_comment"]["enabled"] is False
+    assert payload["pr_comment"]["requested"] is True
+    assert "no open PR found" in payload["pr_comment"]["error"]
+    assert payload["overall_exit_code"] == 1
