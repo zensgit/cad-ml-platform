@@ -41,7 +41,15 @@
   - `Append summary` 步骤不再内嵌 Python 解析 JSON
   - 改为直接调用 `scripts/ci/render_soft_mode_smoke_summary.py`
 
-### 4) 回归测试
+### 4) Workflow 自动解析 PR
+
+- 文件：`.github/workflows/evaluation-soft-mode-smoke.yml`
+- 变更：
+  - 新增 `Resolve PR number for comment` 步骤
+  - 当手工触发未填写 `pr_number` 时，按 `ref` 自动查询 open PR
+  - `Comment PR with soft-mode smoke result` 改为消费 `steps.resolve_pr.outputs.pr_number`
+
+### 5) 回归测试
 
 - 新增：`tests/unit/test_render_soft_mode_smoke_summary.py`
 - 更新：`tests/unit/test_hybrid_calibration_make_targets.py`
@@ -71,6 +79,14 @@ make validate-soft-mode-smoke-workflow
 
 - `validate-render-soft-mode-smoke-summary` -> `36 passed`
 - `validate-soft-mode-smoke-workflow` -> `49 passed`
+
+### Workflow 自动 PR 解析回归
+
+```bash
+pytest -q tests/unit/test_evaluation_soft_mode_smoke_workflow.py
+```
+
+结果：`5 passed`
 
 ### 真实数据渲染
 

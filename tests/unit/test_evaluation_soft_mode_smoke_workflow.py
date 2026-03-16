@@ -82,12 +82,23 @@ def test_workflow_job_permissions_and_dispatch_step_wiring() -> None:
     assert "--summary-json reports/ci/evaluation_soft_mode_smoke_summary.json" in append_script
     assert '>> "$GITHUB_STEP_SUMMARY"' in append_script
 
+    resolve_pr_step = _get_step(workflow, "soft-mode-smoke", "Resolve PR number for comment")
+    assert resolve_pr_step["if"] == "github.event_name == 'workflow_dispatch'"
+    assert resolve_pr_step["id"] == "resolve_pr"
+    resolve_pr_script = resolve_pr_step["run"]
+    assert 'PR_INPUT="$(echo "${{ github.event.inputs.pr_number || \'\' }}" | xargs)"' in resolve_pr_script
+    assert 'REF_INPUT="$(echo "${{ github.event.inputs.ref || \'\' }}" | xargs)"' in resolve_pr_script
+    assert 'gh pr list' in resolve_pr_script
+    assert '--repo "${GITHUB_REPOSITORY}"' in resolve_pr_script
+    assert '--head "$BRANCH"' in resolve_pr_script
+    assert "--jq '.[0].number // \"\"'" in resolve_pr_script
+
     comment_step = _get_step(
         workflow, "soft-mode-smoke", "Comment PR with soft-mode smoke result"
     )
     assert (
         comment_step["if"]
-        == "github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != ''"
+        == "github.event_name == 'workflow_dispatch' && steps.resolve_pr.outputs.pr_number != ''"
     )
     assert (
         comment_step["uses"]
@@ -99,7 +110,7 @@ def test_workflow_job_permissions_and_dispatch_step_wiring() -> None:
     )
     assert (
         comment_step["env"]["SOFT_SMOKE_TRIGGER_PR"]
-        == "${{ github.event.inputs.pr_number }}"
+        == "${{ steps.resolve_pr.outputs.pr_number }}"
     )
     comment_script = comment_step["with"]["script"]
     assert "comment_soft_mode_smoke_pr.js" in comment_script
