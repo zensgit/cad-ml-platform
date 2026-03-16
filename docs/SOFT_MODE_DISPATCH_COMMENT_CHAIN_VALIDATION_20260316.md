@@ -37,6 +37,8 @@
   - `SOFT_MODE_SMOKE_COMMENT_DRY_RUN`
   - `SOFT_MODE_SMOKE_COMMENT_FAIL_ON_ERROR`
   - `SOFT_MODE_SMOKE_COMMENT_OUTPUT_JSON`
+- 新增目标：
+  - `validate-soft-mode-smoke-auto-pr`（自动开启 `SOFT_MODE_SMOKE_COMMENT_PR_AUTO=1`）
 
 ### 3) 单元测试补齐
 
@@ -71,6 +73,46 @@ make -n validate-soft-mode-smoke \
 ```
 
 结果：命令行中已包含 `--comment-pr-number / --comment-dry-run / --comment-fail-on-error` 及完整 comment 参数。
+
+### Auto-PR 目标展开验证
+
+```bash
+make -n validate-soft-mode-smoke-auto-pr \
+  SOFT_MODE_SMOKE_REPO=zensgit/cad-ml-platform \
+  SOFT_MODE_SMOKE_COMMENT_DRY_RUN=1
+```
+
+结果：包含 `SOFT_MODE_SMOKE_COMMENT_PR_AUTO=1` 透传，并递归调用 `validate-soft-mode-smoke`。
+
+### 真实链路验证（auto PR + dry-run）
+
+```bash
+python3 scripts/ci/dispatch_evaluation_soft_mode_smoke.py \
+  --repo zensgit/cad-ml-platform \
+  --workflow evaluation-report.yml \
+  --ref feat/hybrid-blind-drift-autotune-e2e \
+  --expected-conclusion success \
+  --wait-timeout-seconds 1500 \
+  --poll-interval-seconds 3 \
+  --list-limit 40 \
+  --max-dispatch-attempts 1 \
+  --comment-pr-auto \
+  --comment-repo zensgit/cad-ml-platform \
+  --comment-title "CAD ML Platform - Soft Mode Smoke" \
+  --comment-dry-run \
+  --output-json reports/experiments/20260316/soft_mode_smoke_auto_pr_dry_run.json
+```
+
+结果：
+
+- run_id: `23126562401`
+- run_url: `https://github.com/zensgit/cad-ml-platform/actions/runs/23126562401`
+- dispatch conclusion: `success`
+- `soft_marker_ok=true`
+- `pr_comment.enabled=true`
+- `pr_comment.pr_number=369`
+- `pr_comment.auto_resolve=true`
+- `overall_exit_code=0`
 
 ## 用法示例
 

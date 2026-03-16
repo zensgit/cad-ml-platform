@@ -38,7 +38,7 @@
 						hybrid-blind-drift-alert hybrid-blind-drift-suggest-thresholds hybrid-blind-history-bootstrap hybrid-blind-drift-activate \
 						hybrid-blind-drift-apply-suggestion-gh hybrid-superpass-gate \
 							hybrid-superpass-e2e-gh hybrid-superpass-apply-gh-vars \
-							validate-soft-mode-smoke validate-soft-mode-smoke-workflow validate-soft-mode-smoke-comment \
+							validate-soft-mode-smoke validate-soft-mode-smoke-auto-pr validate-soft-mode-smoke-workflow validate-soft-mode-smoke-comment \
 							soft-mode-smoke-comment-pr validate-soft-mode-smoke-comment-pr \
 							validate-hybrid-superpass-workflow \
 							eval-weekly-summary validate-hybrid-blind-workflow
@@ -1605,6 +1605,31 @@ validate-soft-mode-smoke: ## 触发 Evaluation Report soft-mode 冒烟（自动�
 		--retry-sleep-seconds "$(SOFT_MODE_SMOKE_RETRY_SLEEP_SECONDS)" \
 		--output-json "$(SOFT_MODE_SMOKE_OUTPUT_JSON)" \
 		$$extra_flags
+
+validate-soft-mode-smoke-auto-pr: ## 一键开启 comment-pr-auto 的 soft-mode 冒烟
+	@echo "$(GREEN)Dispatching evaluation soft-mode smoke run with auto PR comment bridge...$(NC)"
+	$(MAKE) validate-soft-mode-smoke \
+		SOFT_MODE_SMOKE_COMMENT_PR_AUTO=1 \
+		SOFT_MODE_SMOKE_REPO="$(SOFT_MODE_SMOKE_REPO)" \
+		SOFT_MODE_SMOKE_WORKFLOW="$(SOFT_MODE_SMOKE_WORKFLOW)" \
+		SOFT_MODE_SMOKE_REF="$(SOFT_MODE_SMOKE_REF)" \
+		SOFT_MODE_SMOKE_EXPECTED_CONCLUSION="$(SOFT_MODE_SMOKE_EXPECTED_CONCLUSION)" \
+		SOFT_MODE_SMOKE_WAIT_TIMEOUT="$(SOFT_MODE_SMOKE_WAIT_TIMEOUT)" \
+		SOFT_MODE_SMOKE_POLL_INTERVAL="$(SOFT_MODE_SMOKE_POLL_INTERVAL)" \
+		SOFT_MODE_SMOKE_LIST_LIMIT="$(SOFT_MODE_SMOKE_LIST_LIMIT)" \
+		SOFT_MODE_SMOKE_OUTPUT_JSON="$(SOFT_MODE_SMOKE_OUTPUT_JSON)" \
+		SOFT_MODE_SMOKE_KEEP_SOFT="$(SOFT_MODE_SMOKE_KEEP_SOFT)" \
+		SOFT_MODE_SMOKE_SKIP_LOG_CHECK="$(SOFT_MODE_SMOKE_SKIP_LOG_CHECK)" \
+		SOFT_MODE_SMOKE_SKIP_REMOTE_INPUT_CHECK="$(SOFT_MODE_SMOKE_SKIP_REMOTE_INPUT_CHECK)" \
+		SOFT_MODE_SMOKE_MAX_DISPATCH_ATTEMPTS="$(SOFT_MODE_SMOKE_MAX_DISPATCH_ATTEMPTS)" \
+		SOFT_MODE_SMOKE_RETRY_SLEEP_SECONDS="$(SOFT_MODE_SMOKE_RETRY_SLEEP_SECONDS)" \
+		SOFT_MODE_SMOKE_COMMENT_PR_NUMBER="$(SOFT_MODE_SMOKE_COMMENT_PR_NUMBER)" \
+		SOFT_MODE_SMOKE_COMMENT_REPO="$(SOFT_MODE_SMOKE_COMMENT_REPO)" \
+		SOFT_MODE_SMOKE_COMMENT_TITLE="$(SOFT_MODE_SMOKE_COMMENT_TITLE)" \
+		SOFT_MODE_SMOKE_COMMENT_COMMIT_SHA="$(SOFT_MODE_SMOKE_COMMENT_COMMIT_SHA)" \
+		SOFT_MODE_SMOKE_COMMENT_DRY_RUN="$(SOFT_MODE_SMOKE_COMMENT_DRY_RUN)" \
+		SOFT_MODE_SMOKE_COMMENT_FAIL_ON_ERROR="$(SOFT_MODE_SMOKE_COMMENT_FAIL_ON_ERROR)" \
+		SOFT_MODE_SMOKE_COMMENT_OUTPUT_JSON="$(SOFT_MODE_SMOKE_COMMENT_OUTPUT_JSON)"
 
 validate-soft-mode-smoke-workflow: ## 校验 soft-mode 冒烟脚本与 workflow 接线
 	@echo "$(GREEN)Validating evaluation soft-mode smoke workflow integration...$(NC)"

@@ -326,6 +326,20 @@ def test_make_n_validate_soft_mode_smoke_with_comment_flags() -> None:
     assert "--comment-fail-on-error" in result.stdout
 
 
+def test_make_n_validate_soft_mode_smoke_auto_pr_contains_expected_flags() -> None:
+    result = _run_make(
+        "-n",
+        "validate-soft-mode-smoke-auto-pr",
+        "SOFT_MODE_SMOKE_REPO=zensgit/cad-ml-platform",
+        "SOFT_MODE_SMOKE_COMMENT_DRY_RUN=1",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "validate-soft-mode-smoke" in result.stdout
+    assert "SOFT_MODE_SMOKE_COMMENT_PR_AUTO=1" in result.stdout
+    assert 'SOFT_MODE_SMOKE_REPO="zensgit/cad-ml-platform"' in result.stdout
+    assert 'SOFT_MODE_SMOKE_COMMENT_DRY_RUN="1"' in result.stdout
+
+
 def test_make_n_validate_soft_mode_smoke_workflow_runs_expected_tests() -> None:
     result = _run_make("-n", "validate-soft-mode-smoke-workflow")
     assert result.returncode == 0, result.stderr
