@@ -340,10 +340,31 @@ def test_make_n_validate_soft_mode_smoke_auto_pr_contains_expected_flags() -> No
     assert 'SOFT_MODE_SMOKE_COMMENT_DRY_RUN="1"' in result.stdout
 
 
+def test_make_n_render_soft_mode_smoke_summary_contains_expected_flags() -> None:
+    result = _run_make(
+        "-n",
+        "render-soft-mode-smoke-summary",
+        "SOFT_MODE_SMOKE_OUTPUT_JSON=/tmp/soft_mode_smoke.json",
+        "SOFT_MODE_SMOKE_SUMMARY_MD=/tmp/soft_mode_smoke.md",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "scripts/ci/render_soft_mode_smoke_summary.py" in result.stdout
+    assert '--summary-json "/tmp/soft_mode_smoke.json"' in result.stdout
+    assert '--output-md "/tmp/soft_mode_smoke.md"' in result.stdout
+
+
+def test_make_n_validate_render_soft_mode_smoke_summary_runs_expected_tests() -> None:
+    result = _run_make("-n", "validate-render-soft-mode-smoke-summary")
+    assert result.returncode == 0, result.stderr
+    assert "test_render_soft_mode_smoke_summary.py" in result.stdout
+    assert "test_hybrid_calibration_make_targets.py" in result.stdout
+
+
 def test_make_n_validate_soft_mode_smoke_workflow_runs_expected_tests() -> None:
     result = _run_make("-n", "validate-soft-mode-smoke-workflow")
     assert result.returncode == 0, result.stderr
     assert "test_dispatch_evaluation_soft_mode_smoke.py" in result.stdout
+    assert "test_render_soft_mode_smoke_summary.py" in result.stdout
     assert "test_evaluation_soft_mode_smoke_workflow.py" in result.stdout
     assert "test_hybrid_calibration_make_targets.py" in result.stdout
 

@@ -39,7 +39,7 @@
 						hybrid-blind-drift-apply-suggestion-gh hybrid-superpass-gate \
 							hybrid-superpass-e2e-gh hybrid-superpass-apply-gh-vars \
 							validate-soft-mode-smoke validate-soft-mode-smoke-auto-pr validate-soft-mode-smoke-workflow validate-soft-mode-smoke-comment \
-							soft-mode-smoke-comment-pr validate-soft-mode-smoke-comment-pr \
+							render-soft-mode-smoke-summary validate-render-soft-mode-smoke-summary soft-mode-smoke-comment-pr validate-soft-mode-smoke-comment-pr \
 							validate-hybrid-superpass-workflow \
 							eval-weekly-summary validate-hybrid-blind-workflow
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
@@ -1101,6 +1101,7 @@ SOFT_MODE_SMOKE_WAIT_TIMEOUT ?= 1200
 SOFT_MODE_SMOKE_POLL_INTERVAL ?= 3
 SOFT_MODE_SMOKE_LIST_LIMIT ?= 30
 SOFT_MODE_SMOKE_OUTPUT_JSON ?= $(GRAPH2D_REVIEW_OUT_DIR)/soft_mode_smoke.json
+SOFT_MODE_SMOKE_SUMMARY_MD ?= $(GRAPH2D_REVIEW_OUT_DIR)/soft_mode_smoke.md
 SOFT_MODE_SMOKE_KEEP_SOFT ?= 0
 SOFT_MODE_SMOKE_SKIP_LOG_CHECK ?= 0
 SOFT_MODE_SMOKE_SKIP_REMOTE_INPUT_CHECK ?= 0
@@ -1631,10 +1632,24 @@ validate-soft-mode-smoke-auto-pr: ## 一键开启 comment-pr-auto 的 soft-mode 
 		SOFT_MODE_SMOKE_COMMENT_FAIL_ON_ERROR="$(SOFT_MODE_SMOKE_COMMENT_FAIL_ON_ERROR)" \
 		SOFT_MODE_SMOKE_COMMENT_OUTPUT_JSON="$(SOFT_MODE_SMOKE_COMMENT_OUTPUT_JSON)"
 
+render-soft-mode-smoke-summary: ## 将 soft-mode smoke summary json 渲染为 markdown
+	@echo "$(GREEN)Rendering soft-mode smoke summary markdown...$(NC)"
+	@test -n "$(SOFT_MODE_SMOKE_OUTPUT_JSON)" || (echo "$(RED)SOFT_MODE_SMOKE_OUTPUT_JSON is required$(NC)"; exit 1)
+	$(PYTHON) scripts/ci/render_soft_mode_smoke_summary.py \
+		--summary-json "$(SOFT_MODE_SMOKE_OUTPUT_JSON)" \
+		--output-md "$(SOFT_MODE_SMOKE_SUMMARY_MD)"
+
+validate-render-soft-mode-smoke-summary: ## 校验 soft-mode smoke summary 渲染脚本
+	@echo "$(GREEN)Validating soft-mode smoke summary renderer...$(NC)"
+	$(PYTEST) -q \
+		$(TEST_DIR)/unit/test_render_soft_mode_smoke_summary.py \
+		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py
+
 validate-soft-mode-smoke-workflow: ## 校验 soft-mode 冒烟脚本与 workflow 接线
 	@echo "$(GREEN)Validating evaluation soft-mode smoke workflow integration...$(NC)"
 	$(PYTEST) \
 		$(TEST_DIR)/unit/test_dispatch_evaluation_soft_mode_smoke.py \
+		$(TEST_DIR)/unit/test_render_soft_mode_smoke_summary.py \
 		$(TEST_DIR)/unit/test_evaluation_soft_mode_smoke_workflow.py \
 		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py -q
 
