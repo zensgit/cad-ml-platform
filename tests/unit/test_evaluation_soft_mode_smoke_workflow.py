@@ -71,15 +71,22 @@ def test_workflow_job_permissions_and_dispatch_step_wiring() -> None:
         upload_step["with"]["name"]
         == "evaluation-soft-mode-smoke-${{ github.run_number }}"
     )
-    assert (
-        upload_step["with"]["path"]
-        == "reports/ci/evaluation_soft_mode_smoke_summary.json"
+    upload_path = upload_step["with"]["path"]
+    assert "reports/ci/evaluation_soft_mode_smoke_summary.json" in upload_path
+    assert "reports/ci/evaluation_soft_mode_smoke_summary.md" in upload_path
+
+    render_md_step = _get_step(
+        workflow, "soft-mode-smoke", "Render soft-mode smoke summary markdown"
     )
+    render_md_script = render_md_step["run"]
+    assert "scripts/ci/render_soft_mode_smoke_summary.py" in render_md_script
+    assert "--output-md reports/ci/evaluation_soft_mode_smoke_summary.md" in render_md_script
+    assert ">/dev/null" in render_md_script
 
     append_step = _get_step(workflow, "soft-mode-smoke", "Append summary")
     append_script = append_step["run"]
-    assert "scripts/ci/render_soft_mode_smoke_summary.py" in append_script
-    assert "--summary-json reports/ci/evaluation_soft_mode_smoke_summary.json" in append_script
+    assert "cat reports/ci/evaluation_soft_mode_smoke_summary.md" in append_script
+    assert "summary_md missing" in append_script
     assert '>> "$GITHUB_STEP_SUMMARY"' in append_script
 
     resolve_pr_step = _get_step(workflow, "soft-mode-smoke", "Resolve PR number for comment")

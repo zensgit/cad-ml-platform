@@ -38,8 +38,10 @@
 
 - 文件：`.github/workflows/evaluation-soft-mode-smoke.yml`
 - 变更：
+  - 新增 `Render soft-mode smoke summary markdown` 步骤，产出 `reports/ci/evaluation_soft_mode_smoke_summary.md`
   - `Append summary` 步骤不再内嵌 Python 解析 JSON
-  - 改为直接调用 `scripts/ci/render_soft_mode_smoke_summary.py`
+  - 改为直接 `cat` 渲染后的 markdown
+  - artifact 同时上传 `.json` 与 `.md`
 
 ### 4) Workflow 自动解析 PR
 

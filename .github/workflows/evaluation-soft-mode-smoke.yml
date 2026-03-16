@@ -87,21 +87,32 @@ jobs:
             --output-json reports/ci/evaluation_soft_mode_smoke_summary.json \
             $extra_flags
 
+      - name: Render soft-mode smoke summary markdown
+        if: always()
+        run: |
+          if [[ -f reports/ci/evaluation_soft_mode_smoke_summary.json ]]; then
+            python3 scripts/ci/render_soft_mode_smoke_summary.py \
+              --summary-json reports/ci/evaluation_soft_mode_smoke_summary.json \
+              --output-md reports/ci/evaluation_soft_mode_smoke_summary.md \
+              >/dev/null
+          fi
+
       - name: Upload soft-mode smoke summary
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: evaluation-soft-mode-smoke-${{ github.run_number }}
-          path: reports/ci/evaluation_soft_mode_smoke_summary.json
+          path: |
+            reports/ci/evaluation_soft_mode_smoke_summary.json
+            reports/ci/evaluation_soft_mode_smoke_summary.md
 
       - name: Append summary
         if: always()
         run: |
-          if [[ -f reports/ci/evaluation_soft_mode_smoke_summary.json ]]; then
-            python3 scripts/ci/render_soft_mode_smoke_summary.py \
-              --summary-json reports/ci/evaluation_soft_mode_smoke_summary.json
+          if [[ -f reports/ci/evaluation_soft_mode_smoke_summary.md ]]; then
+            cat reports/ci/evaluation_soft_mode_smoke_summary.md
           else
-            echo "- summary_json missing: reports/ci/evaluation_soft_mode_smoke_summary.json"
+            echo "- summary_md missing: reports/ci/evaluation_soft_mode_smoke_summary.md"
           fi >> "$GITHUB_STEP_SUMMARY"
 
       - name: Resolve PR number for comment
