@@ -39,7 +39,7 @@
 						hybrid-blind-drift-apply-suggestion-gh hybrid-superpass-gate \
 							hybrid-superpass-e2e-gh hybrid-superpass-apply-gh-vars \
 							validate-soft-mode-smoke validate-soft-mode-smoke-auto-pr validate-soft-mode-smoke-workflow validate-soft-mode-smoke-comment \
-							render-soft-mode-smoke-summary validate-render-soft-mode-smoke-summary soft-mode-smoke-comment-pr validate-soft-mode-smoke-comment-pr \
+							render-soft-mode-smoke-summary validate-render-soft-mode-smoke-summary render-hybrid-superpass-validation-summary validate-render-hybrid-superpass-validation-summary soft-mode-smoke-comment-pr validate-soft-mode-smoke-comment-pr \
 							validate-hybrid-superpass-workflow \
 							eval-weekly-summary validate-hybrid-blind-workflow
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
@@ -101,6 +101,7 @@ CI_WATCH_PRECHECK_STRICT ?= 1
 CI_WATCH_REPORT_SUMMARY_JSON ?=
 CI_WATCH_REPORT_READINESS_JSON ?=
 CI_WATCH_REPORT_SOFT_SMOKE_JSON ?=
+CI_WATCH_REPORT_SOFT_SMOKE_MD ?=
 CI_WATCH_REPORT_OUTPUT_MD ?=
 CI_WATCH_REPORT_DIR ?= reports
 CI_WATCH_REPORT_SHA_LEN ?= 7
@@ -357,6 +358,7 @@ generate-ci-watch-validation-report: ## 根据 watcher 产物生成 CI 验证 Ma
 		--summary-json "$(CI_WATCH_REPORT_SUMMARY_JSON)" \
 		--readiness-json "$(CI_WATCH_REPORT_READINESS_JSON)" \
 		--soft-smoke-summary-json "$(CI_WATCH_REPORT_SOFT_SMOKE_JSON)" \
+		--soft-smoke-summary-md "$(CI_WATCH_REPORT_SOFT_SMOKE_MD)" \
 		--output-md "$(CI_WATCH_REPORT_OUTPUT_MD)" \
 		--report-dir "$(CI_WATCH_REPORT_DIR)" \
 		--report-sha-len "$(CI_WATCH_REPORT_SHA_LEN)" \
@@ -1071,6 +1073,8 @@ HYBRID_SUPERPASS_GATE_REPORT_JSON ?= reports/history_sequence_eval/hybrid_blind_
 HYBRID_SUPERPASS_CALIBRATION_JSON ?= models/calibration/hybrid_confidence_calibration.json
 HYBRID_SUPERPASS_CONFIG ?= config/hybrid_superpass_targets.yaml
 HYBRID_SUPERPASS_OUTPUT_JSON ?= reports/history_sequence_eval/hybrid_superpass_report.json
+HYBRID_SUPERPASS_VALIDATION_JSON ?= reports/history_sequence_eval/hybrid_superpass_validation.json
+HYBRID_SUPERPASS_VALIDATION_MD ?= reports/history_sequence_eval/hybrid_superpass_validation.md
 HYBRID_SUPERPASS_MISSING_MODE ?= skip
 HYBRID_SUPERPASS_E2E_WORKFLOW ?= evaluation-report.yml
 HYBRID_SUPERPASS_E2E_REF ?= main
@@ -1643,6 +1647,19 @@ validate-render-soft-mode-smoke-summary: ## 校验 soft-mode smoke summary 渲�
 	@echo "$(GREEN)Validating soft-mode smoke summary renderer...$(NC)"
 	$(PYTEST) -q \
 		$(TEST_DIR)/unit/test_render_soft_mode_smoke_summary.py \
+		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py
+
+render-hybrid-superpass-validation-summary: ## 将 hybrid superpass validation json 渲染为 markdown
+	@echo "$(GREEN)Rendering hybrid superpass validation summary markdown...$(NC)"
+	@test -n "$(HYBRID_SUPERPASS_VALIDATION_JSON)" || (echo "$(RED)HYBRID_SUPERPASS_VALIDATION_JSON is required$(NC)"; exit 1)
+	$(PYTHON) scripts/ci/render_hybrid_superpass_validation_summary.py \
+		--validation-json "$(HYBRID_SUPERPASS_VALIDATION_JSON)" \
+		--output-md "$(HYBRID_SUPERPASS_VALIDATION_MD)"
+
+validate-render-hybrid-superpass-validation-summary: ## 校验 hybrid superpass validation 渲染脚本
+	@echo "$(GREEN)Validating hybrid superpass validation summary renderer...$(NC)"
+	$(PYTEST) -q \
+		$(TEST_DIR)/unit/test_render_hybrid_superpass_validation_summary.py \
 		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py
 
 validate-soft-mode-smoke-workflow: ## 校验 soft-mode 冒烟脚本与 workflow 接线

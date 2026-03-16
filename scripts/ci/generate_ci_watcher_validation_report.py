@@ -34,6 +34,13 @@ def _read_json_dict(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _read_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise RuntimeError(f"failed to read text file {path}: {exc}") from exc
+
+
 def _extract_summary_token(path: Path) -> str:
     match = SUMMARY_TOKEN_RE.match(path.stem)
     if not match:
@@ -89,6 +96,29 @@ def _resolve_soft_smoke_path(soft_smoke_json: str, summary_path: Path) -> Path |
         return path
 
     inferred = summary_path.parent / "evaluation_soft_mode_smoke_summary.json"
+    if inferred.exists():
+        return inferred
+    return None
+
+
+def _resolve_soft_smoke_md_path(
+    soft_smoke_md: str,
+    summary_path: Path,
+    soft_smoke_path: Path | None,
+) -> Path | None:
+    explicit = str(soft_smoke_md or "").strip()
+    if explicit:
+        path = Path(explicit).expanduser()
+        if not path.exists():
+            raise RuntimeError(f"soft smoke summary md does not exist: {path}")
+        return path
+
+    if soft_smoke_path is not None:
+        inferred = soft_smoke_path.with_suffix(".md")
+        if inferred.exists():
+            return inferred
+
+    inferred = summary_path.parent / "evaluation_soft_mode_smoke_summary.md"
     if inferred.exists():
         return inferred
     return None
@@ -225,7 +255,9 @@ def _render_workflow_rows(summary: dict[str, Any]) -> list[str]:
 
 
 def _render_soft_smoke_section(
-    soft_smoke: dict[str, Any] | None, soft_smoke_path: Path | None
+    soft_smoke: dict[str, Any] | None,
+    soft_smoke_path: Path | None,
+    soft_smoke_md_path: Path | None,
 ) -> list[str]:
     if soft_smoke is None or soft_smoke_path is None:
         return [
@@ -263,6 +295,8 @@ def _render_soft_smoke_section(
         lines.append(f"- `run_id={run_id}`")
     if run_url:
         lines.append(f"- `run_url={run_url}`")
+    if soft_smoke_md_path is not None:
+        lines.append(f"- `rendered_markdown={soft_smoke_md_path.as_posix()}`")
     for idx, item in enumerate(attempts, start=1):
         attempt_no = item.get("attempt", idx)
         dispatch_exit = item.get("dispatch_exit_code", "n/a")
@@ -311,6 +345,7 @@ def _render_markdown(
     readiness_path: Path | None,
     soft_smoke: dict[str, Any] | None,
     soft_smoke_path: Path | None,
+    soft_smoke_md_path: Path | None,
     sha: str,
     date_str: str,
 ) -> str:
@@ -345,7 +380,9 @@ def _render_markdown(
         "",
     ]
     lines.extend(_render_readiness_section(readiness, readiness_path))
-    lines.extend(_render_soft_smoke_section(soft_smoke, soft_smoke_path))
+    lines.extend(
+        _render_soft_smoke_section(soft_smoke, soft_smoke_path, soft_smoke_md_path)
+    )
     lines.extend(
         [
             "## Watch Summary Artifact",
@@ -423,6 +460,14 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--soft-smoke-summary-md",
+        default="",
+        help=(
+            "Optional soft-mode smoke summary markdown path. If empty, "
+            "infer sibling .md artifact when available."
+        ),
+    )
+    parser.add_argument(
         "--output-md",
         default="",
         help="Optional explicit markdown output path.",
@@ -461,6 +506,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     soft_smoke: dict[str, Any] | None = None
     if soft_smoke_path is not None:
         soft_smoke = _read_json_dict(soft_smoke_path)
+    soft_smoke_md_path = _resolve_soft_smoke_md_path(
+        str(args.soft_smoke_summary_md), summary_path, soft_smoke_path
+    )
+    if soft_smoke_md_path is not None:
+        _read_text(soft_smoke_md_path)
 
     sha = _extract_sha(summary)
     date_str = str(args.date or "").strip() or datetime.now().strftime("%Y%m%d")
@@ -483,6 +533,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         readiness_path=readiness_path,
         soft_smoke=soft_smoke,
         soft_smoke_path=soft_smoke_path,
+        soft_smoke_md_path=soft_smoke_md_path,
         sha=sha,
         date_str=date_str,
     )
@@ -497,6 +548,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(
         "soft_smoke_json="
         + (soft_smoke_path.as_posix() if soft_smoke_path is not None else "(not found)"),
+        flush=True,
+    )
+    print(
+        "soft_smoke_md="
+        + (
+            soft_smoke_md_path.as_posix()
+            if soft_smoke_md_path is not None
+            else "(not found)"
+        ),
         flush=True,
     )
     print(f"output_md={output_path.as_posix()}", flush=True)

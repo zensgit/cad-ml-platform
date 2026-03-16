@@ -353,6 +353,19 @@ def test_make_n_render_soft_mode_smoke_summary_contains_expected_flags() -> None
     assert '--output-md "/tmp/soft_mode_smoke.md"' in result.stdout
 
 
+def test_make_n_render_hybrid_superpass_validation_summary_contains_expected_flags() -> None:
+    result = _run_make(
+        "-n",
+        "render-hybrid-superpass-validation-summary",
+        "HYBRID_SUPERPASS_VALIDATION_JSON=/tmp/hybrid_superpass_validation.json",
+        "HYBRID_SUPERPASS_VALIDATION_MD=/tmp/hybrid_superpass_validation.md",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "scripts/ci/render_hybrid_superpass_validation_summary.py" in result.stdout
+    assert '--validation-json "/tmp/hybrid_superpass_validation.json"' in result.stdout
+    assert '--output-md "/tmp/hybrid_superpass_validation.md"' in result.stdout
+
+
 def test_make_n_validate_render_soft_mode_smoke_summary_runs_expected_tests() -> None:
     result = _run_make("-n", "validate-render-soft-mode-smoke-summary")
     assert result.returncode == 0, result.stderr
@@ -366,6 +379,13 @@ def test_make_n_validate_soft_mode_smoke_workflow_runs_expected_tests() -> None:
     assert "test_dispatch_evaluation_soft_mode_smoke.py" in result.stdout
     assert "test_render_soft_mode_smoke_summary.py" in result.stdout
     assert "test_evaluation_soft_mode_smoke_workflow.py" in result.stdout
+    assert "test_hybrid_calibration_make_targets.py" in result.stdout
+
+
+def test_make_n_validate_render_hybrid_superpass_validation_summary_runs_expected_tests() -> None:
+    result = _run_make("-n", "validate-render-hybrid-superpass-validation-summary")
+    assert result.returncode == 0, result.stderr
+    assert "test_render_hybrid_superpass_validation_summary.py" in result.stdout
     assert "test_hybrid_calibration_make_targets.py" in result.stdout
 
 
