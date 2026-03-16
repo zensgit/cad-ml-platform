@@ -39,7 +39,7 @@
 						hybrid-blind-drift-apply-suggestion-gh hybrid-superpass-gate \
 							hybrid-superpass-e2e-gh hybrid-superpass-apply-gh-vars \
 							validate-soft-mode-smoke validate-soft-mode-smoke-auto-pr validate-soft-mode-smoke-workflow validate-soft-mode-smoke-comment \
-							render-soft-mode-smoke-summary validate-render-soft-mode-smoke-summary render-hybrid-superpass-validation-summary validate-render-hybrid-superpass-validation-summary soft-mode-smoke-comment-pr validate-soft-mode-smoke-comment-pr \
+							render-soft-mode-smoke-summary validate-render-soft-mode-smoke-summary render-hybrid-blind-strict-real-dispatch-summary validate-render-hybrid-blind-strict-real-dispatch-summary render-hybrid-superpass-dispatch-summary validate-render-hybrid-superpass-dispatch-summary render-hybrid-superpass-validation-summary validate-render-hybrid-superpass-validation-summary soft-mode-smoke-comment-pr validate-soft-mode-smoke-comment-pr \
 							validate-hybrid-superpass-workflow \
 							eval-weekly-summary validate-hybrid-blind-workflow
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
@@ -1093,6 +1093,7 @@ HYBRID_SUPERPASS_E2E_TIMEOUT ?= 600
 HYBRID_SUPERPASS_E2E_POLL_INTERVAL ?= 3
 HYBRID_SUPERPASS_E2E_LIST_LIMIT ?= 20
 HYBRID_SUPERPASS_E2E_OUTPUT_JSON ?= $(GRAPH2D_REVIEW_OUT_DIR)/hybrid_superpass_e2e.json
+HYBRID_SUPERPASS_E2E_OUTPUT_MD ?= $(GRAPH2D_REVIEW_OUT_DIR)/hybrid_superpass_e2e.md
 HYBRID_SUPERPASS_E2E_PRINT_ONLY ?= 0
 HYBRID_SUPERPASS_APPLY_REPO ?=
 HYBRID_SUPERPASS_APPLY_CONFIG_PATH ?= config/hybrid_superpass_targets.yaml
@@ -1162,6 +1163,7 @@ HYBRID_BLIND_STRICT_E2E_TIMEOUT ?= 600
 HYBRID_BLIND_STRICT_E2E_POLL_INTERVAL ?= 3
 HYBRID_BLIND_STRICT_E2E_LIST_LIMIT ?= 20
 HYBRID_BLIND_STRICT_E2E_OUTPUT_JSON ?= $(GRAPH2D_REVIEW_OUT_DIR)/hybrid_blind_strict_real_e2e.json
+HYBRID_BLIND_STRICT_E2E_OUTPUT_MD ?= $(GRAPH2D_REVIEW_OUT_DIR)/hybrid_blind_strict_real_e2e.md
 HYBRID_BLIND_STRICT_E2E_PRINT_ONLY ?= 0
 HYBRID_BLIND_DRIFT_ALERT_EVAL_HISTORY_DIR ?= reports/eval_history
 HYBRID_BLIND_DRIFT_ALERT_OUTPUT_JSON ?= reports/eval_history/hybrid_blind_drift_alert_report.json
@@ -1647,6 +1649,32 @@ validate-render-soft-mode-smoke-summary: ## 校验 soft-mode smoke summary 渲�
 	@echo "$(GREEN)Validating soft-mode smoke summary renderer...$(NC)"
 	$(PYTEST) -q \
 		$(TEST_DIR)/unit/test_render_soft_mode_smoke_summary.py \
+		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py
+
+render-hybrid-blind-strict-real-dispatch-summary: ## 将 strict-real dispatch json 渲染为 markdown
+	@echo "$(GREEN)Rendering hybrid blind strict-real dispatch summary markdown...$(NC)"
+	@test -n "$(HYBRID_BLIND_STRICT_E2E_OUTPUT_JSON)" || (echo "$(RED)HYBRID_BLIND_STRICT_E2E_OUTPUT_JSON is required$(NC)"; exit 1)
+	$(PYTHON) scripts/ci/render_hybrid_blind_strict_real_dispatch_summary.py \
+		--dispatch-json "$(HYBRID_BLIND_STRICT_E2E_OUTPUT_JSON)" \
+		--output-md "$(HYBRID_BLIND_STRICT_E2E_OUTPUT_MD)"
+
+validate-render-hybrid-blind-strict-real-dispatch-summary: ## 校验 strict-real dispatch 渲染脚本
+	@echo "$(GREEN)Validating hybrid blind strict-real dispatch summary renderer...$(NC)"
+	$(PYTEST) -q \
+		$(TEST_DIR)/unit/test_render_hybrid_blind_strict_real_dispatch_summary.py \
+		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py
+
+render-hybrid-superpass-dispatch-summary: ## 将 hybrid superpass dispatch json 渲染为 markdown
+	@echo "$(GREEN)Rendering hybrid superpass dispatch summary markdown...$(NC)"
+	@test -n "$(HYBRID_SUPERPASS_E2E_OUTPUT_JSON)" || (echo "$(RED)HYBRID_SUPERPASS_E2E_OUTPUT_JSON is required$(NC)"; exit 1)
+	$(PYTHON) scripts/ci/render_hybrid_superpass_dispatch_summary.py \
+		--dispatch-json "$(HYBRID_SUPERPASS_E2E_OUTPUT_JSON)" \
+		--output-md "$(HYBRID_SUPERPASS_E2E_OUTPUT_MD)"
+
+validate-render-hybrid-superpass-dispatch-summary: ## 校验 hybrid superpass dispatch 渲染脚本
+	@echo "$(GREEN)Validating hybrid superpass dispatch summary renderer...$(NC)"
+	$(PYTEST) -q \
+		$(TEST_DIR)/unit/test_render_hybrid_superpass_dispatch_summary.py \
 		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py
 
 render-hybrid-superpass-validation-summary: ## 将 hybrid superpass validation json 渲染为 markdown

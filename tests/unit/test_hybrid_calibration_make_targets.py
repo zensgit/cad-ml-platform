@@ -353,6 +353,32 @@ def test_make_n_render_soft_mode_smoke_summary_contains_expected_flags() -> None
     assert '--output-md "/tmp/soft_mode_smoke.md"' in result.stdout
 
 
+def test_make_n_render_hybrid_blind_strict_real_dispatch_summary_contains_expected_flags() -> None:
+    result = _run_make(
+        "-n",
+        "render-hybrid-blind-strict-real-dispatch-summary",
+        "HYBRID_BLIND_STRICT_E2E_OUTPUT_JSON=/tmp/hybrid_blind_strict_real_e2e.json",
+        "HYBRID_BLIND_STRICT_E2E_OUTPUT_MD=/tmp/hybrid_blind_strict_real_e2e.md",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "scripts/ci/render_hybrid_blind_strict_real_dispatch_summary.py" in result.stdout
+    assert '--dispatch-json "/tmp/hybrid_blind_strict_real_e2e.json"' in result.stdout
+    assert '--output-md "/tmp/hybrid_blind_strict_real_e2e.md"' in result.stdout
+
+
+def test_make_n_render_hybrid_superpass_dispatch_summary_contains_expected_flags() -> None:
+    result = _run_make(
+        "-n",
+        "render-hybrid-superpass-dispatch-summary",
+        "HYBRID_SUPERPASS_E2E_OUTPUT_JSON=/tmp/hybrid_superpass_e2e.json",
+        "HYBRID_SUPERPASS_E2E_OUTPUT_MD=/tmp/hybrid_superpass_e2e.md",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "scripts/ci/render_hybrid_superpass_dispatch_summary.py" in result.stdout
+    assert '--dispatch-json "/tmp/hybrid_superpass_e2e.json"' in result.stdout
+    assert '--output-md "/tmp/hybrid_superpass_e2e.md"' in result.stdout
+
+
 def test_make_n_render_hybrid_superpass_validation_summary_contains_expected_flags() -> None:
     result = _run_make(
         "-n",
@@ -386,6 +412,20 @@ def test_make_n_validate_render_hybrid_superpass_validation_summary_runs_expecte
     result = _run_make("-n", "validate-render-hybrid-superpass-validation-summary")
     assert result.returncode == 0, result.stderr
     assert "test_render_hybrid_superpass_validation_summary.py" in result.stdout
+    assert "test_hybrid_calibration_make_targets.py" in result.stdout
+
+
+def test_make_n_validate_render_hybrid_blind_strict_real_dispatch_summary_runs_expected_tests() -> None:
+    result = _run_make("-n", "validate-render-hybrid-blind-strict-real-dispatch-summary")
+    assert result.returncode == 0, result.stderr
+    assert "test_render_hybrid_blind_strict_real_dispatch_summary.py" in result.stdout
+    assert "test_hybrid_calibration_make_targets.py" in result.stdout
+
+
+def test_make_n_validate_render_hybrid_superpass_dispatch_summary_runs_expected_tests() -> None:
+    result = _run_make("-n", "validate-render-hybrid-superpass-dispatch-summary")
+    assert result.returncode == 0, result.stderr
+    assert "test_render_hybrid_superpass_dispatch_summary.py" in result.stdout
     assert "test_hybrid_calibration_make_targets.py" in result.stdout
 
 
