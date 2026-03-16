@@ -1106,6 +1106,13 @@ SOFT_MODE_SMOKE_SKIP_LOG_CHECK ?= 0
 SOFT_MODE_SMOKE_SKIP_REMOTE_INPUT_CHECK ?= 0
 SOFT_MODE_SMOKE_MAX_DISPATCH_ATTEMPTS ?= 1
 SOFT_MODE_SMOKE_RETRY_SLEEP_SECONDS ?= 15
+SOFT_MODE_SMOKE_COMMENT_PR_NUMBER ?=
+SOFT_MODE_SMOKE_COMMENT_REPO ?=
+SOFT_MODE_SMOKE_COMMENT_TITLE ?= CAD ML Platform - Soft Mode Smoke
+SOFT_MODE_SMOKE_COMMENT_COMMIT_SHA ?=
+SOFT_MODE_SMOKE_COMMENT_DRY_RUN ?= 0
+SOFT_MODE_SMOKE_COMMENT_FAIL_ON_ERROR ?= 0
+SOFT_MODE_SMOKE_COMMENT_OUTPUT_JSON ?=
 SOFT_MODE_COMMENT_REPO ?=
 SOFT_MODE_COMMENT_PR_NUMBER ?=
 SOFT_MODE_COMMENT_SUMMARY_JSON ?=
@@ -1577,11 +1584,18 @@ validate-soft-mode-smoke: ## 触发 Evaluation Report soft-mode 冒烟（自动�
 	if [ "$(SOFT_MODE_SMOKE_KEEP_SOFT)" = "1" ]; then extra_flags="$$extra_flags --keep-soft"; fi; \
 	if [ "$(SOFT_MODE_SMOKE_SKIP_LOG_CHECK)" = "1" ]; then extra_flags="$$extra_flags --skip-log-check"; fi; \
 	if [ "$(SOFT_MODE_SMOKE_SKIP_REMOTE_INPUT_CHECK)" = "1" ]; then extra_flags="$$extra_flags --skip-remote-input-check"; fi; \
+	if [ -n "$(SOFT_MODE_SMOKE_COMMENT_PR_NUMBER)" ]; then extra_flags="$$extra_flags --comment-pr-number $(SOFT_MODE_SMOKE_COMMENT_PR_NUMBER)"; fi; \
+	if [ "$(SOFT_MODE_SMOKE_COMMENT_DRY_RUN)" = "1" ]; then extra_flags="$$extra_flags --comment-dry-run"; fi; \
+	if [ "$(SOFT_MODE_SMOKE_COMMENT_FAIL_ON_ERROR)" = "1" ]; then extra_flags="$$extra_flags --comment-fail-on-error"; fi; \
 	$(PYTHON) scripts/ci/dispatch_evaluation_soft_mode_smoke.py \
 		--repo "$(SOFT_MODE_SMOKE_REPO)" \
 		--workflow "$(SOFT_MODE_SMOKE_WORKFLOW)" \
 		--ref "$(SOFT_MODE_SMOKE_REF)" \
 		--expected-conclusion "$(SOFT_MODE_SMOKE_EXPECTED_CONCLUSION)" \
+		--comment-repo "$(SOFT_MODE_SMOKE_COMMENT_REPO)" \
+		--comment-title "$(SOFT_MODE_SMOKE_COMMENT_TITLE)" \
+		--comment-commit-sha "$(SOFT_MODE_SMOKE_COMMENT_COMMIT_SHA)" \
+		--comment-output-json "$(SOFT_MODE_SMOKE_COMMENT_OUTPUT_JSON)" \
 		--wait-timeout-seconds "$(SOFT_MODE_SMOKE_WAIT_TIMEOUT)" \
 		--poll-interval-seconds "$(SOFT_MODE_SMOKE_POLL_INTERVAL)" \
 		--list-limit "$(SOFT_MODE_SMOKE_LIST_LIMIT)" \

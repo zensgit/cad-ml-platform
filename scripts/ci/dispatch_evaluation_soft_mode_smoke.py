@@ -14,6 +14,7 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from scripts.ci import dispatch_hybrid_superpass_workflow as dispatcher
+from scripts.ci import post_soft_mode_smoke_pr_comment as pr_comment
 
 
 def _run(command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -155,6 +156,42 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Sleep seconds between retries when dispatch or marker check fails.",
     )
     parser.add_argument("--output-json", default="")
+    parser.add_argument(
+        "--comment-pr-number",
+        type=int,
+        default=0,
+        help="Optional PR number for posting soft-mode summary comment.",
+    )
+    parser.add_argument(
+        "--comment-repo",
+        default="",
+        help="Optional repo for PR comment. Defaults to --repo when empty.",
+    )
+    parser.add_argument(
+        "--comment-title",
+        default="CAD ML Platform - Soft Mode Smoke",
+        help="Comment title marker for create/update matching.",
+    )
+    parser.add_argument(
+        "--comment-commit-sha",
+        default="",
+        help="Optional commit SHA shown in PR comment.",
+    )
+    parser.add_argument(
+        "--comment-output-json",
+        default="",
+        help="Optional output json path for comment script result.",
+    )
+    parser.add_argument(
+        "--comment-dry-run",
+        action="store_true",
+        help="Preview PR comment action without creating/updating.",
+    )
+    parser.add_argument(
+        "--comment-fail-on-error",
+        action="store_true",
+        help="When set, non-zero PR comment result fails this script.",
+    )
     parser.add_argument("--skip-remote-input-check", action="store_true")
     return parser
 
@@ -313,10 +350,62 @@ def main(argv: Sequence[str] | None = None) -> int:
     payload["restore_ok"] = bool(restore_ok)
     payload["restore_message"] = str(restore_message)
 
+    comment_pr_number = int(args.comment_pr_number or 0)
+    comment_requested = comment_pr_number > 0
+    comment_repo = str(args.comment_repo or args.repo)
+    comment_payload: dict[str, Any] = {
+        "enabled": bool(comment_requested),
+        "repo": str(comment_repo),
+        "pr_number": int(comment_pr_number),
+        "dry_run": bool(args.comment_dry_run),
+        "fail_on_error": bool(args.comment_fail_on_error),
+        "exit_code": 0,
+        "error": "",
+    }
+    if comment_requested:
+        with tempfile.TemporaryDirectory(prefix="eval_soft_comment_") as comment_tmpdir:
+            comment_summary_json = (
+                Path(comment_tmpdir) / "soft_mode_smoke_summary_for_comment.json"
+            )
+            comment_summary_json.write_text(
+                f"{json.dumps(payload, ensure_ascii=False, indent=2)}\n",
+                encoding="utf-8",
+            )
+            comment_args = [
+                "--repo",
+                str(comment_repo),
+                "--pr-number",
+                str(comment_pr_number),
+                "--summary-json",
+                str(comment_summary_json),
+                "--title",
+                str(args.comment_title),
+                "--commit-sha",
+                str(args.comment_commit_sha),
+            ]
+            comment_output_json = str(args.comment_output_json or "").strip()
+            if comment_output_json:
+                comment_args.extend(["--output-json", comment_output_json])
+            if bool(args.comment_dry_run):
+                comment_args.append("--dry-run")
+            try:
+                comment_rc = int(pr_comment.main(comment_args))
+                comment_payload["exit_code"] = int(comment_rc)
+            except Exception as exc:  # pragma: no cover - defensive guard
+                comment_payload["exit_code"] = 1
+                comment_payload["error"] = str(exc)
+    payload["pr_comment"] = comment_payload
+
     overall_exit = 0 if int(dispatch_exit) == 0 else 1
     if not marker_ok:
         overall_exit = 1
     if restore_attempted and not restore_ok:
+        overall_exit = 1
+    if (
+        comment_requested
+        and bool(args.comment_fail_on_error)
+        and int(comment_payload.get("exit_code", 0)) != 0
+    ):
         overall_exit = 1
     payload["overall_exit_code"] = int(overall_exit)
 
@@ -347,6 +436,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"soft_marker_message={payload['soft_marker_message']}")
     if restore_attempted:
         print(f"restore_message={restore_message or 'ok'}")
+    if comment_requested:
+        print(
+            "pr_comment exit_code={} repo={} pr_number={} dry_run={}".format(
+                comment_payload.get("exit_code", 0),
+                comment_payload.get("repo", ""),
+                comment_payload.get("pr_number", 0),
+                comment_payload.get("dry_run", False),
+            )
+        )
+    if comment_payload.get("error"):
+        print(f"pr_comment_error={comment_payload['error']}")
 
     return int(overall_exit)
 

@@ -296,6 +296,10 @@ def test_make_n_validate_soft_mode_smoke_contains_expected_flags() -> None:
     assert "--workflow" in result.stdout
     assert "--ref" in result.stdout
     assert "--expected-conclusion" in result.stdout
+    assert "--comment-repo" in result.stdout
+    assert "--comment-title" in result.stdout
+    assert "--comment-commit-sha" in result.stdout
+    assert "--comment-output-json" in result.stdout
     assert "--wait-timeout-seconds" in result.stdout
     assert "--poll-interval-seconds" in result.stdout
     assert "--list-limit" in result.stdout
@@ -303,6 +307,21 @@ def test_make_n_validate_soft_mode_smoke_contains_expected_flags() -> None:
     assert "--retry-sleep-seconds" in result.stdout
     assert "--output-json" in result.stdout
     assert "$extra_flags" in result.stdout
+
+
+def test_make_n_validate_soft_mode_smoke_with_comment_flags() -> None:
+    result = _run_make(
+        "-n",
+        "validate-soft-mode-smoke",
+        "SOFT_MODE_SMOKE_REPO=zensgit/cad-ml-platform",
+        "SOFT_MODE_SMOKE_COMMENT_PR_NUMBER=369",
+        "SOFT_MODE_SMOKE_COMMENT_DRY_RUN=1",
+        "SOFT_MODE_SMOKE_COMMENT_FAIL_ON_ERROR=1",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "--comment-pr-number 369" in result.stdout
+    assert "--comment-dry-run" in result.stdout
+    assert "--comment-fail-on-error" in result.stdout
 
 
 def test_make_n_validate_soft_mode_smoke_workflow_runs_expected_tests() -> None:
