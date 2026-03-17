@@ -47,6 +47,7 @@ def test_make_n_validate_workflow_file_health_tests_contains_expected_files() ->
 def test_make_n_validate_workflow_comment_helper_tests_contains_expected_files() -> None:
     result = _run_make("-n", "validate-workflow-comment-helper-tests")
     assert result.returncode == 0, result.stderr
+    assert "tests/unit/test_additional_workflow_comment_helper_adoption.py" in result.stdout
     assert "tests/unit/test_release_risk_comment_workflow.py" in result.stdout
     assert "tests/unit/test_pr_auto_label_comment_workflow.py" in result.stdout
     assert "tests/unit/test_sbom_comment_workflow.py" in result.stdout

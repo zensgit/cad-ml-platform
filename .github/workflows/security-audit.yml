@@ -202,8 +202,10 @@ jobs:
         continue-on-error: true
         with:
           script: |
+            const { upsertBotIssueComment } = require('./scripts/ci/comment_pr_utils.js');
             const fs = require('fs');
             let summary = 'No security summary available';
+            const marker = '<!-- ci:security-audit-summary -->';
 
             try {
               summary = fs.readFileSync('security-summary.md', 'utf8');
@@ -211,11 +213,13 @@ jobs:
               console.log('Could not read summary:', e);
             }
 
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
+            upsertBotIssueComment({
+              github,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: summary
+              issueNumber: context.issue.number,
+              body: `${marker}\n${summary}`,
+              marker
             });
 
       - name: Determine final status

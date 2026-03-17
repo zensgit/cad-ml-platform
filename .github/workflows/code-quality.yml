@@ -81,13 +81,18 @@ jobs:
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
           script: |
+            const { upsertBotIssueComment } = require('./scripts/ci/comment_pr_utils.js');
             const fs = require('fs');
             const report = fs.readFileSync('quality-report.md', 'utf8');
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
+            const marker = '<!-- ci:code-quality-report -->';
+            const body = `${marker}\n## 📊 Code Quality Report\n\n${report}`;
+            upsertBotIssueComment({
+              github,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '## 📊 Code Quality Report\n\n' + report
+              issueNumber: context.issue.number,
+              body,
+              marker
             });
 
   # ============================================
@@ -201,16 +206,20 @@ jobs:
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
           script: |
+            const { upsertBotIssueComment } = require('./scripts/ci/comment_pr_utils.js');
             const fs = require('fs');
             if (fs.existsSync('mypy-report.md')) {
               const report = fs.readFileSync('mypy-report.md', 'utf8');
               if (report.includes('error:')) {
-                github.rest.issues.createComment({
-                  issue_number: context.issue.number,
+                const marker = '<!-- ci:mypy-type-check-report -->';
+                const body = `${marker}\n## 🔍 Type Check Report\n\n${report.substring(0, 5000)}`;
+                upsertBotIssueComment({
+                  github,
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  body: '## 🔍 Type Check Report\n\n' + report.substring(0, 5000)
+                  issueNumber: context.issue.number,
+                  body,
+                  marker
                 });
               }
             }
-

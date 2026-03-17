@@ -442,14 +442,17 @@ jobs:
         uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
         with:
           script: |
+            const { upsertBotIssueComment } = require('./scripts/ci/comment_pr_utils.js');
             const fs = require('fs');
             const comment = fs.readFileSync('pr_comment.md', 'utf8');
-
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
+            const marker = '<!-- ci:adaptive-rate-limit-pr-comment -->';
+            await upsertBotIssueComment({
+              github,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: comment
+              issueNumber: context.issue.number,
+              body: `${marker}\n${comment}`,
+              marker
             });
 
   notify-alerts:

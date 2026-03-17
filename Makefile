@@ -416,6 +416,7 @@ validate-workflow-file-health-tests: ## 校验 workflow 文件健康脚本与 st
 validate-workflow-comment-helper-tests: ## 校验 workflow 内联 PR 评论已复用共享 helper
 	@echo "$(GREEN)Validating workflow PR comment helper adoption...$(NC)"
 	$(PYTEST) \
+		$(TEST_DIR)/unit/test_additional_workflow_comment_helper_adoption.py \
 		$(TEST_DIR)/unit/test_release_risk_comment_workflow.py \
 		$(TEST_DIR)/unit/test_pr_auto_label_comment_workflow.py \
 		$(TEST_DIR)/unit/test_sbom_comment_workflow.py \
