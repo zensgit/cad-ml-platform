@@ -4,8 +4,25 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Sequence
+
+try:
+    from scripts.ci.comment_markdown_utils import (
+        markdown_footer,
+        markdown_section,
+        markdown_table,
+    )
+    from scripts.ci.summary_render_utils import read_json_object
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from scripts.ci.comment_markdown_utils import (
+        markdown_footer,
+        markdown_section,
+        markdown_table,
+    )
+    from scripts.ci.summary_render_utils import read_json_object
 
 
 def _run(command: list[str], input_text: str = "") -> subprocess.CompletedProcess[str]:
@@ -26,15 +43,7 @@ def _extract_short_error(result: subprocess.CompletedProcess[str], fallback: str
 
 
 def _read_summary(path: Path) -> dict[str, Any]:
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except OSError as exc:
-        raise RuntimeError(f"failed to read summary json: {exc}") from exc
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"failed to parse summary json: {exc}") from exc
-    if not isinstance(payload, dict):
-        raise RuntimeError("summary json must be an object")
-    return payload
+    return read_json_object(path, "summary")
 
 
 def _normalize_attempt_rows(summary: dict[str, Any]) -> list[str]:
@@ -71,22 +80,28 @@ def build_comment_body(
         attempts_total = len(attempts)
     short_sha = str(commit_sha or "").strip()[:7] or "n/a"
     attempt_rows = "\n".join(_normalize_attempt_rows(summary))
-    return f"""## {title}
-
-| Field | Value |
-|---|---|
-| overall_exit_code | {summary.get("overall_exit_code", "n/a")} |
-| dispatch_exit_code | {summary.get("dispatch_exit_code", "n/a")} |
-| soft_marker_ok | {summary.get("soft_marker_ok", "n/a")} |
-| restore_ok | {summary.get("restore_ok", "n/a")} |
-| run_id | {run_id} |
-| run_url | {run_url} |
-| attempts_total | {attempts_total} |
-
-### Attempts
-{attempt_rows}
-
-*Commit: {short_sha}*"""
+    return "\n".join(
+        [
+            f"## {title}",
+            "",
+            markdown_table(
+                ["Field", "Value"],
+                [
+                    ["overall_exit_code", summary.get("overall_exit_code", "n/a")],
+                    ["dispatch_exit_code", summary.get("dispatch_exit_code", "n/a")],
+                    ["soft_marker_ok", summary.get("soft_marker_ok", "n/a")],
+                    ["restore_ok", summary.get("restore_ok", "n/a")],
+                    ["run_id", run_id],
+                    ["run_url", run_url],
+                    ["attempts_total", attempts_total],
+                ],
+            ),
+            "",
+            markdown_section("Attempts", attempt_rows),
+            "",
+            markdown_footer(commit_sha=short_sha),
+        ]
+    )
 
 
 def _list_pr_comments(repo: str, pr_number: int) -> list[dict[str, Any]]:
@@ -298,4 +313,3 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

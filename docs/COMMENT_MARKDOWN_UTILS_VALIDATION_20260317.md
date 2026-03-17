@@ -59,3 +59,41 @@ Results:
 - This is a comment rendering refactor only. No workflow YAML behavior changed.
 - `comment_evaluation_report_pr.js` now builds sections/tables via helper calls instead of one large inline template.
 - `comment_soft_mode_smoke_pr.js` uses the same helper, so future comment-format changes can be applied once.
+
+## Python Bridge Follow-up
+
+Added:
+
+- `scripts/ci/comment_markdown_utils.py`
+- `tests/unit/test_comment_markdown_utils_py.py`
+
+Refactored:
+
+- `scripts/ci/post_soft_mode_smoke_pr_comment.py`
+
+Validation target updated:
+
+- `validate-soft-mode-smoke-comment-pr`
+
+Follow-up validation:
+
+```bash
+pytest -q \
+  tests/unit/test_comment_markdown_utils_py.py \
+  tests/unit/test_post_soft_mode_smoke_pr_comment.py \
+  tests/unit/test_hybrid_calibration_make_targets.py
+```
+
+```bash
+make validate-soft-mode-smoke-comment-pr
+```
+
+Follow-up results:
+
+- `pytest -q tests/unit/test_comment_markdown_utils_py.py tests/unit/test_post_soft_mode_smoke_pr_comment.py tests/unit/test_hybrid_calibration_make_targets.py` -> `46 passed`
+- `make validate-soft-mode-smoke-comment-pr` -> `46 passed`
+
+Follow-up notes:
+
+- The Python PR bridge now uses the same table/section/footer composition pattern as the JS comment scripts.
+- `post_soft_mode_smoke_pr_comment.py` now reuses `read_json_object(..., "summary")` from `summary_render_utils.py` instead of duplicating JSON object parsing.

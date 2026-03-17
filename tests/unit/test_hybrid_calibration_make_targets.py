@@ -467,6 +467,7 @@ def test_make_n_soft_mode_smoke_comment_pr_contains_expected_flags() -> None:
 def test_make_n_validate_soft_mode_smoke_comment_pr_runs_expected_tests() -> None:
     result = _run_make("-n", "validate-soft-mode-smoke-comment-pr")
     assert result.returncode == 0, result.stderr
+    assert "test_comment_markdown_utils_py.py" in result.stdout
     assert "test_post_soft_mode_smoke_pr_comment.py" in result.stdout
     assert "test_hybrid_calibration_make_targets.py" in result.stdout
 

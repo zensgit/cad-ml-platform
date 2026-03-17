@@ -29,9 +29,12 @@ def test_build_comment_body_contains_expected_fields() -> None:
         commit_sha="abcdef123456",
     )
     assert "CAD ML Platform - Soft Mode Smoke" in body
+    assert "| Field | Value |" in body
     assert "overall_exit_code" in body
     assert "run_id | 1234" in body
+    assert "### Attempts" in body
     assert "attempt 1: dispatch_exit_code=0, soft_marker_ok=True" in body
+    assert "*Commit: abcdef1*" in body
 
 
 def test_main_creates_comment_when_no_existing_bot_comment(
@@ -228,4 +231,3 @@ def test_main_dry_run_does_not_call_create_or_update(
     assert payload["action"] == "dry_run_create_comment"
     assert "## CAD ML Platform - Soft Mode Smoke" in payload["body"]
     assert all("POST" not in cmd and "PATCH" not in cmd for cmd in commands)
-
