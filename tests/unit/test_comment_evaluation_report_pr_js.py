@@ -502,3 +502,87 @@ const mockProcess = { env: process.env };
     assert result.returncode == 0, result.stderr or result.stdout
     assert "ok:create-comment-with-workflow-health-parse-error" in result.stdout
 
+
+def test_comment_evaluation_report_pr_js_marks_multiple_parse_errors_together(
+    tmp_path: Path,
+) -> None:
+    ci_watch_summary = tmp_path / "ci_watch_invalid.json"
+    ci_watch_summary.write_text("{invalid json", encoding="utf-8")
+    workflow_file_health = tmp_path / "workflow_file_health_invalid.json"
+    workflow_file_health.write_text("{invalid json", encoding="utf-8")
+    workflow_inventory = tmp_path / "workflow_inventory_invalid.json"
+    workflow_inventory.write_text("{invalid json", encoding="utf-8")
+
+    node_script = r"""
+const mod = require("./scripts/ci/comment_evaluation_report_pr.js");
+const ciWatchPath = process.argv[1];
+const workflowFileHealthPath = process.argv[2];
+const workflowInventoryPath = process.argv[3];
+
+process.env.EVAL_COMBINED_SCORE = "0.830";
+process.env.EVAL_VISION_SCORE = "0.840";
+process.env.EVAL_OCR_SCORE = "0.930";
+process.env.EVAL_MIN_COMBINED = "0.800";
+process.env.EVAL_MIN_VISION = "0.650";
+process.env.EVAL_MIN_OCR = "0.900";
+process.env.CI_WATCH_SUMMARY_JSON_FOR_COMMENT = ciWatchPath;
+process.env.WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT = workflowFileHealthPath;
+process.env.WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT = workflowInventoryPath;
+
+let createdPayload = null;
+const github = {
+  rest: {
+    issues: {
+      listComments: async () => ({ data: [] }),
+      createComment: async (payload) => {
+        createdPayload = payload;
+        return { data: { id: 103 } };
+      },
+      updateComment: async () => {
+        throw new Error("updateComment should not be called for empty comment list");
+      },
+    },
+  },
+};
+const context = {
+  repo: { owner: "zensgit", repo: "cad-ml-platform" },
+  issue: { number: 990 },
+  sha: "4455667788990011",
+  runId: "404040404",
+};
+const mockProcess = { env: process.env };
+
+(async () => {
+  await mod.commentEvaluationReportPR({ github, context, process: mockProcess });
+  if (!createdPayload) {
+    throw new Error("createComment was not called");
+  }
+  const body = String(createdPayload.body || "");
+  if (!body.includes("CI Watch Failure Details")) {
+    throw new Error("comment body missing ci watch section");
+  }
+  if (!body.includes("Workflow File Health")) {
+    throw new Error("comment body missing workflow file health section");
+  }
+  if (!body.includes("Workflow Inventory Audit")) {
+    throw new Error("comment body missing workflow inventory section");
+  }
+  const parseErrorCount = (body.match(/parse_error/g) || []).length;
+  if (parseErrorCount < 3) {
+    throw new Error(`expected at least 3 parse_error markers, got ${parseErrorCount}`);
+  }
+  console.log("ok:create-comment-with-multiple-parse-errors");
+})().catch((err) => {
+  console.error(err && err.stack ? err.stack : String(err));
+  process.exit(1);
+});
+"""
+
+    result = _run_node_inline(
+        node_script,
+        str(ci_watch_summary),
+        str(workflow_file_health),
+        str(workflow_inventory),
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "ok:create-comment-with-multiple-parse-errors" in result.stdout

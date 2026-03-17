@@ -42,8 +42,8 @@ def test_render_markdown_includes_attempts_and_pr_comment() -> None:
     assert "## Smoke Verdict" in markdown
     assert "- verdict: ok" in markdown
     assert "- pr_comment_status: requested=True, enabled=True, exit_code=0" in markdown
-    assert "## Smoke Signals" in markdown
-    assert "- failed_attempts: 1" in markdown
+    assert "## Smoke Snapshot" in markdown
+    assert "- failed_attempt_count: 1" in markdown
     assert "- last_attempt_message: marker not found" in markdown
     assert "- pr_comment_error: comment disabled by dry-run" in markdown
     assert "- attempts_total: 1" in markdown

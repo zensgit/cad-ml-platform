@@ -9,7 +9,7 @@
 
 使真实运行后的 `--output-json` 能直接转成 Markdown，便于人工审阅、artifact 化与后续 workflow 接线。
 本轮还补齐了统一的 `Dispatch Verdict` 段，使 strict-real 与 superpass 摘要都先给出结论、再展开 failure diagnostics。
-本轮继续补了统一的 `Failure Snapshot` 段，并为无效 JSON 输入补齐失败回归。
+本轮继续补了统一的 `Dispatch Snapshot` 段，并为无效 JSON 输入补齐失败回归。
 
 ## 实现
 
@@ -24,7 +24,7 @@
   - strict-real dxf/manfiest/synth/strict flags
   - expected / actual conclusion
   - dispatch verdict / top failed jobs / top failed steps / diagnostics reason
-  - failure snapshot / failure reason
+  - dispatch snapshot / failure reason
   - overall/dispatch/watch exit code
   - run_id / run_url
   - failure diagnostics（若存在）
@@ -39,7 +39,7 @@
   - workflow / ref / repo
   - expected / actual conclusion
   - dispatch verdict / top failed jobs / top failed steps / diagnostics reason
-  - failure snapshot / failure reason
+  - dispatch snapshot / failure reason
   - overall/watch exit code
   - run_id / run_url
   - dispatch_command

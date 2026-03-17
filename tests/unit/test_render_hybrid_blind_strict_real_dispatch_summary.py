@@ -51,7 +51,7 @@ def test_render_markdown_includes_core_fields_and_failure_diagnostics() -> None:
     assert "- hybrid_blind_dxf_dir: /tmp/dxf" in markdown
     assert "- matched_expectation: False" in markdown
     assert "- run_id: 4301" in markdown
-    assert "## Failure Snapshot" in markdown
+    assert "## Dispatch Snapshot" in markdown
     assert "- failed_job_count: 1" in markdown
     assert "- failure_reason: failed_jobs_detected" in markdown
     assert "### Failure Diagnostics" in markdown

@@ -91,7 +91,7 @@ def render_markdown(payload: dict[str, Any]) -> str:
     lines.extend(
         [
             "",
-            "## Failure Snapshot",
+            "## Dispatch Snapshot",
             "",
             f"- failed_job_count: {len(failed_jobs_list)}",
             f"- top_failed_jobs: {', '.join(top_failed_jobs) if top_failed_jobs else '(none)'}",

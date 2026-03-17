@@ -52,7 +52,7 @@ def test_render_markdown_includes_core_fields_and_dispatch_command() -> None:
     assert "- top_failed_steps: Validate Superpass Reports" in markdown
     assert "- dispatch_command: gh workflow run evaluation-report.yml --ref main" in markdown
     assert "- matched_expectation: False" in markdown
-    assert "## Failure Snapshot" in markdown
+    assert "## Dispatch Snapshot" in markdown
     assert "- failed_job_count: 1" in markdown
     assert "- failure_reason: failed_jobs_detected" in markdown
     assert "### Failure Diagnostics" in markdown

@@ -91,9 +91,9 @@ def render_markdown(summary: dict[str, Any]) -> str:
         f"- retry_sleep_seconds: {summary.get('retry_sleep_seconds', 'n/a')}",
         f"- attempts_total: {len(attempts)}",
         "",
-        "## Smoke Signals",
+        "## Smoke Snapshot",
         "",
-        f"- failed_attempts: {len(failed_attempts)}",
+        f"- failed_attempt_count: {len(failed_attempts)}",
         f"- last_attempt_message: {last_attempt_message}",
         f"- pr_comment_error: {pr_comment_error or '(none)'}",
     ]
