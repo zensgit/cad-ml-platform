@@ -30,6 +30,9 @@ GitHub Actions integration:
   - generates the inventory report
   - uploads `workflow_inventory_report.json` and `workflow_inventory_report.md`
   - appends the rendered Markdown to `GITHUB_STEP_SUMMARY`
+- `evaluation-report.yml` now mirrors a compact inventory summary into:
+  - PR comment input env via `WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT`
+  - evaluation run step summary via `workflow_inventory_for_comment.md`
 
 ## Validation
 
@@ -61,6 +64,12 @@ Results:
   - `duplicate_name_count = 0`
   - `missing_required_count = 0`
   - `non_unique_required_count = 0`
+- `pytest -q tests/unit/test_evaluation_report_workflow_graph2d_extensions.py tests/unit/test_generate_workflow_inventory_report.py` -> `9 passed`
+- `make validate-eval-with-history-ci-workflows` -> `19 passed`
+- `evaluation-report.yml` now mirrors:
+  - `workflow_inventory_for_comment.json`
+  - `workflow_inventory_for_comment.md`
+  - `WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT` into the PR comment script env
 - `make validate-ci-watchers` also passed with the new inventory step included
 
 ## Notes

@@ -427,6 +427,46 @@ async function commentEvaluationReportPR({ github, context, process }) {
       }
     }
 
+    const workflowInventorySummaryPath = envStr(
+      "WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT",
+      "",
+    );
+    let workflowInventorySummary = "⏭️ skipped (no summary path)";
+    let workflowInventoryLight = "⚪";
+    if (workflowInventorySummaryPath) {
+      try {
+        if (!fs.existsSync(workflowInventorySummaryPath)) {
+          workflowInventorySummary = `⚠️ summary missing at ${workflowInventorySummaryPath}`;
+          workflowInventoryLight = "🟡";
+        } else {
+          const payload = JSON.parse(
+            fs.readFileSync(workflowInventorySummaryPath, "utf8"),
+          );
+          const workflowCount =
+            parseInt(String(payload.workflow_count ?? 0), 10) || 0;
+          const duplicateCount =
+            parseInt(String(payload.duplicate_name_count ?? 0), 10) || 0;
+          const missingRequiredCount =
+            parseInt(String(payload.missing_required_count ?? 0), 10) || 0;
+          const nonUniqueRequiredCount =
+            parseInt(String(payload.non_unique_required_count ?? 0), 10) || 0;
+          workflowInventorySummary =
+            `workflows=${workflowCount}, duplicate=${duplicateCount}, ` +
+            `missing_required=${missingRequiredCount}, non_unique_required=${nonUniqueRequiredCount}`;
+          workflowInventoryLight =
+            duplicateCount > 0 ||
+            missingRequiredCount > 0 ||
+            nonUniqueRequiredCount > 0
+              ? "🔴"
+              : "🟢";
+        }
+      } catch (error) {
+        const message = error && error.message ? error.message : String(error);
+        workflowInventorySummary = `⚠️ parse_error: ${message}`;
+        workflowInventoryLight = "🟡";
+      }
+    }
+
     const reviewCandidateCount = parseInt(reviewCandidates || "0", 10);
     const sweepTotalRunsInt = parseInt(sweepTotalRuns || "0", 10);
     const sweepFailedRunsInt = parseInt(sweepFailedRuns || "0", 10);
@@ -655,6 +695,7 @@ ${overallStatus}
 | **Strict Gate Playbook** | ${strictPlaybookSummary} |
 | **CI Watch Failure Details** | ${ciWatchFailureSummary} |
 | **Workflow File Health** | ${workflowFileHealthSummary} |
+| **Workflow Inventory Audit** | ${workflowInventorySummary} |
 
 ### Signal Lights
 | Signal | State | Detail |
@@ -667,6 +708,7 @@ ${overallStatus}
 | **Strict Gate Policy** | ${strictDecisionLight} | mode=${evaluationStrictMode}, strict_requests=${strictFailureRequests.length}, result=${strictDecisionResult} |
 | **CI Watcher** | ${ciWatchFailureLight} | ${ciWatchFailureSummary} |
 | **Workflow Health** | ${workflowFileHealthLight} | ${workflowFileHealthSummary} |
+| **Workflow Inventory** | ${workflowInventoryLight} | ${workflowInventorySummary} |
 
 ### Strict Gate Decision Path
 | Item | Value |

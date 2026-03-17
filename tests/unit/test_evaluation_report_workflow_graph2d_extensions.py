@@ -82,6 +82,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "HYBRID_SUPERPASS_VALIDATION_SCHEMA_MODE" in env
     assert "CI_WATCH_SUMMARY_JSON_FOR_COMMENT" in env
     assert "WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT" in env
+    assert "WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT" in env
 
     dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
     assert "review_gate_min_total_rows" in dispatch_inputs
@@ -522,6 +523,28 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "--mode auto" in wf_health_script
     assert "--summary-json-out reports/ci/workflow_file_health_for_comment.json" in wf_health_script
 
+    workflow_inventory_step = _get_step(
+        workflow,
+        "evaluate",
+        "Build workflow inventory summary for PR comment (optional)",
+    )
+    workflow_inventory_script = workflow_inventory_step["run"]
+    assert "scripts/ci/generate_workflow_inventory_report.py" in workflow_inventory_script
+    assert "--workflow-root \".github/workflows\"" in workflow_inventory_script
+    assert "--output-json reports/ci/workflow_inventory_for_comment.json" in workflow_inventory_script
+    assert "--output-md reports/ci/workflow_inventory_for_comment.md" in workflow_inventory_script
+
+    append_inventory_step = _get_step(
+        workflow,
+        "evaluate",
+        "Append workflow inventory summary for evaluation report (optional)",
+    )
+    append_inventory_script = append_inventory_step["run"]
+    assert "## Workflow Inventory Audit" in append_inventory_script
+    assert "cat reports/ci/workflow_inventory_for_comment.md" in append_inventory_script
+    assert "workflow inventory markdown missing" in append_inventory_script
+    assert '>> "$GITHUB_STEP_SUMMARY"' in append_inventory_script
+
     pr_comment_env = pr_comment_step["env"]
     assert "EVALUATION_STRICT_FAIL_MODE" in pr_comment_env
     assert "EVALUATION_STRICT_FAIL_MODE_RESOLVED" in pr_comment_env
@@ -532,8 +555,12 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "HYBRID_SUPERPASS_VALIDATION_EXIT_CODE" in pr_comment_env
     assert "CI_WATCH_SUMMARY_JSON_FOR_COMMENT" in pr_comment_env
     assert "WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT" in pr_comment_env
+    assert "WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT" in pr_comment_env
     assert "workflow_file_health_for_comment.outputs.summary_json" in pr_comment_env[
         "WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT"
+    ]
+    assert "workflow_inventory_for_comment.outputs.summary_json" in pr_comment_env[
+        "WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT"
     ]
 
     module_script = (
@@ -556,8 +583,10 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Hybrid Calibration Baseline" in module_script
     assert "CI Watch Failure Details" in module_script
     assert "Workflow File Health" in module_script
+    assert "Workflow Inventory Audit" in module_script
     assert "CI Watcher" in module_script
     assert "Workflow Health" in module_script
+    assert "Workflow Inventory" in module_script
     assert "fs.existsSync(ciWatchSummaryPath)" in module_script
     assert "workflowFileHealthSummaryPath" in module_script
     assert "Hybrid Blind Eval" in module_script
