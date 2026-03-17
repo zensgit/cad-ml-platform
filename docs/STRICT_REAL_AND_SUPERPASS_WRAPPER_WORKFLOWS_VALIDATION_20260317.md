@@ -59,8 +59,40 @@ Result:
 
 - `54 passed`
 
+### Live GitHub Actions validation
+
+Triggered workflow:
+
+```bash
+gh workflow run hybrid-superpass-e2e.yml \
+  --ref feat/hybrid-blind-drift-autotune-e2e \
+  -f ref=feat/hybrid-blind-drift-autotune-e2e
+```
+
+Wrapper run:
+
+- workflow: `Hybrid Superpass E2E`
+- run_id: `23172013969`
+- run_url: `https://github.com/zensgit/cad-ml-platform/actions/runs/23172013969`
+- result: wrapper executed successfully end-to-end, produced JSON and Markdown artifacts, then failed because the nested `evaluation-report.yml` run returned failure
+
+Nested dispatched run:
+
+- workflow: `Evaluation Report`
+- run_id: `23172020610`
+- run_url: `https://github.com/zensgit/cad-ml-platform/actions/runs/23172020610`
+- failure step: `Fail workflow when Hybrid superpass strict check requires blocking`
+
+Artifact confirmation:
+
+- downloaded artifact contained:
+  - `hybrid_superpass_e2e_summary.json`
+  - `hybrid_superpass_e2e_summary.md`
+- rendered markdown correctly summarized the nested run id, run url, and failure diagnostics
+
 ## Notes
 
-- Validation in this round is repository-local and regression-based.
-- No live GitHub workflow dispatch was executed for the new wrapper workflow files in this round.
+- `hybrid-superpass-e2e` is now validated both locally and on GitHub Actions.
+- The observed remote failure was downstream business logic enforcement, not wrapper wiring failure.
+- `hybrid-blind-strict-real-e2e` was validated locally in this round; no live remote dispatch was triggered because it needs an explicit DXF directory input meaningful to the runner environment.
 - The implementation intentionally only touches low-conflict CI files and avoids unrelated model or API changes already present in the worktree.
