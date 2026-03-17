@@ -117,6 +117,7 @@ env:
   ARTIFACT_RETENTION_DAYS: 30
   EVALUATION_STRICT_FAIL_MODE: ${{ vars.EVALUATION_STRICT_FAIL_MODE || 'hard' }}
   CI_WATCH_SUMMARY_JSON_FOR_COMMENT: ${{ vars.CI_WATCH_SUMMARY_JSON_FOR_COMMENT || '' }}
+  CI_WATCH_VALIDATION_REPORT_JSON_FOR_COMMENT: ${{ vars.CI_WATCH_VALIDATION_REPORT_JSON_FOR_COMMENT || '' }}
   CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT: ${{ vars.CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT || '' }}
   WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT: ${{ vars.WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT || '' }}
   WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT: ${{ vars.WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT || '' }}
@@ -2216,6 +2217,44 @@ jobs:
         fi
         echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
 
+    - name: Build CI watch validation report for PR comment (optional)
+      id: ci_watch_validation_for_comment
+      continue-on-error: true
+      run: |
+        mkdir -p reports/ci
+        CI_WATCH_JSON="${CI_WATCH_SUMMARY_JSON_FOR_COMMENT:-}"
+        WORKFLOW_GUARDRAIL_JSON="${{ steps.workflow_guardrail_for_comment.outputs.summary_json || env.WORKFLOW_GUARDRAIL_SUMMARY_JSON_FOR_COMMENT }}"
+        CI_WORKFLOW_OVERVIEW_JSON="${{ steps.ci_workflow_guardrail_overview_for_comment.outputs.summary_json || env.CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT }}"
+        if [[ -z "$CI_WATCH_JSON" || ! -f "$CI_WATCH_JSON" ]]; then
+          echo "summary_json=" >> $GITHUB_OUTPUT
+          echo "summary_md=" >> $GITHUB_OUTPUT
+          echo "exit_code=0" >> $GITHUB_OUTPUT
+          echo "Missing CI watch validation report inputs; skip."
+          exit 0
+        fi
+        set +e
+        python3 scripts/ci/generate_ci_watcher_validation_report.py \
+          --summary-json "$CI_WATCH_JSON" \
+          --workflow-guardrail-summary-json "$WORKFLOW_GUARDRAIL_JSON" \
+          --ci-workflow-guardrail-overview-json "$CI_WORKFLOW_OVERVIEW_JSON" \
+          --output-json reports/ci/ci_watch_validation_for_comment.json \
+          --output-md reports/ci/ci_watch_validation_for_comment.md \
+          >/dev/null
+        EXIT_CODE=$?
+        set -e
+
+        if [[ -f "reports/ci/ci_watch_validation_for_comment.json" ]]; then
+          echo "summary_json=reports/ci/ci_watch_validation_for_comment.json" >> $GITHUB_OUTPUT
+        else
+          echo "summary_json=" >> $GITHUB_OUTPUT
+        fi
+        if [[ -f "reports/ci/ci_watch_validation_for_comment.md" ]]; then
+          echo "summary_md=reports/ci/ci_watch_validation_for_comment.md" >> $GITHUB_OUTPUT
+        else
+          echo "summary_md=" >> $GITHUB_OUTPUT
+        fi
+        echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+
     - name: Append workflow inventory summary for evaluation report (optional)
       if: always()
       run: |
@@ -2258,6 +2297,17 @@ jobs:
           cat reports/ci/ci_workflow_guardrail_overview_for_comment.md >> "$GITHUB_STEP_SUMMARY"
         else
           echo "- ci workflow guardrail overview markdown missing: reports/ci/ci_workflow_guardrail_overview_for_comment.md" >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+    - name: Append CI watch validation report for evaluation report (optional)
+      if: always()
+      run: |
+        if [[ -f "reports/ci/ci_watch_validation_for_comment.md" ]]; then
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "## CI Watch Validation Report" >> "$GITHUB_STEP_SUMMARY"
+          cat reports/ci/ci_watch_validation_for_comment.md >> "$GITHUB_STEP_SUMMARY"
+        else
+          echo "- ci watch validation markdown missing: reports/ci/ci_watch_validation_for_comment.md" >> "$GITHUB_STEP_SUMMARY"
         fi
 
     - name: Comment PR with results
@@ -2362,6 +2412,7 @@ jobs:
         HYBRID_SUPERPASS_VALIDATION_EXIT_CODE: ${{ steps.hybrid_superpass_validate.outputs.exit_code }}
         HYBRID_SUPERPASS_VALIDATION_STATUS: ${{ steps.hybrid_superpass_validate.outputs.status }}
         CI_WATCH_SUMMARY_JSON_FOR_COMMENT: ${{ env.CI_WATCH_SUMMARY_JSON_FOR_COMMENT }}
+        CI_WATCH_VALIDATION_REPORT_JSON_FOR_COMMENT: ${{ steps.ci_watch_validation_for_comment.outputs.summary_json || env.CI_WATCH_VALIDATION_REPORT_JSON_FOR_COMMENT }}
         CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT: ${{ steps.ci_workflow_guardrail_overview_for_comment.outputs.summary_json || env.CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT }}
         WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT: ${{ steps.workflow_file_health_for_comment.outputs.summary_json || env.WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT }}
         WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT: ${{ steps.workflow_inventory_for_comment.outputs.summary_json || env.WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT }}

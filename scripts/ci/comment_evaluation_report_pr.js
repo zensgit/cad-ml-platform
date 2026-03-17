@@ -132,6 +132,32 @@ function summarizeCiWatchFailure(summaryPath, fsApi = fs) {
   return { summary, light };
 }
 
+function summarizeCiWatchValidationReport(summaryPath, fsApi = fs) {
+  let summary = "⏭️ skipped (no summary path)";
+  let light = "⚪";
+  if (!summaryPath) {
+    return { summary, light };
+  }
+  try {
+    if (!fsApi.existsSync(summaryPath)) {
+      return {
+        summary: `⚠️ summary missing at ${summaryPath}`,
+        light: "🟡",
+      };
+    }
+    const payload = JSON.parse(fsApi.readFileSync(summaryPath, "utf8"));
+    const verdict = String(payload.verdict || "unknown").trim();
+    summary = String(payload.summary || `verdict=${verdict}`);
+    const verdictSuccess = Boolean(payload.verdict_success);
+    light = verdictSuccess || verdict === "PASS" ? "🟢" : "🔴";
+  } catch (error) {
+    const message = error && error.message ? error.message : String(error);
+    summary = `⚠️ parse_error: ${message}`;
+    light = "🟡";
+  }
+  return { summary, light };
+}
+
 function summarizeWorkflowFileHealth(summaryPath, fsApi = fs) {
   let summary = "⏭️ skipped (no summary path)";
   let light = "⚪";
@@ -437,6 +463,7 @@ function buildEvaluationReportCommentBody({
   strictDecisionResult,
   strictPlaybookSummary,
   ciWatchFailureSummary,
+  ciWatchValidationReportSummary,
   workflowFileHealthSummary,
   workflowInventorySummary,
   workflowPublishHelperSummary,
@@ -450,6 +477,7 @@ function buildEvaluationReportCommentBody({
   strictDecisionLight,
   strictFailureRequestsCount,
   ciWatchFailureLight,
+  ciWatchValidationReportLight,
   workflowFileHealthLight,
   workflowInventoryLight,
   workflowPublishHelperLight,
@@ -511,6 +539,7 @@ function buildEvaluationReportCommentBody({
           ],
           ["**Strict Gate Playbook**", strictPlaybookSummary],
           ["**CI Watch Failure Details**", ciWatchFailureSummary],
+          ["**CI Watch Validation Report**", ciWatchValidationReportSummary],
           ["**Workflow File Health**", workflowFileHealthSummary],
           ["**Workflow Inventory Audit**", workflowInventorySummary],
           ["**Workflow Publish Helper Adoption**", workflowPublishHelperSummary],
@@ -536,6 +565,11 @@ function buildEvaluationReportCommentBody({
             `mode=${evaluationStrictMode}, strict_requests=${strictFailureRequestsCount}, result=${strictDecisionResult}`,
           ],
           ["**CI Watcher**", ciWatchFailureLight, ciWatchFailureSummary],
+          [
+            "**CI Watch Validation**",
+            ciWatchValidationReportLight,
+            ciWatchValidationReportSummary,
+          ],
           ["**Workflow Health**", workflowFileHealthLight, workflowFileHealthSummary],
           ["**Workflow Inventory**", workflowInventoryLight, workflowInventorySummary],
           [
@@ -855,6 +889,14 @@ async function commentEvaluationReportPR({ github, context, process }) {
       summary: ciWatchFailureSummary,
       light: ciWatchFailureLight,
     } = summarizeCiWatchFailure(ciWatchSummaryPath);
+    const ciWatchValidationReportSummaryPath = envStr(
+      "CI_WATCH_VALIDATION_REPORT_JSON_FOR_COMMENT",
+      "",
+    );
+    const {
+      summary: ciWatchValidationReportSummary,
+      light: ciWatchValidationReportLight,
+    } = summarizeCiWatchValidationReport(ciWatchValidationReportSummaryPath);
 
     const workflowFileHealthSummaryPath = envStr(
       "WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT",
@@ -1124,6 +1166,7 @@ async function commentEvaluationReportPR({ github, context, process }) {
       strictDecisionResult,
       strictPlaybookSummary,
       ciWatchFailureSummary,
+      ciWatchValidationReportSummary,
       workflowFileHealthSummary,
       workflowInventorySummary,
       workflowPublishHelperSummary,
@@ -1137,6 +1180,7 @@ async function commentEvaluationReportPR({ github, context, process }) {
       strictDecisionLight,
       strictFailureRequestsCount: strictFailureRequests.length,
       ciWatchFailureLight,
+      ciWatchValidationReportLight,
       workflowFileHealthLight,
       workflowInventoryLight,
       workflowPublishHelperLight,
@@ -1169,6 +1213,7 @@ module.exports = {
   buildEvaluationReportCommentBody,
   commentEvaluationReportPR,
   summarizeCiWatchFailure,
+  summarizeCiWatchValidationReport,
   summarizeWorkflowFileHealth,
   summarizeWorkflowInventory,
   summarizeWorkflowPublishHelper,

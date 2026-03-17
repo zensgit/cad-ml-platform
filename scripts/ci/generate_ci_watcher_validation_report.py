@@ -435,6 +435,107 @@ def _render_failure_details_rows(summary: dict[str, Any]) -> list[str]:
     return rows
 
 
+def _build_summary_payload(
+    *,
+    summary: dict[str, Any],
+    summary_path: Path,
+    readiness: dict[str, Any] | None,
+    readiness_path: Path | None,
+    soft_smoke: dict[str, Any] | None,
+    soft_smoke_path: Path | None,
+    soft_smoke_md_path: Path | None,
+    workflow_guardrail_summary: dict[str, Any] | None,
+    workflow_guardrail_summary_path: Path | None,
+    ci_workflow_guardrail_overview: dict[str, Any] | None,
+    ci_workflow_guardrail_overview_path: Path | None,
+    sha: str,
+    date_str: str,
+) -> dict[str, Any]:
+    counts = _extract_counts(summary)
+    verdict_success = _is_success_summary(summary)
+    workflow_guardrail_status = "missing"
+    workflow_guardrail_summary_text = ""
+    if isinstance(workflow_guardrail_summary, dict):
+        workflow_guardrail_status = str(
+            workflow_guardrail_summary.get("overall_status") or "unknown"
+        )
+        workflow_guardrail_summary_text = str(
+            workflow_guardrail_summary.get("summary") or ""
+        )
+    ci_workflow_overview_status = "missing"
+    ci_workflow_overview_summary_text = ""
+    if isinstance(ci_workflow_guardrail_overview, dict):
+        ci_workflow_overview_status = str(
+            ci_workflow_guardrail_overview.get("overall_status") or "unknown"
+        )
+        ci_workflow_overview_summary_text = str(
+            ci_workflow_guardrail_overview.get("summary") or ""
+        )
+    report_summary = (
+        f"verdict={'PASS' if verdict_success else 'FAIL'}, "
+        f"reason={summary.get('reason', '')}, "
+        f"failed={counts['failed']}, "
+        f"missing_required={counts['missing_required']}, "
+        f"workflow_guardrail={workflow_guardrail_status}, "
+        f"ci_workflow_overview={ci_workflow_overview_status}"
+    )
+    attempts_total = 0
+    if isinstance(soft_smoke, dict):
+        attempts = soft_smoke.get("attempts")
+        if isinstance(attempts, list):
+            attempts_total = len([item for item in attempts if isinstance(item, dict)])
+    return {
+        "version": 1,
+        "verdict": "PASS" if verdict_success else "FAIL",
+        "verdict_success": verdict_success,
+        "summary": report_summary,
+        "date": date_str,
+        "short_sha": sha[:7] if sha else "",
+        "requested_sha": str(summary.get("requested_sha") or ""),
+        "resolved_sha": str(summary.get("resolved_sha") or ""),
+        "repo": str(summary.get("repo") or ""),
+        "reason": str(summary.get("reason") or ""),
+        "counts": counts,
+        "summary_path": summary_path.as_posix(),
+        "readiness_path": readiness_path.as_posix() if readiness_path is not None else "",
+        "soft_smoke_path": soft_smoke_path.as_posix() if soft_smoke_path is not None else "",
+        "soft_smoke_md_path": soft_smoke_md_path.as_posix()
+        if soft_smoke_md_path is not None
+        else "",
+        "workflow_guardrail_summary_path": workflow_guardrail_summary_path.as_posix()
+        if workflow_guardrail_summary_path is not None
+        else "",
+        "ci_workflow_guardrail_overview_path": ci_workflow_guardrail_overview_path.as_posix()
+        if ci_workflow_guardrail_overview_path is not None
+        else "",
+        "sections": {
+            "readiness": {
+                "present": readiness is not None and readiness_path is not None,
+                "ok": bool(readiness.get("ok")) if isinstance(readiness, dict) else None,
+            },
+            "soft_smoke": {
+                "present": soft_smoke is not None and soft_smoke_path is not None,
+                "overall_exit_code": soft_smoke.get("overall_exit_code")
+                if isinstance(soft_smoke, dict)
+                else None,
+                "attempts_total": attempts_total,
+            },
+            "workflow_guardrail_summary": {
+                "present": workflow_guardrail_summary is not None
+                and workflow_guardrail_summary_path is not None,
+                "overall_status": workflow_guardrail_status,
+                "summary": workflow_guardrail_summary_text,
+            },
+            "ci_workflow_guardrail_overview": {
+                "present": ci_workflow_guardrail_overview is not None
+                and ci_workflow_guardrail_overview_path is not None,
+                "overall_status": ci_workflow_overview_status,
+                "summary": ci_workflow_overview_summary_text,
+            },
+        },
+    }
+
+
 def _render_markdown(
     *,
     summary: dict[str, Any],
@@ -601,6 +702,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional explicit markdown output path.",
     )
     parser.add_argument(
+        "--output-json",
+        default="",
+        help="Optional explicit JSON summary output path.",
+    )
+    parser.add_argument(
         "--report-dir",
         default="reports",
         help="Report directory when --output-md is not set.",
@@ -683,7 +789,32 @@ def main(argv: Sequence[str] | None = None) -> int:
         sha=sha,
         date_str=date_str,
     )
+    summary_payload = _build_summary_payload(
+        summary=summary,
+        summary_path=summary_path,
+        readiness=readiness,
+        readiness_path=readiness_path,
+        soft_smoke=soft_smoke,
+        soft_smoke_path=soft_smoke_path,
+        soft_smoke_md_path=soft_smoke_md_path,
+        workflow_guardrail_summary=workflow_guardrail_summary,
+        workflow_guardrail_summary_path=workflow_guardrail_summary_path,
+        ci_workflow_guardrail_overview=ci_workflow_guardrail_overview,
+        ci_workflow_guardrail_overview_path=ci_workflow_guardrail_overview_path,
+        sha=sha,
+        date_str=date_str,
+    )
     output_path.write_text(markdown, encoding="utf-8")
+    output_json = str(args.output_json or "").strip()
+    if output_json:
+        output_json_path = Path(output_json).expanduser()
+        if output_json_path.parent != Path("."):
+            output_json_path.parent.mkdir(parents=True, exist_ok=True)
+        output_json_path.write_text(
+            json.dumps(summary_payload, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        print(f"output_json={output_json_path.as_posix()}", flush=True)
 
     print(f"summary_json={summary_path.as_posix()}", flush=True)
     print(

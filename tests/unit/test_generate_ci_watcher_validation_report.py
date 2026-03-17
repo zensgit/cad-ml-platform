@@ -32,6 +32,7 @@ def test_main_generates_success_report_with_explicit_summary(tmp_path: Path) -> 
     soft_smoke_md_path = tmp_path / "ci" / "evaluation_soft_mode_smoke_summary.md"
     workflow_guardrail_summary_path = tmp_path / "ci" / "workflow_guardrail_summary.json"
     ci_workflow_guardrail_overview_path = tmp_path / "ci" / "ci_workflow_guardrail_overview.json"
+    output_json = tmp_path / "reports" / "ci_watch_validation_summary.json"
     report_dir = tmp_path / "reports"
 
     _write_json(
@@ -134,6 +135,8 @@ def test_main_generates_success_report_with_explicit_summary(tmp_path: Path) -> 
             str(summary_path),
             "--report-dir",
             str(report_dir),
+            "--output-json",
+            str(output_json),
             "--date",
             "20260225",
             "--report-sha-len",
@@ -144,7 +147,9 @@ def test_main_generates_success_report_with_explicit_summary(tmp_path: Path) -> 
 
     output_path = report_dir / "DEV_CI_WATCHER_SAFE_AUTO_SUCCESS_VALIDATION_ABC123D_20260225.md"
     assert output_path.exists()
+    assert output_json.exists()
     text = output_path.read_text(encoding="utf-8")
+    payload = json.loads(output_json.read_text(encoding="utf-8"))
     assert "PASS." in text
     assert summary_path.as_posix() in text
     assert readiness_path.as_posix() in text
@@ -167,6 +172,15 @@ def test_main_generates_success_report_with_explicit_summary(tmp_path: Path) -> 
     assert "No structured failure_details in summary payload." in text
     assert "CI_WATCH_REPO='zensgit/cad-ml-platform'" in text
     assert "CI_WATCH_PRINT_FAILURE_DETAILS=1" in text
+    assert payload["verdict"] == "PASS"
+    assert payload["summary"] == (
+        "verdict=PASS, reason=all_workflows_success, failed=0, missing_required=0, "
+        "workflow_guardrail=ok, ci_workflow_overview=ok"
+    )
+    assert payload["summary_path"] == summary_path.as_posix()
+    assert payload["workflow_guardrail_summary_path"] == workflow_guardrail_summary_path.as_posix()
+    assert payload["ci_workflow_guardrail_overview_path"] == ci_workflow_guardrail_overview_path.as_posix()
+    assert payload["sections"]["soft_smoke"]["attempts_total"] == 1
 
 
 def test_main_auto_picks_latest_summary(tmp_path: Path) -> None:

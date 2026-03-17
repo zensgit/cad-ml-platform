@@ -181,6 +181,7 @@ const body = mod.buildEvaluationReportCommentBody({
   strictDecisionResult: "downgraded_to_warning",
   strictPlaybookSummary: "[strict-gate-playbook](https://example.invalid/playbook)",
   ciWatchFailureSummary: "failed=0, reason=passed",
+  ciWatchValidationReportSummary: "verdict=PASS, reason=all_workflows_success, failed=0, missing_required=0, workflow_guardrail=ok, ci_workflow_overview=ok",
   workflowFileHealthSummary: "failed=0/33, mode=auto, fallback=none",
   workflowInventorySummary: "workflows=33, duplicate=0, missing_required=0, non_unique_required=0",
   workflowPublishHelperSummary: "checked=33, failed=0, raw=0, missing_comment_helper=0, missing_issue_helper=0",
@@ -194,6 +195,7 @@ const body = mod.buildEvaluationReportCommentBody({
   strictDecisionLight: "🟡",
   strictFailureRequestsCount: 2,
   ciWatchFailureLight: "🟢",
+  ciWatchValidationReportLight: "🟢",
   workflowFileHealthLight: "🟢",
   workflowInventoryLight: "🟢",
   workflowPublishHelperLight: "🟢",
@@ -226,8 +228,14 @@ if (!body.includes("Workflow Publish Helper Adoption")) {
 if (!body.includes("Workflow Guardrail Summary")) {
   throw new Error("body missing workflow guardrail row");
 }
+if (!body.includes("CI Watch Validation Report")) {
+  throw new Error("body missing ci watch validation row");
+}
 if (!body.includes("CI Workflow Guardrail Overview")) {
   throw new Error("body missing ci workflow guardrail overview row");
+}
+if (!body.includes("**CI Watch Validation**")) {
+  throw new Error("body missing ci watch validation signal");
 }
 if (!body.includes("strict_requests=2")) {
   throw new Error("body missing strict request count detail");
@@ -347,6 +355,7 @@ const mockProcess = { env: process.env };
     strictDecisionResult: "no_strict_fail_requests",
     strictPlaybookSummary,
     ciWatchFailureSummary: "⏭️ skipped (no summary path)",
+    ciWatchValidationReportSummary: "⏭️ skipped (no summary path)",
     workflowFileHealthSummary: "⏭️ skipped (no summary path)",
     workflowInventorySummary: "⏭️ skipped (no summary path)",
     workflowPublishHelperSummary: "⏭️ skipped (no summary path)",
@@ -360,6 +369,7 @@ const mockProcess = { env: process.env };
     strictDecisionLight: "🟢",
     strictFailureRequestsCount: 0,
     ciWatchFailureLight: "⚪",
+    ciWatchValidationReportLight: "⚪",
     workflowFileHealthLight: "⚪",
     workflowInventoryLight: "⚪",
     workflowPublishHelperLight: "⚪",
@@ -1135,6 +1145,149 @@ const mockProcess = { env: process.env };
     assert "ok:create-comment-with-ci-watch-parse-error" in result.stdout
 
 
+def test_comment_evaluation_report_pr_js_includes_ci_watch_validation_report(
+    tmp_path: Path,
+) -> None:
+    ci_watch_validation = tmp_path / "ci_watch_validation.json"
+    ci_watch_validation.write_text(
+        json.dumps(
+            {
+                "verdict": "FAIL",
+                "verdict_success": False,
+                "summary": "verdict=FAIL, reason=workflow_failed, failed=1, missing_required=0, workflow_guardrail=ok, ci_workflow_overview=error",
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    node_script = r"""
+const mod = require("./scripts/ci/comment_evaluation_report_pr.js");
+const reportPath = process.argv[1];
+
+process.env.EVAL_COMBINED_SCORE = "0.830";
+process.env.EVAL_VISION_SCORE = "0.840";
+process.env.EVAL_OCR_SCORE = "0.930";
+process.env.EVAL_MIN_COMBINED = "0.800";
+process.env.EVAL_MIN_VISION = "0.650";
+process.env.EVAL_MIN_OCR = "0.900";
+process.env.CI_WATCH_VALIDATION_REPORT_JSON_FOR_COMMENT = reportPath;
+
+let createdPayload = null;
+const github = {
+  rest: {
+    issues: {
+      listComments: async () => ({ data: [] }),
+      createComment: async (payload) => {
+        createdPayload = payload;
+        return { data: { id: 120 } };
+      },
+      updateComment: async () => {
+        throw new Error("updateComment should not be called for empty comment list");
+      },
+    },
+  },
+};
+const context = {
+  repo: { owner: "zensgit", repo: "cad-ml-platform" },
+  issue: { number: 997 },
+  sha: "1122334455667788",
+  runId: "929292929",
+};
+const mockProcess = { env: process.env };
+
+(async () => {
+  await mod.commentEvaluationReportPR({ github, context, process: mockProcess });
+  if (!createdPayload) {
+    throw new Error("createComment was not called");
+  }
+  const body = String(createdPayload.body || "");
+  if (!body.includes("CI Watch Validation Report")) {
+    throw new Error("comment body missing ci watch validation report section");
+  }
+  if (!body.includes("verdict=FAIL, reason=workflow_failed, failed=1, missing_required=0, workflow_guardrail=ok, ci_workflow_overview=error")) {
+    throw new Error("comment body missing ci watch validation report summary");
+  }
+  if (!body.includes("**CI Watch Validation**")) {
+    throw new Error("comment body missing ci watch validation signal");
+  }
+  console.log("ok:create-comment-with-ci-watch-validation-report");
+})().catch((err) => {
+  console.error(err && err.stack ? err.stack : String(err));
+  process.exit(1);
+});
+"""
+
+    result = _run_node_inline(node_script, str(ci_watch_validation))
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "ok:create-comment-with-ci-watch-validation-report" in result.stdout
+
+
+def test_comment_evaluation_report_pr_js_marks_ci_watch_validation_report_parse_errors(
+    tmp_path: Path,
+) -> None:
+    ci_watch_validation = tmp_path / "ci_watch_validation_invalid.json"
+    ci_watch_validation.write_text("{invalid json", encoding="utf-8")
+
+    node_script = r"""
+const mod = require("./scripts/ci/comment_evaluation_report_pr.js");
+const reportPath = process.argv[1];
+
+process.env.EVAL_COMBINED_SCORE = "0.830";
+process.env.EVAL_VISION_SCORE = "0.840";
+process.env.EVAL_OCR_SCORE = "0.930";
+process.env.EVAL_MIN_COMBINED = "0.800";
+process.env.EVAL_MIN_VISION = "0.650";
+process.env.EVAL_MIN_OCR = "0.900";
+process.env.CI_WATCH_VALIDATION_REPORT_JSON_FOR_COMMENT = reportPath;
+
+let createdPayload = null;
+const github = {
+  rest: {
+    issues: {
+      listComments: async () => ({ data: [] }),
+      createComment: async (payload) => {
+        createdPayload = payload;
+        return { data: { id: 121 } };
+      },
+      updateComment: async () => {
+        throw new Error("updateComment should not be called for empty comment list");
+      },
+    },
+  },
+};
+const context = {
+  repo: { owner: "zensgit", repo: "cad-ml-platform" },
+  issue: { number: 998 },
+  sha: "2233445566778899",
+  runId: "939393939",
+};
+const mockProcess = { env: process.env };
+
+(async () => {
+  await mod.commentEvaluationReportPR({ github, context, process: mockProcess });
+  if (!createdPayload) {
+    throw new Error("createComment was not called");
+  }
+  const body = String(createdPayload.body || "");
+  if (!body.includes("CI Watch Validation Report")) {
+    throw new Error("comment body missing ci watch validation report section");
+  }
+  if (!body.includes("parse_error")) {
+    throw new Error("comment body missing ci watch validation report parse_error");
+  }
+  console.log("ok:create-comment-with-ci-watch-validation-parse-error");
+})().catch((err) => {
+  console.error(err && err.stack ? err.stack : String(err));
+  process.exit(1);
+});
+"""
+
+    result = _run_node_inline(node_script, str(ci_watch_validation))
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "ok:create-comment-with-ci-watch-validation-parse-error" in result.stdout
+
+
 def test_comment_evaluation_report_pr_js_marks_workflow_health_parse_errors(
     tmp_path: Path,
 ) -> None:
@@ -1217,6 +1370,8 @@ def test_comment_evaluation_report_pr_js_marks_multiple_parse_errors_together(
         tmp_path / "ci_workflow_guardrail_overview_invalid.json"
     )
     ci_workflow_guardrail_overview.write_text("{invalid json", encoding="utf-8")
+    ci_watch_validation = tmp_path / "ci_watch_validation_invalid.json"
+    ci_watch_validation.write_text("{invalid json", encoding="utf-8")
 
     node_script = r"""
 const mod = require("./scripts/ci/comment_evaluation_report_pr.js");
@@ -1226,6 +1381,7 @@ const workflowInventoryPath = process.argv[3];
 const workflowPublishHelperPath = process.argv[4];
 const workflowGuardrailPath = process.argv[5];
 const ciWorkflowGuardrailOverviewPath = process.argv[6];
+const ciWatchValidationPath = process.argv[7];
 
 process.env.EVAL_COMBINED_SCORE = "0.830";
 process.env.EVAL_VISION_SCORE = "0.840";
@@ -1239,6 +1395,7 @@ process.env.WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT = workflowInventoryPath;
 process.env.WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT = workflowPublishHelperPath;
 process.env.WORKFLOW_GUARDRAIL_SUMMARY_JSON_FOR_COMMENT = workflowGuardrailPath;
 process.env.CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT = ciWorkflowGuardrailOverviewPath;
+process.env.CI_WATCH_VALIDATION_REPORT_JSON_FOR_COMMENT = ciWatchValidationPath;
 
 let createdPayload = null;
 const github = {
@@ -1284,12 +1441,15 @@ const mockProcess = { env: process.env };
   if (!body.includes("Workflow Guardrail Summary")) {
     throw new Error("comment body missing workflow guardrail section");
   }
+  if (!body.includes("CI Watch Validation Report")) {
+    throw new Error("comment body missing ci watch validation report section");
+  }
   if (!body.includes("CI Workflow Guardrail Overview")) {
     throw new Error("comment body missing ci workflow guardrail overview section");
   }
   const parseErrorCount = (body.match(/parse_error/g) || []).length;
-  if (parseErrorCount < 6) {
-    throw new Error(`expected at least 6 parse_error markers, got ${parseErrorCount}`);
+  if (parseErrorCount < 7) {
+    throw new Error(`expected at least 7 parse_error markers, got ${parseErrorCount}`);
   }
   console.log("ok:create-comment-with-multiple-parse-errors");
 })().catch((err) => {
@@ -1306,6 +1466,7 @@ const mockProcess = { env: process.env };
         str(workflow_publish_helper),
         str(workflow_guardrail),
         str(ci_workflow_guardrail_overview),
+        str(ci_watch_validation),
     )
     assert result.returncode == 0, result.stderr or result.stdout
     assert "ok:create-comment-with-multiple-parse-errors" in result.stdout
