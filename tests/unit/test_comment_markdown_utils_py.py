@@ -22,7 +22,7 @@ def test_markdown_section_renders_heading_and_body() -> None:
 def test_markdown_footer_supports_commit_only_and_timestamp() -> None:
     from scripts.ci.comment_markdown_utils import markdown_footer
 
-    assert markdown_footer(commit_sha="abcdef1") == "*Commit: abcdef1*"
+    assert markdown_footer(commit_sha="abcdef1") == "---\n*Commit: abcdef1*"
     assert markdown_footer(updated_at="2026-03-17 10:00:00", commit_sha="abcdef1") == (
-        "*Updated: 2026-03-17 10:00:00 UTC*\n*Commit: abcdef1*"
+        "---\n*Updated: 2026-03-17 10:00:00 UTC*\n*Commit: abcdef1*"
     )

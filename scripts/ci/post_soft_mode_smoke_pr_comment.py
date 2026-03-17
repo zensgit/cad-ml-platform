@@ -5,6 +5,7 @@ import argparse
 import json
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -53,10 +54,13 @@ def _normalize_attempt_rows(summary: dict[str, Any]) -> list[str]:
     rows: list[str] = []
     for index, item in enumerate(attempts, start=1):
         attempt = item if isinstance(item, dict) else {}
-        attempt_no = attempt.get("attempt", index)
-        dispatch_exit = attempt.get("dispatch_exit_code", "n/a")
-        marker_ok = attempt.get("soft_marker_ok", "n/a")
-        message = attempt.get("soft_marker_message", attempt.get("message", "n/a"))
+        attempt_no = _normalize_value(attempt.get("attempt", index), index)
+        dispatch_exit = _normalize_value(attempt.get("dispatch_exit_code", "n/a"), "n/a")
+        marker_ok = _normalize_value(attempt.get("soft_marker_ok", "n/a"), "n/a")
+        message = _normalize_value(
+            attempt.get("soft_marker_message", attempt.get("message", "n/a")),
+            "n/a",
+        )
         rows.append(
             f"- attempt {attempt_no}: dispatch_exit_code={dispatch_exit}, "
             f"soft_marker_ok={marker_ok}, message={message}"
@@ -64,21 +68,30 @@ def _normalize_attempt_rows(summary: dict[str, Any]) -> list[str]:
     return rows
 
 
+def _normalize_value(value: Any, fallback: Any) -> str:
+    if value is None or value == "":
+        return str(fallback)
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
+
+
 def build_comment_body(
     *,
     summary: dict[str, Any],
     title: str,
     commit_sha: str,
+    updated_at: str = "",
 ) -> str:
     dispatch = summary.get("dispatch")
     dispatch_obj = dispatch if isinstance(dispatch, dict) else {}
-    run_id = dispatch_obj.get("run_id", "n/a")
-    run_url = dispatch_obj.get("run_url", "n/a")
+    run_id = _normalize_value(dispatch_obj.get("run_id", "n/a"), "n/a")
+    run_url = _normalize_value(dispatch_obj.get("run_url", "n/a"), "n/a")
     attempts_total = 0
     attempts = summary.get("attempts")
     if isinstance(attempts, list):
         attempts_total = len(attempts)
-    short_sha = str(commit_sha or "").strip()[:7] or "n/a"
+    short_sha = _normalize_value(str(commit_sha or "").strip()[:7], "n/a")
     attempt_rows = "\n".join(_normalize_attempt_rows(summary))
     return "\n".join(
         [
@@ -87,10 +100,10 @@ def build_comment_body(
             markdown_table(
                 ["Field", "Value"],
                 [
-                    ["overall_exit_code", summary.get("overall_exit_code", "n/a")],
-                    ["dispatch_exit_code", summary.get("dispatch_exit_code", "n/a")],
-                    ["soft_marker_ok", summary.get("soft_marker_ok", "n/a")],
-                    ["restore_ok", summary.get("restore_ok", "n/a")],
+                    ["overall_exit_code", _normalize_value(summary.get("overall_exit_code", "n/a"), "n/a")],
+                    ["dispatch_exit_code", _normalize_value(summary.get("dispatch_exit_code", "n/a"), "n/a")],
+                    ["soft_marker_ok", _normalize_value(summary.get("soft_marker_ok", "n/a"), "n/a")],
+                    ["restore_ok", _normalize_value(summary.get("restore_ok", "n/a"), "n/a")],
                     ["run_id", run_id],
                     ["run_url", run_url],
                     ["attempts_total", attempts_total],
@@ -99,7 +112,7 @@ def build_comment_body(
             "",
             markdown_section("Attempts", attempt_rows),
             "",
-            markdown_footer(commit_sha=short_sha),
+            markdown_footer(updated_at=updated_at, commit_sha=short_sha),
         ]
     )
 
@@ -241,6 +254,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             summary=summary,
             title=str(args.title),
             commit_sha=str(args.commit_sha),
+            updated_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
         )
         comments = _list_pr_comments(str(args.repo), int(args.pr_number))
         existing_comment_id = _find_existing_comment_id(comments, str(args.title))

@@ -6,6 +6,8 @@ from typing import Iterable, Sequence
 def stringify_cell(value: object, fallback: str = "") -> str:
     if value is None:
         return fallback
+    if isinstance(value, bool):
+        return "true" if value else "false"
     return str(value)
 
 
@@ -25,7 +27,7 @@ def markdown_section(title: str, body: str) -> str:
 
 
 def markdown_footer(*, updated_at: str = "", commit_sha: str) -> str:
-    lines: list[str] = []
+    lines: list[str] = ["---"]
     timestamp = stringify_cell(updated_at).strip()
     if timestamp:
         lines.append(f"*Updated: {timestamp} UTC*")

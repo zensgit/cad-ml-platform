@@ -37,7 +37,15 @@ def test_comment_soft_mode_smoke_pr_js_creates_comment_for_valid_pr(
                     "run_id": 123456,
                     "run_url": "https://example.invalid/run/123456",
                 },
-                "attempts": [{"attempt": 1, "dispatch_exit_code": 0, "soft_marker_ok": True}],
+                "dispatch_exit_code": 0,
+                "attempts": [
+                    {
+                        "attempt": 1,
+                        "dispatch_exit_code": 0,
+                        "soft_marker_ok": True,
+                        "soft_marker_message": "marker restored",
+                    }
+                ],
             },
             ensure_ascii=False,
         ),
@@ -77,8 +85,15 @@ const mockProcess = { env: process.env };
   if (!createdPayload) {
     throw new Error("createComment was not called");
   }
-  if (!String(createdPayload.body || "").includes("CAD ML Platform - Soft Mode Smoke")) {
+  const body = String(createdPayload.body || "");
+  if (!body.includes("CAD ML Platform - Soft Mode Smoke")) {
     throw new Error("comment body missing soft mode smoke heading");
+  }
+  if (!body.includes("| dispatch_exit_code | 0 |")) {
+    throw new Error("comment body missing dispatch_exit_code row");
+  }
+  if (!body.includes("message=marker restored")) {
+    throw new Error("comment body missing attempt message");
   }
   console.log("ok:create-comment");
 })().catch((err) => {

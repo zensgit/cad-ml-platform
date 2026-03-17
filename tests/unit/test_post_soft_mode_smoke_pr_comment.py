@@ -27,13 +27,16 @@ def test_build_comment_body_contains_expected_fields() -> None:
         },
         title="CAD ML Platform - Soft Mode Smoke",
         commit_sha="abcdef123456",
+        updated_at="2026-03-17 10:00:00",
     )
     assert "CAD ML Platform - Soft Mode Smoke" in body
     assert "| Field | Value |" in body
     assert "overall_exit_code" in body
+    assert "dispatch_exit_code | 0" in body
     assert "run_id | 1234" in body
     assert "### Attempts" in body
-    assert "attempt 1: dispatch_exit_code=0, soft_marker_ok=True" in body
+    assert "attempt 1: dispatch_exit_code=0, soft_marker_ok=true" in body
+    assert "*Updated: 2026-03-17 10:00:00 UTC*" in body
     assert "*Commit: abcdef1*" in body
 
 

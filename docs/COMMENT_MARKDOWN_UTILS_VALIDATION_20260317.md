@@ -97,3 +97,57 @@ Follow-up notes:
 
 - The Python PR bridge now uses the same table/section/footer composition pattern as the JS comment scripts.
 - `post_soft_mode_smoke_pr_comment.py` now reuses `read_json_object(..., "summary")` from `summary_render_utils.py` instead of duplicating JSON object parsing.
+
+## Soft-Mode Body Parity Follow-up
+
+Goal:
+
+- lock JS soft-mode PR comments and Python soft-mode PR bridge to the same rendered body semantics
+- prevent drift in field order, attempt-line format, footer layout, and boolean rendering
+
+Added:
+
+- `tests/unit/test_soft_mode_comment_body_consistency.py`
+
+Updated:
+
+- `scripts/ci/comment_soft_mode_smoke_pr.js`
+- `scripts/ci/post_soft_mode_smoke_pr_comment.py`
+- `scripts/ci/comment_markdown_utils.py`
+- `tests/unit/test_comment_soft_mode_smoke_pr_js.py`
+- `tests/unit/test_post_soft_mode_smoke_pr_comment.py`
+- `tests/unit/test_comment_markdown_utils_py.py`
+- `tests/unit/test_hybrid_calibration_make_targets.py`
+
+Validation targets updated:
+
+- `validate-soft-mode-smoke-comment`
+- `validate-soft-mode-smoke-comment-pr`
+
+Parity validation:
+
+```bash
+pytest -q \
+  tests/unit/test_comment_markdown_utils_py.py \
+  tests/unit/test_comment_soft_mode_smoke_pr_js.py \
+  tests/unit/test_post_soft_mode_smoke_pr_comment.py \
+  tests/unit/test_soft_mode_comment_body_consistency.py \
+  tests/unit/test_hybrid_calibration_make_targets.py
+```
+
+```bash
+make validate-soft-mode-smoke-comment
+make validate-soft-mode-smoke-comment-pr
+```
+
+Parity results:
+
+- `pytest -q tests/unit/test_comment_markdown_utils_py.py tests/unit/test_comment_soft_mode_smoke_pr_js.py tests/unit/test_post_soft_mode_smoke_pr_comment.py tests/unit/test_soft_mode_comment_body_consistency.py tests/unit/test_hybrid_calibration_make_targets.py` -> `50 passed`
+- `make validate-soft-mode-smoke-comment` -> `5 passed`
+- `make validate-soft-mode-smoke-comment-pr` -> `47 passed`
+
+Parity notes:
+
+- Both paths now emit `dispatch_exit_code` in the summary table.
+- Both paths now render attempt lines as `dispatch_exit_code=..., soft_marker_ok=..., message=...`.
+- Both paths now use lowercase boolean text (`true/false`) and include the same footer separator.
