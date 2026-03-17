@@ -189,42 +189,33 @@ jobs:
         uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
         with:
           script: |
+            const { upsertOpenIssue } = require('./scripts/ci/issue_upsert_utils.js');
             const fs = require('fs');
             const report = fs.readFileSync('badge_review.md', 'utf8');
             const month = '${{ steps.badge-review.outputs.month }}';
             const year = '${{ steps.badge-review.outputs.year }}';
+            const marker = `<!-- ci:badge-review:${year}-${month} -->`;
+            const title = `🎯 Monthly Badge Review - ${month} ${year}`;
+            const body = `${marker}\n${report}\n\n---\n` +
+              '**Action Items:**\n' +
+              '- [ ] Review threshold recommendations\n' +
+              '- [ ] Update `config/eval_frontend.json` if needed\n' +
+              '- [ ] Regenerate badges with new thresholds\n' +
+              '- [ ] Update README with new badges\n' +
+              '\n**Assignees:** @platform-team';
 
-            // Check if issue already exists for this month
-            const issues = await github.rest.issues.listForRepo({
+            const result = await upsertOpenIssue({
+              github,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              labels: 'badge-review',
-              state: 'open'
+              title,
+              body,
+              labels: ['badge-review', 'monthly-task'],
+              marker,
+              listLabels: 'badge-review'
             });
 
-            const existingIssue = issues.data.find(issue =>
-              issue.title.includes(`${month} ${year}`)
-            );
-
-            if (!existingIssue) {
-              await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title: `🎯 Monthly Badge Review - ${month} ${year}`,
-                body: report + '\n\n---\n' +
-                  '**Action Items:**\n' +
-                  '- [ ] Review threshold recommendations\n' +
-                  '- [ ] Update `config/eval_frontend.json` if needed\n' +
-                  '- [ ] Regenerate badges with new thresholds\n' +
-                  '- [ ] Update README with new badges\n' +
-                  '\n**Assignees:** @platform-team',
-                labels: ['badge-review', 'monthly-task'],
-              });
-
-              console.log(`Created badge review issue for ${month} ${year}`);
-            } else {
-              console.log(`Badge review issue already exists for ${month} ${year}`);
-            }
+            console.log(`${result.action} badge review issue for ${month} ${year}`);
 
       - name: Upload review report
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f

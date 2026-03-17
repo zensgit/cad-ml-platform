@@ -11,6 +11,7 @@ Adopt the shared JS PR comment upsert helper in workflow-inline GitHub Script st
 - `.github/workflows/release-risk-check.yml`
 - `.github/workflows/pr-auto-label-comment.yml`
 - `.github/workflows/sbom.yml`
+- `.github/workflows/error-code-cleanup.yml`
 - `.github/workflows/security-audit.yml`
 - `.github/workflows/adaptive-rate-limit-monitor.yml`
 - `.github/workflows/metrics-budget-check.yml`
@@ -32,6 +33,8 @@ Helper reused:
   - replaced inline `listComments/updateComment/createComment` logic
   - now requires `./scripts/ci/comment_pr_utils.js`
   - now calls `upsertBotIssueComment(...)` with marker `SBOM Dependency Changes`
+- `error-code-cleanup.yml`
+  - cleanup PR detail comment now uses shared helper with marker `ci:error-code-cleanup-details`
 - `security-audit.yml`
   - security summary PR comment now uses shared helper with marker `ci:security-audit-summary`
 - `adaptive-rate-limit-monitor.yml`

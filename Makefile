@@ -422,6 +422,14 @@ validate-workflow-comment-helper-tests: ## 校验 workflow 内联 PR 评论已�
 		$(TEST_DIR)/unit/test_sbom_comment_workflow.py \
 		$(TEST_DIR)/unit/test_workflow_file_health_make_target.py -q
 
+validate-workflow-issue-helper-tests: ## 校验 workflow 内联 GitHub issue 发布已复用共享 helper
+	@echo "$(GREEN)Validating workflow issue helper adoption...$(NC)"
+	node --check scripts/ci/issue_upsert_utils.js
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_issue_upsert_utils_js.py \
+		$(TEST_DIR)/unit/test_workflow_issue_helper_adoption.py \
+		$(TEST_DIR)/unit/test_workflow_file_health_make_target.py -q
+
 validate-workflow-identity: ## 校验关键 workflow 的文件名、显示名与 dispatch 输入不变量
 	@echo "$(GREEN)Validating workflow identity invariants...$(NC)"
 	$(PYTHON) scripts/ci/check_workflow_identity_invariants.py \
@@ -456,6 +464,7 @@ validate-ci-watchers: ## 一键校验 CI watchers（commit + archive + Graph2D s
 	$(MAKE) validate-generate-ci-watch-validation-report
 	$(MAKE) validate-workflow-file-health-tests
 	$(MAKE) validate-workflow-comment-helper-tests
+	$(MAKE) validate-workflow-issue-helper-tests
 	$(MAKE) validate-workflow-identity-tests
 	$(MAKE) validate-workflow-inventory-report
 	$(MAKE) validate-archive-workflow-dispatcher

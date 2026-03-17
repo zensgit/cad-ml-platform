@@ -487,8 +487,11 @@ jobs:
         uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
         with:
           script: |
+            const { upsertOpenIssue } = require('./scripts/ci/issue_upsert_utils.js');
             const title = '🚨 限流系统性能告警';
+            const marker = '<!-- ci:adaptive-rate-limit-alert -->';
             const body = `
+            ${marker}
             ## 问题描述
             自动监控检测到限流系统性能问题
 
@@ -504,10 +507,13 @@ jobs:
             @${context.repo.owner} 请及时处理
             `;
 
-            await github.rest.issues.create({
+            await upsertOpenIssue({
+              github,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: title,
-              body: body,
-              labels: ['alert', 'performance', 'rate-limiting']
+              title,
+              body,
+              labels: ['alert', 'performance', 'rate-limiting'],
+              marker,
+              listLabels: 'alert,performance,rate-limiting'
             });

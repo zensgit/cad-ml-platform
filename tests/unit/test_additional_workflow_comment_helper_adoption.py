@@ -80,3 +80,15 @@ def test_metrics_budget_check_workflow_uses_shared_helper() -> None:
     assert "marker = '<!-- ci:metrics-budget-impact-analysis -->'" in script
     assert "body: `${marker}\\n${comment}`" in script
     assert "createComment(" not in script
+
+
+def test_error_code_cleanup_workflow_uses_shared_comment_helper() -> None:
+    workflow = _load_workflow("error-code-cleanup.yml")
+    step = _get_step(workflow, "cleanup", "Add PR comment with details")
+    script = step["with"]["script"]
+
+    assert "require('./scripts/ci/comment_pr_utils.js')" in script
+    assert "upsertBotIssueComment({" in script
+    assert "marker = '<!-- ci:error-code-cleanup-details -->'" in script
+    assert "issueNumber: ${{ steps.pr.outputs.pull-request-number }}" in script
+    assert "createComment(" not in script

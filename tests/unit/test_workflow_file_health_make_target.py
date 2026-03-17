@@ -54,6 +54,15 @@ def test_make_n_validate_workflow_comment_helper_tests_contains_expected_files()
     assert "tests/unit/test_workflow_file_health_make_target.py" in result.stdout
 
 
+def test_make_n_validate_workflow_issue_helper_tests_contains_expected_files() -> None:
+    result = _run_make("-n", "validate-workflow-issue-helper-tests")
+    assert result.returncode == 0, result.stderr
+    assert "node --check scripts/ci/issue_upsert_utils.js" in result.stdout
+    assert "tests/unit/test_issue_upsert_utils_js.py" in result.stdout
+    assert "tests/unit/test_workflow_issue_helper_adoption.py" in result.stdout
+    assert "tests/unit/test_workflow_file_health_make_target.py" in result.stdout
+
+
 def test_make_n_validate_workflow_identity_contains_expected_flags() -> None:
     result = _run_make("-n", "validate-workflow-identity")
     assert result.returncode == 0, result.stderr
@@ -92,5 +101,6 @@ def test_make_n_validate_ci_watchers_invokes_workflow_file_health_tests() -> Non
     assert result.returncode == 0, result.stderr
     assert "make validate-workflow-file-health-tests" in result.stdout
     assert "make validate-workflow-comment-helper-tests" in result.stdout
+    assert "make validate-workflow-issue-helper-tests" in result.stdout
     assert "make validate-workflow-identity-tests" in result.stdout
     assert "make validate-workflow-inventory-report" in result.stdout

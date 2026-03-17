@@ -257,22 +257,25 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { upsertBotIssueComment } = require('./scripts/ci/comment_pr_utils.js');
             const fs = require('fs');
 
             // 读取详细报告
-            let details = '## 📋 详细清理报告\n\n';
+            const marker = '<!-- ci:error-code-cleanup-details -->';
+            let details = `${marker}\n## 📋 详细清理报告\n\n`;
 
             if (fs.existsSync('CLEANUP_PLAN.md')) {
               const plan = fs.readFileSync('CLEANUP_PLAN.md', 'utf8');
               details += plan;
             }
 
-            // 创建评论
-            await github.rest.issues.createComment({
+            await upsertBotIssueComment({
+              github,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: ${{ steps.pr.outputs.pull-request-number }},
-              body: details
+              issueNumber: ${{ steps.pr.outputs.pull-request-number }},
+              body: details,
+              marker
             });
 
       - name: Output PR URL
