@@ -41,6 +41,10 @@ def test_render_markdown_includes_core_fields_and_failure_diagnostics() -> None:
     )
 
     assert "## Hybrid Blind Strict-Real Dispatch" in markdown
+    assert "## Dispatch Verdict" in markdown
+    assert "- verdict: expectation_mismatch" in markdown
+    assert "- conclusion_pair: expected=success actual=failure" in markdown
+    assert "- top_failed_jobs: strict-real-gate" in markdown
     assert "- hybrid_blind_dxf_dir: /tmp/dxf" in markdown
     assert "- matched_expectation: False" in markdown
     assert "- run_id: 4301" in markdown
@@ -80,6 +84,7 @@ def test_main_writes_markdown_file_and_stdout(tmp_path: Path, capsys: object) ->
     assert rc == 0
     rendered = output_md.read_text(encoding="utf-8")
     assert "## Hybrid Blind Strict-Real Dispatch" in rendered
+    assert "## Dispatch Verdict" in rendered
     assert "- overall_exit_code: 0" in rendered
     assert "## Hybrid Blind Strict-Real Dispatch" in capsys.readouterr().out
 

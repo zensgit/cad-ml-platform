@@ -43,6 +43,10 @@ def test_render_markdown_includes_core_fields_and_dispatch_command() -> None:
     )
 
     assert "## Hybrid Superpass Dispatch" in markdown
+    assert "## Dispatch Verdict" in markdown
+    assert "- verdict: expectation_mismatch" in markdown
+    assert "- conclusion_pair: expected=success actual=failure" in markdown
+    assert "- top_failed_jobs: hybrid-superpass" in markdown
     assert "- dispatch_command: gh workflow run evaluation-report.yml --ref main" in markdown
     assert "- matched_expectation: False" in markdown
     assert "### Failure Diagnostics" in markdown
@@ -80,6 +84,7 @@ def test_main_writes_markdown_file_and_stdout(tmp_path: Path, capsys: object) ->
     assert rc == 0
     rendered = output_md.read_text(encoding="utf-8")
     assert "## Hybrid Superpass Dispatch" in rendered
+    assert "## Dispatch Verdict" in rendered
     assert "- overall_exit_code: 0" in rendered
     assert "## Hybrid Superpass Dispatch" in capsys.readouterr().out
 

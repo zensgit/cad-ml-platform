@@ -19,6 +19,13 @@ def _read_payload(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _boolish(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    text = str(value if value is not None else "").strip().lower()
+    return text in {"1", "true", "yes", "on"}
+
+
 def render_markdown(payload: dict[str, Any]) -> str:
     diagnostics = payload.get("failure_diagnostics")
     diagnostics_obj = diagnostics if isinstance(diagnostics, dict) else {}
@@ -29,6 +36,17 @@ def render_markdown(payload: dict[str, Any]) -> str:
     dispatch_text = ""
     if isinstance(dispatch_command, list):
         dispatch_text = " ".join(str(item) for item in dispatch_command)
+
+    verdict = (
+        "matched_expectation"
+        if _boolish(payload.get("matched_expectation", False))
+        else "expectation_mismatch"
+    )
+    top_failed_jobs = [
+        str(item.get("job_name") or "").strip()
+        for item in failed_jobs_list
+        if isinstance(item, dict) and str(item.get("job_name") or "").strip()
+    ][:3]
 
     lines = [
         "## Hybrid Superpass Dispatch",
@@ -49,6 +67,22 @@ def render_markdown(payload: dict[str, Any]) -> str:
     reason = str(payload.get("reason") or "").strip()
     if reason:
         lines.append(f"- reason: {reason}")
+
+    lines.extend(
+        [
+            "",
+            "## Dispatch Verdict",
+            "",
+            f"- verdict: {verdict}",
+            f"- conclusion_pair: expected={payload.get('expected_conclusion', 'n/a')} actual={payload.get('conclusion', 'n/a')}",
+            f"- top_failed_jobs: {', '.join(top_failed_jobs) if top_failed_jobs else '(none)'}",
+        ]
+    )
+    diagnostics_reason = str(diagnostics_obj.get("reason") or "").strip()
+    if diagnostics_reason:
+        lines.append(f"- diagnostics_reason: {diagnostics_reason}")
+    elif reason:
+        lines.append(f"- diagnostics_reason: {reason}")
 
     if diagnostics_obj:
         lines.extend(

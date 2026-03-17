@@ -8,6 +8,7 @@
 - `hybrid superpass dispatch`
 
 使真实运行后的 `--output-json` 能直接转成 Markdown，便于人工审阅、artifact 化与后续 workflow 接线。
+本轮还补齐了统一的 `Dispatch Verdict` 段，使 strict-real 与 superpass 摘要都先给出结论、再展开 failure diagnostics。
 
 ## 实现
 
@@ -21,6 +22,7 @@
   - workflow / ref / repo
   - strict-real dxf/manfiest/synth/strict flags
   - expected / actual conclusion
+  - dispatch verdict / top failed jobs / diagnostics reason
   - overall/dispatch/watch exit code
   - run_id / run_url
   - failure diagnostics（若存在）
@@ -34,6 +36,7 @@
 - 输出字段：
   - workflow / ref / repo
   - expected / actual conclusion
+  - dispatch verdict / top failed jobs / diagnostics reason
   - overall/watch exit code
   - run_id / run_url
   - dispatch_command
