@@ -475,6 +475,7 @@ def test_make_n_validate_hybrid_superpass_workflow_runs_expected_tests() -> None
     assert "test_validate_hybrid_superpass_reports.py" in result.stdout
     assert "test_evaluation_report_workflow_hybrid_superpass_step.py" in result.stdout
     assert "test_evaluation_soft_mode_smoke_workflow.py" in result.stdout
+    assert "test_hybrid_superpass_e2e_workflow.py" in result.stdout
     assert "test_hybrid_superpass_workflow_integration.py" in result.stdout
     assert "test_hybrid_calibration_make_targets.py" in result.stdout
     assert "test_evaluation_report_workflow_graph2d_extensions.py" in result.stdout
@@ -484,6 +485,7 @@ def test_make_n_validate_hybrid_blind_strict_real_e2e_gh_runs_expected_tests() -
     result = _run_make("-n", "validate-hybrid-blind-strict-real-e2e-gh")
     assert result.returncode == 0, result.stderr
     assert "test_dispatch_hybrid_blind_strict_real_workflow.py" in result.stdout
+    assert "test_hybrid_blind_strict_real_e2e_workflow.py" in result.stdout
     assert "test_print_hybrid_blind_strict_real_gh_template.py" in result.stdout
     assert "test_hybrid_calibration_make_targets.py" in result.stdout
 

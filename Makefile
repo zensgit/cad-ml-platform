@@ -1729,6 +1729,7 @@ validate-hybrid-blind-strict-real-e2e-gh: ## 校验 strict-real gh dispatch 脚�
 	@echo "$(GREEN)Validating hybrid blind strict-real gh dispatch integration...$(NC)"
 	$(PYTEST) \
 		$(TEST_DIR)/unit/test_dispatch_hybrid_blind_strict_real_workflow.py \
+		$(TEST_DIR)/unit/test_hybrid_blind_strict_real_e2e_workflow.py \
 		$(TEST_DIR)/unit/test_print_hybrid_blind_strict_real_gh_template.py \
 		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py -q
 
@@ -1742,6 +1743,7 @@ validate-hybrid-superpass-workflow: ## 校验 superpass gh 自动化与 workflow
 		$(TEST_DIR)/unit/test_validate_hybrid_superpass_reports.py \
 		$(TEST_DIR)/unit/test_evaluation_report_workflow_hybrid_superpass_step.py \
 		$(TEST_DIR)/unit/test_evaluation_soft_mode_smoke_workflow.py \
+		$(TEST_DIR)/unit/test_hybrid_superpass_e2e_workflow.py \
 		$(TEST_DIR)/unit/test_hybrid_superpass_workflow_integration.py \
 		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py \
 		$(TEST_DIR)/unit/test_evaluation_report_workflow_graph2d_extensions.py -q

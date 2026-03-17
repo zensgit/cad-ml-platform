@@ -1,0 +1,143 @@
+name: Hybrid Superpass E2E
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref for evaluation-report dispatch"
+        required: false
+        default: "main"
+      expected_conclusion:
+        description: "Expected conclusion for dispatched run"
+        required: false
+        default: "success"
+      hybrid_superpass_enable:
+        description: "Enable hybrid superpass gate (true/false)"
+        required: false
+        default: "true"
+      hybrid_superpass_missing_mode:
+        description: "Superpass missing mode (skip/fail)"
+        required: false
+        default: "fail"
+      hybrid_superpass_fail_on_failed:
+        description: "Fail on non-passed superpass result (true/false)"
+        required: false
+        default: "true"
+      hybrid_blind_enable:
+        description: "Optional hybrid blind enable override"
+        required: false
+        default: ""
+      hybrid_blind_dxf_dir:
+        description: "Optional hybrid blind dxf dir override"
+        required: false
+        default: ""
+      hybrid_blind_fail_on_gate_failed:
+        description: "Optional hybrid blind strict gate fail flag"
+        required: false
+        default: ""
+      hybrid_blind_strict_require_real_data:
+        description: "Optional hybrid blind require real data flag"
+        required: false
+        default: ""
+      hybrid_calibration_enable:
+        description: "Optional hybrid calibration enable override"
+        required: false
+        default: ""
+      hybrid_calibration_input_csv:
+        description: "Optional hybrid calibration input csv"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: hybrid-superpass-e2e-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  hybrid-superpass-e2e:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        with:
+          python-version: "3.11"
+
+      - name: Run hybrid superpass dispatcher
+        run: |
+          set -euo pipefail
+          REF_INPUT="${{ github.event.inputs.ref || '' }}"
+          if [[ -z "$REF_INPUT" ]]; then
+            REF_INPUT="main"
+          fi
+          EXPECTED_INPUT="${{ github.event.inputs.expected_conclusion || '' }}"
+          if [[ -z "$EXPECTED_INPUT" ]]; then
+            EXPECTED_INPUT="success"
+          fi
+
+          extra_args=()
+          HYBRID_BLIND_ENABLE_INPUT="$(echo "${{ github.event.inputs.hybrid_blind_enable || '' }}" | xargs)"
+          HYBRID_BLIND_DXF_DIR_INPUT="$(echo "${{ github.event.inputs.hybrid_blind_dxf_dir || '' }}" | xargs)"
+          HYBRID_BLIND_FAIL_ON_GATE_FAILED_INPUT="$(echo "${{ github.event.inputs.hybrid_blind_fail_on_gate_failed || '' }}" | xargs)"
+          HYBRID_BLIND_STRICT_REQUIRE_REAL_DATA_INPUT="$(echo "${{ github.event.inputs.hybrid_blind_strict_require_real_data || '' }}" | xargs)"
+          HYBRID_CALIBRATION_ENABLE_INPUT="$(echo "${{ github.event.inputs.hybrid_calibration_enable || '' }}" | xargs)"
+          HYBRID_CALIBRATION_INPUT_CSV_INPUT="$(echo "${{ github.event.inputs.hybrid_calibration_input_csv || '' }}" | xargs)"
+          if [[ -n "$HYBRID_BLIND_ENABLE_INPUT" ]]; then extra_args+=(--hybrid-blind-enable "$HYBRID_BLIND_ENABLE_INPUT"); fi
+          if [[ -n "$HYBRID_BLIND_DXF_DIR_INPUT" ]]; then extra_args+=(--hybrid-blind-dxf-dir "$HYBRID_BLIND_DXF_DIR_INPUT"); fi
+          if [[ -n "$HYBRID_BLIND_FAIL_ON_GATE_FAILED_INPUT" ]]; then extra_args+=(--hybrid-blind-fail-on-gate-failed "$HYBRID_BLIND_FAIL_ON_GATE_FAILED_INPUT"); fi
+          if [[ -n "$HYBRID_BLIND_STRICT_REQUIRE_REAL_DATA_INPUT" ]]; then extra_args+=(--hybrid-blind-strict-require-real-data "$HYBRID_BLIND_STRICT_REQUIRE_REAL_DATA_INPUT"); fi
+          if [[ -n "$HYBRID_CALIBRATION_ENABLE_INPUT" ]]; then extra_args+=(--hybrid-calibration-enable "$HYBRID_CALIBRATION_ENABLE_INPUT"); fi
+          if [[ -n "$HYBRID_CALIBRATION_INPUT_CSV_INPUT" ]]; then extra_args+=(--hybrid-calibration-input-csv "$HYBRID_CALIBRATION_INPUT_CSV_INPUT"); fi
+
+          mkdir -p reports/ci
+          python3 scripts/ci/dispatch_hybrid_superpass_workflow.py \
+            --repo "${GITHUB_REPOSITORY}" \
+            --workflow "evaluation-report.yml" \
+            --ref "$REF_INPUT" \
+            --hybrid-superpass-enable "${{ github.event.inputs.hybrid_superpass_enable || 'true' }}" \
+            --hybrid-superpass-missing-mode "${{ github.event.inputs.hybrid_superpass_missing_mode || 'fail' }}" \
+            --hybrid-superpass-fail-on-failed "${{ github.event.inputs.hybrid_superpass_fail_on_failed || 'true' }}" \
+            --expected-conclusion "$EXPECTED_INPUT" \
+            --wait-timeout-seconds 1200 \
+            --poll-interval-seconds 3 \
+            --list-limit 30 \
+            --output-json reports/ci/hybrid_superpass_e2e_summary.json \
+            "${extra_args[@]}"
+
+      - name: Render hybrid superpass summary markdown
+        if: always()
+        run: |
+          if [[ -f reports/ci/hybrid_superpass_e2e_summary.json ]]; then
+            python3 scripts/ci/render_hybrid_superpass_dispatch_summary.py \
+              --dispatch-json reports/ci/hybrid_superpass_e2e_summary.json \
+              --output-md reports/ci/hybrid_superpass_e2e_summary.md \
+              >/dev/null
+          fi
+
+      - name: Upload hybrid superpass summary
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: hybrid-superpass-e2e-${{ github.run_number }}
+          path: |
+            reports/ci/hybrid_superpass_e2e_summary.json
+            reports/ci/hybrid_superpass_e2e_summary.md
+
+      - name: Append summary
+        if: always()
+        run: |
+          if [[ -f reports/ci/hybrid_superpass_e2e_summary.md ]]; then
+            cat reports/ci/hybrid_superpass_e2e_summary.md
+          else
+            echo "- summary_md missing: reports/ci/hybrid_superpass_e2e_summary.md"
+          fi >> "$GITHUB_STEP_SUMMARY"
