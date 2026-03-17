@@ -436,8 +436,10 @@ def test_make_n_validate_render_hybrid_superpass_dispatch_summary_runs_expected_
 def test_make_n_validate_soft_mode_smoke_comment_contains_expected_commands() -> None:
     result = _run_make("-n", "validate-soft-mode-smoke-comment")
     assert result.returncode == 0, result.stderr
+    assert "node --check scripts/ci/comment_markdown_utils.js" in result.stdout
     assert "node --check scripts/ci/comment_soft_mode_smoke_pr.js" in result.stdout
-    assert "pytest -q tests/unit/test_comment_soft_mode_smoke_pr_js.py" in result.stdout
+    assert "tests/unit/test_comment_markdown_utils_js.py" in result.stdout
+    assert "tests/unit/test_comment_soft_mode_smoke_pr_js.py" in result.stdout
 
 
 def test_make_n_soft_mode_smoke_comment_pr_contains_expected_flags() -> None:

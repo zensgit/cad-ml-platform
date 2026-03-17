@@ -1,6 +1,11 @@
 "use strict";
 
 const fs = require("fs");
+const {
+  markdownFooter,
+  markdownSection,
+  markdownTable,
+} = require("./comment_markdown_utils.js");
 
 function envStr(name, fallback = "") {
   const value = process.env[name];
@@ -703,79 +708,115 @@ async function commentEvaluationReportPR({ github, context, process }) {
 
     const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
 
-    const body = `## 📊 CAD ML Platform - Evaluation Results
-
-${overallStatus}
-
-### Scores
-| Module | Score | Threshold | Status |
-|--------|-------|-----------|--------|
-| **Combined** | ${combined.toFixed(3)} | ${minCombined} | ${combinedStatus} |
-| **Vision** | ${vision.toFixed(3)} | ${minVision} | ${visionStatus} |
-| **OCR** | ${ocr.toFixed(3)} | ${minOcr} | ${ocrStatus} |
-
-### Formula
-\`Combined Score = 0.5 × Vision + 0.5 × OCR_normalized\`
-
-### Additional Analysis
-| Check | Status |
-|-------|--------|
-| **Anomaly Detection** | ${hasAnomalies ? "⚠️ Anomalies detected" : "✅ No anomalies"} |
-| **Security Audit** | ${securityStatus === "pass" ? "✅ Passed" : "⚠️ Issues found"} |
-| **Graph2D Review Pack** | ${reviewPackStatus} |
-| **Graph2D Review Insights** | ${reviewPackInsights} |
-| **Graph2D Review Gate** | ${reviewGateStatus} |
-| **Graph2D Review Gate Strict** | ${reviewGateStrictStatus} |
-| **Graph2D Train Sweep** | ${trainSweepStatus} |
-| **Hybrid Blind Eval** | ${hybridBlindEvalStatus} |
-| **Hybrid Blind Gate** | ${hybridBlindGateStatus} |
-| **Hybrid Blind Strict** | ${hybridBlindStrictStatus} |
-| **Hybrid Blind Drift Alert** | ${hybridBlindDriftStatus} |
-| **Blind Gain (Hybrid-Graph2D)** | ${blindGainSummary} |
-| **Hybrid Calibration** | ${hybridCalibrationStatus} |
-| **Hybrid Calibration Gate** | ${hybridCalibrationGateStatus} |
-| **Hybrid Calibration Strict** | ${hybridCalibrationStrictStatus} |
-| **Hybrid Superpass Strict** | ${hybridSuperpassStrictStatus} |
-| **Hybrid Superpass Validation Strict** | ${hybridSuperpassValidationStrictStatus} |
-| **Hybrid Calibration Baseline** | ${hybridCalibrationBaselineStatus} |
-| **Strict Gate Policy** | mode=${evaluationStrictMode}, raw=${evaluationStrictModeRawValue || "n/a"}, result=${strictDecisionResult} |
-| **Strict Gate Playbook** | ${strictPlaybookSummary} |
-| **CI Watch Failure Details** | ${ciWatchFailureSummary} |
-| **Workflow File Health** | ${workflowFileHealthSummary} |
-| **Workflow Inventory Audit** | ${workflowInventorySummary} |
-
-### Signal Lights
-| Signal | State | Detail |
-|--------|-------|--------|
-| **Review Pack** | ${reviewPackLight} | ${reviewPackStatus} |
-| **Review Gate** | ${reviewGateLight} | ${reviewGateStatus} |
-| **Train Sweep** | ${trainSweepLight} | ${trainSweepStatus} |
-| **Hybrid Blind** | ${hybridBlindLight} | ${hybridBlindEvalStatus} |
-| **Hybrid Calibration** | ${hybridCalibrationLight} | ${hybridCalibrationStatus} |
-| **Strict Gate Policy** | ${strictDecisionLight} | mode=${evaluationStrictMode}, strict_requests=${strictFailureRequests.length}, result=${strictDecisionResult} |
-| **CI Watcher** | ${ciWatchFailureLight} | ${ciWatchFailureSummary} |
-| **Workflow Health** | ${workflowFileHealthLight} | ${workflowFileHealthSummary} |
-| **Workflow Inventory** | ${workflowInventoryLight} | ${workflowInventorySummary} |
-
-### Strict Gate Decision Path
-| Item | Value |
-|------|-------|
-| **Mode** | ${evaluationStrictMode} (resolved=${evaluationStrictModeResolvedRaw || "n/a"}, raw=${evaluationStrictModeRawValue || "n/a"}) |
-| **Requested Failures** | ${strictFailureRequestSummary} |
-| **Decision** | ${strictDecisionResult} |
-| **Playbook Links** | ${strictPlaybookSummary} |
-| **Recommended Action** | ${strictActionItems[0] || "n/a"} |
-
-${strictActionChecklist}
-
-### Quick Actions
-- 📋 [View Full Report](${runUrl})
-- 📈 [Download Artifacts](${runUrl}#artifacts)
-- 🔍 [Check Logs](${runUrl}/jobs)
-
----
-*Updated: ${new Date().toISOString().replace("T", " ").substring(0, 19)} UTC*
-*Commit: ${context.sha.substring(0, 7)}*`;
+    const body = [
+      "## 📊 CAD ML Platform - Evaluation Results",
+      "",
+      overallStatus,
+      "",
+      markdownSection(
+        "Scores",
+        markdownTable(
+          ["Module", "Score", "Threshold", "Status"],
+          [
+            ["**Combined**", combined.toFixed(3), minCombined, combinedStatus],
+            ["**Vision**", vision.toFixed(3), minVision, visionStatus],
+            ["**OCR**", ocr.toFixed(3), minOcr, ocrStatus],
+          ],
+        ),
+      ),
+      "",
+      markdownSection("Formula", "`Combined Score = 0.5 × Vision + 0.5 × OCR_normalized`"),
+      "",
+      markdownSection(
+        "Additional Analysis",
+        markdownTable(
+          ["Check", "Status"],
+          [
+            ["**Anomaly Detection**", hasAnomalies ? "⚠️ Anomalies detected" : "✅ No anomalies"],
+            ["**Security Audit**", securityStatus === "pass" ? "✅ Passed" : "⚠️ Issues found"],
+            ["**Graph2D Review Pack**", reviewPackStatus],
+            ["**Graph2D Review Insights**", reviewPackInsights],
+            ["**Graph2D Review Gate**", reviewGateStatus],
+            ["**Graph2D Review Gate Strict**", reviewGateStrictStatus],
+            ["**Graph2D Train Sweep**", trainSweepStatus],
+            ["**Hybrid Blind Eval**", hybridBlindEvalStatus],
+            ["**Hybrid Blind Gate**", hybridBlindGateStatus],
+            ["**Hybrid Blind Strict**", hybridBlindStrictStatus],
+            ["**Hybrid Blind Drift Alert**", hybridBlindDriftStatus],
+            ["**Blind Gain (Hybrid-Graph2D)**", blindGainSummary],
+            ["**Hybrid Calibration**", hybridCalibrationStatus],
+            ["**Hybrid Calibration Gate**", hybridCalibrationGateStatus],
+            ["**Hybrid Calibration Strict**", hybridCalibrationStrictStatus],
+            ["**Hybrid Superpass Strict**", hybridSuperpassStrictStatus],
+            ["**Hybrid Superpass Validation Strict**", hybridSuperpassValidationStrictStatus],
+            ["**Hybrid Calibration Baseline**", hybridCalibrationBaselineStatus],
+            [
+              "**Strict Gate Policy**",
+              `mode=${evaluationStrictMode}, raw=${evaluationStrictModeRawValue || "n/a"}, result=${strictDecisionResult}`,
+            ],
+            ["**Strict Gate Playbook**", strictPlaybookSummary],
+            ["**CI Watch Failure Details**", ciWatchFailureSummary],
+            ["**Workflow File Health**", workflowFileHealthSummary],
+            ["**Workflow Inventory Audit**", workflowInventorySummary],
+          ],
+        ),
+      ),
+      "",
+      markdownSection(
+        "Signal Lights",
+        markdownTable(
+          ["Signal", "State", "Detail"],
+          [
+            ["**Review Pack**", reviewPackLight, reviewPackStatus],
+            ["**Review Gate**", reviewGateLight, reviewGateStatus],
+            ["**Train Sweep**", trainSweepLight, trainSweepStatus],
+            ["**Hybrid Blind**", hybridBlindLight, hybridBlindEvalStatus],
+            ["**Hybrid Calibration**", hybridCalibrationLight, hybridCalibrationStatus],
+            [
+              "**Strict Gate Policy**",
+              strictDecisionLight,
+              `mode=${evaluationStrictMode}, strict_requests=${strictFailureRequests.length}, result=${strictDecisionResult}`,
+            ],
+            ["**CI Watcher**", ciWatchFailureLight, ciWatchFailureSummary],
+            ["**Workflow Health**", workflowFileHealthLight, workflowFileHealthSummary],
+            ["**Workflow Inventory**", workflowInventoryLight, workflowInventorySummary],
+          ],
+        ),
+      ),
+      "",
+      markdownSection(
+        "Strict Gate Decision Path",
+        markdownTable(
+          ["Item", "Value"],
+          [
+            [
+              "**Mode**",
+              `${evaluationStrictMode} (resolved=${evaluationStrictModeResolvedRaw || "n/a"}, raw=${evaluationStrictModeRawValue || "n/a"})`,
+            ],
+            ["**Requested Failures**", strictFailureRequestSummary],
+            ["**Decision**", strictDecisionResult],
+            ["**Playbook Links**", strictPlaybookSummary],
+            ["**Recommended Action**", strictActionItems[0] || "n/a"],
+          ],
+        ),
+      ),
+      "",
+      strictActionChecklist,
+      "",
+      markdownSection(
+        "Quick Actions",
+        [
+          `- 📋 [View Full Report](${runUrl})`,
+          `- 📈 [Download Artifacts](${runUrl}#artifacts)`,
+          `- 🔍 [Check Logs](${runUrl}/jobs)`,
+        ].join("\n"),
+      ),
+      "",
+      markdownFooter({
+        updatedAt: new Date().toISOString().replace("T", " ").substring(0, 19),
+        sha: context.sha.substring(0, 7),
+      }),
+    ].join("\n");
 
     const { data: comments } = await github.rest.issues.listComments({
       owner: context.repo.owner,
