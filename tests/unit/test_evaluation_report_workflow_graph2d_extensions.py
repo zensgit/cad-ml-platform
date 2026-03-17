@@ -81,6 +81,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "HYBRID_SUPERPASS_VALIDATION_STRICT" in env
     assert "HYBRID_SUPERPASS_VALIDATION_SCHEMA_MODE" in env
     assert "CI_WATCH_SUMMARY_JSON_FOR_COMMENT" in env
+    assert "CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT" in env
     assert "WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT" in env
     assert "WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT" in env
     assert "WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT" in env
@@ -563,6 +564,20 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "--output-json reports/ci/workflow_guardrail_for_comment.json" in workflow_guardrail_script
     assert "--output-md reports/ci/workflow_guardrail_for_comment.md" in workflow_guardrail_script
 
+    ci_workflow_guardrail_overview_step = _get_step(
+        workflow,
+        "evaluate",
+        "Build CI workflow guardrail overview for PR comment (optional)",
+    )
+    ci_workflow_guardrail_overview_script = ci_workflow_guardrail_overview_step["run"]
+    assert "scripts/ci/generate_ci_workflow_guardrail_overview.py" in ci_workflow_guardrail_overview_script
+    assert 'CI_WATCH_JSON="${CI_WATCH_SUMMARY_JSON_FOR_COMMENT:-}"' in ci_workflow_guardrail_overview_script
+    assert 'WORKFLOW_GUARDRAIL_JSON="reports/ci/workflow_guardrail_for_comment.json"' in ci_workflow_guardrail_overview_script
+    assert '--ci-watch-summary-json "$CI_WATCH_JSON"' in ci_workflow_guardrail_overview_script
+    assert '--workflow-guardrail-json "$WORKFLOW_GUARDRAIL_JSON"' in ci_workflow_guardrail_overview_script
+    assert "--output-json reports/ci/ci_workflow_guardrail_overview_for_comment.json" in ci_workflow_guardrail_overview_script
+    assert "--output-md reports/ci/ci_workflow_guardrail_overview_for_comment.md" in ci_workflow_guardrail_overview_script
+
     append_inventory_step = _get_step(
         workflow,
         "evaluate",
@@ -596,6 +611,17 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "workflow guardrail markdown missing" in append_guardrail_script
     assert '>> "$GITHUB_STEP_SUMMARY"' in append_guardrail_script
 
+    append_ci_workflow_guardrail_overview_step = _get_step(
+        workflow,
+        "evaluate",
+        "Append CI workflow guardrail overview for evaluation report (optional)",
+    )
+    append_ci_workflow_guardrail_overview_script = append_ci_workflow_guardrail_overview_step["run"]
+    assert "## CI Workflow Guardrail Overview" in append_ci_workflow_guardrail_overview_script
+    assert "cat reports/ci/ci_workflow_guardrail_overview_for_comment.md" in append_ci_workflow_guardrail_overview_script
+    assert "ci workflow guardrail overview markdown missing" in append_ci_workflow_guardrail_overview_script
+    assert '>> "$GITHUB_STEP_SUMMARY"' in append_ci_workflow_guardrail_overview_script
+
     pr_comment_env = pr_comment_step["env"]
     assert "EVALUATION_STRICT_FAIL_MODE" in pr_comment_env
     assert "EVALUATION_STRICT_FAIL_MODE_RESOLVED" in pr_comment_env
@@ -605,6 +631,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "HYBRID_SUPERPASS_VALIDATION_STRICT_MODE" in pr_comment_env
     assert "HYBRID_SUPERPASS_VALIDATION_EXIT_CODE" in pr_comment_env
     assert "CI_WATCH_SUMMARY_JSON_FOR_COMMENT" in pr_comment_env
+    assert "CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT" in pr_comment_env
     assert "WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT" in pr_comment_env
     assert "WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT" in pr_comment_env
     assert "WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT" in pr_comment_env
@@ -620,6 +647,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     ]
     assert "workflow_guardrail_for_comment.outputs.summary_json" in pr_comment_env[
         "WORKFLOW_GUARDRAIL_SUMMARY_JSON_FOR_COMMENT"
+    ]
+    assert "ci_workflow_guardrail_overview_for_comment.outputs.summary_json" in pr_comment_env[
+        "CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT"
     ]
 
     module_script = (
@@ -645,22 +675,26 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Workflow Inventory Audit" in module_script
     assert "Workflow Publish Helper Adoption" in module_script
     assert "Workflow Guardrail Summary" in module_script
+    assert "CI Workflow Guardrail Overview" in module_script
     assert "CI Watcher" in module_script
     assert "Workflow Health" in module_script
     assert "Workflow Inventory" in module_script
     assert "Workflow Publish Helper" in module_script
     assert "Workflow Guardrails" in module_script
+    assert "CI+Workflow Overview" in module_script
     assert "function summarizeCiWatchFailure(summaryPath, fsApi = fs)" in module_script
     assert "function summarizeWorkflowFileHealth(summaryPath, fsApi = fs)" in module_script
     assert "function summarizeWorkflowInventory(summaryPath, fsApi = fs)" in module_script
     assert "function summarizeWorkflowPublishHelper(summaryPath, fsApi = fs)" in module_script
     assert "function summarizeWorkflowGuardrail(summaryPath, fsApi = fs)" in module_script
+    assert "function summarizeCiWorkflowGuardrailOverview(summaryPath, fsApi = fs)" in module_script
     assert "fsApi.existsSync(summaryPath)" in module_script
     assert "summarizeCiWatchFailure(ciWatchSummaryPath)" in module_script
     assert "summarizeWorkflowFileHealth(workflowFileHealthSummaryPath)" in module_script
     assert "summarizeWorkflowInventory(workflowInventorySummaryPath)" in module_script
     assert "summarizeWorkflowPublishHelper(workflowPublishHelperSummaryPath)" in module_script
     assert "summarizeWorkflowGuardrail(workflowGuardrailSummaryPath)" in module_script
+    assert "summarizeCiWorkflowGuardrailOverview(ciWorkflowGuardrailOverviewSummaryPath)" in module_script
     assert "workflowFileHealthSummaryPath" in module_script
     assert "Hybrid Blind Eval" in module_script
     assert "Hybrid Blind Gate" in module_script

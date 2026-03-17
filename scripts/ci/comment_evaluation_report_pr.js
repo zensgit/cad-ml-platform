@@ -329,6 +329,40 @@ function summarizeWorkflowGuardrail(summaryPath, fsApi = fs) {
   return { summary, light };
 }
 
+function summarizeCiWorkflowGuardrailOverview(summaryPath, fsApi = fs) {
+  let summary = "⏭️ skipped (no summary path)";
+  let light = "⚪";
+  if (!summaryPath) {
+    return { summary, light };
+  }
+  try {
+    if (!fsApi.existsSync(summaryPath)) {
+      return {
+        summary: `⚠️ summary missing at ${summaryPath}`,
+        light: "🟡",
+      };
+    }
+    const payload = JSON.parse(fsApi.readFileSync(summaryPath, "utf8"));
+    const overallStatus = String(payload.overall_status || "unknown");
+    const overallLight = String(payload.overall_light || "").trim();
+    summary = String(payload.summary || `status=${overallStatus}`);
+    if (overallLight) {
+      light = overallLight;
+    } else if (overallStatus === "error") {
+      light = "🔴";
+    } else if (overallStatus === "warning") {
+      light = "🟡";
+    } else if (overallStatus === "ok") {
+      light = "🟢";
+    }
+  } catch (error) {
+    const message = error && error.message ? error.message : String(error);
+    summary = `⚠️ parse_error: ${message}`;
+    light = "🟡";
+  }
+  return { summary, light };
+}
+
 function buildEvaluationReportCommentBody({
   overallStatus,
   combined,
@@ -367,6 +401,7 @@ function buildEvaluationReportCommentBody({
   workflowInventorySummary,
   workflowPublishHelperSummary,
   workflowGuardrailSummary,
+  ciWorkflowGuardrailOverviewSummary,
   reviewPackLight,
   reviewGateLight,
   trainSweepLight,
@@ -379,6 +414,7 @@ function buildEvaluationReportCommentBody({
   workflowInventoryLight,
   workflowPublishHelperLight,
   workflowGuardrailLight,
+  ciWorkflowGuardrailOverviewLight,
   evaluationStrictModeResolvedRaw,
   strictFailureRequestSummary,
   strictActionItems,
@@ -439,6 +475,7 @@ function buildEvaluationReportCommentBody({
           ["**Workflow Inventory Audit**", workflowInventorySummary],
           ["**Workflow Publish Helper Adoption**", workflowPublishHelperSummary],
           ["**Workflow Guardrail Summary**", workflowGuardrailSummary],
+          ["**CI Workflow Guardrail Overview**", ciWorkflowGuardrailOverviewSummary],
         ],
       ),
     ),
@@ -470,6 +507,11 @@ function buildEvaluationReportCommentBody({
             "**Workflow Guardrails**",
             workflowGuardrailLight,
             workflowGuardrailSummary,
+          ],
+          [
+            "**CI+Workflow Overview**",
+            ciWorkflowGuardrailOverviewLight,
+            ciWorkflowGuardrailOverviewSummary,
           ],
         ],
       ),
@@ -810,6 +852,15 @@ async function commentEvaluationReportPR({ github, context, process }) {
       light: workflowGuardrailLight,
     } = summarizeWorkflowGuardrail(workflowGuardrailSummaryPath);
 
+    const ciWorkflowGuardrailOverviewSummaryPath = envStr(
+      "CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT",
+      "",
+    );
+    const {
+      summary: ciWorkflowGuardrailOverviewSummary,
+      light: ciWorkflowGuardrailOverviewLight,
+    } = summarizeCiWorkflowGuardrailOverview(ciWorkflowGuardrailOverviewSummaryPath);
+
     const reviewCandidateCount = parseInt(reviewCandidates || "0", 10);
     const sweepTotalRunsInt = parseInt(sweepTotalRuns || "0", 10);
     const sweepFailedRunsInt = parseInt(sweepFailedRuns || "0", 10);
@@ -1037,6 +1088,7 @@ async function commentEvaluationReportPR({ github, context, process }) {
       workflowInventorySummary,
       workflowPublishHelperSummary,
       workflowGuardrailSummary,
+      ciWorkflowGuardrailOverviewSummary,
       reviewPackLight,
       reviewGateLight,
       trainSweepLight,
@@ -1049,6 +1101,7 @@ async function commentEvaluationReportPR({ github, context, process }) {
       workflowInventoryLight,
       workflowPublishHelperLight,
       workflowGuardrailLight,
+      ciWorkflowGuardrailOverviewLight,
       evaluationStrictModeResolvedRaw,
       strictFailureRequestSummary,
       strictActionItems,
@@ -1080,4 +1133,5 @@ module.exports = {
   summarizeWorkflowInventory,
   summarizeWorkflowPublishHelper,
   summarizeWorkflowGuardrail,
+  summarizeCiWorkflowGuardrailOverview,
 };

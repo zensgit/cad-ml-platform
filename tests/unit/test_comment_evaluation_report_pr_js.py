@@ -185,6 +185,7 @@ const body = mod.buildEvaluationReportCommentBody({
   workflowInventorySummary: "workflows=33, duplicate=0, missing_required=0, non_unique_required=0",
   workflowPublishHelperSummary: "checked=33, failed=0, raw=0, missing_comment_helper=0, missing_issue_helper=0",
   workflowGuardrailSummary: "status=ok, workflow_health=ok, inventory=ok, publish_helper=ok",
+  ciWorkflowGuardrailOverviewSummary: "status=ok, ci_watch=ok, workflow_guardrail=ok",
   reviewPackLight: "⚪",
   reviewGateLight: "🟢",
   trainSweepLight: "⚪",
@@ -197,6 +198,7 @@ const body = mod.buildEvaluationReportCommentBody({
   workflowInventoryLight: "🟢",
   workflowPublishHelperLight: "🟢",
   workflowGuardrailLight: "🟢",
+  ciWorkflowGuardrailOverviewLight: "🟢",
   evaluationStrictModeResolvedRaw: "soft",
   strictFailureRequestSummary: "hybrid_blind:gate_failed_under_strict_mode",
   strictActionItems: ["- ⚠️ soft gate downgraded"],
@@ -223,6 +225,9 @@ if (!body.includes("Workflow Publish Helper Adoption")) {
 }
 if (!body.includes("Workflow Guardrail Summary")) {
   throw new Error("body missing workflow guardrail row");
+}
+if (!body.includes("CI Workflow Guardrail Overview")) {
+  throw new Error("body missing ci workflow guardrail overview row");
 }
 if (!body.includes("strict_requests=2")) {
   throw new Error("body missing strict request count detail");
@@ -346,6 +351,7 @@ const mockProcess = { env: process.env };
     workflowInventorySummary: "⏭️ skipped (no summary path)",
     workflowPublishHelperSummary: "⏭️ skipped (no summary path)",
     workflowGuardrailSummary: "⏭️ skipped (no summary path)",
+    ciWorkflowGuardrailOverviewSummary: "⏭️ skipped (no summary path)",
     reviewPackLight: "⚪",
     reviewGateLight: "⚪",
     trainSweepLight: "⚪",
@@ -358,6 +364,7 @@ const mockProcess = { env: process.env };
     workflowInventoryLight: "⚪",
     workflowPublishHelperLight: "⚪",
     workflowGuardrailLight: "⚪",
+    ciWorkflowGuardrailOverviewLight: "⚪",
     evaluationStrictModeResolvedRaw: "soft",
     strictFailureRequestSummary: "none",
     strictActionItems: ["- ✅ No strict gate failure request detected."],
@@ -903,6 +910,152 @@ const mockProcess = { env: process.env };
     assert "ok:create-comment-with-workflow-guardrail-parse-error" in result.stdout
 
 
+def test_comment_evaluation_report_pr_js_includes_ci_workflow_guardrail_overview(
+    tmp_path: Path,
+) -> None:
+    overview = tmp_path / "ci_workflow_guardrail_overview.json"
+    overview.write_text(
+        json.dumps(
+            {
+                "overall_status": "error",
+                "overall_light": "🔴",
+                "summary": "status=error, ci_watch=ok, workflow_guardrail=error",
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    node_script = r"""
+const mod = require("./scripts/ci/comment_evaluation_report_pr.js");
+const overviewPath = process.argv[1];
+
+process.env.EVAL_COMBINED_SCORE = "0.830";
+process.env.EVAL_VISION_SCORE = "0.840";
+process.env.EVAL_OCR_SCORE = "0.930";
+process.env.EVAL_MIN_COMBINED = "0.800";
+process.env.EVAL_MIN_VISION = "0.650";
+process.env.EVAL_MIN_OCR = "0.900";
+process.env.CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT = overviewPath;
+
+let createdPayload = null;
+const github = {
+  rest: {
+    issues: {
+      listComments: async () => ({ data: [] }),
+      createComment: async (payload) => {
+        createdPayload = payload;
+        return { data: { id: 108 } };
+      },
+      updateComment: async () => {
+        throw new Error("updateComment should not be called for empty comment list");
+      },
+    },
+  },
+};
+const context = {
+  repo: { owner: "zensgit", repo: "cad-ml-platform" },
+  issue: { number: 995 },
+  sha: "9900112233445566",
+  runId: "909090909",
+};
+const mockProcess = { env: process.env };
+
+(async () => {
+  await mod.commentEvaluationReportPR({ github, context, process: mockProcess });
+  if (!createdPayload) {
+    throw new Error("createComment was not called");
+  }
+  const body = String(createdPayload.body || "");
+  if (!body.includes("CI Workflow Guardrail Overview")) {
+    throw new Error("comment body missing ci workflow guardrail overview section");
+  }
+  if (!body.includes("status=error, ci_watch=ok, workflow_guardrail=error")) {
+    throw new Error("comment body missing ci workflow guardrail overview summary");
+  }
+  if (!body.includes("**CI+Workflow Overview**")) {
+    throw new Error("comment body missing ci+workflow overview signal");
+  }
+  console.log("ok:create-comment-with-ci-workflow-guardrail-overview");
+})().catch((err) => {
+  console.error(err && err.stack ? err.stack : String(err));
+  process.exit(1);
+});
+"""
+
+    result = _run_node_inline(node_script, str(overview))
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "ok:create-comment-with-ci-workflow-guardrail-overview" in result.stdout
+
+
+def test_comment_evaluation_report_pr_js_marks_ci_workflow_guardrail_overview_parse_errors(
+    tmp_path: Path,
+) -> None:
+    overview = tmp_path / "ci_workflow_guardrail_overview_invalid.json"
+    overview.write_text("{invalid json", encoding="utf-8")
+
+    node_script = r"""
+const mod = require("./scripts/ci/comment_evaluation_report_pr.js");
+const overviewPath = process.argv[1];
+
+process.env.EVAL_COMBINED_SCORE = "0.830";
+process.env.EVAL_VISION_SCORE = "0.840";
+process.env.EVAL_OCR_SCORE = "0.930";
+process.env.EVAL_MIN_COMBINED = "0.800";
+process.env.EVAL_MIN_VISION = "0.650";
+process.env.EVAL_MIN_OCR = "0.900";
+process.env.CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT = overviewPath;
+
+let createdPayload = null;
+const github = {
+  rest: {
+    issues: {
+      listComments: async () => ({ data: [] }),
+      createComment: async (payload) => {
+        createdPayload = payload;
+        return { data: { id: 109 } };
+      },
+      updateComment: async () => {
+        throw new Error("updateComment should not be called for empty comment list");
+      },
+    },
+  },
+};
+const context = {
+  repo: { owner: "zensgit", repo: "cad-ml-platform" },
+  issue: { number: 996 },
+  sha: "0011223344556677",
+  runId: "919191919",
+};
+const mockProcess = { env: process.env };
+
+(async () => {
+  await mod.commentEvaluationReportPR({ github, context, process: mockProcess });
+  if (!createdPayload) {
+    throw new Error("createComment was not called");
+  }
+  const body = String(createdPayload.body || "");
+  if (!body.includes("CI Workflow Guardrail Overview")) {
+    throw new Error("comment body missing ci workflow guardrail overview section");
+  }
+  if (!body.includes("parse_error")) {
+    throw new Error("comment body missing ci workflow guardrail overview parse_error");
+  }
+  console.log("ok:create-comment-with-ci-workflow-guardrail-overview-parse-error");
+})().catch((err) => {
+  console.error(err && err.stack ? err.stack : String(err));
+  process.exit(1);
+});
+"""
+
+    result = _run_node_inline(node_script, str(overview))
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert (
+        "ok:create-comment-with-ci-workflow-guardrail-overview-parse-error"
+        in result.stdout
+    )
+
+
 def test_comment_evaluation_report_pr_js_marks_ci_watch_parse_errors(
     tmp_path: Path,
 ) -> None:
@@ -1046,6 +1199,10 @@ def test_comment_evaluation_report_pr_js_marks_multiple_parse_errors_together(
     workflow_publish_helper.write_text("{invalid json", encoding="utf-8")
     workflow_guardrail = tmp_path / "workflow_guardrail_invalid.json"
     workflow_guardrail.write_text("{invalid json", encoding="utf-8")
+    ci_workflow_guardrail_overview = (
+        tmp_path / "ci_workflow_guardrail_overview_invalid.json"
+    )
+    ci_workflow_guardrail_overview.write_text("{invalid json", encoding="utf-8")
 
     node_script = r"""
 const mod = require("./scripts/ci/comment_evaluation_report_pr.js");
@@ -1054,6 +1211,7 @@ const workflowFileHealthPath = process.argv[2];
 const workflowInventoryPath = process.argv[3];
 const workflowPublishHelperPath = process.argv[4];
 const workflowGuardrailPath = process.argv[5];
+const ciWorkflowGuardrailOverviewPath = process.argv[6];
 
 process.env.EVAL_COMBINED_SCORE = "0.830";
 process.env.EVAL_VISION_SCORE = "0.840";
@@ -1066,6 +1224,7 @@ process.env.WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT = workflowFileHealthPa
 process.env.WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT = workflowInventoryPath;
 process.env.WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT = workflowPublishHelperPath;
 process.env.WORKFLOW_GUARDRAIL_SUMMARY_JSON_FOR_COMMENT = workflowGuardrailPath;
+process.env.CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT = ciWorkflowGuardrailOverviewPath;
 
 let createdPayload = null;
 const github = {
@@ -1111,9 +1270,12 @@ const mockProcess = { env: process.env };
   if (!body.includes("Workflow Guardrail Summary")) {
     throw new Error("comment body missing workflow guardrail section");
   }
+  if (!body.includes("CI Workflow Guardrail Overview")) {
+    throw new Error("comment body missing ci workflow guardrail overview section");
+  }
   const parseErrorCount = (body.match(/parse_error/g) || []).length;
-  if (parseErrorCount < 5) {
-    throw new Error(`expected at least 5 parse_error markers, got ${parseErrorCount}`);
+  if (parseErrorCount < 6) {
+    throw new Error(`expected at least 6 parse_error markers, got ${parseErrorCount}`);
   }
   console.log("ok:create-comment-with-multiple-parse-errors");
 })().catch((err) => {
@@ -1129,6 +1291,7 @@ const mockProcess = { env: process.env };
         str(workflow_inventory),
         str(workflow_publish_helper),
         str(workflow_guardrail),
+        str(ci_workflow_guardrail_overview),
     )
     assert result.returncode == 0, result.stderr or result.stdout
     assert "ok:create-comment-with-multiple-parse-errors" in result.stdout
