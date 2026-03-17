@@ -22,9 +22,9 @@ def test_render_markdown_includes_attempts_and_pr_comment() -> None:
             "attempts": [
                 {
                     "attempt": 1,
-                    "dispatch_exit_code": 0,
-                    "soft_marker_ok": True,
-                    "soft_marker_message": "",
+                    "dispatch_exit_code": 1,
+                    "soft_marker_ok": False,
+                    "soft_marker_message": "marker not found",
                 }
             ],
             "pr_comment": {
@@ -33,7 +33,7 @@ def test_render_markdown_includes_attempts_and_pr_comment() -> None:
                 "pr_number": 369,
                 "auto_resolve": True,
                 "exit_code": 0,
-                "error": "",
+                "error": "comment disabled by dry-run",
             },
         }
     )
@@ -42,8 +42,12 @@ def test_render_markdown_includes_attempts_and_pr_comment() -> None:
     assert "## Smoke Verdict" in markdown
     assert "- verdict: ok" in markdown
     assert "- pr_comment_status: requested=True, enabled=True, exit_code=0" in markdown
+    assert "## Smoke Signals" in markdown
+    assert "- failed_attempts: 1" in markdown
+    assert "- last_attempt_message: marker not found" in markdown
+    assert "- pr_comment_error: comment disabled by dry-run" in markdown
     assert "- attempts_total: 1" in markdown
-    assert "- attempt #1: dispatch_exit_code=0, soft_marker_ok=True, message=" in markdown
+    assert "- attempt #1: dispatch_exit_code=1, soft_marker_ok=False, message=marker not found" in markdown
     assert "- run_id: 23126562401" in markdown
     assert "- pr_comment_pr_number: 369" in markdown
     assert "- pr_comment_auto_resolve: True" in markdown
@@ -92,3 +96,14 @@ def test_main_fails_when_summary_missing(tmp_path: Path, capsys: object) -> None
     assert rc == 1
     captured = capsys.readouterr()
     assert "summary json does not exist" in captured.out
+
+
+def test_main_fails_when_summary_json_invalid(tmp_path: Path, capsys: object) -> None:
+    from scripts.ci import render_soft_mode_smoke_summary as mod
+
+    summary_json = tmp_path / "invalid.json"
+    summary_json.write_text("{not-json", encoding="utf-8")
+
+    rc = mod.main(["--summary-json", str(summary_json)])
+    assert rc == 1
+    assert "failed to parse summary json" in capsys.readouterr().out

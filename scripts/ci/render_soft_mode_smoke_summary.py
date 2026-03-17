@@ -61,6 +61,19 @@ def render_markdown(summary: dict[str, Any]) -> str:
             f"enabled={pr_comment_obj.get('enabled', 'n/a')}, "
             f"exit_code={pr_comment_obj.get('exit_code', 'n/a')}"
         )
+    failed_attempts = [
+        item
+        for item in attempts
+        if not _is_zeroish(item.get("dispatch_exit_code", 0))
+        or not _boolish(item.get("soft_marker_ok", False))
+    ]
+    last_attempt_message = "n/a"
+    if attempts:
+        last_attempt = attempts[-1]
+        last_attempt_message = str(
+            last_attempt.get("soft_marker_message", last_attempt.get("message", "n/a"))
+        )
+    pr_comment_error = str(pr_comment_obj.get("error") or "").strip()
 
     lines = [
         "## Evaluation Soft-Mode Smoke",
@@ -77,6 +90,12 @@ def render_markdown(summary: dict[str, Any]) -> str:
         f"- max_dispatch_attempts: {summary.get('max_dispatch_attempts', 'n/a')}",
         f"- retry_sleep_seconds: {summary.get('retry_sleep_seconds', 'n/a')}",
         f"- attempts_total: {len(attempts)}",
+        "",
+        "## Smoke Signals",
+        "",
+        f"- failed_attempts: {len(failed_attempts)}",
+        f"- last_attempt_message: {last_attempt_message}",
+        f"- pr_comment_error: {pr_comment_error or '(none)'}",
     ]
     for index, item in enumerate(attempts, start=1):
         attempt_no = item.get("attempt", index)
@@ -95,10 +114,6 @@ def render_markdown(summary: dict[str, Any]) -> str:
     if run_url:
         lines.append(f"- run_url: {run_url}")
 
-    lines.extend(
-        []
-    )
-
     if pr_comment_obj:
         lines.extend(
             [
@@ -109,9 +124,8 @@ def render_markdown(summary: dict[str, Any]) -> str:
                 f"- pr_comment_exit_code: {pr_comment_obj.get('exit_code', 'n/a')}",
             ]
         )
-        error = str(pr_comment_obj.get("error") or "").strip()
-        if error:
-            lines.append(f"- pr_comment_error: {error}")
+        if pr_comment_error:
+            lines.append(f"- pr_comment_error: {pr_comment_error}")
 
     return "\n".join(lines) + "\n"
 

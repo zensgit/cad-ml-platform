@@ -47,6 +47,11 @@ def render_markdown(payload: dict[str, Any]) -> str:
         for item in failed_jobs_list
         if isinstance(item, dict) and str(item.get("job_name") or "").strip()
     ][:3]
+    top_failed_steps = [
+        str(item.get("failed_step_name") or "").strip()
+        for item in failed_jobs_list
+        if isinstance(item, dict) and str(item.get("failed_step_name") or "").strip()
+    ][:3]
 
     lines = [
         "## Hybrid Superpass Dispatch",
@@ -76,6 +81,7 @@ def render_markdown(payload: dict[str, Any]) -> str:
             f"- verdict: {verdict}",
             f"- conclusion_pair: expected={payload.get('expected_conclusion', 'n/a')} actual={payload.get('conclusion', 'n/a')}",
             f"- top_failed_jobs: {', '.join(top_failed_jobs) if top_failed_jobs else '(none)'}",
+            f"- top_failed_steps: {', '.join(top_failed_steps) if top_failed_steps else '(none)'}",
         ]
     )
     diagnostics_reason = str(diagnostics_obj.get("reason") or "").strip()
@@ -83,6 +89,18 @@ def render_markdown(payload: dict[str, Any]) -> str:
         lines.append(f"- diagnostics_reason: {diagnostics_reason}")
     elif reason:
         lines.append(f"- diagnostics_reason: {reason}")
+
+    lines.extend(
+        [
+            "",
+            "## Failure Snapshot",
+            "",
+            f"- failed_job_count: {len(failed_jobs_list)}",
+            f"- top_failed_jobs: {', '.join(top_failed_jobs) if top_failed_jobs else '(none)'}",
+            f"- top_failed_steps: {', '.join(top_failed_steps) if top_failed_steps else '(none)'}",
+            f"- failure_reason: {diagnostics_reason or reason or 'n/a'}",
+        ]
+    )
 
     if diagnostics_obj:
         lines.extend(

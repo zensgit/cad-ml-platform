@@ -9,6 +9,7 @@
 
 使真实运行后的 `--output-json` 能直接转成 Markdown，便于人工审阅、artifact 化与后续 workflow 接线。
 本轮还补齐了统一的 `Dispatch Verdict` 段，使 strict-real 与 superpass 摘要都先给出结论、再展开 failure diagnostics。
+本轮继续补了统一的 `Failure Snapshot` 段，并为无效 JSON 输入补齐失败回归。
 
 ## 实现
 
@@ -22,7 +23,8 @@
   - workflow / ref / repo
   - strict-real dxf/manfiest/synth/strict flags
   - expected / actual conclusion
-  - dispatch verdict / top failed jobs / diagnostics reason
+  - dispatch verdict / top failed jobs / top failed steps / diagnostics reason
+  - failure snapshot / failure reason
   - overall/dispatch/watch exit code
   - run_id / run_url
   - failure diagnostics（若存在）
@@ -36,7 +38,8 @@
 - 输出字段：
   - workflow / ref / repo
   - expected / actual conclusion
-  - dispatch verdict / top failed jobs / diagnostics reason
+  - dispatch verdict / top failed jobs / top failed steps / diagnostics reason
+  - failure snapshot / failure reason
   - overall/watch exit code
   - run_id / run_url
   - dispatch_command
@@ -73,7 +76,7 @@ pytest -q \
   tests/unit/test_hybrid_calibration_make_targets.py
 ```
 
-结果：`45 passed`
+结果：`47 passed`
 
 ### Make 验证
 
@@ -84,8 +87,8 @@ make validate-render-hybrid-superpass-dispatch-summary
 
 结果：
 
-- `validate-render-hybrid-blind-strict-real-dispatch-summary` -> `42 passed`
-- `validate-render-hybrid-superpass-dispatch-summary` -> `42 passed`
+- `validate-render-hybrid-blind-strict-real-dispatch-summary` -> `43 passed`
+- `validate-render-hybrid-superpass-dispatch-summary` -> `43 passed`
 
 ### 近真实验证 1：strict-real dispatch
 

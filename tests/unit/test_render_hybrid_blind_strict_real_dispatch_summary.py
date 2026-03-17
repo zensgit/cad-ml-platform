@@ -25,8 +25,10 @@ def test_render_markdown_includes_core_fields_and_failure_diagnostics() -> None:
             "watch_exit_code": 1,
             "run_id": 4301,
             "run_url": "https://example.com/r/4301",
+            "reason": "strict_gate_blocked",
             "failure_diagnostics": {
                 "available": True,
+                "reason": "failed_jobs_detected",
                 "failed_job_count": 1,
                 "failed_jobs": [
                     {
@@ -45,9 +47,13 @@ def test_render_markdown_includes_core_fields_and_failure_diagnostics() -> None:
     assert "- verdict: expectation_mismatch" in markdown
     assert "- conclusion_pair: expected=success actual=failure" in markdown
     assert "- top_failed_jobs: strict-real-gate" in markdown
+    assert "- top_failed_steps: Check Hybrid Blind Gate" in markdown
     assert "- hybrid_blind_dxf_dir: /tmp/dxf" in markdown
     assert "- matched_expectation: False" in markdown
     assert "- run_id: 4301" in markdown
+    assert "## Failure Snapshot" in markdown
+    assert "- failed_job_count: 1" in markdown
+    assert "- failure_reason: failed_jobs_detected" in markdown
     assert "### Failure Diagnostics" in markdown
     assert "failed_job: strict-real-gate" in markdown
 
@@ -95,3 +101,14 @@ def test_main_fails_when_dispatch_missing(tmp_path: Path, capsys: object) -> Non
     rc = mod.main(["--dispatch-json", str(tmp_path / "missing.json")])
     assert rc == 1
     assert "dispatch json does not exist" in capsys.readouterr().out
+
+
+def test_main_fails_when_dispatch_json_invalid(tmp_path: Path, capsys: object) -> None:
+    from scripts.ci import render_hybrid_blind_strict_real_dispatch_summary as mod
+
+    dispatch_json = tmp_path / "invalid.json"
+    dispatch_json.write_text("{not-json", encoding="utf-8")
+
+    rc = mod.main(["--dispatch-json", str(dispatch_json)])
+    assert rc == 1
+    assert "failed to parse dispatch json" in capsys.readouterr().out
