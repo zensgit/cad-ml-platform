@@ -130,3 +130,61 @@ def test_append_failure_diagnostics_section_renders_reason_and_failed_jobs() -> 
         "- reason: failed_jobs_detected",
         "- failed_job: hybrid-superpass job_conclusion=failure failed_step=Validate Superpass Reports step_conclusion=failure",
     ]
+
+
+def test_append_dispatch_verdict_and_snapshot_sections_renders_expected_blocks() -> None:
+    from scripts.ci.summary_render_utils import append_dispatch_verdict_and_snapshot_sections
+
+    lines = ["## Root"]
+
+    append_dispatch_verdict_and_snapshot_sections(
+        lines,
+        verdict="expectation_mismatch",
+        expected_conclusion="success",
+        conclusion="failure",
+        top_failed_jobs="hybrid-superpass",
+        top_failed_steps="Validate Superpass Reports",
+        failed_job_count=1,
+        diagnostics_reason="failed_jobs_detected",
+        fallback_reason="superpass_gate_failed",
+    )
+
+    assert lines == [
+        "## Root",
+        "",
+        "## Dispatch Verdict",
+        "",
+        "- verdict: expectation_mismatch",
+        "- conclusion_pair: expected=success actual=failure",
+        "- top_failed_jobs: hybrid-superpass",
+        "- top_failed_steps: Validate Superpass Reports",
+        "- diagnostics_reason: failed_jobs_detected",
+        "",
+        "## Dispatch Snapshot",
+        "",
+        "- failed_job_count: 1",
+        "- top_failed_jobs: hybrid-superpass",
+        "- top_failed_steps: Validate Superpass Reports",
+        "- failure_reason: failed_jobs_detected",
+    ]
+
+
+def test_append_dispatch_verdict_and_snapshot_sections_falls_back_to_reason() -> None:
+    from scripts.ci.summary_render_utils import append_dispatch_verdict_and_snapshot_sections
+
+    lines = ["## Root"]
+
+    append_dispatch_verdict_and_snapshot_sections(
+        lines,
+        verdict="matched_expectation",
+        expected_conclusion="success",
+        conclusion="success",
+        top_failed_jobs="(none)",
+        top_failed_steps="(none)",
+        failed_job_count=0,
+        diagnostics_reason="",
+        fallback_reason="dispatch_watch_timeout",
+    )
+
+    assert "- diagnostics_reason: dispatch_watch_timeout" in lines
+    assert "- failure_reason: dispatch_watch_timeout" in lines

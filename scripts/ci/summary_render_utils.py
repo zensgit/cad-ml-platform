@@ -93,3 +93,42 @@ def append_failure_diagnostics_section(
                 item.get("failed_step_conclusion", ""),
             )
         )
+
+
+def append_dispatch_verdict_and_snapshot_sections(
+    lines: list[str],
+    *,
+    verdict: str,
+    expected_conclusion: Any,
+    conclusion: Any,
+    top_failed_jobs: str,
+    top_failed_steps: str,
+    failed_job_count: int,
+    diagnostics_reason: str = "",
+    fallback_reason: str = "",
+) -> None:
+    append_markdown_section(
+        lines,
+        "Dispatch Verdict",
+        [
+            ("verdict", verdict),
+            ("conclusion_pair", f"expected={expected_conclusion} actual={conclusion}"),
+            ("top_failed_jobs", top_failed_jobs),
+            ("top_failed_steps", top_failed_steps),
+        ],
+    )
+    if diagnostics_reason:
+        lines.append(f"- diagnostics_reason: {diagnostics_reason}")
+    elif fallback_reason:
+        lines.append(f"- diagnostics_reason: {fallback_reason}")
+
+    append_markdown_section(
+        lines,
+        "Dispatch Snapshot",
+        [
+            ("failed_job_count", failed_job_count),
+            ("top_failed_jobs", top_failed_jobs),
+            ("top_failed_steps", top_failed_steps),
+            ("failure_reason", diagnostics_reason or fallback_reason or "n/a"),
+        ],
+    )

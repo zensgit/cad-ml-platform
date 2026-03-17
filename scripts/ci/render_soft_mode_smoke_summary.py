@@ -7,10 +7,20 @@ from pathlib import Path
 from typing import Sequence
 
 try:
-    from scripts.ci.summary_render_utils import boolish, is_zeroish, read_json_object
+    from scripts.ci.summary_render_utils import (
+        append_markdown_section,
+        boolish,
+        is_zeroish,
+        read_json_object,
+    )
 except ModuleNotFoundError:  # pragma: no cover - direct script execution
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-    from scripts.ci.summary_render_utils import boolish, is_zeroish, read_json_object
+    from scripts.ci.summary_render_utils import (
+        append_markdown_section,
+        boolish,
+        is_zeroish,
+        read_json_object,
+    )
 
 
 def _normalize_attempts(summary: dict[str, Any]) -> list[dict[str, Any]]:
@@ -58,28 +68,31 @@ def render_markdown(summary: dict[str, Any]) -> str:
         )
     pr_comment_error = str(pr_comment_obj.get("error") or "").strip()
 
-    lines = [
-        "## Evaluation Soft-Mode Smoke",
-        "",
-        "## Smoke Verdict",
-        "",
-        f"- verdict: {verdict}",
-        f"- soft_marker_ok: {summary.get('soft_marker_ok', 'n/a')}",
-        f"- restore_ok: {summary.get('restore_ok', 'n/a')}",
-        f"- pr_comment_status: {pr_comment_status}",
-        "",
-        f"- overall_exit_code: {summary.get('overall_exit_code', 'n/a')}",
-        f"- dispatch_exit_code: {summary.get('dispatch_exit_code', 'n/a')}",
-        f"- max_dispatch_attempts: {summary.get('max_dispatch_attempts', 'n/a')}",
-        f"- retry_sleep_seconds: {summary.get('retry_sleep_seconds', 'n/a')}",
-        f"- attempts_total: {len(attempts)}",
-        "",
-        "## Smoke Snapshot",
-        "",
-        f"- failed_attempt_count: {len(failed_attempts)}",
-        f"- last_attempt_message: {last_attempt_message}",
-        f"- pr_comment_error: {pr_comment_error or '(none)'}",
-    ]
+    lines = ["## Evaluation Soft-Mode Smoke"]
+    append_markdown_section(
+        lines,
+        "Smoke Verdict",
+        [
+            ("verdict", verdict),
+            ("soft_marker_ok", summary.get("soft_marker_ok", "n/a")),
+            ("restore_ok", summary.get("restore_ok", "n/a")),
+            ("pr_comment_status", pr_comment_status),
+            ("overall_exit_code", summary.get("overall_exit_code", "n/a")),
+            ("dispatch_exit_code", summary.get("dispatch_exit_code", "n/a")),
+            ("max_dispatch_attempts", summary.get("max_dispatch_attempts", "n/a")),
+            ("retry_sleep_seconds", summary.get("retry_sleep_seconds", "n/a")),
+            ("attempts_total", len(attempts)),
+        ],
+    )
+    append_markdown_section(
+        lines,
+        "Smoke Snapshot",
+        [
+            ("failed_attempt_count", len(failed_attempts)),
+            ("last_attempt_message", last_attempt_message),
+            ("pr_comment_error", pr_comment_error or "(none)"),
+        ],
+    )
     for index, item in enumerate(attempts, start=1):
         attempt_no = item.get("attempt", index)
         dispatch_exit_code = item.get("dispatch_exit_code", "n/a")

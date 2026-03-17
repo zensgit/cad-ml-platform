@@ -56,7 +56,7 @@ make validate-render-soft-mode-smoke-summary
 
 Results:
 
-- `pytest -q tests/unit/test_summary_render_utils.py tests/unit/test_render_hybrid_blind_strict_real_dispatch_summary.py tests/unit/test_render_hybrid_superpass_dispatch_summary.py tests/unit/test_render_hybrid_superpass_validation_summary.py tests/unit/test_render_soft_mode_smoke_summary.py tests/unit/test_hybrid_calibration_make_targets.py` -> `62 passed`
+- `pytest -q tests/unit/test_summary_render_utils.py tests/unit/test_render_hybrid_blind_strict_real_dispatch_summary.py tests/unit/test_render_hybrid_superpass_dispatch_summary.py tests/unit/test_render_hybrid_superpass_validation_summary.py tests/unit/test_render_soft_mode_smoke_summary.py tests/unit/test_hybrid_calibration_make_targets.py` -> `64 passed`
 - `make validate-render-hybrid-blind-strict-real-dispatch-summary` -> `50 passed`
 - `make validate-render-hybrid-superpass-dispatch-summary` -> `50 passed`
 - `make validate-render-hybrid-superpass-validation-summary` -> `50 passed`

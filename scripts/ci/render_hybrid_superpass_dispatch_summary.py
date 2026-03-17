@@ -9,7 +9,7 @@ from typing import Any, Sequence
 try:
     from scripts.ci.summary_render_utils import (
         append_failure_diagnostics_section,
-        append_markdown_section,
+        append_dispatch_verdict_and_snapshot_sections,
         boolish,
         read_json_object,
         render_inline_items,
@@ -19,7 +19,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from scripts.ci.summary_render_utils import (
         append_failure_diagnostics_section,
-        append_markdown_section,
+        append_dispatch_verdict_and_snapshot_sections,
         boolish,
         read_json_object,
         render_inline_items,
@@ -72,34 +72,18 @@ def render_markdown(payload: dict[str, Any]) -> str:
     if reason:
         lines.append(f"- reason: {reason}")
 
-    append_markdown_section(
+    top_failed_jobs_text = render_inline_items(top_failed_jobs)
+    top_failed_steps_text = render_inline_items(top_failed_steps)
+    append_dispatch_verdict_and_snapshot_sections(
         lines,
-        "Dispatch Verdict",
-        [
-            ("verdict", verdict),
-            (
-                "conclusion_pair",
-                f"expected={payload.get('expected_conclusion', 'n/a')} actual={payload.get('conclusion', 'n/a')}",
-            ),
-            ("top_failed_jobs", render_inline_items(top_failed_jobs)),
-            ("top_failed_steps", render_inline_items(top_failed_steps)),
-        ],
-    )
-    diagnostics_reason = str(diagnostics_obj.get("reason") or "").strip()
-    if diagnostics_reason:
-        lines.append(f"- diagnostics_reason: {diagnostics_reason}")
-    elif reason:
-        lines.append(f"- diagnostics_reason: {reason}")
-
-    append_markdown_section(
-        lines,
-        "Dispatch Snapshot",
-        [
-            ("failed_job_count", len(failed_jobs_list)),
-            ("top_failed_jobs", render_inline_items(top_failed_jobs)),
-            ("top_failed_steps", render_inline_items(top_failed_steps)),
-            ("failure_reason", diagnostics_reason or reason or "n/a"),
-        ],
+        verdict=verdict,
+        expected_conclusion=payload.get("expected_conclusion", "n/a"),
+        conclusion=payload.get("conclusion", "n/a"),
+        top_failed_jobs=top_failed_jobs_text,
+        top_failed_steps=top_failed_steps_text,
+        failed_job_count=len(failed_jobs_list),
+        diagnostics_reason=str(diagnostics_obj.get("reason") or "").strip(),
+        fallback_reason=reason,
     )
 
     append_failure_diagnostics_section(lines, diagnostics_obj, failed_jobs_list)

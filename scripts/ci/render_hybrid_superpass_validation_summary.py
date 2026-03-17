@@ -7,10 +7,22 @@ from pathlib import Path
 from typing import Sequence
 
 try:
-    from scripts.ci.summary_render_utils import is_zeroish, read_json_object, top_nonempty
+    from scripts.ci.summary_render_utils import (
+        append_markdown_section,
+        is_zeroish,
+        read_json_object,
+        render_inline_items,
+        top_nonempty,
+    )
 except ModuleNotFoundError:  # pragma: no cover - direct script execution
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-    from scripts.ci.summary_render_utils import is_zeroish, read_json_object, top_nonempty
+    from scripts.ci.summary_render_utils import (
+        append_markdown_section,
+        is_zeroish,
+        read_json_object,
+        render_inline_items,
+        top_nonempty,
+    )
 
 
 def render_markdown(payload: dict[str, Any]) -> str:
@@ -33,34 +45,41 @@ def render_markdown(payload: dict[str, Any]) -> str:
     top_errors = top_nonempty(errors_list)
     top_warnings = top_nonempty(warnings_list)
 
-    lines = [
-        "## Hybrid Superpass Validation",
-        "",
-        "## Validation Verdict",
-        "",
-        f"- verdict: {verdict}",
-        f"- status: {payload.get('status', 'n/a')}",
-        f"- strict: {payload.get('strict', 'n/a')}",
-        f"- schema_mode: {payload.get('schema_mode', 'n/a')}",
-        f"- overall_exit_code: {payload.get('overall_exit_code', 'n/a')}",
-        f"- top_errors: {', '.join(top_errors) if top_errors else '(none)'}",
-        f"- top_warnings: {', '.join(top_warnings) if top_warnings else '(none)'}",
-        "",
-        "## Validation Snapshot",
-        "",
-        f"- inputs.superpass_json: {inputs_obj.get('superpass_json', '')}",
-        f"- inputs.hybrid_blind_gate_report: {inputs_obj.get('hybrid_blind_gate_report', '')}",
-        f"- inputs.hybrid_calibration_json: {inputs_obj.get('hybrid_calibration_json', '')}",
-        f"- summary.superpass_status: {summary_obj.get('superpass_status', 'n/a')}",
-        f"- summary.superpass_check_count: {summary_obj.get('superpass_check_count', 'n/a')}",
-        f"- summary.superpass_failure_count: {summary_obj.get('superpass_failure_count', 'n/a')}",
-        f"- summary.superpass_warning_count: {summary_obj.get('superpass_warning_count', 'n/a')}",
-        f"- summary.gate_hybrid_accuracy: {summary_obj.get('gate_hybrid_accuracy', 'n/a')}",
-        f"- summary.gate_hybrid_gain_vs_graph2d: {summary_obj.get('gate_hybrid_gain_vs_graph2d', 'n/a')}",
-        f"- summary.calibration_ece: {summary_obj.get('calibration_ece', 'n/a')}",
-        f"- errors_total: {len(errors_list)}",
-        f"- warnings_total: {len(warnings_list)}",
-    ]
+    lines = ["## Hybrid Superpass Validation"]
+    append_markdown_section(
+        lines,
+        "Validation Verdict",
+        [
+            ("verdict", verdict),
+            ("status", payload.get("status", "n/a")),
+            ("strict", payload.get("strict", "n/a")),
+            ("schema_mode", payload.get("schema_mode", "n/a")),
+            ("overall_exit_code", payload.get("overall_exit_code", "n/a")),
+            ("top_errors", render_inline_items(top_errors)),
+            ("top_warnings", render_inline_items(top_warnings)),
+        ],
+    )
+    append_markdown_section(
+        lines,
+        "Validation Snapshot",
+        [
+            ("inputs.superpass_json", inputs_obj.get("superpass_json", "")),
+            ("inputs.hybrid_blind_gate_report", inputs_obj.get("hybrid_blind_gate_report", "")),
+            ("inputs.hybrid_calibration_json", inputs_obj.get("hybrid_calibration_json", "")),
+            ("summary.superpass_status", summary_obj.get("superpass_status", "n/a")),
+            ("summary.superpass_check_count", summary_obj.get("superpass_check_count", "n/a")),
+            ("summary.superpass_failure_count", summary_obj.get("superpass_failure_count", "n/a")),
+            ("summary.superpass_warning_count", summary_obj.get("superpass_warning_count", "n/a")),
+            ("summary.gate_hybrid_accuracy", summary_obj.get("gate_hybrid_accuracy", "n/a")),
+            (
+                "summary.gate_hybrid_gain_vs_graph2d",
+                summary_obj.get("gate_hybrid_gain_vs_graph2d", "n/a"),
+            ),
+            ("summary.calibration_ece", summary_obj.get("calibration_ece", "n/a")),
+            ("errors_total", len(errors_list)),
+            ("warnings_total", len(warnings_list)),
+        ],
+    )
     if errors_list:
         lines.extend(["", "### Errors"])
         for item in errors_list:
