@@ -23,6 +23,14 @@ This complements the blocking invariant checks with an operator-friendly invento
 
 `validate-ci-watchers` now also invokes `validate-workflow-inventory-report`.
 
+GitHub Actions integration:
+
+- `stress-tests.yml` now triggers on `scripts/ci/generate_workflow_inventory_report.py`
+- the `workflow-file-health` job now:
+  - generates the inventory report
+  - uploads `workflow_inventory_report.json` and `workflow_inventory_report.md`
+  - appends the rendered Markdown to `GITHUB_STEP_SUMMARY`
+
 ## Validation
 
 ```bash
@@ -42,6 +50,8 @@ make workflow-inventory-report
 Results:
 
 - `pytest -q tests/unit/test_generate_workflow_inventory_report.py tests/unit/test_workflow_file_health_make_target.py` -> `10 passed`
+- `pytest -q tests/unit/test_stress_workflow_workflow_file_health.py tests/unit/test_generate_workflow_inventory_report.py tests/unit/test_workflow_file_health_make_target.py` -> `13 passed`
+- `make validate-workflow-file-health-tests` -> `17 passed`
 - `make validate-workflow-inventory-report` -> `10 passed`
 - `make workflow-inventory-report` generated:
   - `reports/ci/workflow_inventory_report.json`

@@ -8,6 +8,7 @@ on:
       - 'tests/**'
       - 'scripts/stress_*.py'
       - 'scripts/ci/check_workflow_file_issues.py'
+      - 'scripts/ci/generate_workflow_inventory_report.py'
       - 'prometheus/rules/**'
       - 'grafana/dashboards/**'
       - '.github/workflows/*.yml'
@@ -28,12 +29,36 @@ jobs:
             --mode gh \
             --ref "${GITHUB_SHA}" \
             --summary-json-out reports/ci/workflow_file_health_summary.json
+      - name: Generate workflow inventory audit report
+        run: |
+          python3 scripts/ci/generate_workflow_inventory_report.py \
+            --workflow-root ".github/workflows" \
+            --ci-watch-required-workflows "CI,CI Enhanced,CI Tiered Tests,Code Quality,Multi-Architecture Docker Build,Security Audit,Observability Checks,Self-Check,GHCR Publish,Evaluation Report" \
+            --output-json reports/ci/workflow_inventory_report.json \
+            --output-md reports/ci/workflow_inventory_report.md \
+            >/dev/null
       - name: Upload workflow health summary
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: workflow-file-health-${{ github.run_number }}
           path: reports/ci/workflow_file_health_summary.json
+      - name: Upload workflow inventory audit report
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: workflow-inventory-report-${{ github.run_number }}
+          path: |
+            reports/ci/workflow_inventory_report.json
+            reports/ci/workflow_inventory_report.md
+      - name: Append workflow inventory summary
+        if: always()
+        run: |
+          if [[ -f reports/ci/workflow_inventory_report.md ]]; then
+            cat reports/ci/workflow_inventory_report.md
+          else
+            echo "- workflow inventory markdown missing: reports/ci/workflow_inventory_report.md"
+          fi >> "$GITHUB_STEP_SUMMARY"
 
   metrics-consistency:
     needs: workflow-file-health
