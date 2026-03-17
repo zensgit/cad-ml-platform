@@ -7,10 +7,24 @@ from pathlib import Path
 from typing import Any, Sequence
 
 try:
-    from scripts.ci.summary_render_utils import boolish, read_json_object, top_nonempty
+    from scripts.ci.summary_render_utils import (
+        append_failure_diagnostics_section,
+        append_markdown_section,
+        boolish,
+        read_json_object,
+        render_inline_items,
+        top_nonempty,
+    )
 except ModuleNotFoundError:  # pragma: no cover - direct script execution
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-    from scripts.ci.summary_render_utils import boolish, read_json_object, top_nonempty
+    from scripts.ci.summary_render_utils import (
+        append_failure_diagnostics_section,
+        append_markdown_section,
+        boolish,
+        read_json_object,
+        render_inline_items,
+        top_nonempty,
+    )
 
 
 def render_markdown(payload: dict[str, Any]) -> str:
@@ -56,16 +70,18 @@ def render_markdown(payload: dict[str, Any]) -> str:
     if reason:
         lines.append(f"- reason: {reason}")
 
-    lines.extend(
+    append_markdown_section(
+        lines,
+        "Dispatch Verdict",
         [
-            "",
-            "## Dispatch Verdict",
-            "",
-            f"- verdict: {verdict}",
-            f"- conclusion_pair: expected={payload.get('expected_conclusion', 'n/a')} actual={payload.get('conclusion', 'n/a')}",
-            f"- top_failed_jobs: {', '.join(top_failed_jobs) if top_failed_jobs else '(none)'}",
-            f"- top_failed_steps: {', '.join(top_failed_steps) if top_failed_steps else '(none)'}",
-        ]
+            ("verdict", verdict),
+            (
+                "conclusion_pair",
+                f"expected={payload.get('expected_conclusion', 'n/a')} actual={payload.get('conclusion', 'n/a')}",
+            ),
+            ("top_failed_jobs", render_inline_items(top_failed_jobs)),
+            ("top_failed_steps", render_inline_items(top_failed_steps)),
+        ],
     )
     diagnostics_reason = str(diagnostics_obj.get("reason") or "").strip()
     if diagnostics_reason:
@@ -73,41 +89,18 @@ def render_markdown(payload: dict[str, Any]) -> str:
     elif reason:
         lines.append(f"- diagnostics_reason: {reason}")
 
-    lines.extend(
+    append_markdown_section(
+        lines,
+        "Dispatch Snapshot",
         [
-            "",
-            "## Dispatch Snapshot",
-            "",
-            f"- failed_job_count: {len(failed_jobs_list)}",
-            f"- top_failed_jobs: {', '.join(top_failed_jobs) if top_failed_jobs else '(none)'}",
-            f"- top_failed_steps: {', '.join(top_failed_steps) if top_failed_steps else '(none)'}",
-            f"- failure_reason: {diagnostics_reason or reason or 'n/a'}",
-        ]
+            ("failed_job_count", len(failed_jobs_list)),
+            ("top_failed_jobs", render_inline_items(top_failed_jobs)),
+            ("top_failed_steps", render_inline_items(top_failed_steps)),
+            ("failure_reason", diagnostics_reason or reason or "n/a"),
+        ],
     )
 
-    if diagnostics_obj:
-        lines.extend(
-            [
-                "",
-                "### Failure Diagnostics",
-                f"- available: {diagnostics_obj.get('available', 'n/a')}",
-                f"- failed_job_count: {diagnostics_obj.get('failed_job_count', 'n/a')}",
-            ]
-        )
-        detail_reason = str(diagnostics_obj.get("reason") or "").strip()
-        if detail_reason:
-            lines.append(f"- reason: {detail_reason}")
-        for item in failed_jobs_list:
-            if not isinstance(item, dict):
-                continue
-            lines.append(
-                "- failed_job: {} job_conclusion={} failed_step={} step_conclusion={}".format(
-                    item.get("job_name", ""),
-                    item.get("job_conclusion", ""),
-                    item.get("failed_step_name", ""),
-                    item.get("failed_step_conclusion", ""),
-                )
-            )
+    append_failure_diagnostics_section(lines, diagnostics_obj, failed_jobs_list)
 
     return "\n".join(lines) + "\n"
 
