@@ -113,6 +113,8 @@ WORKFLOW_FILE_HEALTH_REF ?= HEAD
 WORKFLOW_FILE_HEALTH_MODE ?= auto
 WORKFLOW_FILE_HEALTH_SUMMARY_JSON ?= reports/ci/workflow_file_health_summary.json
 WORKFLOW_IDENTITY_SUMMARY_JSON ?= reports/ci/workflow_identity_summary.json
+WORKFLOW_INVENTORY_REPORT_JSON ?= reports/ci/workflow_inventory_report.json
+WORKFLOW_INVENTORY_REPORT_MD ?= reports/ci/workflow_inventory_report.md
 
 # 项目路径
 SRC_DIR := src
@@ -424,6 +426,20 @@ validate-workflow-identity-tests: ## 校验 workflow identity 脚本与 Make 接
 		$(TEST_DIR)/unit/test_check_workflow_identity_invariants.py \
 		$(TEST_DIR)/unit/test_workflow_file_health_make_target.py -q
 
+workflow-inventory-report: ## 生成只读 workflow 名单审计报告（JSON + Markdown）
+	@echo "$(GREEN)Generating workflow inventory audit report...$(NC)"
+	$(PYTHON) scripts/ci/generate_workflow_inventory_report.py \
+		--workflow-root ".github/workflows" \
+		--ci-watch-required-workflows "$(CI_WATCH_REQUIRED_WORKFLOWS)" \
+		--output-json "$(WORKFLOW_INVENTORY_REPORT_JSON)" \
+		--output-md "$(WORKFLOW_INVENTORY_REPORT_MD)"
+
+validate-workflow-inventory-report: ## 校验 workflow inventory 审计报告脚本与 Make 接线
+	@echo "$(GREEN)Validating workflow inventory audit report tooling...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_generate_workflow_inventory_report.py \
+		$(TEST_DIR)/unit/test_workflow_file_health_make_target.py -q
+
 validate-ci-watchers: ## 一键校验 CI watchers（commit + archive + Graph2D strict e2e dispatcher）
 	@echo "$(GREEN)Validating CI watcher stack...$(NC)"
 	$(MAKE) validate-check-gh-actions-ready
@@ -431,6 +447,7 @@ validate-ci-watchers: ## 一键校验 CI watchers（commit + archive + Graph2D s
 	$(MAKE) validate-generate-ci-watch-validation-report
 	$(MAKE) validate-workflow-file-health-tests
 	$(MAKE) validate-workflow-identity-tests
+	$(MAKE) validate-workflow-inventory-report
 	$(MAKE) validate-archive-workflow-dispatcher
 	$(MAKE) validate-eval-with-history-ci-workflows
 	$(MAKE) validate-graph2d-review-pack-gate-strict-e2e

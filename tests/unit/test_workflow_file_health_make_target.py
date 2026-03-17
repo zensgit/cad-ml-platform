@@ -60,8 +60,26 @@ def test_make_n_validate_workflow_identity_tests_contains_expected_files() -> No
     assert "tests/unit/test_workflow_file_health_make_target.py" in result.stdout
 
 
+def test_make_n_workflow_inventory_report_contains_expected_flags() -> None:
+    result = _run_make("-n", "workflow-inventory-report")
+    assert result.returncode == 0, result.stderr
+    assert "scripts/ci/generate_workflow_inventory_report.py" in result.stdout
+    assert '--workflow-root ".github/workflows"' in result.stdout
+    assert '--ci-watch-required-workflows "' in result.stdout
+    assert '--output-json "reports/ci/workflow_inventory_report.json"' in result.stdout
+    assert '--output-md "reports/ci/workflow_inventory_report.md"' in result.stdout
+
+
+def test_make_n_validate_workflow_inventory_report_contains_expected_files() -> None:
+    result = _run_make("-n", "validate-workflow-inventory-report")
+    assert result.returncode == 0, result.stderr
+    assert "tests/unit/test_generate_workflow_inventory_report.py" in result.stdout
+    assert "tests/unit/test_workflow_file_health_make_target.py" in result.stdout
+
+
 def test_make_n_validate_ci_watchers_invokes_workflow_file_health_tests() -> None:
     result = _run_make("-n", "validate-ci-watchers")
     assert result.returncode == 0, result.stderr
     assert "make validate-workflow-file-health-tests" in result.stdout
     assert "make validate-workflow-identity-tests" in result.stdout
+    assert "make validate-workflow-inventory-report" in result.stdout
