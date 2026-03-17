@@ -76,10 +76,39 @@ def test_render_markdown_contains_required_and_duplicate_sections() -> None:
     )
 
     assert "# Workflow Inventory Audit" in markdown
+    assert "## Issue Summary" in markdown
+    assert "duplicate_names: CI" in markdown
+    assert "missing_required_names: (none)" in markdown
+    assert "non_unique_required_names: CI" in markdown
     assert "## Required Workflow Mapping" in markdown
     assert "status=non_unique" in markdown
     assert "## Duplicate Workflow Names" in markdown
     assert "ci-copy.yml" in markdown
+
+
+def test_render_markdown_lists_missing_required_names() -> None:
+    from scripts.ci import generate_workflow_inventory_report as mod
+
+    markdown = mod.render_markdown(
+        {
+            "workflow_root": ".github/workflows",
+            "workflow_count": 3,
+            "required_count": 2,
+            "duplicate_name_count": 0,
+            "missing_required_count": 1,
+            "non_unique_required_count": 0,
+            "required_workflow_mapping": [
+                {"name": "CI", "status": "ok", "files": ["ci.yml"]},
+                {"name": "Evaluation Report", "status": "missing", "files": []},
+            ],
+            "duplicates": [],
+            "workflows": [],
+        }
+    )
+
+    assert "duplicate_names: (none)" in markdown
+    assert "missing_required_names: Evaluation Report" in markdown
+    assert "non_unique_required_names: (none)" in markdown
 
 
 def test_main_writes_json_and_markdown(tmp_path: Path, capsys: Any) -> None:

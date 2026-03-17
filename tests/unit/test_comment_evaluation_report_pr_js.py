@@ -306,3 +306,68 @@ const mockProcess = { env: process.env };
     result = _run_node_inline(node_script, str(workflow_inventory))
     assert result.returncode == 0, result.stderr or result.stdout
     assert "ok:create-comment-with-inventory-problem-names" in result.stdout
+
+
+def test_comment_evaluation_report_pr_js_marks_inventory_parse_errors(
+    tmp_path: Path,
+) -> None:
+    workflow_inventory = tmp_path / "workflow_inventory_invalid.json"
+    workflow_inventory.write_text("{invalid json", encoding="utf-8")
+
+    node_script = r"""
+const mod = require("./scripts/ci/comment_evaluation_report_pr.js");
+const workflowInventoryPath = process.argv[1];
+
+process.env.EVAL_COMBINED_SCORE = "0.830";
+process.env.EVAL_VISION_SCORE = "0.840";
+process.env.EVAL_OCR_SCORE = "0.930";
+process.env.EVAL_MIN_COMBINED = "0.800";
+process.env.EVAL_MIN_VISION = "0.650";
+process.env.EVAL_MIN_OCR = "0.900";
+process.env.WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT = workflowInventoryPath;
+
+let createdPayload = null;
+const github = {
+  rest: {
+    issues: {
+      listComments: async () => ({ data: [] }),
+      createComment: async (payload) => {
+        createdPayload = payload;
+        return { data: { id: 100 } };
+      },
+      updateComment: async () => {
+        throw new Error("updateComment should not be called for empty comment list");
+      },
+    },
+  },
+};
+const context = {
+  repo: { owner: "zensgit", repo: "cad-ml-platform" },
+  issue: { number: 987 },
+  sha: "1122334455667788",
+  runId: "101010101",
+};
+const mockProcess = { env: process.env };
+
+(async () => {
+  await mod.commentEvaluationReportPR({ github, context, process: mockProcess });
+  if (!createdPayload) {
+    throw new Error("createComment was not called");
+  }
+  const body = String(createdPayload.body || "");
+  if (!body.includes("Workflow Inventory Audit")) {
+    throw new Error("comment body missing workflow inventory section");
+  }
+  if (!body.includes("parse_error")) {
+    throw new Error("comment body missing workflow inventory parse_error");
+  }
+  console.log("ok:create-comment-with-inventory-parse-error");
+})().catch((err) => {
+  console.error(err && err.stack ? err.stack : String(err));
+  process.exit(1);
+});
+"""
+
+    result = _run_node_inline(node_script, str(workflow_inventory))
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "ok:create-comment-with-inventory-parse-error" in result.stdout

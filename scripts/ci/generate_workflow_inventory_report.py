@@ -131,6 +131,27 @@ def build_report(
 
 
 def render_markdown(report: dict[str, Any]) -> str:
+    duplicates = report.get("duplicates", [])
+    required_rows = report.get("required_workflow_mapping", [])
+    duplicate_names = [
+        str(row.get("name") or "").strip()
+        for row in duplicates
+        if isinstance(row, dict) and str(row.get("name") or "").strip()
+    ]
+    missing_required_names = [
+        str(row.get("name") or "").strip()
+        for row in required_rows
+        if isinstance(row, dict)
+        and str(row.get("status") or "").strip() == "missing"
+        and str(row.get("name") or "").strip()
+    ]
+    non_unique_required_names = [
+        str(row.get("name") or "").strip()
+        for row in required_rows
+        if isinstance(row, dict)
+        and str(row.get("status") or "").strip() == "non_unique"
+        and str(row.get("name") or "").strip()
+    ]
     lines = [
         "# Workflow Inventory Audit",
         "",
@@ -141,6 +162,12 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- missing_required_count: `{report.get('missing_required_count')}`",
         f"- non_unique_required_count: `{report.get('non_unique_required_count')}`",
         "",
+        "## Issue Summary",
+        "",
+        f"- duplicate_names: {', '.join(duplicate_names) if duplicate_names else '(none)'}",
+        f"- missing_required_names: {', '.join(missing_required_names) if missing_required_names else '(none)'}",
+        f"- non_unique_required_names: {', '.join(non_unique_required_names) if non_unique_required_names else '(none)'}",
+        "",
         "## Required Workflow Mapping",
         "",
     ]
@@ -148,7 +175,6 @@ def render_markdown(report: dict[str, Any]) -> str:
         files = ", ".join(row.get("files") or []) or "(none)"
         lines.append(f"- {row.get('name')}: status={row.get('status')} files={files}")
 
-    duplicates = report.get("duplicates", [])
     lines.extend(["", "## Duplicate Workflow Names", ""])
     if duplicates:
         for row in duplicates:
