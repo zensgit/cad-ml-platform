@@ -187,3 +187,7 @@ Notes:
 - `comment_evaluation_report_pr.js` now exports `buildEvaluationReportCommentBody(...)`.
 - `test_comment_evaluation_report_pr_js.py` now includes a direct runtime builder test with fixed timestamp and sha.
 - `make validate-eval-with-history-ci-workflows` was rerun with workspace-local temp configuration, but is currently blocked by an unrelated existing failure in `tests/unit/test_eval_with_history_script_history_sequence.py` caused by invalid history-report JSON under the current branch state.
+
+Additional parity coverage:
+
+- `test_comment_evaluation_report_pr_js.py` now also asserts that the body captured from `commentEvaluationReportPR()` matches the output of `buildEvaluationReportCommentBody(...)` under the same fixed runtime inputs.

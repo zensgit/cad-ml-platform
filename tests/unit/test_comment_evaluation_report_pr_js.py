@@ -231,6 +231,143 @@ console.log("ok:build-evaluation-report-comment-body");
     assert "ok:build-evaluation-report-comment-body" in result.stdout
 
 
+def test_comment_evaluation_report_pr_js_runtime_body_matches_builder_output() -> None:
+    node_script = r"""
+const mod = require("./scripts/ci/comment_evaluation_report_pr.js");
+
+const fixedIso = "2026-03-17T12:34:56Z";
+const RealDate = Date;
+class FakeDate extends RealDate {
+  constructor(...args) {
+    if (args.length > 0) {
+      super(...args);
+      return;
+    }
+    super(fixedIso);
+  }
+  static now() {
+    return new RealDate(fixedIso).getTime();
+  }
+  static parse(value) {
+    return RealDate.parse(value);
+  }
+  static UTC(...args) {
+    return RealDate.UTC(...args);
+  }
+}
+global.Date = FakeDate;
+
+process.env.EVAL_COMBINED_SCORE = "0.920";
+process.env.EVAL_VISION_SCORE = "0.910";
+process.env.EVAL_OCR_SCORE = "0.930";
+process.env.EVAL_MIN_COMBINED = "0.800";
+process.env.EVAL_MIN_VISION = "0.650";
+process.env.EVAL_MIN_OCR = "0.900";
+process.env.SECURITY_STATUS = "pass";
+process.env.EVALUATION_STRICT_FAIL_MODE = "soft";
+process.env.EVALUATION_STRICT_FAIL_MODE_RESOLVED = "soft";
+process.env.EVALUATION_STRICT_FAIL_MODE_RAW = "soft";
+
+let createdPayload = null;
+const github = {
+  rest: {
+    issues: {
+      listComments: async () => ({ data: [] }),
+      createComment: async (payload) => {
+        createdPayload = payload;
+        return { data: { id: 42 } };
+      },
+      updateComment: async () => {
+        throw new Error("updateComment should not be called when no bot comment exists");
+      },
+    },
+  },
+};
+const context = {
+  repo: { owner: "zensgit", repo: "cad-ml-platform" },
+  issue: { number: 123 },
+  sha: "abcdef1234567890",
+  runId: "111222333",
+};
+const mockProcess = { env: process.env };
+
+(async () => {
+  await mod.commentEvaluationReportPR({ github, context, process: mockProcess });
+  if (!createdPayload) {
+    throw new Error("createComment was not called");
+  }
+
+  const strictPlaybookSummary = "[strict-gate-playbook](https://github.com/zensgit/cad-ml-platform/blob/abcdef1234567890/docs/STRICT_GATE_PLAYBOOK.md)";
+  const expectedBody = mod.buildEvaluationReportCommentBody({
+    overallStatus: "✅ **All checks passed!**",
+    combined: 0.92,
+    minCombined: 0.8,
+    combinedStatus: "✅ Pass",
+    vision: 0.91,
+    minVision: 0.65,
+    visionStatus: "✅ Pass",
+    ocr: 0.93,
+    minOcr: 0.9,
+    ocrStatus: "✅ Pass",
+    hasAnomalies: false,
+    securityStatus: "pass",
+    reviewPackStatus: "⏭️ skipped",
+    reviewPackInsights: "⏭️ skipped",
+    reviewGateStatus: "⏭️ skipped",
+    reviewGateStrictStatus: "⏭️ skipped",
+    trainSweepStatus: "⏭️ skipped",
+    hybridBlindEvalStatus: "⏭️ skipped",
+    hybridBlindGateStatus: "⏭️ skipped",
+    hybridBlindStrictStatus: "⏭️ skipped",
+    hybridBlindDriftStatus: "⏭️ skipped",
+    blindGainSummary: "n/a",
+    hybridCalibrationStatus: "⏭️ skipped",
+    hybridCalibrationGateStatus: "⏭️ skipped",
+    hybridCalibrationStrictStatus: "⏭️ skipped",
+    hybridSuperpassStrictStatus: "strict=false, should_fail=false, reason=n/a",
+    hybridSuperpassValidationStrictStatus: "strict=false, exit=0, status=unknown",
+    hybridCalibrationBaselineStatus: "⏭️ skipped",
+    evaluationStrictMode: "soft",
+    evaluationStrictModeRawValue: "soft",
+    strictDecisionResult: "no_strict_fail_requests",
+    strictPlaybookSummary,
+    ciWatchFailureSummary: "⏭️ skipped (no summary path)",
+    workflowFileHealthSummary: "⏭️ skipped (no summary path)",
+    workflowInventorySummary: "⏭️ skipped (no summary path)",
+    reviewPackLight: "⚪",
+    reviewGateLight: "⚪",
+    trainSweepLight: "⚪",
+    hybridBlindLight: "⚪",
+    hybridCalibrationLight: "⚪",
+    strictDecisionLight: "🟢",
+    strictFailureRequestsCount: 0,
+    ciWatchFailureLight: "⚪",
+    workflowFileHealthLight: "⚪",
+    workflowInventoryLight: "⚪",
+    evaluationStrictModeResolvedRaw: "soft",
+    strictFailureRequestSummary: "none",
+    strictActionItems: ["- ✅ No strict gate failure request detected."],
+    strictActionChecklist: "- ✅ No strict gate failure request detected.",
+    runUrl: "https://github.com/zensgit/cad-ml-platform/actions/runs/111222333",
+    updatedAt: "2026-03-17 12:34:56",
+    commitSha: "abcdef1234567890",
+  });
+
+  if (String(createdPayload.body || "") !== expectedBody) {
+    throw new Error("runtime comment body drifted from builder output");
+  }
+  console.log("ok:runtime-body-matches-builder");
+})().catch((err) => {
+  console.error(err && err.stack ? err.stack : String(err));
+  process.exit(1);
+});
+"""
+
+    result = _run_node_inline(node_script)
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "ok:runtime-body-matches-builder" in result.stdout
+
+
 def test_comment_evaluation_report_pr_js_updates_comment_when_inventory_missing(
     tmp_path: Path,
 ) -> None:
