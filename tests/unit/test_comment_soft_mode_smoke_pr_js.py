@@ -140,3 +140,54 @@ const mockProcess = { env: process.env };
     result = _run_node_inline(node_script, str(missing_summary))
     assert result.returncode == 0, result.stderr or result.stdout
     assert "ok:skip-missing-summary" in result.stdout
+
+
+def test_comment_soft_mode_smoke_pr_js_invalid_summary_json_skips_safely(
+    tmp_path: Path,
+) -> None:
+    invalid_summary = tmp_path / "invalid_summary.json"
+    invalid_summary.write_text("{not-json", encoding="utf-8")
+
+    node_script = r"""
+const mod = require("./scripts/ci/comment_soft_mode_smoke_pr.js");
+const summaryPath = process.argv[1];
+process.env.SOFT_SMOKE_SUMMARY_JSON = summaryPath;
+process.env.SOFT_SMOKE_TRIGGER_PR = "655";
+
+let createCalled = false;
+const github = {
+  rest: {
+    issues: {
+      listComments: async () => ({ data: [] }),
+      createComment: async () => {
+        createCalled = true;
+        return { data: { id: 1 } };
+      },
+      updateComment: async () => {
+        throw new Error("updateComment should not be called");
+      },
+    },
+  },
+};
+const context = {
+  repo: { owner: "zensgit", repo: "cad-ml-platform" },
+  issue: { number: 655 },
+  sha: "1234567890abcdef",
+};
+const mockProcess = { env: process.env };
+
+(async () => {
+  await mod.commentSoftModeSmokePR({ github, context, process: mockProcess });
+  if (createCalled) {
+    throw new Error("createComment should not be called when summary json is invalid");
+  }
+  console.log("ok:skip-invalid-summary-json");
+})().catch((err) => {
+  console.error(err && err.stack ? err.stack : String(err));
+  process.exit(1);
+});
+"""
+
+    result = _run_node_inline(node_script, str(invalid_summary))
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "ok:skip-invalid-summary-json" in result.stdout

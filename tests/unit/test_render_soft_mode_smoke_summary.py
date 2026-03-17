@@ -39,6 +39,9 @@ def test_render_markdown_includes_attempts_and_pr_comment() -> None:
     )
 
     assert "## Evaluation Soft-Mode Smoke" in markdown
+    assert "## Smoke Verdict" in markdown
+    assert "- verdict: ok" in markdown
+    assert "- pr_comment_status: requested=True, enabled=True, exit_code=0" in markdown
     assert "- attempts_total: 1" in markdown
     assert "- attempt #1: dispatch_exit_code=0, soft_marker_ok=True, message=" in markdown
     assert "- run_id: 23126562401" in markdown
@@ -75,6 +78,7 @@ def test_main_writes_markdown_file_and_stdout(tmp_path: Path, capsys: object) ->
     assert rc == 0
     rendered = output_md.read_text(encoding="utf-8")
     assert "## Evaluation Soft-Mode Smoke" in rendered
+    assert "## Smoke Verdict" in rendered
     assert "- attempts_total: 0" in rendered
 
     captured = capsys.readouterr()

@@ -19,6 +19,17 @@ def _read_summary(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _boolish(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    text = str(value if value is not None else "").strip().lower()
+    return text in {"1", "true", "yes", "on"}
+
+
+def _is_zeroish(value: Any) -> bool:
+    return str(value if value is not None else "").strip() == "0"
+
+
 def _normalize_attempts(summary: dict[str, Any]) -> list[dict[str, Any]]:
     attempts = summary.get("attempts")
     rows: list[dict[str, Any]] = []
@@ -36,9 +47,30 @@ def render_markdown(summary: dict[str, Any]) -> str:
     dispatch_obj = dispatch if isinstance(dispatch, dict) else {}
     pr_comment = summary.get("pr_comment")
     pr_comment_obj = pr_comment if isinstance(pr_comment, dict) else {}
+    verdict = (
+        "ok"
+        if _is_zeroish(summary.get("overall_exit_code", 1))
+        and _boolish(summary.get("soft_marker_ok", False))
+        and _boolish(summary.get("restore_ok", False))
+        else "attention_required"
+    )
+    pr_comment_status = "n/a"
+    if pr_comment_obj:
+        pr_comment_status = (
+            f"requested={pr_comment_obj.get('requested', 'n/a')}, "
+            f"enabled={pr_comment_obj.get('enabled', 'n/a')}, "
+            f"exit_code={pr_comment_obj.get('exit_code', 'n/a')}"
+        )
 
     lines = [
         "## Evaluation Soft-Mode Smoke",
+        "",
+        "## Smoke Verdict",
+        "",
+        f"- verdict: {verdict}",
+        f"- soft_marker_ok: {summary.get('soft_marker_ok', 'n/a')}",
+        f"- restore_ok: {summary.get('restore_ok', 'n/a')}",
+        f"- pr_comment_status: {pr_comment_status}",
         "",
         f"- overall_exit_code: {summary.get('overall_exit_code', 'n/a')}",
         f"- dispatch_exit_code: {summary.get('dispatch_exit_code', 'n/a')}",
@@ -64,10 +96,7 @@ def render_markdown(summary: dict[str, Any]) -> str:
         lines.append(f"- run_url: {run_url}")
 
     lines.extend(
-        [
-            f"- soft_marker_ok: {summary.get('soft_marker_ok', 'n/a')}",
-            f"- restore_ok: {summary.get('restore_ok', 'n/a')}",
-        ]
+        []
     )
 
     if pr_comment_obj:

@@ -3,6 +3,7 @@
 ## 目标
 
 将 `evaluation-soft-mode-smoke` 的 Step Summary 生成逻辑从 workflow 内嵌 Python 中抽离为可复用脚本，统一本地与 GitHub Actions 的摘要格式。
+本轮继续把 soft-mode markdown 调整为先给 `Smoke Verdict` 再展开 attempts/details，并补齐无效 JSON 的 PR comment 回归。
 
 ## 实现
 
@@ -16,6 +17,7 @@
   - stdout Markdown
   - 可选写入 `.md` 文件
 - 覆盖字段：
+  - smoke verdict / pr comment status
   - overall / dispatch exit code
   - max_dispatch_attempts / retry_sleep_seconds
   - attempts 明细
@@ -56,6 +58,7 @@
 - 新增：`tests/unit/test_render_soft_mode_smoke_summary.py`
 - 更新：`tests/unit/test_hybrid_calibration_make_targets.py`
 - 更新：`tests/unit/test_evaluation_soft_mode_smoke_workflow.py`
+- 更新：`tests/unit/test_comment_soft_mode_smoke_pr_js.py`
 
 ## 验证
 
@@ -68,19 +71,21 @@ pytest -q \
   tests/unit/test_hybrid_calibration_make_targets.py
 ```
 
-结果：`38 passed`
+结果：`42 passed`
 
 ### Make 验证
 
 ```bash
 make validate-render-soft-mode-smoke-summary
 make validate-soft-mode-smoke-workflow
+make validate-soft-mode-smoke-comment
 ```
 
 结果：
 
-- `validate-render-soft-mode-smoke-summary` -> `36 passed`
-- `validate-soft-mode-smoke-workflow` -> `49 passed`
+- `validate-render-soft-mode-smoke-summary` -> `42 passed`
+- `validate-soft-mode-smoke-workflow` -> `55 passed`
+- `validate-soft-mode-smoke-comment` -> `3 passed`
 
 ### Workflow 自动 PR 解析回归
 
@@ -104,6 +109,7 @@ python3 scripts/ci/render_soft_mode_smoke_summary.py \
 
 关键结果：
 
+- `verdict: ok`
 - `overall_exit_code: 0`
 - `run_id: 23126562401`
 - `pr_comment_pr_number: 369`
