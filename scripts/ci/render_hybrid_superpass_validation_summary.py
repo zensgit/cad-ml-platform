@@ -2,25 +2,15 @@
 from __future__ import annotations
 
 import argparse
-import json
+import sys
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Sequence
 
-
-def _read_validation(path: Path) -> dict[str, Any]:
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except OSError as exc:
-        raise RuntimeError(f"failed to read validation json: {exc}") from exc
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"failed to parse validation json: {exc}") from exc
-    if not isinstance(payload, dict):
-        raise RuntimeError("validation json must be an object")
-    return payload
-
-
-def _is_zeroish(value: Any) -> bool:
-    return str(value if value is not None else "").strip() == "0"
+try:
+    from scripts.ci.summary_render_utils import is_zeroish, read_json_object, top_nonempty
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from scripts.ci.summary_render_utils import is_zeroish, read_json_object, top_nonempty
 
 
 def render_markdown(payload: dict[str, Any]) -> str:
@@ -35,13 +25,13 @@ def render_markdown(payload: dict[str, Any]) -> str:
     status_text = str(payload.get("status", "n/a")).strip().lower()
     verdict = (
         "ok"
-        if _is_zeroish(payload.get("overall_exit_code", 1))
+        if is_zeroish(payload.get("overall_exit_code", 1))
         and status_text in {"ok", "pass", "passed", "warn", "warning"}
         and len(errors_list) == 0
         else "attention_required"
     )
-    top_errors = [str(item).strip() for item in errors_list if str(item).strip()][:3]
-    top_warnings = [str(item).strip() for item in warnings_list if str(item).strip()][:3]
+    top_errors = top_nonempty(errors_list)
+    top_warnings = top_nonempty(warnings_list)
 
     lines = [
         "## Hybrid Superpass Validation",
@@ -99,7 +89,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
 
     try:
-        payload = _read_validation(validation_path)
+        payload = read_json_object(validation_path, "validation")
         markdown = render_markdown(payload)
     except RuntimeError as exc:
         print(str(exc))

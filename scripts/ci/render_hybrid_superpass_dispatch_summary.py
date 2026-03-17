@@ -2,28 +2,15 @@
 from __future__ import annotations
 
 import argparse
-import json
+import sys
 from pathlib import Path
 from typing import Any, Sequence
 
-
-def _read_payload(path: Path) -> dict[str, Any]:
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except OSError as exc:
-        raise RuntimeError(f"failed to read dispatch json: {exc}") from exc
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"failed to parse dispatch json: {exc}") from exc
-    if not isinstance(payload, dict):
-        raise RuntimeError("dispatch json must be an object")
-    return payload
-
-
-def _boolish(value: Any) -> bool:
-    if isinstance(value, bool):
-        return value
-    text = str(value if value is not None else "").strip().lower()
-    return text in {"1", "true", "yes", "on"}
+try:
+    from scripts.ci.summary_render_utils import boolish, read_json_object, top_nonempty
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from scripts.ci.summary_render_utils import boolish, read_json_object, top_nonempty
 
 
 def render_markdown(payload: dict[str, Any]) -> str:
@@ -39,19 +26,17 @@ def render_markdown(payload: dict[str, Any]) -> str:
 
     verdict = (
         "matched_expectation"
-        if _boolish(payload.get("matched_expectation", False))
+        if boolish(payload.get("matched_expectation", False))
         else "expectation_mismatch"
     )
-    top_failed_jobs = [
-        str(item.get("job_name") or "").strip()
+    top_failed_jobs = top_nonempty(
+        item.get("job_name") if isinstance(item, dict) else ""
         for item in failed_jobs_list
-        if isinstance(item, dict) and str(item.get("job_name") or "").strip()
-    ][:3]
-    top_failed_steps = [
-        str(item.get("failed_step_name") or "").strip()
+    )
+    top_failed_steps = top_nonempty(
+        item.get("failed_step_name") if isinstance(item, dict) else ""
         for item in failed_jobs_list
-        if isinstance(item, dict) and str(item.get("failed_step_name") or "").strip()
-    ][:3]
+    )
 
     lines = [
         "## Hybrid Superpass Dispatch",
@@ -146,7 +131,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
 
     try:
-        payload = _read_payload(dispatch_path)
+        payload = read_json_object(dispatch_path, "dispatch")
         markdown = render_markdown(payload)
     except RuntimeError as exc:
         print(str(exc))

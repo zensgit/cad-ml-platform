@@ -395,6 +395,7 @@ def test_make_n_render_hybrid_superpass_validation_summary_contains_expected_fla
 def test_make_n_validate_render_soft_mode_smoke_summary_runs_expected_tests() -> None:
     result = _run_make("-n", "validate-render-soft-mode-smoke-summary")
     assert result.returncode == 0, result.stderr
+    assert "test_summary_render_utils.py" in result.stdout
     assert "test_render_soft_mode_smoke_summary.py" in result.stdout
     assert "test_hybrid_calibration_make_targets.py" in result.stdout
 
@@ -411,6 +412,7 @@ def test_make_n_validate_soft_mode_smoke_workflow_runs_expected_tests() -> None:
 def test_make_n_validate_render_hybrid_superpass_validation_summary_runs_expected_tests() -> None:
     result = _run_make("-n", "validate-render-hybrid-superpass-validation-summary")
     assert result.returncode == 0, result.stderr
+    assert "test_summary_render_utils.py" in result.stdout
     assert "test_render_hybrid_superpass_validation_summary.py" in result.stdout
     assert "test_hybrid_calibration_make_targets.py" in result.stdout
 
@@ -418,6 +420,7 @@ def test_make_n_validate_render_hybrid_superpass_validation_summary_runs_expecte
 def test_make_n_validate_render_hybrid_blind_strict_real_dispatch_summary_runs_expected_tests() -> None:
     result = _run_make("-n", "validate-render-hybrid-blind-strict-real-dispatch-summary")
     assert result.returncode == 0, result.stderr
+    assert "test_summary_render_utils.py" in result.stdout
     assert "test_render_hybrid_blind_strict_real_dispatch_summary.py" in result.stdout
     assert "test_hybrid_calibration_make_targets.py" in result.stdout
 
@@ -425,6 +428,7 @@ def test_make_n_validate_render_hybrid_blind_strict_real_dispatch_summary_runs_e
 def test_make_n_validate_render_hybrid_superpass_dispatch_summary_runs_expected_tests() -> None:
     result = _run_make("-n", "validate-render-hybrid-superpass-dispatch-summary")
     assert result.returncode == 0, result.stderr
+    assert "test_summary_render_utils.py" in result.stdout
     assert "test_render_hybrid_superpass_dispatch_summary.py" in result.stdout
     assert "test_hybrid_calibration_make_targets.py" in result.stdout
 

@@ -1680,6 +1680,7 @@ render-soft-mode-smoke-summary: ## 将 soft-mode smoke summary json 渲染为 ma
 validate-render-soft-mode-smoke-summary: ## 校验 soft-mode smoke summary 渲染脚本
 	@echo "$(GREEN)Validating soft-mode smoke summary renderer...$(NC)"
 	$(PYTEST) -q \
+		$(TEST_DIR)/unit/test_summary_render_utils.py \
 		$(TEST_DIR)/unit/test_render_soft_mode_smoke_summary.py \
 		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py
 
@@ -1693,6 +1694,7 @@ render-hybrid-blind-strict-real-dispatch-summary: ## 将 strict-real dispatch js
 validate-render-hybrid-blind-strict-real-dispatch-summary: ## 校验 strict-real dispatch 渲染脚本
 	@echo "$(GREEN)Validating hybrid blind strict-real dispatch summary renderer...$(NC)"
 	$(PYTEST) -q \
+		$(TEST_DIR)/unit/test_summary_render_utils.py \
 		$(TEST_DIR)/unit/test_render_hybrid_blind_strict_real_dispatch_summary.py \
 		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py
 
@@ -1706,6 +1708,7 @@ render-hybrid-superpass-dispatch-summary: ## 将 hybrid superpass dispatch json 
 validate-render-hybrid-superpass-dispatch-summary: ## 校验 hybrid superpass dispatch 渲染脚本
 	@echo "$(GREEN)Validating hybrid superpass dispatch summary renderer...$(NC)"
 	$(PYTEST) -q \
+		$(TEST_DIR)/unit/test_summary_render_utils.py \
 		$(TEST_DIR)/unit/test_render_hybrid_superpass_dispatch_summary.py \
 		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py
 
@@ -1719,6 +1722,7 @@ render-hybrid-superpass-validation-summary: ## 将 hybrid superpass validation j
 validate-render-hybrid-superpass-validation-summary: ## 校验 hybrid superpass validation 渲染脚本
 	@echo "$(GREEN)Validating hybrid superpass validation summary renderer...$(NC)"
 	$(PYTEST) -q \
+		$(TEST_DIR)/unit/test_summary_render_utils.py \
 		$(TEST_DIR)/unit/test_render_hybrid_superpass_validation_summary.py \
 		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py
 

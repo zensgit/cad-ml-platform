@@ -2,32 +2,15 @@
 from __future__ import annotations
 
 import argparse
-import json
+import sys
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Sequence
 
-
-def _read_summary(path: Path) -> dict[str, Any]:
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except OSError as exc:
-        raise RuntimeError(f"failed to read summary json: {exc}") from exc
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"failed to parse summary json: {exc}") from exc
-    if not isinstance(payload, dict):
-        raise RuntimeError("summary json must be an object")
-    return payload
-
-
-def _boolish(value: Any) -> bool:
-    if isinstance(value, bool):
-        return value
-    text = str(value if value is not None else "").strip().lower()
-    return text in {"1", "true", "yes", "on"}
-
-
-def _is_zeroish(value: Any) -> bool:
-    return str(value if value is not None else "").strip() == "0"
+try:
+    from scripts.ci.summary_render_utils import boolish, is_zeroish, read_json_object
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from scripts.ci.summary_render_utils import boolish, is_zeroish, read_json_object
 
 
 def _normalize_attempts(summary: dict[str, Any]) -> list[dict[str, Any]]:
@@ -49,9 +32,9 @@ def render_markdown(summary: dict[str, Any]) -> str:
     pr_comment_obj = pr_comment if isinstance(pr_comment, dict) else {}
     verdict = (
         "ok"
-        if _is_zeroish(summary.get("overall_exit_code", 1))
-        and _boolish(summary.get("soft_marker_ok", False))
-        and _boolish(summary.get("restore_ok", False))
+        if is_zeroish(summary.get("overall_exit_code", 1))
+        and boolish(summary.get("soft_marker_ok", False))
+        and boolish(summary.get("restore_ok", False))
         else "attention_required"
     )
     pr_comment_status = "n/a"
@@ -64,8 +47,8 @@ def render_markdown(summary: dict[str, Any]) -> str:
     failed_attempts = [
         item
         for item in attempts
-        if not _is_zeroish(item.get("dispatch_exit_code", 0))
-        or not _boolish(item.get("soft_marker_ok", False))
+        if not is_zeroish(item.get("dispatch_exit_code", 0))
+        or not boolish(item.get("soft_marker_ok", False))
     ]
     last_attempt_message = "n/a"
     if attempts:
@@ -147,7 +130,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
 
     try:
-        summary = _read_summary(summary_path)
+        summary = read_json_object(summary_path, "summary")
         markdown = render_markdown(summary)
     except RuntimeError as exc:
         print(str(exc))
