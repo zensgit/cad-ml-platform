@@ -36,6 +36,12 @@ SPECS: tuple[WorkflowIdentitySpec, ...] = (
         require_ci_watch=True,
     ),
     WorkflowIdentitySpec(
+        key="security_audit",
+        filename="security-audit.yml",
+        expected_name="Security Audit",
+        require_ci_watch=True,
+    ),
+    WorkflowIdentitySpec(
         key="evaluation_report",
         filename="evaluation-report.yml",
         expected_name="Evaluation Report",
@@ -220,6 +226,41 @@ def _check_spec(
     return result
 
 
+def _check_ci_watch_required_workflows_mapping(
+    *,
+    ci_watch_required_workflows: Sequence[str],
+    name_to_files: dict[str, list[str]],
+) -> dict[str, Any]:
+    result = {
+        "key": "ci_watch_required_workflows_mapping",
+        "path": "CI_WATCH_REQUIRED_WORKFLOWS",
+        "filename": "CI_WATCH_REQUIRED_WORKFLOWS",
+        "expected_name": "",
+        "ok": True,
+        "issues": [],
+    }
+
+    def _issue(message: str) -> None:
+        result["ok"] = False
+        result["issues"].append(message)
+
+    checked_names: list[str] = []
+    for workflow_name in ci_watch_required_workflows:
+        name = str(workflow_name).strip()
+        if not name or name in checked_names:
+            continue
+        checked_names.append(name)
+        matches = list(name_to_files.get(name, []))
+        if not matches:
+            _issue(f"required workflow name missing from .yml workflows: {name!r}")
+            continue
+        if len(matches) != 1:
+            _issue(f"required workflow name is not unique: {name!r} -> {matches}")
+
+    result["checked_names"] = checked_names
+    return result
+
+
 def _write_json(path_value: str, payload: dict[str, Any]) -> None:
     out = Path(path_value).expanduser()
     if out.parent != Path("."):
@@ -278,6 +319,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         for spec in SPECS
     ]
+    results.append(
+        _check_ci_watch_required_workflows_mapping(
+            ci_watch_required_workflows=sorted(ci_watch_required_workflows),
+            name_to_files=name_to_files,
+        )
+    )
     failed = [row for row in results if not row["ok"]]
 
     for row in results:
@@ -299,10 +346,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"summary_json={summary_out}", flush=True)
 
     if failed:
-        print(f"error: workflow identity check failed for {len(failed)} workflow(s)", flush=True)
+        print(f"error: workflow identity check failed for {len(failed)} check(s)", flush=True)
         return 1
 
-    print(f"ok: workflow identity check passed for {len(results)} workflow(s)", flush=True)
+    print(f"ok: workflow identity check passed for {len(results)} check(s)", flush=True)
     return 0
 
 

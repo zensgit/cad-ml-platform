@@ -51,6 +51,10 @@ def _build_valid_repo(tmp_path: Path) -> Path:
     return root
 
 
+def _ci_watch_csv() -> str:
+    return "CI,Code Quality,Security Audit,Evaluation Report"
+
+
 def test_identity_check_success_and_summary(tmp_path: Path) -> None:
     from scripts.ci import check_workflow_identity_invariants as mod
 
@@ -62,6 +66,8 @@ def test_identity_check_success_and_summary(tmp_path: Path) -> None:
         [
             "--workflow-root",
             str(workflow_root),
+            "--ci-watch-required-workflows",
+            _ci_watch_csv(),
             "--summary-json-out",
             str(summary),
         ],
@@ -70,9 +76,13 @@ def test_identity_check_success_and_summary(tmp_path: Path) -> None:
     assert rc == 0
     payload = json.loads(summary.read_text(encoding="utf-8"))
     assert payload["failed_count"] == 0
-    assert len(payload["results"]) == len(mod.SPECS)
+    assert len(payload["results"]) == len(mod.SPECS) + 1
     assert payload["name_to_files"]["CI"] == ["ci.yml"]
     assert any(row["filename"] == "evaluation-report.yml" for row in payload["results"])
+    assert any(
+        row["key"] == "ci_watch_required_workflows_mapping" and row["ok"]
+        for row in payload["results"]
+    )
 
 
 def test_identity_check_fails_on_name_mismatch(tmp_path: Path) -> None:
@@ -82,10 +92,18 @@ def test_identity_check_fails_on_name_mismatch(tmp_path: Path) -> None:
     _write_workflow(
         workflow_root / "evaluation-report.yml",
         name="Evaluation Report Drifted",
-        inputs=list(mod.SPECS[0].required_inputs),
+        inputs=list(next(spec.required_inputs for spec in mod.SPECS if spec.filename == "evaluation-report.yml")),
     )
 
-    rc = _invoke_main(mod, ["--workflow-root", str(workflow_root)])
+    rc = _invoke_main(
+        mod,
+        [
+            "--workflow-root",
+            str(workflow_root),
+            "--ci-watch-required-workflows",
+            _ci_watch_csv(),
+        ],
+    )
     assert rc == 1
 
 
@@ -98,12 +116,20 @@ def test_identity_check_fails_on_missing_required_input(tmp_path: Path) -> None:
         name="Hybrid Superpass E2E",
         inputs=[
             item
-            for item in mod.SPECS[2].required_inputs
+            for item in next(spec.required_inputs for spec in mod.SPECS if spec.filename == "hybrid-superpass-e2e.yml")
             if item != "hybrid_superpass_missing_mode"
         ],
     )
 
-    rc = _invoke_main(mod, ["--workflow-root", str(workflow_root)])
+    rc = _invoke_main(
+        mod,
+        [
+            "--workflow-root",
+            str(workflow_root),
+            "--ci-watch-required-workflows",
+            _ci_watch_csv(),
+        ],
+    )
     assert rc == 1
 
 
@@ -114,7 +140,15 @@ def test_identity_check_fails_on_yaml_twin(tmp_path: Path) -> None:
     twin = workflow_root / "evaluation-report.yaml"
     twin.write_text("name: Evaluation Report\non:\n  workflow_dispatch:\n", encoding="utf-8")
 
-    rc = _invoke_main(mod, ["--workflow-root", str(workflow_root)])
+    rc = _invoke_main(
+        mod,
+        [
+            "--workflow-root",
+            str(workflow_root),
+            "--ci-watch-required-workflows",
+            _ci_watch_csv(),
+        ],
+    )
     assert rc == 1
 
 
@@ -128,7 +162,7 @@ def test_identity_check_fails_when_ci_watch_misses_evaluation_report(tmp_path: P
             "--workflow-root",
             str(workflow_root),
             "--ci-watch-required-workflows",
-            "CI,CI Enhanced,Code Quality",
+            "CI,Code Quality,Security Audit",
         ],
     )
     assert rc == 1
@@ -144,5 +178,31 @@ def test_identity_check_fails_when_ci_name_is_not_unique(tmp_path: Path) -> None
         inputs=[],
     )
 
-    rc = _invoke_main(mod, ["--workflow-root", str(workflow_root)])
+    rc = _invoke_main(
+        mod,
+        [
+            "--workflow-root",
+            str(workflow_root),
+            "--ci-watch-required-workflows",
+            _ci_watch_csv(),
+        ],
+    )
+    assert rc == 1
+
+
+def test_identity_check_fails_when_required_workflow_name_is_missing_from_mapping(
+    tmp_path: Path,
+) -> None:
+    from scripts.ci import check_workflow_identity_invariants as mod
+
+    workflow_root = _build_valid_repo(tmp_path)
+    rc = _invoke_main(
+        mod,
+        [
+            "--workflow-root",
+            str(workflow_root),
+            "--ci-watch-required-workflows",
+            "CI,Code Quality,Security Audit,Evaluation Report,CI Enhanced",
+        ],
+    )
     assert rc == 1
