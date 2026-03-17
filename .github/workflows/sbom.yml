@@ -277,36 +277,19 @@ jobs:
           script: |
             try {
               const fs = require('fs');
+              const { upsertBotIssueComment } = require('./scripts/ci/comment_pr_utils.js');
               const diffContent = fs.readFileSync('sbom-diff.md', 'utf8');
-
-              const { data: comments } = await github.rest.issues.listComments({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-              });
-
-              const botComment = comments.find(comment =>
-                comment.user.type === 'Bot' &&
-                comment.body.includes('SBOM Dependency Changes')
-              );
 
               const body = `## 📦 SBOM Dependency Changes\n\n${diffContent}`;
 
-              if (botComment) {
-                await github.rest.issues.updateComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  comment_id: botComment.id,
-                  body: body
-                });
-              } else {
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.issue.number,
-                  body: body
-                });
-              }
+              await upsertBotIssueComment({
+                github,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issueNumber: context.issue.number,
+                body,
+                marker: 'SBOM Dependency Changes'
+              });
             } catch (error) {
               console.warn(`PR comment skipped: ${error.message}`);
             }

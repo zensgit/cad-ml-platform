@@ -118,6 +118,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
+            const { upsertBotIssueComment } = require('./scripts/ci/comment_pr_utils.js');
 
             // 读取报告
             const report = JSON.parse(fs.readFileSync('risk_report.json', 'utf8'));
@@ -142,36 +143,15 @@ jobs:
             // 创建或更新评论
             const commentBody = `## ${emoji} Release Risk Assessment\n\n${markdown}`;
 
-            // 查找现有的风险评估评论
-            const comments = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number
-            });
-
-            const botComment = comments.data.find(comment =>
-              comment.user.type === 'Bot' &&
-              comment.body.includes('Release Risk Assessment')
-            );
-
             try {
-              if (botComment) {
-                // 更新现有评论
-                await github.rest.issues.updateComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  comment_id: botComment.id,
-                  body: commentBody
-                });
-              } else {
-                // 创建新评论
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.issue.number,
-                  body: commentBody
-                });
-              }
+              await upsertBotIssueComment({
+                github,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issueNumber: context.issue.number,
+                body: commentBody,
+                marker: 'Release Risk Assessment'
+              });
             } catch (error) {
               console.log(`Failed to post PR comment: ${error.message}`);
             }
