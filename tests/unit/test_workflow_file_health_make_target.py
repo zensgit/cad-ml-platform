@@ -85,6 +85,7 @@ def test_make_n_validate_workflow_publish_helper_adoption_contains_expected_flag
     assert "scripts/ci/check_workflow_publish_helper_adoption.py" in result.stdout
     assert '--workflow-root ".github/workflows"' in result.stdout
     assert '--summary-json-out "reports/ci/workflow_publish_helper_adoption.json"' in result.stdout
+    assert '--output-md "reports/ci/workflow_publish_helper_adoption.md"' in result.stdout
 
 
 def test_make_n_validate_workflow_publish_helper_adoption_tests_contains_expected_files() -> None:

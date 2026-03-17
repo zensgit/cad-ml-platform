@@ -447,7 +447,8 @@ validate-workflow-publish-helper-adoption: ## 校验 workflow GitHub publish 逻
 	@echo "$(GREEN)Validating workflow publish helper adoption...$(NC)"
 	$(PYTHON) scripts/ci/check_workflow_publish_helper_adoption.py \
 		--workflow-root ".github/workflows" \
-		--summary-json-out "reports/ci/workflow_publish_helper_adoption.json"
+		--summary-json-out "reports/ci/workflow_publish_helper_adoption.json" \
+		--output-md "reports/ci/workflow_publish_helper_adoption.md"
 
 validate-workflow-publish-helper-adoption-tests: ## 校验 workflow publish helper adoption 脚本与 Make 接线
 	@echo "$(GREEN)Validating workflow publish helper adoption tests...$(NC)"

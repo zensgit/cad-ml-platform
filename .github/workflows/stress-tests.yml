@@ -8,6 +8,7 @@ on:
       - 'tests/**'
       - 'scripts/stress_*.py'
       - 'scripts/ci/check_workflow_file_issues.py'
+      - 'scripts/ci/check_workflow_publish_helper_adoption.py'
       - 'scripts/ci/generate_workflow_inventory_report.py'
       - 'prometheus/rules/**'
       - 'grafana/dashboards/**'
@@ -37,6 +38,13 @@ jobs:
             --output-json reports/ci/workflow_inventory_report.json \
             --output-md reports/ci/workflow_inventory_report.md \
             >/dev/null
+      - name: Generate workflow publish helper adoption report
+        run: |
+          python3 scripts/ci/check_workflow_publish_helper_adoption.py \
+            --workflow-root ".github/workflows" \
+            --summary-json-out reports/ci/workflow_publish_helper_adoption.json \
+            --output-md reports/ci/workflow_publish_helper_adoption.md \
+            >/dev/null
       - name: Upload workflow health summary
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
@@ -51,6 +59,14 @@ jobs:
           path: |
             reports/ci/workflow_inventory_report.json
             reports/ci/workflow_inventory_report.md
+      - name: Upload workflow publish helper adoption report
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: workflow-publish-helper-adoption-${{ github.run_number }}
+          path: |
+            reports/ci/workflow_publish_helper_adoption.json
+            reports/ci/workflow_publish_helper_adoption.md
       - name: Append workflow inventory summary
         if: always()
         run: |
@@ -58,6 +74,14 @@ jobs:
             cat reports/ci/workflow_inventory_report.md
           else
             echo "- workflow inventory markdown missing: reports/ci/workflow_inventory_report.md"
+          fi >> "$GITHUB_STEP_SUMMARY"
+      - name: Append workflow publish helper adoption summary
+        if: always()
+        run: |
+          if [[ -f reports/ci/workflow_publish_helper_adoption.md ]]; then
+            cat reports/ci/workflow_publish_helper_adoption.md
+          else
+            echo "- workflow publish helper markdown missing: reports/ci/workflow_publish_helper_adoption.md"
           fi >> "$GITHUB_STEP_SUMMARY"
 
   metrics-consistency:

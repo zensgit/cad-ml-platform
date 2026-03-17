@@ -119,6 +119,7 @@ env:
   CI_WATCH_SUMMARY_JSON_FOR_COMMENT: ${{ vars.CI_WATCH_SUMMARY_JSON_FOR_COMMENT || '' }}
   WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT: ${{ vars.WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT || '' }}
   WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT: ${{ vars.WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT || '' }}
+  WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT: ${{ vars.WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT || '' }}
   # Optimize Matplotlib in CI
   MPLCONFIGDIR: /tmp/matplotlib
   XDG_CACHE_HOME: /tmp/cache
@@ -2113,6 +2114,32 @@ jobs:
         fi
         echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
 
+    - name: Build workflow publish helper summary for PR comment (optional)
+      id: workflow_publish_helper_for_comment
+      continue-on-error: true
+      run: |
+        mkdir -p reports/ci
+        set +e
+        python3 scripts/ci/check_workflow_publish_helper_adoption.py \
+          --workflow-root ".github/workflows" \
+          --summary-json-out reports/ci/workflow_publish_helper_for_comment.json \
+          --output-md reports/ci/workflow_publish_helper_for_comment.md \
+          >/dev/null
+        EXIT_CODE=$?
+        set -e
+
+        if [[ -f "reports/ci/workflow_publish_helper_for_comment.json" ]]; then
+          echo "summary_json=reports/ci/workflow_publish_helper_for_comment.json" >> $GITHUB_OUTPUT
+        else
+          echo "summary_json=" >> $GITHUB_OUTPUT
+        fi
+        if [[ -f "reports/ci/workflow_publish_helper_for_comment.md" ]]; then
+          echo "summary_md=reports/ci/workflow_publish_helper_for_comment.md" >> $GITHUB_OUTPUT
+        else
+          echo "summary_md=" >> $GITHUB_OUTPUT
+        fi
+        echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+
     - name: Append workflow inventory summary for evaluation report (optional)
       if: always()
       run: |
@@ -2122,6 +2149,17 @@ jobs:
           cat reports/ci/workflow_inventory_for_comment.md >> "$GITHUB_STEP_SUMMARY"
         else
           echo "- workflow inventory markdown missing: reports/ci/workflow_inventory_for_comment.md" >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+    - name: Append workflow publish helper summary for evaluation report (optional)
+      if: always()
+      run: |
+        if [[ -f "reports/ci/workflow_publish_helper_for_comment.md" ]]; then
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Workflow Publish Helper Adoption" >> "$GITHUB_STEP_SUMMARY"
+          cat reports/ci/workflow_publish_helper_for_comment.md >> "$GITHUB_STEP_SUMMARY"
+        else
+          echo "- workflow publish helper markdown missing: reports/ci/workflow_publish_helper_for_comment.md" >> "$GITHUB_STEP_SUMMARY"
         fi
 
     - name: Comment PR with results
@@ -2228,6 +2266,7 @@ jobs:
         CI_WATCH_SUMMARY_JSON_FOR_COMMENT: ${{ env.CI_WATCH_SUMMARY_JSON_FOR_COMMENT }}
         WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT: ${{ steps.workflow_file_health_for_comment.outputs.summary_json || env.WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT }}
         WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT: ${{ steps.workflow_inventory_for_comment.outputs.summary_json || env.WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT }}
+        WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT: ${{ steps.workflow_publish_helper_for_comment.outputs.summary_json || env.WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT }}
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |

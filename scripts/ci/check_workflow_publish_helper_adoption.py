@@ -68,13 +68,65 @@ def build_report(workflow_root: Path) -> dict[str, Any]:
         )
 
     failed = [row for row in results if not row["ok"]]
+    raw_publish_violation_count = sum(
+        1 for row in results if row.get("raw_publish_patterns")
+    )
+    missing_comment_helper_import_count = sum(
+        1
+        for row in results
+        if row.get("requires_comment_helper") and not row.get("has_comment_helper_import")
+    )
+    missing_issue_helper_import_count = sum(
+        1
+        for row in results
+        if row.get("requires_issue_helper") and not row.get("has_issue_helper_import")
+    )
     return {
         "version": 1,
         "workflow_root": str(workflow_root),
         "checked_count": len(results),
         "failed_count": len(failed),
+        "raw_publish_violation_count": raw_publish_violation_count,
+        "missing_comment_helper_import_count": missing_comment_helper_import_count,
+        "missing_issue_helper_import_count": missing_issue_helper_import_count,
         "results": results,
     }
+
+
+def render_markdown(report: dict[str, Any]) -> str:
+    failing_rows = [row for row in report.get("results", []) if not row.get("ok")]
+    lines = [
+        "# Workflow Publish Helper Adoption",
+        "",
+        f"- workflow_root: `{report.get('workflow_root')}`",
+        f"- checked_count: `{report.get('checked_count')}`",
+        f"- failed_count: `{report.get('failed_count')}`",
+        f"- raw_publish_violation_count: `{report.get('raw_publish_violation_count')}`",
+        f"- missing_comment_helper_import_count: `{report.get('missing_comment_helper_import_count')}`",
+        f"- missing_issue_helper_import_count: `{report.get('missing_issue_helper_import_count')}`",
+        "",
+        "## Issue Summary",
+        "",
+    ]
+    if failing_rows:
+        for row in failing_rows:
+            issues = ", ".join(row.get("issues") or []) or "unknown"
+            lines.append(f"- {row.get('filename')}: {issues}")
+    else:
+        lines.append("- none")
+
+    lines.extend(["", "## Workflow Files", ""])
+    for row in report.get("results", []):
+        raw_patterns = ",".join(row.get("raw_publish_patterns") or []) or "(none)"
+        lines.append(
+            "- "
+            f"{row.get('filename')}: "
+            f"ok={row.get('ok')} "
+            f"requires_comment_helper={row.get('requires_comment_helper')} "
+            f"requires_issue_helper={row.get('requires_issue_helper')} "
+            f"raw_publish_patterns={raw_patterns}"
+        )
+    return "\n".join(lines) + "\n"
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -91,6 +143,11 @@ def _build_parser() -> argparse.ArgumentParser:
         default="",
         help="Optional JSON summary output path.",
     )
+    parser.add_argument(
+        "--output-md",
+        default="",
+        help="Optional markdown summary output path.",
+    )
     return parser
 
 
@@ -106,6 +163,12 @@ def main() -> int:
         if out.parent != Path("."):
             out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    if args.output_md:
+        out = Path(args.output_md).expanduser()
+        if out.parent != Path("."):
+            out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(render_markdown(report), encoding="utf-8")
 
     if report["failed_count"]:
         print(

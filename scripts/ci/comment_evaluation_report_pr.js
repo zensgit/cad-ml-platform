@@ -240,6 +240,61 @@ function summarizeWorkflowInventory(summaryPath, fsApi = fs) {
   return { summary, light };
 }
 
+function summarizeWorkflowPublishHelper(summaryPath, fsApi = fs) {
+  let summary = "⏭️ skipped (no summary path)";
+  let light = "⚪";
+  if (!summaryPath) {
+    return { summary, light };
+  }
+  try {
+    if (!fsApi.existsSync(summaryPath)) {
+      return {
+        summary: `⚠️ summary missing at ${summaryPath}`,
+        light: "🟡",
+      };
+    }
+    const payload = JSON.parse(fsApi.readFileSync(summaryPath, "utf8"));
+    const checkedCount = parseInt(String(payload.checked_count ?? 0), 10) || 0;
+    const failedCount = parseInt(String(payload.failed_count ?? 0), 10) || 0;
+    const rawViolationCount =
+      parseInt(String(payload.raw_publish_violation_count ?? 0), 10) || 0;
+    const missingCommentHelperCount =
+      parseInt(String(payload.missing_comment_helper_import_count ?? 0), 10) || 0;
+    const missingIssueHelperCount =
+      parseInt(String(payload.missing_issue_helper_import_count ?? 0), 10) || 0;
+    const failingNames = Array.isArray(payload.results)
+      ? payload.results
+          .filter((row) => row && typeof row === "object" && row.ok === false)
+          .map((row) => String(row.filename || "").trim())
+          .filter(Boolean)
+          .slice(0, 3)
+      : [];
+    const parts = [
+      `checked=${checkedCount}`,
+      `failed=${failedCount}`,
+      `raw=${rawViolationCount}`,
+      `missing_comment_helper=${missingCommentHelperCount}`,
+      `missing_issue_helper=${missingIssueHelperCount}`,
+    ];
+    if (failingNames.length > 0) {
+      parts.push(`failing=${failingNames.join("/")}`);
+    }
+    summary = parts.join(", ");
+    light =
+      failedCount > 0 ||
+      rawViolationCount > 0 ||
+      missingCommentHelperCount > 0 ||
+      missingIssueHelperCount > 0
+        ? "🔴"
+        : "🟢";
+  } catch (error) {
+    const message = error && error.message ? error.message : String(error);
+    summary = `⚠️ parse_error: ${message}`;
+    light = "🟡";
+  }
+  return { summary, light };
+}
+
 function buildEvaluationReportCommentBody({
   overallStatus,
   combined,
@@ -276,6 +331,7 @@ function buildEvaluationReportCommentBody({
   ciWatchFailureSummary,
   workflowFileHealthSummary,
   workflowInventorySummary,
+  workflowPublishHelperSummary,
   reviewPackLight,
   reviewGateLight,
   trainSweepLight,
@@ -286,6 +342,7 @@ function buildEvaluationReportCommentBody({
   ciWatchFailureLight,
   workflowFileHealthLight,
   workflowInventoryLight,
+  workflowPublishHelperLight,
   evaluationStrictModeResolvedRaw,
   strictFailureRequestSummary,
   strictActionItems,
@@ -344,6 +401,7 @@ function buildEvaluationReportCommentBody({
           ["**CI Watch Failure Details**", ciWatchFailureSummary],
           ["**Workflow File Health**", workflowFileHealthSummary],
           ["**Workflow Inventory Audit**", workflowInventorySummary],
+          ["**Workflow Publish Helper Adoption**", workflowPublishHelperSummary],
         ],
       ),
     ),
@@ -366,6 +424,11 @@ function buildEvaluationReportCommentBody({
           ["**CI Watcher**", ciWatchFailureLight, ciWatchFailureSummary],
           ["**Workflow Health**", workflowFileHealthLight, workflowFileHealthSummary],
           ["**Workflow Inventory**", workflowInventoryLight, workflowInventorySummary],
+          [
+            "**Workflow Publish Helper**",
+            workflowPublishHelperLight,
+            workflowPublishHelperSummary,
+          ],
         ],
       ),
     ),
@@ -687,6 +750,15 @@ async function commentEvaluationReportPR({ github, context, process }) {
       light: workflowInventoryLight,
     } = summarizeWorkflowInventory(workflowInventorySummaryPath);
 
+    const workflowPublishHelperSummaryPath = envStr(
+      "WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT",
+      "",
+    );
+    const {
+      summary: workflowPublishHelperSummary,
+      light: workflowPublishHelperLight,
+    } = summarizeWorkflowPublishHelper(workflowPublishHelperSummaryPath);
+
     const reviewCandidateCount = parseInt(reviewCandidates || "0", 10);
     const sweepTotalRunsInt = parseInt(sweepTotalRuns || "0", 10);
     const sweepFailedRunsInt = parseInt(sweepFailedRuns || "0", 10);
@@ -912,6 +984,7 @@ async function commentEvaluationReportPR({ github, context, process }) {
       ciWatchFailureSummary,
       workflowFileHealthSummary,
       workflowInventorySummary,
+      workflowPublishHelperSummary,
       reviewPackLight,
       reviewGateLight,
       trainSweepLight,
@@ -922,6 +995,7 @@ async function commentEvaluationReportPR({ github, context, process }) {
       ciWatchFailureLight,
       workflowFileHealthLight,
       workflowInventoryLight,
+      workflowPublishHelperLight,
       evaluationStrictModeResolvedRaw,
       strictFailureRequestSummary,
       strictActionItems,
@@ -951,4 +1025,5 @@ module.exports = {
   summarizeCiWatchFailure,
   summarizeWorkflowFileHealth,
   summarizeWorkflowInventory,
+  summarizeWorkflowPublishHelper,
 };

@@ -56,15 +56,30 @@ def test_publish_helper_check_passes_on_helper_imports(tmp_path: Path) -> None:
     _write_workflow(root / "misc.yml", "console.log('noop');")
 
     summary = tmp_path / "summary.json"
+    summary_md = tmp_path / "summary.md"
     rc = _invoke_main(
         mod,
-        ["--workflow-root", str(root), "--summary-json-out", str(summary)],
+        [
+            "--workflow-root",
+            str(root),
+            "--summary-json-out",
+            str(summary),
+            "--output-md",
+            str(summary_md),
+        ],
     )
 
     assert rc == 0
     payload = json.loads(summary.read_text(encoding="utf-8"))
     assert payload["failed_count"] == 0
     assert payload["checked_count"] == 3
+    assert payload["raw_publish_violation_count"] == 0
+    assert payload["missing_comment_helper_import_count"] == 0
+    assert payload["missing_issue_helper_import_count"] == 0
+    markdown = summary_md.read_text(encoding="utf-8")
+    assert "# Workflow Publish Helper Adoption" in markdown
+    assert "- failed_count: `0`" in markdown
+    assert "- none" in markdown
 
 
 def test_publish_helper_check_fails_on_raw_create_comment(tmp_path: Path) -> None:
@@ -78,6 +93,27 @@ def test_publish_helper_check_fails_on_raw_create_comment(tmp_path: Path) -> Non
 
     rc = _invoke_main(mod, ["--workflow-root", str(root)])
     assert rc == 1
+
+
+def test_publish_helper_check_markdown_lists_failing_workflow(tmp_path: Path) -> None:
+    from scripts.ci import check_workflow_publish_helper_adoption as mod
+
+    root = tmp_path / ".github" / "workflows"
+    _write_workflow(
+        root / "metrics-budget-check.yml",
+        "await github.rest.issues.createComment({ body: 'bad' });",
+    )
+
+    summary_md = tmp_path / "summary.md"
+    rc = _invoke_main(
+        mod,
+        ["--workflow-root", str(root), "--output-md", str(summary_md)],
+    )
+
+    assert rc == 1
+    markdown = summary_md.read_text(encoding="utf-8")
+    assert "metrics-budget-check.yml" in markdown
+    assert "raw GitHub publish calls found" in markdown
 
 
 def test_publish_helper_check_fails_when_required_comment_helper_missing(

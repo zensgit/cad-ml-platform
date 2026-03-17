@@ -24,6 +24,7 @@ def test_push_paths_include_workflow_health_inputs() -> None:
     workflow = _load_workflow()
     push_paths = workflow["on"]["push"]["paths"]
     assert "scripts/ci/check_workflow_file_issues.py" in push_paths
+    assert "scripts/ci/check_workflow_publish_helper_adoption.py" in push_paths
     assert "scripts/ci/generate_workflow_inventory_report.py" in push_paths
     assert ".github/workflows/*.yml" in push_paths
 
@@ -52,6 +53,18 @@ def test_stress_workflow_has_workflow_file_health_job() -> None:
     assert "--output-md reports/ci/workflow_inventory_report.md" in inventory_script
     assert ">/dev/null" in inventory_script
 
+    publish_helper_step = _get_step(
+        workflow,
+        "workflow-file-health",
+        "Generate workflow publish helper adoption report",
+    )
+    publish_helper_script = publish_helper_step["run"]
+    assert "scripts/ci/check_workflow_publish_helper_adoption.py" in publish_helper_script
+    assert '--workflow-root ".github/workflows"' in publish_helper_script
+    assert "--summary-json-out reports/ci/workflow_publish_helper_adoption.json" in publish_helper_script
+    assert "--output-md reports/ci/workflow_publish_helper_adoption.md" in publish_helper_script
+    assert ">/dev/null" in publish_helper_script
+
     upload = _get_step(workflow, "workflow-file-health", "Upload workflow health summary")
     assert (
         upload["uses"]
@@ -75,6 +88,23 @@ def test_stress_workflow_has_workflow_file_health_job() -> None:
     assert "reports/ci/workflow_inventory_report.json" in inventory_upload_path
     assert "reports/ci/workflow_inventory_report.md" in inventory_upload_path
 
+    publish_helper_upload = _get_step(
+        workflow,
+        "workflow-file-health",
+        "Upload workflow publish helper adoption report",
+    )
+    assert (
+        publish_helper_upload["uses"]
+        == "actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f"
+    )
+    assert (
+        publish_helper_upload["with"]["name"]
+        == "workflow-publish-helper-adoption-${{ github.run_number }}"
+    )
+    publish_helper_upload_path = publish_helper_upload["with"]["path"]
+    assert "reports/ci/workflow_publish_helper_adoption.json" in publish_helper_upload_path
+    assert "reports/ci/workflow_publish_helper_adoption.md" in publish_helper_upload_path
+
     append_step = _get_step(
         workflow, "workflow-file-health", "Append workflow inventory summary"
     )
@@ -82,6 +112,16 @@ def test_stress_workflow_has_workflow_file_health_job() -> None:
     assert "cat reports/ci/workflow_inventory_report.md" in append_script
     assert "workflow inventory markdown missing" in append_script
     assert '>> "$GITHUB_STEP_SUMMARY"' in append_script
+
+    append_publish_helper_step = _get_step(
+        workflow,
+        "workflow-file-health",
+        "Append workflow publish helper adoption summary",
+    )
+    append_publish_helper_script = append_publish_helper_step["run"]
+    assert "cat reports/ci/workflow_publish_helper_adoption.md" in append_publish_helper_script
+    assert "workflow publish helper markdown missing" in append_publish_helper_script
+    assert '>> "$GITHUB_STEP_SUMMARY"' in append_publish_helper_script
 
 
 def test_stress_jobs_depend_on_workflow_file_health() -> None:

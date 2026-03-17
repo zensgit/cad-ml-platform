@@ -83,6 +83,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "CI_WATCH_SUMMARY_JSON_FOR_COMMENT" in env
     assert "WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT" in env
     assert "WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT" in env
+    assert "WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT" in env
 
     dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
     assert "review_gate_min_total_rows" in dispatch_inputs
@@ -534,6 +535,17 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "--output-json reports/ci/workflow_inventory_for_comment.json" in workflow_inventory_script
     assert "--output-md reports/ci/workflow_inventory_for_comment.md" in workflow_inventory_script
 
+    workflow_publish_helper_step = _get_step(
+        workflow,
+        "evaluate",
+        "Build workflow publish helper summary for PR comment (optional)",
+    )
+    workflow_publish_helper_script = workflow_publish_helper_step["run"]
+    assert "scripts/ci/check_workflow_publish_helper_adoption.py" in workflow_publish_helper_script
+    assert "--workflow-root \".github/workflows\"" in workflow_publish_helper_script
+    assert "--summary-json-out reports/ci/workflow_publish_helper_for_comment.json" in workflow_publish_helper_script
+    assert "--output-md reports/ci/workflow_publish_helper_for_comment.md" in workflow_publish_helper_script
+
     append_inventory_step = _get_step(
         workflow,
         "evaluate",
@@ -544,6 +556,17 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "cat reports/ci/workflow_inventory_for_comment.md" in append_inventory_script
     assert "workflow inventory markdown missing" in append_inventory_script
     assert '>> "$GITHUB_STEP_SUMMARY"' in append_inventory_script
+
+    append_publish_helper_step = _get_step(
+        workflow,
+        "evaluate",
+        "Append workflow publish helper summary for evaluation report (optional)",
+    )
+    append_publish_helper_script = append_publish_helper_step["run"]
+    assert "## Workflow Publish Helper Adoption" in append_publish_helper_script
+    assert "cat reports/ci/workflow_publish_helper_for_comment.md" in append_publish_helper_script
+    assert "workflow publish helper markdown missing" in append_publish_helper_script
+    assert '>> "$GITHUB_STEP_SUMMARY"' in append_publish_helper_script
 
     pr_comment_env = pr_comment_step["env"]
     assert "EVALUATION_STRICT_FAIL_MODE" in pr_comment_env
@@ -556,11 +579,15 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "CI_WATCH_SUMMARY_JSON_FOR_COMMENT" in pr_comment_env
     assert "WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT" in pr_comment_env
     assert "WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT" in pr_comment_env
+    assert "WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT" in pr_comment_env
     assert "workflow_file_health_for_comment.outputs.summary_json" in pr_comment_env[
         "WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT"
     ]
     assert "workflow_inventory_for_comment.outputs.summary_json" in pr_comment_env[
         "WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT"
+    ]
+    assert "workflow_publish_helper_for_comment.outputs.summary_json" in pr_comment_env[
+        "WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT"
     ]
 
     module_script = (
@@ -584,16 +611,20 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "CI Watch Failure Details" in module_script
     assert "Workflow File Health" in module_script
     assert "Workflow Inventory Audit" in module_script
+    assert "Workflow Publish Helper Adoption" in module_script
     assert "CI Watcher" in module_script
     assert "Workflow Health" in module_script
     assert "Workflow Inventory" in module_script
+    assert "Workflow Publish Helper" in module_script
     assert "function summarizeCiWatchFailure(summaryPath, fsApi = fs)" in module_script
     assert "function summarizeWorkflowFileHealth(summaryPath, fsApi = fs)" in module_script
     assert "function summarizeWorkflowInventory(summaryPath, fsApi = fs)" in module_script
+    assert "function summarizeWorkflowPublishHelper(summaryPath, fsApi = fs)" in module_script
     assert "fsApi.existsSync(summaryPath)" in module_script
     assert "summarizeCiWatchFailure(ciWatchSummaryPath)" in module_script
     assert "summarizeWorkflowFileHealth(workflowFileHealthSummaryPath)" in module_script
     assert "summarizeWorkflowInventory(workflowInventorySummaryPath)" in module_script
+    assert "summarizeWorkflowPublishHelper(workflowPublishHelperSummaryPath)" in module_script
     assert "workflowFileHealthSummaryPath" in module_script
     assert "Hybrid Blind Eval" in module_script
     assert "Hybrid Blind Gate" in module_script
