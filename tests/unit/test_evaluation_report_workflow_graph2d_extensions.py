@@ -611,7 +611,8 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "worst_family_acc_drop=${hybridBlindFamilySliceWorstAccDrop" in module_script
     assert "Blind Gain (Hybrid-Graph2D)" in module_script
     assert 'require("./comment_markdown_utils.js")' in module_script
-    assert '["**Hybrid Blind**", hybridBlindLight, hybridBlindEvalStatus]' in module_script
+    assert "buildEvaluationReportCommentBody(" in module_script
+    assert "const body = buildEvaluationReportCommentBody({" in module_script
     assert "Signal Lights" in module_script
     assert "strictFailureRequests.length" in module_script
     assert "parseBoolText(" in module_script

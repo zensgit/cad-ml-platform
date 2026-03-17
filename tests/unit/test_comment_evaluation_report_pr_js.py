@@ -143,6 +143,94 @@ const mockProcess = { env: process.env };
     assert "ok:create-comment-with-workflow-inventory" in result.stdout
 
 
+def test_comment_evaluation_report_pr_js_builds_body_from_view_model() -> None:
+    node_script = r"""
+const mod = require("./scripts/ci/comment_evaluation_report_pr.js");
+
+const body = mod.buildEvaluationReportCommentBody({
+  overallStatus: "✅ **All checks passed!**",
+  combined: 0.92,
+  minCombined: 0.8,
+  combinedStatus: "✅ Pass",
+  vision: 0.91,
+  minVision: 0.65,
+  visionStatus: "✅ Pass",
+  ocr: 0.93,
+  minOcr: 0.9,
+  ocrStatus: "✅ Pass",
+  hasAnomalies: false,
+  securityStatus: "pass",
+  reviewPackStatus: "⏭️ skipped",
+  reviewPackInsights: "⏭️ skipped",
+  reviewGateStatus: "passed (exit=0, headline=n/a)",
+  reviewGateStrictStatus: "strict=false, should_fail=false, reason=n/a",
+  trainSweepStatus: "⏭️ skipped",
+  hybridBlindEvalStatus: "ok (source=real, exit=0, coverage=1.0, hybrid_acc=0.81, graph2d_acc=0.73, gain=0.08)",
+  hybridBlindGateStatus: "passed (exit=0, headline=n/a)",
+  hybridBlindStrictStatus: "strict=true, require_real=true, should_fail=false, reason=n/a",
+  hybridBlindDriftStatus: "ok (exit=0, headline=stable)",
+  blindGainSummary: "0.0800",
+  hybridCalibrationStatus: "ok (exit=0, n_samples=32, ece=0.02, brier=0.11, mce=0.04)",
+  hybridCalibrationGateStatus: "passed (exit=0, headline=n/a)",
+  hybridCalibrationStrictStatus: "strict=false, should_fail=false, reason=n/a",
+  hybridSuperpassStrictStatus: "strict=false, should_fail=false, reason=n/a",
+  hybridSuperpassValidationStrictStatus: "strict=false, exit=0, status=ok",
+  hybridCalibrationBaselineStatus: "ok (exit=0, path=models/calibration.json)",
+  evaluationStrictMode: "soft",
+  evaluationStrictModeRawValue: "soft",
+  strictDecisionResult: "downgraded_to_warning",
+  strictPlaybookSummary: "[strict-gate-playbook](https://example.invalid/playbook)",
+  ciWatchFailureSummary: "failed=0, reason=passed",
+  workflowFileHealthSummary: "failed=0/33, mode=auto, fallback=none",
+  workflowInventorySummary: "workflows=33, duplicate=0, missing_required=0, non_unique_required=0",
+  reviewPackLight: "⚪",
+  reviewGateLight: "🟢",
+  trainSweepLight: "⚪",
+  hybridBlindLight: "🟢",
+  hybridCalibrationLight: "🟢",
+  strictDecisionLight: "🟡",
+  strictFailureRequestsCount: 2,
+  ciWatchFailureLight: "🟢",
+  workflowFileHealthLight: "🟢",
+  workflowInventoryLight: "🟢",
+  evaluationStrictModeResolvedRaw: "soft",
+  strictFailureRequestSummary: "hybrid_blind:gate_failed_under_strict_mode",
+  strictActionItems: ["- ⚠️ soft gate downgraded"],
+  strictActionChecklist: "- ⚠️ soft gate downgraded\n- 📚 follow playbook",
+  runUrl: "https://github.com/zensgit/cad-ml-platform/actions/runs/111222333",
+  updatedAt: "2026-03-17 12:34:56",
+  commitSha: "abcdef1234567890",
+});
+
+if (!body.includes("CAD ML Platform - Evaluation Results")) {
+  throw new Error("body missing heading");
+}
+if (!body.includes("### Scores")) {
+  throw new Error("body missing scores section");
+}
+if (!body.includes("| **Combined** | 0.920 | 0.8 | ✅ Pass |")) {
+  throw new Error("body missing combined score row");
+}
+if (!body.includes("Workflow Inventory Audit")) {
+  throw new Error("body missing workflow inventory row");
+}
+if (!body.includes("strict_requests=2")) {
+  throw new Error("body missing strict request count detail");
+}
+if (!body.includes("*Updated: 2026-03-17 12:34:56 UTC*")) {
+  throw new Error("body missing footer timestamp");
+}
+if (!body.includes("*Commit: abcdef1*")) {
+  throw new Error("body missing footer sha");
+}
+console.log("ok:build-evaluation-report-comment-body");
+"""
+
+    result = _run_node_inline(node_script)
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "ok:build-evaluation-report-comment-body" in result.stdout
+
+
 def test_comment_evaluation_report_pr_js_updates_comment_when_inventory_missing(
     tmp_path: Path,
 ) -> None:

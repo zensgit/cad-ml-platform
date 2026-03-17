@@ -151,3 +151,39 @@ Parity notes:
 - Both paths now emit `dispatch_exit_code` in the summary table.
 - Both paths now render attempt lines as `dispatch_exit_code=..., soft_marker_ok=..., message=...`.
 - Both paths now use lowercase boolean text (`true/false`) and include the same footer separator.
+
+## Evaluation Report Body Builder Follow-up
+
+Goal:
+
+- extract the final evaluation-report PR comment body into a dedicated builder
+- keep env parsing, strict-decision logic, JSON summary parsing, and GitHub create/update behavior unchanged
+- replace brittle source-literal checks with builder/helper wiring checks plus runtime body validation
+
+Updated:
+
+- `scripts/ci/comment_evaluation_report_pr.js`
+- `tests/unit/test_comment_evaluation_report_pr_js.py`
+- `tests/unit/test_evaluation_report_workflow_graph2d_extensions.py`
+
+Follow-up validation:
+
+```bash
+node --check scripts/ci/comment_evaluation_report_pr.js
+pytest -q \
+  tests/unit/test_comment_markdown_utils_js.py \
+  tests/unit/test_comment_evaluation_report_pr_js.py \
+  tests/unit/test_evaluation_report_workflow_graph2d_extensions.py \
+  tests/unit/test_graph2d_parallel_make_targets.py
+```
+
+Results:
+
+- `node --check scripts/ci/comment_evaluation_report_pr.js` -> `ok`
+- `pytest -q tests/unit/test_comment_markdown_utils_js.py tests/unit/test_comment_evaluation_report_pr_js.py tests/unit/test_evaluation_report_workflow_graph2d_extensions.py tests/unit/test_graph2d_parallel_make_targets.py` -> `26 passed`
+
+Notes:
+
+- `comment_evaluation_report_pr.js` now exports `buildEvaluationReportCommentBody(...)`.
+- `test_comment_evaluation_report_pr_js.py` now includes a direct runtime builder test with fixed timestamp and sha.
+- `make validate-eval-with-history-ci-workflows` was rerun with workspace-local temp configuration, but is currently blocked by an unrelated existing failure in `tests/unit/test_eval_with_history_script_history_sequence.py` caused by invalid history-report JSON under the current branch state.
