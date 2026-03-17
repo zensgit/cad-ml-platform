@@ -112,6 +112,7 @@ WORKFLOW_FILE_HEALTH_GLOB ?= .github/workflows/*.yml
 WORKFLOW_FILE_HEALTH_REF ?= HEAD
 WORKFLOW_FILE_HEALTH_MODE ?= auto
 WORKFLOW_FILE_HEALTH_SUMMARY_JSON ?= reports/ci/workflow_file_health_summary.json
+WORKFLOW_IDENTITY_SUMMARY_JSON ?= reports/ci/workflow_identity_summary.json
 
 # 项目路径
 SRC_DIR := src
@@ -410,12 +411,26 @@ validate-workflow-file-health-tests: ## 校验 workflow 文件健康脚本与 st
 		$(TEST_DIR)/unit/test_stress_workflow_workflow_file_health.py \
 		$(TEST_DIR)/unit/test_workflow_file_health_make_target.py -q
 
+validate-workflow-identity: ## 校验关键 workflow 的文件名、显示名与 dispatch 输入不变量
+	@echo "$(GREEN)Validating workflow identity invariants...$(NC)"
+	$(PYTHON) scripts/ci/check_workflow_identity_invariants.py \
+		--workflow-root ".github/workflows" \
+		--ci-watch-required-workflows "$(CI_WATCH_REQUIRED_WORKFLOWS)" \
+		--summary-json-out "$(WORKFLOW_IDENTITY_SUMMARY_JSON)"
+
+validate-workflow-identity-tests: ## 校验 workflow identity 脚本与 Make 接线
+	@echo "$(GREEN)Validating workflow identity invariant tests...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_check_workflow_identity_invariants.py \
+		$(TEST_DIR)/unit/test_workflow_file_health_make_target.py -q
+
 validate-ci-watchers: ## 一键校验 CI watchers（commit + archive + Graph2D strict e2e dispatcher）
 	@echo "$(GREEN)Validating CI watcher stack...$(NC)"
 	$(MAKE) validate-check-gh-actions-ready
 	$(MAKE) validate-watch-commit-workflows
 	$(MAKE) validate-generate-ci-watch-validation-report
 	$(MAKE) validate-workflow-file-health-tests
+	$(MAKE) validate-workflow-identity-tests
 	$(MAKE) validate-archive-workflow-dispatcher
 	$(MAKE) validate-eval-with-history-ci-workflows
 	$(MAKE) validate-graph2d-review-pack-gate-strict-e2e

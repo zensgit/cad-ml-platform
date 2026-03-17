@@ -44,7 +44,24 @@ def test_make_n_validate_workflow_file_health_tests_contains_expected_files() ->
     assert "tests/unit/test_workflow_file_health_make_target.py" in result.stdout
 
 
+def test_make_n_validate_workflow_identity_contains_expected_flags() -> None:
+    result = _run_make("-n", "validate-workflow-identity")
+    assert result.returncode == 0, result.stderr
+    assert "scripts/ci/check_workflow_identity_invariants.py" in result.stdout
+    assert '--workflow-root ".github/workflows"' in result.stdout
+    assert '--ci-watch-required-workflows "' in result.stdout
+    assert '--summary-json-out "reports/ci/workflow_identity_summary.json"' in result.stdout
+
+
+def test_make_n_validate_workflow_identity_tests_contains_expected_files() -> None:
+    result = _run_make("-n", "validate-workflow-identity-tests")
+    assert result.returncode == 0, result.stderr
+    assert "tests/unit/test_check_workflow_identity_invariants.py" in result.stdout
+    assert "tests/unit/test_workflow_file_health_make_target.py" in result.stdout
+
+
 def test_make_n_validate_ci_watchers_invokes_workflow_file_health_tests() -> None:
     result = _run_make("-n", "validate-ci-watchers")
     assert result.returncode == 0, result.stderr
     assert "make validate-workflow-file-health-tests" in result.stdout
+    assert "make validate-workflow-identity-tests" in result.stdout
