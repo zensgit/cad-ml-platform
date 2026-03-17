@@ -312,6 +312,28 @@ function summarizeWorkflowGuardrail(summaryPath, fsApi = fs) {
     const overallStatus = String(payload.overall_status || "unknown");
     const overallLight = String(payload.overall_light || "").trim();
     summary = String(payload.summary || `status=${overallStatus}`);
+    const detailParts = [];
+    for (const key of [
+      "workflow_file_health",
+      "workflow_inventory",
+      "workflow_publish_helper",
+    ]) {
+      const section = payload[key];
+      if (!section || typeof section !== "object") {
+        continue;
+      }
+      const sectionStatus = String(section.status || "unknown").trim();
+      const sectionSummary = String(section.summary || "").trim();
+      if (sectionStatus === "ok") {
+        continue;
+      }
+      detailParts.push(
+        `${key}=${sectionStatus}${sectionSummary ? `:${sectionSummary}` : ""}`,
+      );
+    }
+    if (detailParts.length > 0) {
+      summary = `${summary}; ${detailParts.join("; ")}`;
+    }
     if (overallLight) {
       light = overallLight;
     } else if (overallStatus === "error") {
@@ -346,6 +368,24 @@ function summarizeCiWorkflowGuardrailOverview(summaryPath, fsApi = fs) {
     const overallStatus = String(payload.overall_status || "unknown");
     const overallLight = String(payload.overall_light || "").trim();
     summary = String(payload.summary || `status=${overallStatus}`);
+    const detailParts = [];
+    for (const key of ["ci_watch", "workflow_guardrail"]) {
+      const section = payload[key];
+      if (!section || typeof section !== "object") {
+        continue;
+      }
+      const sectionStatus = String(section.status || "unknown").trim();
+      const sectionSummary = String(section.summary || "").trim();
+      if (sectionStatus === "ok") {
+        continue;
+      }
+      detailParts.push(
+        `${key}=${sectionStatus}${sectionSummary ? `:${sectionSummary}` : ""}`,
+      );
+    }
+    if (detailParts.length > 0) {
+      summary = `${summary}; ${detailParts.join("; ")}`;
+    }
     if (overallLight) {
       light = overallLight;
     } else if (overallStatus === "error") {

@@ -777,6 +777,10 @@ def test_comment_evaluation_report_pr_js_includes_guardrail_summary(
                 "overall_status": "error",
                 "overall_light": "🔴",
                 "summary": "status=error, workflow_health=ok, inventory=error, publish_helper=ok",
+                "workflow_inventory": {
+                    "status": "error",
+                    "summary": "workflows=33, duplicate=1, missing_required=0, non_unique_required=0",
+                },
             },
             ensure_ascii=False,
         ),
@@ -829,6 +833,9 @@ const mockProcess = { env: process.env };
   }
   if (!body.includes("status=error, workflow_health=ok, inventory=error, publish_helper=ok")) {
     throw new Error("comment body missing workflow guardrail summary");
+  }
+  if (!body.includes("workflow_inventory=error:workflows=33, duplicate=1, missing_required=0, non_unique_required=0")) {
+    throw new Error("comment body missing workflow guardrail detail");
   }
   if (!body.includes("**Workflow Guardrails**")) {
     throw new Error("comment body missing workflow guardrails signal");
@@ -920,6 +927,10 @@ def test_comment_evaluation_report_pr_js_includes_ci_workflow_guardrail_overview
                 "overall_status": "error",
                 "overall_light": "🔴",
                 "summary": "status=error, ci_watch=ok, workflow_guardrail=error",
+                "workflow_guardrail": {
+                    "status": "error",
+                    "summary": "status=error, workflow_health=ok, inventory=error, publish_helper=ok",
+                },
             },
             ensure_ascii=False,
         ),
@@ -972,6 +983,9 @@ const mockProcess = { env: process.env };
   }
   if (!body.includes("status=error, ci_watch=ok, workflow_guardrail=error")) {
     throw new Error("comment body missing ci workflow guardrail overview summary");
+  }
+  if (!body.includes("workflow_guardrail=error:status=error, workflow_health=ok, inventory=error, publish_helper=ok")) {
+    throw new Error("comment body missing ci workflow guardrail overview detail");
   }
   if (!body.includes("**CI+Workflow Overview**")) {
     throw new Error("comment body missing ci+workflow overview signal");
