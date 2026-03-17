@@ -650,6 +650,33 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "ci watch validation markdown missing" in append_ci_watch_validation_script
     assert '>> "$GITHUB_STEP_SUMMARY"' in append_ci_watch_validation_script
 
+    upload_comment_support_step = _get_step(
+        workflow,
+        "evaluate",
+        "Upload evaluation comment support artifacts",
+    )
+    assert (
+        upload_comment_support_step["uses"]
+        == "actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f"
+    )
+    assert (
+        upload_comment_support_step["with"]["name"]
+        == "evaluation-comment-support-${{ github.run_number }}"
+    )
+    upload_comment_support_path = upload_comment_support_step["with"]["path"]
+    assert "reports/ci/workflow_file_health_for_comment.json" in upload_comment_support_path
+    assert "reports/ci/workflow_inventory_for_comment.json" in upload_comment_support_path
+    assert "reports/ci/workflow_publish_helper_for_comment.json" in upload_comment_support_path
+    assert "reports/ci/workflow_guardrail_for_comment.json" in upload_comment_support_path
+    assert "reports/ci/ci_workflow_guardrail_overview_for_comment.json" in upload_comment_support_path
+    assert "reports/ci/ci_watch_validation_for_comment.json" in upload_comment_support_path
+    assert "reports/ci/ci_watch_validation_for_comment.md" in upload_comment_support_path
+    assert upload_comment_support_step["with"]["if-no-files-found"] == "ignore"
+    assert (
+        upload_comment_support_step["with"]["retention-days"]
+        == "${{ env.ARTIFACT_RETENTION_DAYS }}"
+    )
+
     pr_comment_env = pr_comment_step["env"]
     assert "EVALUATION_STRICT_FAIL_MODE" in pr_comment_env
     assert "EVALUATION_STRICT_FAIL_MODE_RESOLVED" in pr_comment_env

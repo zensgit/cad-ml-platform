@@ -2310,6 +2310,26 @@ jobs:
           echo "- ci watch validation markdown missing: reports/ci/ci_watch_validation_for_comment.md" >> "$GITHUB_STEP_SUMMARY"
         fi
 
+    - name: Upload evaluation comment support artifacts
+      if: always()
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+      with:
+        name: evaluation-comment-support-${{ github.run_number }}
+        path: |
+          reports/ci/workflow_file_health_for_comment.json
+          reports/ci/workflow_inventory_for_comment.json
+          reports/ci/workflow_inventory_for_comment.md
+          reports/ci/workflow_publish_helper_for_comment.json
+          reports/ci/workflow_publish_helper_for_comment.md
+          reports/ci/workflow_guardrail_for_comment.json
+          reports/ci/workflow_guardrail_for_comment.md
+          reports/ci/ci_workflow_guardrail_overview_for_comment.json
+          reports/ci/ci_workflow_guardrail_overview_for_comment.md
+          reports/ci/ci_watch_validation_for_comment.json
+          reports/ci/ci_watch_validation_for_comment.md
+        if-no-files-found: ignore
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
     - name: Comment PR with results
       if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
       uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
