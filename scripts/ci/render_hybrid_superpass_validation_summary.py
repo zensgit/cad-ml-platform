@@ -19,6 +19,10 @@ def _read_validation(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _is_zeroish(value: Any) -> bool:
+    return str(value if value is not None else "").strip() == "0"
+
+
 def render_markdown(payload: dict[str, Any]) -> str:
     summary = payload.get("summary")
     summary_obj = summary if isinstance(summary, dict) else {}
@@ -28,14 +32,32 @@ def render_markdown(payload: dict[str, Any]) -> str:
     errors_list = errors if isinstance(errors, list) else []
     warnings = payload.get("warnings")
     warnings_list = warnings if isinstance(warnings, list) else []
+    status_text = str(payload.get("status", "n/a")).strip().lower()
+    verdict = (
+        "ok"
+        if _is_zeroish(payload.get("overall_exit_code", 1))
+        and status_text in {"ok", "pass", "passed", "warn", "warning"}
+        and len(errors_list) == 0
+        else "attention_required"
+    )
+    top_errors = [str(item).strip() for item in errors_list if str(item).strip()][:3]
+    top_warnings = [str(item).strip() for item in warnings_list if str(item).strip()][:3]
 
     lines = [
         "## Hybrid Superpass Validation",
         "",
+        "## Validation Verdict",
+        "",
+        f"- verdict: {verdict}",
         f"- status: {payload.get('status', 'n/a')}",
         f"- strict: {payload.get('strict', 'n/a')}",
         f"- schema_mode: {payload.get('schema_mode', 'n/a')}",
         f"- overall_exit_code: {payload.get('overall_exit_code', 'n/a')}",
+        f"- top_errors: {', '.join(top_errors) if top_errors else '(none)'}",
+        f"- top_warnings: {', '.join(top_warnings) if top_warnings else '(none)'}",
+        "",
+        "## Validation Snapshot",
+        "",
         f"- inputs.superpass_json: {inputs_obj.get('superpass_json', '')}",
         f"- inputs.hybrid_blind_gate_report: {inputs_obj.get('hybrid_blind_gate_report', '')}",
         f"- inputs.hybrid_calibration_json: {inputs_obj.get('hybrid_calibration_json', '')}",

@@ -7,6 +7,8 @@
 - 为 `hybrid superpass validation` JSON 提供独立 Markdown renderer
 - 让 `ci watcher` 报告自动识别并引用 `soft-mode smoke` 的 Markdown artifact
 
+本轮继续补了统一的 `Validation Verdict / Validation Snapshot` 段，并为无效 JSON 输入补齐失败回归。
+
 ## 实现
 
 ### 1) CI watcher 聚合 soft-smoke markdown artifact
@@ -41,7 +43,8 @@
   - `--validation-json`
   - `--output-md`
 - 输出内容：
-  - status / strict / schema_mode / overall_exit_code
+  - validation verdict / top errors / top warnings
+  - validation snapshot / status / strict / schema_mode / overall_exit_code
   - inputs 路径
   - superpass / gate / calibration 核心 summary 指标
   - errors / warnings 列表
@@ -67,7 +70,7 @@ pytest -q \
   tests/unit/test_hybrid_calibration_make_targets.py
 ```
 
-结果：`56 passed`
+结果：`61 passed`
 
 ### Make 验证
 
@@ -79,7 +82,7 @@ make validate-render-hybrid-superpass-validation-summary
 结果：
 
 - `validate-generate-ci-watch-validation-report` -> `4 passed`
-- `validate-render-hybrid-superpass-validation-summary` -> `38 passed`
+- `validate-render-hybrid-superpass-validation-summary` -> `43 passed`
 
 ### 近真实验证 1：watcher 报告带上 soft-smoke markdown
 
@@ -112,7 +115,7 @@ python3 scripts/ci/render_hybrid_superpass_validation_summary.py \
 结果：
 
 - 输出文件：`reports/experiments/20260316/hybrid_superpass_validation_rendered_20260316.md`
-- 成功渲染 status / summary / warnings
+- 成功渲染 validation verdict / snapshot / status / summary / warnings
 
 ## 变更文件
 
