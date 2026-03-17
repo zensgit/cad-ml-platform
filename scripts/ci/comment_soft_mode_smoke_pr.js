@@ -6,6 +6,7 @@ const {
   markdownSection,
   markdownTable,
 } = require("./comment_markdown_utils.js");
+const { upsertBotIssueComment } = require("./comment_pr_utils.js");
 
 function envStr(name, fallback = "") {
   const value = process.env[name];
@@ -118,33 +119,13 @@ async function commentSoftModeSmokePR({ github, context, process }) {
       updatedAt: new Date().toISOString().replace("T", " ").substring(0, 19),
     });
 
-    const { data: comments } = await github.rest.issues.listComments({
+    await upsertBotIssueComment({
+      github,
       owner: context.repo.owner,
       repo: context.repo.repo,
-      issue_number: issueNumber,
-    });
-
-    const botComment = comments.find(
-      (comment) =>
-        comment.user.type === "Bot" &&
-        String(comment.body || "").includes("CAD ML Platform - Soft Mode Smoke"),
-    );
-
-    if (botComment) {
-      await github.rest.issues.updateComment({
-        owner: context.repo.owner,
-        repo: context.repo.repo,
-        comment_id: botComment.id,
-        body,
-      });
-      return;
-    }
-
-    await github.rest.issues.createComment({
-      owner: context.repo.owner,
-      repo: context.repo.repo,
-      issue_number: issueNumber,
+      issueNumber,
       body,
+      marker: "CAD ML Platform - Soft Mode Smoke",
     });
   } catch (error) {
     const message = error && error.message ? error.message : String(error);

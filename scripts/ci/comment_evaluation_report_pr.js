@@ -6,6 +6,7 @@ const {
   markdownSection,
   markdownTable,
 } = require("./comment_markdown_utils.js");
+const { upsertBotIssueComment } = require("./comment_pr_utils.js");
 
 function envStr(name, fallback = "") {
   const value = process.env[name];
@@ -76,6 +77,167 @@ function strictPlaybookAnchor(channel, reason) {
 
 function strictPlaybookLabel(channel, reason) {
   return `${String(channel || "unknown")}:${String(reason || "unknown")}`;
+}
+
+function summarizeCiWatchFailure(summaryPath, fsApi = fs) {
+  let summary = "⏭️ skipped (no summary path)";
+  let light = "⚪";
+  if (!summaryPath) {
+    return { summary, light };
+  }
+  try {
+    if (!fsApi.existsSync(summaryPath)) {
+      return {
+        summary: `⚠️ summary missing at ${summaryPath}`,
+        light: "🟡",
+      };
+    }
+    const payload = JSON.parse(fsApi.readFileSync(summaryPath, "utf8"));
+    const failureDetails = Array.isArray(payload.failure_details)
+      ? payload.failure_details
+      : [];
+    const counts = payload.counts && typeof payload.counts === "object" ? payload.counts : {};
+    const failedCount =
+      parseInt(String(counts.failed ?? failureDetails.length ?? 0), 10) || 0;
+    const reason = String(payload.reason || "unknown");
+    const top = failureDetails
+      .slice(0, 3)
+      .map((item) => {
+        if (!item || typeof item !== "object") {
+          return "unknown";
+        }
+        const workflowName = String(item.workflow_name || "unknown");
+        const runId = String(item.run_id || "n/a");
+        const step =
+          Array.isArray(item.failed_steps) && item.failed_steps.length > 0
+            ? String(item.failed_steps[0])
+            : Array.isArray(item.failed_jobs) && item.failed_jobs.length > 0
+              ? String(item.failed_jobs[0])
+              : "n/a";
+        return `${workflowName}#${runId}:${step}`;
+      })
+      .join("; ");
+    if (failedCount > 0 || failureDetails.length > 0) {
+      summary = `failed=${failedCount}, reason=${reason}, top=${top || "n/a"}`;
+      light = "🔴";
+    } else {
+      summary = `failed=0, reason=${reason}`;
+      light = "🟢";
+    }
+  } catch (error) {
+    const message = error && error.message ? error.message : String(error);
+    summary = `⚠️ parse_error: ${message}`;
+    light = "🟡";
+  }
+  return { summary, light };
+}
+
+function summarizeWorkflowFileHealth(summaryPath, fsApi = fs) {
+  let summary = "⏭️ skipped (no summary path)";
+  let light = "⚪";
+  if (!summaryPath) {
+    return { summary, light };
+  }
+  try {
+    if (!fsApi.existsSync(summaryPath)) {
+      return {
+        summary: `⚠️ summary missing at ${summaryPath}`,
+        light: "🟡",
+      };
+    }
+    const payload = JSON.parse(fsApi.readFileSync(summaryPath, "utf8"));
+    const failedCount =
+      parseInt(String(payload.failed_count ?? payload.fail_count ?? 0), 10) || 0;
+    const count = parseInt(String(payload.count ?? 0), 10) || 0;
+    const modeUsed = String(payload.mode_used || "unknown");
+    const fallbackReason = String(payload.fallback_reason || "none");
+    if (failedCount > 0) {
+      summary = `failed=${failedCount}/${count}, mode=${modeUsed}, fallback=${fallbackReason}`;
+      light = "🔴";
+    } else {
+      summary = `failed=0/${count}, mode=${modeUsed}, fallback=${fallbackReason}`;
+      light = "🟢";
+    }
+  } catch (error) {
+    const message = error && error.message ? error.message : String(error);
+    summary = `⚠️ parse_error: ${message}`;
+    light = "🟡";
+  }
+  return { summary, light };
+}
+
+function summarizeWorkflowInventory(summaryPath, fsApi = fs) {
+  let summary = "⏭️ skipped (no summary path)";
+  let light = "⚪";
+  if (!summaryPath) {
+    return { summary, light };
+  }
+  try {
+    if (!fsApi.existsSync(summaryPath)) {
+      return {
+        summary: `⚠️ summary missing at ${summaryPath}`,
+        light: "🟡",
+      };
+    }
+    const payload = JSON.parse(fsApi.readFileSync(summaryPath, "utf8"));
+    const workflowCount = parseInt(String(payload.workflow_count ?? 0), 10) || 0;
+    const duplicateCount = parseInt(String(payload.duplicate_name_count ?? 0), 10) || 0;
+    const missingRequiredCount =
+      parseInt(String(payload.missing_required_count ?? 0), 10) || 0;
+    const nonUniqueRequiredCount =
+      parseInt(String(payload.non_unique_required_count ?? 0), 10) || 0;
+    const duplicates = Array.isArray(payload.duplicates) ? payload.duplicates : [];
+    const requiredRows = Array.isArray(payload.required_workflow_mapping)
+      ? payload.required_workflow_mapping
+      : [];
+    const duplicateNames = duplicates
+      .map((row) => String((row && row.name) || "").trim())
+      .filter(Boolean)
+      .slice(0, 3);
+    const missingRequiredNames = requiredRows
+      .filter(
+        (row) =>
+          row && typeof row === "object" && String(row.status || "").trim() === "missing",
+      )
+      .map((row) => String(row.name || "").trim())
+      .filter(Boolean)
+      .slice(0, 3);
+    const nonUniqueRequiredNames = requiredRows
+      .filter(
+        (row) =>
+          row &&
+          typeof row === "object" &&
+          String(row.status || "").trim() === "non_unique",
+      )
+      .map((row) => String(row.name || "").trim())
+      .filter(Boolean)
+      .slice(0, 3);
+    const parts = [
+      `workflows=${workflowCount}`,
+      `duplicate=${duplicateCount}`,
+      `missing_required=${missingRequiredCount}`,
+      `non_unique_required=${nonUniqueRequiredCount}`,
+    ];
+    if (duplicateNames.length > 0) {
+      parts.push(`duplicate_names=${duplicateNames.join("/")}`);
+    }
+    if (missingRequiredNames.length > 0) {
+      parts.push(`missing_names=${missingRequiredNames.join("/")}`);
+    }
+    if (nonUniqueRequiredNames.length > 0) {
+      parts.push(`non_unique_names=${nonUniqueRequiredNames.join("/")}`);
+    }
+    summary = parts.join(", ");
+    light =
+      duplicateCount > 0 || missingRequiredCount > 0 || nonUniqueRequiredCount > 0
+        ? "🔴"
+        : "🟢";
+  } catch (error) {
+    const message = error && error.message ? error.message : String(error);
+    summary = `⚠️ parse_error: ${message}`;
+    light = "🟡";
+  }
+  return { summary, light };
 }
 
 function buildEvaluationReportCommentBody({
@@ -502,187 +664,28 @@ async function commentEvaluationReportPR({ github, context, process }) {
     );
 
     const ciWatchSummaryPath = envStr("CI_WATCH_SUMMARY_JSON_FOR_COMMENT", "");
-    let ciWatchFailureSummary = "⏭️ skipped (no summary path)";
-    let ciWatchFailureLight = "⚪";
-    if (ciWatchSummaryPath) {
-      try {
-        if (!fs.existsSync(ciWatchSummaryPath)) {
-          ciWatchFailureSummary = `⚠️ summary missing at ${ciWatchSummaryPath}`;
-          ciWatchFailureLight = "🟡";
-        } else {
-          const ciWatchSummaryPayload = JSON.parse(
-            fs.readFileSync(ciWatchSummaryPath, "utf8"),
-          );
-          const ciWatchFailureDetails = Array.isArray(
-            ciWatchSummaryPayload.failure_details,
-          )
-            ? ciWatchSummaryPayload.failure_details
-            : [];
-          const ciWatchCounts =
-            ciWatchSummaryPayload.counts &&
-            typeof ciWatchSummaryPayload.counts === "object"
-              ? ciWatchSummaryPayload.counts
-              : {};
-          const ciWatchFailedCount =
-            parseInt(
-              String(ciWatchCounts.failed ?? ciWatchFailureDetails.length ?? 0),
-              10,
-            ) || 0;
-          const ciWatchReason = String(ciWatchSummaryPayload.reason || "unknown");
-          const ciWatchTop = ciWatchFailureDetails
-            .slice(0, 3)
-            .map((item) => {
-              if (!item || typeof item !== "object") {
-                return "unknown";
-              }
-              const wf = String(item.workflow_name || "unknown");
-              const runId = String(item.run_id || "n/a");
-              const step =
-                Array.isArray(item.failed_steps) && item.failed_steps.length > 0
-                  ? String(item.failed_steps[0])
-                  : Array.isArray(item.failed_jobs) && item.failed_jobs.length > 0
-                    ? String(item.failed_jobs[0])
-                    : "n/a";
-              return `${wf}#${runId}:${step}`;
-            })
-            .join("; ");
-          if (ciWatchFailedCount > 0 || ciWatchFailureDetails.length > 0) {
-            ciWatchFailureSummary = `failed=${ciWatchFailedCount}, reason=${ciWatchReason}, top=${ciWatchTop || "n/a"}`;
-            ciWatchFailureLight = "🔴";
-          } else {
-            ciWatchFailureSummary = `failed=0, reason=${ciWatchReason}`;
-            ciWatchFailureLight = "🟢";
-          }
-        }
-      } catch (error) {
-        const message = error && error.message ? error.message : String(error);
-        ciWatchFailureSummary = `⚠️ parse_error: ${message}`;
-        ciWatchFailureLight = "🟡";
-      }
-    }
+    const {
+      summary: ciWatchFailureSummary,
+      light: ciWatchFailureLight,
+    } = summarizeCiWatchFailure(ciWatchSummaryPath);
 
     const workflowFileHealthSummaryPath = envStr(
       "WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT",
       "",
     );
-    let workflowFileHealthSummary = "⏭️ skipped (no summary path)";
-    let workflowFileHealthLight = "⚪";
-    if (workflowFileHealthSummaryPath) {
-      try {
-        if (!fs.existsSync(workflowFileHealthSummaryPath)) {
-          workflowFileHealthSummary = `⚠️ summary missing at ${workflowFileHealthSummaryPath}`;
-          workflowFileHealthLight = "🟡";
-        } else {
-          const payload = JSON.parse(
-            fs.readFileSync(workflowFileHealthSummaryPath, "utf8"),
-          );
-          const failedCount =
-            parseInt(String(payload.failed_count ?? payload.fail_count ?? 0), 10) ||
-            0;
-          const count = parseInt(String(payload.count ?? 0), 10) || 0;
-          const modeUsed = String(payload.mode_used || "unknown");
-          const fallbackReason = String(payload.fallback_reason || "none");
-          if (failedCount > 0) {
-            workflowFileHealthSummary = `failed=${failedCount}/${count}, mode=${modeUsed}, fallback=${fallbackReason}`;
-            workflowFileHealthLight = "🔴";
-          } else {
-            workflowFileHealthSummary = `failed=0/${count}, mode=${modeUsed}, fallback=${fallbackReason}`;
-            workflowFileHealthLight = "🟢";
-          }
-        }
-      } catch (error) {
-        const message = error && error.message ? error.message : String(error);
-        workflowFileHealthSummary = `⚠️ parse_error: ${message}`;
-        workflowFileHealthLight = "🟡";
-      }
-    }
+    const {
+      summary: workflowFileHealthSummary,
+      light: workflowFileHealthLight,
+    } = summarizeWorkflowFileHealth(workflowFileHealthSummaryPath);
 
     const workflowInventorySummaryPath = envStr(
       "WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT",
       "",
     );
-    let workflowInventorySummary = "⏭️ skipped (no summary path)";
-    let workflowInventoryLight = "⚪";
-    if (workflowInventorySummaryPath) {
-      try {
-        if (!fs.existsSync(workflowInventorySummaryPath)) {
-          workflowInventorySummary = `⚠️ summary missing at ${workflowInventorySummaryPath}`;
-          workflowInventoryLight = "🟡";
-        } else {
-          const payload = JSON.parse(
-            fs.readFileSync(workflowInventorySummaryPath, "utf8"),
-          );
-          const workflowCount =
-            parseInt(String(payload.workflow_count ?? 0), 10) || 0;
-          const duplicateCount =
-            parseInt(String(payload.duplicate_name_count ?? 0), 10) || 0;
-          const missingRequiredCount =
-            parseInt(String(payload.missing_required_count ?? 0), 10) || 0;
-          const nonUniqueRequiredCount =
-            parseInt(String(payload.non_unique_required_count ?? 0), 10) || 0;
-          const duplicates = Array.isArray(payload.duplicates)
-            ? payload.duplicates
-            : [];
-          const requiredRows = Array.isArray(payload.required_workflow_mapping)
-            ? payload.required_workflow_mapping
-            : [];
-          const duplicateNames = duplicates
-            .map((row) => String((row && row.name) || "").trim())
-            .filter(Boolean)
-            .slice(0, 3);
-          const missingRequiredNames = requiredRows
-            .filter(
-              (row) =>
-                row &&
-                typeof row === "object" &&
-                String(row.status || "").trim() === "missing",
-            )
-            .map((row) => String(row.name || "").trim())
-            .filter(Boolean)
-            .slice(0, 3);
-          const nonUniqueRequiredNames = requiredRows
-            .filter(
-              (row) =>
-                row &&
-                typeof row === "object" &&
-                String(row.status || "").trim() === "non_unique",
-            )
-            .map((row) => String(row.name || "").trim())
-            .filter(Boolean)
-            .slice(0, 3);
-          const workflowInventoryParts = [
-            `workflows=${workflowCount}`,
-            `duplicate=${duplicateCount}`,
-            `missing_required=${missingRequiredCount}`,
-            `non_unique_required=${nonUniqueRequiredCount}`,
-          ];
-          if (duplicateNames.length > 0) {
-            workflowInventoryParts.push(`duplicate_names=${duplicateNames.join("/")}`);
-          }
-          if (missingRequiredNames.length > 0) {
-            workflowInventoryParts.push(
-              `missing_names=${missingRequiredNames.join("/")}`,
-            );
-          }
-          if (nonUniqueRequiredNames.length > 0) {
-            workflowInventoryParts.push(
-              `non_unique_names=${nonUniqueRequiredNames.join("/")}`,
-            );
-          }
-          workflowInventorySummary = workflowInventoryParts.join(", ");
-          workflowInventoryLight =
-            duplicateCount > 0 ||
-            missingRequiredCount > 0 ||
-            nonUniqueRequiredCount > 0
-              ? "🔴"
-              : "🟢";
-        }
-      } catch (error) {
-        const message = error && error.message ? error.message : String(error);
-        workflowInventorySummary = `⚠️ parse_error: ${message}`;
-        workflowInventoryLight = "🟡";
-      }
-    }
+    const {
+      summary: workflowInventorySummary,
+      light: workflowInventoryLight,
+    } = summarizeWorkflowInventory(workflowInventorySummaryPath);
 
     const reviewCandidateCount = parseInt(reviewCandidates || "0", 10);
     const sweepTotalRunsInt = parseInt(sweepTotalRuns || "0", 10);
@@ -928,33 +931,14 @@ async function commentEvaluationReportPR({ github, context, process }) {
       commitSha: context.sha,
     });
 
-    const { data: comments } = await github.rest.issues.listComments({
+    await upsertBotIssueComment({
+      github,
       owner: context.repo.owner,
       repo: context.repo.repo,
-      issue_number: context.issue.number,
+      issueNumber: context.issue.number,
+      body,
+      marker: "CAD ML Platform - Evaluation Results",
     });
-
-    const botComment = comments.find(
-      (comment) =>
-        comment.user.type === "Bot" &&
-        comment.body.includes("CAD ML Platform - Evaluation Results"),
-    );
-
-    if (botComment) {
-      await github.rest.issues.updateComment({
-        owner: context.repo.owner,
-        repo: context.repo.repo,
-        comment_id: botComment.id,
-        body,
-      });
-    } else {
-      await github.rest.issues.createComment({
-        owner: context.repo.owner,
-        repo: context.repo.repo,
-        issue_number: context.issue.number,
-        body,
-      });
-    }
   } catch (error) {
     const message = error && error.message ? error.message : String(error);
     console.warn(`PR comment skipped: ${message}`);
@@ -964,4 +948,7 @@ async function commentEvaluationReportPR({ github, context, process }) {
 module.exports = {
   buildEvaluationReportCommentBody,
   commentEvaluationReportPR,
+  summarizeCiWatchFailure,
+  summarizeWorkflowFileHealth,
+  summarizeWorkflowInventory,
 };

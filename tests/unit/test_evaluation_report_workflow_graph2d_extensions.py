@@ -587,7 +587,13 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "CI Watcher" in module_script
     assert "Workflow Health" in module_script
     assert "Workflow Inventory" in module_script
-    assert "fs.existsSync(ciWatchSummaryPath)" in module_script
+    assert "function summarizeCiWatchFailure(summaryPath, fsApi = fs)" in module_script
+    assert "function summarizeWorkflowFileHealth(summaryPath, fsApi = fs)" in module_script
+    assert "function summarizeWorkflowInventory(summaryPath, fsApi = fs)" in module_script
+    assert "fsApi.existsSync(summaryPath)" in module_script
+    assert "summarizeCiWatchFailure(ciWatchSummaryPath)" in module_script
+    assert "summarizeWorkflowFileHealth(workflowFileHealthSummaryPath)" in module_script
+    assert "summarizeWorkflowInventory(workflowInventorySummaryPath)" in module_script
     assert "workflowFileHealthSummaryPath" in module_script
     assert "Hybrid Blind Eval" in module_script
     assert "Hybrid Blind Gate" in module_script
