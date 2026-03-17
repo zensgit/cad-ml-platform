@@ -79,6 +79,23 @@ def test_make_n_validate_workflow_identity_tests_contains_expected_files() -> No
     assert "tests/unit/test_workflow_file_health_make_target.py" in result.stdout
 
 
+def test_make_n_validate_workflow_publish_helper_adoption_contains_expected_flags() -> None:
+    result = _run_make("-n", "validate-workflow-publish-helper-adoption")
+    assert result.returncode == 0, result.stderr
+    assert "scripts/ci/check_workflow_publish_helper_adoption.py" in result.stdout
+    assert '--workflow-root ".github/workflows"' in result.stdout
+    assert '--summary-json-out "reports/ci/workflow_publish_helper_adoption.json"' in result.stdout
+
+
+def test_make_n_validate_workflow_publish_helper_adoption_tests_contains_expected_files() -> None:
+    result = _run_make("-n", "validate-workflow-publish-helper-adoption-tests")
+    assert result.returncode == 0, result.stderr
+    assert "node --check scripts/ci/comment_pr_utils.js" in result.stdout
+    assert "node --check scripts/ci/issue_upsert_utils.js" in result.stdout
+    assert "tests/unit/test_check_workflow_publish_helper_adoption.py" in result.stdout
+    assert "tests/unit/test_workflow_file_health_make_target.py" in result.stdout
+
+
 def test_make_n_workflow_inventory_report_contains_expected_flags() -> None:
     result = _run_make("-n", "workflow-inventory-report")
     assert result.returncode == 0, result.stderr
@@ -103,4 +120,6 @@ def test_make_n_validate_ci_watchers_invokes_workflow_file_health_tests() -> Non
     assert "make validate-workflow-comment-helper-tests" in result.stdout
     assert "make validate-workflow-issue-helper-tests" in result.stdout
     assert "make validate-workflow-identity-tests" in result.stdout
+    assert "make validate-workflow-publish-helper-adoption" in result.stdout
+    assert "make validate-workflow-publish-helper-adoption-tests" in result.stdout
     assert "make validate-workflow-inventory-report" in result.stdout

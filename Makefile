@@ -443,6 +443,20 @@ validate-workflow-identity-tests: ## 校验 workflow identity 脚本与 Make 接
 		$(TEST_DIR)/unit/test_check_workflow_identity_invariants.py \
 		$(TEST_DIR)/unit/test_workflow_file_health_make_target.py -q
 
+validate-workflow-publish-helper-adoption: ## 校验 workflow GitHub publish 逻辑必须复用共享 helper
+	@echo "$(GREEN)Validating workflow publish helper adoption...$(NC)"
+	$(PYTHON) scripts/ci/check_workflow_publish_helper_adoption.py \
+		--workflow-root ".github/workflows" \
+		--summary-json-out "reports/ci/workflow_publish_helper_adoption.json"
+
+validate-workflow-publish-helper-adoption-tests: ## 校验 workflow publish helper adoption 脚本与 Make 接线
+	@echo "$(GREEN)Validating workflow publish helper adoption tests...$(NC)"
+	node --check scripts/ci/comment_pr_utils.js
+	node --check scripts/ci/issue_upsert_utils.js
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_check_workflow_publish_helper_adoption.py \
+		$(TEST_DIR)/unit/test_workflow_file_health_make_target.py -q
+
 workflow-inventory-report: ## 生成只读 workflow 名单审计报告（JSON + Markdown）
 	@echo "$(GREEN)Generating workflow inventory audit report...$(NC)"
 	$(PYTHON) scripts/ci/generate_workflow_inventory_report.py \
@@ -466,6 +480,8 @@ validate-ci-watchers: ## 一键校验 CI watchers（commit + archive + Graph2D s
 	$(MAKE) validate-workflow-comment-helper-tests
 	$(MAKE) validate-workflow-issue-helper-tests
 	$(MAKE) validate-workflow-identity-tests
+	$(MAKE) validate-workflow-publish-helper-adoption
+	$(MAKE) validate-workflow-publish-helper-adoption-tests
 	$(MAKE) validate-workflow-inventory-report
 	$(MAKE) validate-archive-workflow-dispatcher
 	$(MAKE) validate-eval-with-history-ci-workflows
