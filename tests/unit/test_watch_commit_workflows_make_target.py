@@ -170,11 +170,23 @@ def test_make_n_generate_ci_watch_validation_report_contains_expected_flags() ->
     assert '--report-sha-len "7"' in result.stdout
 
 
+def test_make_n_generate_ci_workflow_guardrail_overview_contains_expected_flags() -> None:
+    result = _run_make("-n", "generate-ci-workflow-guardrail-overview")
+    assert result.returncode == 0, result.stderr
+    assert "scripts/ci/generate_ci_workflow_guardrail_overview.py" in result.stdout
+    assert '--ci-watch-summary-dir "reports/ci"' in result.stdout
+    assert '--ci-watch-summary-json ""' in result.stdout
+    assert '--workflow-guardrail-json "reports/ci/workflow_guardrail_summary.json"' in result.stdout
+    assert '--output-json "reports/ci/ci_workflow_guardrail_overview.json"' in result.stdout
+    assert '--output-md "reports/ci/ci_workflow_guardrail_overview.md"' in result.stdout
+
+
 def test_make_n_validate_ci_watchers_includes_graph2d_strict_e2e_validation() -> None:
     result = _run_make("-n", "validate-ci-watchers")
     assert result.returncode == 0, result.stderr
     assert "make validate-check-gh-actions-ready" in result.stdout
     assert "make validate-watch-commit-workflows" in result.stdout
     assert "make validate-generate-ci-watch-validation-report" in result.stdout
+    assert "make validate-generate-ci-workflow-guardrail-overview" in result.stdout
     assert "make validate-archive-workflow-dispatcher" in result.stdout
     assert "make validate-graph2d-review-pack-gate-strict-e2e" in result.stdout

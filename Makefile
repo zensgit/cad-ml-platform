@@ -117,6 +117,8 @@ WORKFLOW_INVENTORY_REPORT_JSON ?= reports/ci/workflow_inventory_report.json
 WORKFLOW_INVENTORY_REPORT_MD ?= reports/ci/workflow_inventory_report.md
 WORKFLOW_GUARDRAIL_SUMMARY_JSON ?= reports/ci/workflow_guardrail_summary.json
 WORKFLOW_GUARDRAIL_SUMMARY_MD ?= reports/ci/workflow_guardrail_summary.md
+CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON ?= reports/ci/ci_workflow_guardrail_overview.json
+CI_WORKFLOW_GUARDRAIL_OVERVIEW_MD ?= reports/ci/ci_workflow_guardrail_overview.md
 
 # 项目路径
 SRC_DIR := src
@@ -369,6 +371,15 @@ generate-ci-watch-validation-report: ## 根据 watcher 产物生成 CI 验证 Ma
 		--report-sha-len "$(CI_WATCH_REPORT_SHA_LEN)" \
 		--date "$(CI_WATCH_REPORT_DATE)"
 
+generate-ci-workflow-guardrail-overview: ## 聚合 CI watcher summary 与 workflow guardrail summary（JSON + Markdown）
+	@echo "$(GREEN)Generating CI workflow guardrail overview...$(NC)"
+	$(PYTHON) scripts/ci/generate_ci_workflow_guardrail_overview.py \
+		--ci-watch-summary-dir "$(CI_WATCH_SUMMARY_DIR)" \
+		--ci-watch-summary-json "$(CI_WATCH_REPORT_SUMMARY_JSON)" \
+		--workflow-guardrail-json "$(WORKFLOW_GUARDRAIL_SUMMARY_JSON)" \
+		--output-json "$(CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON)" \
+		--output-md "$(CI_WORKFLOW_GUARDRAIL_OVERVIEW_MD)"
+
 validate-watch-commit-workflows: ## 校验 commit workflow watcher（脚本 + Make 参数透传）
 	@echo "$(GREEN)Validating commit workflow watcher...$(NC)"
 	$(PYTEST) \
@@ -399,6 +410,12 @@ validate-check-gh-actions-ready: ## 校验 gh readiness 检查脚本
 validate-generate-ci-watch-validation-report: ## 校验 CI watcher 验证报告生成脚本
 	@echo "$(GREEN)Validating CI watcher validation report generator...$(NC)"
 	$(PYTEST) $(TEST_DIR)/unit/test_generate_ci_watcher_validation_report.py -q
+
+validate-generate-ci-workflow-guardrail-overview: ## 校验 CI watcher + workflow guardrail 概览脚本
+	@echo "$(GREEN)Validating CI workflow guardrail overview generator...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_generate_ci_workflow_guardrail_overview.py \
+		$(TEST_DIR)/unit/test_watch_commit_workflows_make_target.py -q
 
 validate-workflow-file-health: ## 校验 GitHub workflow 文件健康（优先 gh 解析，失败回退 yaml）
 	@echo "$(GREEN)Validating workflow file health...$(NC)"
@@ -494,6 +511,7 @@ validate-ci-watchers: ## 一键校验 CI watchers（commit + archive + Graph2D s
 	$(MAKE) validate-check-gh-actions-ready
 	$(MAKE) validate-watch-commit-workflows
 	$(MAKE) validate-generate-ci-watch-validation-report
+	$(MAKE) validate-generate-ci-workflow-guardrail-overview
 	$(MAKE) validate-workflow-file-health-tests
 	$(MAKE) validate-workflow-comment-helper-tests
 	$(MAKE) validate-workflow-issue-helper-tests
