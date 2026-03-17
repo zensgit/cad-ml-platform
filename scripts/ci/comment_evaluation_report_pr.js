@@ -450,9 +450,56 @@ async function commentEvaluationReportPR({ github, context, process }) {
             parseInt(String(payload.missing_required_count ?? 0), 10) || 0;
           const nonUniqueRequiredCount =
             parseInt(String(payload.non_unique_required_count ?? 0), 10) || 0;
-          workflowInventorySummary =
-            `workflows=${workflowCount}, duplicate=${duplicateCount}, ` +
-            `missing_required=${missingRequiredCount}, non_unique_required=${nonUniqueRequiredCount}`;
+          const duplicates = Array.isArray(payload.duplicates)
+            ? payload.duplicates
+            : [];
+          const requiredRows = Array.isArray(payload.required_workflow_mapping)
+            ? payload.required_workflow_mapping
+            : [];
+          const duplicateNames = duplicates
+            .map((row) => String((row && row.name) || "").trim())
+            .filter(Boolean)
+            .slice(0, 3);
+          const missingRequiredNames = requiredRows
+            .filter(
+              (row) =>
+                row &&
+                typeof row === "object" &&
+                String(row.status || "").trim() === "missing",
+            )
+            .map((row) => String(row.name || "").trim())
+            .filter(Boolean)
+            .slice(0, 3);
+          const nonUniqueRequiredNames = requiredRows
+            .filter(
+              (row) =>
+                row &&
+                typeof row === "object" &&
+                String(row.status || "").trim() === "non_unique",
+            )
+            .map((row) => String(row.name || "").trim())
+            .filter(Boolean)
+            .slice(0, 3);
+          const workflowInventoryParts = [
+            `workflows=${workflowCount}`,
+            `duplicate=${duplicateCount}`,
+            `missing_required=${missingRequiredCount}`,
+            `non_unique_required=${nonUniqueRequiredCount}`,
+          ];
+          if (duplicateNames.length > 0) {
+            workflowInventoryParts.push(`duplicate_names=${duplicateNames.join("/")}`);
+          }
+          if (missingRequiredNames.length > 0) {
+            workflowInventoryParts.push(
+              `missing_names=${missingRequiredNames.join("/")}`,
+            );
+          }
+          if (nonUniqueRequiredNames.length > 0) {
+            workflowInventoryParts.push(
+              `non_unique_names=${nonUniqueRequiredNames.join("/")}`,
+            );
+          }
+          workflowInventorySummary = workflowInventoryParts.join(", ");
           workflowInventoryLight =
             duplicateCount > 0 ||
             missingRequiredCount > 0 ||

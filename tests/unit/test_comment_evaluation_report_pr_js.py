@@ -218,3 +218,91 @@ const mockProcess = { env: process.env };
     result = _run_node_inline(node_script, str(missing_workflow_inventory))
     assert result.returncode == 0, result.stderr or result.stdout
     assert "ok:update-comment-with-missing-workflow-inventory" in result.stdout
+
+
+def test_comment_evaluation_report_pr_js_includes_inventory_problem_names(
+    tmp_path: Path,
+) -> None:
+    workflow_inventory = tmp_path / "workflow_inventory_problematic.json"
+    workflow_inventory.write_text(
+        json.dumps(
+            {
+                "workflow_count": 35,
+                "duplicate_name_count": 2,
+                "missing_required_count": 1,
+                "non_unique_required_count": 1,
+                "duplicates": [
+                    {"name": "Security Audit", "files": ["security-audit.yml", "security-copy.yml"]},
+                    {"name": "CI", "files": ["ci.yml", "ci-copy.yml"]},
+                ],
+                "required_workflow_mapping": [
+                    {"name": "Evaluation Report", "status": "ok", "files": ["evaluation-report.yml"]},
+                    {"name": "Code Quality", "status": "missing", "files": []},
+                    {"name": "Security Audit", "status": "non_unique", "files": ["security-audit.yml", "security-copy.yml"]},
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    node_script = r"""
+const mod = require("./scripts/ci/comment_evaluation_report_pr.js");
+const workflowInventoryPath = process.argv[1];
+
+process.env.EVAL_COMBINED_SCORE = "0.830";
+process.env.EVAL_VISION_SCORE = "0.840";
+process.env.EVAL_OCR_SCORE = "0.930";
+process.env.EVAL_MIN_COMBINED = "0.800";
+process.env.EVAL_MIN_VISION = "0.650";
+process.env.EVAL_MIN_OCR = "0.900";
+process.env.WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT = workflowInventoryPath;
+
+let createdPayload = null;
+const github = {
+  rest: {
+    issues: {
+      listComments: async () => ({ data: [] }),
+      createComment: async (payload) => {
+        createdPayload = payload;
+        return { data: { id: 99 } };
+      },
+      updateComment: async () => {
+        throw new Error("updateComment should not be called for empty comment list");
+      },
+    },
+  },
+};
+const context = {
+  repo: { owner: "zensgit", repo: "cad-ml-platform" },
+  issue: { number: 789 },
+  sha: "0123456789abcdef",
+  runId: "777888999",
+};
+const mockProcess = { env: process.env };
+
+(async () => {
+  await mod.commentEvaluationReportPR({ github, context, process: mockProcess });
+  if (!createdPayload) {
+    throw new Error("createComment was not called");
+  }
+  const body = String(createdPayload.body || "");
+  if (!body.includes("duplicate_names=Security Audit/CI")) {
+    throw new Error("comment body missing duplicate workflow names");
+  }
+  if (!body.includes("missing_names=Code Quality")) {
+    throw new Error("comment body missing missing-required workflow names");
+  }
+  if (!body.includes("non_unique_names=Security Audit")) {
+    throw new Error("comment body missing non-unique workflow names");
+  }
+  console.log("ok:create-comment-with-inventory-problem-names");
+})().catch((err) => {
+  console.error(err && err.stack ? err.stack : String(err));
+  process.exit(1);
+});
+"""
+
+    result = _run_node_inline(node_script, str(workflow_inventory))
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "ok:create-comment-with-inventory-problem-names" in result.stdout

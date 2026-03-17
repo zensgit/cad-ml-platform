@@ -58,7 +58,7 @@ Results:
 
 - `pytest -q tests/unit/test_generate_workflow_inventory_report.py tests/unit/test_workflow_file_health_make_target.py` -> `10 passed`
 - `pytest -q tests/unit/test_stress_workflow_workflow_file_health.py tests/unit/test_generate_workflow_inventory_report.py tests/unit/test_workflow_file_health_make_target.py` -> `13 passed`
-- `pytest -q tests/unit/test_comment_evaluation_report_pr_js.py` -> `2 passed`
+- `pytest -q tests/unit/test_comment_evaluation_report_pr_js.py` -> `3 passed`
 - `make validate-workflow-file-health-tests` -> `17 passed`
 - `make validate-workflow-inventory-report` -> `10 passed`
 - `make workflow-inventory-report` generated:
@@ -71,11 +71,12 @@ Results:
   - `non_unique_required_count = 0`
 - `pytest -q tests/unit/test_evaluation_report_workflow_graph2d_extensions.py tests/unit/test_generate_workflow_inventory_report.py` -> `9 passed`
 - `pytest -q tests/unit/test_graph2d_parallel_make_targets.py` -> `11 passed`
-- `make validate-eval-with-history-ci-workflows` -> `21 passed`
+- `make validate-eval-with-history-ci-workflows` -> `22 passed`
 - `evaluation-report.yml` now mirrors:
   - `workflow_inventory_for_comment.json`
   - `workflow_inventory_for_comment.md`
   - `WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT` into the PR comment script env
+- `comment_evaluation_report_pr.js` now surfaces top workflow inventory names in PR comments when duplicates or missing required mappings exist
 - `make validate-ci-watchers` also passed with the new inventory step included
 
 ## Notes
