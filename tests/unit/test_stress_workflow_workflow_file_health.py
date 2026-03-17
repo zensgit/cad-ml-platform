@@ -25,6 +25,7 @@ def test_push_paths_include_workflow_health_inputs() -> None:
     push_paths = workflow["on"]["push"]["paths"]
     assert "scripts/ci/check_workflow_file_issues.py" in push_paths
     assert "scripts/ci/check_workflow_publish_helper_adoption.py" in push_paths
+    assert "scripts/ci/generate_workflow_guardrail_summary.py" in push_paths
     assert "scripts/ci/generate_workflow_inventory_report.py" in push_paths
     assert ".github/workflows/*.yml" in push_paths
 
@@ -64,6 +65,20 @@ def test_stress_workflow_has_workflow_file_health_job() -> None:
     assert "--summary-json-out reports/ci/workflow_publish_helper_adoption.json" in publish_helper_script
     assert "--output-md reports/ci/workflow_publish_helper_adoption.md" in publish_helper_script
     assert ">/dev/null" in publish_helper_script
+
+    guardrail_step = _get_step(
+        workflow,
+        "workflow-file-health",
+        "Generate workflow guardrail summary report",
+    )
+    guardrail_script = guardrail_step["run"]
+    assert "scripts/ci/generate_workflow_guardrail_summary.py" in guardrail_script
+    assert "--workflow-file-health-json reports/ci/workflow_file_health_summary.json" in guardrail_script
+    assert "--workflow-inventory-json reports/ci/workflow_inventory_report.json" in guardrail_script
+    assert "--workflow-publish-helper-json reports/ci/workflow_publish_helper_adoption.json" in guardrail_script
+    assert "--output-json reports/ci/workflow_guardrail_summary.json" in guardrail_script
+    assert "--output-md reports/ci/workflow_guardrail_summary.md" in guardrail_script
+    assert ">/dev/null" in guardrail_script
 
     upload = _get_step(workflow, "workflow-file-health", "Upload workflow health summary")
     assert (
@@ -105,6 +120,23 @@ def test_stress_workflow_has_workflow_file_health_job() -> None:
     assert "reports/ci/workflow_publish_helper_adoption.json" in publish_helper_upload_path
     assert "reports/ci/workflow_publish_helper_adoption.md" in publish_helper_upload_path
 
+    guardrail_upload = _get_step(
+        workflow,
+        "workflow-file-health",
+        "Upload workflow guardrail summary report",
+    )
+    assert (
+        guardrail_upload["uses"]
+        == "actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f"
+    )
+    assert (
+        guardrail_upload["with"]["name"]
+        == "workflow-guardrail-summary-${{ github.run_number }}"
+    )
+    guardrail_upload_path = guardrail_upload["with"]["path"]
+    assert "reports/ci/workflow_guardrail_summary.json" in guardrail_upload_path
+    assert "reports/ci/workflow_guardrail_summary.md" in guardrail_upload_path
+
     append_step = _get_step(
         workflow, "workflow-file-health", "Append workflow inventory summary"
     )
@@ -122,6 +154,16 @@ def test_stress_workflow_has_workflow_file_health_job() -> None:
     assert "cat reports/ci/workflow_publish_helper_adoption.md" in append_publish_helper_script
     assert "workflow publish helper markdown missing" in append_publish_helper_script
     assert '>> "$GITHUB_STEP_SUMMARY"' in append_publish_helper_script
+
+    append_guardrail_step = _get_step(
+        workflow,
+        "workflow-file-health",
+        "Append workflow guardrail summary",
+    )
+    append_guardrail_script = append_guardrail_step["run"]
+    assert "cat reports/ci/workflow_guardrail_summary.md" in append_guardrail_script
+    assert "workflow guardrail markdown missing" in append_guardrail_script
+    assert '>> "$GITHUB_STEP_SUMMARY"' in append_guardrail_script
 
 
 def test_stress_jobs_depend_on_workflow_file_health() -> None:

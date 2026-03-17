@@ -295,6 +295,40 @@ function summarizeWorkflowPublishHelper(summaryPath, fsApi = fs) {
   return { summary, light };
 }
 
+function summarizeWorkflowGuardrail(summaryPath, fsApi = fs) {
+  let summary = "⏭️ skipped (no summary path)";
+  let light = "⚪";
+  if (!summaryPath) {
+    return { summary, light };
+  }
+  try {
+    if (!fsApi.existsSync(summaryPath)) {
+      return {
+        summary: `⚠️ summary missing at ${summaryPath}`,
+        light: "🟡",
+      };
+    }
+    const payload = JSON.parse(fsApi.readFileSync(summaryPath, "utf8"));
+    const overallStatus = String(payload.overall_status || "unknown");
+    const overallLight = String(payload.overall_light || "").trim();
+    summary = String(payload.summary || `status=${overallStatus}`);
+    if (overallLight) {
+      light = overallLight;
+    } else if (overallStatus === "error") {
+      light = "🔴";
+    } else if (overallStatus === "warning") {
+      light = "🟡";
+    } else if (overallStatus === "ok") {
+      light = "🟢";
+    }
+  } catch (error) {
+    const message = error && error.message ? error.message : String(error);
+    summary = `⚠️ parse_error: ${message}`;
+    light = "🟡";
+  }
+  return { summary, light };
+}
+
 function buildEvaluationReportCommentBody({
   overallStatus,
   combined,
@@ -332,6 +366,7 @@ function buildEvaluationReportCommentBody({
   workflowFileHealthSummary,
   workflowInventorySummary,
   workflowPublishHelperSummary,
+  workflowGuardrailSummary,
   reviewPackLight,
   reviewGateLight,
   trainSweepLight,
@@ -343,6 +378,7 @@ function buildEvaluationReportCommentBody({
   workflowFileHealthLight,
   workflowInventoryLight,
   workflowPublishHelperLight,
+  workflowGuardrailLight,
   evaluationStrictModeResolvedRaw,
   strictFailureRequestSummary,
   strictActionItems,
@@ -402,6 +438,7 @@ function buildEvaluationReportCommentBody({
           ["**Workflow File Health**", workflowFileHealthSummary],
           ["**Workflow Inventory Audit**", workflowInventorySummary],
           ["**Workflow Publish Helper Adoption**", workflowPublishHelperSummary],
+          ["**Workflow Guardrail Summary**", workflowGuardrailSummary],
         ],
       ),
     ),
@@ -428,6 +465,11 @@ function buildEvaluationReportCommentBody({
             "**Workflow Publish Helper**",
             workflowPublishHelperLight,
             workflowPublishHelperSummary,
+          ],
+          [
+            "**Workflow Guardrails**",
+            workflowGuardrailLight,
+            workflowGuardrailSummary,
           ],
         ],
       ),
@@ -759,6 +801,15 @@ async function commentEvaluationReportPR({ github, context, process }) {
       light: workflowPublishHelperLight,
     } = summarizeWorkflowPublishHelper(workflowPublishHelperSummaryPath);
 
+    const workflowGuardrailSummaryPath = envStr(
+      "WORKFLOW_GUARDRAIL_SUMMARY_JSON_FOR_COMMENT",
+      "",
+    );
+    const {
+      summary: workflowGuardrailSummary,
+      light: workflowGuardrailLight,
+    } = summarizeWorkflowGuardrail(workflowGuardrailSummaryPath);
+
     const reviewCandidateCount = parseInt(reviewCandidates || "0", 10);
     const sweepTotalRunsInt = parseInt(sweepTotalRuns || "0", 10);
     const sweepFailedRunsInt = parseInt(sweepFailedRuns || "0", 10);
@@ -985,6 +1036,7 @@ async function commentEvaluationReportPR({ github, context, process }) {
       workflowFileHealthSummary,
       workflowInventorySummary,
       workflowPublishHelperSummary,
+      workflowGuardrailSummary,
       reviewPackLight,
       reviewGateLight,
       trainSweepLight,
@@ -996,6 +1048,7 @@ async function commentEvaluationReportPR({ github, context, process }) {
       workflowFileHealthLight,
       workflowInventoryLight,
       workflowPublishHelperLight,
+      workflowGuardrailLight,
       evaluationStrictModeResolvedRaw,
       strictFailureRequestSummary,
       strictActionItems,
@@ -1026,4 +1079,5 @@ module.exports = {
   summarizeWorkflowFileHealth,
   summarizeWorkflowInventory,
   summarizeWorkflowPublishHelper,
+  summarizeWorkflowGuardrail,
 };

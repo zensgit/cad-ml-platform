@@ -115,6 +115,8 @@ WORKFLOW_FILE_HEALTH_SUMMARY_JSON ?= reports/ci/workflow_file_health_summary.jso
 WORKFLOW_IDENTITY_SUMMARY_JSON ?= reports/ci/workflow_identity_summary.json
 WORKFLOW_INVENTORY_REPORT_JSON ?= reports/ci/workflow_inventory_report.json
 WORKFLOW_INVENTORY_REPORT_MD ?= reports/ci/workflow_inventory_report.md
+WORKFLOW_GUARDRAIL_SUMMARY_JSON ?= reports/ci/workflow_guardrail_summary.json
+WORKFLOW_GUARDRAIL_SUMMARY_MD ?= reports/ci/workflow_guardrail_summary.md
 
 # 项目路径
 SRC_DIR := src
@@ -458,6 +460,21 @@ validate-workflow-publish-helper-adoption-tests: ## 校验 workflow publish help
 		$(TEST_DIR)/unit/test_check_workflow_publish_helper_adoption.py \
 		$(TEST_DIR)/unit/test_workflow_file_health_make_target.py -q
 
+workflow-guardrail-summary-report: ## 聚合 workflow health/inventory/publish-helper 摘要（JSON + Markdown）
+	@echo "$(GREEN)Generating workflow guardrail summary report...$(NC)"
+	$(PYTHON) scripts/ci/generate_workflow_guardrail_summary.py \
+		--workflow-file-health-json "$(WORKFLOW_FILE_HEALTH_SUMMARY_JSON)" \
+		--workflow-inventory-json "$(WORKFLOW_INVENTORY_REPORT_JSON)" \
+		--workflow-publish-helper-json "reports/ci/workflow_publish_helper_adoption.json" \
+		--output-json "$(WORKFLOW_GUARDRAIL_SUMMARY_JSON)" \
+		--output-md "$(WORKFLOW_GUARDRAIL_SUMMARY_MD)"
+
+validate-workflow-guardrail-summary-report: ## 校验 workflow guardrail summary 聚合脚本与 Make 接线
+	@echo "$(GREEN)Validating workflow guardrail summary report tooling...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_generate_workflow_guardrail_summary.py \
+		$(TEST_DIR)/unit/test_workflow_file_health_make_target.py -q
+
 workflow-inventory-report: ## 生成只读 workflow 名单审计报告（JSON + Markdown）
 	@echo "$(GREEN)Generating workflow inventory audit report...$(NC)"
 	$(PYTHON) scripts/ci/generate_workflow_inventory_report.py \
@@ -483,6 +500,7 @@ validate-ci-watchers: ## 一键校验 CI watchers（commit + archive + Graph2D s
 	$(MAKE) validate-workflow-identity-tests
 	$(MAKE) validate-workflow-publish-helper-adoption
 	$(MAKE) validate-workflow-publish-helper-adoption-tests
+	$(MAKE) validate-workflow-guardrail-summary-report
 	$(MAKE) validate-workflow-inventory-report
 	$(MAKE) validate-archive-workflow-dispatcher
 	$(MAKE) validate-eval-with-history-ci-workflows

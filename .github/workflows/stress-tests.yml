@@ -9,6 +9,7 @@ on:
       - 'scripts/stress_*.py'
       - 'scripts/ci/check_workflow_file_issues.py'
       - 'scripts/ci/check_workflow_publish_helper_adoption.py'
+      - 'scripts/ci/generate_workflow_guardrail_summary.py'
       - 'scripts/ci/generate_workflow_inventory_report.py'
       - 'prometheus/rules/**'
       - 'grafana/dashboards/**'
@@ -45,6 +46,15 @@ jobs:
             --summary-json-out reports/ci/workflow_publish_helper_adoption.json \
             --output-md reports/ci/workflow_publish_helper_adoption.md \
             >/dev/null
+      - name: Generate workflow guardrail summary report
+        run: |
+          python3 scripts/ci/generate_workflow_guardrail_summary.py \
+            --workflow-file-health-json reports/ci/workflow_file_health_summary.json \
+            --workflow-inventory-json reports/ci/workflow_inventory_report.json \
+            --workflow-publish-helper-json reports/ci/workflow_publish_helper_adoption.json \
+            --output-json reports/ci/workflow_guardrail_summary.json \
+            --output-md reports/ci/workflow_guardrail_summary.md \
+            >/dev/null
       - name: Upload workflow health summary
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
@@ -67,6 +77,14 @@ jobs:
           path: |
             reports/ci/workflow_publish_helper_adoption.json
             reports/ci/workflow_publish_helper_adoption.md
+      - name: Upload workflow guardrail summary report
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: workflow-guardrail-summary-${{ github.run_number }}
+          path: |
+            reports/ci/workflow_guardrail_summary.json
+            reports/ci/workflow_guardrail_summary.md
       - name: Append workflow inventory summary
         if: always()
         run: |
@@ -82,6 +100,14 @@ jobs:
             cat reports/ci/workflow_publish_helper_adoption.md
           else
             echo "- workflow publish helper markdown missing: reports/ci/workflow_publish_helper_adoption.md"
+          fi >> "$GITHUB_STEP_SUMMARY"
+      - name: Append workflow guardrail summary
+        if: always()
+        run: |
+          if [[ -f reports/ci/workflow_guardrail_summary.md ]]; then
+            cat reports/ci/workflow_guardrail_summary.md
+          else
+            echo "- workflow guardrail markdown missing: reports/ci/workflow_guardrail_summary.md"
           fi >> "$GITHUB_STEP_SUMMARY"
 
   metrics-consistency:

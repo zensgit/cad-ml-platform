@@ -84,6 +84,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT" in env
     assert "WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT" in env
     assert "WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT" in env
+    assert "WORKFLOW_GUARDRAIL_SUMMARY_JSON_FOR_COMMENT" in env
 
     dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
     assert "review_gate_min_total_rows" in dispatch_inputs
@@ -546,6 +547,22 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "--summary-json-out reports/ci/workflow_publish_helper_for_comment.json" in workflow_publish_helper_script
     assert "--output-md reports/ci/workflow_publish_helper_for_comment.md" in workflow_publish_helper_script
 
+    workflow_guardrail_step = _get_step(
+        workflow,
+        "evaluate",
+        "Build workflow guardrail summary for PR comment (optional)",
+    )
+    workflow_guardrail_script = workflow_guardrail_step["run"]
+    assert "scripts/ci/generate_workflow_guardrail_summary.py" in workflow_guardrail_script
+    assert 'WORKFLOW_FILE_HEALTH_JSON="reports/ci/workflow_file_health_for_comment.json"' in workflow_guardrail_script
+    assert 'WORKFLOW_INVENTORY_JSON="reports/ci/workflow_inventory_for_comment.json"' in workflow_guardrail_script
+    assert 'WORKFLOW_PUBLISH_HELPER_JSON="reports/ci/workflow_publish_helper_for_comment.json"' in workflow_guardrail_script
+    assert '--workflow-file-health-json "$WORKFLOW_FILE_HEALTH_JSON"' in workflow_guardrail_script
+    assert '--workflow-inventory-json "$WORKFLOW_INVENTORY_JSON"' in workflow_guardrail_script
+    assert '--workflow-publish-helper-json "$WORKFLOW_PUBLISH_HELPER_JSON"' in workflow_guardrail_script
+    assert "--output-json reports/ci/workflow_guardrail_for_comment.json" in workflow_guardrail_script
+    assert "--output-md reports/ci/workflow_guardrail_for_comment.md" in workflow_guardrail_script
+
     append_inventory_step = _get_step(
         workflow,
         "evaluate",
@@ -568,6 +585,17 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "workflow publish helper markdown missing" in append_publish_helper_script
     assert '>> "$GITHUB_STEP_SUMMARY"' in append_publish_helper_script
 
+    append_guardrail_step = _get_step(
+        workflow,
+        "evaluate",
+        "Append workflow guardrail summary for evaluation report (optional)",
+    )
+    append_guardrail_script = append_guardrail_step["run"]
+    assert "## Workflow Guardrail Summary" in append_guardrail_script
+    assert "cat reports/ci/workflow_guardrail_for_comment.md" in append_guardrail_script
+    assert "workflow guardrail markdown missing" in append_guardrail_script
+    assert '>> "$GITHUB_STEP_SUMMARY"' in append_guardrail_script
+
     pr_comment_env = pr_comment_step["env"]
     assert "EVALUATION_STRICT_FAIL_MODE" in pr_comment_env
     assert "EVALUATION_STRICT_FAIL_MODE_RESOLVED" in pr_comment_env
@@ -580,6 +608,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT" in pr_comment_env
     assert "WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT" in pr_comment_env
     assert "WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT" in pr_comment_env
+    assert "WORKFLOW_GUARDRAIL_SUMMARY_JSON_FOR_COMMENT" in pr_comment_env
     assert "workflow_file_health_for_comment.outputs.summary_json" in pr_comment_env[
         "WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT"
     ]
@@ -588,6 +617,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     ]
     assert "workflow_publish_helper_for_comment.outputs.summary_json" in pr_comment_env[
         "WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT"
+    ]
+    assert "workflow_guardrail_for_comment.outputs.summary_json" in pr_comment_env[
+        "WORKFLOW_GUARDRAIL_SUMMARY_JSON_FOR_COMMENT"
     ]
 
     module_script = (
@@ -612,19 +644,23 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Workflow File Health" in module_script
     assert "Workflow Inventory Audit" in module_script
     assert "Workflow Publish Helper Adoption" in module_script
+    assert "Workflow Guardrail Summary" in module_script
     assert "CI Watcher" in module_script
     assert "Workflow Health" in module_script
     assert "Workflow Inventory" in module_script
     assert "Workflow Publish Helper" in module_script
+    assert "Workflow Guardrails" in module_script
     assert "function summarizeCiWatchFailure(summaryPath, fsApi = fs)" in module_script
     assert "function summarizeWorkflowFileHealth(summaryPath, fsApi = fs)" in module_script
     assert "function summarizeWorkflowInventory(summaryPath, fsApi = fs)" in module_script
     assert "function summarizeWorkflowPublishHelper(summaryPath, fsApi = fs)" in module_script
+    assert "function summarizeWorkflowGuardrail(summaryPath, fsApi = fs)" in module_script
     assert "fsApi.existsSync(summaryPath)" in module_script
     assert "summarizeCiWatchFailure(ciWatchSummaryPath)" in module_script
     assert "summarizeWorkflowFileHealth(workflowFileHealthSummaryPath)" in module_script
     assert "summarizeWorkflowInventory(workflowInventorySummaryPath)" in module_script
     assert "summarizeWorkflowPublishHelper(workflowPublishHelperSummaryPath)" in module_script
+    assert "summarizeWorkflowGuardrail(workflowGuardrailSummaryPath)" in module_script
     assert "workflowFileHealthSummaryPath" in module_script
     assert "Hybrid Blind Eval" in module_script
     assert "Hybrid Blind Gate" in module_script
