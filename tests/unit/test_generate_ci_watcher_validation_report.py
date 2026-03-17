@@ -30,6 +30,8 @@ def test_main_generates_success_report_with_explicit_summary(tmp_path: Path) -> 
     readiness_path = tmp_path / "ci" / "gh_readiness_watch_abc123def456.json"
     soft_smoke_path = tmp_path / "ci" / "evaluation_soft_mode_smoke_summary.json"
     soft_smoke_md_path = tmp_path / "ci" / "evaluation_soft_mode_smoke_summary.md"
+    workflow_guardrail_summary_path = tmp_path / "ci" / "workflow_guardrail_summary.json"
+    ci_workflow_guardrail_overview_path = tmp_path / "ci" / "ci_workflow_guardrail_overview.json"
     report_dir = tmp_path / "reports"
 
     _write_json(
@@ -88,6 +90,42 @@ def test_main_generates_success_report_with_explicit_summary(tmp_path: Path) -> 
         "## Evaluation Soft-Mode Smoke\n\n- overall_exit_code: 0\n",
         encoding="utf-8",
     )
+    _write_json(
+        workflow_guardrail_summary_path,
+        {
+            "overall_status": "ok",
+            "overall_light": "🟢",
+            "summary": "status=ok, workflow_health=ok, inventory=ok, publish_helper=ok",
+            "workflow_file_health": {
+                "status": "ok",
+                "summary": "failed=0/33, mode=yaml, fallback=none",
+            },
+            "workflow_inventory": {
+                "status": "ok",
+                "summary": "workflows=33, duplicate=0, missing_required=0, non_unique_required=0",
+            },
+            "workflow_publish_helper": {
+                "status": "ok",
+                "summary": "checked=33, failed=0, raw=0, missing_comment_helper=0, missing_issue_helper=0",
+            },
+        },
+    )
+    _write_json(
+        ci_workflow_guardrail_overview_path,
+        {
+            "overall_status": "ok",
+            "overall_light": "🟢",
+            "summary": "status=ok, ci_watch=ok, workflow_guardrail=ok",
+            "ci_watch": {
+                "status": "ok",
+                "summary": "reason=all_workflows_success, observed=2, completed=2, failed=0, missing_required=0",
+            },
+            "workflow_guardrail": {
+                "status": "ok",
+                "summary": "status=ok, workflow_health=ok, inventory=ok, publish_helper=ok",
+            },
+        },
+    )
 
     rc = _invoke_main(
         mod,
@@ -118,6 +156,14 @@ def test_main_generates_success_report_with_explicit_summary(tmp_path: Path) -> 
     assert "`overall_exit_code=0`" in text
     assert "`attempts_total=1`" in text
     assert "attempt#1: dispatch_exit_code=0, soft_marker_ok=True" in text
+    assert "## Workflow Guardrail Summary" in text
+    assert workflow_guardrail_summary_path.as_posix() in text
+    assert "`summary=status=ok, workflow_health=ok, inventory=ok, publish_helper=ok`" in text
+    assert "`workflow_file_health.status=ok`" in text
+    assert "## CI Workflow Guardrail Overview" in text
+    assert ci_workflow_guardrail_overview_path.as_posix() in text
+    assert "`summary=status=ok, ci_watch=ok, workflow_guardrail=ok`" in text
+    assert "`ci_watch.status=ok`" in text
     assert "No structured failure_details in summary payload." in text
     assert "CI_WATCH_REPO='zensgit/cad-ml-platform'" in text
     assert "CI_WATCH_PRINT_FAILURE_DETAILS=1" in text
@@ -235,6 +281,10 @@ def test_main_generates_fail_report_when_summary_is_not_green(tmp_path: Path) ->
     assert "Not found (inferred readiness json is missing)." in text
     assert "## Soft-Mode Smoke Artifact" in text
     assert "Not found (inferred soft-smoke summary json is missing)." in text
+    assert "## Workflow Guardrail Summary" in text
+    assert "Not found (inferred workflow guardrail summary json is missing)." in text
+    assert "## CI Workflow Guardrail Overview" in text
+    assert "Not found (inferred ci workflow guardrail overview json is missing)." in text
     assert "Failure Details" in text
     assert "Code Quality (run=12345, conclusion=failure)" in text
     assert "failed_jobs: lint" in text

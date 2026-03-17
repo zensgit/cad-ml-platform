@@ -124,6 +124,40 @@ def _resolve_soft_smoke_md_path(
     return None
 
 
+def _resolve_workflow_guardrail_summary_path(
+    workflow_guardrail_summary_json: str,
+    summary_path: Path,
+) -> Path | None:
+    explicit = str(workflow_guardrail_summary_json or "").strip()
+    if explicit:
+        path = Path(explicit).expanduser()
+        if not path.exists():
+            raise RuntimeError(f"workflow guardrail summary json does not exist: {path}")
+        return path
+
+    inferred = summary_path.parent / "workflow_guardrail_summary.json"
+    if inferred.exists():
+        return inferred
+    return None
+
+
+def _resolve_ci_workflow_guardrail_overview_path(
+    ci_workflow_guardrail_overview_json: str,
+    summary_path: Path,
+) -> Path | None:
+    explicit = str(ci_workflow_guardrail_overview_json or "").strip()
+    if explicit:
+        path = Path(explicit).expanduser()
+        if not path.exists():
+            raise RuntimeError(f"ci workflow guardrail overview json does not exist: {path}")
+        return path
+
+    inferred = summary_path.parent / "ci_workflow_guardrail_overview.json"
+    if inferred.exists():
+        return inferred
+    return None
+
+
 def _extract_sha(summary: dict[str, Any]) -> str:
     for key in ("resolved_sha", "requested_sha"):
         raw = str(summary.get(key) or "").strip()
@@ -310,6 +344,70 @@ def _render_soft_smoke_section(
     return lines
 
 
+def _render_workflow_guardrail_summary_section(
+    workflow_guardrail_summary: dict[str, Any] | None,
+    workflow_guardrail_summary_path: Path | None,
+) -> list[str]:
+    if workflow_guardrail_summary is None or workflow_guardrail_summary_path is None:
+        return [
+            "## Workflow Guardrail Summary",
+            "",
+            "- Not found (inferred workflow guardrail summary json is missing).",
+            "",
+        ]
+
+    lines = [
+        "## Workflow Guardrail Summary",
+        "",
+        f"- `{workflow_guardrail_summary_path.as_posix()}`",
+        f"- `overall_status={workflow_guardrail_summary.get('overall_status', 'n/a')}`",
+        f"- `overall_light={workflow_guardrail_summary.get('overall_light', 'n/a')}`",
+        f"- `summary={workflow_guardrail_summary.get('summary', 'n/a')}`",
+    ]
+    for key in ("workflow_file_health", "workflow_inventory", "workflow_publish_helper"):
+        payload = workflow_guardrail_summary.get(key)
+        if not isinstance(payload, dict):
+            continue
+        status = payload.get("status", "n/a")
+        summary = payload.get("summary", "n/a")
+        lines.append(f"- `{key}.status={status}`")
+        lines.append(f"- `{key}.summary={summary}`")
+    lines.extend(["", ""])
+    return lines
+
+
+def _render_ci_workflow_guardrail_overview_section(
+    ci_workflow_guardrail_overview: dict[str, Any] | None,
+    ci_workflow_guardrail_overview_path: Path | None,
+) -> list[str]:
+    if ci_workflow_guardrail_overview is None or ci_workflow_guardrail_overview_path is None:
+        return [
+            "## CI Workflow Guardrail Overview",
+            "",
+            "- Not found (inferred ci workflow guardrail overview json is missing).",
+            "",
+        ]
+
+    lines = [
+        "## CI Workflow Guardrail Overview",
+        "",
+        f"- `{ci_workflow_guardrail_overview_path.as_posix()}`",
+        f"- `overall_status={ci_workflow_guardrail_overview.get('overall_status', 'n/a')}`",
+        f"- `overall_light={ci_workflow_guardrail_overview.get('overall_light', 'n/a')}`",
+        f"- `summary={ci_workflow_guardrail_overview.get('summary', 'n/a')}`",
+    ]
+    for key in ("ci_watch", "workflow_guardrail"):
+        payload = ci_workflow_guardrail_overview.get(key)
+        if not isinstance(payload, dict):
+            continue
+        status = payload.get("status", "n/a")
+        summary = payload.get("summary", "n/a")
+        lines.append(f"- `{key}.status={status}`")
+        lines.append(f"- `{key}.summary={summary}`")
+    lines.extend(["", ""])
+    return lines
+
+
 def _render_failure_details_rows(summary: dict[str, Any]) -> list[str]:
     payload = summary.get("failure_details")
     if not isinstance(payload, list):
@@ -346,6 +444,10 @@ def _render_markdown(
     soft_smoke: dict[str, Any] | None,
     soft_smoke_path: Path | None,
     soft_smoke_md_path: Path | None,
+    workflow_guardrail_summary: dict[str, Any] | None,
+    workflow_guardrail_summary_path: Path | None,
+    ci_workflow_guardrail_overview: dict[str, Any] | None,
+    ci_workflow_guardrail_overview_path: Path | None,
     sha: str,
     date_str: str,
 ) -> str:
@@ -382,6 +484,16 @@ def _render_markdown(
     lines.extend(_render_readiness_section(readiness, readiness_path))
     lines.extend(
         _render_soft_smoke_section(soft_smoke, soft_smoke_path, soft_smoke_md_path)
+    )
+    lines.extend(
+        _render_workflow_guardrail_summary_section(
+            workflow_guardrail_summary, workflow_guardrail_summary_path
+        )
+    )
+    lines.extend(
+        _render_ci_workflow_guardrail_overview_section(
+            ci_workflow_guardrail_overview, ci_workflow_guardrail_overview_path
+        )
     )
     lines.extend(
         [
@@ -468,6 +580,22 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--workflow-guardrail-summary-json",
+        default="",
+        help=(
+            "Optional workflow guardrail summary json path. If empty, "
+            "infer <summary-dir>/workflow_guardrail_summary.json."
+        ),
+    )
+    parser.add_argument(
+        "--ci-workflow-guardrail-overview-json",
+        default="",
+        help=(
+            "Optional CI workflow guardrail overview json path. If empty, "
+            "infer <summary-dir>/ci_workflow_guardrail_overview.json."
+        ),
+    )
+    parser.add_argument(
         "--output-md",
         default="",
         help="Optional explicit markdown output path.",
@@ -511,6 +639,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     if soft_smoke_md_path is not None:
         _read_text(soft_smoke_md_path)
+    workflow_guardrail_summary_path = _resolve_workflow_guardrail_summary_path(
+        str(args.workflow_guardrail_summary_json), summary_path
+    )
+    workflow_guardrail_summary: dict[str, Any] | None = None
+    if workflow_guardrail_summary_path is not None:
+        workflow_guardrail_summary = _read_json_dict(workflow_guardrail_summary_path)
+    ci_workflow_guardrail_overview_path = _resolve_ci_workflow_guardrail_overview_path(
+        str(args.ci_workflow_guardrail_overview_json), summary_path
+    )
+    ci_workflow_guardrail_overview: dict[str, Any] | None = None
+    if ci_workflow_guardrail_overview_path is not None:
+        ci_workflow_guardrail_overview = _read_json_dict(
+            ci_workflow_guardrail_overview_path
+        )
 
     sha = _extract_sha(summary)
     date_str = str(args.date or "").strip() or datetime.now().strftime("%Y%m%d")
@@ -534,6 +676,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         soft_smoke=soft_smoke,
         soft_smoke_path=soft_smoke_path,
         soft_smoke_md_path=soft_smoke_md_path,
+        workflow_guardrail_summary=workflow_guardrail_summary,
+        workflow_guardrail_summary_path=workflow_guardrail_summary_path,
+        ci_workflow_guardrail_overview=ci_workflow_guardrail_overview,
+        ci_workflow_guardrail_overview_path=ci_workflow_guardrail_overview_path,
         sha=sha,
         date_str=date_str,
     )

@@ -165,6 +165,8 @@ def test_make_n_generate_ci_watch_validation_report_contains_expected_flags() ->
     assert '--readiness-json ""' in result.stdout
     assert '--soft-smoke-summary-json ""' in result.stdout
     assert '--soft-smoke-summary-md ""' in result.stdout
+    assert '--workflow-guardrail-summary-json "reports/ci/workflow_guardrail_summary.json"' in result.stdout
+    assert '--ci-workflow-guardrail-overview-json "reports/ci/ci_workflow_guardrail_overview.json"' in result.stdout
     assert '--output-md ""' in result.stdout
     assert '--report-dir "reports"' in result.stdout
     assert '--report-sha-len "7"' in result.stdout

@@ -366,6 +366,8 @@ generate-ci-watch-validation-report: ## 根据 watcher 产物生成 CI 验证 Ma
 		--readiness-json "$(CI_WATCH_REPORT_READINESS_JSON)" \
 		--soft-smoke-summary-json "$(CI_WATCH_REPORT_SOFT_SMOKE_JSON)" \
 		--soft-smoke-summary-md "$(CI_WATCH_REPORT_SOFT_SMOKE_MD)" \
+		--workflow-guardrail-summary-json "$(WORKFLOW_GUARDRAIL_SUMMARY_JSON)" \
+		--ci-workflow-guardrail-overview-json "$(CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON)" \
 		--output-md "$(CI_WATCH_REPORT_OUTPUT_MD)" \
 		--report-dir "$(CI_WATCH_REPORT_DIR)" \
 		--report-sha-len "$(CI_WATCH_REPORT_SHA_LEN)" \
