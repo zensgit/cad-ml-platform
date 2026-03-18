@@ -595,6 +595,20 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "--output-json reports/ci/ci_watch_validation_for_comment.json" in ci_watch_validation_script
     assert "--output-md reports/ci/ci_watch_validation_for_comment.md" in ci_watch_validation_script
 
+    support_manifest_step = _get_step(
+        workflow,
+        "evaluate",
+        "Build evaluation comment support manifest (optional)",
+    )
+    support_manifest_script = support_manifest_step["run"]
+    assert (
+        "scripts/ci/generate_evaluation_comment_support_manifest.py"
+        in support_manifest_script
+    )
+    assert "--reports-dir reports/ci" in support_manifest_script
+    assert "--output-json reports/ci/evaluation_comment_support_manifest.json" in support_manifest_script
+    assert "--output-md reports/ci/evaluation_comment_support_manifest.md" in support_manifest_script
+
     append_inventory_step = _get_step(
         workflow,
         "evaluate",
@@ -650,6 +664,17 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "ci watch validation markdown missing" in append_ci_watch_validation_script
     assert '>> "$GITHUB_STEP_SUMMARY"' in append_ci_watch_validation_script
 
+    append_support_manifest_step = _get_step(
+        workflow,
+        "evaluate",
+        "Append evaluation comment support manifest for evaluation report (optional)",
+    )
+    append_support_manifest_script = append_support_manifest_step["run"]
+    assert "## Evaluation Comment Support Manifest" in append_support_manifest_script
+    assert "cat reports/ci/evaluation_comment_support_manifest.md" in append_support_manifest_script
+    assert "evaluation comment support manifest markdown missing" in append_support_manifest_script
+    assert '>> "$GITHUB_STEP_SUMMARY"' in append_support_manifest_script
+
     upload_comment_support_step = _get_step(
         workflow,
         "evaluate",
@@ -671,6 +696,8 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "reports/ci/ci_workflow_guardrail_overview_for_comment.json" in upload_comment_support_path
     assert "reports/ci/ci_watch_validation_for_comment.json" in upload_comment_support_path
     assert "reports/ci/ci_watch_validation_for_comment.md" in upload_comment_support_path
+    assert "reports/ci/evaluation_comment_support_manifest.json" in upload_comment_support_path
+    assert "reports/ci/evaluation_comment_support_manifest.md" in upload_comment_support_path
     assert upload_comment_support_step["with"]["if-no-files-found"] == "ignore"
     assert (
         upload_comment_support_step["with"]["retention-days"]

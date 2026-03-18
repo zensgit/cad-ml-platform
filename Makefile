@@ -1909,6 +1909,7 @@ validate-eval-with-history-ci-workflows: ## 校验 eval_with_history 回归门�
 	$(PYTEST) \
 		$(TEST_DIR)/unit/test_eval_with_history_script_history_sequence.py \
 		$(TEST_DIR)/unit/test_validate_eval_history_history_sequence.py \
+		$(TEST_DIR)/unit/test_generate_evaluation_comment_support_manifest.py \
 		$(TEST_DIR)/unit/test_evaluation_report_workflow_graph2d_extensions.py \
 		$(TEST_DIR)/unit/test_comment_markdown_utils_js.py \
 		$(TEST_DIR)/unit/test_comment_pr_utils_js.py \

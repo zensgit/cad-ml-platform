@@ -104,6 +104,7 @@ def test_make_n_validate_eval_with_history_ci_workflows_runs_expected_tests() ->
     assert result.returncode == 0, result.stderr
     assert "test_eval_with_history_script_history_sequence.py" in result.stdout
     assert "test_validate_eval_history_history_sequence.py" in result.stdout
+    assert "test_generate_evaluation_comment_support_manifest.py" in result.stdout
     assert "test_evaluation_report_workflow_graph2d_extensions.py" in result.stdout
     assert "test_comment_markdown_utils_js.py" in result.stdout
     assert "test_comment_pr_utils_js.py" in result.stdout
