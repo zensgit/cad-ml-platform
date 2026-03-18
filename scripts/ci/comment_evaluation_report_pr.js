@@ -203,6 +203,19 @@ function summarizeCiWatchValidationReport(summaryPath, fsApi = fs) {
         );
       }
     }
+    const commentSupportManifest = sections.evaluation_comment_support_manifest;
+    if (commentSupportManifest && typeof commentSupportManifest === "object") {
+      const present = Boolean(commentSupportManifest.present);
+      const status = String(commentSupportManifest.overall_status || "unknown").trim();
+      const detailSummary = String(commentSupportManifest.summary || "").trim();
+      if (!present) {
+        detailParts.push("evaluation_comment_support_manifest=missing");
+      } else if (status !== "ok") {
+        detailParts.push(
+          `evaluation_comment_support_manifest=${status}${detailSummary ? `:${detailSummary}` : ""}`,
+        );
+      }
+    }
     if (detailParts.length > 0) {
       summary = `${summary}; ${detailParts.join("; ")}`;
     }

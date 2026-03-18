@@ -20,11 +20,12 @@ Enhanced `summarizeCiWatchValidationReport(...)` to append detail fragments from
 - `soft_smoke`
 - `workflow_guardrail_summary`
 - `ci_workflow_guardrail_overview`
+- `evaluation_comment_support_manifest`
 
 Example detail suffix:
 
 ```text
-...; soft_smoke=exit=2, attempts=3; ci_workflow_guardrail_overview=error:status=error, ci_watch=ok, workflow_guardrail=error
+...; soft_smoke=exit=2, attempts=3; ci_workflow_guardrail_overview=error:status=error, ci_watch=ok, workflow_guardrail=error; evaluation_comment_support_manifest=warning:present=9/11, missing=2, invalid=0
 ```
 
 ## Validation

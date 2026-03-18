@@ -569,6 +569,67 @@ const context = {
     assert "ok:comment-support-manifest-summary" in result.stdout
 
 
+def test_comment_evaluation_report_pr_js_marks_comment_support_manifest_parse_errors(
+    tmp_path: Path,
+) -> None:
+    manifest_path = tmp_path / "evaluation_comment_support_manifest_invalid.json"
+    manifest_path.write_text("{invalid json", encoding="utf-8")
+
+    node_script = r"""
+const mod = require("./scripts/ci/comment_evaluation_report_pr.js");
+const manifestPath = process.argv[1];
+
+process.env.EVAL_COMBINED_SCORE = "0.900";
+process.env.EVAL_VISION_SCORE = "0.900";
+process.env.EVAL_OCR_SCORE = "0.900";
+process.env.EVAL_MIN_COMBINED = "0.800";
+process.env.EVAL_MIN_VISION = "0.650";
+process.env.EVAL_MIN_OCR = "0.900";
+process.env.EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON_FOR_COMMENT = manifestPath;
+
+let createdPayload = null;
+const github = {
+  rest: {
+    issues: {
+      listComments: async () => ({ data: [] }),
+      createComment: async (payload) => {
+        createdPayload = payload;
+        return { data: { id: 55 } };
+      },
+      updateComment: async () => {
+        throw new Error("updateComment should not be called");
+      },
+    },
+  },
+};
+const context = {
+  repo: { owner: "zensgit", repo: "cad-ml-platform" },
+  issue: { number: 321 },
+  sha: "abcdef1234567890",
+  runId: "111222444",
+};
+
+(async () => {
+  await mod.commentEvaluationReportPR({ github, context, process });
+  const body = String(createdPayload.body || "");
+  if (!body.includes("Evaluation Comment Support Manifest")) {
+    throw new Error("missing manifest row");
+  }
+  if (!body.includes("parse_error")) {
+    throw new Error("missing manifest parse_error");
+  }
+  console.log("ok:comment-support-manifest-parse-error");
+})().catch((err) => {
+  console.error(err && err.stack ? err.stack : String(err));
+  process.exit(1);
+});
+"""
+
+    result = _run_node_inline(node_script, str(manifest_path))
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "ok:comment-support-manifest-parse-error" in result.stdout
+
+
 def test_comment_evaluation_report_pr_js_includes_inventory_problem_names(
     tmp_path: Path,
 ) -> None:
@@ -1261,6 +1322,11 @@ def test_comment_evaluation_report_pr_js_includes_ci_watch_validation_report(
                         "overall_status": "error",
                         "summary": "status=error, ci_watch=ok, workflow_guardrail=error",
                     },
+                    "evaluation_comment_support_manifest": {
+                        "present": True,
+                        "overall_status": "warning",
+                        "summary": "present=9/11, missing=2, invalid=0",
+                    },
                 },
             },
             ensure_ascii=False,
@@ -1320,6 +1386,9 @@ const mockProcess = { env: process.env };
   }
   if (!body.includes("ci_workflow_guardrail_overview=error:status=error, ci_watch=ok, workflow_guardrail=error")) {
     throw new Error("comment body missing ci watch validation overview detail");
+  }
+  if (!body.includes("evaluation_comment_support_manifest=warning:present=9/11, missing=2, invalid=0")) {
+    throw new Error("comment body missing ci watch validation comment-support detail");
   }
   if (!body.includes("**CI Watch Validation**")) {
     throw new Error("comment body missing ci watch validation signal");
@@ -1485,6 +1554,8 @@ def test_comment_evaluation_report_pr_js_marks_multiple_parse_errors_together(
     ci_workflow_guardrail_overview.write_text("{invalid json", encoding="utf-8")
     ci_watch_validation = tmp_path / "ci_watch_validation_invalid.json"
     ci_watch_validation.write_text("{invalid json", encoding="utf-8")
+    evaluation_comment_support_manifest = tmp_path / "evaluation_comment_support_manifest_invalid.json"
+    evaluation_comment_support_manifest.write_text("{invalid json", encoding="utf-8")
 
     node_script = r"""
 const mod = require("./scripts/ci/comment_evaluation_report_pr.js");
@@ -1495,6 +1566,7 @@ const workflowPublishHelperPath = process.argv[4];
 const workflowGuardrailPath = process.argv[5];
 const ciWorkflowGuardrailOverviewPath = process.argv[6];
 const ciWatchValidationPath = process.argv[7];
+const evaluationCommentSupportManifestPath = process.argv[8];
 
 process.env.EVAL_COMBINED_SCORE = "0.830";
 process.env.EVAL_VISION_SCORE = "0.840";
@@ -1509,6 +1581,7 @@ process.env.WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT = workflowPublishHe
 process.env.WORKFLOW_GUARDRAIL_SUMMARY_JSON_FOR_COMMENT = workflowGuardrailPath;
 process.env.CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT = ciWorkflowGuardrailOverviewPath;
 process.env.CI_WATCH_VALIDATION_REPORT_JSON_FOR_COMMENT = ciWatchValidationPath;
+process.env.EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON_FOR_COMMENT = evaluationCommentSupportManifestPath;
 
 let createdPayload = null;
 const github = {
@@ -1560,9 +1633,12 @@ const mockProcess = { env: process.env };
   if (!body.includes("CI Workflow Guardrail Overview")) {
     throw new Error("comment body missing ci workflow guardrail overview section");
   }
+  if (!body.includes("Evaluation Comment Support Manifest")) {
+    throw new Error("comment body missing evaluation comment support manifest section");
+  }
   const parseErrorCount = (body.match(/parse_error/g) || []).length;
-  if (parseErrorCount < 7) {
-    throw new Error(`expected at least 7 parse_error markers, got ${parseErrorCount}`);
+  if (parseErrorCount < 8) {
+    throw new Error(`expected at least 8 parse_error markers, got ${parseErrorCount}`);
   }
   console.log("ok:create-comment-with-multiple-parse-errors");
 })().catch((err) => {
@@ -1580,6 +1656,7 @@ const mockProcess = { env: process.env };
         str(workflow_guardrail),
         str(ci_workflow_guardrail_overview),
         str(ci_watch_validation),
+        str(evaluation_comment_support_manifest),
     )
     assert result.returncode == 0, result.stderr or result.stdout
     assert "ok:create-comment-with-multiple-parse-errors" in result.stdout
