@@ -1155,6 +1155,20 @@ def test_comment_evaluation_report_pr_js_includes_ci_watch_validation_report(
                 "verdict": "FAIL",
                 "verdict_success": False,
                 "summary": "verdict=FAIL, reason=workflow_failed, failed=1, missing_required=0, workflow_guardrail=ok, ci_workflow_overview=error",
+                "sections": {
+                    "readiness": {"present": True, "ok": True},
+                    "soft_smoke": {"present": True, "overall_exit_code": 2, "attempts_total": 3},
+                    "workflow_guardrail_summary": {
+                        "present": True,
+                        "overall_status": "ok",
+                        "summary": "status=ok, workflow_health=ok, inventory=ok, publish_helper=ok",
+                    },
+                    "ci_workflow_guardrail_overview": {
+                        "present": True,
+                        "overall_status": "error",
+                        "summary": "status=error, ci_watch=ok, workflow_guardrail=error",
+                    },
+                },
             },
             ensure_ascii=False,
         ),
@@ -1207,6 +1221,12 @@ const mockProcess = { env: process.env };
   }
   if (!body.includes("verdict=FAIL, reason=workflow_failed, failed=1, missing_required=0, workflow_guardrail=ok, ci_workflow_overview=error")) {
     throw new Error("comment body missing ci watch validation report summary");
+  }
+  if (!body.includes("soft_smoke=exit=2, attempts=3")) {
+    throw new Error("comment body missing ci watch validation soft-smoke detail");
+  }
+  if (!body.includes("ci_workflow_guardrail_overview=error:status=error, ci_watch=ok, workflow_guardrail=error")) {
+    throw new Error("comment body missing ci watch validation overview detail");
   }
   if (!body.includes("**CI Watch Validation**")) {
     throw new Error("comment body missing ci watch validation signal");

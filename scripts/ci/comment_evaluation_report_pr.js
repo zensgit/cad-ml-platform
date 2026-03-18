@@ -149,6 +149,63 @@ function summarizeCiWatchValidationReport(summaryPath, fsApi = fs) {
     const verdict = String(payload.verdict || "unknown").trim();
     summary = String(payload.summary || `verdict=${verdict}`);
     const verdictSuccess = Boolean(payload.verdict_success);
+    const detailParts = [];
+    const sections =
+      payload.sections && typeof payload.sections === "object" ? payload.sections : {};
+    const readiness = sections.readiness;
+    if (readiness && typeof readiness === "object") {
+      const present = Boolean(readiness.present);
+      const ok = readiness.ok;
+      if (!present) {
+        detailParts.push("readiness=missing");
+      } else if (ok !== true) {
+        detailParts.push(`readiness=ok=${ok}`);
+      }
+    }
+    const softSmoke = sections.soft_smoke;
+    if (softSmoke && typeof softSmoke === "object") {
+      const present = Boolean(softSmoke.present);
+      const overallExitCode = softSmoke.overall_exit_code;
+      const attemptsTotal = parseInt(String(softSmoke.attempts_total ?? 0), 10) || 0;
+      if (!present) {
+        detailParts.push("soft_smoke=missing");
+      } else if (
+        overallExitCode !== null &&
+        overallExitCode !== undefined &&
+        String(overallExitCode) !== "0"
+      ) {
+        detailParts.push(`soft_smoke=exit=${overallExitCode}, attempts=${attemptsTotal}`);
+      }
+    }
+    const workflowGuardrailSummary = sections.workflow_guardrail_summary;
+    if (workflowGuardrailSummary && typeof workflowGuardrailSummary === "object") {
+      const present = Boolean(workflowGuardrailSummary.present);
+      const status = String(workflowGuardrailSummary.overall_status || "unknown").trim();
+      const detailSummary = String(workflowGuardrailSummary.summary || "").trim();
+      if (!present) {
+        detailParts.push("workflow_guardrail_summary=missing");
+      } else if (status !== "ok") {
+        detailParts.push(
+          `workflow_guardrail_summary=${status}${detailSummary ? `:${detailSummary}` : ""}`,
+        );
+      }
+    }
+    const ciWorkflowOverview = sections.ci_workflow_guardrail_overview;
+    if (ciWorkflowOverview && typeof ciWorkflowOverview === "object") {
+      const present = Boolean(ciWorkflowOverview.present);
+      const status = String(ciWorkflowOverview.overall_status || "unknown").trim();
+      const detailSummary = String(ciWorkflowOverview.summary || "").trim();
+      if (!present) {
+        detailParts.push("ci_workflow_guardrail_overview=missing");
+      } else if (status !== "ok") {
+        detailParts.push(
+          `ci_workflow_guardrail_overview=${status}${detailSummary ? `:${detailSummary}` : ""}`,
+        );
+      }
+    }
+    if (detailParts.length > 0) {
+      summary = `${summary}; ${detailParts.join("; ")}`;
+    }
     light = verdictSuccess || verdict === "PASS" ? "🟢" : "🔴";
   } catch (error) {
     const message = error && error.message ? error.message : String(error);
