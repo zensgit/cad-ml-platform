@@ -194,3 +194,42 @@ Notes:
 - `test_comment_evaluation_report_pr_js.py` now includes a direct runtime builder test with fixed timestamp and sha.
 - Workflow integration tests now assert builder/helper wiring instead of overfitting to inline body array literals.
 - The exported builder path is now covered by the same top-level gate as the existing comment runtime path.
+
+## Comment Support Hardening Follow-up
+
+Goal:
+
+- harden shared PR comment lookup so empty markers cannot accidentally match arbitrary bot comments
+- strengthen evaluation comment support manifest fallback coverage when `summary` is absent
+
+Updated:
+
+- `scripts/ci/comment_pr_utils.js`
+- `tests/unit/test_comment_pr_utils_js.py`
+- `tests/unit/test_generate_evaluation_comment_support_manifest.py`
+
+Validation:
+
+```bash
+node --check scripts/ci/comment_pr_utils.js
+pytest -q \
+  tests/unit/test_comment_pr_utils_js.py \
+  tests/unit/test_generate_evaluation_comment_support_manifest.py \
+  tests/unit/test_graph2d_parallel_make_targets.py \
+  tests/unit/test_hybrid_calibration_make_targets.py
+```
+
+```bash
+make validate-eval-with-history-ci-workflows
+```
+
+Results:
+
+- `node --check scripts/ci/comment_pr_utils.js` -> `ok`
+- `pytest -q tests/unit/test_comment_pr_utils_js.py tests/unit/test_generate_evaluation_comment_support_manifest.py tests/unit/test_graph2d_parallel_make_targets.py tests/unit/test_hybrid_calibration_make_targets.py` -> `59 passed`
+- `make validate-eval-with-history-ci-workflows` -> `48 passed`
+
+Notes:
+
+- `findBotCommentByMarker(...)` now returns `null` when the marker is blank instead of matching the first bot comment.
+- Manifest coverage now explicitly checks `verdict=` / `status=` fallback summaries when a JSON support artifact does not provide a top-level `summary`.

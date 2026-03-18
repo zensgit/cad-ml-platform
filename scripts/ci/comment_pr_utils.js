@@ -7,7 +7,10 @@ function isBotComment(comment) {
 }
 
 function findBotCommentByMarker(comments, marker) {
-  const token = String(marker || "");
+  const token = String(marker || "").trim();
+  if (!token) {
+    return null;
+  }
   const items = Array.isArray(comments) ? comments : [];
   return (
     items.find(

@@ -142,3 +142,47 @@ const github = {
     result = _run_node_inline(node_script)
     assert result.returncode == 0, result.stderr or result.stdout
     assert "ok:create" in result.stdout
+
+
+def test_comment_pr_utils_js_ignores_empty_marker() -> None:
+    node_script = r"""
+const mod = require("./scripts/ci/comment_pr_utils.js");
+
+const result = mod.findBotCommentByMarker(
+  [
+    { id: 1, user: { type: "Bot" }, body: "## CAD ML Platform - Evaluation Results\nold" },
+  ],
+  "   ",
+);
+
+if (result !== null) {
+  throw new Error("empty marker should not match arbitrary bot comments");
+}
+console.log("ok:empty-marker-ignored");
+"""
+
+    result = _run_node_inline(node_script)
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "ok:empty-marker-ignored" in result.stdout
+
+
+def test_comment_pr_utils_js_ignores_non_bot_marker_match() -> None:
+    node_script = r"""
+const mod = require("./scripts/ci/comment_pr_utils.js");
+
+const result = mod.findBotCommentByMarker(
+  [
+    { id: 1, user: { type: "User" }, body: "## CAD ML Platform - Evaluation Results\nold" },
+  ],
+  "CAD ML Platform - Evaluation Results",
+);
+
+if (result !== null) {
+  throw new Error("non-bot comment should not match marker lookup");
+}
+console.log("ok:non-bot-ignored");
+"""
+
+    result = _run_node_inline(node_script)
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "ok:non-bot-ignored" in result.stdout

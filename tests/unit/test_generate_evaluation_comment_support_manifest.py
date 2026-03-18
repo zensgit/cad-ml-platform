@@ -100,6 +100,26 @@ def test_render_markdown_includes_entries_and_summary() -> None:
     assert "WARN: evaluation comment support bundle is partial." in markdown
 
 
+def test_build_report_uses_verdict_or_status_fallback_when_summary_missing(tmp_path: Path) -> None:
+    from scripts.ci import generate_evaluation_comment_support_manifest as mod
+
+    reports_dir = tmp_path / "reports" / "ci"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    (reports_dir / "workflow_file_health_for_comment.json").write_text(
+        json.dumps({"verdict": "ok"}),
+        encoding="utf-8",
+    )
+    (reports_dir / "workflow_inventory_for_comment.json").write_text(
+        json.dumps({"overall_status": "warning"}),
+        encoding="utf-8",
+    )
+
+    report = mod.build_report(reports_dir=str(reports_dir))
+
+    assert report["entries"][0]["summary"] == "verdict=ok"
+    assert report["entries"][1]["summary"] == "status=warning"
+
+
 def test_main_writes_json_and_markdown(tmp_path: Path, capsys: Any) -> None:
     from scripts.ci import generate_evaluation_comment_support_manifest as mod
 
