@@ -486,6 +486,66 @@ function summarizeCiWorkflowGuardrailOverview(summaryPath, fsApi = fs) {
   return { summary, light };
 }
 
+function summarizeEvaluationCommentSupportManifest(summaryPath, fsApi = fs) {
+  let summary = "⏭️ skipped (no summary path)";
+  let light = "⚪";
+  if (!summaryPath) {
+    return { summary, light };
+  }
+  try {
+    if (!fsApi.existsSync(summaryPath)) {
+      return {
+        summary: `⚠️ summary missing at ${summaryPath}`,
+        light: "🟡",
+      };
+    }
+    const payload = JSON.parse(fsApi.readFileSync(summaryPath, "utf8"));
+    const overallStatus = String(payload.overall_status || "unknown").trim();
+    const overallLight = String(payload.overall_light || "").trim();
+    summary = String(payload.summary || `status=${overallStatus}`);
+    const entries = Array.isArray(payload.entries) ? payload.entries : [];
+    const missingIds = entries
+      .filter((row) => row && typeof row === "object" && row.present === false)
+      .map((row) => String(row.id || "").trim())
+      .filter(Boolean)
+      .slice(0, 3);
+    const invalidIds = entries
+      .filter(
+        (row) =>
+          row &&
+          typeof row === "object" &&
+          String(row.parse_status || "").trim() === "error",
+      )
+      .map((row) => String(row.id || "").trim())
+      .filter(Boolean)
+      .slice(0, 3);
+    const detailParts = [];
+    if (missingIds.length > 0) {
+      detailParts.push(`missing=${missingIds.join("/")}`);
+    }
+    if (invalidIds.length > 0) {
+      detailParts.push(`invalid=${invalidIds.join("/")}`);
+    }
+    if (detailParts.length > 0) {
+      summary = `${summary}; ${detailParts.join("; ")}`;
+    }
+    if (overallLight) {
+      light = overallLight;
+    } else if (overallStatus === "error") {
+      light = "🔴";
+    } else if (overallStatus === "warning") {
+      light = "🟡";
+    } else if (overallStatus === "ok") {
+      light = "🟢";
+    }
+  } catch (error) {
+    const message = error && error.message ? error.message : String(error);
+    summary = `⚠️ parse_error: ${message}`;
+    light = "🟡";
+  }
+  return { summary, light };
+}
+
 function buildEvaluationReportCommentBody({
   overallStatus,
   combined,
@@ -526,6 +586,7 @@ function buildEvaluationReportCommentBody({
   workflowPublishHelperSummary,
   workflowGuardrailSummary,
   ciWorkflowGuardrailOverviewSummary,
+  evaluationCommentSupportManifestSummary,
   reviewPackLight,
   reviewGateLight,
   trainSweepLight,
@@ -540,6 +601,7 @@ function buildEvaluationReportCommentBody({
   workflowPublishHelperLight,
   workflowGuardrailLight,
   ciWorkflowGuardrailOverviewLight,
+  evaluationCommentSupportManifestLight,
   evaluationStrictModeResolvedRaw,
   strictFailureRequestSummary,
   strictActionItems,
@@ -602,6 +664,10 @@ function buildEvaluationReportCommentBody({
           ["**Workflow Publish Helper Adoption**", workflowPublishHelperSummary],
           ["**Workflow Guardrail Summary**", workflowGuardrailSummary],
           ["**CI Workflow Guardrail Overview**", ciWorkflowGuardrailOverviewSummary],
+          [
+            "**Evaluation Comment Support Manifest**",
+            evaluationCommentSupportManifestSummary,
+          ],
         ],
       ),
     ),
@@ -643,6 +709,11 @@ function buildEvaluationReportCommentBody({
             "**CI+Workflow Overview**",
             ciWorkflowGuardrailOverviewLight,
             ciWorkflowGuardrailOverviewSummary,
+          ],
+          [
+            "**Comment Support Bundle**",
+            evaluationCommentSupportManifestLight,
+            evaluationCommentSupportManifestSummary,
           ],
         ],
       ),
@@ -999,6 +1070,16 @@ async function commentEvaluationReportPR({ github, context, process }) {
       summary: ciWorkflowGuardrailOverviewSummary,
       light: ciWorkflowGuardrailOverviewLight,
     } = summarizeCiWorkflowGuardrailOverview(ciWorkflowGuardrailOverviewSummaryPath);
+    const evaluationCommentSupportManifestSummaryPath = envStr(
+      "EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON_FOR_COMMENT",
+      "",
+    );
+    const {
+      summary: evaluationCommentSupportManifestSummary,
+      light: evaluationCommentSupportManifestLight,
+    } = summarizeEvaluationCommentSupportManifest(
+      evaluationCommentSupportManifestSummaryPath,
+    );
 
     const reviewCandidateCount = parseInt(reviewCandidates || "0", 10);
     const sweepTotalRunsInt = parseInt(sweepTotalRuns || "0", 10);
@@ -1229,6 +1310,7 @@ async function commentEvaluationReportPR({ github, context, process }) {
       workflowPublishHelperSummary,
       workflowGuardrailSummary,
       ciWorkflowGuardrailOverviewSummary,
+      evaluationCommentSupportManifestSummary,
       reviewPackLight,
       reviewGateLight,
       trainSweepLight,
@@ -1243,6 +1325,7 @@ async function commentEvaluationReportPR({ github, context, process }) {
       workflowPublishHelperLight,
       workflowGuardrailLight,
       ciWorkflowGuardrailOverviewLight,
+      evaluationCommentSupportManifestLight,
       evaluationStrictModeResolvedRaw,
       strictFailureRequestSummary,
       strictActionItems,
@@ -1276,4 +1359,5 @@ module.exports = {
   summarizeWorkflowPublishHelper,
   summarizeWorkflowGuardrail,
   summarizeCiWorkflowGuardrailOverview,
+  summarizeEvaluationCommentSupportManifest,
 };

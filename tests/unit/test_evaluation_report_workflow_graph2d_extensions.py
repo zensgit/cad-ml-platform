@@ -83,6 +83,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "CI_WATCH_SUMMARY_JSON_FOR_COMMENT" in env
     assert "CI_WATCH_VALIDATION_REPORT_JSON_FOR_COMMENT" in env
     assert "CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT" in env
+    assert "EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON_FOR_COMMENT" in env
     assert "WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT" in env
     assert "WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT" in env
     assert "WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT" in env
@@ -589,9 +590,11 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert 'CI_WATCH_JSON="${CI_WATCH_SUMMARY_JSON_FOR_COMMENT:-}"' in ci_watch_validation_script
     assert 'WORKFLOW_GUARDRAIL_JSON="${{ steps.workflow_guardrail_for_comment.outputs.summary_json || env.WORKFLOW_GUARDRAIL_SUMMARY_JSON_FOR_COMMENT }}"' in ci_watch_validation_script
     assert 'CI_WORKFLOW_OVERVIEW_JSON="${{ steps.ci_workflow_guardrail_overview_for_comment.outputs.summary_json || env.CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT }}"' in ci_watch_validation_script
+    assert 'EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON="${{ steps.evaluation_comment_support_manifest.outputs.summary_json || env.EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON_FOR_COMMENT }}"' in ci_watch_validation_script
     assert '--summary-json "$CI_WATCH_JSON"' in ci_watch_validation_script
     assert '--workflow-guardrail-summary-json "$WORKFLOW_GUARDRAIL_JSON"' in ci_watch_validation_script
     assert '--ci-workflow-guardrail-overview-json "$CI_WORKFLOW_OVERVIEW_JSON"' in ci_watch_validation_script
+    assert '--evaluation-comment-support-manifest-json "$EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON"' in ci_watch_validation_script
     assert "--output-json reports/ci/ci_watch_validation_for_comment.json" in ci_watch_validation_script
     assert "--output-md reports/ci/ci_watch_validation_for_comment.md" in ci_watch_validation_script
 
@@ -715,6 +718,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "CI_WATCH_SUMMARY_JSON_FOR_COMMENT" in pr_comment_env
     assert "CI_WATCH_VALIDATION_REPORT_JSON_FOR_COMMENT" in pr_comment_env
     assert "CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT" in pr_comment_env
+    assert "EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON_FOR_COMMENT" in pr_comment_env
     assert "WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT" in pr_comment_env
     assert "WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT" in pr_comment_env
     assert "WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT" in pr_comment_env
@@ -736,6 +740,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     ]
     assert "ci_workflow_guardrail_overview_for_comment.outputs.summary_json" in pr_comment_env[
         "CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT"
+    ]
+    assert "evaluation_comment_support_manifest.outputs.summary_json" in pr_comment_env[
+        "EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON_FOR_COMMENT"
     ]
 
     module_script = (
@@ -763,6 +770,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Workflow Publish Helper Adoption" in module_script
     assert "Workflow Guardrail Summary" in module_script
     assert "CI Workflow Guardrail Overview" in module_script
+    assert "Evaluation Comment Support Manifest" in module_script
     assert "CI Watcher" in module_script
     assert "CI Watch Validation" in module_script
     assert "Workflow Health" in module_script
@@ -770,6 +778,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Workflow Publish Helper" in module_script
     assert "Workflow Guardrails" in module_script
     assert "CI+Workflow Overview" in module_script
+    assert "Comment Support Bundle" in module_script
     assert "function summarizeCiWatchFailure(summaryPath, fsApi = fs)" in module_script
     assert "function summarizeCiWatchValidationReport(summaryPath, fsApi = fs)" in module_script
     assert "function summarizeWorkflowFileHealth(summaryPath, fsApi = fs)" in module_script
@@ -777,6 +786,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "function summarizeWorkflowPublishHelper(summaryPath, fsApi = fs)" in module_script
     assert "function summarizeWorkflowGuardrail(summaryPath, fsApi = fs)" in module_script
     assert "function summarizeCiWorkflowGuardrailOverview(summaryPath, fsApi = fs)" in module_script
+    assert "function summarizeEvaluationCommentSupportManifest(summaryPath, fsApi = fs)" in module_script
     assert "fsApi.existsSync(summaryPath)" in module_script
     assert "summarizeCiWatchFailure(ciWatchSummaryPath)" in module_script
     assert "summarizeCiWatchValidationReport(ciWatchValidationReportSummaryPath)" in module_script
@@ -785,6 +795,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "summarizeWorkflowPublishHelper(workflowPublishHelperSummaryPath)" in module_script
     assert "summarizeWorkflowGuardrail(workflowGuardrailSummaryPath)" in module_script
     assert "summarizeCiWorkflowGuardrailOverview(ciWorkflowGuardrailOverviewSummaryPath)" in module_script
+    assert "summarizeEvaluationCommentSupportManifest(" in module_script
     assert "workflowFileHealthSummaryPath" in module_script
     assert "Hybrid Blind Eval" in module_script
     assert "Hybrid Blind Gate" in module_script

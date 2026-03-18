@@ -187,6 +187,7 @@ const body = mod.buildEvaluationReportCommentBody({
   workflowPublishHelperSummary: "checked=33, failed=0, raw=0, missing_comment_helper=0, missing_issue_helper=0",
   workflowGuardrailSummary: "status=ok, workflow_health=ok, inventory=ok, publish_helper=ok",
   ciWorkflowGuardrailOverviewSummary: "status=ok, ci_watch=ok, workflow_guardrail=ok",
+  evaluationCommentSupportManifestSummary: "present=11/11, missing=0, invalid=0",
   reviewPackLight: "⚪",
   reviewGateLight: "🟢",
   trainSweepLight: "⚪",
@@ -201,6 +202,7 @@ const body = mod.buildEvaluationReportCommentBody({
   workflowPublishHelperLight: "🟢",
   workflowGuardrailLight: "🟢",
   ciWorkflowGuardrailOverviewLight: "🟢",
+  evaluationCommentSupportManifestLight: "🟢",
   evaluationStrictModeResolvedRaw: "soft",
   strictFailureRequestSummary: "hybrid_blind:gate_failed_under_strict_mode",
   strictActionItems: ["- ⚠️ soft gate downgraded"],
@@ -234,8 +236,14 @@ if (!body.includes("CI Watch Validation Report")) {
 if (!body.includes("CI Workflow Guardrail Overview")) {
   throw new Error("body missing ci workflow guardrail overview row");
 }
+if (!body.includes("Evaluation Comment Support Manifest")) {
+  throw new Error("body missing evaluation comment support manifest row");
+}
 if (!body.includes("**CI Watch Validation**")) {
   throw new Error("body missing ci watch validation signal");
+}
+if (!body.includes("**Comment Support Bundle**")) {
+  throw new Error("body missing comment support bundle signal");
 }
 if (!body.includes("strict_requests=2")) {
   throw new Error("body missing strict request count detail");
@@ -361,6 +369,7 @@ const mockProcess = { env: process.env };
     workflowPublishHelperSummary: "⏭️ skipped (no summary path)",
     workflowGuardrailSummary: "⏭️ skipped (no summary path)",
     ciWorkflowGuardrailOverviewSummary: "⏭️ skipped (no summary path)",
+    evaluationCommentSupportManifestSummary: "⏭️ skipped (no summary path)",
     reviewPackLight: "⚪",
     reviewGateLight: "⚪",
     trainSweepLight: "⚪",
@@ -375,6 +384,7 @@ const mockProcess = { env: process.env };
     workflowPublishHelperLight: "⚪",
     workflowGuardrailLight: "⚪",
     ciWorkflowGuardrailOverviewLight: "⚪",
+    evaluationCommentSupportManifestLight: "⚪",
     evaluationStrictModeResolvedRaw: "soft",
     strictFailureRequestSummary: "none",
     strictActionItems: ["- ✅ No strict gate failure request detected."],
@@ -474,6 +484,89 @@ const mockProcess = { env: process.env };
     result = _run_node_inline(node_script, str(missing_workflow_inventory))
     assert result.returncode == 0, result.stderr or result.stdout
     assert "ok:update-comment-with-missing-workflow-inventory" in result.stdout
+
+
+def test_comment_evaluation_report_pr_js_includes_comment_support_manifest_summary(
+    tmp_path: Path,
+) -> None:
+    manifest_path = tmp_path / "evaluation_comment_support_manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "overall_status": "warning",
+                "overall_light": "🟡",
+                "summary": "present=9/11, missing=2, invalid=0",
+                "entries": [
+                    {
+                        "id": "workflow_inventory_md",
+                        "present": False,
+                        "summary": "missing",
+                    },
+                    {
+                        "id": "ci_watch_validation_md",
+                        "present": False,
+                        "summary": "missing",
+                    },
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    node_script = r"""
+const mod = require("./scripts/ci/comment_evaluation_report_pr.js");
+const manifestPath = process.argv[1];
+
+process.env.EVAL_COMBINED_SCORE = "0.900";
+process.env.EVAL_VISION_SCORE = "0.900";
+process.env.EVAL_OCR_SCORE = "0.900";
+process.env.EVAL_MIN_COMBINED = "0.800";
+process.env.EVAL_MIN_VISION = "0.650";
+process.env.EVAL_MIN_OCR = "0.900";
+process.env.EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON_FOR_COMMENT = manifestPath;
+
+let createdPayload = null;
+const github = {
+  rest: {
+    issues: {
+      listComments: async () => ({ data: [] }),
+      createComment: async (payload) => {
+        createdPayload = payload;
+        return { data: { id: 42 } };
+      },
+      updateComment: async () => {
+        throw new Error("updateComment should not be called");
+      },
+    },
+  },
+};
+const context = {
+  repo: { owner: "zensgit", repo: "cad-ml-platform" },
+  issue: { number: 123 },
+  sha: "abcdef1234567890",
+  runId: "111222333",
+};
+
+(async () => {
+  await mod.commentEvaluationReportPR({ github, context, process });
+  const body = String(createdPayload.body || "");
+  if (!body.includes("Evaluation Comment Support Manifest")) {
+    throw new Error("missing manifest row");
+  }
+  if (!body.includes("present=9/11, missing=2, invalid=0; missing=workflow_inventory_md/ci_watch_validation_md")) {
+    throw new Error("missing manifest summary detail");
+  }
+  console.log("ok:comment-support-manifest-summary");
+})().catch((err) => {
+  console.error(err && err.stack ? err.stack : String(err));
+  process.exit(1);
+});
+"""
+
+    result = _run_node_inline(node_script, str(manifest_path))
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "ok:comment-support-manifest-summary" in result.stdout
 
 
 def test_comment_evaluation_report_pr_js_includes_inventory_problem_names(

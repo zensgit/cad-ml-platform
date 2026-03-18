@@ -119,6 +119,7 @@ env:
   CI_WATCH_SUMMARY_JSON_FOR_COMMENT: ${{ vars.CI_WATCH_SUMMARY_JSON_FOR_COMMENT || '' }}
   CI_WATCH_VALIDATION_REPORT_JSON_FOR_COMMENT: ${{ vars.CI_WATCH_VALIDATION_REPORT_JSON_FOR_COMMENT || '' }}
   CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT: ${{ vars.CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT || '' }}
+  EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON_FOR_COMMENT: ${{ vars.EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON_FOR_COMMENT || '' }}
   WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT: ${{ vars.WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT || '' }}
   WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT: ${{ vars.WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT || '' }}
   WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT: ${{ vars.WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT || '' }}
@@ -2225,6 +2226,7 @@ jobs:
         CI_WATCH_JSON="${CI_WATCH_SUMMARY_JSON_FOR_COMMENT:-}"
         WORKFLOW_GUARDRAIL_JSON="${{ steps.workflow_guardrail_for_comment.outputs.summary_json || env.WORKFLOW_GUARDRAIL_SUMMARY_JSON_FOR_COMMENT }}"
         CI_WORKFLOW_OVERVIEW_JSON="${{ steps.ci_workflow_guardrail_overview_for_comment.outputs.summary_json || env.CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT }}"
+        EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON="${{ steps.evaluation_comment_support_manifest.outputs.summary_json || env.EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON_FOR_COMMENT }}"
         if [[ -z "$CI_WATCH_JSON" || ! -f "$CI_WATCH_JSON" ]]; then
           echo "summary_json=" >> $GITHUB_OUTPUT
           echo "summary_md=" >> $GITHUB_OUTPUT
@@ -2237,6 +2239,7 @@ jobs:
           --summary-json "$CI_WATCH_JSON" \
           --workflow-guardrail-summary-json "$WORKFLOW_GUARDRAIL_JSON" \
           --ci-workflow-guardrail-overview-json "$CI_WORKFLOW_OVERVIEW_JSON" \
+          --evaluation-comment-support-manifest-json "$EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON" \
           --output-json reports/ci/ci_watch_validation_for_comment.json \
           --output-md reports/ci/ci_watch_validation_for_comment.md \
           >/dev/null
@@ -2473,6 +2476,7 @@ jobs:
         CI_WATCH_SUMMARY_JSON_FOR_COMMENT: ${{ env.CI_WATCH_SUMMARY_JSON_FOR_COMMENT }}
         CI_WATCH_VALIDATION_REPORT_JSON_FOR_COMMENT: ${{ steps.ci_watch_validation_for_comment.outputs.summary_json || env.CI_WATCH_VALIDATION_REPORT_JSON_FOR_COMMENT }}
         CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT: ${{ steps.ci_workflow_guardrail_overview_for_comment.outputs.summary_json || env.CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT }}
+        EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON_FOR_COMMENT: ${{ steps.evaluation_comment_support_manifest.outputs.summary_json || env.EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON_FOR_COMMENT }}
         WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT: ${{ steps.workflow_file_health_for_comment.outputs.summary_json || env.WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT }}
         WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT: ${{ steps.workflow_inventory_for_comment.outputs.summary_json || env.WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT }}
         WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT: ${{ steps.workflow_publish_helper_for_comment.outputs.summary_json || env.WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT }}

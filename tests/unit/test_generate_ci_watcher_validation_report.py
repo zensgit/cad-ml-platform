@@ -32,6 +32,9 @@ def test_main_generates_success_report_with_explicit_summary(tmp_path: Path) -> 
     soft_smoke_md_path = tmp_path / "ci" / "evaluation_soft_mode_smoke_summary.md"
     workflow_guardrail_summary_path = tmp_path / "ci" / "workflow_guardrail_summary.json"
     ci_workflow_guardrail_overview_path = tmp_path / "ci" / "ci_workflow_guardrail_overview.json"
+    evaluation_comment_support_manifest_path = (
+        tmp_path / "ci" / "evaluation_comment_support_manifest.json"
+    )
     output_json = tmp_path / "reports" / "ci_watch_validation_summary.json"
     report_dir = tmp_path / "reports"
 
@@ -127,6 +130,26 @@ def test_main_generates_success_report_with_explicit_summary(tmp_path: Path) -> 
             },
         },
     )
+    _write_json(
+        evaluation_comment_support_manifest_path,
+        {
+            "overall_status": "ok",
+            "overall_light": "🟢",
+            "summary": "present=11/11, missing=0, invalid=0",
+            "entries": [
+                {
+                    "id": "workflow_file_health_json",
+                    "present": True,
+                    "summary": "failed=0/33, mode=yaml_local, fallback=none",
+                },
+                {
+                    "id": "ci_watch_validation_md",
+                    "present": True,
+                    "summary": "present",
+                },
+            ],
+        },
+    )
 
     rc = _invoke_main(
         mod,
@@ -169,18 +192,27 @@ def test_main_generates_success_report_with_explicit_summary(tmp_path: Path) -> 
     assert ci_workflow_guardrail_overview_path.as_posix() in text
     assert "`summary=status=ok, ci_watch=ok, workflow_guardrail=ok`" in text
     assert "`ci_watch.status=ok`" in text
+    assert "## Evaluation Comment Support Manifest" in text
+    assert evaluation_comment_support_manifest_path.as_posix() in text
+    assert "`summary=present=11/11, missing=0, invalid=0`" in text
+    assert "`workflow_file_health_json`: present=True" in text
     assert "No structured failure_details in summary payload." in text
     assert "CI_WATCH_REPO='zensgit/cad-ml-platform'" in text
     assert "CI_WATCH_PRINT_FAILURE_DETAILS=1" in text
     assert payload["verdict"] == "PASS"
     assert payload["summary"] == (
         "verdict=PASS, reason=all_workflows_success, failed=0, missing_required=0, "
-        "workflow_guardrail=ok, ci_workflow_overview=ok"
+        "workflow_guardrail=ok, ci_workflow_overview=ok, comment_support=ok"
     )
     assert payload["summary_path"] == summary_path.as_posix()
     assert payload["workflow_guardrail_summary_path"] == workflow_guardrail_summary_path.as_posix()
     assert payload["ci_workflow_guardrail_overview_path"] == ci_workflow_guardrail_overview_path.as_posix()
+    assert (
+        payload["evaluation_comment_support_manifest_path"]
+        == evaluation_comment_support_manifest_path.as_posix()
+    )
     assert payload["sections"]["soft_smoke"]["attempts_total"] == 1
+    assert payload["sections"]["evaluation_comment_support_manifest"]["overall_status"] == "ok"
 
 
 def test_main_auto_picks_latest_summary(tmp_path: Path) -> None:
@@ -299,6 +331,8 @@ def test_main_generates_fail_report_when_summary_is_not_green(tmp_path: Path) ->
     assert "Not found (inferred workflow guardrail summary json is missing)." in text
     assert "## CI Workflow Guardrail Overview" in text
     assert "Not found (inferred ci workflow guardrail overview json is missing)." in text
+    assert "## Evaluation Comment Support Manifest" in text
+    assert "Not found (inferred evaluation comment support manifest json is missing)." in text
     assert "Failure Details" in text
     assert "Code Quality (run=12345, conclusion=failure)" in text
     assert "failed_jobs: lint" in text
