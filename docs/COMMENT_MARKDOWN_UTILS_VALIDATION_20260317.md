@@ -177,17 +177,20 @@ pytest -q \
   tests/unit/test_graph2d_parallel_make_targets.py
 ```
 
+```bash
+make validate-eval-with-history-ci-workflows
+```
+
 Results:
 
 - `node --check scripts/ci/comment_evaluation_report_pr.js` -> `ok`
-- `pytest -q tests/unit/test_comment_markdown_utils_js.py tests/unit/test_comment_evaluation_report_pr_js.py tests/unit/test_evaluation_report_workflow_graph2d_extensions.py tests/unit/test_graph2d_parallel_make_targets.py` -> `26 passed`
+- `pytest -q tests/unit/test_comment_markdown_utils_js.py tests/unit/test_comment_evaluation_report_pr_js.py tests/unit/test_evaluation_report_workflow_graph2d_extensions.py tests/unit/test_graph2d_parallel_make_targets.py` -> `37 passed`
+- `make validate-eval-with-history-ci-workflows` -> `45 passed`
 
 Notes:
 
-- `comment_evaluation_report_pr.js` now exports `buildEvaluationReportCommentBody(...)`.
+- `commentEvaluationReportPR(...)` still owns env parsing, JSON summary parsing, strict-playbook decisions, and GitHub API calls.
+- `buildEvaluationReportCommentBody(...)` now owns only presentation assembly.
 - `test_comment_evaluation_report_pr_js.py` now includes a direct runtime builder test with fixed timestamp and sha.
-- `make validate-eval-with-history-ci-workflows` was rerun with workspace-local temp configuration, but is currently blocked by an unrelated existing failure in `tests/unit/test_eval_with_history_script_history_sequence.py` caused by invalid history-report JSON under the current branch state.
-
-Additional parity coverage:
-
-- `test_comment_evaluation_report_pr_js.py` now also asserts that the body captured from `commentEvaluationReportPR()` matches the output of `buildEvaluationReportCommentBody(...)` under the same fixed runtime inputs.
+- Workflow integration tests now assert builder/helper wiring instead of overfitting to inline body array literals.
+- The exported builder path is now covered by the same top-level gate as the existing comment runtime path.
