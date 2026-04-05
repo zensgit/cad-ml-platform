@@ -143,6 +143,88 @@ const mockProcess = { env: process.env };
     assert "ok:create-comment-with-workflow-inventory" in result.stdout
 
 
+def test_comment_evaluation_report_pr_js_prefers_canonical_workflow_file_health_summary(
+    tmp_path: Path,
+) -> None:
+    workflow_file_health = tmp_path / "workflow_file_health_canonical.json"
+    workflow_file_health.write_text(
+        json.dumps(
+            {
+                "overall_status": "warning",
+                "overall_light": "🟡",
+                "summary": "failed=0/33, mode=yaml, fallback=gh_unavailable",
+                "count": 33,
+                "failed_count": 7,
+                "mode_used": "auto",
+                "fallback_reason": "none",
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    node_script = r"""
+const mod = require("./scripts/ci/comment_evaluation_report_pr.js");
+const workflowFileHealthPath = process.argv[1];
+
+process.env.EVAL_COMBINED_SCORE = "0.920";
+process.env.EVAL_VISION_SCORE = "0.910";
+process.env.EVAL_OCR_SCORE = "0.930";
+process.env.EVAL_MIN_COMBINED = "0.800";
+process.env.EVAL_MIN_VISION = "0.650";
+process.env.EVAL_MIN_OCR = "0.900";
+process.env.WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT = workflowFileHealthPath;
+
+let createdPayload = null;
+const github = {
+  rest: {
+    issues: {
+      listComments: async () => ({ data: [] }),
+      createComment: async (payload) => {
+        createdPayload = payload;
+        return { data: { id: 421 } };
+      },
+      updateComment: async () => {
+        throw new Error("updateComment should not be called when no bot comment exists");
+      },
+    },
+  },
+};
+const context = {
+  repo: { owner: "zensgit", repo: "cad-ml-platform" },
+  issue: { number: 1231 },
+  sha: "abcdef1234567890",
+  runId: "111222333",
+};
+const mockProcess = { env: process.env };
+
+(async () => {
+  await mod.commentEvaluationReportPR({ github, context, process: mockProcess });
+  if (!createdPayload) {
+    throw new Error("createComment was not called");
+  }
+  const body = String(createdPayload.body || "");
+  if (!body.includes("Workflow File Health")) {
+    throw new Error("comment body missing workflow file health section");
+  }
+  if (!body.includes("failed=0/33, mode=yaml, fallback=gh_unavailable")) {
+    throw new Error("comment body missing canonical workflow file health summary");
+  }
+  if (body.includes("failed=7/33, mode=auto, fallback=none")) {
+    throw new Error("comment body ignored canonical workflow file health summary");
+  }
+  console.log("ok:create-comment-with-canonical-workflow-file-health");
+})().catch((err) => {
+  console.error(err && err.stack ? err.stack : String(err));
+  process.exit(1);
+});
+"""
+
+    result = _run_node_inline(node_script, str(workflow_file_health))
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "ok:create-comment-with-canonical-workflow-file-health" in result.stdout
+
+
 def test_comment_evaluation_report_pr_js_builds_body_from_view_model() -> None:
     node_script = r"""
 const mod = require("./scripts/ci/comment_evaluation_report_pr.js");
@@ -207,6 +289,11 @@ const body = mod.buildEvaluationReportCommentBody({
   strictFailureRequestSummary: "hybrid_blind:gate_failed_under_strict_mode",
   strictActionItems: ["- ⚠️ soft gate downgraded"],
   strictActionChecklist: "- ⚠️ soft gate downgraded\n- 📚 follow playbook",
+  evalReportingStackSummary: "status=ok, missing=0, stale=0, mismatch=0",
+  evalReportingStackLight: "🟢",
+  evalReportingStackLandingPage: "reports/eval_history/index.html",
+  evalReportingStackStaticReport: "reports/eval_history/report_static/index.html",
+  evalReportingStackInteractiveReport: "reports/eval_history/report_interactive/index.html",
   runUrl: "https://github.com/zensgit/cad-ml-platform/actions/runs/111222333",
   updatedAt: "2026-03-17 12:34:56",
   commitSha: "abcdef1234567890",
@@ -247,6 +334,18 @@ if (!body.includes("**Comment Support Bundle**")) {
 }
 if (!body.includes("strict_requests=2")) {
   throw new Error("body missing strict request count detail");
+}
+if (!body.includes("Eval Reporting Stack")) {
+  throw new Error("body missing eval reporting stack section");
+}
+if (!body.includes("reports/eval_history/index.html")) {
+  throw new Error("body missing landing page path");
+}
+if (!body.includes("reports/eval_history/report_static/index.html")) {
+  throw new Error("body missing static report path");
+}
+if (!body.includes("reports/eval_history/report_interactive/index.html")) {
+  throw new Error("body missing interactive report path");
 }
 if (!body.includes("*Updated: 2026-03-17 12:34:56 UTC*")) {
   throw new Error("body missing footer timestamp");
@@ -389,6 +488,11 @@ const mockProcess = { env: process.env };
     strictFailureRequestSummary: "none",
     strictActionItems: ["- ✅ No strict gate failure request detected."],
     strictActionChecklist: "- ✅ No strict gate failure request detected.",
+    evalReportingStackSummary: "eval reporting stack summary not available",
+    evalReportingStackLight: "⚪",
+    evalReportingStackLandingPage: "",
+    evalReportingStackStaticReport: "",
+    evalReportingStackInteractiveReport: "",
     runUrl: "https://github.com/zensgit/cad-ml-platform/actions/runs/111222333",
     updatedAt: "2026-03-17 12:34:56",
     commitSha: "abcdef1234567890",
@@ -569,6 +673,90 @@ const context = {
     assert "ok:comment-support-manifest-summary" in result.stdout
 
 
+def test_comment_evaluation_report_pr_js_derives_comment_support_summary_from_entries(
+    tmp_path: Path,
+) -> None:
+    manifest_path = tmp_path / "evaluation_comment_support_manifest_entries_only.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "overall_status": "warning",
+                "overall_light": "🟡",
+                "entries": [
+                    {
+                        "id": "workflow_inventory_md",
+                        "present": False,
+                        "summary": "missing",
+                    },
+                    {
+                        "id": "ci_watch_validation_md",
+                        "present": False,
+                        "summary": "missing",
+                    },
+                    {
+                        "id": "workflow_file_health_json",
+                        "present": True,
+                        "summary": "failed=0/33, mode=yaml_local, fallback=none",
+                    },
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    node_script = r"""
+const mod = require("./scripts/ci/comment_evaluation_report_pr.js");
+const manifestPath = process.argv[1];
+
+process.env.EVAL_COMBINED_SCORE = "0.900";
+process.env.EVAL_VISION_SCORE = "0.900";
+process.env.EVAL_OCR_SCORE = "0.900";
+process.env.EVAL_MIN_COMBINED = "0.800";
+process.env.EVAL_MIN_VISION = "0.650";
+process.env.EVAL_MIN_OCR = "0.900";
+process.env.EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON_FOR_COMMENT = manifestPath;
+
+let createdPayload = null;
+const github = {
+  rest: {
+    issues: {
+      listComments: async () => ({ data: [] }),
+      createComment: async (payload) => {
+        createdPayload = payload;
+        return { data: { id: 43 } };
+      },
+      updateComment: async () => {
+        throw new Error("updateComment should not be called");
+      },
+    },
+  },
+};
+const context = {
+  repo: { owner: "zensgit", repo: "cad-ml-platform" },
+  issue: { number: 124 },
+  sha: "abcdef1234567890",
+  runId: "111222334",
+};
+
+(async () => {
+  await mod.commentEvaluationReportPR({ github, context, process });
+  const body = String(createdPayload.body || "");
+  if (!body.includes("present=1/3, missing=2, invalid=0; missing=workflow_inventory_md/ci_watch_validation_md")) {
+    throw new Error("missing derived manifest summary detail");
+  }
+  console.log("ok:comment-support-manifest-summary-derived-from-entries");
+})().catch((err) => {
+  console.error(err && err.stack ? err.stack : String(err));
+  process.exit(1);
+});
+"""
+
+    result = _run_node_inline(node_script, str(manifest_path))
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "ok:comment-support-manifest-summary-derived-from-entries" in result.stdout
+
+
 def test_comment_evaluation_report_pr_js_marks_comment_support_manifest_parse_errors(
     tmp_path: Path,
 ) -> None:
@@ -628,6 +816,54 @@ const context = {
     result = _run_node_inline(node_script, str(manifest_path))
     assert result.returncode == 0, result.stderr or result.stdout
     assert "ok:comment-support-manifest-parse-error" in result.stdout
+
+
+def test_comment_support_manifest_summary_fallback_matches_ci_watcher_consumer(
+    tmp_path: Path,
+) -> None:
+    from scripts.ci.evaluation_comment_support_manifest_utils import summarize_manifest_payload
+
+    manifest_path = tmp_path / "evaluation_comment_support_manifest_counts.json"
+    payload = {
+        "overall_status": "warning",
+        "overall_light": "🟡",
+        "present_count": 9,
+        "missing_count": 2,
+        "invalid_count": 0,
+        "entries": [
+            {
+                "id": "workflow_inventory_md",
+                "present": False,
+                "summary": "missing",
+            },
+            {
+                "id": "ci_watch_validation_md",
+                "present": False,
+                "summary": "missing",
+            },
+        ],
+    }
+    manifest_path.write_text(
+        json.dumps(payload, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    node_script = r"""
+const mod = require("./scripts/ci/comment_evaluation_report_pr.js");
+const manifestPath = process.argv[1];
+const result = mod.summarizeEvaluationCommentSupportManifest(manifestPath);
+console.log(String(result.summary || ""));
+"""
+
+    result = _run_node_inline(node_script, str(manifest_path))
+    assert result.returncode == 0, result.stderr or result.stdout
+    node_summary = result.stdout.strip()
+    watcher_summary = summarize_manifest_payload(payload)
+
+    assert node_summary.startswith("present=9/11, missing=2, invalid=0")
+    assert "missing=workflow_inventory_md/ci_watch_validation_md" in node_summary
+    assert watcher_summary == "present=9/11, missing=2, invalid=0"
+    assert node_summary.split(";")[0].strip() == watcher_summary
 
 
 def test_comment_evaluation_report_pr_js_includes_inventory_problem_names(
@@ -716,6 +952,40 @@ const mockProcess = { env: process.env };
     result = _run_node_inline(node_script, str(workflow_inventory))
     assert result.returncode == 0, result.stderr or result.stdout
     assert "ok:create-comment-with-inventory-problem-names" in result.stdout
+
+
+def test_workflow_inventory_summary_fallback_matches_python_helper(
+    tmp_path: Path,
+) -> None:
+    from scripts.ci.workflow_inventory_summary_utils import summarize_workflow_inventory_payload
+
+    workflow_inventory = tmp_path / "workflow_inventory_with_canonical_summary.json"
+    payload = {
+        "overall_status": "error",
+        "overall_light": "🔴",
+        "summary": "workflows=35, duplicate=2, missing_required=1, non_unique_required=1",
+        "duplicate_names": ["Security Audit", "CI"],
+        "missing_required_names": ["Code Quality"],
+        "non_unique_required_names": ["Security Audit"],
+    }
+    workflow_inventory.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    node_script = r"""
+const mod = require("./scripts/ci/comment_evaluation_report_pr.js");
+const workflowInventoryPath = process.argv[1];
+const result = mod.summarizeWorkflowInventory(workflowInventoryPath);
+console.log(String(result.summary || ""));
+"""
+
+    result = _run_node_inline(node_script, str(workflow_inventory))
+    assert result.returncode == 0, result.stderr or result.stdout
+    node_summary = result.stdout.strip()
+    py_summary = summarize_workflow_inventory_payload(payload)
+
+    assert node_summary.startswith(py_summary)
+    assert "duplicate_names=Security Audit/CI" in node_summary
+    assert "missing_names=Code Quality" in node_summary
+    assert "non_unique_names=Security Audit" in node_summary
 
 
 def test_comment_evaluation_report_pr_js_marks_inventory_parse_errors(
@@ -864,6 +1134,93 @@ const mockProcess = { env: process.env };
     result = _run_node_inline(node_script, str(workflow_publish_helper))
     assert result.returncode == 0, result.stderr or result.stdout
     assert "ok:create-comment-with-workflow-publish-helper-summary" in result.stdout
+
+
+def test_comment_evaluation_report_pr_js_prefers_canonical_publish_helper_summary(
+    tmp_path: Path,
+) -> None:
+    workflow_publish_helper = tmp_path / "workflow_publish_helper_canonical.json"
+    workflow_publish_helper.write_text(
+        json.dumps(
+            {
+                "overall_status": "warning",
+                "overall_light": "🟡",
+                "summary": "checked=33, failed=0, raw=0, missing_comment_helper=1, missing_issue_helper=0",
+                "checked_count": 33,
+                "failed_count": 1,
+                "raw_publish_violation_count": 4,
+                "missing_comment_helper_import_count": 2,
+                "missing_issue_helper_import_count": 1,
+                "failing_workflow_names": ["security-audit.yml", "badge-review.yml"],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    node_script = r"""
+const mod = require("./scripts/ci/comment_evaluation_report_pr.js");
+const workflowPublishHelperPath = process.argv[1];
+
+process.env.EVAL_COMBINED_SCORE = "0.830";
+process.env.EVAL_VISION_SCORE = "0.840";
+process.env.EVAL_OCR_SCORE = "0.930";
+process.env.EVAL_MIN_COMBINED = "0.800";
+process.env.EVAL_MIN_VISION = "0.650";
+process.env.EVAL_MIN_OCR = "0.900";
+process.env.WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT = workflowPublishHelperPath;
+
+let createdPayload = null;
+const github = {
+  rest: {
+    issues: {
+      listComments: async () => ({ data: [] }),
+      createComment: async (payload) => {
+        createdPayload = payload;
+        return { data: { id: 1041 } };
+      },
+      updateComment: async () => {
+        throw new Error("updateComment should not be called for empty comment list");
+      },
+    },
+  },
+};
+const context = {
+  repo: { owner: "zensgit", repo: "cad-ml-platform" },
+  issue: { number: 9911 },
+  sha: "5566778899001122",
+  runId: "505050505",
+};
+const mockProcess = { env: process.env };
+
+(async () => {
+  await mod.commentEvaluationReportPR({ github, context, process: mockProcess });
+  if (!createdPayload) {
+    throw new Error("createComment was not called");
+  }
+  const body = String(createdPayload.body || "");
+  if (!body.includes("Workflow Publish Helper Adoption")) {
+    throw new Error("comment body missing workflow publish helper section");
+  }
+  if (!body.includes("checked=33, failed=0, raw=0, missing_comment_helper=1, missing_issue_helper=0")) {
+    throw new Error("comment body missing canonical workflow publish helper summary");
+  }
+  if (body.includes("raw=4")) {
+    throw new Error("comment body ignored canonical workflow publish helper summary");
+  }
+  if (!body.includes("failing=security-audit.yml/badge-review.yml")) {
+    throw new Error("comment body missing canonical failing workflow names");
+  }
+  console.log("ok:create-comment-with-canonical-workflow-publish-helper-summary");
+})().catch((err) => {
+  console.error(err && err.stack ? err.stack : String(err));
+  process.exit(1);
+});
+"""
+
+    result = _run_node_inline(node_script, str(workflow_publish_helper))
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "ok:create-comment-with-canonical-workflow-publish-helper-summary" in result.stdout
 
 
 def test_comment_evaluation_report_pr_js_marks_publish_helper_parse_errors(
@@ -1016,6 +1373,87 @@ const mockProcess = { env: process.env };
     assert "ok:create-comment-with-workflow-guardrail-summary" in result.stdout
 
 
+def test_comment_evaluation_report_pr_js_derives_guardrail_summary_when_top_level_fields_missing(
+    tmp_path: Path,
+) -> None:
+    workflow_guardrail = tmp_path / "workflow_guardrail_derived.json"
+    workflow_guardrail.write_text(
+        json.dumps(
+            {
+                "workflow_file_health": {"status": "ok"},
+                "workflow_inventory": {
+                    "status": "warning",
+                    "summary": "workflows=33, duplicate=0, missing_required=1, non_unique_required=0",
+                },
+                "workflow_publish_helper": {"status": "ok"},
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    node_script = r"""
+const mod = require("./scripts/ci/comment_evaluation_report_pr.js");
+const workflowGuardrailPath = process.argv[1];
+
+process.env.EVAL_COMBINED_SCORE = "0.830";
+process.env.EVAL_VISION_SCORE = "0.840";
+process.env.EVAL_OCR_SCORE = "0.930";
+process.env.EVAL_MIN_COMBINED = "0.800";
+process.env.EVAL_MIN_VISION = "0.650";
+process.env.EVAL_MIN_OCR = "0.900";
+process.env.WORKFLOW_GUARDRAIL_SUMMARY_JSON_FOR_COMMENT = workflowGuardrailPath;
+
+let createdPayload = null;
+const github = {
+  rest: {
+    issues: {
+      listComments: async () => ({ data: [] }),
+      createComment: async (payload) => {
+        createdPayload = payload;
+        return { data: { id: 1061 } };
+      },
+      updateComment: async () => {
+        throw new Error("updateComment should not be called for empty comment list");
+      },
+    },
+  },
+};
+const context = {
+  repo: { owner: "zensgit", repo: "cad-ml-platform" },
+  issue: { number: 9931 },
+  sha: "7788990011223344",
+  runId: "707070707",
+};
+const mockProcess = { env: process.env };
+
+(async () => {
+  await mod.commentEvaluationReportPR({ github, context, process: mockProcess });
+  if (!createdPayload) {
+    throw new Error("createComment was not called");
+  }
+  const body = String(createdPayload.body || "");
+  if (!body.includes("Workflow Guardrail Summary")) {
+    throw new Error("comment body missing workflow guardrail section");
+  }
+  if (!body.includes("status=warning, workflow_health=ok, inventory=warning, publish_helper=ok")) {
+    throw new Error("comment body missing derived workflow guardrail summary");
+  }
+  if (!body.includes("workflow_inventory=warning:workflows=33, duplicate=0, missing_required=1, non_unique_required=0")) {
+    throw new Error("comment body missing derived workflow guardrail detail");
+  }
+  console.log("ok:create-comment-with-derived-workflow-guardrail-summary");
+})().catch((err) => {
+  console.error(err && err.stack ? err.stack : String(err));
+  process.exit(1);
+});
+"""
+
+    result = _run_node_inline(node_script, str(workflow_guardrail))
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "ok:create-comment-with-derived-workflow-guardrail-summary" in result.stdout
+
+
 def test_comment_evaluation_report_pr_js_marks_guardrail_parse_errors(
     tmp_path: Path,
 ) -> None:
@@ -1164,6 +1602,86 @@ const mockProcess = { env: process.env };
     result = _run_node_inline(node_script, str(overview))
     assert result.returncode == 0, result.stderr or result.stdout
     assert "ok:create-comment-with-ci-workflow-guardrail-overview" in result.stdout
+
+
+def test_comment_evaluation_report_pr_js_derives_ci_workflow_guardrail_overview_when_top_level_fields_missing(
+    tmp_path: Path,
+) -> None:
+    overview = tmp_path / "ci_workflow_guardrail_overview_derived.json"
+    overview.write_text(
+        json.dumps(
+            {
+                "ci_watch": {"status": "ok"},
+                "workflow_guardrail": {
+                    "status": "warning",
+                    "summary": "status=warning, workflow_health=ok, inventory=warning, publish_helper=ok",
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    node_script = r"""
+const mod = require("./scripts/ci/comment_evaluation_report_pr.js");
+const overviewPath = process.argv[1];
+
+process.env.EVAL_COMBINED_SCORE = "0.830";
+process.env.EVAL_VISION_SCORE = "0.840";
+process.env.EVAL_OCR_SCORE = "0.930";
+process.env.EVAL_MIN_COMBINED = "0.800";
+process.env.EVAL_MIN_VISION = "0.650";
+process.env.EVAL_MIN_OCR = "0.900";
+process.env.CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT = overviewPath;
+
+let createdPayload = null;
+const github = {
+  rest: {
+    issues: {
+      listComments: async () => ({ data: [] }),
+      createComment: async (payload) => {
+        createdPayload = payload;
+        return { data: { id: 1081 } };
+      },
+      updateComment: async () => {
+        throw new Error("updateComment should not be called for empty comment list");
+      },
+    },
+  },
+};
+const context = {
+  repo: { owner: "zensgit", repo: "cad-ml-platform" },
+  issue: { number: 9951 },
+  sha: "9900112233445566",
+  runId: "909090909",
+};
+const mockProcess = { env: process.env };
+
+(async () => {
+  await mod.commentEvaluationReportPR({ github, context, process: mockProcess });
+  if (!createdPayload) {
+    throw new Error("createComment was not called");
+  }
+  const body = String(createdPayload.body || "");
+  if (!body.includes("CI Workflow Guardrail Overview")) {
+    throw new Error("comment body missing ci workflow guardrail overview section");
+  }
+  if (!body.includes("status=warning, ci_watch=ok, workflow_guardrail=warning")) {
+    throw new Error("comment body missing derived ci workflow guardrail overview summary");
+  }
+  if (!body.includes("workflow_guardrail=warning:status=warning, workflow_health=ok, inventory=warning, publish_helper=ok")) {
+    throw new Error("comment body missing derived ci workflow guardrail overview detail");
+  }
+  console.log("ok:create-comment-with-derived-ci-workflow-guardrail-overview");
+})().catch((err) => {
+  console.error(err && err.stack ? err.stack : String(err));
+  process.exit(1);
+});
+"""
+
+    result = _run_node_inline(node_script, str(overview))
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "ok:create-comment-with-derived-ci-workflow-guardrail-overview" in result.stdout
 
 
 def test_comment_evaluation_report_pr_js_marks_ci_workflow_guardrail_overview_parse_errors(

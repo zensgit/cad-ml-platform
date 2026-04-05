@@ -113,7 +113,12 @@ on:
 
 env:
   PYTHON_VERSION: '3.11'
-  REPORT_PATH: reports/eval_history/report
+  REPORT_PATH: reports/eval_history/report_static
+  INTERACTIVE_REPORT_PATH: reports/eval_history/report_interactive
+  EVAL_REPORTING_BUNDLE_JSON: reports/eval_history/eval_reporting_bundle.json
+  EVAL_REPORTING_BUNDLE_HEALTH_JSON: reports/eval_history/eval_reporting_bundle_health_report.json
+  EVAL_REPORTING_INDEX_JSON: reports/eval_history/eval_reporting_index.json
+  EVAL_REPORTING_REFRESH_DAYS: 7
   ARTIFACT_RETENTION_DAYS: 30
   EVALUATION_STRICT_FAIL_MODE: ${{ vars.EVALUATION_STRICT_FAIL_MODE || 'hard' }}
   CI_WATCH_SUMMARY_JSON_FOR_COMMENT: ${{ vars.CI_WATCH_SUMMARY_JSON_FOR_COMMENT || '' }}
@@ -1675,29 +1680,31 @@ jobs:
         echo "Validation headline: ${{ steps.hybrid_superpass_validate.outputs.headline || 'n/a' }}"
         exit 1
 
-    - name: Generate trend charts
+    - name: Refresh eval reporting stack
+      id: eval_reporting_refresh
+      continue-on-error: true
       run: |
-        python3 scripts/eval_trend.py --out reports/eval_history/plots
-      continue-on-error: true  # Don't fail if charts can't be generated
-
-    - name: Generate HTML report
-      run: |
-        python3 scripts/generate_eval_report.py \
-          --out ${{ env.REPORT_PATH }}
+        set +e
+        python3 scripts/ci/refresh_eval_reporting_stack.py \
+          --eval-history-dir reports/eval_history \
+          --days ${{ env.EVAL_REPORTING_REFRESH_DAYS }}
+        REFRESH_RC=$?
+        echo "exit_code=$REFRESH_RC" >> $GITHUB_OUTPUT
+        exit $REFRESH_RC
 
     - name: Download Chart.js for integrity check
       run: |
         # Download Chart.js from CDN to local path for integrity verification
-        mkdir -p reports/eval_history/report/assets
+        mkdir -p ${{ env.REPORT_PATH }}/assets
         curl -sL "https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" \
-          -o reports/eval_history/report/assets/chart.min.js
+          -o ${{ env.REPORT_PATH }}/assets/chart.min.js
 
     - name: Check file integrity (strict mode)
       run: |
         echo "Checking Chart.js integrity..."
         # Run in strict mode since we're in CI environment
         python3 scripts/check_integrity.py --strict --verbose
-        echo "✅ Integrity check passed"
+        echo "Integrity check passed"
 
     - name: Validate history with JSON Schema
       run: |
@@ -1708,7 +1715,7 @@ jobs:
           --summary \
           --exclude-glob hybrid_blind_drift_alert_report.json \
           --exclude-glob hybrid_blind_drift_threshold_suggestion.json
-        echo "✅ Schema validation passed"
+        echo "Schema validation passed"
 
     - name: Generate insights and detect anomalies
       id: insights
@@ -1719,35 +1726,18 @@ jobs:
         # Check for anomalies
         if python3 scripts/analyze_eval_insights.py --days 7 --threshold 0.1 --narrative-only | grep -q "Anomalies Detected"; then
           echo "has_anomalies=true" >> $GITHUB_OUTPUT
-          echo "⚠️ Anomalies detected in recent evaluations"
+          echo "Anomalies detected in recent evaluations"
         else
           echo "has_anomalies=false" >> $GITHUB_OUTPUT
-          echo "✅ No anomalies detected"
+          echo "No anomalies detected"
         fi
-
-    - name: Generate weekly rolling summary
-      id: weekly_summary
-      run: |
-        OUTPUT_MD="reports/eval_history/weekly_summary.md"
-        python3 scripts/ci/generate_eval_weekly_summary.py \
-          --eval-history-dir reports/eval_history \
-          --output-md "$OUTPUT_MD" \
-          --days 7 \
-          --graph2d-blind-status "${{ steps.graph2d_blind_gate.outputs.status || 'unknown' }}" \
-          --graph2d-blind-accuracy "${{ steps.graph2d_blind_gate.outputs.accuracy || 'n/a' }}" \
-          --hybrid-blind-status "${{ steps.hybrid_blind_gate.outputs.status || 'unknown' }}" \
-          --hybrid-blind-accuracy "${{ steps.hybrid_blind_gate.outputs.hybrid_accuracy || 'n/a' }}" \
-          --hybrid-blind-gain "${{ steps.hybrid_blind_gate.outputs.hybrid_gain_vs_graph2d || 'n/a' }}" \
-          --hybrid-calibration-status "${{ steps.hybrid_calibration.outputs.status || 'unknown' }}" \
-          --hybrid-calibration-gate-status "${{ steps.hybrid_calibration_gate.outputs.status || 'unknown' }}"
-        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
 
     - name: Export metrics for monitoring
       run: |
         echo "Exporting metrics in multiple formats..."
         python3 scripts/export_eval_metrics.py --format prometheus --output reports/metrics.prom
         python3 scripts/export_eval_metrics.py --format json --output reports/metrics.json
-        echo "✅ Metrics exported"
+        echo "Metrics exported"
 
     - name: Security audit
       id: security
@@ -1756,17 +1746,64 @@ jobs:
         echo "Running security audit..."
         if python3 scripts/security_audit.py --severity medium --json > reports/security_audit.json 2>&1; then
           echo "security_status=pass" >> $GITHUB_OUTPUT
-          echo "✅ Security audit passed"
+          echo "Security audit passed"
         else
           echo "security_status=fail" >> $GITHUB_OUTPUT
-          echo "⚠️ Security issues found (non-blocking)"
+          echo "Security issues found (non-blocking)"
         fi
 
-    - name: Upload evaluation report
+    - name: Upload static report
       uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: evaluation-report-${{ github.run_number }}
         path: ${{ env.REPORT_PATH }}
+        if-no-files-found: ignore
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Upload interactive report
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+      with:
+        name: evaluation-interactive-report-${{ github.run_number }}
+        path: ${{ env.INTERACTIVE_REPORT_PATH }}
+        if-no-files-found: ignore
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Upload eval reporting stack artifacts
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+      with:
+        name: eval-reporting-stack-${{ github.run_number }}
+        path: |
+          ${{ env.EVAL_REPORTING_BUNDLE_JSON }}
+          reports/eval_history/eval_reporting_bundle.md
+          ${{ env.EVAL_REPORTING_BUNDLE_HEALTH_JSON }}
+          reports/eval_history/eval_reporting_bundle_health_report.md
+          ${{ env.EVAL_REPORTING_INDEX_JSON }}
+          reports/eval_history/eval_reporting_index.md
+          reports/eval_history/index.html
+        if-no-files-found: ignore
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Upload landing page
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+      with:
+        name: eval-reporting-landing-${{ github.run_number }}
+        path: reports/eval_history/index.html
+        if-no-files-found: ignore
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Assemble Pages-ready root
+      run: |
+        python3 scripts/ci/assemble_eval_reporting_pages_root.py \
+          --eval-history-dir reports/eval_history \
+          --pages-root reports/eval_pages
+      continue-on-error: true
+
+    - name: Upload Pages-ready artifact
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+      with:
+        name: eval-reporting-pages-${{ github.run_number }}
+        path: reports/eval_pages
+        if-no-files-found: ignore
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
     - name: Upload evaluation history
@@ -1776,13 +1813,97 @@ jobs:
         path: reports/eval_history/*.json
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
-    - name: Upload weekly summary
+    - name: Summarize eval reporting stack status
+      id: eval_reporting_stack_summary
+      if: always()
+      run: |
+        python3 scripts/ci/summarize_eval_reporting_stack_status.py \
+          --eval-history-dir reports/eval_history \
+          --refresh-exit-code ${{ steps.eval_reporting_refresh.outputs.exit_code || '0' }} \
+          --output-json reports/ci/eval_reporting_stack_summary.json \
+          --output-md reports/ci/eval_reporting_stack_summary.md
+        STATUS=$(python3 -c "import json; print(json.load(open('reports/ci/eval_reporting_stack_summary.json'))['status'])")
+        echo "status=$STATUS" >> $GITHUB_OUTPUT
+      continue-on-error: true
+
+    - name: Append eval reporting stack summary to job summary
+      if: always()
+      run: |
+        SUMMARY_MD="reports/ci/eval_reporting_stack_summary.md"
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Eval Reporting Stack" >> $GITHUB_STEP_SUMMARY
+        if [[ -f "$SUMMARY_MD" ]]; then
+          cat "$SUMMARY_MD" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- eval reporting stack summary not available" >> $GITHUB_STEP_SUMMARY
+        fi
+      continue-on-error: true
+
+    - name: Upload eval reporting stack summary
+      if: always()
       uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
-        name: evaluation-weekly-summary-${{ github.run_number }}
-        path: ${{ steps.weekly_summary.outputs.output_md }}
+        name: eval-reporting-stack-summary-${{ github.run_number }}
+        path: |
+          reports/ci/eval_reporting_stack_summary.json
+          reports/ci/eval_reporting_stack_summary.md
         if-no-files-found: ignore
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Generate eval reporting release summary
+      if: always()
+      run: |
+        python3 scripts/ci/generate_eval_reporting_release_summary.py \
+          --index-json reports/eval_history/eval_reporting_index.json \
+          --stack-summary-json reports/ci/eval_reporting_stack_summary.json \
+          --output-json reports/ci/eval_reporting_release_summary.json \
+          --output-md reports/ci/eval_reporting_release_summary.md
+      continue-on-error: true
+
+    - name: Append eval reporting release summary to job summary
+      if: always()
+      run: |
+        RS_MD="reports/ci/eval_reporting_release_summary.md"
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Eval Reporting Release Summary" >> $GITHUB_STEP_SUMMARY
+        if [[ -f "$RS_MD" ]]; then
+          cat "$RS_MD" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- release summary not available" >> $GITHUB_STEP_SUMMARY
+        fi
+      continue-on-error: true
+
+    - name: Upload eval reporting release summary
+      if: always()
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+      with:
+        name: eval-reporting-release-summary-${{ github.run_number }}
+        path: |
+          reports/ci/eval_reporting_release_summary.json
+          reports/ci/eval_reporting_release_summary.md
+        if-no-files-found: ignore
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Post Eval Reporting status check
+      if: always()
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+      continue-on-error: true
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const { postEvalReportingStatusCheck } = require('./scripts/ci/post_eval_reporting_status_check.js');
+          await postEvalReportingStatusCheck({
+            github,
+            context,
+            releaseSummaryPath: 'reports/ci/eval_reporting_release_summary.json',
+          });
+
+    - name: Fail workflow on refresh failure
+      if: steps.eval_reporting_refresh.outputs.exit_code != '0'
+      run: |
+        echo "Eval reporting refresh failed with exit code ${{ steps.eval_reporting_refresh.outputs.exit_code }}"
+        echo "Diagnostics artifacts have been uploaded above."
+        exit 1
 
     - name: Upload history-sequence evaluation
       if: steps.history_eval.outputs.enabled == 'true'
@@ -1891,9 +2012,13 @@ jobs:
 
         # Send notifications (only on threshold breach or scheduled runs)
         if [[ "${{ github.event_name }}" == "schedule" ]]; then
-          python3 scripts/notify_eval_results.py --channel all --report-url "$REPORT_URL"
+          python3 scripts/notify_eval_results.py --channel all --report-url "$REPORT_URL" \
+            --stack-summary-json reports/ci/eval_reporting_stack_summary.json \
+            --index-json reports/eval_history/eval_reporting_index.json
         else
-          python3 scripts/notify_eval_results.py --channel all --threshold-breach-only --report-url "$REPORT_URL"
+          python3 scripts/notify_eval_results.py --channel all --threshold-breach-only --report-url "$REPORT_URL" \
+            --stack-summary-json reports/ci/eval_reporting_stack_summary.json \
+            --index-json reports/eval_history/eval_reporting_index.json
         fi
       continue-on-error: true
 
@@ -1917,7 +2042,7 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "## Artifacts" >> $GITHUB_STEP_SUMMARY
         echo "- [Download Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
-        echo "- Weekly summary: ${{ steps.weekly_summary.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Eval reporting stack status: ${{ steps.eval_reporting_stack_summary.outputs.status || 'n/a' }}" >> $GITHUB_STEP_SUMMARY
         if [[ "${{ steps.history_eval.outputs.enabled }}" == "true" ]]; then
           echo "- History coverage: ${{ steps.history_eval.outputs.coverage }}" >> $GITHUB_STEP_SUMMARY
           echo "- History accuracy(overall): ${{ steps.history_eval.outputs.accuracy_overall }}" >> $GITHUB_STEP_SUMMARY
@@ -2481,6 +2606,8 @@ jobs:
         WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT: ${{ steps.workflow_inventory_for_comment.outputs.summary_json || env.WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT }}
         WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT: ${{ steps.workflow_publish_helper_for_comment.outputs.summary_json || env.WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT }}
         WORKFLOW_GUARDRAIL_SUMMARY_JSON_FOR_COMMENT: ${{ steps.workflow_guardrail_for_comment.outputs.summary_json || env.WORKFLOW_GUARDRAIL_SUMMARY_JSON_FOR_COMMENT }}
+        EVAL_REPORTING_STACK_SUMMARY_JSON_FOR_COMMENT: reports/ci/eval_reporting_stack_summary.json
+        EVAL_REPORTING_INDEX_JSON_FOR_COMMENT: reports/eval_history/eval_reporting_index.json
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
@@ -2525,10 +2652,10 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-    - name: Download report artifact
+    - name: Download Pages-ready artifact
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
       with:
-        name: evaluation-report-${{ github.run_number }}
+        name: eval-reporting-pages-${{ github.run_number }}
         path: ./public
 
     - name: Setup Pages
@@ -2543,3 +2670,181 @@ jobs:
     - name: Deploy to GitHub Pages
       id: deployment
       uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e
+
+    - name: Checkout for public index generation
+      if: always()
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      with:
+        sparse-checkout: |
+          scripts/ci/generate_eval_reporting_public_index.py
+          scripts/ci/generate_eval_reporting_dashboard_payload.py
+          scripts/ci/post_eval_reporting_release_draft_publish.js
+          scripts/ci/generate_eval_reporting_webhook_delivery_request.py
+          scripts/ci/post_eval_reporting_webhook_delivery.js
+          scripts/eval_report_data_helpers.py
+
+    - name: Download stack summary for public index
+      if: always()
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      with:
+        name: eval-reporting-stack-${{ github.run_number }}
+        path: ./stack-artifacts
+      continue-on-error: true
+
+    - name: Download stack summary JSON for public index
+      if: always()
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      with:
+        name: eval-reporting-stack-summary-${{ github.run_number }}
+        path: ./summary-artifacts
+      continue-on-error: true
+
+    - name: Generate public discovery index
+      if: always()
+      run: |
+        python3 scripts/ci/generate_eval_reporting_public_index.py \
+          --page-url "${{ steps.deployment.outputs.page_url || '' }}" \
+          --index-json ./stack-artifacts/eval_reporting_index.json \
+          --stack-summary-json ./summary-artifacts/eval_reporting_stack_summary.json \
+          --output-json reports/ci/eval_reporting_public_index.json \
+          --output-md reports/ci/eval_reporting_public_index.md
+      continue-on-error: true
+
+    - name: Download release summary for dashboard payload
+      if: always()
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      with:
+        name: eval-reporting-release-summary-${{ github.run_number }}
+        path: ./release-summary-artifacts
+      continue-on-error: true
+
+    - name: Generate eval reporting dashboard payload
+      if: always()
+      run: |
+        python3 scripts/ci/generate_eval_reporting_dashboard_payload.py \
+          --release-summary-json ./release-summary-artifacts/eval_reporting_release_summary.json \
+          --public-index-json reports/ci/eval_reporting_public_index.json \
+          --output-json reports/ci/eval_reporting_dashboard_payload.json \
+          --output-md reports/ci/eval_reporting_dashboard_payload.md
+      continue-on-error: true
+
+    - name: Generate eval reporting webhook delivery request
+      if: always()
+      run: |
+        python3 scripts/ci/generate_eval_reporting_webhook_delivery_request.py \
+          --dashboard-payload-json reports/ci/eval_reporting_dashboard_payload.json \
+          --output-json reports/ci/eval_reporting_webhook_delivery_request.json \
+          --output-md reports/ci/eval_reporting_webhook_delivery_request.md
+      continue-on-error: true
+
+    - name: Generate eval reporting webhook delivery result
+      if: always()
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+      continue-on-error: true
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const { postWebhookDelivery } = require('./scripts/ci/post_eval_reporting_webhook_delivery.js');
+          await postWebhookDelivery({
+            deliveryRequestPath: 'reports/ci/eval_reporting_webhook_delivery_request.json',
+            deliveryEnabled: false,
+            webhookUrl: '',
+            outputJsonPath: 'reports/ci/eval_reporting_webhook_delivery_result.json',
+            outputMdPath: 'reports/ci/eval_reporting_webhook_delivery_result.md',
+          });
+
+    - name: Generate eval reporting release draft publish result
+      if: always()
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+      continue-on-error: true
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const { postReleaseDraftPublish } = require('./scripts/ci/post_eval_reporting_release_draft_publish.js');
+          await postReleaseDraftPublish({
+            github,
+            context,
+            dashboardPayloadPath: 'reports/ci/eval_reporting_dashboard_payload.json',
+            publishEnabled: false,
+            outputJsonPath: 'reports/ci/eval_reporting_release_draft_publish_result.json',
+            outputMdPath: 'reports/ci/eval_reporting_release_draft_publish_result.md',
+          });
+
+    - name: Consolidated eval reporting deploy-pages summary
+      if: always()
+      run: |
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Eval Reporting Deploy-Pages Summary" >> $GITHUB_STEP_SUMMARY
+
+        append_section() {
+          local title="$1" md="$2"
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### $title" >> $GITHUB_STEP_SUMMARY
+          if [[ -f "$md" ]]; then
+            cat "$md" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- $title not available" >> $GITHUB_STEP_SUMMARY
+          fi
+        }
+
+        append_section "Public URLs" "reports/ci/eval_reporting_public_index.md"
+        append_section "Dashboard Payload" "reports/ci/eval_reporting_dashboard_payload.md"
+        append_section "Webhook Delivery Request" "reports/ci/eval_reporting_webhook_delivery_request.md"
+        append_section "Webhook Delivery Result" "reports/ci/eval_reporting_webhook_delivery_result.md"
+        append_section "Release Draft Publish Result" "reports/ci/eval_reporting_release_draft_publish_result.md"
+      continue-on-error: true
+
+    - name: Upload public discovery index
+      if: always()
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+      with:
+        name: eval-reporting-public-index-${{ github.run_number }}
+        path: |
+          reports/ci/eval_reporting_public_index.json
+          reports/ci/eval_reporting_public_index.md
+        if-no-files-found: ignore
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Upload eval reporting dashboard payload
+      if: always()
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+      with:
+        name: eval-reporting-dashboard-payload-${{ github.run_number }}
+        path: |
+          reports/ci/eval_reporting_dashboard_payload.json
+          reports/ci/eval_reporting_dashboard_payload.md
+        if-no-files-found: ignore
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Upload eval reporting webhook delivery request
+      if: always()
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+      with:
+        name: eval-reporting-webhook-delivery-request-${{ github.run_number }}
+        path: |
+          reports/ci/eval_reporting_webhook_delivery_request.json
+          reports/ci/eval_reporting_webhook_delivery_request.md
+        if-no-files-found: ignore
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Upload eval reporting webhook delivery result
+      if: always()
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+      with:
+        name: eval-reporting-webhook-delivery-result-${{ github.run_number }}
+        path: |
+          reports/ci/eval_reporting_webhook_delivery_result.json
+          reports/ci/eval_reporting_webhook_delivery_result.md
+        if-no-files-found: ignore
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Upload eval reporting release draft publish result
+      if: always()
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+      with:
+        name: eval-reporting-release-draft-publish-result-${{ github.run_number }}
+        path: |
+          reports/ci/eval_reporting_release_draft_publish_result.json
+          reports/ci/eval_reporting_release_draft_publish_result.md
+        if-no-files-found: ignore
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}

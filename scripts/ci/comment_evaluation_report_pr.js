@@ -6,7 +6,103 @@ const {
   markdownSection,
   markdownTable,
 } = require("./comment_markdown_utils.js");
+const {
+  summarizeDerivedJsonSummaryPath,
+  summarizeJsonSummaryPath,
+} = require("./comment_summary_path_utils.js");
 const { upsertBotIssueComment } = require("./comment_pr_utils.js");
+const {
+  appendSummaryDetailParts,
+  collectSectionStatusDetailParts,
+} = require("./section_status_detail_utils.js");
+const {
+  summarizeWorkflowFileHealthPayload,
+  workflowFileHealthStatusAndLight,
+} = require("./workflow_file_health_summary_utils.js");
+const {
+  extractWorkflowInventoryIssueDetailParts,
+  summarizeWorkflowInventoryPayload,
+  workflowInventoryStatusAndLight,
+} = require("./workflow_inventory_summary_utils.js");
+const {
+  extractWorkflowPublishHelperIssueDetailParts,
+  summarizeWorkflowPublishHelperPayload,
+  workflowPublishHelperStatusAndLight,
+} = require("./workflow_publish_helper_summary_utils.js");
+const {
+  ciWorkflowGuardrailOverviewStatusAndLight,
+  summarizeCiWorkflowGuardrailOverviewPayload,
+  summarizeWorkflowGuardrailPayload,
+  workflowGuardrailStatusAndLight,
+} = require("./workflow_guardrail_summary_utils.js");
+const {
+  ciWatchFailureLight,
+  summarizeCiWatchFailurePayload,
+} = require("./ci_watch_summary_utils.js");
+const {
+  ciWatchValidationReportLight,
+  extractCiWatchValidationDetailParts,
+  summarizeCiWatchValidationReportPayload,
+} = require("./ci_watch_validation_report_utils.js");
+const {
+  evaluationCommentSupportManifestStatusAndLight,
+  extractManifestIssueDetailParts,
+  summarizeManifestPayload,
+} = require("./evaluation_comment_support_manifest_utils.js");
+
+function summarizeEvalReportingStack(stackSummaryJsonPath, indexJsonPath) {
+  const fallback = {
+    available: false,
+    status: "unavailable",
+    light: "⚪",
+    summary: "eval reporting stack summary not available",
+    missingCount: 0,
+    staleCount: 0,
+    mismatchCount: 0,
+    landingPage: "",
+    staticReport: "",
+    interactiveReport: "",
+  };
+
+  let ss = null;
+  let ix = null;
+  try {
+    if (stackSummaryJsonPath && fs.existsSync(stackSummaryJsonPath)) {
+      ss = JSON.parse(fs.readFileSync(stackSummaryJsonPath, "utf-8"));
+    }
+  } catch (_) { /* ignore */ }
+  try {
+    if (indexJsonPath && fs.existsSync(indexJsonPath)) {
+      ix = JSON.parse(fs.readFileSync(indexJsonPath, "utf-8"));
+    }
+  } catch (_) { /* ignore */ }
+
+  if (!ss || typeof ss !== "object") {
+    return fallback;
+  }
+
+  const status = String(ss.status || "unknown");
+  const light = status === "ok" ? "🟢" : status === "degraded" ? "🟡" : "🔴";
+  const missingCount = Number(ss.missing_count || 0);
+  const staleCount = Number(ss.stale_count || 0);
+  const mismatchCount = Number(ss.mismatch_count || 0);
+  const landingPage = (ix && typeof ix === "object") ? String(ix.landing_page_html || "") : "";
+  const staticReport = String(ss.static_report_html || "");
+  const interactiveReport = String(ss.interactive_report_html || "");
+
+  return {
+    available: true,
+    status,
+    light,
+    summary: `status=${status}, missing=${missingCount}, stale=${staleCount}, mismatch=${mismatchCount}`,
+    missingCount,
+    staleCount,
+    mismatchCount,
+    landingPage,
+    staticReport,
+    interactiveReport,
+  };
+}
 
 function envStr(name, fallback = "") {
   const value = process.env[name];
@@ -80,483 +176,136 @@ function strictPlaybookLabel(channel, reason) {
 }
 
 function summarizeCiWatchFailure(summaryPath, fsApi = fs) {
-  let summary = "⏭️ skipped (no summary path)";
-  let light = "⚪";
-  if (!summaryPath) {
-    return { summary, light };
-  }
-  try {
-    if (!fsApi.existsSync(summaryPath)) {
-      return {
-        summary: `⚠️ summary missing at ${summaryPath}`,
-        light: "🟡",
-      };
-    }
-    const payload = JSON.parse(fsApi.readFileSync(summaryPath, "utf8"));
-    const failureDetails = Array.isArray(payload.failure_details)
-      ? payload.failure_details
-      : [];
-    const counts = payload.counts && typeof payload.counts === "object" ? payload.counts : {};
-    const failedCount =
-      parseInt(String(counts.failed ?? failureDetails.length ?? 0), 10) || 0;
-    const reason = String(payload.reason || "unknown");
-    const top = failureDetails
-      .slice(0, 3)
-      .map((item) => {
-        if (!item || typeof item !== "object") {
-          return "unknown";
-        }
-        const workflowName = String(item.workflow_name || "unknown");
-        const runId = String(item.run_id || "n/a");
-        const step =
-          Array.isArray(item.failed_steps) && item.failed_steps.length > 0
-            ? String(item.failed_steps[0])
-            : Array.isArray(item.failed_jobs) && item.failed_jobs.length > 0
-              ? String(item.failed_jobs[0])
-              : "n/a";
-        return `${workflowName}#${runId}:${step}`;
-      })
-      .join("; ");
-    if (failedCount > 0 || failureDetails.length > 0) {
-      summary = `failed=${failedCount}, reason=${reason}, top=${top || "n/a"}`;
-      light = "🔴";
-    } else {
-      summary = `failed=0, reason=${reason}`;
-      light = "🟢";
-    }
-  } catch (error) {
-    const message = error && error.message ? error.message : String(error);
-    summary = `⚠️ parse_error: ${message}`;
-    light = "🟡";
-  }
-  return { summary, light };
+  return summarizeDerivedJsonSummaryPath(
+    summaryPath,
+    {
+      summarizePayload: summarizeCiWatchFailurePayload,
+      lightFromPayload: ciWatchFailureLight,
+    },
+    fsApi,
+  );
 }
 
 function summarizeCiWatchValidationReport(summaryPath, fsApi = fs) {
-  let summary = "⏭️ skipped (no summary path)";
-  let light = "⚪";
-  if (!summaryPath) {
-    return { summary, light };
-  }
-  try {
-    if (!fsApi.existsSync(summaryPath)) {
-      return {
-        summary: `⚠️ summary missing at ${summaryPath}`,
-        light: "🟡",
-      };
-    }
-    const payload = JSON.parse(fsApi.readFileSync(summaryPath, "utf8"));
-    const verdict = String(payload.verdict || "unknown").trim();
-    summary = String(payload.summary || `verdict=${verdict}`);
-    const verdictSuccess = Boolean(payload.verdict_success);
-    const detailParts = [];
-    const sections =
-      payload.sections && typeof payload.sections === "object" ? payload.sections : {};
-    const readiness = sections.readiness;
-    if (readiness && typeof readiness === "object") {
-      const present = Boolean(readiness.present);
-      const ok = readiness.ok;
-      if (!present) {
-        detailParts.push("readiness=missing");
-      } else if (ok !== true) {
-        detailParts.push(`readiness=ok=${ok}`);
-      }
-    }
-    const softSmoke = sections.soft_smoke;
-    if (softSmoke && typeof softSmoke === "object") {
-      const present = Boolean(softSmoke.present);
-      const overallExitCode = softSmoke.overall_exit_code;
-      const attemptsTotal = parseInt(String(softSmoke.attempts_total ?? 0), 10) || 0;
-      if (!present) {
-        detailParts.push("soft_smoke=missing");
-      } else if (
-        overallExitCode !== null &&
-        overallExitCode !== undefined &&
-        String(overallExitCode) !== "0"
-      ) {
-        detailParts.push(`soft_smoke=exit=${overallExitCode}, attempts=${attemptsTotal}`);
-      }
-    }
-    const workflowGuardrailSummary = sections.workflow_guardrail_summary;
-    if (workflowGuardrailSummary && typeof workflowGuardrailSummary === "object") {
-      const present = Boolean(workflowGuardrailSummary.present);
-      const status = String(workflowGuardrailSummary.overall_status || "unknown").trim();
-      const detailSummary = String(workflowGuardrailSummary.summary || "").trim();
-      if (!present) {
-        detailParts.push("workflow_guardrail_summary=missing");
-      } else if (status !== "ok") {
-        detailParts.push(
-          `workflow_guardrail_summary=${status}${detailSummary ? `:${detailSummary}` : ""}`,
-        );
-      }
-    }
-    const ciWorkflowOverview = sections.ci_workflow_guardrail_overview;
-    if (ciWorkflowOverview && typeof ciWorkflowOverview === "object") {
-      const present = Boolean(ciWorkflowOverview.present);
-      const status = String(ciWorkflowOverview.overall_status || "unknown").trim();
-      const detailSummary = String(ciWorkflowOverview.summary || "").trim();
-      if (!present) {
-        detailParts.push("ci_workflow_guardrail_overview=missing");
-      } else if (status !== "ok") {
-        detailParts.push(
-          `ci_workflow_guardrail_overview=${status}${detailSummary ? `:${detailSummary}` : ""}`,
-        );
-      }
-    }
-    const commentSupportManifest = sections.evaluation_comment_support_manifest;
-    if (commentSupportManifest && typeof commentSupportManifest === "object") {
-      const present = Boolean(commentSupportManifest.present);
-      const status = String(commentSupportManifest.overall_status || "unknown").trim();
-      const detailSummary = String(commentSupportManifest.summary || "").trim();
-      if (!present) {
-        detailParts.push("evaluation_comment_support_manifest=missing");
-      } else if (status !== "ok") {
-        detailParts.push(
-          `evaluation_comment_support_manifest=${status}${detailSummary ? `:${detailSummary}` : ""}`,
-        );
-      }
-    }
-    if (detailParts.length > 0) {
-      summary = `${summary}; ${detailParts.join("; ")}`;
-    }
-    light = verdictSuccess || verdict === "PASS" ? "🟢" : "🔴";
-  } catch (error) {
-    const message = error && error.message ? error.message : String(error);
-    summary = `⚠️ parse_error: ${message}`;
-    light = "🟡";
-  }
-  return { summary, light };
+  return summarizeDerivedJsonSummaryPath(
+    summaryPath,
+    {
+      summarizePayload: summarizeCiWatchValidationReportPayload,
+      detailPartsFromPayload: extractCiWatchValidationDetailParts,
+      mergeSummary: (summary, detailParts) =>
+        appendSummaryDetailParts(summary, detailParts),
+      lightFromPayload: ciWatchValidationReportLight,
+    },
+    fsApi,
+  );
 }
 
 function summarizeWorkflowFileHealth(summaryPath, fsApi = fs) {
-  let summary = "⏭️ skipped (no summary path)";
-  let light = "⚪";
-  if (!summaryPath) {
-    return { summary, light };
-  }
-  try {
-    if (!fsApi.existsSync(summaryPath)) {
-      return {
-        summary: `⚠️ summary missing at ${summaryPath}`,
-        light: "🟡",
-      };
-    }
-    const payload = JSON.parse(fsApi.readFileSync(summaryPath, "utf8"));
-    const failedCount =
-      parseInt(String(payload.failed_count ?? payload.fail_count ?? 0), 10) || 0;
-    const count = parseInt(String(payload.count ?? 0), 10) || 0;
-    const modeUsed = String(payload.mode_used || "unknown");
-    const fallbackReason = String(payload.fallback_reason || "none");
-    if (failedCount > 0) {
-      summary = `failed=${failedCount}/${count}, mode=${modeUsed}, fallback=${fallbackReason}`;
-      light = "🔴";
-    } else {
-      summary = `failed=0/${count}, mode=${modeUsed}, fallback=${fallbackReason}`;
-      light = "🟢";
-    }
-  } catch (error) {
-    const message = error && error.message ? error.message : String(error);
-    summary = `⚠️ parse_error: ${message}`;
-    light = "🟡";
-  }
-  return { summary, light };
+  return summarizeDerivedJsonSummaryPath(
+    summaryPath,
+    {
+      summarizePayload: summarizeWorkflowFileHealthPayload,
+      lightFromPayload: (payload) => workflowFileHealthStatusAndLight(payload).light,
+    },
+    fsApi,
+  );
 }
 
 function summarizeWorkflowInventory(summaryPath, fsApi = fs) {
-  let summary = "⏭️ skipped (no summary path)";
-  let light = "⚪";
-  if (!summaryPath) {
-    return { summary, light };
-  }
-  try {
-    if (!fsApi.existsSync(summaryPath)) {
-      return {
-        summary: `⚠️ summary missing at ${summaryPath}`,
-        light: "🟡",
-      };
-    }
-    const payload = JSON.parse(fsApi.readFileSync(summaryPath, "utf8"));
-    const workflowCount = parseInt(String(payload.workflow_count ?? 0), 10) || 0;
-    const duplicateCount = parseInt(String(payload.duplicate_name_count ?? 0), 10) || 0;
-    const missingRequiredCount =
-      parseInt(String(payload.missing_required_count ?? 0), 10) || 0;
-    const nonUniqueRequiredCount =
-      parseInt(String(payload.non_unique_required_count ?? 0), 10) || 0;
-    const duplicates = Array.isArray(payload.duplicates) ? payload.duplicates : [];
-    const requiredRows = Array.isArray(payload.required_workflow_mapping)
-      ? payload.required_workflow_mapping
-      : [];
-    const duplicateNames = duplicates
-      .map((row) => String((row && row.name) || "").trim())
-      .filter(Boolean)
-      .slice(0, 3);
-    const missingRequiredNames = requiredRows
-      .filter(
-        (row) =>
-          row && typeof row === "object" && String(row.status || "").trim() === "missing",
-      )
-      .map((row) => String(row.name || "").trim())
-      .filter(Boolean)
-      .slice(0, 3);
-    const nonUniqueRequiredNames = requiredRows
-      .filter(
-        (row) =>
-          row &&
-          typeof row === "object" &&
-          String(row.status || "").trim() === "non_unique",
-      )
-      .map((row) => String(row.name || "").trim())
-      .filter(Boolean)
-      .slice(0, 3);
-    const parts = [
-      `workflows=${workflowCount}`,
-      `duplicate=${duplicateCount}`,
-      `missing_required=${missingRequiredCount}`,
-      `non_unique_required=${nonUniqueRequiredCount}`,
-    ];
-    if (duplicateNames.length > 0) {
-      parts.push(`duplicate_names=${duplicateNames.join("/")}`);
-    }
-    if (missingRequiredNames.length > 0) {
-      parts.push(`missing_names=${missingRequiredNames.join("/")}`);
-    }
-    if (nonUniqueRequiredNames.length > 0) {
-      parts.push(`non_unique_names=${nonUniqueRequiredNames.join("/")}`);
-    }
-    summary = parts.join(", ");
-    light =
-      duplicateCount > 0 || missingRequiredCount > 0 || nonUniqueRequiredCount > 0
-        ? "🔴"
-        : "🟢";
-  } catch (error) {
-    const message = error && error.message ? error.message : String(error);
-    summary = `⚠️ parse_error: ${message}`;
-    light = "🟡";
-  }
-  return { summary, light };
+  return summarizeDerivedJsonSummaryPath(
+    summaryPath,
+    {
+      summarizePayload: summarizeWorkflowInventoryPayload,
+      detailPartsFromPayload: (payload) =>
+        extractWorkflowInventoryIssueDetailParts(payload, { limit: 3 }),
+      mergeSummary: (summary, detailParts) =>
+        [summary, ...detailParts.filter((part) => String(part || "").trim())].join(", "),
+      lightFromPayload: (payload) => workflowInventoryStatusAndLight(payload).light,
+    },
+    fsApi,
+  );
 }
 
 function summarizeWorkflowPublishHelper(summaryPath, fsApi = fs) {
-  let summary = "⏭️ skipped (no summary path)";
-  let light = "⚪";
-  if (!summaryPath) {
-    return { summary, light };
-  }
-  try {
-    if (!fsApi.existsSync(summaryPath)) {
-      return {
-        summary: `⚠️ summary missing at ${summaryPath}`,
-        light: "🟡",
-      };
-    }
-    const payload = JSON.parse(fsApi.readFileSync(summaryPath, "utf8"));
-    const checkedCount = parseInt(String(payload.checked_count ?? 0), 10) || 0;
-    const failedCount = parseInt(String(payload.failed_count ?? 0), 10) || 0;
-    const rawViolationCount =
-      parseInt(String(payload.raw_publish_violation_count ?? 0), 10) || 0;
-    const missingCommentHelperCount =
-      parseInt(String(payload.missing_comment_helper_import_count ?? 0), 10) || 0;
-    const missingIssueHelperCount =
-      parseInt(String(payload.missing_issue_helper_import_count ?? 0), 10) || 0;
-    const failingNames = Array.isArray(payload.results)
-      ? payload.results
-          .filter((row) => row && typeof row === "object" && row.ok === false)
-          .map((row) => String(row.filename || "").trim())
-          .filter(Boolean)
-          .slice(0, 3)
-      : [];
-    const parts = [
-      `checked=${checkedCount}`,
-      `failed=${failedCount}`,
-      `raw=${rawViolationCount}`,
-      `missing_comment_helper=${missingCommentHelperCount}`,
-      `missing_issue_helper=${missingIssueHelperCount}`,
-    ];
-    if (failingNames.length > 0) {
-      parts.push(`failing=${failingNames.join("/")}`);
-    }
-    summary = parts.join(", ");
-    light =
-      failedCount > 0 ||
-      rawViolationCount > 0 ||
-      missingCommentHelperCount > 0 ||
-      missingIssueHelperCount > 0
-        ? "🔴"
-        : "🟢";
-  } catch (error) {
-    const message = error && error.message ? error.message : String(error);
-    summary = `⚠️ parse_error: ${message}`;
-    light = "🟡";
-  }
-  return { summary, light };
+  return summarizeDerivedJsonSummaryPath(
+    summaryPath,
+    {
+      summarizePayload: summarizeWorkflowPublishHelperPayload,
+      detailPartsFromPayload: (payload) =>
+        extractWorkflowPublishHelperIssueDetailParts(payload, { limit: 3 }),
+      mergeSummary: (summary, detailParts) => {
+        const normalizedSummary = String(summary || "").trim();
+        if (detailParts.length === 0 || normalizedSummary.includes("failing=")) {
+          return normalizedSummary;
+        }
+        return [normalizedSummary, ...detailParts].join(", ");
+      },
+      lightFromPayload: (payload) => workflowPublishHelperStatusAndLight(payload).light,
+    },
+    fsApi,
+  );
 }
 
 function summarizeWorkflowGuardrail(summaryPath, fsApi = fs) {
-  let summary = "⏭️ skipped (no summary path)";
-  let light = "⚪";
-  if (!summaryPath) {
-    return { summary, light };
-  }
-  try {
-    if (!fsApi.existsSync(summaryPath)) {
-      return {
-        summary: `⚠️ summary missing at ${summaryPath}`,
-        light: "🟡",
-      };
-    }
-    const payload = JSON.parse(fsApi.readFileSync(summaryPath, "utf8"));
-    const overallStatus = String(payload.overall_status || "unknown");
-    const overallLight = String(payload.overall_light || "").trim();
-    summary = String(payload.summary || `status=${overallStatus}`);
-    const detailParts = [];
-    for (const key of [
-      "workflow_file_health",
-      "workflow_inventory",
-      "workflow_publish_helper",
-    ]) {
-      const section = payload[key];
-      if (!section || typeof section !== "object") {
-        continue;
-      }
-      const sectionStatus = String(section.status || "unknown").trim();
-      const sectionSummary = String(section.summary || "").trim();
-      if (sectionStatus === "ok") {
-        continue;
-      }
-      detailParts.push(
-        `${key}=${sectionStatus}${sectionSummary ? `:${sectionSummary}` : ""}`,
-      );
-    }
-    if (detailParts.length > 0) {
-      summary = `${summary}; ${detailParts.join("; ")}`;
-    }
-    if (overallLight) {
-      light = overallLight;
-    } else if (overallStatus === "error") {
-      light = "🔴";
-    } else if (overallStatus === "warning") {
-      light = "🟡";
-    } else if (overallStatus === "ok") {
-      light = "🟢";
-    }
-  } catch (error) {
-    const message = error && error.message ? error.message : String(error);
-    summary = `⚠️ parse_error: ${message}`;
-    light = "🟡";
-  }
-  return { summary, light };
+  return summarizeDerivedJsonSummaryPath(
+    summaryPath,
+    {
+      summarizePayload: summarizeWorkflowGuardrailPayload,
+      detailPartsFromPayload: (payload) =>
+        collectSectionStatusDetailParts(payload, [
+          { key: "workflow_file_health" },
+          { key: "workflow_inventory" },
+          { key: "workflow_publish_helper" },
+        ]),
+      mergeSummary: (summary, detailParts) =>
+        appendSummaryDetailParts(summary, detailParts),
+      lightFromPayload: (payload) => workflowGuardrailStatusAndLight(payload).light,
+    },
+    fsApi,
+  );
 }
 
 function summarizeCiWorkflowGuardrailOverview(summaryPath, fsApi = fs) {
-  let summary = "⏭️ skipped (no summary path)";
-  let light = "⚪";
-  if (!summaryPath) {
-    return { summary, light };
-  }
-  try {
-    if (!fsApi.existsSync(summaryPath)) {
-      return {
-        summary: `⚠️ summary missing at ${summaryPath}`,
-        light: "🟡",
-      };
-    }
-    const payload = JSON.parse(fsApi.readFileSync(summaryPath, "utf8"));
-    const overallStatus = String(payload.overall_status || "unknown");
-    const overallLight = String(payload.overall_light || "").trim();
-    summary = String(payload.summary || `status=${overallStatus}`);
-    const detailParts = [];
-    for (const key of ["ci_watch", "workflow_guardrail"]) {
-      const section = payload[key];
-      if (!section || typeof section !== "object") {
-        continue;
-      }
-      const sectionStatus = String(section.status || "unknown").trim();
-      const sectionSummary = String(section.summary || "").trim();
-      if (sectionStatus === "ok") {
-        continue;
-      }
-      detailParts.push(
-        `${key}=${sectionStatus}${sectionSummary ? `:${sectionSummary}` : ""}`,
-      );
-    }
-    if (detailParts.length > 0) {
-      summary = `${summary}; ${detailParts.join("; ")}`;
-    }
-    if (overallLight) {
-      light = overallLight;
-    } else if (overallStatus === "error") {
-      light = "🔴";
-    } else if (overallStatus === "warning") {
-      light = "🟡";
-    } else if (overallStatus === "ok") {
-      light = "🟢";
-    }
-  } catch (error) {
-    const message = error && error.message ? error.message : String(error);
-    summary = `⚠️ parse_error: ${message}`;
-    light = "🟡";
-  }
-  return { summary, light };
+  return summarizeDerivedJsonSummaryPath(
+    summaryPath,
+    {
+      summarizePayload: summarizeCiWorkflowGuardrailOverviewPayload,
+      detailPartsFromPayload: (payload) =>
+        collectSectionStatusDetailParts(payload, [
+          { key: "ci_watch" },
+          { key: "workflow_guardrail" },
+        ]),
+      mergeSummary: (summary, detailParts) =>
+        appendSummaryDetailParts(summary, detailParts),
+      lightFromPayload: (payload) =>
+        ciWorkflowGuardrailOverviewStatusAndLight(payload).light,
+    },
+    fsApi,
+  );
 }
 
 function summarizeEvaluationCommentSupportManifest(summaryPath, fsApi = fs) {
-  let summary = "⏭️ skipped (no summary path)";
-  let light = "⚪";
-  if (!summaryPath) {
-    return { summary, light };
-  }
-  try {
-    if (!fsApi.existsSync(summaryPath)) {
-      return {
-        summary: `⚠️ summary missing at ${summaryPath}`,
-        light: "🟡",
-      };
-    }
-    const payload = JSON.parse(fsApi.readFileSync(summaryPath, "utf8"));
-    const overallStatus = String(payload.overall_status || "unknown").trim();
-    const overallLight = String(payload.overall_light || "").trim();
-    summary = String(payload.summary || `status=${overallStatus}`);
-    const entries = Array.isArray(payload.entries) ? payload.entries : [];
-    const missingIds = entries
-      .filter((row) => row && typeof row === "object" && row.present === false)
-      .map((row) => String(row.id || "").trim())
-      .filter(Boolean)
-      .slice(0, 3);
-    const invalidIds = entries
-      .filter(
-        (row) =>
-          row &&
-          typeof row === "object" &&
-          String(row.parse_status || "").trim() === "error",
-      )
-      .map((row) => String(row.id || "").trim())
-      .filter(Boolean)
-      .slice(0, 3);
-    const detailParts = [];
-    if (missingIds.length > 0) {
-      detailParts.push(`missing=${missingIds.join("/")}`);
-    }
-    if (invalidIds.length > 0) {
-      detailParts.push(`invalid=${invalidIds.join("/")}`);
-    }
-    if (detailParts.length > 0) {
-      summary = `${summary}; ${detailParts.join("; ")}`;
-    }
-    if (overallLight) {
-      light = overallLight;
-    } else if (overallStatus === "error") {
-      light = "🔴";
-    } else if (overallStatus === "warning") {
-      light = "🟡";
-    } else if (overallStatus === "ok") {
-      light = "🟢";
-    }
-  } catch (error) {
-    const message = error && error.message ? error.message : String(error);
-    summary = `⚠️ parse_error: ${message}`;
-    light = "🟡";
-  }
-  return { summary, light };
+  return summarizeDerivedJsonSummaryPath(
+    summaryPath,
+    {
+      summarizePayload: summarizeManifestPayload,
+      detailPartsFromPayload: (payload) =>
+        extractManifestIssueDetailParts(payload, { limit: 3 }),
+      mergeSummary: (summary, detailParts) =>
+        appendSummaryDetailParts(summary, detailParts),
+      lightFromPayload: (payload) =>
+        evaluationCommentSupportManifestStatusAndLight(payload).light,
+    },
+    fsApi,
+  );
+}
+
+function readSummarySignalFromEnv(summaryPathEnvName, summarizeSummaryPath) {
+  return summarizeSummaryPath(envStr(summaryPathEnvName, ""));
+}
+
+function markdownLabeledRow(label, ...cells) {
+  return [`**${String(label || "").trim()}**`, ...cells];
 }
 
 function buildEvaluationReportCommentBody({
@@ -619,6 +368,11 @@ function buildEvaluationReportCommentBody({
   strictFailureRequestSummary,
   strictActionItems,
   strictActionChecklist,
+  evalReportingStackSummary,
+  evalReportingStackLight,
+  evalReportingStackLandingPage,
+  evalReportingStackStaticReport,
+  evalReportingStackInteractiveReport,
   runUrl,
   updatedAt,
   commitSha,
@@ -633,9 +387,14 @@ function buildEvaluationReportCommentBody({
       markdownTable(
         ["Module", "Score", "Threshold", "Status"],
         [
-          ["**Combined**", Number(combined).toFixed(3), minCombined, combinedStatus],
-          ["**Vision**", Number(vision).toFixed(3), minVision, visionStatus],
-          ["**OCR**", Number(ocr).toFixed(3), minOcr, ocrStatus],
+          markdownLabeledRow(
+            "Combined",
+            Number(combined).toFixed(3),
+            minCombined,
+            combinedStatus,
+          ),
+          markdownLabeledRow("Vision", Number(vision).toFixed(3), minVision, visionStatus),
+          markdownLabeledRow("OCR", Number(ocr).toFixed(3), minOcr, ocrStatus),
         ],
       ),
     ),
@@ -647,40 +406,61 @@ function buildEvaluationReportCommentBody({
       markdownTable(
         ["Check", "Status"],
         [
-          ["**Anomaly Detection**", hasAnomalies ? "⚠️ Anomalies detected" : "✅ No anomalies"],
-          ["**Security Audit**", securityStatus === "pass" ? "✅ Passed" : "⚠️ Issues found"],
-          ["**Graph2D Review Pack**", reviewPackStatus],
-          ["**Graph2D Review Insights**", reviewPackInsights],
-          ["**Graph2D Review Gate**", reviewGateStatus],
-          ["**Graph2D Review Gate Strict**", reviewGateStrictStatus],
-          ["**Graph2D Train Sweep**", trainSweepStatus],
-          ["**Hybrid Blind Eval**", hybridBlindEvalStatus],
-          ["**Hybrid Blind Gate**", hybridBlindGateStatus],
-          ["**Hybrid Blind Strict**", hybridBlindStrictStatus],
-          ["**Hybrid Blind Drift Alert**", hybridBlindDriftStatus],
-          ["**Blind Gain (Hybrid-Graph2D)**", blindGainSummary],
-          ["**Hybrid Calibration**", hybridCalibrationStatus],
-          ["**Hybrid Calibration Gate**", hybridCalibrationGateStatus],
-          ["**Hybrid Calibration Strict**", hybridCalibrationStrictStatus],
-          ["**Hybrid Superpass Strict**", hybridSuperpassStrictStatus],
-          ["**Hybrid Superpass Validation Strict**", hybridSuperpassValidationStrictStatus],
-          ["**Hybrid Calibration Baseline**", hybridCalibrationBaselineStatus],
-          [
-            "**Strict Gate Policy**",
+          markdownLabeledRow(
+            "Anomaly Detection",
+            hasAnomalies ? "⚠️ Anomalies detected" : "✅ No anomalies",
+          ),
+          markdownLabeledRow(
+            "Security Audit",
+            securityStatus === "pass" ? "✅ Passed" : "⚠️ Issues found",
+          ),
+          markdownLabeledRow("Graph2D Review Pack", reviewPackStatus),
+          markdownLabeledRow("Graph2D Review Insights", reviewPackInsights),
+          markdownLabeledRow("Graph2D Review Gate", reviewGateStatus),
+          markdownLabeledRow("Graph2D Review Gate Strict", reviewGateStrictStatus),
+          markdownLabeledRow("Graph2D Train Sweep", trainSweepStatus),
+          markdownLabeledRow("Hybrid Blind Eval", hybridBlindEvalStatus),
+          markdownLabeledRow("Hybrid Blind Gate", hybridBlindGateStatus),
+          markdownLabeledRow("Hybrid Blind Strict", hybridBlindStrictStatus),
+          markdownLabeledRow("Hybrid Blind Drift Alert", hybridBlindDriftStatus),
+          markdownLabeledRow("Blind Gain (Hybrid-Graph2D)", blindGainSummary),
+          markdownLabeledRow("Hybrid Calibration", hybridCalibrationStatus),
+          markdownLabeledRow("Hybrid Calibration Gate", hybridCalibrationGateStatus),
+          markdownLabeledRow("Hybrid Calibration Strict", hybridCalibrationStrictStatus),
+          markdownLabeledRow("Hybrid Superpass Strict", hybridSuperpassStrictStatus),
+          markdownLabeledRow(
+            "Hybrid Superpass Validation Strict",
+            hybridSuperpassValidationStrictStatus,
+          ),
+          markdownLabeledRow(
+            "Hybrid Calibration Baseline",
+            hybridCalibrationBaselineStatus,
+          ),
+          markdownLabeledRow(
+            "Strict Gate Policy",
             `mode=${evaluationStrictMode}, raw=${evaluationStrictModeRawValue || "n/a"}, result=${strictDecisionResult}`,
-          ],
-          ["**Strict Gate Playbook**", strictPlaybookSummary],
-          ["**CI Watch Failure Details**", ciWatchFailureSummary],
-          ["**CI Watch Validation Report**", ciWatchValidationReportSummary],
-          ["**Workflow File Health**", workflowFileHealthSummary],
-          ["**Workflow Inventory Audit**", workflowInventorySummary],
-          ["**Workflow Publish Helper Adoption**", workflowPublishHelperSummary],
-          ["**Workflow Guardrail Summary**", workflowGuardrailSummary],
-          ["**CI Workflow Guardrail Overview**", ciWorkflowGuardrailOverviewSummary],
-          [
-            "**Evaluation Comment Support Manifest**",
+          ),
+          markdownLabeledRow("Strict Gate Playbook", strictPlaybookSummary),
+          markdownLabeledRow("CI Watch Failure Details", ciWatchFailureSummary),
+          markdownLabeledRow(
+            "CI Watch Validation Report",
+            ciWatchValidationReportSummary,
+          ),
+          markdownLabeledRow("Workflow File Health", workflowFileHealthSummary),
+          markdownLabeledRow("Workflow Inventory Audit", workflowInventorySummary),
+          markdownLabeledRow(
+            "Workflow Publish Helper Adoption",
+            workflowPublishHelperSummary,
+          ),
+          markdownLabeledRow("Workflow Guardrail Summary", workflowGuardrailSummary),
+          markdownLabeledRow(
+            "CI Workflow Guardrail Overview",
+            ciWorkflowGuardrailOverviewSummary,
+          ),
+          markdownLabeledRow(
+            "Evaluation Comment Support Manifest",
             evaluationCommentSupportManifestSummary,
-          ],
+          ),
         ],
       ),
     ),
@@ -690,44 +470,56 @@ function buildEvaluationReportCommentBody({
       markdownTable(
         ["Signal", "State", "Detail"],
         [
-          ["**Review Pack**", reviewPackLight, reviewPackStatus],
-          ["**Review Gate**", reviewGateLight, reviewGateStatus],
-          ["**Train Sweep**", trainSweepLight, trainSweepStatus],
-          ["**Hybrid Blind**", hybridBlindLight, hybridBlindEvalStatus],
-          ["**Hybrid Calibration**", hybridCalibrationLight, hybridCalibrationStatus],
-          [
-            "**Strict Gate Policy**",
+          markdownLabeledRow("Review Pack", reviewPackLight, reviewPackStatus),
+          markdownLabeledRow("Review Gate", reviewGateLight, reviewGateStatus),
+          markdownLabeledRow("Train Sweep", trainSweepLight, trainSweepStatus),
+          markdownLabeledRow("Hybrid Blind", hybridBlindLight, hybridBlindEvalStatus),
+          markdownLabeledRow(
+            "Hybrid Calibration",
+            hybridCalibrationLight,
+            hybridCalibrationStatus,
+          ),
+          markdownLabeledRow(
+            "Strict Gate Policy",
             strictDecisionLight,
             `mode=${evaluationStrictMode}, strict_requests=${strictFailureRequestsCount}, result=${strictDecisionResult}`,
-          ],
-          ["**CI Watcher**", ciWatchFailureLight, ciWatchFailureSummary],
-          [
-            "**CI Watch Validation**",
+          ),
+          markdownLabeledRow("CI Watcher", ciWatchFailureLight, ciWatchFailureSummary),
+          markdownLabeledRow(
+            "CI Watch Validation",
             ciWatchValidationReportLight,
             ciWatchValidationReportSummary,
-          ],
-          ["**Workflow Health**", workflowFileHealthLight, workflowFileHealthSummary],
-          ["**Workflow Inventory**", workflowInventoryLight, workflowInventorySummary],
-          [
-            "**Workflow Publish Helper**",
+          ),
+          markdownLabeledRow(
+            "Workflow Health",
+            workflowFileHealthLight,
+            workflowFileHealthSummary,
+          ),
+          markdownLabeledRow(
+            "Workflow Inventory",
+            workflowInventoryLight,
+            workflowInventorySummary,
+          ),
+          markdownLabeledRow(
+            "Workflow Publish Helper",
             workflowPublishHelperLight,
             workflowPublishHelperSummary,
-          ],
-          [
-            "**Workflow Guardrails**",
+          ),
+          markdownLabeledRow(
+            "Workflow Guardrails",
             workflowGuardrailLight,
             workflowGuardrailSummary,
-          ],
-          [
-            "**CI+Workflow Overview**",
+          ),
+          markdownLabeledRow(
+            "CI+Workflow Overview",
             ciWorkflowGuardrailOverviewLight,
             ciWorkflowGuardrailOverviewSummary,
-          ],
-          [
-            "**Comment Support Bundle**",
+          ),
+          markdownLabeledRow(
+            "Comment Support Bundle",
             evaluationCommentSupportManifestLight,
             evaluationCommentSupportManifestSummary,
-          ],
+          ),
         ],
       ),
     ),
@@ -737,19 +529,32 @@ function buildEvaluationReportCommentBody({
       markdownTable(
         ["Item", "Value"],
         [
-          [
-            "**Mode**",
+          markdownLabeledRow(
+            "Mode",
             `${evaluationStrictMode} (resolved=${evaluationStrictModeResolvedRaw || "n/a"}, raw=${evaluationStrictModeRawValue || "n/a"})`,
-          ],
-          ["**Requested Failures**", strictFailureRequestSummary],
-          ["**Decision**", strictDecisionResult],
-          ["**Playbook Links**", strictPlaybookSummary],
-          ["**Recommended Action**", strictActionItems[0] || "n/a"],
+          ),
+          markdownLabeledRow("Requested Failures", strictFailureRequestSummary),
+          markdownLabeledRow("Decision", strictDecisionResult),
+          markdownLabeledRow("Playbook Links", strictPlaybookSummary),
+          markdownLabeledRow("Recommended Action", strictActionItems[0] || "n/a"),
         ],
       ),
     ),
     "",
     strictActionChecklist,
+    "",
+    markdownSection(
+      "Eval Reporting Stack",
+      markdownTable(
+        ["Item", "Value"],
+        [
+          markdownLabeledRow("Status", `${evalReportingStackLight} ${evalReportingStackSummary}`),
+          markdownLabeledRow("Landing Page", evalReportingStackLandingPage || "n/a"),
+          markdownLabeledRow("Static Report", evalReportingStackStaticReport || "n/a"),
+          markdownLabeledRow("Interactive Report", evalReportingStackInteractiveReport || "n/a"),
+        ],
+      ),
+    ),
     "",
     markdownSection(
       "Quick Actions",
@@ -1025,73 +830,61 @@ async function commentEvaluationReportPR({ github, context, process }) {
       "n/a",
     );
 
-    const ciWatchSummaryPath = envStr("CI_WATCH_SUMMARY_JSON_FOR_COMMENT", "");
     const {
       summary: ciWatchFailureSummary,
       light: ciWatchFailureLight,
-    } = summarizeCiWatchFailure(ciWatchSummaryPath);
-    const ciWatchValidationReportSummaryPath = envStr(
-      "CI_WATCH_VALIDATION_REPORT_JSON_FOR_COMMENT",
-      "",
+    } = readSummarySignalFromEnv(
+      "CI_WATCH_SUMMARY_JSON_FOR_COMMENT",
+      summarizeCiWatchFailure,
     );
     const {
       summary: ciWatchValidationReportSummary,
       light: ciWatchValidationReportLight,
-    } = summarizeCiWatchValidationReport(ciWatchValidationReportSummaryPath);
-
-    const workflowFileHealthSummaryPath = envStr(
-      "WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT",
-      "",
+    } = readSummarySignalFromEnv(
+      "CI_WATCH_VALIDATION_REPORT_JSON_FOR_COMMENT",
+      summarizeCiWatchValidationReport,
     );
     const {
       summary: workflowFileHealthSummary,
       light: workflowFileHealthLight,
-    } = summarizeWorkflowFileHealth(workflowFileHealthSummaryPath);
-
-    const workflowInventorySummaryPath = envStr(
-      "WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT",
-      "",
+    } = readSummarySignalFromEnv(
+      "WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT",
+      summarizeWorkflowFileHealth,
     );
     const {
       summary: workflowInventorySummary,
       light: workflowInventoryLight,
-    } = summarizeWorkflowInventory(workflowInventorySummaryPath);
-
-    const workflowPublishHelperSummaryPath = envStr(
-      "WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT",
-      "",
+    } = readSummarySignalFromEnv(
+      "WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT",
+      summarizeWorkflowInventory,
     );
     const {
       summary: workflowPublishHelperSummary,
       light: workflowPublishHelperLight,
-    } = summarizeWorkflowPublishHelper(workflowPublishHelperSummaryPath);
-
-    const workflowGuardrailSummaryPath = envStr(
-      "WORKFLOW_GUARDRAIL_SUMMARY_JSON_FOR_COMMENT",
-      "",
+    } = readSummarySignalFromEnv(
+      "WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT",
+      summarizeWorkflowPublishHelper,
     );
     const {
       summary: workflowGuardrailSummary,
       light: workflowGuardrailLight,
-    } = summarizeWorkflowGuardrail(workflowGuardrailSummaryPath);
-
-    const ciWorkflowGuardrailOverviewSummaryPath = envStr(
-      "CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT",
-      "",
+    } = readSummarySignalFromEnv(
+      "WORKFLOW_GUARDRAIL_SUMMARY_JSON_FOR_COMMENT",
+      summarizeWorkflowGuardrail,
     );
     const {
       summary: ciWorkflowGuardrailOverviewSummary,
       light: ciWorkflowGuardrailOverviewLight,
-    } = summarizeCiWorkflowGuardrailOverview(ciWorkflowGuardrailOverviewSummaryPath);
-    const evaluationCommentSupportManifestSummaryPath = envStr(
-      "EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON_FOR_COMMENT",
-      "",
+    } = readSummarySignalFromEnv(
+      "CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT",
+      summarizeCiWorkflowGuardrailOverview,
     );
     const {
       summary: evaluationCommentSupportManifestSummary,
       light: evaluationCommentSupportManifestLight,
-    } = summarizeEvaluationCommentSupportManifest(
-      evaluationCommentSupportManifestSummaryPath,
+    } = readSummarySignalFromEnv(
+      "EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON_FOR_COMMENT",
+      summarizeEvaluationCommentSupportManifest,
     );
 
     const reviewCandidateCount = parseInt(reviewCandidates || "0", 10);
@@ -1283,6 +1076,11 @@ async function commentEvaluationReportPR({ github, context, process }) {
 
     const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
 
+    const evalReportingStack = summarizeEvalReportingStack(
+      envStr("EVAL_REPORTING_STACK_SUMMARY_JSON_FOR_COMMENT", ""),
+      envStr("EVAL_REPORTING_INDEX_JSON_FOR_COMMENT", ""),
+    );
+
     const body = buildEvaluationReportCommentBody({
       overallStatus,
       combined,
@@ -1343,6 +1141,11 @@ async function commentEvaluationReportPR({ github, context, process }) {
       strictFailureRequestSummary,
       strictActionItems,
       strictActionChecklist,
+      evalReportingStackSummary: evalReportingStack.summary,
+      evalReportingStackLight: evalReportingStack.light,
+      evalReportingStackLandingPage: evalReportingStack.landingPage,
+      evalReportingStackStaticReport: evalReportingStack.staticReport,
+      evalReportingStackInteractiveReport: evalReportingStack.interactiveReport,
       runUrl,
       updatedAt: new Date().toISOString().replace("T", " ").substring(0, 19),
       commitSha: context.sha,
@@ -1365,6 +1168,7 @@ async function commentEvaluationReportPR({ github, context, process }) {
 module.exports = {
   buildEvaluationReportCommentBody,
   commentEvaluationReportPR,
+  summarizeEvalReportingStack,
   summarizeCiWatchFailure,
   summarizeCiWatchValidationReport,
   summarizeWorkflowFileHealth,
