@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 import yaml
 
@@ -17,6 +18,14 @@ def _get_step(workflow: dict, job_name: str, step_name: str) -> dict:
         if step.get("name") == step_name:
             return step
     raise AssertionError(f"missing step={step_name!r} in job={job_name!r}")
+
+
+def _load_bash_helper_from_step(step: dict) -> str:
+    run = step["run"]
+    match = re.search(r"bash\s+(scripts/ci/[^\s]+)", run)
+    if not match:
+        return run
+    return (ROOT / match.group(1)).read_text(encoding="utf-8")
 
 
 def test_workflow_dispatch_and_env_expose_hybrid_superpass_controls() -> None:
@@ -65,7 +74,7 @@ def test_workflow_uploads_superpass_artifact_and_summary_lines() -> None:
     assert "steps.hybrid_superpass_gate.outputs.report_path" in upload_step["with"]["path"]
 
     summary_step = _get_step(workflow, "evaluate", "Create job summary")
-    summary_script = summary_step["run"]
+    summary_script = _load_bash_helper_from_step(summary_step)
     assert "Hybrid superpass gate status" in summary_script
     assert "Hybrid superpass gate headline" in summary_script
     assert "Hybrid superpass gate report" in summary_script
@@ -87,6 +96,6 @@ def test_workflow_has_superpass_strict_mode_steps() -> None:
     )
     assert (
         final_fail_step["if"]
-        == "steps.hybrid_superpass_gate_strict.outputs.should_fail == 'true'"
+        == "steps.hybrid_superpass_gate_strict.outputs.should_fail == 'true' && steps.strict_fail_mode.outputs.mode != 'soft'"
     )
     assert "Failure reason" in final_fail_step["run"]

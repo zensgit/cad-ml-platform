@@ -1,6 +1,7 @@
 """Regression checks for eval reporting stack wiring in evaluation-report workflow."""
 
 from pathlib import Path
+import re
 
 import yaml
 
@@ -18,6 +19,14 @@ def _get_step(workflow: dict, job_name: str, step_name: str) -> dict:
         if step.get("name") == step_name:
             return step
     raise AssertionError(f"Missing step {step_name!r} in job {job_name!r}")
+
+
+def _load_bash_helper_from_step(step: dict) -> str:
+    run = step["run"]
+    match = re.search(r"bash\s+(scripts/ci/[^\s]+)", run)
+    if not match:
+        return run
+    return (ROOT / match.group(1)).read_text(encoding="utf-8")
 
 
 def _step_names(workflow: dict, job_name: str) -> list[str]:
@@ -224,6 +233,7 @@ def test_notify_step_passes_stack_summary_and_index() -> None:
 def test_stale_weekly_summary_reference_removed() -> None:
     workflow = _load_workflow()
     step = _get_step(workflow, "evaluate", "Create job summary")
+    summary_script = _load_bash_helper_from_step(step)
 
     assert "weekly_summary.outputs.output_md" not in step["run"]
-    assert "eval_reporting_stack_summary" in step["run"] or "eval_reporting_stack" in step["run"]
+    assert "eval_reporting_stack_summary" in summary_script or "eval_reporting_stack" in summary_script

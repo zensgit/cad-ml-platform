@@ -1,11 +1,13 @@
 """Regression checks for Graph2D extensions in evaluation-report workflow."""
 
 from pathlib import Path
+import re
 
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github" / "workflows" / "evaluation-report.yml"
+CI_SCRIPTS = ROOT / "scripts" / "ci"
 
 
 def _load_workflow() -> dict:
@@ -18,6 +20,18 @@ def _get_step(workflow: dict, job_name: str, step_name: str) -> dict:
         if step.get("name") == step_name:
             return step
     raise AssertionError(f"Missing step {step_name!r} in job {job_name!r}")
+
+
+def _load_bash_helper_from_step(step: dict) -> str:
+    run = step["run"]
+    match = re.search(r"bash\s+(scripts/ci/[^\s]+)", run)
+    if not match:
+        return run
+    return (ROOT / match.group(1)).read_text(encoding="utf-8")
+
+
+def _load_comment_helper() -> str:
+    return (CI_SCRIPTS / "comment_evaluation_report_pr.js").read_text(encoding="utf-8")
 
 
 def test_workflow_wires_knowledge_domain_api_surface_matrix() -> None:
@@ -57,7 +71,7 @@ def test_workflow_wires_knowledge_domain_api_surface_matrix() -> None:
     assert "reference_gap_domains=" in script
 
     summary_step = _get_step(workflow, "evaluate", "Create job summary")
-    summary_script = summary_step["run"]
+    summary_script = _load_bash_helper_from_step(summary_step)
     assert "Benchmark knowledge domain API surface matrix status" in summary_script
     assert "Benchmark knowledge domain API surface matrix public API gaps" in summary_script
 
@@ -111,7 +125,7 @@ def test_workflow_wires_knowledge_domain_surface_action_plan() -> None:
     )
 
     summary_step = _get_step(workflow, "evaluate", "Create job summary")
-    summary_script = summary_step["run"]
+    summary_script = _load_bash_helper_from_step(summary_step)
     assert "Benchmark knowledge domain surface action plan status" in summary_script
     assert "Benchmark knowledge domain surface action plan priority domains" in summary_script
 
@@ -1658,7 +1672,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     benchmark_bundle_step = _get_step(
         workflow, "evaluate", "Build benchmark artifact bundle (optional)"
     )
-    benchmark_bundle_script = benchmark_bundle_step["run"]
+    benchmark_bundle_script = _load_bash_helper_from_step(benchmark_bundle_step)
     assert "scripts/export_benchmark_artifact_bundle.py" in benchmark_bundle_script
     assert "BENCHMARK_ARTIFACT_BUNDLE_ENABLE" in benchmark_bundle_script
     assert "--benchmark-scorecard" in benchmark_bundle_script
@@ -1846,7 +1860,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     benchmark_companion_step = _get_step(
         workflow, "evaluate", "Build benchmark companion summary (optional)"
     )
-    benchmark_companion_script = benchmark_companion_step["run"]
+    benchmark_companion_script = _load_bash_helper_from_step(benchmark_companion_step)
     assert "scripts/export_benchmark_companion_summary.py" in benchmark_companion_script
     assert "BENCHMARK_COMPANION_SUMMARY_ENABLE" in benchmark_companion_script
     assert "--benchmark-scorecard" in benchmark_companion_script
@@ -2034,7 +2048,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     benchmark_release_step = _get_step(
         workflow, "evaluate", "Build benchmark release decision (optional)"
     )
-    benchmark_release_script = benchmark_release_step["run"]
+    benchmark_release_script = _load_bash_helper_from_step(benchmark_release_step)
     assert "scripts/export_benchmark_release_decision.py" in benchmark_release_script
     assert "BENCHMARK_RELEASE_DECISION_ENABLE" in benchmark_release_script
     assert "--benchmark-scorecard" in benchmark_release_script
@@ -2148,7 +2162,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         in benchmark_release_script
     )
     assert (
-        "steps.benchmark_knowledge_reference_inventory.outputs.output_json"
+        "STEP_BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_OUTPUT_JSON"
         in benchmark_release_script
     )
     assert "knowledge_reference_inventory_status=" in benchmark_release_script
@@ -2231,7 +2245,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     benchmark_runbook_step = _get_step(
         workflow, "evaluate", "Build benchmark release runbook (optional)"
     )
-    benchmark_runbook_script = benchmark_runbook_step["run"]
+    benchmark_runbook_script = _load_bash_helper_from_step(benchmark_runbook_step)
     assert "scripts/export_benchmark_release_runbook.py" in benchmark_runbook_script
     assert "BENCHMARK_RELEASE_RUNBOOK_ENABLE" in benchmark_runbook_script
     assert "--benchmark-release-decision" in benchmark_runbook_script
@@ -2345,7 +2359,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         in benchmark_runbook_script
     )
     assert (
-        "steps.benchmark_knowledge_reference_inventory.outputs.output_json"
+        "STEP_BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_OUTPUT_JSON"
         in benchmark_runbook_script
     )
     assert "knowledge_reference_inventory_status=" in benchmark_runbook_script
@@ -2424,10 +2438,13 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "operational_operator_adoption_knowledge_outcome_drift_status=" in (
         benchmark_runbook_script
     )
-    assert "Benchmark Release Decision Competitive Surpass" in workflow_text
-    assert "Benchmark Release Runbook Competitive Surpass" in workflow_text
-    assert "Benchmark release knowledge reference inventory" in workflow_text
-    assert "Benchmark release runbook knowledge reference inventory" in workflow_text
+    helper_text = _load_comment_helper() + _load_bash_helper_from_step(
+        _get_step(workflow, "evaluate", "Create job summary")
+    )
+    assert "Benchmark Release Decision Competitive Surpass" in helper_text
+    assert "Benchmark Release Runbook Competitive Surpass" in helper_text
+    assert "Benchmark release knowledge reference inventory" in helper_text
+    assert "Benchmark release runbook knowledge reference inventory" in helper_text
 
     benchmark_operator_adoption_step = _get_step(
         workflow, "evaluate", "Build benchmark operator adoption (optional)"
@@ -2895,7 +2912,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert upload_ocr_review["if"] == "steps.ocr_review_pack.outputs.enabled == 'true'"
 
     summary_step = _get_step(workflow, "evaluate", "Create job summary")
-    summary_script = summary_step["run"]
+    summary_script = _load_bash_helper_from_step(summary_step)
     assert "Graph2D review input" in summary_script
     assert "Graph2D review candidates" in summary_script
     assert "Graph2D review gate status" in summary_script
@@ -3565,7 +3582,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "OCR recommended actions" in summary_script
 
     pr_comment_step = _get_step(workflow, "evaluate", "Comment PR with results")
-    pr_comment_script = pr_comment_step["with"]["script"]
+    pr_comment_script = _load_comment_helper()
     assert "reviewInputCsv" in pr_comment_script
     assert "reviewInputSource" in pr_comment_script
     assert "Graph2D Review Gate" in pr_comment_script
@@ -4624,7 +4641,7 @@ def test_workflow_wires_benchmark_knowledge_reference_inventory() -> None:
     bundle_step = _get_step(
         workflow, "evaluate", "Build benchmark artifact bundle (optional)"
     )
-    bundle_script = bundle_step["run"]
+    bundle_script = _load_bash_helper_from_step(bundle_step)
     assert "--benchmark-knowledge-reference-inventory" in bundle_script
     assert (
         "benchmark_artifact_bundle_knowledge_reference_inventory_json"
@@ -4634,7 +4651,7 @@ def test_workflow_wires_benchmark_knowledge_reference_inventory() -> None:
     companion_step = _get_step(
         workflow, "evaluate", "Build benchmark companion summary (optional)"
     )
-    companion_script = companion_step["run"]
+    companion_script = _load_bash_helper_from_step(companion_step)
     assert "--benchmark-knowledge-reference-inventory" in companion_script
     assert (
         "benchmark_companion_summary_knowledge_reference_inventory_json"
@@ -4650,7 +4667,7 @@ def test_workflow_wires_benchmark_knowledge_reference_inventory() -> None:
     )
 
     summary_step = _get_step(workflow, "evaluate", "Create job summary")
-    summary_script = summary_step["run"]
+    summary_script = _load_bash_helper_from_step(summary_step)
     assert "Benchmark knowledge reference inventory status" in summary_script
     assert "Benchmark artifact bundle knowledge reference inventory" in summary_script
     assert "Benchmark companion knowledge reference inventory" in summary_script
@@ -4664,7 +4681,7 @@ def test_workflow_wires_benchmark_knowledge_reference_inventory_pr_comment() -> 
         "evaluate",
         "Comment PR with results",
     )
-    pr_comment_script = pr_comment_step["with"]["script"]
+    pr_comment_script = _load_comment_helper()
 
     assert "benchmarkKnowledgeReferenceInventoryEnabled" in pr_comment_script
     assert "benchmarkKnowledgeReferenceInventoryStatusLine" in pr_comment_script
@@ -4790,7 +4807,7 @@ def test_workflow_builds_release_readiness_action_plan_artifact() -> None:
 def test_workflow_summarizes_release_readiness_action_plan() -> None:
     workflow = _load_workflow()
     summary_step = _get_step(workflow, "evaluate", "Create job summary")
-    summary_script = summary_step["run"]
+    summary_script = _load_bash_helper_from_step(summary_step)
 
     assert (
         "Benchmark knowledge domain release readiness action plan" in summary_script
@@ -4809,7 +4826,7 @@ def test_workflow_wires_release_readiness_action_plan_pr_comment() -> None:
         "evaluate",
         "Comment PR with results",
     )
-    pr_comment_script = pr_comment_step["with"]["script"]
+    pr_comment_script = _load_comment_helper()
 
     assert "benchmarkKnowledgeDomainReleaseReadinessActionPlanEnabled" in (
         pr_comment_script
@@ -4872,7 +4889,7 @@ def test_workflow_wires_knowledge_api_surface_matrix_pr_comment() -> None:
     workflow = _load_workflow()
 
     pr_comment_step = _get_step(workflow, "evaluate", "Comment PR with results")
-    pr_comment_script = pr_comment_step["with"]["script"]
+    pr_comment_script = _load_comment_helper()
 
     assert "benchmarkKnowledgeDomainApiSurfaceMatrixEnabled" in pr_comment_script
     assert "benchmarkKnowledgeDomainApiSurfaceMatrixStatusLine" in pr_comment_script
