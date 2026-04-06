@@ -16,12 +16,39 @@ Usage:
 """
 
 import argparse
-import base64
-import json
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
+
+try:
+    from scripts.eval_report_data_helpers import (
+        load_plot_base64_assets,
+    )
+    from scripts.eval_signal_reporting_helpers import (
+        build_eval_signal_report_context,
+        eval_signal_report_rows,
+        load_eval_signal_reporting_assets,
+        load_eval_signal_reporting_summary,
+    )
+    from scripts.history_sequence_reporting_helpers import (
+        build_history_sequence_report_context,
+        load_history_sequence_reporting_assets,
+    )
+except ImportError:
+    from eval_report_data_helpers import (  # type: ignore
+        load_plot_base64_assets,
+    )
+    from eval_signal_reporting_helpers import (  # type: ignore
+        build_eval_signal_report_context,
+        eval_signal_report_rows,
+        load_eval_signal_reporting_assets,
+        load_eval_signal_reporting_summary,
+    )
+    from history_sequence_reporting_helpers import (  # type: ignore
+        build_history_sequence_report_context,
+        load_history_sequence_reporting_assets,
+    )
 
 
 # Project paths
@@ -29,7 +56,6 @@ PROJECT_ROOT = Path(__file__).parent.parent
 HISTORY_DIR = PROJECT_ROOT / "reports" / "eval_history"
 PLOTS_DIR = HISTORY_DIR / "plots"
 DEFAULT_OUTPUT_DIR = HISTORY_DIR / "report"
-
 
 def get_git_info() -> Dict[str, str]:
     """Get current git branch and commit."""
@@ -58,77 +84,6 @@ def get_git_info() -> Dict[str, str]:
     except Exception:
         pass
     return info
-
-
-def load_combined_history() -> List[Dict[str, Any]]:
-    """Load all combined evaluation history files."""
-    if not HISTORY_DIR.exists():
-        return []
-
-    files = sorted(HISTORY_DIR.glob("*_combined.json"), reverse=True)
-    history = []
-
-    for f in files:
-        try:
-            with f.open("r", encoding="utf-8") as fp:
-                data = json.load(fp)
-                data["_file"] = f.name
-                history.append(data)
-        except Exception as e:
-            print(f"Warning: Failed to load {f}: {e}")
-
-    return history
-
-
-def load_ocr_history() -> List[Dict[str, Any]]:
-    """Load OCR-only evaluation history files."""
-    if not HISTORY_DIR.exists():
-        return []
-
-    # OCR-only files don't have _combined suffix
-    all_files = set(HISTORY_DIR.glob("*.json"))
-    combined_files = set(HISTORY_DIR.glob("*_combined.json"))
-    ocr_files = sorted(all_files - combined_files, reverse=True)
-
-    history = []
-    for f in ocr_files:
-        try:
-            with f.open("r", encoding="utf-8") as fp:
-                data = json.load(fp)
-                if "metrics" in data:  # OCR-only structure
-                    data["_file"] = f.name
-                    history.append(data)
-        except Exception:
-            pass
-
-    return history
-
-
-def encode_image_base64(image_path: Path) -> Optional[str]:
-    """Encode an image file as base64 data URI."""
-    if not image_path.exists():
-        return None
-
-    try:
-        with image_path.open("rb") as f:
-            data = base64.b64encode(f.read()).decode("utf-8")
-
-        # Determine MIME type
-        suffix = image_path.suffix.lower()
-        mime_types = {
-            ".png": "image/png",
-            ".jpg": "image/jpeg",
-            ".jpeg": "image/jpeg",
-            ".gif": "image/gif",
-            ".svg": "image/svg+xml"
-        }
-        mime_type = mime_types.get(suffix, "image/png")
-
-        return f"data:{mime_type};base64,{data}"
-    except Exception as e:
-        print(f"Warning: Failed to encode {image_path}: {e}")
-        return None
-
 
 def generate_css() -> str:
     """Generate inline CSS for the report."""
@@ -325,6 +280,14 @@ def get_score_class(score: float) -> str:
 def generate_html_report(
     combined_history: List[Dict[str, Any]],
     ocr_history: List[Dict[str, Any]],
+    eval_signal_context: Dict[str, Any],
+    combined_trend_b64: Optional[str],
+    ocr_trend_b64: Optional[str],
+    history_sequence_bundle: Optional[Dict[str, Any]],
+    history_sequence_summary: Optional[Dict[str, Any]],
+    history_sequence_compare: Optional[Dict[str, Any]],
+    history_sequence_trend_b64: Optional[str],
+    history_sequence_surface_trend_b64: Optional[str],
     git_info: Dict[str, str],
     redact_commit: bool = False,
     redact_branch: bool = False
@@ -332,8 +295,11 @@ def generate_html_report(
     """Generate the complete HTML report."""
     now = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
 
-    # Get latest combined evaluation
-    latest = combined_history[0] if combined_history else None
+    latest = (
+        eval_signal_context.get("latest_combined_run")
+        if isinstance(eval_signal_context.get("latest_combined_run"), dict)
+        else None
+    )
 
     # Start HTML
     html = f"""<!DOCTYPE html>
@@ -410,8 +376,6 @@ def generate_html_report(
 """
 
     # Combined trend
-    combined_trend_path = PLOTS_DIR / "combined_trend.png"
-    combined_trend_b64 = encode_image_base64(combined_trend_path)
     if combined_trend_b64:
         html += f"""
             <h3>Combined Score Trend</h3>
@@ -423,8 +387,6 @@ def generate_html_report(
 """
 
     # OCR trend
-    ocr_trend_path = PLOTS_DIR / "ocr_trend.png"
-    ocr_trend_b64 = encode_image_base64(ocr_trend_path)
     if ocr_trend_b64:
         html += f"""
             <h3>OCR Metrics Trend</h3>
@@ -436,6 +398,118 @@ def generate_html_report(
 """
 
     html += """
+        </div>
+"""
+
+    html += """
+        <h2>History Sequence Reporting</h2>
+        <div class="trend-section">
+"""
+    history_sequence_context = build_history_sequence_report_context(
+        history_sequence_bundle,
+        history_sequence_summary,
+        history_sequence_compare,
+    )
+    if history_sequence_context["available"]:
+        html += f"""
+            <p class="meta-info">
+                Reports: <strong>{history_sequence_context['report_count']}</strong> |
+                Mean Accuracy: <strong>{history_sequence_context['mean_accuracy_overall']:.3f}</strong> |
+                Mean Macro F1: <strong>{history_sequence_context['mean_macro_f1_overall']:.3f}</strong> |
+                Mean Named Explainability: <strong>{history_sequence_context['mean_named_command_explainability_rate']:.3f}</strong>
+            </p>
+            <p class="meta-info">
+                Latest Surface: <code>{history_sequence_context['latest_sequence_surface_kind']}</code> |
+                Vocabulary: <code>{history_sequence_context['latest_named_command_vocabulary_kind']}</code> |
+                Best Surface Key: <code>{history_sequence_context['best_surface_key']}</code>
+            </p>
+"""
+        if history_sequence_trend_b64:
+            html += f"""
+            <h3>History Sequence Trend</h3>
+            <img src="{history_sequence_trend_b64}" alt="History Sequence Trend" class="trend-image">
+"""
+        else:
+            html += """
+            <p class="meta-info">History-sequence trend chart not available. Run <code>make eval-history</code> or <code>make history-sequence-reporting-bundle</code> to generate.</p>
+"""
+        if history_sequence_surface_trend_b64:
+            html += f"""
+            <h3>History Sequence Surface Trend</h3>
+            <img src="{history_sequence_surface_trend_b64}" alt="History Sequence Surface Trend" class="trend-image">
+"""
+        if history_sequence_context["leaderboard_rows"]:
+            html += """
+            <h3>Top History Sequence Surfaces</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Surface Key</th>
+                        <th>Reports</th>
+                        <th>Mean Accuracy</th>
+                        <th>Mean Macro F1</th>
+                        <th>Named Explainability</th>
+                    </tr>
+                </thead>
+                <tbody>
+"""
+            for row in history_sequence_context["leaderboard_rows"]:
+                html += f"""
+                    <tr>
+                        <td>{row['rank']}</td>
+                        <td><code>{row['surface_key']}</code></td>
+                        <td>{row['report_count']}</td>
+                        <td>{row['mean_accuracy_overall']:.3f}</td>
+                        <td>{row['mean_macro_f1_overall']:.3f}</td>
+                        <td>{row['mean_named_explainability_rate']:.3f}</td>
+                    </tr>
+"""
+            html += """
+                </tbody>
+            </table>
+"""
+    else:
+        html += """
+            <p class="meta-info">History-sequence reporting bundle not available. Run <code>make eval-history</code> or <code>make history-sequence-reporting-bundle</code> to materialize the canonical summary root.</p>
+"""
+
+    html += """
+        </div>
+"""
+
+    # Hybrid Blind Reporting block
+    hybrid_blind_report_count = eval_signal_context.get("hybrid_blind_report_count", 0)
+    if hybrid_blind_report_count > 0:
+        aggregate = (
+            eval_signal_context.get("aggregate_metrics")
+            if isinstance(eval_signal_context.get("aggregate_metrics"), dict)
+            else {}
+        )
+        html += """
+        <h2>Hybrid Blind Reporting</h2>
+        <div class="summary-card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+"""
+        html += f"""
+                    <tr><td>Report count</td><td>{hybrid_blind_report_count}</td></tr>
+                    <tr><td>Mean hybrid accuracy</td><td>{aggregate.get('hybrid_blind_accuracy_mean', 0.0):.4f}</td></tr>
+                    <tr><td>Mean graph2d accuracy</td><td>{aggregate.get('hybrid_blind_graph2d_accuracy_mean', 0.0):.4f}</td></tr>
+                    <tr><td>Mean gain vs graph2d</td><td>{aggregate.get('hybrid_blind_gain_mean', 0.0):.4f}</td></tr>
+                    <tr><td>Mean weak-label coverage</td><td>{aggregate.get('hybrid_blind_coverage_mean', 0.0):.4f}</td></tr>
+                    <tr><td>Latest label slice count</td><td>{aggregate.get('hybrid_blind_label_slice_count_latest', 0)}</td></tr>
+                    <tr><td>Latest family slice count</td><td>{aggregate.get('hybrid_blind_family_slice_count_latest', 0)}</td></tr>
+"""
+        html += """
+                </tbody>
+            </table>
         </div>
 """
 
@@ -457,7 +531,7 @@ def generate_html_report(
             </thead>
             <tbody>
 """
-        for entry in combined_history[:20]:  # Show last 20 entries
+        for entry in reversed(combined_history[-20:]):
             c = entry.get("combined", {})
             score = c.get("combined_score", 0)
             v_score = c.get("vision_score", 0)
@@ -515,7 +589,7 @@ def generate_html_report(
             </thead>
             <tbody>
 """
-        for entry in ocr_history[:10]:  # Show last 10 OCR entries
+        for entry in reversed(ocr_history[-10:]):
             m = entry.get("metrics", {})
             branch = entry.get("branch", "unknown")
             commit = entry.get("commit", "unknown")
@@ -564,10 +638,17 @@ def generate_html_report(
     return html
 
 
-def main():
+def main(argv: Optional[List[str]] = None):
     parser = argparse.ArgumentParser(
         description="Generate static HTML evaluation report",
         formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+
+    parser.add_argument(
+        "--history-dir",
+        type=str,
+        default=str(HISTORY_DIR),
+        help=f"History directory (default: {HISTORY_DIR})"
     )
 
     parser.add_argument(
@@ -589,33 +670,80 @@ def main():
         help="Hide branch names in report (privacy/compliance)"
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+
+    history_dir = Path(args.history_dir)
+    plots_dir = history_dir / "plots"
 
     # Create output directory
     output_dir = Path(args.out)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     print("Generating Evaluation Report...")
-    print(f"  History directory: {HISTORY_DIR}")
+    print(f"  History directory: {history_dir}")
     print(f"  Output directory: {output_dir}")
 
-    # Load data
-    print("  Loading combined history...")
-    combined_history = load_combined_history()
+    # Load canonical eval-signal summary and report rows (bundle-first)
+    print("  Loading eval-signal canonical summary (bundle-first)...")
+    eval_signal_bundle, eval_signal_summary = load_eval_signal_reporting_assets(history_dir)
+    if eval_signal_summary is None:
+        eval_signal_summary = load_eval_signal_reporting_summary(history_dir)
+    eval_signal_context = build_eval_signal_report_context(
+        eval_signal_summary,
+        history_dir=history_dir,
+    )
+    combined_history = eval_signal_report_rows(
+        eval_signal_summary,
+        history_dir=history_dir,
+        report_type="combined",
+    )
     print(f"    Found {len(combined_history)} combined evaluation records")
 
-    print("  Loading OCR history...")
-    ocr_history = load_ocr_history()
+    ocr_history = eval_signal_report_rows(
+        eval_signal_summary,
+        history_dir=history_dir,
+        report_type="ocr",
+    )
     print(f"    Found {len(ocr_history)} OCR-only evaluation records")
+
+    print("  Loading history-sequence reporting bundle...")
+    history_sequence_bundle, history_sequence_summary, history_sequence_compare = (
+        load_history_sequence_reporting_assets(history_dir)
+    )
+    plot_assets = load_plot_base64_assets(
+        plots_dir,
+        {
+            "combined": "combined_trend.png",
+            "ocr": "ocr_trend.png",
+            "history_sequence": "history_sequence_trend.png",
+            "history_sequence_surface": "history_sequence_surface_trend.png",
+        },
+    )
+    history_sequence_trend_b64 = plot_assets.get("history_sequence")
+    history_sequence_surface_trend_b64 = plot_assets.get("history_sequence_surface")
+    print(
+        "    Found history-sequence reporting summary: "
+        f"{'yes' if history_sequence_summary else 'no'}"
+    )
 
     # Get git info
     git_info = get_git_info()
 
     # Generate HTML
     print("  Generating HTML report...")
+    combined_trend_b64 = plot_assets.get("combined")
+    ocr_trend_b64 = plot_assets.get("ocr")
     html_content = generate_html_report(
         combined_history,
         ocr_history,
+        eval_signal_context,
+        combined_trend_b64,
+        ocr_trend_b64,
+        history_sequence_bundle,
+        history_sequence_summary,
+        history_sequence_compare,
+        history_sequence_trend_b64,
+        history_sequence_surface_trend_b64,
         git_info,
         redact_commit=args.redact_commit,
         redact_branch=args.redact_branch
@@ -631,15 +759,23 @@ def main():
     print(f"  OCR records: {len(ocr_history)}")
 
     # Check for embedded images
-    if (PLOTS_DIR / "combined_trend.png").exists():
+    if (plots_dir / "combined_trend.png").exists():
         print("  Combined trend chart: embedded")
     else:
         print("  Combined trend chart: missing (run 'make eval-trend')")
 
-    if (PLOTS_DIR / "ocr_trend.png").exists():
+    if (plots_dir / "ocr_trend.png").exists():
         print("  OCR trend chart: embedded")
     else:
         print("  OCR trend chart: missing (run 'make eval-trend')")
+
+    if history_sequence_summary:
+        print("  History-sequence reporting: embedded")
+    else:
+        print(
+            "  History-sequence reporting: missing "
+            "(run 'make eval-history' or 'make history-sequence-reporting-bundle')"
+        )
 
     print(f"\nOpen: file://{report_path.resolve()}")
 
