@@ -34,6 +34,11 @@ DEFAULT_SCHEMA_PATH = "docs/eval_history.schema.json"
 DEFAULT_EXCLUDE_GLOBS = (
     "hybrid_blind_drift_alert_report.json",
     "hybrid_blind_drift_threshold_suggestion.json",
+    "*_experiment_summary.json",
+    "*_reporting_bundle.json",
+    "eval_reporting_bundle_health_report.json",
+    "eval_reporting_index.json",
+    "history_sequence_surface_comparison_report.json",
 )
 
 

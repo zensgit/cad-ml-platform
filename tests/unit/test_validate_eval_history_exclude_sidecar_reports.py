@@ -93,6 +93,29 @@ def test_validate_eval_history_supports_custom_exclude_glob(tmp_path: Path) -> N
     assert "Skipped 1 JSON files by exclude patterns" in proc.stdout
 
 
+def test_validate_eval_history_skips_default_generated_non_history_reports(tmp_path: Path) -> None:
+    _write_valid_history_record(tmp_path / "history_eval.json")
+    for report_name in (
+        "eval_reporting_bundle.json",
+        "eval_reporting_bundle_health_report.json",
+        "eval_reporting_index.json",
+        "eval_signal_experiment_summary.json",
+        "eval_signal_reporting_bundle.json",
+        "history_sequence_experiment_summary.json",
+        "history_sequence_reporting_bundle.json",
+        "history_sequence_surface_comparison_report.json",
+    ):
+        (tmp_path / report_name).write_text(
+            json.dumps({"surface_kind": report_name}),
+            encoding="utf-8",
+        )
+
+    proc = _run_validator(tmp_path)
+
+    assert proc.returncode == 0, proc.stderr or proc.stdout
+    assert "Skipped 8 JSON files by exclude patterns" in proc.stdout
+
+
 def test_validate_eval_history_still_fails_for_unknown_non_history_json(tmp_path: Path) -> None:
     _write_valid_history_record(tmp_path / "history_eval.json")
     (tmp_path / "unexpected_surface.json").write_text(
