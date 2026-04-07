@@ -38,19 +38,33 @@ def test_workflow_has_hybrid_superpass_inputs_and_env() -> None:
     _assert_empty_workflow_dispatch(workflow)
     env = workflow["env"]
 
+    assert "HYBRID_BLIND_ENABLE" in env
+    assert "HYBRID_BLIND_GATE_CONFIG" in env
+    assert "HYBRID_CONFIDENCE_CALIBRATION_ENABLE" in env
+    assert "HYBRID_CONFIDENCE_CALIBRATION_OUTPUT_JSON" in env
     assert "HYBRID_SUPERPASS_ENABLE" in env
     assert "HYBRID_SUPERPASS_CONFIG" in env
     assert "HYBRID_SUPERPASS_OUTPUT_JSON" in env
     assert "HYBRID_SUPERPASS_MISSING_MODE" in env
+    assert "HYBRID_SUPERPASS_VALIDATION_JSON" in env
     assert "HYBRID_SUPERPASS_FAIL_ON_FAILED" in env
 
 
 def test_workflow_has_hybrid_superpass_steps_and_artifacts() -> None:
     workflow = _load_workflow()
 
+    blind_step = _get_step(workflow, "evaluate", "Run Hybrid blind benchmark (optional)")
+    assert "scripts/ci/build_hybrid_blind_synthetic_dxf_dataset.py" in blind_step["run"]
+    blind_gate_step = _get_step(workflow, "evaluate", "Check Hybrid blind gate (optional)")
+    assert "scripts/ci/check_hybrid_blind_gate.py" in blind_gate_step["run"]
+    calibration_step = _get_step(workflow, "evaluate", "Calibrate Hybrid confidence from review CSV (optional)")
+    assert "scripts/calibrate_hybrid_confidence.py" in calibration_step["run"]
+
     gate_step = _get_step(workflow, "evaluate", "Check Hybrid superpass gate (optional)")
     gate_script = gate_step["run"]
     assert "scripts/ci/check_hybrid_superpass_targets.py" in gate_script
+    assert "steps.hybrid_blind_gate.outputs.report_path" in gate_script
+    assert "steps.hybrid_calibration.outputs.output_json" in gate_script
     assert "--hybrid-blind-gate-report" in gate_script
     assert "--hybrid-calibration-json" in gate_script
     assert "--config" in gate_script
