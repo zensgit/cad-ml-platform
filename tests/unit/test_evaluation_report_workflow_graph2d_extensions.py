@@ -22,6 +22,10 @@ def _get_step(workflow: dict, job_name: str, step_name: str) -> dict:
     raise AssertionError(f"Missing step {step_name!r} in job {job_name!r}")
 
 
+def _assert_empty_workflow_dispatch(workflow: dict) -> None:
+    assert workflow["on"]["workflow_dispatch"] == {}
+
+
 def _load_bash_helper_from_step(step: dict) -> str:
     run = step["run"]
     match = re.search(r"bash\s+(scripts/ci/[^\s]+)", run)
@@ -37,7 +41,7 @@ def _load_comment_helper() -> str:
 def test_workflow_wires_knowledge_domain_api_surface_matrix() -> None:
     workflow = _load_workflow()
     env = workflow["env"]
-    dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
+    _assert_empty_workflow_dispatch(workflow)
 
     assert "BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_ENABLE" in env
     assert "BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_TITLE" in env
@@ -47,11 +51,6 @@ def test_workflow_wires_knowledge_domain_api_surface_matrix() -> None:
     )
     assert "BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_OUTPUT_JSON" in env
     assert "BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_OUTPUT_MD" in env
-    assert "benchmark_knowledge_domain_api_surface_matrix_enable" in dispatch_inputs
-    assert (
-        "benchmark_knowledge_domain_api_surface_matrix_knowledge_domain_capability_matrix_json"
-        in dispatch_inputs
-    )
 
     step = _get_step(
         workflow,
@@ -62,7 +61,7 @@ def test_workflow_wires_knowledge_domain_api_surface_matrix() -> None:
     assert "scripts/export_benchmark_knowledge_domain_api_surface_matrix.py" in script
     assert "BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_ENABLE" in script
     assert (
-        "benchmark_knowledge_domain_api_surface_matrix_knowledge_domain_capability_matrix_json"
+        "BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON"
         in script
     )
     assert "steps.benchmark_knowledge_domain_capability_matrix.outputs.output_json" in script
@@ -79,7 +78,7 @@ def test_workflow_wires_knowledge_domain_api_surface_matrix() -> None:
 def test_workflow_wires_knowledge_domain_surface_action_plan() -> None:
     workflow = _load_workflow()
     env = workflow["env"]
-    dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
+    _assert_empty_workflow_dispatch(workflow)
 
     assert "BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_ENABLE" in env
     assert "BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_TITLE" in env
@@ -89,11 +88,6 @@ def test_workflow_wires_knowledge_domain_surface_action_plan() -> None:
     )
     assert "BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_OUTPUT_JSON" in env
     assert "BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_OUTPUT_MD" in env
-    assert "benchmark_knowledge_domain_surface_action_plan_enable" in dispatch_inputs
-    assert (
-        "benchmark_knowledge_domain_surface_action_plan_knowledge_domain_surface_matrix_json"
-        in dispatch_inputs
-    )
 
     step = _get_step(
         workflow,
@@ -104,7 +98,7 @@ def test_workflow_wires_knowledge_domain_surface_action_plan() -> None:
     assert "scripts/export_benchmark_knowledge_domain_surface_action_plan.py" in script
     assert "BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_ENABLE" in script
     assert (
-        "benchmark_knowledge_domain_surface_action_plan_knowledge_domain_surface_matrix_json"
+        "BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_KNOWLEDGE_DOMAIN_SURFACE_MATRIX_JSON"
         in script
     )
     assert "total_subcapability_count=" in script
@@ -377,374 +371,31 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_OUTPUT_JSON" in env
     assert "ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_TOP_K" in env
 
-    dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
-    assert "review_gate_min_total_rows" in dispatch_inputs
-    assert "review_gate_max_candidate_rate" in dispatch_inputs
-    assert "review_gate_max_hybrid_rejected_rate" in dispatch_inputs
-    assert "review_gate_max_conflict_rate" in dispatch_inputs
-    assert "review_gate_max_low_confidence_rate" in dispatch_inputs
-    assert "review_gate_strict" in dispatch_inputs
-    assert "review_pack_input_csv" in dispatch_inputs
-    assert "review_pack_input_artifact_name" in dispatch_inputs
-    assert "review_pack_input_artifact_run_id" in dispatch_inputs
-    assert "review_pack_input_artifact_repository" in dispatch_inputs
-    assert "review_pack_input_artifact_path" in dispatch_inputs
-    assert "benchmark_scorecard_enable" in dispatch_inputs
-    assert "benchmark_scorecard_assistant_evidence_summary" in dispatch_inputs
-    assert "benchmark_scorecard_review_queue_summary" in dispatch_inputs
-    assert "benchmark_scorecard_feedback_summary" in dispatch_inputs
-    assert "benchmark_scorecard_finetune_summary" in dispatch_inputs
-    assert "benchmark_scorecard_metric_train_summary" in dispatch_inputs
-    assert "benchmark_scorecard_ocr_review_summary" in dispatch_inputs
-    assert "benchmark_scorecard_qdrant_readiness_summary" in dispatch_inputs
-    assert "benchmark_scorecard_engineering_signals_summary" in dispatch_inputs
-    assert "benchmark_scorecard_knowledge_readiness_summary" in dispatch_inputs
-    assert "benchmark_scorecard_operator_adoption_summary" in dispatch_inputs
-    assert "benchmark_engineering_signals_enable" in dispatch_inputs
-    assert "benchmark_engineering_signals_hybrid_summary_json" in dispatch_inputs
-    assert "benchmark_engineering_signals_ocr_review_summary_json" in dispatch_inputs
-    assert "benchmark_realdata_signals_enable" in dispatch_inputs
-    assert "benchmark_realdata_signals_hybrid_summary_json" in dispatch_inputs
-    assert "benchmark_realdata_signals_online_example_report_json" in dispatch_inputs
-    assert "benchmark_realdata_signals_step_dir_summary_json" in dispatch_inputs
-    assert "benchmark_realdata_scorecard_enable" in dispatch_inputs
-    assert "benchmark_realdata_scorecard_hybrid_summary_json" in dispatch_inputs
-    assert "benchmark_realdata_scorecard_history_summary_json" in dispatch_inputs
-    assert "benchmark_realdata_scorecard_online_example_report_json" in dispatch_inputs
-    assert "benchmark_realdata_scorecard_step_dir_summary_json" in dispatch_inputs
-    assert "benchmark_knowledge_readiness_enable" in dispatch_inputs
-    assert "benchmark_knowledge_readiness_snapshot_json" in dispatch_inputs
-    assert "benchmark_knowledge_application_enable" in dispatch_inputs
-    assert "benchmark_knowledge_application_engineering_signals_json" in dispatch_inputs
-    assert "benchmark_knowledge_application_knowledge_readiness_json" in dispatch_inputs
-    assert "benchmark_knowledge_domain_capability_matrix_enable" in dispatch_inputs
-    assert (
-        "benchmark_knowledge_domain_capability_matrix_knowledge_readiness_json"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_knowledge_domain_capability_matrix_knowledge_application_json"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_knowledge_domain_capability_matrix_knowledge_domain_matrix_json"
-        in dispatch_inputs
-    )
-    assert "benchmark_knowledge_domain_api_surface_matrix_enable" in dispatch_inputs
-    assert (
-        "benchmark_knowledge_domain_api_surface_matrix_knowledge_domain_capability_matrix_json"
-        in dispatch_inputs
-    )
-    assert "benchmark_knowledge_domain_capability_drift_enable" in dispatch_inputs
-    assert (
-        "benchmark_knowledge_domain_capability_drift_current_summary_json"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_knowledge_domain_capability_drift_previous_summary_json"
-        in dispatch_inputs
-    )
-    assert "benchmark_knowledge_domain_action_plan_enable" in dispatch_inputs
-    assert "benchmark_knowledge_domain_action_plan_knowledge_domain_matrix_json" in dispatch_inputs
-    assert "benchmark_knowledge_domain_control_plane_enable" in dispatch_inputs
-    assert (
-        "benchmark_knowledge_domain_control_plane_knowledge_domain_capability_matrix_json"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_knowledge_domain_control_plane_knowledge_domain_capability_drift_json"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_knowledge_domain_control_plane_knowledge_realdata_correlation_json"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_knowledge_domain_control_plane_knowledge_outcome_correlation_json"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_knowledge_domain_control_plane_knowledge_domain_action_plan_json"
-        in dispatch_inputs
-    )
-    assert "benchmark_knowledge_domain_control_plane_drift_enable" in dispatch_inputs
-    assert (
-        "benchmark_knowledge_domain_control_plane_drift_current_summary_json"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_knowledge_domain_control_plane_drift_previous_summary_json"
-        in dispatch_inputs
-    )
-    assert "benchmark_knowledge_domain_release_gate_enable" in dispatch_inputs
-    assert (
-        "benchmark_knowledge_domain_release_gate_knowledge_domain_capability_matrix_json"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_knowledge_domain_release_gate_knowledge_domain_capability_drift_json"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_knowledge_domain_release_gate_knowledge_domain_action_plan_json"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_knowledge_domain_release_gate_knowledge_domain_control_plane_json"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_knowledge_domain_release_gate_knowledge_domain_control_plane_drift_json"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_knowledge_domain_release_gate_knowledge_domain_release_surface_alignment_json"
-        in dispatch_inputs
-    )
-    assert "benchmark_knowledge_source_coverage_enable" in dispatch_inputs
-    assert "benchmark_knowledge_source_action_plan_enable" in dispatch_inputs
-    assert (
-        "benchmark_knowledge_source_action_plan_knowledge_source_coverage_json"
-        in dispatch_inputs
-    )
-    assert "benchmark_knowledge_source_drift_enable" in dispatch_inputs
-    assert "benchmark_knowledge_source_drift_current_summary_json" in dispatch_inputs
-    assert "benchmark_knowledge_source_drift_previous_summary_json" in dispatch_inputs
-    assert "benchmark_knowledge_outcome_correlation_enable" in dispatch_inputs
-    assert (
-        "benchmark_knowledge_outcome_correlation_knowledge_domain_matrix_json"
-        in dispatch_inputs
-    )
-    assert "benchmark_knowledge_outcome_correlation_realdata_scorecard_json" in dispatch_inputs
-    assert "benchmark_knowledge_outcome_drift_enable" in dispatch_inputs
-    assert "benchmark_knowledge_outcome_drift_current_summary_json" in dispatch_inputs
-    assert "benchmark_knowledge_outcome_drift_previous_summary_json" in dispatch_inputs
-    assert (
-        "benchmark_knowledge_domain_release_surface_alignment_enable"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_knowledge_domain_release_surface_alignment_release_decision_json"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_knowledge_domain_release_surface_alignment_release_runbook_json"
-        in dispatch_inputs
-    )
-    assert "benchmark_competitive_surpass_index_enable" in dispatch_inputs
-    assert "benchmark_competitive_surpass_index_engineering_signals_json" in dispatch_inputs
-    assert "benchmark_competitive_surpass_index_knowledge_readiness_json" in dispatch_inputs
-    assert "benchmark_competitive_surpass_index_knowledge_application_json" in dispatch_inputs
-    assert (
-        "benchmark_competitive_surpass_index_knowledge_realdata_correlation_json"
-        in dispatch_inputs
-    )
-    assert "benchmark_competitive_surpass_index_knowledge_domain_matrix_json" in dispatch_inputs
-    assert (
-        "benchmark_competitive_surpass_index_knowledge_domain_action_plan_json"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_competitive_surpass_index_knowledge_source_coverage_json"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_competitive_surpass_index_knowledge_source_action_plan_json"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_competitive_surpass_index_knowledge_source_drift_json"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_competitive_surpass_index_knowledge_outcome_correlation_json"
-        in dispatch_inputs
-    )
-    assert "benchmark_competitive_surpass_index_knowledge_outcome_drift_json" in dispatch_inputs
-    assert "benchmark_competitive_surpass_index_realdata_signals_json" in dispatch_inputs
-    assert "benchmark_competitive_surpass_index_realdata_scorecard_json" in dispatch_inputs
-    assert "benchmark_competitive_surpass_index_operator_adoption_json" in dispatch_inputs
-    assert (
-        "benchmark_competitive_surpass_index_knowledge_domain_release_surface_alignment_json"
-        in dispatch_inputs
-    )
-    assert "benchmark_competitive_surpass_trend_enable" in dispatch_inputs
-    assert "benchmark_competitive_surpass_trend_current_summary_json" in dispatch_inputs
-    assert "benchmark_competitive_surpass_trend_previous_summary_json" in dispatch_inputs
-    assert "benchmark_competitive_surpass_action_plan_enable" in dispatch_inputs
-    assert (
-        "benchmark_competitive_surpass_action_plan_competitive_surpass_index_json"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_competitive_surpass_action_plan_competitive_surpass_trend_json"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_competitive_surpass_action_plan_engineering_signals_json"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_competitive_surpass_action_plan_knowledge_domain_action_plan_json"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_competitive_surpass_action_plan_realdata_signals_json"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_competitive_surpass_action_plan_realdata_scorecard_json"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_competitive_surpass_action_plan_operator_adoption_json"
-        in dispatch_inputs
-    )
-    assert "benchmark_operational_summary_enable" in dispatch_inputs
-    assert "benchmark_operational_summary_scorecard_json" in dispatch_inputs
-    assert "benchmark_operational_summary_feedback_json" in dispatch_inputs
-    assert "benchmark_operational_summary_assistant_json" in dispatch_inputs
-    assert "benchmark_operational_summary_review_queue_json" in dispatch_inputs
-    assert "benchmark_operational_summary_ocr_review_json" in dispatch_inputs
-    assert "benchmark_operational_summary_operator_adoption_json" in dispatch_inputs
-    assert "benchmark_artifact_bundle_enable" in dispatch_inputs
-    assert "benchmark_artifact_bundle_scorecard_json" in dispatch_inputs
-    assert "benchmark_artifact_bundle_operational_summary_json" in dispatch_inputs
-    assert "benchmark_artifact_bundle_feedback_json" in dispatch_inputs
-    assert "benchmark_artifact_bundle_assistant_json" in dispatch_inputs
-    assert "benchmark_artifact_bundle_review_queue_json" in dispatch_inputs
-    assert "benchmark_artifact_bundle_ocr_review_json" in dispatch_inputs
-    assert "benchmark_artifact_bundle_companion_summary_json" in dispatch_inputs
-    assert "benchmark_artifact_bundle_competitive_surpass_index_json" in dispatch_inputs
-    assert "benchmark_artifact_bundle_competitive_surpass_trend_json" in dispatch_inputs
-    assert (
-        "benchmark_artifact_bundle_competitive_surpass_action_plan_json"
-        in dispatch_inputs
-    )
-    assert "benchmark_artifact_bundle_release_decision_json" in dispatch_inputs
-    assert "benchmark_artifact_bundle_engineering_signals_json" in dispatch_inputs
-    assert "benchmark_artifact_bundle_realdata_signals_json" in dispatch_inputs
-    assert "benchmark_artifact_bundle_realdata_scorecard_json" in dispatch_inputs
-    assert "benchmark_artifact_bundle_knowledge_readiness_json" in dispatch_inputs
-    assert "benchmark_artifact_bundle_knowledge_drift_json" in dispatch_inputs
-    assert "benchmark_artifact_bundle_knowledge_application_json" in dispatch_inputs
-    assert "benchmark_artifact_bundle_knowledge_domain_action_plan_json" in dispatch_inputs
-    assert "benchmark_artifact_bundle_knowledge_domain_release_gate_json" in dispatch_inputs
-    assert "benchmark_artifact_bundle_knowledge_source_coverage_json" in dispatch_inputs
-    assert "benchmark_artifact_bundle_knowledge_source_action_plan_json" in dispatch_inputs
-    assert (
-        "benchmark_artifact_bundle_knowledge_outcome_correlation_json"
-        in dispatch_inputs
-    )
-    assert "benchmark_artifact_bundle_knowledge_outcome_drift_json" in dispatch_inputs
-    assert (
-        "benchmark_artifact_bundle_knowledge_domain_release_surface_alignment_json"
-        in dispatch_inputs
-    )
-    assert "benchmark_companion_summary_enable" in dispatch_inputs
-    assert "benchmark_companion_summary_scorecard_json" in dispatch_inputs
-    assert "benchmark_companion_summary_operational_summary_json" in dispatch_inputs
-    assert "benchmark_companion_summary_artifact_bundle_json" in dispatch_inputs
-    assert "benchmark_companion_summary_engineering_signals_json" in dispatch_inputs
-    assert "benchmark_companion_summary_realdata_signals_json" in dispatch_inputs
-    assert "benchmark_companion_summary_realdata_scorecard_json" in dispatch_inputs
-    assert "benchmark_companion_summary_knowledge_readiness_json" in dispatch_inputs
-    assert "benchmark_companion_summary_knowledge_drift_json" in dispatch_inputs
-    assert "benchmark_companion_summary_knowledge_application_json" in dispatch_inputs
-    assert "benchmark_companion_summary_knowledge_domain_action_plan_json" in dispatch_inputs
-    assert "benchmark_companion_summary_knowledge_domain_release_gate_json" in dispatch_inputs
-    assert "benchmark_companion_summary_knowledge_source_coverage_json" in dispatch_inputs
-    assert "benchmark_companion_summary_knowledge_source_action_plan_json" in dispatch_inputs
-    assert "benchmark_companion_summary_competitive_surpass_index_json" in dispatch_inputs
-    assert "benchmark_companion_summary_competitive_surpass_trend_json" in dispatch_inputs
-    assert (
-        "benchmark_companion_summary_competitive_surpass_action_plan_json"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_companion_summary_knowledge_outcome_correlation_json"
-        in dispatch_inputs
-    )
-    assert "benchmark_companion_summary_knowledge_outcome_drift_json" in dispatch_inputs
-    assert (
-        "benchmark_companion_summary_knowledge_domain_release_surface_alignment_json"
-        in dispatch_inputs
-    )
-    assert "benchmark_release_decision_enable" in dispatch_inputs
-    assert "benchmark_release_decision_scorecard_json" in dispatch_inputs
-    assert "benchmark_release_decision_operational_summary_json" in dispatch_inputs
-    assert "benchmark_release_decision_artifact_bundle_json" in dispatch_inputs
-    assert "benchmark_release_decision_companion_summary_json" in dispatch_inputs
-    assert "benchmark_release_decision_engineering_signals_json" in dispatch_inputs
-    assert "benchmark_release_decision_realdata_signals_json" in dispatch_inputs
-    assert "benchmark_release_decision_realdata_scorecard_json" in dispatch_inputs
-    assert "benchmark_release_decision_operator_adoption_json" in dispatch_inputs
-    assert "benchmark_release_decision_knowledge_readiness_json" in dispatch_inputs
-    assert "benchmark_release_decision_knowledge_drift_json" in dispatch_inputs
-    assert "benchmark_release_decision_knowledge_application_json" in dispatch_inputs
-    assert "benchmark_release_decision_knowledge_domain_release_gate_json" in dispatch_inputs
-    assert (
-        "benchmark_release_decision_knowledge_reference_inventory_json"
-        in dispatch_inputs
-    )
-    assert "benchmark_release_decision_knowledge_domain_action_plan_json" in dispatch_inputs
-    assert "benchmark_release_decision_knowledge_source_coverage_json" in dispatch_inputs
-    assert "benchmark_release_decision_knowledge_source_action_plan_json" in dispatch_inputs
-    assert (
-        "benchmark_release_decision_knowledge_outcome_correlation_json"
-        in dispatch_inputs
-    )
-    assert "benchmark_release_decision_knowledge_outcome_drift_json" in dispatch_inputs
-    assert "benchmark_release_decision_competitive_surpass_index_json" in dispatch_inputs
-    assert "benchmark_release_decision_competitive_surpass_trend_json" in dispatch_inputs
-    assert (
-        "benchmark_release_decision_competitive_surpass_action_plan_json"
-        in dispatch_inputs
-    )
-    assert "benchmark_release_runbook_enable" in dispatch_inputs
-    assert "benchmark_release_runbook_release_decision_json" in dispatch_inputs
-    assert "benchmark_release_runbook_companion_summary_json" in dispatch_inputs
-    assert "benchmark_release_runbook_artifact_bundle_json" in dispatch_inputs
-    assert "benchmark_release_runbook_engineering_signals_json" in dispatch_inputs
-    assert "benchmark_release_runbook_realdata_signals_json" in dispatch_inputs
-    assert "benchmark_release_runbook_realdata_scorecard_json" in dispatch_inputs
-    assert "benchmark_release_runbook_operator_adoption_json" in dispatch_inputs
-    assert "benchmark_release_runbook_knowledge_readiness_json" in dispatch_inputs
-    assert "benchmark_release_runbook_knowledge_drift_json" in dispatch_inputs
-    assert "benchmark_release_runbook_knowledge_application_json" in dispatch_inputs
-    assert "benchmark_release_runbook_knowledge_domain_release_gate_json" in dispatch_inputs
-    assert (
-        "benchmark_release_runbook_knowledge_reference_inventory_json"
-        in dispatch_inputs
-    )
-    assert "benchmark_release_runbook_knowledge_domain_action_plan_json" in dispatch_inputs
-    assert "benchmark_release_runbook_knowledge_source_coverage_json" in dispatch_inputs
-    assert "benchmark_release_runbook_knowledge_source_action_plan_json" in dispatch_inputs
-    assert (
-        "benchmark_release_runbook_knowledge_outcome_correlation_json"
-        in dispatch_inputs
-    )
-    assert "benchmark_release_runbook_knowledge_outcome_drift_json" in dispatch_inputs
-    assert "benchmark_release_runbook_competitive_surpass_index_json" in dispatch_inputs
-    assert "benchmark_release_runbook_competitive_surpass_trend_json" in dispatch_inputs
-    assert (
-        "benchmark_release_runbook_competitive_surpass_action_plan_json"
-        in dispatch_inputs
-    )
-    assert "benchmark_operator_adoption_enable" in dispatch_inputs
-    assert "benchmark_operator_adoption_release_decision_json" in dispatch_inputs
-    assert "benchmark_operator_adoption_release_runbook_json" in dispatch_inputs
-    assert "benchmark_operator_adoption_review_queue_json" in dispatch_inputs
-    assert "benchmark_operator_adoption_feedback_flywheel_json" in dispatch_inputs
-    assert "benchmark_operator_adoption_knowledge_drift_json" in dispatch_inputs
-    assert "benchmark_operator_adoption_knowledge_outcome_drift_json" in dispatch_inputs
-    assert "ocr_review_pack_enable" in dispatch_inputs
-    assert "ocr_review_pack_input" in dispatch_inputs
-    assert "assistant_evidence_report_enable" in dispatch_inputs
-    assert "assistant_evidence_report_input" in dispatch_inputs
-    assert "active_learning_review_queue_report_enable" in dispatch_inputs
-    assert "active_learning_review_queue_report_input" in dispatch_inputs
-    assert "active_learning_review_queue_report_top_k" in dispatch_inputs
+    _assert_empty_workflow_dispatch(workflow)
+    assert "MIN_COMBINED" in env
+    assert "MIN_VISION" in env
+    assert "MIN_OCR" in env
+    assert "REVIEW_GATE_MIN_TOTAL_ROWS" in env
+    assert "REVIEW_GATE_MAX_CANDIDATE_RATE" in env
+    assert "REVIEW_GATE_MAX_HYBRID_REJECTED_RATE" in env
+    assert "REVIEW_GATE_MAX_CONFLICT_RATE" in env
+    assert "REVIEW_GATE_MAX_LOW_CONFIDENCE_RATE" in env
+    assert "REVIEW_GATE_STRICT" in env
+    assert "REVIEW_PACK_INPUT_CSV" in env
+    assert "REVIEW_PACK_INPUT_ARTIFACT_NAME" in env
+    assert "REVIEW_PACK_INPUT_ARTIFACT_RUN_ID" in env
+    assert "REVIEW_PACK_INPUT_ARTIFACT_REPOSITORY" in env
+    assert "REVIEW_PACK_INPUT_ARTIFACT_PATH" in env
+    assert "BENCHMARK_SCORECARD_ASSISTANT_EVIDENCE_SUMMARY" in env
+    assert "BENCHMARK_SCORECARD_REVIEW_QUEUE_SUMMARY" in env
+    assert "BENCHMARK_SCORECARD_FEEDBACK_SUMMARY" in env
+    assert "BENCHMARK_SCORECARD_FINETUNE_SUMMARY" in env
+    assert "BENCHMARK_SCORECARD_METRIC_TRAIN_SUMMARY" in env
+    assert "BENCHMARK_SCORECARD_OCR_REVIEW_SUMMARY" in env
+    assert "BENCHMARK_SCORECARD_QDRANT_READINESS_SUMMARY" in env
+    assert "BENCHMARK_SCORECARD_ENGINEERING_SIGNALS_SUMMARY" in env
+    assert "BENCHMARK_SCORECARD_KNOWLEDGE_READINESS_SUMMARY" in env
+    assert "BENCHMARK_SCORECARD_OPERATOR_ADOPTION_SUMMARY" in env
     assert permissions["actions"] == "read"
 
 
@@ -755,7 +406,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         workflow, "evaluate", "Download review-pack input artifact (optional)"
     )
     assert download_step["uses"] == "actions/download-artifact@v4"
-    assert "review_pack_input_artifact_name" in download_step["if"]
+    assert "REVIEW_PACK_INPUT_ARTIFACT_NAME" in download_step["if"]
     download_with = download_step["with"]
     assert "run-id" in download_with
     assert "repository" in download_with
@@ -764,8 +415,8 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     review_step = _get_step(workflow, "evaluate", "Build hybrid rejection review pack (optional)")
     review_script = review_step["run"]
     assert "scripts/export_hybrid_rejection_review_pack.py" in review_script
-    assert "github.event.inputs.review_pack_input_csv" in review_script
-    assert "review_pack_input_artifact_path" in review_script
+    assert "env.REVIEW_PACK_INPUT_CSV" in review_script
+    assert "env.REVIEW_PACK_INPUT_ARTIFACT_PATH" in review_script
     assert "find \"$ARTIFACT_INPUT_DIR\" -type f -name '*.csv'" in review_script
     assert "input_source=" in review_script
     assert "--low-confidence-threshold" in review_script
@@ -813,7 +464,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     )
     strict_script = strict_step["run"]
     assert "GRAPH2D_REVIEW_PACK_GATE_STRICT" in strict_script
-    assert "review_gate_strict" in strict_script
+    assert "REVIEW_GATE_STRICT" in strict_script
     assert "gate status is not passed" in strict_script
     assert strict_step["continue-on-error"] == "true"
 
@@ -821,7 +472,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     ocr_review_script = ocr_review_step["run"]
     assert "scripts/export_ocr_review_pack.py" in ocr_review_script
     assert "OCR_REVIEW_PACK_ENABLE" in ocr_review_script
-    assert "ocr_review_pack_input" in ocr_review_script
+    assert "OCR_REVIEW_PACK_INPUT" in ocr_review_script
     assert "review_priority_counts=" in ocr_review_script
     assert "top_recommended_actions=" in ocr_review_script
 
@@ -831,8 +482,8 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     benchmark_engineering_script = benchmark_engineering_step["run"]
     assert "scripts/export_benchmark_engineering_signals.py" in benchmark_engineering_script
     assert "BENCHMARK_ENGINEERING_SIGNALS_ENABLE" in benchmark_engineering_script
-    assert "benchmark_engineering_signals_hybrid_summary_json" in benchmark_engineering_script
-    assert "benchmark_engineering_signals_ocr_review_summary_json" in benchmark_engineering_script
+    assert "BENCHMARK_ENGINEERING_SIGNALS_HYBRID_SUMMARY_JSON" in benchmark_engineering_script
+    assert "BENCHMARK_ENGINEERING_SIGNALS_OCR_REVIEW_SUMMARY_JSON" in benchmark_engineering_script
     assert "steps.ocr_review_pack.outputs.output_json" in benchmark_engineering_script
     assert "INPUT_COUNT=0" in benchmark_engineering_script
     assert "coverage_ratio=" in benchmark_engineering_script
@@ -847,12 +498,12 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     benchmark_realdata_script = benchmark_realdata_step["run"]
     assert "scripts/export_benchmark_realdata_signals.py" in benchmark_realdata_script
     assert "BENCHMARK_REALDATA_SIGNALS_ENABLE" in benchmark_realdata_script
-    assert "benchmark_realdata_signals_hybrid_summary_json" in benchmark_realdata_script
+    assert "BENCHMARK_REALDATA_SIGNALS_HYBRID_SUMMARY_JSON" in benchmark_realdata_script
     assert (
-        "benchmark_realdata_signals_online_example_report_json"
+        "BENCHMARK_REALDATA_SIGNALS_ONLINE_EXAMPLE_REPORT_JSON"
         in benchmark_realdata_script
     )
-    assert "benchmark_realdata_signals_step_dir_summary_json" in benchmark_realdata_script
+    assert "BENCHMARK_REALDATA_SIGNALS_STEP_DIR_SUMMARY_JSON" in benchmark_realdata_script
     assert "BENCHMARK_REALDATA_SIGNALS_HYBRID_SUMMARY_JSON" in benchmark_realdata_script
     assert (
         "BENCHMARK_REALDATA_SIGNALS_ONLINE_EXAMPLE_REPORT_JSON"
@@ -879,19 +530,19 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     )
     assert "BENCHMARK_REALDATA_SCORECARD_ENABLE" in benchmark_realdata_scorecard_script
     assert (
-        "benchmark_realdata_scorecard_hybrid_summary_json"
+        "BENCHMARK_REALDATA_SCORECARD_HYBRID_SUMMARY_JSON"
         in benchmark_realdata_scorecard_script
     )
     assert (
-        "benchmark_realdata_scorecard_history_summary_json"
+        "BENCHMARK_REALDATA_SCORECARD_HISTORY_SUMMARY_JSON"
         in benchmark_realdata_scorecard_script
     )
     assert (
-        "benchmark_realdata_scorecard_online_example_report_json"
+        "BENCHMARK_REALDATA_SCORECARD_ONLINE_EXAMPLE_REPORT_JSON"
         in benchmark_realdata_scorecard_script
     )
     assert (
-        "benchmark_realdata_scorecard_step_dir_summary_json"
+        "BENCHMARK_REALDATA_SCORECARD_STEP_DIR_SUMMARY_JSON"
         in benchmark_realdata_scorecard_script
     )
     assert (
@@ -928,7 +579,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     benchmark_knowledge_script = benchmark_knowledge_step["run"]
     assert "scripts/export_benchmark_knowledge_readiness.py" in benchmark_knowledge_script
     assert "BENCHMARK_KNOWLEDGE_READINESS_ENABLE" in benchmark_knowledge_script
-    assert "benchmark_knowledge_readiness_snapshot_json" in benchmark_knowledge_script
+    assert "BENCHMARK_KNOWLEDGE_READINESS_SNAPSHOT_JSON" in benchmark_knowledge_script
     assert "BENCHMARK_KNOWLEDGE_READINESS_SNAPSHOT_JSON" in benchmark_knowledge_script
     assert "total_reference_items=" in benchmark_knowledge_script
     assert "ready_component_count=" in benchmark_knowledge_script
@@ -970,11 +621,11 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     )
     assert "BENCHMARK_KNOWLEDGE_APPLICATION_ENABLE" in benchmark_knowledge_application_script
     assert (
-        "benchmark_knowledge_application_engineering_signals_json"
+        "BENCHMARK_KNOWLEDGE_APPLICATION_ENGINEERING_SIGNALS_JSON"
         in benchmark_knowledge_application_script
     )
     assert (
-        "benchmark_knowledge_application_knowledge_readiness_json"
+        "BENCHMARK_KNOWLEDGE_APPLICATION_KNOWLEDGE_READINESS_JSON"
         in benchmark_knowledge_application_script
     )
     assert (
@@ -1008,15 +659,15 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         in benchmark_knowledge_realdata_script
     )
     assert (
-        "benchmark_knowledge_realdata_correlation_knowledge_readiness_json"
+        "BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_KNOWLEDGE_READINESS_JSON"
         in benchmark_knowledge_realdata_script
     )
     assert (
-        "benchmark_knowledge_realdata_correlation_knowledge_application_json"
+        "BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_KNOWLEDGE_APPLICATION_JSON"
         in benchmark_knowledge_realdata_script
     )
     assert (
-        "benchmark_knowledge_realdata_correlation_realdata_signals_json"
+        "BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_REALDATA_SIGNALS_JSON"
         in benchmark_knowledge_realdata_script
     )
     assert (
@@ -1054,15 +705,15 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         in benchmark_knowledge_domain_matrix_script
     )
     assert (
-        "benchmark_knowledge_domain_matrix_knowledge_readiness_json"
+        "BENCHMARK_KNOWLEDGE_DOMAIN_MATRIX_KNOWLEDGE_READINESS_JSON"
         in benchmark_knowledge_domain_matrix_script
     )
     assert (
-        "benchmark_knowledge_domain_matrix_knowledge_application_json"
+        "BENCHMARK_KNOWLEDGE_DOMAIN_MATRIX_KNOWLEDGE_APPLICATION_JSON"
         in benchmark_knowledge_domain_matrix_script
     )
     assert (
-        "benchmark_knowledge_domain_matrix_knowledge_realdata_correlation_json"
+        "BENCHMARK_KNOWLEDGE_DOMAIN_MATRIX_KNOWLEDGE_REALDATA_CORRELATION_JSON"
         in benchmark_knowledge_domain_matrix_script
     )
     assert (
@@ -1102,15 +753,15 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         in benchmark_knowledge_domain_capability_matrix_script
     )
     assert (
-        "benchmark_knowledge_domain_capability_matrix_knowledge_readiness_json"
+        "BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_KNOWLEDGE_READINESS_JSON"
         in benchmark_knowledge_domain_capability_matrix_script
     )
     assert (
-        "benchmark_knowledge_domain_capability_matrix_knowledge_application_json"
+        "BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_KNOWLEDGE_APPLICATION_JSON"
         in benchmark_knowledge_domain_capability_matrix_script
     )
     assert (
-        "benchmark_knowledge_domain_capability_matrix_knowledge_domain_matrix_json"
+        "BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_KNOWLEDGE_DOMAIN_MATRIX_JSON"
         in benchmark_knowledge_domain_capability_matrix_script
     )
     assert (
@@ -1151,11 +802,11 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         in benchmark_knowledge_domain_capability_drift_script
     )
     assert (
-        "benchmark_knowledge_domain_capability_drift_current_summary_json"
+        "BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_CURRENT_SUMMARY_JSON"
         in benchmark_knowledge_domain_capability_drift_script
     )
     assert (
-        "benchmark_knowledge_domain_capability_drift_previous_summary_json"
+        "BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_PREVIOUS_SUMMARY_JSON"
         in benchmark_knowledge_domain_capability_drift_script
     )
     assert "steps.benchmark_knowledge_domain_capability_matrix.outputs.output_json" in (
@@ -1191,7 +842,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         in benchmark_knowledge_domain_action_plan_script
     )
     assert (
-        "benchmark_knowledge_domain_action_plan_knowledge_domain_matrix_json"
+        "BENCHMARK_KNOWLEDGE_DOMAIN_ACTION_PLAN_KNOWLEDGE_DOMAIN_MATRIX_JSON"
         in benchmark_knowledge_domain_action_plan_script
     )
     assert "steps.benchmark_knowledge_domain_matrix.outputs.output_json" in (
@@ -1227,7 +878,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         in benchmark_knowledge_domain_control_plane_script
     )
     assert (
-        "benchmark_knowledge_domain_control_plane_knowledge_domain_capability_matrix_json"
+        "BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON"
         in benchmark_knowledge_domain_control_plane_script
     )
     assert (
@@ -1270,11 +921,11 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         in benchmark_knowledge_domain_control_plane_drift_script
     )
     assert (
-        "benchmark_knowledge_domain_control_plane_drift_current_summary_json"
+        "BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_CURRENT_SUMMARY_JSON"
         in benchmark_knowledge_domain_control_plane_drift_script
     )
     assert (
-        "benchmark_knowledge_domain_control_plane_drift_previous_summary_json"
+        "BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_PREVIOUS_SUMMARY_JSON"
         in benchmark_knowledge_domain_control_plane_drift_script
     )
     assert "steps.benchmark_knowledge_domain_control_plane.outputs.output_json" in (
@@ -1315,7 +966,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         in benchmark_knowledge_domain_release_gate_script
     )
     assert (
-        "benchmark_knowledge_domain_release_gate_knowledge_domain_capability_matrix_json"
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON"
         in benchmark_knowledge_domain_release_gate_script
     )
     assert "steps.benchmark_knowledge_domain_action_plan.outputs.output_json" in (
@@ -1328,7 +979,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         benchmark_knowledge_domain_release_gate_script
     )
     assert (
-        "benchmark_knowledge_domain_release_gate_knowledge_domain_release_surface_alignment_json"
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_JSON"
         in benchmark_knowledge_domain_release_gate_script
     )
     assert "gate_open=" in benchmark_knowledge_domain_release_gate_script
@@ -1359,11 +1010,11 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         in benchmark_knowledge_domain_release_surface_alignment_script
     )
     assert (
-        "benchmark_knowledge_domain_release_surface_alignment_release_decision_json"
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_RELEASE_DECISION_JSON"
         in benchmark_knowledge_domain_release_surface_alignment_script
     )
     assert (
-        "benchmark_knowledge_domain_release_surface_alignment_release_runbook_json"
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_RELEASE_RUNBOOK_JSON"
         in benchmark_knowledge_domain_release_surface_alignment_script
     )
     assert "steps.benchmark_release_decision.outputs.output_json" in (
@@ -1431,7 +1082,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         in benchmark_knowledge_source_action_plan_script
     )
     assert (
-        "benchmark_knowledge_source_action_plan_knowledge_source_coverage_json"
+        "BENCHMARK_KNOWLEDGE_SOURCE_ACTION_PLAN_KNOWLEDGE_SOURCE_COVERAGE_JSON"
         in benchmark_knowledge_source_action_plan_script
     )
     assert (
@@ -1471,11 +1122,11 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         in benchmark_knowledge_source_drift_script
     )
     assert (
-        "benchmark_knowledge_source_drift_current_summary_json"
+        "BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_CURRENT_SUMMARY_JSON"
         in benchmark_knowledge_source_drift_script
     )
     assert (
-        "benchmark_knowledge_source_drift_previous_summary_json"
+        "BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_PREVIOUS_SUMMARY_JSON"
         in benchmark_knowledge_source_drift_script
     )
     assert "steps.benchmark_knowledge_source_coverage.outputs.output_json" in (
@@ -1511,11 +1162,11 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         in benchmark_knowledge_outcome_correlation_script
     )
     assert (
-        "benchmark_knowledge_outcome_correlation_knowledge_domain_matrix_json"
+        "BENCHMARK_KNOWLEDGE_OUTCOME_CORRELATION_KNOWLEDGE_DOMAIN_MATRIX_JSON"
         in benchmark_knowledge_outcome_correlation_script
     )
     assert (
-        "benchmark_knowledge_outcome_correlation_realdata_scorecard_json"
+        "BENCHMARK_KNOWLEDGE_OUTCOME_CORRELATION_REALDATA_SCORECARD_JSON"
         in benchmark_knowledge_outcome_correlation_script
     )
     assert (
@@ -1549,11 +1200,11 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         in benchmark_knowledge_outcome_drift_script
     )
     assert (
-        "benchmark_knowledge_outcome_drift_current_summary_json"
+        "BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_CURRENT_SUMMARY_JSON"
         in benchmark_knowledge_outcome_drift_script
     )
     assert (
-        "benchmark_knowledge_outcome_drift_previous_summary_json"
+        "BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_PREVIOUS_SUMMARY_JSON"
         in benchmark_knowledge_outcome_drift_script
     )
     assert "steps.benchmark_knowledge_outcome_correlation.outputs.output_json" in (
@@ -2143,7 +1794,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_domain_release_gate_recommendations=" in benchmark_release_script
     assert "--benchmark-knowledge-reference-inventory" in benchmark_release_script
     assert (
-        "benchmark_release_decision_knowledge_reference_inventory_json"
+        "BENCHMARK_RELEASE_DECISION_KNOWLEDGE_REFERENCE_INVENTORY_JSON"
         in benchmark_release_script
     )
     assert (
@@ -2340,7 +1991,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_domain_release_gate_recommendations=" in benchmark_runbook_script
     assert "--benchmark-knowledge-reference-inventory" in benchmark_runbook_script
     assert (
-        "benchmark_release_runbook_knowledge_reference_inventory_json"
+        "BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_REFERENCE_INVENTORY_JSON"
         in benchmark_runbook_script
     )
     assert (
@@ -2520,11 +2171,11 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         in benchmark_competitive_surpass_trend_script
     )
     assert (
-        "benchmark_competitive_surpass_trend_current_summary_json"
+        "BENCHMARK_COMPETITIVE_SURPASS_TREND_CURRENT_SUMMARY_JSON"
         in benchmark_competitive_surpass_trend_script
     )
     assert (
-        "benchmark_competitive_surpass_trend_previous_summary_json"
+        "BENCHMARK_COMPETITIVE_SURPASS_TREND_PREVIOUS_SUMMARY_JSON"
         in benchmark_competitive_surpass_trend_script
     )
     assert "--current-summary" in benchmark_competitive_surpass_trend_script
@@ -2554,31 +2205,31 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         in benchmark_competitive_surpass_action_plan_script
     )
     assert (
-        "benchmark_competitive_surpass_action_plan_competitive_surpass_index_json"
+        "BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_COMPETITIVE_SURPASS_INDEX_JSON"
         in benchmark_competitive_surpass_action_plan_script
     )
     assert (
-        "benchmark_competitive_surpass_action_plan_competitive_surpass_trend_json"
+        "BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_COMPETITIVE_SURPASS_TREND_JSON"
         in benchmark_competitive_surpass_action_plan_script
     )
     assert (
-        "benchmark_competitive_surpass_action_plan_engineering_signals_json"
+        "BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_ENGINEERING_SIGNALS_JSON"
         in benchmark_competitive_surpass_action_plan_script
     )
     assert (
-        "benchmark_competitive_surpass_action_plan_knowledge_domain_action_plan_json"
+        "BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON"
         in benchmark_competitive_surpass_action_plan_script
     )
     assert (
-        "benchmark_competitive_surpass_action_plan_realdata_signals_json"
+        "BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_REALDATA_SIGNALS_JSON"
         in benchmark_competitive_surpass_action_plan_script
     )
     assert (
-        "benchmark_competitive_surpass_action_plan_realdata_scorecard_json"
+        "BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_REALDATA_SCORECARD_JSON"
         in benchmark_competitive_surpass_action_plan_script
     )
     assert (
-        "benchmark_competitive_surpass_action_plan_operator_adoption_json"
+        "BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_OPERATOR_ADOPTION_JSON"
         in benchmark_competitive_surpass_action_plan_script
     )
     assert (
@@ -2624,7 +2275,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assistant_script = assistant_step["run"]
     assert "scripts/export_assistant_evidence_report.py" in assistant_script
     assert "ASSISTANT_EVIDENCE_REPORT_ENABLE" in assistant_script
-    assert "assistant_evidence_report_input" in assistant_script
+    assert "ASSISTANT_EVIDENCE_REPORT_INPUT" in assistant_script
     assert "average_evidence_count=" in assistant_script
     assert "top_evidence_types=" in assistant_script
     assert "top_missing_fields=" in assistant_script
@@ -2635,7 +2286,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     review_queue_script = review_queue_step["run"]
     assert "scripts/export_active_learning_review_queue_report.py" in review_queue_script
     assert "ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_ENABLE" in review_queue_script
-    assert "active_learning_review_queue_report_input" in review_queue_script
+    assert "ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_INPUT" in review_queue_script
     assert "--top-k" in review_queue_script
     assert "operational_status=" in review_queue_script
     assert "top_feedback_priorities=" in review_queue_script
@@ -4580,7 +4231,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
 def test_workflow_wires_benchmark_knowledge_reference_inventory() -> None:
     workflow = _load_workflow()
     env = workflow["env"]
-    dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
+    _assert_empty_workflow_dispatch(workflow)
 
     assert "BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_ENABLE" in env
     assert "BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_TITLE" in env
@@ -4589,17 +4240,6 @@ def test_workflow_wires_benchmark_knowledge_reference_inventory() -> None:
     assert "BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_OUTPUT_MD" in env
     assert "BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_REFERENCE_INVENTORY_JSON" in env
     assert "BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_REFERENCE_INVENTORY_JSON" in env
-
-    assert "benchmark_knowledge_reference_inventory_enable" in dispatch_inputs
-    assert "benchmark_knowledge_reference_inventory_snapshot_json" in dispatch_inputs
-    assert (
-        "benchmark_artifact_bundle_knowledge_reference_inventory_json"
-        in dispatch_inputs
-    )
-    assert (
-        "benchmark_companion_summary_knowledge_reference_inventory_json"
-        in dispatch_inputs
-    )
 
     build_step = _get_step(
         workflow,
@@ -4611,7 +4251,7 @@ def test_workflow_wires_benchmark_knowledge_reference_inventory() -> None:
         "scripts/export_benchmark_knowledge_reference_inventory.py" in build_script
     )
     assert "BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_ENABLE" in build_script
-    assert "benchmark_knowledge_reference_inventory_snapshot_json" in build_script
+    assert "BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_SNAPSHOT_JSON" in build_script
     assert "ready_domain_count=" in build_script
     assert "partial_domain_count=" in build_script
     assert "blocked_domain_count=" in build_script
@@ -4680,22 +4320,10 @@ def test_workflow_wires_benchmark_knowledge_reference_inventory_pr_comment() -> 
     assert "Benchmark Companion Knowledge Reference Inventory" in pr_comment_script
 
 
-def test_workflow_dispatch_inputs_include_release_readiness_action_plan() -> None:
+def test_workflow_env_includes_release_readiness_action_plan_wiring() -> None:
     workflow = _load_workflow()
-    dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
+    _assert_empty_workflow_dispatch(workflow)
     env = workflow["env"]
-    matrix_input = (
-        "benchmark_knowledge_domain_release_readiness_action_plan_"
-        "knowledge_domain_release_readiness_matrix_json"
-    )
-    drift_input = (
-        "benchmark_knowledge_domain_release_readiness_action_plan_"
-        "knowledge_domain_release_readiness_drift_json"
-    )
-    gate_input = (
-        "benchmark_knowledge_domain_release_readiness_action_plan_"
-        "knowledge_domain_release_gate_json"
-    )
     matrix_env = (
         "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_"
         "KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_JSON"
@@ -4709,12 +4337,6 @@ def test_workflow_dispatch_inputs_include_release_readiness_action_plan() -> Non
         "KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON"
     )
 
-    assert "benchmark_knowledge_domain_release_readiness_action_plan_enable" in (
-        dispatch_inputs
-    )
-    assert matrix_input in dispatch_inputs
-    assert drift_input in dispatch_inputs
-    assert gate_input in dispatch_inputs
     assert (
         "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_ENABLE" in env
     )
@@ -4737,16 +4359,16 @@ def test_workflow_dispatch_inputs_include_release_readiness_action_plan() -> Non
 def test_workflow_builds_release_readiness_action_plan_artifact() -> None:
     workflow = _load_workflow()
     matrix_ref = (
-        "benchmark_knowledge_domain_release_readiness_action_plan_"
-        "knowledge_domain_release_readiness_matrix_json"
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_"
+        "KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_JSON"
     )
     drift_ref = (
-        "benchmark_knowledge_domain_release_readiness_action_plan_"
-        "knowledge_domain_release_readiness_drift_json"
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_"
+        "KNOWLEDGE_DOMAIN_RELEASE_READINESS_DRIFT_JSON"
     )
     gate_ref = (
-        "benchmark_knowledge_domain_release_readiness_action_plan_"
-        "knowledge_domain_release_gate_json"
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_"
+        "KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON"
     )
     upload_if = (
         "steps.benchmark_knowledge_domain_release_readiness_action_plan.outputs."

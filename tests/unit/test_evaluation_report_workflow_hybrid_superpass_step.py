@@ -21,6 +21,10 @@ def _get_step(workflow: dict, job_name: str, step_name: str) -> dict:
     raise AssertionError(f"Missing step {step_name!r} in job {job_name!r}")
 
 
+def _assert_empty_workflow_dispatch(workflow: dict) -> None:
+    assert workflow["on"]["workflow_dispatch"] == {}
+
+
 def _load_bash_helper_from_step(step: dict) -> str:
     run = step["run"]
     match = re.search(r"bash\s+(scripts/ci/[^\s]+)", run)
@@ -31,12 +35,8 @@ def _load_bash_helper_from_step(step: dict) -> str:
 
 def test_workflow_has_hybrid_superpass_inputs_and_env() -> None:
     workflow = _load_workflow()
-    dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
+    _assert_empty_workflow_dispatch(workflow)
     env = workflow["env"]
-
-    assert "hybrid_superpass_enable" in dispatch_inputs
-    assert "hybrid_superpass_missing_mode" in dispatch_inputs
-    assert "hybrid_superpass_fail_on_failed" in dispatch_inputs
 
     assert "HYBRID_SUPERPASS_ENABLE" in env
     assert "HYBRID_SUPERPASS_CONFIG" in env
@@ -62,7 +62,6 @@ def test_workflow_has_hybrid_superpass_steps_and_artifacts() -> None:
     )
     strict_script = strict_step["run"]
     assert "HYBRID_SUPERPASS_FAIL_ON_FAILED" in strict_script
-    assert "hybrid_superpass_fail_on_failed" in strict_script
     assert "status is not passed" in strict_script
 
     final_fail = _get_step(
