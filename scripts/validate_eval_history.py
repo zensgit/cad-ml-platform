@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import argparse
 from datetime import datetime
+import fnmatch
 
 # Try to import jsonschema for enhanced validation
 try:
@@ -30,6 +31,10 @@ except ImportError:
 
 # Default schema path
 DEFAULT_SCHEMA_PATH = "docs/eval_history.schema.json"
+DEFAULT_EXCLUDE_GLOBS = (
+    "hybrid_blind_drift_alert_report.json",
+    "hybrid_blind_drift_threshold_suggestion.json",
+)
 
 
 # Schema definitions for each version
@@ -294,6 +299,15 @@ def validate_with_json_schema(data: Dict, schema: Dict) -> Tuple[bool, List[str]
         return False, [f"Schema validation error: {e}"]
 
 
+def _is_excluded_json(path: Path, exclude_globs: List[str]) -> bool:
+    name = path.name
+    path_text = path.as_posix()
+    for pattern in exclude_globs:
+        if fnmatch.fnmatch(name, pattern) or fnmatch.fnmatch(path_text, pattern):
+            return True
+    return False
+
+
 def main():
     parser = argparse.ArgumentParser(description="Validate evaluation history JSON files")
     parser.add_argument("--strict", action="store_true",
@@ -307,6 +321,15 @@ def main():
                         help="Show summary only")
     parser.add_argument("--config", default="config/eval_frontend.json",
                         help="Config file path")
+    parser.add_argument(
+        "--exclude-glob",
+        action="append",
+        default=[],
+        help=(
+            "Glob for JSON files to skip. Can be repeated. "
+            "Defaults include generated non-history report JSONs."
+        ),
+    )
     args = parser.parse_args()
 
     # Load JSON schema if available
@@ -317,12 +340,25 @@ def main():
         print(f"Directory not found: {history_dir}")
         sys.exit(1)
 
-    json_files = list(history_dir.glob("*.json"))
+    exclude_globs = [*DEFAULT_EXCLUDE_GLOBS, *args.exclude_glob]
+    all_json_files = sorted(history_dir.glob("*.json"))
+    skipped_files: List[Path] = []
+    json_files: List[Path] = []
+    for path in all_json_files:
+        if _is_excluded_json(path, exclude_globs):
+            skipped_files.append(path)
+            continue
+        json_files.append(path)
     if not json_files:
-        print(f"No JSON files found in {history_dir}")
+        print(f"No JSON files found in {history_dir} after exclusions")
         return
 
     print(f"Found {len(json_files)} JSON files in {history_dir}")
+    if skipped_files:
+        print(f"Skipped {len(skipped_files)} JSON files by exclude patterns")
+        if not args.summary:
+            for path in skipped_files:
+                print(f"  - skipped: {path.name}")
     print("-" * 60)
 
     if args.migrate:
