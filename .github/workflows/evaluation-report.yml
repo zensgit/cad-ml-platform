@@ -2418,7 +2418,6 @@ jobs:
         add_if_exists --engineering-signals-summary "${{ steps.benchmark_engineering_signals.outputs.output_json || '' }}"
         add_if_exists --engineering-signals-summary "${BENCHMARK_SCORECARD_ENGINEERING_SIGNALS_SUMMARY_JSON:-}"
         add_if_exists --knowledge-readiness-summary "${{ github.event.inputs.benchmark_scorecard_knowledge_readiness_summary || '' }}"
-        add_if_exists --knowledge-readiness-summary "${{ steps.benchmark_knowledge_readiness.outputs.output_json || '' }}"
         add_if_exists --knowledge-readiness-summary "${BENCHMARK_SCORECARD_KNOWLEDGE_READINESS_JSON:-}"
         add_if_exists --benchmark-operator-adoption-summary "${{ github.event.inputs.benchmark_scorecard_operator_adoption_summary || '' }}"
         add_if_exists --benchmark-operator-adoption-summary "${BENCHMARK_SCORECARD_OPERATOR_ADOPTION_SUMMARY_JSON:-}"
@@ -2723,7 +2722,6 @@ jobs:
         add_if_exists --benchmark-scorecard "${BENCHMARK_OPERATIONAL_SUMMARY_SCORECARD_JSON:-}"
         add_if_exists --feedback-flywheel "${{ steps.feedback_flywheel_benchmark.outputs.output_json || '' }}"
         add_if_exists --feedback-flywheel "${BENCHMARK_OPERATIONAL_SUMMARY_FEEDBACK_JSON:-}"
-        add_if_exists --assistant-evidence "${{ steps.assistant_evidence_report.outputs.output_json || '' }}"
         add_if_exists --assistant-evidence "${BENCHMARK_OPERATIONAL_SUMMARY_ASSISTANT_JSON:-}"
         add_if_exists --review-queue "${{ steps.active_learning_review_queue_report.outputs.output_json || '' }}"
         add_if_exists --review-queue "${BENCHMARK_OPERATIONAL_SUMMARY_REVIEW_QUEUE_JSON:-}"
@@ -2810,14 +2808,14 @@ jobs:
       id: benchmark_knowledge_drift
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_drift_enable || '' }}"
+        ENABLE_OVERRIDE=""
         ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_DRIFT_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
         fi
         ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
-        CURRENT_INPUT="${{ github.event.inputs.benchmark_knowledge_drift_current_summary_json || '' }}"
-        PREVIOUS_INPUT="${{ github.event.inputs.benchmark_knowledge_drift_previous_summary_json || '' }}"
+        CURRENT_INPUT=""
+        PREVIOUS_INPUT=""
         if [[ -z "$CURRENT_INPUT" ]]; then
           CURRENT_INPUT="${{ steps.benchmark_knowledge_readiness.outputs.output_json || '' }}"
         fi
@@ -3411,16 +3409,13 @@ jobs:
         }
 
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${{ github.event.inputs.benchmark_knowledge_domain_control_plane_knowledge_domain_capability_matrix_json || '' }}"
-        add_if_exists --benchmark-knowledge-domain-capability-matrix "${{ steps.benchmark_knowledge_domain_capability_matrix.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-capability-drift "${{ github.event.inputs.benchmark_knowledge_domain_control_plane_knowledge_domain_capability_drift_json || '' }}"
-        add_if_exists --benchmark-knowledge-domain-capability-drift "${{ steps.benchmark_knowledge_domain_capability_drift.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-drift "${BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_JSON:-}"
         add_if_exists --benchmark-knowledge-realdata-correlation "${{ github.event.inputs.benchmark_knowledge_domain_control_plane_knowledge_realdata_correlation_json || '' }}"
         add_if_exists --benchmark-knowledge-realdata-correlation "${{ steps.benchmark_knowledge_realdata_correlation.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-realdata-correlation "${BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_KNOWLEDGE_REALDATA_CORRELATION_JSON:-}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${{ github.event.inputs.benchmark_knowledge_domain_control_plane_knowledge_outcome_correlation_json || '' }}"
-        add_if_exists --benchmark-knowledge-outcome-correlation "${{ steps.benchmark_knowledge_outcome_correlation.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_KNOWLEDGE_OUTCOME_CORRELATION_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ github.event.inputs.benchmark_knowledge_domain_control_plane_knowledge_domain_action_plan_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ steps.benchmark_knowledge_domain_action_plan.outputs.output_json || '' }}"
@@ -3615,10 +3610,8 @@ jobs:
         }
 
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${{ github.event.inputs.benchmark_knowledge_domain_release_gate_knowledge_domain_capability_matrix_json || '' }}"
-        add_if_exists --benchmark-knowledge-domain-capability-matrix "${{ steps.benchmark_knowledge_domain_capability_matrix.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-capability-drift "${{ github.event.inputs.benchmark_knowledge_domain_release_gate_knowledge_domain_capability_drift_json || '' }}"
-        add_if_exists --benchmark-knowledge-domain-capability-drift "${{ steps.benchmark_knowledge_domain_capability_drift.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-drift "${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_JSON:-}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ github.event.inputs.benchmark_knowledge_domain_release_gate_knowledge_domain_action_plan_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ steps.benchmark_knowledge_domain_action_plan.outputs.output_json || '' }}"
@@ -6035,14 +6028,8 @@ jobs:
         VALIDATION_JSON="${HYBRID_SUPERPASS_VALIDATION_JSON:-reports/history_sequence_eval/hybrid_superpass_validation.json}"
         mkdir -p "$(dirname "$VALIDATION_JSON")"
 
-        GATE_JSON="${{ steps.hybrid_blind_gate.outputs.report_path }}"
-        if [[ -z "$GATE_JSON" ]]; then
-          GATE_JSON="${HYBRID_SUPERPASS_GATE_REPORT_JSON:-reports/history_sequence_eval/hybrid_blind_gate_report.json}"
-        fi
-        CALIBRATION_JSON="${{ steps.hybrid_calibration.outputs.output_json }}"
-        if [[ -z "$CALIBRATION_JSON" ]]; then
-          CALIBRATION_JSON="${HYBRID_SUPERPASS_CALIBRATION_JSON:-models/calibration/hybrid_confidence_calibration.json}"
-        fi
+        GATE_JSON="${HYBRID_SUPERPASS_GATE_REPORT_JSON:-reports/history_sequence_eval/hybrid_blind_gate_report.json}"
+        CALIBRATION_JSON="${HYBRID_SUPERPASS_CALIBRATION_JSON:-models/calibration/hybrid_confidence_calibration.json}"
 
         STRICT_MODE="${{ steps.hybrid_superpass_gate_strict.outputs.strict_mode || 'false' }}"
         VALIDATION_STRICT_VALUE="${HYBRID_SUPERPASS_VALIDATION_STRICT:-$STRICT_MODE}"
@@ -6128,7 +6115,7 @@ jobs:
         echo "Resolved strict fail mode: $mode (raw=$MODE_VALUE)"
 
     - name: Emit strict gate warning in soft mode
-      if: steps.strict_fail_mode.outputs.mode == 'soft' && (steps.graph2d_review_gate_strict.outputs.should_fail == 'true' || steps.hybrid_blind_gate_strict.outputs.should_fail == 'true' || steps.hybrid_calibration_gate_strict.outputs.should_fail == 'true' || steps.hybrid_superpass_gate_strict.outputs.should_fail == 'true' || (steps.hybrid_superpass_validate.outputs.strict_mode == 'true' && steps.hybrid_superpass_validate.outputs.exit_code != '0'))
+      if: steps.strict_fail_mode.outputs.mode == 'soft' && (steps.graph2d_review_gate_strict.outputs.should_fail == 'true' || steps.hybrid_superpass_gate_strict.outputs.should_fail == 'true' || (steps.hybrid_superpass_validate.outputs.strict_mode == 'true' && steps.hybrid_superpass_validate.outputs.exit_code != '0'))
       run: |
         echo "Strict fail mode is soft; blocking fail steps are downgraded to warning."
         echo "::warning title=Strict Gate Soft Mode::One or more strict gates requested failure, but EVALUATION_STRICT_FAIL_MODE=soft downgraded to warning."
@@ -6137,8 +6124,6 @@ jobs:
           echo "## Strict Gate Soft Mode"
           echo "- mode: soft"
           echo "- graph2d_review_gate_should_fail: ${{ steps.graph2d_review_gate_strict.outputs.should_fail || 'false' }}"
-          echo "- hybrid_blind_gate_should_fail: ${{ steps.hybrid_blind_gate_strict.outputs.should_fail || 'false' }}"
-          echo "- hybrid_calibration_gate_should_fail: ${{ steps.hybrid_calibration_gate_strict.outputs.should_fail || 'false' }}"
           echo "- hybrid_superpass_gate_should_fail: ${{ steps.hybrid_superpass_gate_strict.outputs.should_fail || 'false' }}"
           echo "- hybrid_superpass_validate_strict_mode: ${{ steps.hybrid_superpass_validate.outputs.strict_mode || 'false' }}"
           echo "- hybrid_superpass_validate_exit_code: ${{ steps.hybrid_superpass_validate.outputs.exit_code || '0' }}"
