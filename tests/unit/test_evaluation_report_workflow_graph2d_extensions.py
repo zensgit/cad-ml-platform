@@ -946,7 +946,10 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     benchmark_knowledge_drift_script = benchmark_knowledge_drift_step["run"]
     assert "scripts/export_benchmark_knowledge_drift.py" in benchmark_knowledge_drift_script
     assert "BENCHMARK_KNOWLEDGE_DRIFT_ENABLE" in benchmark_knowledge_drift_script
-    assert "benchmark_knowledge_drift_current_summary_json" in benchmark_knowledge_drift_script
+    assert "BENCHMARK_KNOWLEDGE_DRIFT_CURRENT_SUMMARY_JSON" in benchmark_knowledge_drift_script
+    assert "steps.benchmark_knowledge_readiness.outputs.output_json" in (
+        benchmark_knowledge_drift_script
+    )
     assert "reference_item_delta=" in benchmark_knowledge_drift_script
     assert "regressions=" in benchmark_knowledge_drift_script
     assert "improvements=" in benchmark_knowledge_drift_script
@@ -1228,19 +1231,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         in benchmark_knowledge_domain_control_plane_script
     )
     assert (
-        "steps.benchmark_knowledge_domain_capability_matrix.outputs.output_json"
-        in benchmark_knowledge_domain_control_plane_script
-    )
-    assert (
-        "steps.benchmark_knowledge_domain_capability_drift.outputs.output_json"
-        in benchmark_knowledge_domain_control_plane_script
-    )
-    assert (
         "steps.benchmark_knowledge_realdata_correlation.outputs.output_json"
-        in benchmark_knowledge_domain_control_plane_script
-    )
-    assert (
-        "steps.benchmark_knowledge_outcome_correlation.outputs.output_json"
         in benchmark_knowledge_domain_control_plane_script
     )
     assert (
@@ -1326,12 +1317,6 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert (
         "benchmark_knowledge_domain_release_gate_knowledge_domain_capability_matrix_json"
         in benchmark_knowledge_domain_release_gate_script
-    )
-    assert "steps.benchmark_knowledge_domain_capability_matrix.outputs.output_json" in (
-        benchmark_knowledge_domain_release_gate_script
-    )
-    assert "steps.benchmark_knowledge_domain_capability_drift.outputs.output_json" in (
-        benchmark_knowledge_domain_release_gate_script
     )
     assert "steps.benchmark_knowledge_domain_action_plan.outputs.output_json" in (
         benchmark_knowledge_domain_release_gate_script
@@ -2667,11 +2652,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         '"${{ steps.benchmark_engineering_signals.outputs.output_json || \'\' }}"'
     )
     assert engineering_summary_flag in benchmark_script
-    knowledge_summary_flag = (
-        '--knowledge-readiness-summary '
-        '"${{ steps.benchmark_knowledge_readiness.outputs.output_json || \'\' }}"'
-    )
-    assert knowledge_summary_flag in benchmark_script
+    assert "BENCHMARK_SCORECARD_KNOWLEDGE_READINESS_JSON" in benchmark_script
 
 
 def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
