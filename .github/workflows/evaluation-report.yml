@@ -8,1054 +8,47 @@ on:
   schedule:
     # Run daily at 2 AM UTC
     - cron: '0 2 * * *'
-  workflow_dispatch:
-    inputs:
-      min_combined:
-        description: 'Minimum combined score threshold'
-        required: false
-        default: '0.8'
-      min_vision:
-        description: 'Minimum vision score threshold'
-        required: false
-        default: '0.65'
-      min_ocr:
-        description: 'Minimum OCR score threshold'
-        required: false
-        default: '0.9'
-      review_gate_min_total_rows:
-        description: 'Override: review-pack gate min_total_rows'
-        required: false
-        default: ''
-      review_gate_max_candidate_rate:
-        description: 'Override: review-pack gate max_candidate_rate'
-        required: false
-        default: ''
-      review_gate_max_hybrid_rejected_rate:
-        description: 'Override: review-pack gate max_hybrid_rejected_rate'
-        required: false
-        default: ''
-      review_gate_max_conflict_rate:
-        description: 'Override: review-pack gate max_conflict_rate'
-        required: false
-        default: ''
-      review_gate_max_low_confidence_rate:
-        description: 'Override: review-pack gate max_low_confidence_rate'
-        required: false
-        default: ''
-      review_gate_strict:
-        description: 'Override: enable strict fail on review-pack gate failed (true/false)'
-        required: false
-        default: ''
-      hybrid_superpass_enable:
-        description: 'Override: enable hybrid superpass target gate (true/false)'
-        required: false
-        default: ''
-      hybrid_superpass_missing_mode:
-        description: 'Override: hybrid superpass missing-mode (skip/fail)'
-        required: false
-        default: ''
-      hybrid_superpass_fail_on_failed:
-        description: 'Override: strict fail when hybrid superpass status is not passed (true/false)'
-        required: false
-        default: ''
-      review_pack_input_csv:
-        description: 'Optional review-pack input CSV path (relative to repository root)'
-        required: false
-        default: ''
-      review_pack_input_artifact_name:
-        description: 'Optional artifact name containing review-pack input CSV'
-        required: false
-        default: ''
-      review_pack_input_artifact_run_id:
-        description: 'Optional workflow run id used to download review-pack input artifact'
-        required: false
-        default: ''
-      review_pack_input_artifact_repository:
-        description: 'Optional repository for review-pack input artifact (owner/repo)'
-        required: false
-        default: ''
-      review_pack_input_artifact_path:
-        description: 'Optional path to CSV inside downloaded artifact'
-        required: false
-        default: ''
-      benchmark_scorecard_enable:
-        description: 'Override: enable benchmark scorecard generation (true/false)'
-        required: false
-        default: ''
-      benchmark_scorecard_assistant_evidence_summary:
-        description: 'Optional benchmark scorecard assistant evidence summary JSON'
-        required: false
-        default: ''
-      benchmark_scorecard_review_queue_summary:
-        description: 'Optional benchmark scorecard review queue summary JSON'
-        required: false
-        default: ''
-      benchmark_scorecard_feedback_summary:
-        description: 'Optional benchmark scorecard feedback summary JSON'
-        required: false
-        default: ''
-      benchmark_scorecard_finetune_summary:
-        description: 'Optional benchmark scorecard fine-tune summary JSON'
-        required: false
-        default: ''
-      benchmark_scorecard_metric_train_summary:
-        description: 'Optional benchmark scorecard metric-train summary JSON'
-        required: false
-        default: ''
-      benchmark_scorecard_ocr_review_summary:
-        description: 'Optional benchmark scorecard OCR review summary JSON'
-        required: false
-        default: ''
-      benchmark_scorecard_qdrant_readiness_summary:
-        description: 'Optional benchmark scorecard Qdrant readiness summary JSON'
-        required: false
-        default: ''
-      benchmark_scorecard_engineering_signals_summary:
-        description: 'Optional benchmark scorecard engineering signals summary JSON'
-        required: false
-        default: ''
-      benchmark_scorecard_knowledge_readiness_summary:
-        description: 'Optional benchmark scorecard knowledge readiness summary JSON'
-        required: false
-        default: ''
-      benchmark_scorecard_operator_adoption_summary:
-        description: 'Optional benchmark scorecard operator adoption summary JSON'
-        required: false
-        default: ''
-      benchmark_engineering_signals_enable:
-        description: 'Override: enable benchmark engineering signals export (true/false)'
-        required: false
-        default: ''
-      benchmark_engineering_signals_hybrid_summary_json:
-        description: 'Optional benchmark engineering signals hybrid summary JSON'
-        required: false
-        default: ''
-      benchmark_engineering_signals_ocr_review_summary_json:
-        description: 'Optional benchmark engineering signals OCR review summary JSON'
-        required: false
-        default: ''
-      benchmark_realdata_signals_enable:
-        description: 'Override: enable benchmark real-data signals export (true/false)'
-        required: false
-        default: ''
-      benchmark_realdata_signals_hybrid_summary_json:
-        description: 'Optional benchmark real-data signals hybrid summary JSON'
-        required: false
-        default: ''
-      benchmark_realdata_signals_online_example_report_json:
-        description: 'Optional benchmark real-data signals online example report JSON'
-        required: false
-        default: ''
-      benchmark_realdata_signals_step_dir_summary_json:
-        description: 'Optional benchmark real-data signals STEP dir summary JSON'
-        required: false
-        default: ''
-      benchmark_realdata_scorecard_enable:
-        description: 'Override: enable benchmark real-data scorecard export (true/false)'
-        required: false
-        default: ''
-      benchmark_realdata_scorecard_hybrid_summary_json:
-        description: 'Optional benchmark real-data scorecard hybrid summary JSON'
-        required: false
-        default: ''
-      benchmark_realdata_scorecard_history_summary_json:
-        description: 'Optional benchmark real-data scorecard history summary JSON'
-        required: false
-        default: ''
-      benchmark_realdata_scorecard_online_example_report_json:
-        description: 'Optional benchmark real-data scorecard online example report JSON'
-        required: false
-        default: ''
-      benchmark_realdata_scorecard_step_dir_summary_json:
-        description: 'Optional benchmark real-data scorecard STEP dir summary JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_readiness_enable:
-        description: 'Override: enable benchmark knowledge readiness export (true/false)'
-        required: false
-        default: ''
-      benchmark_knowledge_readiness_snapshot_json:
-        description: 'Optional benchmark knowledge readiness snapshot JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_application_enable:
-        description: 'Override: enable benchmark knowledge application export (true/false)'
-        required: false
-        default: ''
-      benchmark_knowledge_application_engineering_signals_json:
-        description: 'Optional benchmark knowledge application engineering signals JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_application_knowledge_readiness_json:
-        description: 'Optional benchmark knowledge application knowledge readiness JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_realdata_correlation_enable:
-        description: 'Override: enable benchmark knowledge realdata correlation export (true/false)'
-        required: false
-        default: ''
-      benchmark_knowledge_realdata_correlation_knowledge_readiness_json:
-        description: 'Optional benchmark knowledge realdata correlation knowledge readiness JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_realdata_correlation_knowledge_application_json:
-        description: 'Optional benchmark knowledge realdata correlation knowledge application JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_realdata_correlation_realdata_signals_json:
-        description: 'Optional benchmark knowledge realdata correlation real-data signals JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_matrix_enable:
-        description: 'Override: enable benchmark knowledge domain matrix export (true/false)'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_matrix_knowledge_readiness_json:
-        description: 'Optional benchmark knowledge domain matrix knowledge readiness JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_matrix_knowledge_application_json:
-        description: 'Optional benchmark knowledge domain matrix knowledge application JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_matrix_knowledge_realdata_correlation_json:
-        description: 'Optional benchmark knowledge domain matrix knowledge realdata correlation JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_capability_matrix_enable:
-        description: 'Override: enable benchmark knowledge domain capability matrix export (true/false)'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_capability_matrix_knowledge_readiness_json:
-        description: 'Optional benchmark knowledge domain capability matrix knowledge readiness JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_capability_matrix_knowledge_application_json:
-        description: 'Optional benchmark knowledge domain capability matrix knowledge application JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_capability_matrix_knowledge_domain_matrix_json:
-        description: 'Optional benchmark knowledge domain capability matrix knowledge domain matrix JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_api_surface_matrix_enable:
-        description: 'Override: enable benchmark knowledge domain API surface matrix export (true/false)'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_api_surface_matrix_knowledge_domain_capability_matrix_json:
-        description: 'Optional benchmark knowledge domain API surface matrix capability matrix JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_surface_action_plan_enable:
-        description: 'Override: enable benchmark knowledge domain surface action plan export (true/false)'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_surface_action_plan_knowledge_domain_surface_matrix_json:
-        description: 'Optional benchmark knowledge domain surface action plan surface matrix JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_capability_drift_enable:
-        description: 'Override: enable benchmark knowledge domain capability drift export (true/false)'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_capability_drift_current_summary_json:
-        description: 'Optional benchmark knowledge domain capability drift current summary JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_capability_drift_previous_summary_json:
-        description: 'Optional benchmark knowledge domain capability drift previous summary JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_action_plan_enable:
-        description: 'Override: enable benchmark knowledge domain action plan export (true/false)'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_action_plan_knowledge_domain_matrix_json:
-        description: 'Optional benchmark knowledge domain action plan knowledge domain matrix JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_control_plane_enable:
-        description: 'Override: enable benchmark knowledge domain control plane export (true/false)'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_control_plane_knowledge_domain_capability_matrix_json:
-        description: 'Optional benchmark knowledge domain control plane capability matrix JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_control_plane_knowledge_domain_capability_drift_json:
-        description: 'Optional benchmark knowledge domain control plane capability drift JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_control_plane_knowledge_realdata_correlation_json:
-        description: 'Optional benchmark knowledge domain control plane realdata correlation JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_control_plane_knowledge_outcome_correlation_json:
-        description: 'Optional benchmark knowledge domain control plane outcome correlation JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_control_plane_knowledge_domain_action_plan_json:
-        description: 'Optional benchmark knowledge domain control plane action plan JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_control_plane_drift_enable:
-        description: 'Override: enable benchmark knowledge domain control plane drift export (true/false)'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_control_plane_drift_current_summary_json:
-        description: 'Optional benchmark knowledge domain control plane drift current summary JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_control_plane_drift_previous_summary_json:
-        description: 'Optional benchmark knowledge domain control plane drift previous summary JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_release_gate_enable:
-        description: 'Override: enable benchmark knowledge domain release gate export (true/false)'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_release_gate_knowledge_domain_capability_matrix_json:
-        description: 'Optional benchmark knowledge domain release gate capability matrix JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_release_gate_knowledge_domain_capability_drift_json:
-        description: 'Optional benchmark knowledge domain release gate capability drift JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_release_gate_knowledge_domain_action_plan_json:
-        description: 'Optional benchmark knowledge domain release gate action plan JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_release_gate_knowledge_domain_control_plane_json:
-        description: 'Optional benchmark knowledge domain release gate control plane JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_release_gate_knowledge_domain_control_plane_drift_json:
-        description: 'Optional benchmark knowledge domain release gate control plane drift JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_release_gate_knowledge_domain_release_surface_alignment_json:
-        description: 'Optional benchmark knowledge domain release gate release surface alignment JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_release_readiness_action_plan_enable:
-        description: 'Override: enable benchmark knowledge domain release readiness action plan export (true/false)'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_release_readiness_action_plan_knowledge_domain_release_readiness_matrix_json:
-        description: 'Optional benchmark knowledge domain release readiness action plan matrix JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_release_readiness_action_plan_knowledge_domain_release_readiness_drift_json:
-        description: 'Optional benchmark knowledge domain release readiness action plan drift JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_release_readiness_action_plan_knowledge_domain_release_gate_json:
-        description: 'Optional benchmark knowledge domain release readiness action plan release gate JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_reference_inventory_enable:
-        description: 'Override: enable benchmark knowledge reference inventory export (true/false)'
-        required: false
-        default: ''
-      benchmark_knowledge_reference_inventory_snapshot_json:
-        description: 'Optional benchmark knowledge reference inventory snapshot JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_source_coverage_enable:
-        description: 'Override: enable benchmark knowledge source coverage export (true/false)'
-        required: false
-        default: ''
-      benchmark_knowledge_source_action_plan_enable:
-        description: 'Override: enable benchmark knowledge source action plan export (true/false)'
-        required: false
-        default: ''
-      benchmark_knowledge_source_action_plan_knowledge_source_coverage_json:
-        description: 'Optional benchmark knowledge source action plan knowledge source coverage JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_source_drift_enable:
-        description: 'Override: enable benchmark knowledge source drift export (true/false)'
-        required: false
-        default: ''
-      benchmark_knowledge_source_drift_current_summary_json:
-        description: 'Optional benchmark knowledge source drift current summary JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_source_drift_previous_summary_json:
-        description: 'Optional benchmark knowledge source drift previous summary JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_outcome_correlation_enable:
-        description: 'Override: enable benchmark knowledge outcome correlation export (true/false)'
-        required: false
-        default: ''
-      benchmark_knowledge_outcome_correlation_knowledge_domain_matrix_json:
-        description: 'Optional benchmark knowledge outcome correlation knowledge domain matrix JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_outcome_correlation_realdata_scorecard_json:
-        description: 'Optional benchmark knowledge outcome correlation real-data scorecard JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_outcome_drift_enable:
-        description: 'Override: enable benchmark knowledge outcome drift export (true/false)'
-        required: false
-        default: ''
-      benchmark_knowledge_outcome_drift_current_summary_json:
-        description: 'Optional benchmark knowledge outcome drift current summary JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_outcome_drift_previous_summary_json:
-        description: 'Optional benchmark knowledge outcome drift previous summary JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_release_surface_alignment_enable:
-        description: 'Override: enable benchmark knowledge domain release surface alignment export (true/false)'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_release_surface_alignment_release_decision_json:
-        description: 'Optional benchmark knowledge domain release surface alignment release decision JSON'
-        required: false
-        default: ''
-      benchmark_knowledge_domain_release_surface_alignment_release_runbook_json:
-        description: 'Optional benchmark knowledge domain release surface alignment release runbook JSON'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_index_enable:
-        description: 'Override: enable benchmark competitive surpass index export (true/false)'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_index_engineering_signals_json:
-        description: 'Optional benchmark competitive surpass index engineering signals JSON'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_index_knowledge_readiness_json:
-        description: 'Optional benchmark competitive surpass index knowledge readiness JSON'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_index_knowledge_application_json:
-        description: 'Optional benchmark competitive surpass index knowledge application JSON'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_index_knowledge_realdata_correlation_json:
-        description: 'Optional benchmark competitive surpass index knowledge realdata correlation JSON'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_index_knowledge_domain_matrix_json:
-        description: 'Optional benchmark competitive surpass index knowledge domain matrix JSON'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_index_knowledge_domain_action_plan_json:
-        description: 'Optional benchmark competitive surpass index knowledge domain action plan JSON'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_index_knowledge_source_coverage_json:
-        description: 'Optional benchmark competitive surpass index knowledge source coverage JSON'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_index_knowledge_source_action_plan_json:
-        description: 'Optional benchmark competitive surpass index knowledge source action plan JSON'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_index_knowledge_source_drift_json:
-        description: 'Optional benchmark competitive surpass index knowledge source drift JSON'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_index_knowledge_outcome_correlation_json:
-        description: 'Optional benchmark competitive surpass index knowledge outcome correlation JSON'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_index_knowledge_outcome_drift_json:
-        description: 'Optional benchmark competitive surpass index knowledge outcome drift JSON'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_index_realdata_signals_json:
-        description: 'Optional benchmark competitive surpass index real-data signals JSON'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_index_realdata_scorecard_json:
-        description: 'Optional benchmark competitive surpass index real-data scorecard JSON'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_index_operator_adoption_json:
-        description: 'Optional benchmark competitive surpass index operator adoption JSON'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_index_knowledge_domain_release_surface_alignment_json:
-        description: 'Optional benchmark competitive surpass index knowledge domain release surface alignment JSON'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_trend_enable:
-        description: 'Override: enable benchmark competitive surpass trend export (true/false)'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_trend_current_summary_json:
-        description: 'Optional benchmark competitive surpass trend current summary JSON'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_trend_previous_summary_json:
-        description: 'Optional benchmark competitive surpass trend previous summary JSON'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_action_plan_enable:
-        description: 'Override: enable benchmark competitive surpass action plan export (true/false)'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_action_plan_competitive_surpass_index_json:
-        description: 'Optional benchmark competitive surpass action plan competitive surpass index JSON'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_action_plan_competitive_surpass_trend_json:
-        description: 'Optional benchmark competitive surpass action plan competitive surpass trend JSON'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_action_plan_engineering_signals_json:
-        description: 'Optional benchmark competitive surpass action plan engineering signals JSON'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_action_plan_knowledge_domain_action_plan_json:
-        description: 'Optional benchmark competitive surpass action plan knowledge domain action plan JSON'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_action_plan_realdata_signals_json:
-        description: 'Optional benchmark competitive surpass action plan real-data signals JSON'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_action_plan_realdata_scorecard_json:
-        description: 'Optional benchmark competitive surpass action plan real-data scorecard JSON'
-        required: false
-        default: ''
-      benchmark_competitive_surpass_action_plan_operator_adoption_json:
-        description: 'Optional benchmark competitive surpass action plan operator adoption JSON'
-        required: false
-        default: ''
-      benchmark_operational_summary_enable:
-        description: 'Override: enable benchmark operational summary export (true/false)'
-        required: false
-        default: ''
-      benchmark_operational_summary_scorecard_json:
-        description: 'Optional benchmark operational summary scorecard JSON'
-        required: false
-        default: ''
-      benchmark_operational_summary_feedback_json:
-        description: 'Optional benchmark operational summary feedback flywheel JSON'
-        required: false
-        default: ''
-      benchmark_operational_summary_assistant_json:
-        description: 'Optional benchmark operational summary assistant evidence JSON'
-        required: false
-        default: ''
-      benchmark_operational_summary_review_queue_json:
-        description: 'Optional benchmark operational summary review queue JSON'
-        required: false
-        default: ''
-      benchmark_operational_summary_ocr_review_json:
-        description: 'Optional benchmark operational summary OCR review JSON'
-        required: false
-        default: ''
-      benchmark_operational_summary_operator_adoption_json:
-        description: 'Optional benchmark operational summary operator adoption JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_enable:
-        description: 'Override: enable benchmark artifact bundle export (true/false)'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_scorecard_json:
-        description: 'Optional benchmark artifact bundle scorecard JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_operational_summary_json:
-        description: 'Optional benchmark artifact bundle operational summary JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_feedback_json:
-        description: 'Optional benchmark artifact bundle feedback flywheel JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_assistant_json:
-        description: 'Optional benchmark artifact bundle assistant evidence JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_review_queue_json:
-        description: 'Optional benchmark artifact bundle review queue JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_ocr_review_json:
-        description: 'Optional benchmark artifact bundle OCR review JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_companion_summary_json:
-        description: 'Optional benchmark artifact bundle companion summary JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_release_decision_json:
-        description: 'Optional benchmark artifact bundle release decision JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_engineering_signals_json:
-        description: 'Optional benchmark artifact bundle engineering signals JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_realdata_signals_json:
-        description: 'Optional benchmark artifact bundle real-data signals JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_realdata_scorecard_json:
-        description: 'Optional benchmark artifact bundle real-data scorecard JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_knowledge_readiness_json:
-        description: 'Optional benchmark artifact bundle knowledge readiness JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_knowledge_drift_json:
-        description: 'Optional benchmark artifact bundle knowledge drift JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_knowledge_application_json:
-        description: 'Optional benchmark artifact bundle knowledge application JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_knowledge_realdata_correlation_json:
-        description: 'Optional benchmark artifact bundle knowledge realdata correlation JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_knowledge_domain_matrix_json:
-        description: 'Optional benchmark artifact bundle knowledge domain matrix JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_knowledge_domain_capability_matrix_json:
-        description: 'Optional benchmark artifact bundle knowledge domain capability matrix JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_knowledge_domain_capability_drift_json:
-        description: 'Optional benchmark artifact bundle knowledge domain capability drift JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_knowledge_domain_control_plane_drift_json:
-        description: 'Optional benchmark artifact bundle knowledge domain control plane drift JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_knowledge_domain_release_gate_json:
-        description: 'Optional benchmark artifact bundle knowledge domain release gate JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_knowledge_domain_action_plan_json:
-        description: 'Optional benchmark artifact bundle knowledge domain action plan JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_knowledge_reference_inventory_json:
-        description: 'Optional benchmark artifact bundle knowledge reference inventory JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_knowledge_source_coverage_json:
-        description: 'Optional benchmark artifact bundle knowledge source coverage JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_knowledge_source_action_plan_json:
-        description: 'Optional benchmark artifact bundle knowledge source action plan JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_knowledge_outcome_correlation_json:
-        description: 'Optional benchmark artifact bundle knowledge outcome correlation JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_knowledge_outcome_drift_json:
-        description: 'Optional benchmark artifact bundle knowledge outcome drift JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_knowledge_domain_release_surface_alignment_json:
-        description: 'Optional benchmark artifact bundle knowledge domain release surface alignment JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_competitive_surpass_index_json:
-        description: 'Optional benchmark artifact bundle competitive surpass index JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_competitive_surpass_trend_json:
-        description: 'Optional benchmark artifact bundle competitive surpass trend JSON'
-        required: false
-        default: ''
-      benchmark_artifact_bundle_competitive_surpass_action_plan_json:
-        description: 'Optional benchmark artifact bundle competitive surpass action plan JSON'
-        required: false
-        default: ''
-      benchmark_companion_summary_enable:
-        description: 'Override: enable benchmark companion summary export (true/false)'
-        required: false
-        default: ''
-      benchmark_companion_summary_scorecard_json:
-        description: 'Optional benchmark companion summary scorecard JSON'
-        required: false
-        default: ''
-      benchmark_companion_summary_operational_summary_json:
-        description: 'Optional benchmark companion summary operational summary JSON'
-        required: false
-        default: ''
-      benchmark_companion_summary_artifact_bundle_json:
-        description: 'Optional benchmark companion summary artifact bundle JSON'
-        required: false
-        default: ''
-      benchmark_companion_summary_engineering_signals_json:
-        description: 'Optional benchmark companion summary engineering signals JSON'
-        required: false
-        default: ''
-      benchmark_companion_summary_realdata_signals_json:
-        description: 'Optional benchmark companion summary real-data signals JSON'
-        required: false
-        default: ''
-      benchmark_companion_summary_realdata_scorecard_json:
-        description: 'Optional benchmark companion summary real-data scorecard JSON'
-        required: false
-        default: ''
-      benchmark_companion_summary_knowledge_readiness_json:
-        description: 'Optional benchmark companion summary knowledge readiness JSON'
-        required: false
-        default: ''
-      benchmark_companion_summary_knowledge_drift_json:
-        description: 'Optional benchmark companion summary knowledge drift JSON'
-        required: false
-        default: ''
-      benchmark_companion_summary_knowledge_application_json:
-        description: 'Optional benchmark companion summary knowledge application JSON'
-        required: false
-        default: ''
-      benchmark_companion_summary_knowledge_realdata_correlation_json:
-        description: 'Optional benchmark companion summary knowledge realdata correlation JSON'
-        required: false
-        default: ''
-      benchmark_companion_summary_knowledge_domain_matrix_json:
-        description: 'Optional benchmark companion summary knowledge domain matrix JSON'
-        required: false
-        default: ''
-      benchmark_companion_summary_knowledge_domain_capability_matrix_json:
-        description: 'Optional benchmark companion summary knowledge domain capability matrix JSON'
-        required: false
-        default: ''
-      benchmark_companion_summary_knowledge_domain_capability_drift_json:
-        description: 'Optional benchmark companion summary knowledge domain capability drift JSON'
-        required: false
-        default: ''
-      benchmark_companion_summary_knowledge_domain_control_plane_drift_json:
-        description: 'Optional benchmark companion summary knowledge domain control plane drift JSON'
-        required: false
-        default: ''
-      benchmark_companion_summary_knowledge_domain_release_gate_json:
-        description: 'Optional benchmark companion summary knowledge domain release gate JSON'
-        required: false
-        default: ''
-      benchmark_companion_summary_knowledge_domain_action_plan_json:
-        description: 'Optional benchmark companion summary knowledge domain action plan JSON'
-        required: false
-        default: ''
-      benchmark_companion_summary_knowledge_reference_inventory_json:
-        description: 'Optional benchmark companion summary knowledge reference inventory JSON'
-        required: false
-        default: ''
-      benchmark_companion_summary_knowledge_source_coverage_json:
-        description: 'Optional benchmark companion summary knowledge source coverage JSON'
-        required: false
-        default: ''
-      benchmark_companion_summary_knowledge_source_action_plan_json:
-        description: 'Optional benchmark companion summary knowledge source action plan JSON'
-        required: false
-        default: ''
-      benchmark_companion_summary_knowledge_outcome_correlation_json:
-        description: 'Optional benchmark companion summary knowledge outcome correlation JSON'
-        required: false
-        default: ''
-      benchmark_companion_summary_knowledge_outcome_drift_json:
-        description: 'Optional benchmark companion summary knowledge outcome drift JSON'
-        required: false
-        default: ''
-      benchmark_companion_summary_knowledge_domain_release_surface_alignment_json:
-        description: 'Optional benchmark companion summary knowledge domain release surface alignment JSON'
-        required: false
-        default: ''
-      benchmark_companion_summary_competitive_surpass_index_json:
-        description: 'Optional benchmark companion summary competitive surpass index JSON'
-        required: false
-        default: ''
-      benchmark_companion_summary_competitive_surpass_trend_json:
-        description: 'Optional benchmark companion summary competitive surpass trend JSON'
-        required: false
-        default: ''
-      benchmark_companion_summary_competitive_surpass_action_plan_json:
-        description: 'Optional benchmark companion summary competitive surpass action plan JSON'
-        required: false
-        default: ''
-      benchmark_release_decision_enable:
-        description: 'Override: enable benchmark release decision export (true/false)'
-        required: false
-        default: ''
-      benchmark_release_decision_scorecard_json:
-        description: 'Optional benchmark release decision benchmark scorecard JSON'
-        required: false
-        default: ''
-      benchmark_release_decision_operational_summary_json:
-        description: 'Optional benchmark release decision operational summary JSON'
-        required: false
-        default: ''
-      benchmark_release_decision_artifact_bundle_json:
-        description: 'Optional benchmark release decision artifact bundle JSON'
-        required: false
-        default: ''
-      benchmark_release_decision_companion_summary_json:
-        description: 'Optional benchmark release decision companion summary JSON'
-        required: false
-        default: ''
-      benchmark_release_decision_engineering_signals_json:
-        description: 'Optional benchmark release decision engineering signals JSON'
-        required: false
-        default: ''
-      benchmark_release_decision_realdata_signals_json:
-        description: 'Optional benchmark release decision real-data signals JSON'
-        required: false
-        default: ''
-      benchmark_release_decision_realdata_scorecard_json:
-        description: 'Optional benchmark release decision real-data scorecard JSON'
-        required: false
-        default: ''
-      benchmark_release_decision_operator_adoption_json:
-        description: 'Optional benchmark release decision operator adoption JSON'
-        required: false
-        default: ''
-      benchmark_release_decision_knowledge_readiness_json:
-        description: 'Optional benchmark release decision knowledge readiness JSON'
-        required: false
-        default: ''
-      benchmark_release_decision_knowledge_drift_json:
-        description: 'Optional benchmark release decision knowledge drift JSON'
-        required: false
-        default: ''
-      benchmark_release_decision_knowledge_application_json:
-        description: 'Optional benchmark release decision knowledge application JSON'
-        required: false
-        default: ''
-      benchmark_release_decision_knowledge_realdata_correlation_json:
-        description: 'Optional benchmark release decision knowledge realdata correlation JSON'
-        required: false
-        default: ''
-      benchmark_release_decision_knowledge_domain_matrix_json:
-        description: 'Optional benchmark release decision knowledge domain matrix JSON'
-        required: false
-        default: ''
-      benchmark_release_decision_knowledge_domain_capability_matrix_json:
-        description: 'Optional benchmark release decision knowledge domain capability matrix JSON'
-        required: false
-        default: ''
-      benchmark_release_decision_knowledge_domain_capability_drift_json:
-        description: 'Optional benchmark release decision knowledge domain capability drift JSON'
-        required: false
-        default: ''
-      benchmark_release_decision_knowledge_domain_control_plane_drift_json:
-        description: 'Optional benchmark release decision knowledge domain control plane drift JSON'
-        required: false
-        default: ''
-      benchmark_release_decision_knowledge_domain_release_gate_json:
-        description: 'Optional benchmark release decision knowledge domain release gate JSON'
-        required: false
-        default: ''
-      benchmark_release_decision_knowledge_reference_inventory_json:
-        description: 'Optional benchmark release decision knowledge reference inventory JSON'
-        required: false
-        default: ''
-      benchmark_release_decision_knowledge_domain_action_plan_json:
-        description: 'Optional benchmark release decision knowledge domain action plan JSON'
-        required: false
-        default: ''
-      benchmark_release_decision_knowledge_source_coverage_json:
-        description: 'Optional benchmark release decision knowledge source coverage JSON'
-        required: false
-        default: ''
-      benchmark_release_decision_knowledge_source_action_plan_json:
-        description: 'Optional benchmark release decision knowledge source action plan JSON'
-        required: false
-        default: ''
-      benchmark_release_decision_knowledge_outcome_correlation_json:
-        description: 'Optional benchmark release decision knowledge outcome correlation JSON'
-        required: false
-        default: ''
-      benchmark_release_decision_knowledge_outcome_drift_json:
-        description: 'Optional benchmark release decision knowledge outcome drift JSON'
-        required: false
-        default: ''
-      benchmark_release_decision_competitive_surpass_index_json:
-        description: 'Optional benchmark release decision competitive surpass index JSON'
-        required: false
-        default: ''
-      benchmark_release_decision_competitive_surpass_trend_json:
-        description: 'Optional benchmark release decision competitive surpass trend JSON'
-        required: false
-        default: ''
-      benchmark_release_decision_competitive_surpass_action_plan_json:
-        description: 'Optional benchmark release decision competitive surpass action plan JSON'
-        required: false
-        default: ''
-      benchmark_release_runbook_enable:
-        description: 'Override: enable benchmark release runbook export (true/false)'
-        required: false
-        default: ''
-      benchmark_release_runbook_release_decision_json:
-        description: 'Optional benchmark release runbook release decision JSON'
-        required: false
-        default: ''
-      benchmark_release_runbook_companion_summary_json:
-        description: 'Optional benchmark release runbook companion summary JSON'
-        required: false
-        default: ''
-      benchmark_release_runbook_artifact_bundle_json:
-        description: 'Optional benchmark release runbook artifact bundle JSON'
-        required: false
-        default: ''
-      benchmark_release_runbook_engineering_signals_json:
-        description: 'Optional benchmark release runbook engineering signals JSON'
-        required: false
-        default: ''
-      benchmark_release_runbook_realdata_signals_json:
-        description: 'Optional benchmark release runbook real-data signals JSON'
-        required: false
-        default: ''
-      benchmark_release_runbook_realdata_scorecard_json:
-        description: 'Optional benchmark release runbook real-data scorecard JSON'
-        required: false
-        default: ''
-      benchmark_release_runbook_operator_adoption_json:
-        description: 'Optional benchmark release runbook operator adoption JSON'
-        required: false
-        default: ''
-      benchmark_release_runbook_knowledge_readiness_json:
-        description: 'Optional benchmark release runbook knowledge readiness JSON'
-        required: false
-        default: ''
-      benchmark_release_runbook_knowledge_drift_json:
-        description: 'Optional benchmark release runbook knowledge drift JSON'
-        required: false
-        default: ''
-      benchmark_release_runbook_knowledge_application_json:
-        description: 'Optional benchmark release runbook knowledge application JSON'
-        required: false
-        default: ''
-      benchmark_release_runbook_knowledge_realdata_correlation_json:
-        description: 'Optional benchmark release runbook knowledge realdata correlation JSON'
-        required: false
-        default: ''
-      benchmark_release_runbook_knowledge_domain_matrix_json:
-        description: 'Optional benchmark release runbook knowledge domain matrix JSON'
-        required: false
-        default: ''
-      benchmark_release_runbook_knowledge_domain_capability_matrix_json:
-        description: 'Optional benchmark release runbook knowledge domain capability matrix JSON'
-        required: false
-        default: ''
-      benchmark_release_runbook_knowledge_domain_capability_drift_json:
-        description: 'Optional benchmark release runbook knowledge domain capability drift JSON'
-        required: false
-        default: ''
-      benchmark_release_runbook_knowledge_domain_control_plane_drift_json:
-        description: 'Optional benchmark release runbook knowledge domain control plane drift JSON'
-        required: false
-        default: ''
-      benchmark_release_runbook_knowledge_domain_release_gate_json:
-        description: 'Optional benchmark release runbook knowledge domain release gate JSON'
-        required: false
-        default: ''
-      benchmark_release_runbook_knowledge_reference_inventory_json:
-        description: 'Optional benchmark release runbook knowledge reference inventory JSON'
-        required: false
-        default: ''
-      benchmark_release_runbook_knowledge_domain_action_plan_json:
-        description: 'Optional benchmark release runbook knowledge domain action plan JSON'
-        required: false
-        default: ''
-      benchmark_release_runbook_knowledge_source_coverage_json:
-        description: 'Optional benchmark release runbook knowledge source coverage JSON'
-        required: false
-        default: ''
-      benchmark_release_runbook_knowledge_source_action_plan_json:
-        description: 'Optional benchmark release runbook knowledge source action plan JSON'
-        required: false
-        default: ''
-      benchmark_release_runbook_knowledge_outcome_correlation_json:
-        description: 'Optional benchmark release runbook knowledge outcome correlation JSON'
-        required: false
-        default: ''
-      benchmark_release_runbook_knowledge_outcome_drift_json:
-        description: 'Optional benchmark release runbook knowledge outcome drift JSON'
-        required: false
-        default: ''
-      benchmark_release_runbook_competitive_surpass_index_json:
-        description: 'Optional benchmark release runbook competitive surpass index JSON'
-        required: false
-        default: ''
-      benchmark_release_runbook_competitive_surpass_trend_json:
-        description: 'Optional benchmark release runbook competitive surpass trend JSON'
-        required: false
-        default: ''
-      benchmark_release_runbook_competitive_surpass_action_plan_json:
-        description: 'Optional benchmark release runbook competitive surpass action plan JSON'
-        required: false
-        default: ''
-      benchmark_operator_adoption_enable:
-        description: 'Override: enable benchmark operator adoption export (true/false)'
-        required: false
-        default: ''
-      benchmark_operator_adoption_release_decision_json:
-        description: 'Optional benchmark operator adoption release decision JSON'
-        required: false
-        default: ''
-      benchmark_operator_adoption_release_runbook_json:
-        description: 'Optional benchmark operator adoption release runbook JSON'
-        required: false
-        default: ''
-      benchmark_operator_adoption_review_queue_json:
-        description: 'Optional benchmark operator adoption review queue JSON'
-        required: false
-        default: ''
-      benchmark_operator_adoption_feedback_flywheel_json:
-        description: 'Optional benchmark operator adoption feedback flywheel JSON'
-        required: false
-        default: ''
-      benchmark_operator_adoption_knowledge_drift_json:
-        description: 'Optional benchmark operator adoption knowledge drift JSON'
-        required: false
-        default: ''
-      benchmark_operator_adoption_knowledge_outcome_drift_json:
-        description: 'Optional benchmark operator adoption knowledge outcome drift JSON'
-        required: false
-        default: ''
-      ocr_review_pack_enable:
-        description: 'Override: enable OCR review-pack export (true/false)'
-        required: false
-        default: ''
-      ocr_review_pack_input:
-        description: 'Optional OCR review-pack input JSON/JSONL path'
-        required: false
-        default: ''
-      assistant_evidence_report_enable:
-        description: 'Override: enable assistant evidence report export (true/false)'
-        required: false
-        default: ''
-      assistant_evidence_report_input:
-        description: 'Optional assistant evidence input JSON/JSONL path'
-        required: false
-        default: ''
-      active_learning_review_queue_report_enable:
-        description: 'Override: enable active-learning review queue report export (true/false)'
-        required: false
-        default: ''
-      active_learning_review_queue_report_input:
-        description: 'Optional active-learning review queue input path'
-        required: false
-        default: ''
-      active_learning_review_queue_report_top_k:
-        description: 'Optional active-learning review queue top-k summary limit'
-        required: false
-        default: ''
-
+  workflow_dispatch: {}
 env:
+  # workflow_dispatch compatibility aliases kept in env to avoid GitHub's 25-input limit
+  MIN_COMBINED: ${{ vars.MIN_COMBINED || '0.8' }}
+  MIN_VISION: ${{ vars.MIN_VISION || '0.65' }}
+  MIN_OCR: ${{ vars.MIN_OCR || '0.9' }}
+  REVIEW_GATE_MIN_TOTAL_ROWS: ${{ vars.REVIEW_GATE_MIN_TOTAL_ROWS || '' }}
+  REVIEW_GATE_MAX_CANDIDATE_RATE: ${{ vars.REVIEW_GATE_MAX_CANDIDATE_RATE || '' }}
+  REVIEW_GATE_MAX_HYBRID_REJECTED_RATE: ${{ vars.REVIEW_GATE_MAX_HYBRID_REJECTED_RATE || '' }}
+  REVIEW_GATE_MAX_CONFLICT_RATE: ${{ vars.REVIEW_GATE_MAX_CONFLICT_RATE || '' }}
+  REVIEW_GATE_MAX_LOW_CONFIDENCE_RATE: ${{ vars.REVIEW_GATE_MAX_LOW_CONFIDENCE_RATE || '' }}
+  REVIEW_GATE_STRICT: ${{ vars.REVIEW_GATE_STRICT || '' }}
+  REVIEW_PACK_INPUT_CSV: ${{ vars.GRAPH2D_REVIEW_PACK_INPUT_CSV }}
+  REVIEW_PACK_INPUT_ARTIFACT_NAME: ${{ vars.GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_NAME }}
+  REVIEW_PACK_INPUT_ARTIFACT_RUN_ID: ${{ vars.GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_RUN_ID }}
+  REVIEW_PACK_INPUT_ARTIFACT_REPOSITORY: ${{ vars.GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_REPOSITORY }}
+  REVIEW_PACK_INPUT_ARTIFACT_PATH: ${{ vars.GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_PATH }}
+  BENCHMARK_SCORECARD_ASSISTANT_EVIDENCE_SUMMARY: ${{ vars.BENCHMARK_SCORECARD_ASSISTANT_EVIDENCE_SUMMARY_JSON }}
+  BENCHMARK_SCORECARD_REVIEW_QUEUE_SUMMARY: ${{ vars.BENCHMARK_SCORECARD_REVIEW_QUEUE_SUMMARY_JSON }}
+  BENCHMARK_SCORECARD_FEEDBACK_SUMMARY: ${{ vars.BENCHMARK_SCORECARD_FEEDBACK_SUMMARY_JSON }}
+  BENCHMARK_SCORECARD_FINETUNE_SUMMARY: ${{ vars.BENCHMARK_SCORECARD_FINETUNE_SUMMARY_JSON }}
+  BENCHMARK_SCORECARD_METRIC_TRAIN_SUMMARY: ${{ vars.BENCHMARK_SCORECARD_METRIC_TRAIN_SUMMARY_JSON }}
+  BENCHMARK_SCORECARD_OCR_REVIEW_SUMMARY: ${{ vars.BENCHMARK_SCORECARD_OCR_REVIEW_SUMMARY_JSON }}
+  BENCHMARK_SCORECARD_QDRANT_READINESS_SUMMARY: ${{ vars.BENCHMARK_SCORECARD_QDRANT_READINESS_SUMMARY_JSON }}
+  BENCHMARK_SCORECARD_ENGINEERING_SIGNALS_SUMMARY: ${{ vars.BENCHMARK_SCORECARD_ENGINEERING_SIGNALS_SUMMARY_JSON }}
+  BENCHMARK_SCORECARD_KNOWLEDGE_READINESS_SUMMARY: ${{ vars.BENCHMARK_SCORECARD_KNOWLEDGE_READINESS_SUMMARY_JSON }}
+  BENCHMARK_SCORECARD_OPERATOR_ADOPTION_SUMMARY: ${{ vars.BENCHMARK_SCORECARD_OPERATOR_ADOPTION_SUMMARY_JSON }}
+  BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_JSON }}
+  BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_OUTCOME_DRIFT_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_OUTCOME_DRIFT_JSON }}
+  BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_JSON }}
+  BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_JSON }}
+  BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_OUTCOME_DRIFT_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_OUTCOME_DRIFT_JSON }}
+  BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_JSON }}
+  BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_JSON }}
+  BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON }}
+  BENCHMARK_RELEASE_DECISION_KNOWLEDGE_REFERENCE_INVENTORY_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_REFERENCE_INVENTORY_JSON }}
+  BENCHMARK_RELEASE_DECISION_KNOWLEDGE_OUTCOME_DRIFT_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_OUTCOME_DRIFT_JSON }}
+  BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_JSON }}
+  BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON }}
+  BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_REFERENCE_INVENTORY_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_REFERENCE_INVENTORY_JSON }}
+  BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_OUTCOME_DRIFT_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_OUTCOME_DRIFT_JSON }}
   PYTHON_VERSION: '3.11'
   REPORT_PATH: reports/eval_history/report_static
   INTERACTIVE_REPORT_PATH: reports/eval_history/report_interactive
@@ -1500,9 +493,9 @@ jobs:
       id: evaluation
       run: |
         # Use workflow inputs if provided, otherwise use defaults
-        MIN_COMBINED="${{ github.event.inputs.min_combined || '0.8' }}"
-        MIN_VISION="${{ github.event.inputs.min_vision || '0.65' }}"
-        MIN_OCR="${{ github.event.inputs.min_ocr || '0.9' }}"
+        MIN_COMBINED="${{ env.MIN_COMBINED || '0.8' }}"
+        MIN_VISION="${{ env.MIN_VISION || '0.65' }}"
+        MIN_OCR="${{ env.MIN_OCR || '0.9' }}"
 
         echo "Running evaluation with thresholds:"
         echo "  Combined: $MIN_COMBINED"
@@ -1683,15 +676,15 @@ jobs:
     - name: Download review-pack input artifact (optional)
       id: graph2d_review_pack_input_artifact
       if: >-
-        (github.event.inputs.review_pack_input_artifact_name != '' ||
+        (env.REVIEW_PACK_INPUT_ARTIFACT_NAME != '' ||
         env.GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_NAME != '') &&
-        (github.event.inputs.review_pack_input_artifact_run_id != '' ||
+        (env.REVIEW_PACK_INPUT_ARTIFACT_RUN_ID != '' ||
         env.GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_RUN_ID != '')
       uses: actions/download-artifact@v4
       with:
-        name: ${{ github.event.inputs.review_pack_input_artifact_name || env.GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_NAME }}
-        repository: ${{ github.event.inputs.review_pack_input_artifact_repository || env.GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_REPOSITORY || github.repository }}
-        run-id: ${{ github.event.inputs.review_pack_input_artifact_run_id || env.GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_RUN_ID }}
+        name: ${{ env.REVIEW_PACK_INPUT_ARTIFACT_NAME || env.GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_NAME }}
+        repository: ${{ env.REVIEW_PACK_INPUT_ARTIFACT_REPOSITORY || env.GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_REPOSITORY || github.repository }}
+        run-id: ${{ env.REVIEW_PACK_INPUT_ARTIFACT_RUN_ID || env.GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_RUN_ID }}
         github-token: ${{ secrets.GITHUB_TOKEN }}
         path: .tmp/graph2d-review-pack-input
 
@@ -1699,11 +692,11 @@ jobs:
       id: graph2d_review_pack
       continue-on-error: true
       run: |
-        INPUT_CSV="${{ github.event.inputs.review_pack_input_csv || '' }}"
+        INPUT_CSV="${{ env.REVIEW_PACK_INPUT_CSV || '' }}"
         if [[ -z "$INPUT_CSV" ]]; then
           INPUT_CSV="${GRAPH2D_REVIEW_PACK_INPUT_CSV:-}"
         fi
-        ARTIFACT_INPUT_PATH="${{ github.event.inputs.review_pack_input_artifact_path || '' }}"
+        ARTIFACT_INPUT_PATH="${{ env.REVIEW_PACK_INPUT_ARTIFACT_PATH || '' }}"
         if [[ -z "$ARTIFACT_INPUT_PATH" ]]; then
           ARTIFACT_INPUT_PATH="${GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_PATH:-}"
         fi
@@ -1867,7 +860,7 @@ jobs:
       id: ocr_review_pack
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.ocr_review_pack_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.OCR_REVIEW_PACK_ENABLE || '' }}"
         ENABLE_VALUE="${OCR_REVIEW_PACK_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -1879,7 +872,7 @@ jobs:
           exit 0
         fi
 
-        INPUT_PATH="${{ github.event.inputs.ocr_review_pack_input || '' }}"
+        INPUT_PATH="${{ env.OCR_REVIEW_PACK_INPUT || '' }}"
         if [[ -z "$INPUT_PATH" ]]; then
           INPUT_PATH="${OCR_REVIEW_PACK_INPUT:-}"
         fi
@@ -1947,7 +940,7 @@ jobs:
       id: active_learning_review_queue_report
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.active_learning_review_queue_report_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_ENABLE || '' }}"
         ENABLE_VALUE="${ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -1959,7 +952,7 @@ jobs:
           exit 0
         fi
 
-        INPUT_PATH="${{ github.event.inputs.active_learning_review_queue_report_input || '' }}"
+        INPUT_PATH="${{ env.ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_INPUT || '' }}"
         if [[ -z "$INPUT_PATH" ]]; then
           INPUT_PATH="${ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_INPUT:-}"
         fi
@@ -1969,7 +962,7 @@ jobs:
           exit 0
         fi
 
-        TOP_K_INPUT="${{ github.event.inputs.active_learning_review_queue_report_top_k || '' }}"
+        TOP_K_INPUT="${{ env.ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_TOP_K || '' }}"
         TOP_K_VALUE="${ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_TOP_K:-20}"
         if [[ -n "$TOP_K_INPUT" ]]; then
           TOP_K_VALUE="$TOP_K_INPUT"
@@ -2046,7 +1039,7 @@ jobs:
       id: benchmark_engineering_signals
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_engineering_signals_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_ENGINEERING_SIGNALS_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_ENGINEERING_SIGNALS_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -2080,8 +1073,8 @@ jobs:
           fi
         }
 
-        add_if_exists --hybrid-summary "${{ github.event.inputs.benchmark_engineering_signals_hybrid_summary_json || '' }}"
-        add_if_exists --ocr-review-summary "${{ github.event.inputs.benchmark_engineering_signals_ocr_review_summary_json || '' }}"
+        add_if_exists --hybrid-summary "${{ env.BENCHMARK_ENGINEERING_SIGNALS_HYBRID_SUMMARY_JSON || '' }}"
+        add_if_exists --ocr-review-summary "${{ env.BENCHMARK_ENGINEERING_SIGNALS_OCR_REVIEW_SUMMARY_JSON || '' }}"
         add_if_exists --hybrid-summary "${BENCHMARK_ENGINEERING_SIGNALS_HYBRID_SUMMARY_JSON:-}"
         add_if_exists --hybrid-summary "${BENCHMARK_SCORECARD_HYBRID_SUMMARY_JSON:-}"
         add_if_exists --ocr-review-summary "${{ steps.ocr_review_pack.outputs.output_json || '' }}"
@@ -2133,7 +1126,7 @@ jobs:
       id: benchmark_realdata_signals
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_realdata_signals_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_REALDATA_SIGNALS_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_REALDATA_SIGNALS_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -2162,9 +1155,9 @@ jobs:
           fi
         }
 
-        add_if_exists --hybrid-summary "${{ github.event.inputs.benchmark_realdata_signals_hybrid_summary_json || '' }}"
-        add_if_exists --online-example-report "${{ github.event.inputs.benchmark_realdata_signals_online_example_report_json || '' }}"
-        add_if_exists --step-dir-summary "${{ github.event.inputs.benchmark_realdata_signals_step_dir_summary_json || '' }}"
+        add_if_exists --hybrid-summary "${{ env.BENCHMARK_REALDATA_SIGNALS_HYBRID_SUMMARY_JSON || '' }}"
+        add_if_exists --online-example-report "${{ env.BENCHMARK_REALDATA_SIGNALS_ONLINE_EXAMPLE_REPORT_JSON || '' }}"
+        add_if_exists --step-dir-summary "${{ env.BENCHMARK_REALDATA_SIGNALS_STEP_DIR_SUMMARY_JSON || '' }}"
         add_if_exists --hybrid-summary "${BENCHMARK_REALDATA_SIGNALS_HYBRID_SUMMARY_JSON:-}"
         add_if_exists --hybrid-summary "${BENCHMARK_SCORECARD_HYBRID_SUMMARY_JSON:-}"
         add_if_exists --online-example-report "${BENCHMARK_REALDATA_SIGNALS_ONLINE_EXAMPLE_REPORT_JSON:-}"
@@ -2243,7 +1236,7 @@ jobs:
       id: benchmark_realdata_scorecard
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_realdata_scorecard_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_REALDATA_SCORECARD_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_REALDATA_SCORECARD_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -2272,10 +1265,10 @@ jobs:
           fi
         }
 
-        add_if_exists --hybrid-summary "${{ github.event.inputs.benchmark_realdata_scorecard_hybrid_summary_json || '' }}"
-        add_if_exists --history-summary "${{ github.event.inputs.benchmark_realdata_scorecard_history_summary_json || '' }}"
-        add_if_exists --online-example-report "${{ github.event.inputs.benchmark_realdata_scorecard_online_example_report_json || '' }}"
-        add_if_exists --step-dir-summary "${{ github.event.inputs.benchmark_realdata_scorecard_step_dir_summary_json || '' }}"
+        add_if_exists --hybrid-summary "${{ env.BENCHMARK_REALDATA_SCORECARD_HYBRID_SUMMARY_JSON || '' }}"
+        add_if_exists --history-summary "${{ env.BENCHMARK_REALDATA_SCORECARD_HISTORY_SUMMARY_JSON || '' }}"
+        add_if_exists --online-example-report "${{ env.BENCHMARK_REALDATA_SCORECARD_ONLINE_EXAMPLE_REPORT_JSON || '' }}"
+        add_if_exists --step-dir-summary "${{ env.BENCHMARK_REALDATA_SCORECARD_STEP_DIR_SUMMARY_JSON || '' }}"
         add_if_exists --hybrid-summary "${BENCHMARK_REALDATA_SCORECARD_HYBRID_SUMMARY_JSON:-}"
         add_if_exists --hybrid-summary "${BENCHMARK_SCORECARD_HYBRID_SUMMARY_JSON:-}"
         add_if_exists --history-summary "${BENCHMARK_REALDATA_SCORECARD_HISTORY_SUMMARY_JSON:-}"
@@ -2359,7 +1352,7 @@ jobs:
       id: benchmark_scorecard
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_scorecard_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_SCORECARD_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_SCORECARD_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -2398,12 +1391,12 @@ jobs:
         add_if_exists --history-summary "${BENCHMARK_SCORECARD_HISTORY_SUMMARY_JSON:-}"
         add_if_exists --brep-summary "${BENCHMARK_SCORECARD_BREP_SUMMARY_JSON:-}"
         add_if_exists --migration-summary "${BENCHMARK_SCORECARD_MIGRATION_SUMMARY_JSON:-}"
-        add_if_exists --assistant-evidence-summary "${{ github.event.inputs.benchmark_scorecard_assistant_evidence_summary || '' }}"
-        add_if_exists --review-queue-summary "${{ github.event.inputs.benchmark_scorecard_review_queue_summary || '' }}"
-        add_if_exists --feedback-summary "${{ github.event.inputs.benchmark_scorecard_feedback_summary || '' }}"
-        add_if_exists --finetune-summary "${{ github.event.inputs.benchmark_scorecard_finetune_summary || '' }}"
-        add_if_exists --metric-train-summary "${{ github.event.inputs.benchmark_scorecard_metric_train_summary || '' }}"
-        add_if_exists --ocr-review-summary "${{ github.event.inputs.benchmark_scorecard_ocr_review_summary || '' }}"
+        add_if_exists --assistant-evidence-summary "${{ env.BENCHMARK_SCORECARD_ASSISTANT_EVIDENCE_SUMMARY || '' }}"
+        add_if_exists --review-queue-summary "${{ env.BENCHMARK_SCORECARD_REVIEW_QUEUE_SUMMARY || '' }}"
+        add_if_exists --feedback-summary "${{ env.BENCHMARK_SCORECARD_FEEDBACK_SUMMARY || '' }}"
+        add_if_exists --finetune-summary "${{ env.BENCHMARK_SCORECARD_FINETUNE_SUMMARY || '' }}"
+        add_if_exists --metric-train-summary "${{ env.BENCHMARK_SCORECARD_METRIC_TRAIN_SUMMARY || '' }}"
+        add_if_exists --ocr-review-summary "${{ env.BENCHMARK_SCORECARD_OCR_REVIEW_SUMMARY || '' }}"
         add_if_exists --assistant-evidence-summary "${BENCHMARK_SCORECARD_ASSISTANT_EVIDENCE_SUMMARY_JSON:-}"
         add_if_exists --review-queue-summary "${{ steps.active_learning_review_queue_report.outputs.output_json || '' }}"
         add_if_exists --review-queue-summary "${BENCHMARK_SCORECARD_REVIEW_QUEUE_SUMMARY_JSON:-}"
@@ -2412,14 +1405,14 @@ jobs:
         add_if_exists --metric-train-summary "${BENCHMARK_SCORECARD_METRIC_TRAIN_SUMMARY_JSON:-}"
         add_if_exists --ocr-review-summary "${{ steps.ocr_review_pack.outputs.output_json || '' }}"
         add_if_exists --ocr-review-summary "${BENCHMARK_SCORECARD_OCR_REVIEW_SUMMARY_JSON:-}"
-        add_if_exists --qdrant-readiness-summary "${{ github.event.inputs.benchmark_scorecard_qdrant_readiness_summary || '' }}"
+        add_if_exists --qdrant-readiness-summary "${{ env.BENCHMARK_SCORECARD_QDRANT_READINESS_SUMMARY || '' }}"
         add_if_exists --qdrant-readiness-summary "${BENCHMARK_SCORECARD_QDRANT_READINESS_JSON:-}"
-        add_if_exists --engineering-signals-summary "${{ github.event.inputs.benchmark_scorecard_engineering_signals_summary || '' }}"
+        add_if_exists --engineering-signals-summary "${{ env.BENCHMARK_SCORECARD_ENGINEERING_SIGNALS_SUMMARY || '' }}"
         add_if_exists --engineering-signals-summary "${{ steps.benchmark_engineering_signals.outputs.output_json || '' }}"
         add_if_exists --engineering-signals-summary "${BENCHMARK_SCORECARD_ENGINEERING_SIGNALS_SUMMARY_JSON:-}"
-        add_if_exists --knowledge-readiness-summary "${{ github.event.inputs.benchmark_scorecard_knowledge_readiness_summary || '' }}"
+        add_if_exists --knowledge-readiness-summary "${{ env.BENCHMARK_SCORECARD_KNOWLEDGE_READINESS_SUMMARY || '' }}"
         add_if_exists --knowledge-readiness-summary "${BENCHMARK_SCORECARD_KNOWLEDGE_READINESS_JSON:-}"
-        add_if_exists --benchmark-operator-adoption-summary "${{ github.event.inputs.benchmark_scorecard_operator_adoption_summary || '' }}"
+        add_if_exists --benchmark-operator-adoption-summary "${{ env.BENCHMARK_SCORECARD_OPERATOR_ADOPTION_SUMMARY || '' }}"
         add_if_exists --benchmark-operator-adoption-summary "${BENCHMARK_SCORECARD_OPERATOR_ADOPTION_SUMMARY_JSON:-}"
 
         "${CMD[@]}"
@@ -2513,13 +1506,13 @@ jobs:
       id: benchmark_knowledge_readiness
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_readiness_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_KNOWLEDGE_READINESS_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_READINESS_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
         fi
         ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
-        SNAPSHOT_INPUT="${{ github.event.inputs.benchmark_knowledge_readiness_snapshot_json || '' }}"
+        SNAPSHOT_INPUT="${{ env.BENCHMARK_KNOWLEDGE_READINESS_SNAPSHOT_JSON || '' }}"
         if [[ -z "$SNAPSHOT_INPUT" ]]; then
           SNAPSHOT_INPUT="${BENCHMARK_KNOWLEDGE_READINESS_SNAPSHOT_JSON:-}"
         fi
@@ -2640,9 +1633,9 @@ jobs:
           fi
         }
 
-        add_if_exists --feedback-summary "${{ github.event.inputs.benchmark_scorecard_feedback_summary || '' }}"
-        add_if_exists --finetune-summary "${{ github.event.inputs.benchmark_scorecard_finetune_summary || '' }}"
-        add_if_exists --metric-train-summary "${{ github.event.inputs.benchmark_scorecard_metric_train_summary || '' }}"
+        add_if_exists --feedback-summary "${{ env.BENCHMARK_SCORECARD_FEEDBACK_SUMMARY || '' }}"
+        add_if_exists --finetune-summary "${{ env.BENCHMARK_SCORECARD_FINETUNE_SUMMARY || '' }}"
+        add_if_exists --metric-train-summary "${{ env.BENCHMARK_SCORECARD_METRIC_TRAIN_SUMMARY || '' }}"
         add_if_exists --feedback-summary "${BENCHMARK_SCORECARD_FEEDBACK_SUMMARY_JSON:-}"
         add_if_exists --finetune-summary "${BENCHMARK_SCORECARD_FINETUNE_SUMMARY_JSON:-}"
         add_if_exists --metric-train-summary "${BENCHMARK_SCORECARD_METRIC_TRAIN_SUMMARY_JSON:-}"
@@ -2683,7 +1676,7 @@ jobs:
       id: benchmark_operational_summary
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_operational_summary_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_OPERATIONAL_SUMMARY_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_OPERATIONAL_SUMMARY_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -2712,12 +1705,12 @@ jobs:
           fi
         }
 
-        add_if_exists --benchmark-scorecard "${{ github.event.inputs.benchmark_operational_summary_scorecard_json || '' }}"
-        add_if_exists --feedback-flywheel "${{ github.event.inputs.benchmark_operational_summary_feedback_json || '' }}"
-        add_if_exists --assistant-evidence "${{ github.event.inputs.benchmark_operational_summary_assistant_json || '' }}"
-        add_if_exists --review-queue "${{ github.event.inputs.benchmark_operational_summary_review_queue_json || '' }}"
-        add_if_exists --ocr-review "${{ github.event.inputs.benchmark_operational_summary_ocr_review_json || '' }}"
-        add_if_exists --benchmark-operator-adoption "${{ github.event.inputs.benchmark_operational_summary_operator_adoption_json || '' }}"
+        add_if_exists --benchmark-scorecard "${{ env.BENCHMARK_OPERATIONAL_SUMMARY_SCORECARD_JSON || '' }}"
+        add_if_exists --feedback-flywheel "${{ env.BENCHMARK_OPERATIONAL_SUMMARY_FEEDBACK_JSON || '' }}"
+        add_if_exists --assistant-evidence "${{ env.BENCHMARK_OPERATIONAL_SUMMARY_ASSISTANT_JSON || '' }}"
+        add_if_exists --review-queue "${{ env.BENCHMARK_OPERATIONAL_SUMMARY_REVIEW_QUEUE_JSON || '' }}"
+        add_if_exists --ocr-review "${{ env.BENCHMARK_OPERATIONAL_SUMMARY_OCR_REVIEW_JSON || '' }}"
+        add_if_exists --benchmark-operator-adoption "${{ env.BENCHMARK_OPERATIONAL_SUMMARY_OPERATOR_ADOPTION_JSON || '' }}"
         add_if_exists --benchmark-scorecard "${{ steps.benchmark_scorecard.outputs.output_json || '' }}"
         add_if_exists --benchmark-scorecard "${BENCHMARK_OPERATIONAL_SUMMARY_SCORECARD_JSON:-}"
         add_if_exists --feedback-flywheel "${{ steps.feedback_flywheel_benchmark.outputs.output_json || '' }}"
@@ -2918,7 +1911,7 @@ jobs:
       id: benchmark_knowledge_application
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_application_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_KNOWLEDGE_APPLICATION_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_APPLICATION_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -2947,8 +1940,8 @@ jobs:
           fi
         }
 
-        add_if_exists --engineering-signals-summary "${{ github.event.inputs.benchmark_knowledge_application_engineering_signals_json || '' }}"
-        add_if_exists --knowledge-readiness-summary "${{ github.event.inputs.benchmark_knowledge_application_knowledge_readiness_json || '' }}"
+        add_if_exists --engineering-signals-summary "${{ env.BENCHMARK_KNOWLEDGE_APPLICATION_ENGINEERING_SIGNALS_JSON || '' }}"
+        add_if_exists --knowledge-readiness-summary "${{ env.BENCHMARK_KNOWLEDGE_APPLICATION_KNOWLEDGE_READINESS_JSON || '' }}"
         add_if_exists --engineering-signals-summary "${{ steps.benchmark_engineering_signals.outputs.output_json || '' }}"
         add_if_exists --engineering-signals-summary "${BENCHMARK_KNOWLEDGE_APPLICATION_ENGINEERING_SIGNALS_JSON:-}"
         add_if_exists --knowledge-readiness-summary "${{ steps.benchmark_knowledge_readiness.outputs.output_json || '' }}"
@@ -3029,7 +2022,7 @@ jobs:
       id: benchmark_knowledge_realdata_correlation
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_realdata_correlation_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -3058,9 +2051,9 @@ jobs:
           fi
         }
 
-        add_if_exists --knowledge-readiness "${{ github.event.inputs.benchmark_knowledge_realdata_correlation_knowledge_readiness_json || '' }}"
-        add_if_exists --knowledge-application "${{ github.event.inputs.benchmark_knowledge_realdata_correlation_knowledge_application_json || '' }}"
-        add_if_exists --realdata-signals "${{ github.event.inputs.benchmark_knowledge_realdata_correlation_realdata_signals_json || '' }}"
+        add_if_exists --knowledge-readiness "${{ env.BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_KNOWLEDGE_READINESS_JSON || '' }}"
+        add_if_exists --knowledge-application "${{ env.BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_KNOWLEDGE_APPLICATION_JSON || '' }}"
+        add_if_exists --realdata-signals "${{ env.BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_REALDATA_SIGNALS_JSON || '' }}"
         add_if_exists --knowledge-readiness "${{ steps.benchmark_knowledge_readiness.outputs.output_json || '' }}"
         add_if_exists --knowledge-readiness "${BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_KNOWLEDGE_READINESS_JSON:-}"
         add_if_exists --knowledge-application "${{ steps.benchmark_knowledge_application.outputs.output_json || '' }}"
@@ -3145,7 +2138,7 @@ jobs:
       id: benchmark_knowledge_domain_matrix
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_domain_matrix_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_MATRIX_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_DOMAIN_MATRIX_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -3174,9 +2167,9 @@ jobs:
           fi
         }
 
-        add_if_exists --knowledge-readiness "${{ github.event.inputs.benchmark_knowledge_domain_matrix_knowledge_readiness_json || '' }}"
-        add_if_exists --knowledge-application "${{ github.event.inputs.benchmark_knowledge_domain_matrix_knowledge_application_json || '' }}"
-        add_if_exists --knowledge-realdata-correlation "${{ github.event.inputs.benchmark_knowledge_domain_matrix_knowledge_realdata_correlation_json || '' }}"
+        add_if_exists --knowledge-readiness "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_MATRIX_KNOWLEDGE_READINESS_JSON || '' }}"
+        add_if_exists --knowledge-application "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_MATRIX_KNOWLEDGE_APPLICATION_JSON || '' }}"
+        add_if_exists --knowledge-realdata-correlation "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_MATRIX_KNOWLEDGE_REALDATA_CORRELATION_JSON || '' }}"
         add_if_exists --knowledge-readiness "${{ steps.benchmark_knowledge_readiness.outputs.output_json || '' }}"
         add_if_exists --knowledge-readiness "${BENCHMARK_KNOWLEDGE_DOMAIN_MATRIX_KNOWLEDGE_READINESS_JSON:-}"
         add_if_exists --knowledge-application "${{ steps.benchmark_knowledge_application.outputs.output_json || '' }}"
@@ -3259,7 +2252,7 @@ jobs:
       id: benchmark_knowledge_domain_action_plan
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_domain_action_plan_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_ACTION_PLAN_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_DOMAIN_ACTION_PLAN_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -3288,7 +2281,7 @@ jobs:
           fi
         }
 
-        add_if_exists --benchmark-knowledge-domain-matrix "${{ github.event.inputs.benchmark_knowledge_domain_action_plan_knowledge_domain_matrix_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-matrix "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_ACTION_PLAN_KNOWLEDGE_DOMAIN_MATRIX_JSON || '' }}"
         add_if_exists --benchmark-knowledge-domain-matrix "${{ steps.benchmark_knowledge_domain_matrix.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-matrix "${BENCHMARK_KNOWLEDGE_DOMAIN_ACTION_PLAN_KNOWLEDGE_DOMAIN_MATRIX_JSON:-}"
 
@@ -3379,7 +2372,7 @@ jobs:
       id: benchmark_knowledge_domain_control_plane
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_domain_control_plane_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -3408,16 +2401,16 @@ jobs:
           fi
         }
 
-        add_if_exists --benchmark-knowledge-domain-capability-matrix "${{ github.event.inputs.benchmark_knowledge_domain_control_plane_knowledge_domain_capability_matrix_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-capability-matrix "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON:-}"
-        add_if_exists --benchmark-knowledge-domain-capability-drift "${{ github.event.inputs.benchmark_knowledge_domain_control_plane_knowledge_domain_capability_drift_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-capability-drift "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_JSON || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-drift "${BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_JSON:-}"
-        add_if_exists --benchmark-knowledge-realdata-correlation "${{ github.event.inputs.benchmark_knowledge_domain_control_plane_knowledge_realdata_correlation_json || '' }}"
+        add_if_exists --benchmark-knowledge-realdata-correlation "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_KNOWLEDGE_REALDATA_CORRELATION_JSON || '' }}"
         add_if_exists --benchmark-knowledge-realdata-correlation "${{ steps.benchmark_knowledge_realdata_correlation.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-realdata-correlation "${BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_KNOWLEDGE_REALDATA_CORRELATION_JSON:-}"
-        add_if_exists --benchmark-knowledge-outcome-correlation "${{ github.event.inputs.benchmark_knowledge_domain_control_plane_knowledge_outcome_correlation_json || '' }}"
+        add_if_exists --benchmark-knowledge-outcome-correlation "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_KNOWLEDGE_OUTCOME_CORRELATION_JSON || '' }}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_KNOWLEDGE_OUTCOME_CORRELATION_JSON:-}"
-        add_if_exists --benchmark-knowledge-domain-action-plan "${{ github.event.inputs.benchmark_knowledge_domain_control_plane_knowledge_domain_action_plan_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-action-plan "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ steps.benchmark_knowledge_domain_action_plan.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON:-}"
 
@@ -3483,7 +2476,7 @@ jobs:
       id: benchmark_knowledge_domain_control_plane_drift
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_domain_control_plane_drift_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -3512,10 +2505,10 @@ jobs:
           fi
         }
 
-        add_if_exists --current-summary "${{ github.event.inputs.benchmark_knowledge_domain_control_plane_drift_current_summary_json || '' }}"
+        add_if_exists --current-summary "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_CURRENT_SUMMARY_JSON || '' }}"
         add_if_exists --current-summary "${{ steps.benchmark_knowledge_domain_control_plane.outputs.output_json || '' }}"
         add_if_exists --current-summary "${BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_CURRENT_SUMMARY_JSON:-}"
-        add_if_exists --previous-summary "${{ github.event.inputs.benchmark_knowledge_domain_control_plane_drift_previous_summary_json || '' }}"
+        add_if_exists --previous-summary "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_PREVIOUS_SUMMARY_JSON || '' }}"
         add_if_exists --previous-summary "${BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_PREVIOUS_SUMMARY_JSON:-}"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
@@ -3580,7 +2573,7 @@ jobs:
       id: benchmark_knowledge_domain_release_gate
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_domain_release_gate_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -3609,20 +2602,20 @@ jobs:
           fi
         }
 
-        add_if_exists --benchmark-knowledge-domain-capability-matrix "${{ github.event.inputs.benchmark_knowledge_domain_release_gate_knowledge_domain_capability_matrix_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-capability-matrix "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-matrix "${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON:-}"
-        add_if_exists --benchmark-knowledge-domain-capability-drift "${{ github.event.inputs.benchmark_knowledge_domain_release_gate_knowledge_domain_capability_drift_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-capability-drift "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_JSON || '' }}"
         add_if_exists --benchmark-knowledge-domain-capability-drift "${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_JSON:-}"
-        add_if_exists --benchmark-knowledge-domain-action-plan "${{ github.event.inputs.benchmark_knowledge_domain_release_gate_knowledge_domain_action_plan_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-action-plan "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${{ steps.benchmark_knowledge_domain_action_plan.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-action-plan "${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON:-}"
-        add_if_exists --benchmark-knowledge-domain-control-plane "${{ github.event.inputs.benchmark_knowledge_domain_release_gate_knowledge_domain_control_plane_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-control-plane "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON || '' }}"
         add_if_exists --benchmark-knowledge-domain-control-plane "${{ steps.benchmark_knowledge_domain_control_plane.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-control-plane "${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON:-}"
-        add_if_exists --benchmark-knowledge-domain-control-plane-drift "${{ github.event.inputs.benchmark_knowledge_domain_release_gate_knowledge_domain_control_plane_drift_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-control-plane-drift "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON || '' }}"
         add_if_exists --benchmark-knowledge-domain-control-plane-drift "${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-control-plane-drift "${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_JSON:-}"
-        add_if_exists --benchmark-knowledge-domain-release-surface-alignment "${{ github.event.inputs.benchmark_knowledge_domain_release_gate_knowledge_domain_release_surface_alignment_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-surface-alignment "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_JSON || '' }}"
         add_if_exists --benchmark-knowledge-domain-release-surface-alignment "${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_JSON:-}"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
@@ -3703,7 +2696,7 @@ jobs:
       id: benchmark_knowledge_domain_release_readiness_action_plan
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_domain_release_readiness_action_plan_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -3732,11 +2725,11 @@ jobs:
           fi
         }
 
-        add_if_exists --benchmark-knowledge-domain-release-readiness-matrix "${{ github.event.inputs.benchmark_knowledge_domain_release_readiness_action_plan_knowledge_domain_release_readiness_matrix_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-readiness-matrix "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_JSON || '' }}"
         add_if_exists --benchmark-knowledge-domain-release-readiness-matrix "${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_JSON:-}"
-        add_if_exists --benchmark-knowledge-domain-release-readiness-drift "${{ github.event.inputs.benchmark_knowledge_domain_release_readiness_action_plan_knowledge_domain_release_readiness_drift_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-readiness-drift "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_KNOWLEDGE_DOMAIN_RELEASE_READINESS_DRIFT_JSON || '' }}"
         add_if_exists --benchmark-knowledge-domain-release-readiness-drift "${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_KNOWLEDGE_DOMAIN_RELEASE_READINESS_DRIFT_JSON:-}"
-        add_if_exists --benchmark-knowledge-domain-release-gate "${{ github.event.inputs.benchmark_knowledge_domain_release_readiness_action_plan_knowledge_domain_release_gate_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-gate "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON || '' }}"
         add_if_exists --benchmark-knowledge-domain-release-gate "${{ steps.benchmark_knowledge_domain_release_gate.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-release-gate "${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON:-}"
 
@@ -3814,7 +2807,7 @@ jobs:
       id: benchmark_knowledge_domain_capability_matrix
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_domain_capability_matrix_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -3843,9 +2836,9 @@ jobs:
           fi
         }
 
-        add_if_exists --knowledge-readiness "${{ github.event.inputs.benchmark_knowledge_domain_capability_matrix_knowledge_readiness_json || '' }}"
-        add_if_exists --knowledge-application "${{ github.event.inputs.benchmark_knowledge_domain_capability_matrix_knowledge_application_json || '' }}"
-        add_if_exists --knowledge-domain-matrix "${{ github.event.inputs.benchmark_knowledge_domain_capability_matrix_knowledge_domain_matrix_json || '' }}"
+        add_if_exists --knowledge-readiness "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_KNOWLEDGE_READINESS_JSON || '' }}"
+        add_if_exists --knowledge-application "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_KNOWLEDGE_APPLICATION_JSON || '' }}"
+        add_if_exists --knowledge-domain-matrix "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_KNOWLEDGE_DOMAIN_MATRIX_JSON || '' }}"
         add_if_exists --knowledge-readiness "${{ steps.benchmark_knowledge_readiness.outputs.output_json || '' }}"
         add_if_exists --knowledge-readiness "${BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_KNOWLEDGE_READINESS_JSON:-}"
         add_if_exists --knowledge-application "${{ steps.benchmark_knowledge_application.outputs.output_json || '' }}"
@@ -3932,7 +2925,7 @@ jobs:
       id: benchmark_knowledge_domain_api_surface_matrix
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_domain_api_surface_matrix_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -3961,7 +2954,7 @@ jobs:
           fi
         }
 
-        add_if_exists --knowledge-domain-capability-matrix "${{ github.event.inputs.benchmark_knowledge_domain_api_surface_matrix_knowledge_domain_capability_matrix_json || '' }}"
+        add_if_exists --knowledge-domain-capability-matrix "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON || '' }}"
         add_if_exists --knowledge-domain-capability-matrix "${{ steps.benchmark_knowledge_domain_capability_matrix.outputs.output_json || '' }}"
         add_if_exists --knowledge-domain-capability-matrix "${BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON:-}"
 
@@ -4044,7 +3037,7 @@ jobs:
       id: benchmark_knowledge_domain_surface_action_plan
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_domain_surface_action_plan_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -4073,7 +3066,7 @@ jobs:
           fi
         }
 
-        add_if_exists --benchmark-knowledge-domain-surface-matrix "${{ github.event.inputs.benchmark_knowledge_domain_surface_action_plan_knowledge_domain_surface_matrix_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-surface-matrix "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_KNOWLEDGE_DOMAIN_SURFACE_MATRIX_JSON || '' }}"
         add_if_exists --benchmark-knowledge-domain-surface-matrix "${BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_KNOWLEDGE_DOMAIN_SURFACE_MATRIX_JSON:-}"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
@@ -4157,7 +3150,7 @@ jobs:
       id: benchmark_knowledge_domain_capability_drift
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_domain_capability_drift_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -4186,8 +3179,8 @@ jobs:
           fi
         }
 
-        add_if_exists --current-summary "${{ github.event.inputs.benchmark_knowledge_domain_capability_drift_current_summary_json || '' }}"
-        add_if_exists --previous-summary "${{ github.event.inputs.benchmark_knowledge_domain_capability_drift_previous_summary_json || '' }}"
+        add_if_exists --current-summary "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_CURRENT_SUMMARY_JSON || '' }}"
+        add_if_exists --previous-summary "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_PREVIOUS_SUMMARY_JSON || '' }}"
         add_if_exists --current-summary "${{ steps.benchmark_knowledge_domain_capability_matrix.outputs.output_json || '' }}"
         add_if_exists --current-summary "${BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_CURRENT_SUMMARY_JSON:-}"
         add_if_exists --previous-summary "${BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_PREVIOUS_SUMMARY_JSON:-}"
@@ -4284,7 +3277,7 @@ jobs:
       id: benchmark_knowledge_source_coverage
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_source_coverage_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -4389,7 +3382,7 @@ jobs:
       id: benchmark_knowledge_reference_inventory
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_reference_inventory_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -4402,7 +3395,7 @@ jobs:
           exit 0
         fi
 
-        SNAPSHOT_JSON="${{ github.event.inputs.benchmark_knowledge_reference_inventory_snapshot_json || '' }}"
+        SNAPSHOT_JSON="${{ env.BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_SNAPSHOT_JSON || '' }}"
         if [[ -z "$SNAPSHOT_JSON" ]]; then
           SNAPSHOT_JSON="${BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_SNAPSHOT_JSON:-}"
         fi
@@ -4465,7 +3458,7 @@ jobs:
       id: benchmark_knowledge_source_action_plan
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_source_action_plan_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_KNOWLEDGE_SOURCE_ACTION_PLAN_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_SOURCE_ACTION_PLAN_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -4494,7 +3487,7 @@ jobs:
           fi
         }
 
-        add_if_exists --benchmark-knowledge-source-coverage "${{ github.event.inputs.benchmark_knowledge_source_action_plan_knowledge_source_coverage_json || '' }}"
+        add_if_exists --benchmark-knowledge-source-coverage "${{ env.BENCHMARK_KNOWLEDGE_SOURCE_ACTION_PLAN_KNOWLEDGE_SOURCE_COVERAGE_JSON || '' }}"
         add_if_exists --benchmark-knowledge-source-coverage "${BENCHMARK_KNOWLEDGE_SOURCE_ACTION_PLAN_KNOWLEDGE_SOURCE_COVERAGE_JSON:-}"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
@@ -4579,7 +3572,7 @@ jobs:
       id: benchmark_knowledge_source_drift
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_source_drift_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -4603,11 +3596,11 @@ jobs:
         }
 
         CURRENT_SUMMARY="$(pick_first_existing \
-          "${{ github.event.inputs.benchmark_knowledge_source_drift_current_summary_json || '' }}" \
+          "${{ env.BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_CURRENT_SUMMARY_JSON || '' }}" \
           "${BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_CURRENT_SUMMARY_JSON:-}" \
           "${{ steps.benchmark_knowledge_source_coverage.outputs.output_json || '' }}")"
         PREVIOUS_SUMMARY="$(pick_first_existing \
-          "${{ github.event.inputs.benchmark_knowledge_source_drift_previous_summary_json || '' }}" \
+          "${{ env.BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_PREVIOUS_SUMMARY_JSON || '' }}" \
           "${BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_PREVIOUS_SUMMARY_JSON:-}")"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
@@ -4702,7 +3695,7 @@ jobs:
       id: benchmark_knowledge_outcome_correlation
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_outcome_correlation_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_KNOWLEDGE_OUTCOME_CORRELATION_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_OUTCOME_CORRELATION_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -4731,8 +3724,8 @@ jobs:
           fi
         }
 
-        add_if_exists --benchmark-knowledge-domain-matrix "${{ github.event.inputs.benchmark_knowledge_outcome_correlation_knowledge_domain_matrix_json || '' }}"
-        add_if_exists --benchmark-realdata-scorecard "${{ github.event.inputs.benchmark_knowledge_outcome_correlation_realdata_scorecard_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-matrix "${{ env.BENCHMARK_KNOWLEDGE_OUTCOME_CORRELATION_KNOWLEDGE_DOMAIN_MATRIX_JSON || '' }}"
+        add_if_exists --benchmark-realdata-scorecard "${{ env.BENCHMARK_KNOWLEDGE_OUTCOME_CORRELATION_REALDATA_SCORECARD_JSON || '' }}"
         add_if_exists --benchmark-knowledge-domain-matrix "${{ steps.benchmark_knowledge_domain_matrix.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-matrix "${BENCHMARK_KNOWLEDGE_OUTCOME_CORRELATION_KNOWLEDGE_DOMAIN_MATRIX_JSON:-}"
         add_if_exists --benchmark-realdata-scorecard "${{ steps.benchmark_realdata_scorecard.outputs.output_json || '' }}"
@@ -4813,7 +3806,7 @@ jobs:
       id: benchmark_knowledge_outcome_drift
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_outcome_drift_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -4842,8 +3835,8 @@ jobs:
           fi
         }
 
-        add_if_exists --current-summary "${{ github.event.inputs.benchmark_knowledge_outcome_drift_current_summary_json || '' }}"
-        add_if_exists --previous-summary "${{ github.event.inputs.benchmark_knowledge_outcome_drift_previous_summary_json || '' }}"
+        add_if_exists --current-summary "${{ env.BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_CURRENT_SUMMARY_JSON || '' }}"
+        add_if_exists --previous-summary "${{ env.BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_PREVIOUS_SUMMARY_JSON || '' }}"
         add_if_exists --current-summary "${{ steps.benchmark_knowledge_outcome_correlation.outputs.output_json || '' }}"
         add_if_exists --current-summary "${BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_CURRENT_SUMMARY_JSON:-}"
         add_if_exists --previous-summary "${BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_PREVIOUS_SUMMARY_JSON:-}"
@@ -4964,7 +3957,7 @@ jobs:
       id: benchmark_knowledge_domain_release_surface_alignment
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_domain_release_surface_alignment_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -4993,10 +3986,10 @@ jobs:
           fi
         }
 
-        add_if_exists --benchmark-release-decision "${{ github.event.inputs.benchmark_knowledge_domain_release_surface_alignment_release_decision_json || '' }}"
+        add_if_exists --benchmark-release-decision "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_RELEASE_DECISION_JSON || '' }}"
         add_if_exists --benchmark-release-decision "${{ steps.benchmark_release_decision.outputs.output_json || '' }}"
         add_if_exists --benchmark-release-decision "${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_RELEASE_DECISION_JSON:-}"
-        add_if_exists --benchmark-release-runbook "${{ github.event.inputs.benchmark_knowledge_domain_release_surface_alignment_release_runbook_json || '' }}"
+        add_if_exists --benchmark-release-runbook "${{ env.BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_RELEASE_RUNBOOK_JSON || '' }}"
         add_if_exists --benchmark-release-runbook "${{ steps.benchmark_release_runbook.outputs.output_json || '' }}"
         add_if_exists --benchmark-release-runbook "${BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_RELEASE_RUNBOOK_JSON:-}"
 
@@ -5057,7 +4050,7 @@ jobs:
       id: benchmark_operator_adoption
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_operator_adoption_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_OPERATOR_ADOPTION_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_OPERATOR_ADOPTION_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -5086,12 +4079,12 @@ jobs:
           fi
         }
 
-        add_if_exists --benchmark-release-decision "${{ github.event.inputs.benchmark_operator_adoption_release_decision_json || '' }}"
-        add_if_exists --benchmark-release-runbook "${{ github.event.inputs.benchmark_operator_adoption_release_runbook_json || '' }}"
-        add_if_exists --review-queue "${{ github.event.inputs.benchmark_operator_adoption_review_queue_json || '' }}"
-        add_if_exists --feedback-flywheel "${{ github.event.inputs.benchmark_operator_adoption_feedback_flywheel_json || '' }}"
-        add_if_exists --benchmark-knowledge-drift "${{ github.event.inputs.benchmark_operator_adoption_knowledge_drift_json || '' }}"
-        add_if_exists --benchmark-knowledge-outcome-drift "${{ github.event.inputs.benchmark_operator_adoption_knowledge_outcome_drift_json || '' }}"
+        add_if_exists --benchmark-release-decision "${{ env.BENCHMARK_OPERATOR_ADOPTION_RELEASE_DECISION_JSON || '' }}"
+        add_if_exists --benchmark-release-runbook "${{ env.BENCHMARK_OPERATOR_ADOPTION_RELEASE_RUNBOOK_JSON || '' }}"
+        add_if_exists --review-queue "${{ env.BENCHMARK_OPERATOR_ADOPTION_REVIEW_QUEUE_JSON || '' }}"
+        add_if_exists --feedback-flywheel "${{ env.BENCHMARK_OPERATOR_ADOPTION_FEEDBACK_FLYWHEEL_JSON || '' }}"
+        add_if_exists --benchmark-knowledge-drift "${{ env.BENCHMARK_OPERATOR_ADOPTION_KNOWLEDGE_DRIFT_JSON || '' }}"
+        add_if_exists --benchmark-knowledge-outcome-drift "${{ env.BENCHMARK_OPERATOR_ADOPTION_KNOWLEDGE_OUTCOME_DRIFT_JSON || '' }}"
         add_if_exists --benchmark-release-decision "${{ steps.benchmark_release_decision.outputs.output_json || '' }}"
         add_if_exists --benchmark-release-decision "${BENCHMARK_OPERATOR_ADOPTION_RELEASE_DECISION_JSON:-}"
         add_if_exists --benchmark-release-runbook "${{ steps.benchmark_release_runbook.outputs.output_json || '' }}"
@@ -5197,142 +4190,11 @@ jobs:
             )
         PY
 
-    - name: Build benchmark operator adoption (optional)
-      id: benchmark_operator_adoption
-      continue-on-error: true
-      run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_operator_adoption_enable || '' }}"
-        ENABLE_VALUE="${BENCHMARK_OPERATOR_ADOPTION_ENABLE:-false}"
-        if [[ -n "$ENABLE_OVERRIDE" ]]; then
-          ENABLE_VALUE="$ENABLE_OVERRIDE"
-        fi
-        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
-
-        OUTPUT_JSON="${BENCHMARK_OPERATOR_ADOPTION_OUTPUT_JSON:-reports/history_sequence_eval/benchmark_operator_adoption.json}"
-        OUTPUT_MD="${BENCHMARK_OPERATOR_ADOPTION_OUTPUT_MD:-reports/history_sequence_eval/benchmark_operator_adoption.md}"
-        mkdir -p "$(dirname "$OUTPUT_JSON")"
-        mkdir -p "$(dirname "$OUTPUT_MD")"
-
-        CMD=(
-          python3 scripts/export_benchmark_operator_adoption.py
-          --title "${BENCHMARK_OPERATOR_ADOPTION_TITLE:-Benchmark Operator Adoption}"
-          --output-json "$OUTPUT_JSON"
-          --output-md "$OUTPUT_MD"
-        )
-        INPUT_COUNT=0
-
-        add_if_exists() {
-          local flag="$1"
-          local candidate="$2"
-          if [[ -n "$candidate" && -f "$candidate" ]]; then
-            CMD+=("$flag" "$candidate")
-            INPUT_COUNT=$((INPUT_COUNT + 1))
-          fi
-        }
-
-        add_if_exists --benchmark-release-decision "${{ github.event.inputs.benchmark_operator_adoption_release_decision_json || '' }}"
-        add_if_exists --benchmark-release-runbook "${{ github.event.inputs.benchmark_operator_adoption_release_runbook_json || '' }}"
-        add_if_exists --review-queue "${{ github.event.inputs.benchmark_operator_adoption_review_queue_json || '' }}"
-        add_if_exists --feedback-flywheel "${{ github.event.inputs.benchmark_operator_adoption_feedback_flywheel_json || '' }}"
-        add_if_exists --benchmark-knowledge-drift "${{ github.event.inputs.benchmark_operator_adoption_knowledge_drift_json || '' }}"
-        add_if_exists --benchmark-knowledge-outcome-drift "${{ github.event.inputs.benchmark_operator_adoption_knowledge_outcome_drift_json || '' }}"
-        add_if_exists --benchmark-release-decision "${{ steps.benchmark_release_decision.outputs.output_json || '' }}"
-        add_if_exists --benchmark-release-decision "${BENCHMARK_OPERATOR_ADOPTION_RELEASE_DECISION_JSON:-}"
-        add_if_exists --benchmark-release-runbook "${{ steps.benchmark_release_runbook.outputs.output_json || '' }}"
-        add_if_exists --benchmark-release-runbook "${BENCHMARK_OPERATOR_ADOPTION_RELEASE_RUNBOOK_JSON:-}"
-        add_if_exists --review-queue "${{ steps.active_learning_review_queue_report.outputs.output_json || '' }}"
-        add_if_exists --review-queue "${BENCHMARK_OPERATOR_ADOPTION_REVIEW_QUEUE_JSON:-}"
-        add_if_exists --feedback-flywheel "${{ steps.feedback_flywheel_benchmark.outputs.output_json || '' }}"
-        add_if_exists --feedback-flywheel "${BENCHMARK_OPERATOR_ADOPTION_FEEDBACK_FLYWHEEL_JSON:-}"
-        add_if_exists --benchmark-knowledge-drift "${{ steps.benchmark_knowledge_drift.outputs.output_json || '' }}"
-        add_if_exists --benchmark-knowledge-drift "${BENCHMARK_OPERATOR_ADOPTION_KNOWLEDGE_DRIFT_JSON:-}"
-        add_if_exists --benchmark-knowledge-outcome-drift "${{ steps.benchmark_knowledge_outcome_drift.outputs.output_json || '' }}"
-        add_if_exists --benchmark-knowledge-outcome-drift "${BENCHMARK_OPERATOR_ADOPTION_KNOWLEDGE_OUTCOME_DRIFT_JSON:-}"
-
-        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
-          if [[ "$INPUT_COUNT" -eq 0 ]]; then
-            echo "enabled=false" >> $GITHUB_OUTPUT
-            echo "BENCHMARK_OPERATOR_ADOPTION_ENABLE is not true and no inputs found; skip."
-            exit 0
-          fi
-        fi
-
-        if [[ "$INPUT_COUNT" -eq 0 ]]; then
-          echo "enabled=false" >> $GITHUB_OUTPUT
-          echo "No benchmark operator adoption inputs found; skip."
-          exit 0
-        fi
-
-        "${CMD[@]}"
-
-        echo "enabled=true" >> $GITHUB_OUTPUT
-        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
-        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
-        python3 - <<'PY'
-        import json
-        import os
-        from pathlib import Path
-
-        payload = json.loads(
-            Path(os.environ["BENCHMARK_OPERATOR_ADOPTION_OUTPUT_JSON"]).read_text(
-                encoding="utf-8"
-            )
-        )
-
-        def compact(items):
-            return "; ".join(str(item).strip() for item in items[:4] if str(item).strip())
-
-        statuses = payload.get("statuses") or {}
-        drift = payload.get("knowledge_drift") or {}
-        outcome_drift = payload.get("knowledge_outcome_drift") or {}
-        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
-            f.write(
-                f"adoption_readiness={payload.get('adoption_readiness', 'unknown')}\n"
-            )
-            f.write(f"operator_mode={payload.get('operator_mode', 'unknown')}\n")
-            f.write(f"next_action={payload.get('next_action', 'unknown')}\n")
-            f.write(
-                f"automation_ready={str(payload.get('automation_ready', False)).lower()}\n"
-            )
-            f.write(f"freeze_ready={str(payload.get('freeze_ready', False)).lower()}\n")
-            f.write(
-                f"release_status={statuses.get('release_decision', 'unknown')}\n"
-            )
-            f.write(
-                f"runbook_status={statuses.get('release_runbook', 'unknown')}\n"
-            )
-            f.write(
-                f"review_queue_status={statuses.get('review_queue', 'unknown')}\n"
-            )
-            f.write(
-                f"feedback_status={statuses.get('feedback_flywheel', 'unknown')}\n"
-            )
-            f.write(
-                f"blocking_signals={compact(payload.get('blocking_signals') or [])}\n"
-            )
-            f.write(
-                f"recommended_actions={compact(payload.get('recommended_actions') or [])}\n"
-            )
-            f.write(f"knowledge_drift_status={drift.get('status', 'unknown')}\n")
-            f.write(
-                "knowledge_drift_summary="
-                f"{compact([payload.get('knowledge_drift_summary')])}\n"
-            )
-            f.write(
-                "knowledge_outcome_drift_status="
-                f"{outcome_drift.get('status', 'unknown')}\n"
-            )
-            f.write(
-                "knowledge_outcome_drift_summary="
-                f"{compact([payload.get('knowledge_outcome_drift_summary')])}\n"
-            )
-        PY
-
     - name: Build benchmark competitive surpass index (optional)
       id: benchmark_competitive_surpass_index
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_competitive_surpass_index_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_COMPETITIVE_SURPASS_INDEX_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_COMPETITIVE_SURPASS_INDEX_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -5361,21 +4223,21 @@ jobs:
           fi
         }
 
-        add_if_exists --benchmark-engineering-signals "${{ github.event.inputs.benchmark_competitive_surpass_index_engineering_signals_json || '' }}"
-        add_if_exists --benchmark-knowledge-readiness "${{ github.event.inputs.benchmark_competitive_surpass_index_knowledge_readiness_json || '' }}"
-        add_if_exists --benchmark-knowledge-application "${{ github.event.inputs.benchmark_competitive_surpass_index_knowledge_application_json || '' }}"
-        add_if_exists --benchmark-knowledge-realdata-correlation "${{ github.event.inputs.benchmark_competitive_surpass_index_knowledge_realdata_correlation_json || '' }}"
-        add_if_exists --benchmark-knowledge-domain-matrix "${{ github.event.inputs.benchmark_competitive_surpass_index_knowledge_domain_matrix_json || '' }}"
-        add_if_exists --benchmark-knowledge-domain-action-plan "${{ github.event.inputs.benchmark_competitive_surpass_index_knowledge_domain_action_plan_json || '' }}"
-        add_if_exists --benchmark-knowledge-source-coverage "${{ github.event.inputs.benchmark_competitive_surpass_index_knowledge_source_coverage_json || '' }}"
-        add_if_exists --benchmark-knowledge-source-action-plan "${{ github.event.inputs.benchmark_competitive_surpass_index_knowledge_source_action_plan_json || '' }}"
-        add_if_exists --benchmark-knowledge-source-drift "${{ github.event.inputs.benchmark_competitive_surpass_index_knowledge_source_drift_json || '' }}"
-        add_if_exists --benchmark-knowledge-outcome-correlation "${{ github.event.inputs.benchmark_competitive_surpass_index_knowledge_outcome_correlation_json || '' }}"
-        add_if_exists --benchmark-knowledge-outcome-drift "${{ github.event.inputs.benchmark_competitive_surpass_index_knowledge_outcome_drift_json || '' }}"
-        add_if_exists --benchmark-realdata-signals "${{ github.event.inputs.benchmark_competitive_surpass_index_realdata_signals_json || '' }}"
-        add_if_exists --benchmark-realdata-scorecard "${{ github.event.inputs.benchmark_competitive_surpass_index_realdata_scorecard_json || '' }}"
-        add_if_exists --benchmark-operator-adoption "${{ github.event.inputs.benchmark_competitive_surpass_index_operator_adoption_json || '' }}"
-        add_if_exists --benchmark-knowledge-domain-release-surface-alignment "${{ github.event.inputs.benchmark_competitive_surpass_index_knowledge_domain_release_surface_alignment_json || '' }}"
+        add_if_exists --benchmark-engineering-signals "${{ env.BENCHMARK_COMPETITIVE_SURPASS_INDEX_ENGINEERING_SIGNALS_JSON || '' }}"
+        add_if_exists --benchmark-knowledge-readiness "${{ env.BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_READINESS_JSON || '' }}"
+        add_if_exists --benchmark-knowledge-application "${{ env.BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_APPLICATION_JSON || '' }}"
+        add_if_exists --benchmark-knowledge-realdata-correlation "${{ env.BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_REALDATA_CORRELATION_JSON || '' }}"
+        add_if_exists --benchmark-knowledge-domain-matrix "${{ env.BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_DOMAIN_MATRIX_JSON || '' }}"
+        add_if_exists --benchmark-knowledge-domain-action-plan "${{ env.BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON || '' }}"
+        add_if_exists --benchmark-knowledge-source-coverage "${{ env.BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_SOURCE_COVERAGE_JSON || '' }}"
+        add_if_exists --benchmark-knowledge-source-action-plan "${{ env.BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_SOURCE_ACTION_PLAN_JSON || '' }}"
+        add_if_exists --benchmark-knowledge-source-drift "${{ env.BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_SOURCE_DRIFT_JSON || '' }}"
+        add_if_exists --benchmark-knowledge-outcome-correlation "${{ env.BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_OUTCOME_CORRELATION_JSON || '' }}"
+        add_if_exists --benchmark-knowledge-outcome-drift "${{ env.BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_OUTCOME_DRIFT_JSON || '' }}"
+        add_if_exists --benchmark-realdata-signals "${{ env.BENCHMARK_COMPETITIVE_SURPASS_INDEX_REALDATA_SIGNALS_JSON || '' }}"
+        add_if_exists --benchmark-realdata-scorecard "${{ env.BENCHMARK_COMPETITIVE_SURPASS_INDEX_REALDATA_SCORECARD_JSON || '' }}"
+        add_if_exists --benchmark-operator-adoption "${{ env.BENCHMARK_COMPETITIVE_SURPASS_INDEX_OPERATOR_ADOPTION_JSON || '' }}"
+        add_if_exists --benchmark-knowledge-domain-release-surface-alignment "${{ env.BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_JSON || '' }}"
         add_if_exists --benchmark-engineering-signals "${{ steps.benchmark_engineering_signals.outputs.output_json || '' }}"
         add_if_exists --benchmark-engineering-signals "${BENCHMARK_COMPETITIVE_SURPASS_INDEX_ENGINEERING_SIGNALS_JSON:-}"
         add_if_exists --benchmark-knowledge-readiness "${{ steps.benchmark_knowledge_readiness.outputs.output_json || '' }}"
@@ -5460,7 +4322,7 @@ jobs:
       id: benchmark_competitive_surpass_trend
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_competitive_surpass_trend_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_COMPETITIVE_SURPASS_TREND_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_COMPETITIVE_SURPASS_TREND_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -5489,8 +4351,8 @@ jobs:
           fi
         }
 
-        add_if_exists --current-summary "${{ github.event.inputs.benchmark_competitive_surpass_trend_current_summary_json || '' }}"
-        add_if_exists --previous-summary "${{ github.event.inputs.benchmark_competitive_surpass_trend_previous_summary_json || '' }}"
+        add_if_exists --current-summary "${{ env.BENCHMARK_COMPETITIVE_SURPASS_TREND_CURRENT_SUMMARY_JSON || '' }}"
+        add_if_exists --previous-summary "${{ env.BENCHMARK_COMPETITIVE_SURPASS_TREND_PREVIOUS_SUMMARY_JSON || '' }}"
         add_if_exists --current-summary "${{ steps.benchmark_competitive_surpass_index.outputs.output_json || '' }}"
         add_if_exists --current-summary "${BENCHMARK_COMPETITIVE_SURPASS_TREND_CURRENT_SUMMARY_JSON:-}"
         add_if_exists --previous-summary "${BENCHMARK_COMPETITIVE_SURPASS_TREND_PREVIOUS_SUMMARY_JSON:-}"
@@ -5557,7 +4419,7 @@ jobs:
       id: benchmark_competitive_surpass_action_plan
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_competitive_surpass_action_plan_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_ENABLE || '' }}"
         ENABLE_VALUE="${BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -5586,13 +4448,13 @@ jobs:
           fi
         }
 
-        add_if_exists --benchmark-competitive-surpass-index "${{ github.event.inputs.benchmark_competitive_surpass_action_plan_competitive_surpass_index_json || '' }}"
-        add_if_exists --benchmark-competitive-surpass-trend "${{ github.event.inputs.benchmark_competitive_surpass_action_plan_competitive_surpass_trend_json || '' }}"
-        add_if_exists --benchmark-engineering-signals "${{ github.event.inputs.benchmark_competitive_surpass_action_plan_engineering_signals_json || '' }}"
-        add_if_exists --benchmark-knowledge-domain-action-plan "${{ github.event.inputs.benchmark_competitive_surpass_action_plan_knowledge_domain_action_plan_json || '' }}"
-        add_if_exists --benchmark-realdata-signals "${{ github.event.inputs.benchmark_competitive_surpass_action_plan_realdata_signals_json || '' }}"
-        add_if_exists --benchmark-realdata-scorecard "${{ github.event.inputs.benchmark_competitive_surpass_action_plan_realdata_scorecard_json || '' }}"
-        add_if_exists --benchmark-operator-adoption "${{ github.event.inputs.benchmark_competitive_surpass_action_plan_operator_adoption_json || '' }}"
+        add_if_exists --benchmark-competitive-surpass-index "${{ env.BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_COMPETITIVE_SURPASS_INDEX_JSON || '' }}"
+        add_if_exists --benchmark-competitive-surpass-trend "${{ env.BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_COMPETITIVE_SURPASS_TREND_JSON || '' }}"
+        add_if_exists --benchmark-engineering-signals "${{ env.BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_ENGINEERING_SIGNALS_JSON || '' }}"
+        add_if_exists --benchmark-knowledge-domain-action-plan "${{ env.BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON || '' }}"
+        add_if_exists --benchmark-realdata-signals "${{ env.BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_REALDATA_SIGNALS_JSON || '' }}"
+        add_if_exists --benchmark-realdata-scorecard "${{ env.BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_REALDATA_SCORECARD_JSON || '' }}"
+        add_if_exists --benchmark-operator-adoption "${{ env.BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_OPERATOR_ADOPTION_JSON || '' }}"
         add_if_exists --benchmark-competitive-surpass-index "${{ steps.benchmark_competitive_surpass_index.outputs.output_json || '' }}"
         add_if_exists --benchmark-competitive-surpass-index "${BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_COMPETITIVE_SURPASS_INDEX_JSON:-}"
         add_if_exists --benchmark-competitive-surpass-trend "${{ steps.benchmark_competitive_surpass_trend.outputs.output_json || '' }}"
@@ -5682,7 +4544,7 @@ jobs:
       id: assistant_evidence_report
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.assistant_evidence_report_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.ASSISTANT_EVIDENCE_REPORT_ENABLE || '' }}"
         ENABLE_VALUE="${ASSISTANT_EVIDENCE_REPORT_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -5694,7 +4556,7 @@ jobs:
           exit 0
         fi
 
-        INPUT_PATH="${{ github.event.inputs.assistant_evidence_report_input || '' }}"
+        INPUT_PATH="${{ env.ASSISTANT_EVIDENCE_REPORT_INPUT || '' }}"
         if [[ -z "$INPUT_PATH" ]]; then
           INPUT_PATH="${ASSISTANT_EVIDENCE_REPORT_INPUT:-}"
         fi
@@ -5786,11 +4648,11 @@ jobs:
 
         REPORT_PATH="${GRAPH2D_REVIEW_PACK_GATE_REPORT:-reports/history_sequence_eval/graph2d_review_pack_gate_report.json}"
         mkdir -p "$(dirname "$REPORT_PATH")"
-        OVERRIDE_MIN_TOTAL_ROWS="${{ github.event.inputs.review_gate_min_total_rows || '' }}"
-        OVERRIDE_MAX_CANDIDATE_RATE="${{ github.event.inputs.review_gate_max_candidate_rate || '' }}"
-        OVERRIDE_MAX_HYBRID_REJECTED_RATE="${{ github.event.inputs.review_gate_max_hybrid_rejected_rate || '' }}"
-        OVERRIDE_MAX_CONFLICT_RATE="${{ github.event.inputs.review_gate_max_conflict_rate || '' }}"
-        OVERRIDE_MAX_LOW_CONF_RATE="${{ github.event.inputs.review_gate_max_low_confidence_rate || '' }}"
+        OVERRIDE_MIN_TOTAL_ROWS="${{ env.REVIEW_GATE_MIN_TOTAL_ROWS || '' }}"
+        OVERRIDE_MAX_CANDIDATE_RATE="${{ env.REVIEW_GATE_MAX_CANDIDATE_RATE || '' }}"
+        OVERRIDE_MAX_HYBRID_REJECTED_RATE="${{ env.REVIEW_GATE_MAX_HYBRID_REJECTED_RATE || '' }}"
+        OVERRIDE_MAX_CONFLICT_RATE="${{ env.REVIEW_GATE_MAX_CONFLICT_RATE || '' }}"
+        OVERRIDE_MAX_LOW_CONF_RATE="${{ env.REVIEW_GATE_MAX_LOW_CONFIDENCE_RATE || '' }}"
 
         CMD=(
           python3 scripts/ci/check_graph2d_review_pack_gate.py
@@ -5869,7 +4731,7 @@ jobs:
       if: steps.graph2d_review_gate.outputs.enabled == 'true'
       continue-on-error: true
       run: |
-        STRICT_OVERRIDE="${{ github.event.inputs.review_gate_strict || '' }}"
+        STRICT_OVERRIDE="${{ env.REVIEW_GATE_STRICT || '' }}"
         STRICT_VALUE="${GRAPH2D_REVIEW_PACK_GATE_STRICT:-false}"
         if [[ -n "$STRICT_OVERRIDE" ]]; then
           STRICT_VALUE="$STRICT_OVERRIDE"
@@ -5904,7 +4766,7 @@ jobs:
       if: always()
       continue-on-error: true
       run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.hybrid_superpass_enable || '' }}"
+        ENABLE_OVERRIDE="${{ env.HYBRID_SUPERPASS_ENABLE || '' }}"
         ENABLE_VALUE="${HYBRID_SUPERPASS_ENABLE:-false}"
         if [[ -n "$ENABLE_OVERRIDE" ]]; then
           ENABLE_VALUE="$ENABLE_OVERRIDE"
@@ -5929,7 +4791,7 @@ jobs:
         mkdir -p "$(dirname "$REPORT_PATH")"
         GATE_JSON="${HYBRID_SUPERPASS_GATE_REPORT_JSON:-reports/history_sequence_eval/hybrid_blind_gate_report.json}"
         CALIBRATION_JSON="${HYBRID_SUPERPASS_CALIBRATION_JSON:-models/calibration/hybrid_confidence_calibration.json}"
-        MISSING_OVERRIDE="${{ github.event.inputs.hybrid_superpass_missing_mode || '' }}"
+        MISSING_OVERRIDE="${{ env.HYBRID_SUPERPASS_MISSING_MODE || '' }}"
         MISSING_MODE="${HYBRID_SUPERPASS_MISSING_MODE:-skip}"
         if [[ -n "$MISSING_OVERRIDE" ]]; then
           MISSING_MODE="$MISSING_OVERRIDE"
@@ -5979,7 +4841,7 @@ jobs:
       if: steps.hybrid_superpass_gate.outputs.enabled == 'true'
       continue-on-error: true
       run: |
-        STRICT_OVERRIDE="${{ github.event.inputs.hybrid_superpass_fail_on_failed || '' }}"
+        STRICT_OVERRIDE="${{ env.HYBRID_SUPERPASS_FAIL_ON_FAILED || '' }}"
         STRICT_VALUE="${HYBRID_SUPERPASS_FAIL_ON_FAILED:-false}"
         if [[ -n "$STRICT_OVERRIDE" ]]; then
           STRICT_VALUE="$STRICT_OVERRIDE"
