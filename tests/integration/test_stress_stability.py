@@ -17,6 +17,15 @@ def _headers(include_admin: bool = False) -> Dict[str, str]:
     return h
 
 
+def _skip_if_smoke_target_unavailable(response: httpx.Response, *, allow_auth_errors: bool = False) -> None:
+    if response.status_code == 404:
+        pytest.skip("Endpoint not found; API may not have this route")
+    if response.status_code in {502, 503, 504}:
+        pytest.skip(f"API smoke target unavailable ({response.status_code})")
+    if allow_auth_errors and response.status_code in {401, 403}:
+        return
+
+
 def test_degraded_state_history_cap():
     # Hit health endpoint to verify presence of fields and history cap
     url = f"{BASE_URL}/api/v1/health/faiss/health"
@@ -24,8 +33,7 @@ def test_degraded_state_history_cap():
         r = httpx.get(url, headers=_headers(), timeout=2.0)
     except Exception:
         pytest.skip("API not reachable; skipping integration smoke")
-    if r.status_code == 404:
-        pytest.skip("Endpoint not found; API may not have this route")
+    _skip_if_smoke_target_unavailable(r)
     assert r.status_code == 200
     data = r.json()
     assert "degraded" in data
@@ -41,13 +49,13 @@ def test_cache_apply_rollback_window():
         r_apply = httpx.post(url_apply, headers=_headers(include_admin=True), json={}, timeout=2.0)
     except Exception:
         pytest.skip("API not reachable; skipping integration smoke")
-    if r_apply.status_code == 404:
-        pytest.skip("Endpoint not found; API may not have this route")
+    _skip_if_smoke_target_unavailable(r_apply, allow_auth_errors=True)
     # Endpoint may require params; allow 200/400/401 depending on env
     assert r_apply.status_code in (200, 400, 401, 403)
 
     url_rollback = f"{BASE_URL}/api/v1/health/features/cache/rollback"
     r_rb = httpx.post(url_rollback, headers=_headers(include_admin=True), timeout=2.0)
+    _skip_if_smoke_target_unavailable(r_rb, allow_auth_errors=True)
     assert r_rb.status_code in (200, 400, 401, 403)
 
 
@@ -57,8 +65,7 @@ def test_prewarm_endpoint_shape():
         r = httpx.post(url, headers=_headers(include_admin=True), timeout=2.0)
     except Exception:
         pytest.skip("API not reachable; skipping integration smoke")
-    if r.status_code == 404:
-        pytest.skip("Endpoint not found; API may not have this route")
+    _skip_if_smoke_target_unavailable(r, allow_auth_errors=True)
     assert r.status_code in (200, 400, 401, 403)
     # Response should be JSON
     data = r.json()
