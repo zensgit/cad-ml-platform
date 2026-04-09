@@ -14,6 +14,8 @@ DEFAULT_THRESHOLDS: Dict[str, Any] = {
     "min_hybrid_gain_vs_graph2d": 0.00,
     "max_calibration_ece": 0.08,
     "missing_mode": "skip",
+    "require_real_blind_dataset": True,
+    "allowed_blind_dataset_sources": ["configured_dxf_dir"],
 }
 
 
@@ -27,6 +29,35 @@ def _optional_float(value: Any) -> Optional[float]:
         return float(text)
     except Exception:
         return None
+
+
+def _optional_str(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _coerce_bool(value: Any, default: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    text = str(value or "").strip().lower()
+    if text in {"1", "true", "yes", "on"}:
+        return True
+    if text in {"0", "false", "no", "off"}:
+        return False
+    return bool(default)
+
+
+def _normalize_source_list(value: Any) -> List[str]:
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if value is None:
+        return []
+    text = str(value).strip()
+    if not text:
+        return []
+    return [item.strip() for item in text.split(",") if item.strip()]
 
 
 def _read_json_object(path: Path) -> Optional[Dict[str, Any]]:
@@ -95,6 +126,14 @@ def _resolve_thresholds(
         "missing_mode": _resolve_missing_mode(
             merged.get("missing_mode"), str(DEFAULT_THRESHOLDS["missing_mode"])
         ),
+        "require_real_blind_dataset": _coerce_bool(
+            merged.get("require_real_blind_dataset"),
+            bool(DEFAULT_THRESHOLDS["require_real_blind_dataset"]),
+        ),
+        "allowed_blind_dataset_sources": _normalize_source_list(
+            merged.get("allowed_blind_dataset_sources")
+            or DEFAULT_THRESHOLDS["allowed_blind_dataset_sources"]
+        ),
     }
 
 
@@ -139,6 +178,7 @@ def evaluate_superpass_targets(
     hybrid_calibration_json: Optional[Dict[str, Any]],
     thresholds: Dict[str, Any],
     missing_mode: str,
+    hybrid_blind_dataset_source: Optional[str] = None,
 ) -> Dict[str, Any]:
     failures: List[str] = []
     warnings: List[str] = []
@@ -158,9 +198,56 @@ def evaluate_superpass_targets(
         else:
             warnings.append(message)
 
+    blind_inputs: Dict[str, Any] = {}
+    if isinstance(hybrid_blind_gate_report, dict):
+        if isinstance(hybrid_blind_gate_report.get("input_summary"), dict):
+            blind_inputs = hybrid_blind_gate_report.get("input_summary", {})
+        elif isinstance(hybrid_blind_gate_report.get("inputs"), dict):
+            blind_inputs = hybrid_blind_gate_report.get("inputs", {})
+    blind_dataset_source = (
+        _optional_str(hybrid_blind_dataset_source)
+        or _optional_str(blind_inputs.get("dataset_source"))
+        or _optional_str(
+            hybrid_blind_gate_report.get("dataset_source")
+            if isinstance(hybrid_blind_gate_report, dict)
+            else None
+        )
+    )
+    require_real_blind_dataset = bool(thresholds["require_real_blind_dataset"])
+    allowed_blind_dataset_sources = list(thresholds["allowed_blind_dataset_sources"])
+    blind_dataset_qualified = (
+        (not require_real_blind_dataset)
+        or (
+            blind_dataset_source is None
+            or blind_dataset_source in allowed_blind_dataset_sources
+        )
+    )
+    unsupported_source_message = ""
+    if require_real_blind_dataset and blind_dataset_source is not None and not blind_dataset_qualified:
+        allowed_text = ", ".join(allowed_blind_dataset_sources) or "configured_dxf_dir"
+        source_text = blind_dataset_source
+        unsupported_source_message = (
+            f"hybrid blind dataset_source {source_text!r} is advisory only for "
+            f"superpass targets; strict blind targets require one of: {allowed_text}."
+        )
+        warnings.append(unsupported_source_message)
+
     hybrid_accuracy = _optional_float(gate_metrics.get("hybrid_accuracy"))
     min_hybrid_accuracy = float(thresholds["min_hybrid_accuracy"])
-    if hybrid_accuracy is None:
+    if unsupported_source_message:
+        checks.append(
+            _build_check(
+                name="hybrid_accuracy",
+                actual=hybrid_accuracy,
+                threshold=min_hybrid_accuracy,
+                comparator=">=",
+                passed=True,
+                source="hybrid_blind_gate",
+                skipped=True,
+                message=unsupported_source_message,
+            )
+        )
+    elif hybrid_accuracy is None:
         message = "hybrid_accuracy unavailable."
         if mode == "fail":
             failures.append(message)
@@ -207,7 +294,20 @@ def evaluate_superpass_targets(
 
     hybrid_gain = _optional_float(gate_metrics.get("hybrid_gain_vs_graph2d"))
     min_hybrid_gain = float(thresholds["min_hybrid_gain_vs_graph2d"])
-    if hybrid_gain is None:
+    if unsupported_source_message:
+        checks.append(
+            _build_check(
+                name="hybrid_gain_vs_graph2d",
+                actual=hybrid_gain,
+                threshold=min_hybrid_gain,
+                comparator=">=",
+                passed=True,
+                source="hybrid_blind_gate",
+                skipped=True,
+                message=unsupported_source_message,
+            )
+        )
+    elif hybrid_gain is None:
         message = "hybrid_gain_vs_graph2d unavailable."
         if mode == "fail":
             failures.append(message)
@@ -323,10 +423,14 @@ def evaluate_superpass_targets(
             "min_hybrid_gain_vs_graph2d": min_hybrid_gain,
             "max_calibration_ece": max_calibration_ece,
             "missing_mode": mode,
+            "require_real_blind_dataset": require_real_blind_dataset,
+            "allowed_blind_dataset_sources": allowed_blind_dataset_sources,
         },
         "inputs": {
             "hybrid_blind_gate_report_present": bool(gate_metrics),
             "hybrid_calibration_present": bool(calibration_metrics_after),
+            "hybrid_blind_dataset_source": blind_dataset_source or "",
+            "hybrid_blind_dataset_qualified": bool(blind_dataset_qualified),
         },
     }
 
@@ -359,6 +463,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         choices=["skip", "fail"],
         help="How to handle missing inputs/metrics.",
     )
+    parser.add_argument(
+        "--hybrid-blind-dataset-source",
+        default=None,
+        help="Optional blind benchmark dataset source label (for example configured_dxf_dir or synthetic_manifest).",
+    )
     parser.add_argument("--min-hybrid-accuracy", type=float, default=None)
     parser.add_argument("--min-hybrid-gain-vs-graph2d", type=float, default=None)
     parser.add_argument("--max-calibration-ece", type=float, default=None)
@@ -388,6 +497,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         hybrid_calibration_json=calibration_json,
         thresholds=thresholds,
         missing_mode=missing_mode,
+        hybrid_blind_dataset_source=args.hybrid_blind_dataset_source,
     )
 
     if args.output:

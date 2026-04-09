@@ -131,7 +131,10 @@ def _extract_accuracy_block(summary: Dict[str, Any], key: str) -> Dict[str, Any]
 
 
 def evaluate_hybrid_blind_gate(
-    summary: Dict[str, Any], thresholds: Dict[str, Any]
+    summary: Dict[str, Any],
+    thresholds: Dict[str, Any],
+    *,
+    dataset_source: str = "",
 ) -> Dict[str, Any]:
     failures: List[str] = []
     warnings: List[str] = []
@@ -196,6 +199,12 @@ def evaluate_hybrid_blind_gate(
         "status": status,
         "failures": failures,
         "warnings": warnings,
+        "input_summary": {
+            "dataset_source": str(dataset_source or "").strip() or "unknown",
+            "geometry_only": geometry_only,
+            "mask_filename": mask_filename,
+            "strip_text": strip_text,
+        },
         "metrics": {
             "sample_size": sample_size,
             "weak_label_covered_count": covered_count,
@@ -231,6 +240,11 @@ def main(argv: List[str] | None = None) -> int:
     parser.add_argument("--require-geometry-only", type=str, default=None)
     parser.add_argument("--require-mask-filename", type=str, default=None)
     parser.add_argument("--require-strip-text", type=str, default=None)
+    parser.add_argument(
+        "--dataset-source",
+        default="",
+        help="Optional dataset source identifier, e.g. configured_dxf_dir or synthetic_manifest.",
+    )
     args = parser.parse_args(argv)
 
     summary_path = Path(args.summary_json)
@@ -252,7 +266,11 @@ def main(argv: List[str] | None = None) -> int:
         },
     )
     summary = _read_json(summary_path)
-    report = evaluate_hybrid_blind_gate(summary=summary, thresholds=thresholds)
+    report = evaluate_hybrid_blind_gate(
+        summary=summary,
+        thresholds=thresholds,
+        dataset_source=str(args.dataset_source or ""),
+    )
     if args.output:
         out = Path(args.output)
         out.parent.mkdir(parents=True, exist_ok=True)
