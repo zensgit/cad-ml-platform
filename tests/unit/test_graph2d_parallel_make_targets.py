@@ -99,41 +99,53 @@ def test_make_n_validate_graph2d_review_pack_gate_strict_e2e_runs_expected_tests
     assert "test_evaluation_report_workflow_graph2d_extensions.py" in result.stdout
 
 
-def test_make_n_validate_eval_with_history_ci_workflows_runs_expected_tests() -> None:
-    result = _run_make("-n", "validate-eval-with-history-ci-workflows")
+def test_make_n_hybrid_superpass_gate_contains_expected_flags() -> None:
+    result = _run_make("-n", "hybrid-superpass-gate")
     assert result.returncode == 0, result.stderr
-    assert "test_eval_with_history_script_history_sequence.py" in result.stdout
-    assert "test_validate_eval_history_history_sequence.py" in result.stdout
-    assert "test_generate_evaluation_comment_support_manifest.py" in result.stdout
-    assert "test_evaluation_report_workflow_graph2d_extensions.py" in result.stdout
-    assert "test_comment_markdown_utils_js.py" in result.stdout
-    assert "test_comment_pr_utils_js.py" in result.stdout
-    assert "test_comment_evaluation_report_pr_js.py" in result.stdout
-    assert "test_ci_workflow_eval_with_history_regression_step.py" in result.stdout
-    assert "test_ci_enhanced_eval_with_history_regression_step.py" in result.stdout
-    assert "test_ci_tiered_eval_with_history_regression_step.py" in result.stdout
+    assert "scripts/ci/check_hybrid_superpass_targets.py" in result.stdout
+    assert "--config" in result.stdout
+    assert "--missing-mode" in result.stdout
+    assert "--output" in result.stdout
+    assert "--hybrid-blind-gate-report" in result.stdout
+    assert "--hybrid-calibration-json" in result.stdout
+    assert "$extra_flags" in result.stdout
+
+
+def test_make_n_hybrid_superpass_e2e_gh_contains_expected_flags() -> None:
+    result = _run_make("-n", "hybrid-superpass-e2e-gh")
+    assert result.returncode == 0, result.stderr
+    assert "scripts/ci/dispatch_hybrid_superpass_workflow.py" in result.stdout
+    assert "--workflow" in result.stdout
+    assert "hybrid-superpass-e2e.yml" in result.stdout
+    assert "--ref" in result.stdout
+    assert "--repo" in result.stdout
+    assert "--hybrid-superpass-enable" in result.stdout
+    assert "--hybrid-superpass-missing-mode" in result.stdout
+    assert "--hybrid-superpass-fail-on-failed" in result.stdout
+    assert "--expected-conclusion" in result.stdout
+    assert "--wait-timeout-seconds" in result.stdout
+    assert "--poll-interval-seconds" in result.stdout
+    assert "--list-limit" in result.stdout
+    assert "--output-json" in result.stdout
+    assert "$extra_flags" in result.stdout
+
+
+def test_make_n_hybrid_superpass_apply_gh_vars_contains_expected_flags() -> None:
+    result = _run_make("-n", "hybrid-superpass-apply-gh-vars")
+    assert result.returncode == 0, result.stderr
+    assert "scripts/ci/apply_hybrid_superpass_gh_vars.py" in result.stdout
+    assert "--repo" in result.stdout
+    assert "--config-path" in result.stdout
+    assert "--apply" in result.stdout
+    assert "$extra_flags" in result.stdout
 
 
 def test_make_n_validate_hybrid_superpass_workflow_runs_expected_tests() -> None:
     result = _run_make("-n", "validate-hybrid-superpass-workflow")
     assert result.returncode == 0, result.stderr
     assert "test_dispatch_hybrid_superpass_workflow.py" in result.stdout
+    assert "test_apply_hybrid_superpass_gh_vars.py" in result.stdout
     assert "test_check_hybrid_superpass_targets.py" in result.stdout
-    assert "test_validate_hybrid_superpass_reports.py" in result.stdout
+    assert "test_evaluation_report_workflow_hybrid_superpass_step.py" in result.stdout
     assert "test_hybrid_superpass_workflow_integration.py" in result.stdout
-
-
-def test_make_n_validate_workflow_action_pins_runs_expected_commands() -> None:
-    result = _run_make("-n", "validate-workflow-action-pins")
-    assert result.returncode == 0, result.stderr
-    assert "scripts/ci/check_workflow_action_pins.py" in result.stdout
-    assert "test_check_workflow_action_pins.py" in result.stdout
-    assert "test_action_pin_guard_workflow.py" in result.stdout
-    assert "test_generate_workflow_action_pin_policy.py" in result.stdout
-
-
-def test_make_n_refresh_workflow_action_pin_policy_runs_generator() -> None:
-    result = _run_make("-n", "refresh-workflow-action-pin-policy")
-    assert result.returncode == 0, result.stderr
-    assert "scripts/ci/generate_workflow_action_pin_policy.py" in result.stdout
-    assert "--strict" in result.stdout
+    assert "test_graph2d_parallel_make_targets.py" in result.stdout

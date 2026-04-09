@@ -28,6 +28,11 @@ def test_export_review_pack_preserves_explanation_context(tmp_path: Path) -> Non
                 "status": "ok",
                 "file": "sample.dxf",
                 "confidence": "0.39",
+                "needs_review": "true",
+                "confidence_band": "rejected",
+                "review_priority": "critical",
+                "review_priority_score": "4.0",
+                "review_reasons": "hybrid_rejected:below_min_confidence;knowledge_conflict",
                 "graph2d_label": "传动件",
                 "hybrid_label": "人孔",
                 "hybrid_rejected": "true",
@@ -38,7 +43,39 @@ def test_export_review_pack_preserves_explanation_context(tmp_path: Path) -> Non
                     {"filename": 0.61, "titleblock": 0.22, "history_sequence": 0.11},
                     ensure_ascii=False,
                 ),
+                "hybrid_shadow_predictions": json.dumps(
+                    {
+                        "history_sequence": {
+                            "label": "人孔",
+                            "confidence": 0.58,
+                            "status": "ok",
+                        }
+                    },
+                    ensure_ascii=False,
+                ),
+                "history_label": "人孔",
+                "history_confidence": "0.58",
+                "history_shadow_only": "true",
                 "hybrid_explanation_summary": "综合 文件名, 标题栏, 历史序列 多源信息，融合得出 人孔",
+                "fusion_consistency_check": "high",
+                "fusion_consistency_notes": "知识规则与细分类预测冲突",
+                "knowledge_checks": json.dumps(
+                    [
+                        {"category": "material", "item": "304"},
+                        {"category": "surface_finish", "item": "Ra3.2"},
+                    ],
+                    ensure_ascii=False,
+                ),
+                "standards_candidates": json.dumps(
+                    [
+                        {"type": "material", "designation": "304"},
+                        {"type": "surface_finish", "designation": "Ra 3.2"},
+                    ],
+                    ensure_ascii=False,
+                ),
+                "knowledge_hints": json.dumps(
+                    [{"label": "人孔", "score": 0.92}], ensure_ascii=False
+                ),
             }
         ],
     )
@@ -62,11 +99,64 @@ def test_export_review_pack_preserves_explanation_context(tmp_path: Path) -> Non
 
     assert len(rows) == 1
     assert rows[0]["review_primary_sources"] == "filename;titleblock;history_sequence"
+    assert rows[0]["review_shadow_sources"] == "history_sequence"
+    assert rows[0]["review_history_shadow_only"] == "True"
+    assert rows[0]["review_history_shadow_label"] == "人孔"
     assert rows[0]["review_explanation_summary"].startswith("综合 文件名")
     assert rows[0]["review_decision_path"].endswith("fusion_engine_weighted_average")
     assert rows[0]["review_fusion_strategy"] == "weighted_average"
+    assert rows[0]["review_priority"] == "critical"
+    assert rows[0]["review_confidence_band"] == "rejected"
+    assert rows[0]["review_coarse_label"] == "传动件"
+    assert rows[0]["review_fine_label"] == "人孔"
+    assert rows[0]["review_rejection_reason"] == "below_min_confidence"
+    assert rows[0]["review_has_knowledge_conflict"] == "True"
+    assert rows[0]["review_knowledge_conflict"] == "high"
+    assert rows[0]["review_knowledge_conflict_note"] == "知识规则与细分类预测冲突"
+    assert rows[0]["review_knowledge_check_categories"] == "material;surface_finish"
+    assert rows[0]["review_standard_candidate_types"] == "material;surface_finish"
+    assert rows[0]["review_knowledge_hint_labels"] == "人孔"
 
     summary = json.loads(summary_json.read_text(encoding="utf-8"))
+    assert summary["knowledge_conflict_count"] == 1
+    assert summary["knowledge_check_row_count"] == 1
+    assert summary["standards_candidate_row_count"] == 1
+    assert summary["top_review_priorities"][0] == {"name": "critical", "count": 1}
+    assert summary["top_confidence_bands"][0] == {"name": "rejected", "count": 1}
+    assert summary["top_coarse_labels"][0] == {"name": "传动件", "count": 1}
+    assert summary["top_fine_labels"][0] == {"name": "人孔", "count": 1}
+    assert summary["top_rejection_reasons"][0] == {
+        "name": "below_min_confidence",
+        "count": 1,
+    }
+    assert summary["top_knowledge_conflicts"][0] == {"name": "high", "count": 1}
+    assert summary["top_knowledge_check_categories"][0] == {
+        "name": "material",
+        "count": 1,
+    }
+    assert summary["top_standard_candidate_types"][0] == {
+        "name": "material",
+        "count": 1,
+    }
+    assert summary["top_knowledge_hint_labels"][0] == {"name": "人孔", "count": 1}
     assert summary["top_primary_sources"][0] == {"name": "filename", "count": 1}
+    assert summary["top_shadow_sources"][0] == {
+        "name": "history_sequence",
+        "count": 1,
+    }
     assert summary["sample_explanations"][0].startswith("综合 文件名")
     assert summary["sample_candidates"][0]["file"] == "sample.dxf"
+    assert summary["sample_candidates"][0]["coarse_label"] == "传动件"
+    assert summary["sample_candidates"][0]["fine_label"] == "人孔"
+    assert summary["sample_candidates"][0]["review_priority"] == "critical"
+    assert summary["sample_candidates"][0]["confidence_band"] == "rejected"
+    assert summary["sample_candidates"][0]["rejection_reason"] == "below_min_confidence"
+    assert summary["sample_candidates"][0]["knowledge_conflict"] == "high"
+    assert summary["sample_candidates"][0]["knowledge_check_categories"] == (
+        "material;surface_finish"
+    )
+    assert summary["sample_candidates"][0]["standard_candidate_types"] == (
+        "material;surface_finish"
+    )
+    assert summary["sample_candidates"][0]["knowledge_hint_labels"] == "人孔"
+    assert summary["sample_candidates"][0]["shadow_sources"] == "history_sequence"

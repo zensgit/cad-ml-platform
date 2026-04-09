@@ -22,6 +22,7 @@ from src.core.errors import ErrorCode
 from src.core.ocr.base import (
     DimensionInfo,
     DimensionType,
+    IdentifierInfo,
     OcrResult,
     SymbolInfo,
     SymbolType,
@@ -76,11 +77,81 @@ class TestOcrResponseModel:
             dimensions=[{"type": "diameter", "value": 10.5, "unit": "mm"}],
             symbols=[{"type": "perpendicular", "value": "0.05"}],
             title_block={"drawing_number": "DWG-001"},
+            identifiers=[
+                {
+                    "identifier_type": "drawing_number",
+                    "label": "Drawing Number",
+                    "value": "DWG-001",
+                    "normalized_value": "DWG-001",
+                    "source_text": "图号: DWG-001",
+                    "bbox": [10, 10, 50, 10],
+                    "confidence": 0.92,
+                    "source": "ocr_line",
+                }
+            ],
+            field_evidence={
+                "drawing_number": {
+                    "label": "Drawing Number",
+                    "value": "DWG-001",
+                    "normalized_value": "DWG-001",
+                    "source_text": "图号: DWG-001",
+                    "bbox": [10, 10, 50, 10],
+                    "confidence": 0.92,
+                    "source": "ocr_line",
+                }
+            },
+            field_coverage={
+                "recognized_count": 1,
+                "total_fields": 10,
+                "coverage_ratio": 0.1,
+                "recognized_keys": ["drawing_number"],
+                "missing_keys": ["revision"],
+            },
+            engineering_signals={
+                "dimension_count": 1,
+                "symbol_count": 1,
+                "symbol_types": ["perpendicular"],
+                "gdt_symbol_types": ["perpendicular"],
+                "has_surface_finish": False,
+                "has_gdt": True,
+                "process_requirement_counts": {
+                    "heat_treatments": 0,
+                    "surface_treatments": 0,
+                    "welding": 0,
+                    "general_notes": 0,
+                },
+                "materials_detected": [],
+                "standards_candidates": [],
+            },
+            review_hints={
+                "critical_fields": ["drawing_number", "part_name", "revision", "material"],
+                "present_critical_fields": ["drawing_number"],
+                "missing_critical_fields": ["part_name", "revision", "material"],
+                "has_identifiers": True,
+                "has_dimensions": True,
+                "has_symbols": True,
+                "has_process_requirements": False,
+                "has_standards_candidates": False,
+                "review_recommended": True,
+                "review_reasons": ["missing_critical_fields"],
+                "primary_gap": "missing_critical_fields",
+                "review_priority": "high",
+                "automation_ready": False,
+                "recommended_actions": ["fill_critical_title_block_fields"],
+                "readiness_score": 0.4,
+                "readiness_band": "low",
+            },
         )
 
         assert response.success is True
         assert response.provider == "paddle"
         assert response.confidence == 0.95
+        assert response.identifiers[0]["identifier_type"] == "drawing_number"
+        assert response.field_evidence["drawing_number"]["value"] == "DWG-001"
+        assert response.field_coverage["recognized_count"] == 1
+        assert response.engineering_signals["has_gdt"] is True
+        assert response.review_hints["review_recommended"] is True
+        assert response.review_hints["review_priority"] == "high"
 
     def test_model_creation_failure(self):
         """Test OcrResponse model creation for failure case."""
@@ -95,6 +166,7 @@ class TestOcrResponseModel:
             dimensions=[],
             symbols=[],
             title_block={},
+            identifiers=[],
             error="Provider unavailable",
             code=ErrorCode.PROVIDER_DOWN,
         )
@@ -105,6 +177,47 @@ class TestOcrResponseModel:
 
 class TestOcrExtractEndpoint:
     """Tests for ocr_extract endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_run_ocr_extract_returns_identifiers(self):
+        from src.api.v1.ocr import _run_ocr_extract
+
+        result = OcrResult(
+            text="图号: DWG-001",
+            title_block=TitleBlock(drawing_number="DWG-001"),
+            identifiers=[
+                IdentifierInfo(
+                    identifier_type="drawing_number",
+                    label="Drawing Number",
+                    value="DWG-001",
+                    normalized_value="DWG-001",
+                    source_text="图号: DWG-001",
+                    bbox=[10, 10, 50, 10],
+                    confidence=0.92,
+                    source="ocr_line",
+                )
+            ],
+            confidence=0.9,
+        )
+
+        mock_manager = MagicMock()
+        mock_manager.extract = AsyncMock(return_value=result)
+
+        with patch("src.api.v1.ocr.get_manager", return_value=mock_manager):
+            response = await _run_ocr_extract(b"img", "auto", "trace-1")
+
+        assert response.identifiers[0]["identifier_type"] == "drawing_number"
+        assert response.field_evidence["drawing_number"]["bbox"] == [10, 10, 50, 10]
+        assert response.field_coverage["recognized_count"] == 1
+        assert response.engineering_signals["dimension_count"] == 0
+        assert response.review_hints["missing_critical_fields"] == [
+            "part_name",
+            "revision",
+            "material",
+        ]
+        assert response.review_hints["review_recommended"] is True
+        assert response.review_hints["primary_gap"] == "missing_critical_fields"
+        assert "fill_critical_title_block_fields" in response.review_hints["recommended_actions"]
 
     @pytest.mark.asyncio
     async def test_ocr_extract_idempotency_hit(self):

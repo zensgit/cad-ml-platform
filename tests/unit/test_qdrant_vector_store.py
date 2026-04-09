@@ -163,6 +163,30 @@ class TestQdrantVectorStore:
         result = vector_store.health_check()
         assert result is False
 
+    def test_ensure_collection_creates_coarse_contract_indexes(self):
+        """Test collection setup creates coarse/fine metadata indexes."""
+        from src.core.vector_stores.qdrant_store import QdrantVectorStore
+
+        with patch("src.core.vector_stores.qdrant_store.QdrantClient") as mock:
+            client_instance = MagicMock()
+            client_instance.get_collections.return_value.collections = []
+            mock.return_value = client_instance
+
+            store = QdrantVectorStore()
+            store._client = client_instance
+            store._ensure_collection()
+
+        indexed_fields = {
+            call.kwargs["field_name"]
+            for call in client_instance.create_payload_index.call_args_list
+        }
+        assert {
+            "part_type",
+            "fine_part_type",
+            "coarse_part_type",
+            "decision_source",
+        } <= indexed_fields
+
     @pytest.mark.asyncio
     async def test_register_vector(self, vector_store, mock_qdrant_client):
         """Test vector registration."""
@@ -171,11 +195,19 @@ class TestQdrantVectorStore:
         result = await vector_store.register_vector(
             vector_id="doc-123",
             vector=[0.1, 0.2, 0.3],
-            metadata={"material": "steel"},
+            metadata={
+                "material": "steel",
+                "part_type": "人孔",
+                "final_decision_source": "hybrid",
+            },
         )
 
         assert result is True
         mock_qdrant_client.upsert.assert_called_once()
+        points = mock_qdrant_client.upsert.call_args.kwargs["points"]
+        assert points[0].payload["fine_part_type"] == "人孔"
+        assert points[0].payload["coarse_part_type"] == "开孔件"
+        assert points[0].payload["decision_source"] == "hybrid"
 
     @pytest.mark.asyncio
     async def test_register_vector_adds_timestamp(self, vector_store, mock_qdrant_client):
@@ -230,6 +262,33 @@ class TestQdrantVectorStore:
         # Verify filter was passed
         call_args = mock_qdrant_client.search.call_args
         assert call_args[1]["query_filter"] is not None
+
+    @pytest.mark.asyncio
+    async def test_list_vectors_with_filter(self, vector_store, mock_qdrant_client):
+        """Test filtered vector listing with Qdrant scroll/count."""
+        vector_store._initialized = True
+        mock_count_result = MagicMock()
+        mock_count_result.count = 3
+        mock_qdrant_client.count.return_value = mock_count_result
+        mock_point = MagicMock()
+        mock_point.id = "doc-123"
+        mock_point.payload = {"material": "steel", "coarse_part_type": "开孔件"}
+        mock_point.vector = [0.1, 0.2, 0.3]
+        mock_qdrant_client.scroll.return_value = ([mock_point], None)
+
+        results, total = await vector_store.list_vectors(
+            offset=0,
+            limit=10,
+            filter_conditions={"coarse_part_type": "开孔件"},
+            with_vectors=True,
+        )
+
+        assert total == 3
+        assert len(results) == 1
+        assert results[0].id == "doc-123"
+        assert results[0].metadata["coarse_part_type"] == "开孔件"
+        assert results[0].vector == [0.1, 0.2, 0.3]
+        assert mock_qdrant_client.scroll.call_args.kwargs["scroll_filter"] is not None
 
     @pytest.mark.asyncio
     async def test_get_vector(self, vector_store, mock_qdrant_client):
@@ -287,7 +346,11 @@ class TestQdrantVectorStore:
         vector_store._initialized = True
 
         vectors = [
-            ("doc-1", [0.1, 0.2], {"material": "steel"}),
+            (
+                "doc-1",
+                [0.1, 0.2],
+                {"material": "steel", "part_type": "人孔", "final_decision_source": "hybrid"},
+            ),
             ("doc-2", [0.3, 0.4], {"material": "aluminum"}),
             ("doc-3", [0.5, 0.6], {"material": "copper"}),
         ]
@@ -297,6 +360,66 @@ class TestQdrantVectorStore:
         assert result == 3
         # Should have 2 batch calls (2 vectors + 1 vector)
         assert mock_qdrant_client.upsert.call_count == 2
+        first_batch_points = mock_qdrant_client.upsert.call_args_list[0].kwargs["points"]
+        assert first_batch_points[0].payload["coarse_part_type"] == "开孔件"
+        assert first_batch_points[0].payload["decision_source"] == "hybrid"
+
+    @pytest.mark.asyncio
+    async def test_update_metadata_normalizes_coarse_contract(
+        self,
+        vector_store,
+        mock_qdrant_client,
+    ):
+        """Test metadata updates preserve coarse/fine contract fields."""
+        vector_store._initialized = True
+
+        result = await vector_store.update_metadata(
+            "doc-123",
+            {"part_type": "人孔", "final_decision_source": "hybrid"},
+        )
+
+        assert result is True
+        payload = mock_qdrant_client.set_payload.call_args.kwargs["payload"]
+        assert payload["fine_part_type"] == "人孔"
+        assert payload["coarse_part_type"] == "开孔件"
+        assert payload["decision_source"] == "hybrid"
+
+    @pytest.mark.asyncio
+    async def test_inspect_collection_returns_snapshot(self, vector_store, mock_qdrant_client):
+        """Test inspect_collection returns read-only observability snapshot."""
+        collection = MagicMock()
+        collection.name = vector_store.config.collection_name
+        mock_qdrant_client.get_collections.return_value.collections = [collection]
+        info = MagicMock()
+        info.points_count = 10
+        info.vectors_count = 10
+        info.indexed_vectors_count = 8
+        info.status.name = "GREEN"
+        mock_qdrant_client.get_collection.return_value = info
+
+        result = await vector_store.inspect_collection()
+
+        assert result["reachable"] is True
+        assert result["collection_exists"] is True
+        assert result["collection_status"] == "green"
+        assert result["unindexed_vectors_count"] == 2
+        assert result["indexing_progress"] == 0.8
+
+    @pytest.mark.asyncio
+    async def test_inspect_collection_handles_missing_collection(
+        self,
+        vector_store,
+        mock_qdrant_client,
+    ):
+        """Test inspect_collection does not create a collection when missing."""
+        mock_qdrant_client.get_collections.return_value.collections = []
+
+        result = await vector_store.inspect_collection()
+
+        assert result["reachable"] is True
+        assert result["collection_exists"] is False
+        assert result["points_count"] == 0
+        mock_qdrant_client.create_collection.assert_not_called()
 
     def test_close(self, vector_store, mock_qdrant_client):
         """Test closing the client connection."""

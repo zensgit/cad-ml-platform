@@ -25,6 +25,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
+from src.core.similarity import extract_vector_label_contract
+
 logger = logging.getLogger(__name__)
 
 # Conditional import for Qdrant
@@ -159,16 +161,19 @@ class QdrantVectorStore:
             )
 
             # Create payload indexes for common filters
-            self.client.create_payload_index(
-                collection_name=self.config.collection_name,
-                field_name="material",
-                field_schema=models.PayloadSchemaType.KEYWORD,
-            )
-            self.client.create_payload_index(
-                collection_name=self.config.collection_name,
-                field_name="category",
-                field_schema=models.PayloadSchemaType.KEYWORD,
-            )
+            for keyword_field in (
+                "material",
+                "category",
+                "part_type",
+                "fine_part_type",
+                "coarse_part_type",
+                "decision_source",
+            ):
+                self.client.create_payload_index(
+                    collection_name=self.config.collection_name,
+                    field_name=keyword_field,
+                    field_schema=models.PayloadSchemaType.KEYWORD,
+                )
             self.client.create_payload_index(
                 collection_name=self.config.collection_name,
                 field_name="created_at",
@@ -176,6 +181,66 @@ class QdrantVectorStore:
             )
 
         self._initialized = True
+
+    @staticmethod
+    def _normalize_payload_metadata(metadata: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        payload = metadata.copy() if metadata else {}
+        contract = extract_vector_label_contract(payload)
+        for key, value in contract.items():
+            if value is None:
+                continue
+            payload[key] = value
+        if contract.get("decision_source") and "final_decision_source" not in payload:
+            payload["final_decision_source"] = contract["decision_source"]
+        return payload
+
+    @staticmethod
+    def _build_query_filter(filter_conditions: Optional[Dict[str, Any]]):
+        if not filter_conditions:
+            return None
+
+        must_conditions = []
+        for key, value in filter_conditions.items():
+            if value is None:
+                continue
+            if isinstance(value, list):
+                must_conditions.append(
+                    models.FieldCondition(
+                        key=key,
+                        match=models.MatchAny(any=value),
+                    )
+                )
+            elif isinstance(value, dict):
+                if "gte" in value or "lte" in value:
+                    must_conditions.append(
+                        models.FieldCondition(
+                            key=key,
+                            range=models.Range(
+                                gte=value.get("gte"),
+                                lte=value.get("lte"),
+                            ),
+                        )
+                    )
+            else:
+                must_conditions.append(
+                    models.FieldCondition(
+                        key=key,
+                        match=models.MatchValue(value=value),
+                    )
+                )
+
+        if not must_conditions:
+            return None
+        return models.Filter(must=must_conditions)
+
+    @staticmethod
+    def _to_result(hit: Any, with_vectors: bool = False) -> VectorSearchResult:
+        return VectorSearchResult(
+            id=str(hit.id),
+            score=getattr(hit, "score", 1.0),
+            metadata=getattr(hit, "payload", None) or {},
+            vector=getattr(hit, "vector", None) if with_vectors else None,
+        )
 
     def health_check(self) -> bool:
         """Check if Qdrant is healthy and accessible.
@@ -220,7 +285,7 @@ class QdrantVectorStore:
         self._ensure_collection()
 
         # Add timestamp if not present
-        payload = metadata.copy() if metadata else {}
+        payload = self._normalize_payload_metadata(metadata)
         if "created_at" not in payload:
             payload["created_at"] = datetime.utcnow().isoformat()
 
@@ -263,7 +328,7 @@ class QdrantVectorStore:
             points = []
 
             for vector_id, vector, metadata in batch:
-                payload = metadata.copy() if metadata else {}
+                payload = self._normalize_payload_metadata(metadata)
                 if "created_at" not in payload:
                     payload["created_at"] = datetime.utcnow().isoformat()
 
@@ -318,43 +383,7 @@ class QdrantVectorStore:
         """
         self._ensure_collection()
 
-        # Build filter
-        query_filter = None
-        if filter_conditions:
-            must_conditions = []
-
-            for key, value in filter_conditions.items():
-                if isinstance(value, list):
-                    # Multiple values - use "should" (OR)
-                    must_conditions.append(
-                        models.FieldCondition(
-                            key=key,
-                            match=models.MatchAny(any=value),
-                        )
-                    )
-                elif isinstance(value, dict):
-                    # Range filter
-                    if "gte" in value or "lte" in value:
-                        must_conditions.append(
-                            models.FieldCondition(
-                                key=key,
-                                range=models.Range(
-                                    gte=value.get("gte"),
-                                    lte=value.get("lte"),
-                                ),
-                            )
-                        )
-                else:
-                    # Exact match
-                    must_conditions.append(
-                        models.FieldCondition(
-                            key=key,
-                            match=models.MatchValue(value=value),
-                        )
-                    )
-
-            if must_conditions:
-                query_filter = models.Filter(must=must_conditions)
+        query_filter = self._build_query_filter(filter_conditions)
 
         try:
             results = self.client.search(
@@ -365,18 +394,39 @@ class QdrantVectorStore:
                 score_threshold=score_threshold,
                 with_vectors=with_vectors,
             )
-
-            return [
-                VectorSearchResult(
-                    id=str(hit.id),
-                    score=hit.score,
-                    metadata=hit.payload or {},
-                    vector=hit.vector if with_vectors else None,
-                )
-                for hit in results
-            ]
+            return [self._to_result(hit, with_vectors=with_vectors) for hit in results]
         except Exception as e:
             logger.error(f"Search failed: {e}")
+            raise
+
+    async def list_vectors(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filter_conditions: Optional[Dict[str, Any]] = None,
+        with_vectors: bool = False,
+    ) -> tuple[List[VectorSearchResult], int]:
+        """List vectors with optional server-side filtering."""
+        self._ensure_collection()
+        query_filter = self._build_query_filter(filter_conditions)
+
+        try:
+            total = self.client.count(
+                collection_name=self.config.collection_name,
+                count_filter=query_filter,
+            ).count
+            scroll_limit = max(offset + limit, limit)
+            points, _ = self.client.scroll(
+                collection_name=self.config.collection_name,
+                scroll_filter=query_filter,
+                limit=scroll_limit,
+                with_payload=True,
+                with_vectors=with_vectors,
+            )
+            items = points[offset : offset + limit]
+            return [self._to_result(point, with_vectors=with_vectors) for point in items], total
+        except Exception as e:
+            logger.error(f"List failed: {e}")
             raise
 
     async def get_vector(self, vector_id: str) -> Optional[VectorSearchResult]:
@@ -443,16 +493,7 @@ class QdrantVectorStore:
         """
         self._ensure_collection()
 
-        must_conditions = []
-        for key, value in filter_conditions.items():
-            must_conditions.append(
-                models.FieldCondition(
-                    key=key,
-                    match=models.MatchValue(value=value),
-                )
-            )
-
-        query_filter = models.Filter(must=must_conditions)
+        query_filter = self._build_query_filter(filter_conditions)
 
         try:
             # Get count before delete
@@ -485,6 +526,7 @@ class QdrantVectorStore:
         self._ensure_collection()
 
         try:
+            metadata = self._normalize_payload_metadata(metadata)
             self.client.set_payload(
                 collection_name=self.config.collection_name,
                 payload=metadata,
@@ -506,16 +548,7 @@ class QdrantVectorStore:
         """
         self._ensure_collection()
 
-        query_filter = None
-        if filter_conditions:
-            must_conditions = [
-                models.FieldCondition(
-                    key=key,
-                    match=models.MatchValue(value=value),
-                )
-                for key, value in filter_conditions.items()
-            ]
-            query_filter = models.Filter(must=must_conditions)
+        query_filter = self._build_query_filter(filter_conditions)
 
         result = self.client.count(
             collection_name=self.config.collection_name,
@@ -544,6 +577,58 @@ class QdrantVectorStore:
                 "distance": self.config.distance,
             },
         }
+
+    async def inspect_collection(self) -> Dict[str, Any]:
+        """Inspect collection state without creating or mutating it."""
+        requested_config = {
+            "vector_size": self.config.vector_size,
+            "distance": self.config.distance,
+            "on_disk": self.config.on_disk,
+            "timeout_seconds": self.config.timeout,
+        }
+        snapshot: Dict[str, Any] = {
+            "enabled": True,
+            "sdk_available": True,
+            "reachable": False,
+            "collection_name": self.config.collection_name,
+            "collection_exists": False,
+            "collection_status": None,
+            "points_count": 0,
+            "vectors_count": 0,
+            "indexed_vectors_count": 0,
+            "unindexed_vectors_count": 0,
+            "indexing_progress": 0.0,
+            "requested_config": requested_config,
+            "error": None,
+        }
+        try:
+            collections = self.client.get_collections().collections
+            snapshot["reachable"] = True
+            collection_names = {item.name for item in collections}
+            if self.config.collection_name not in collection_names:
+                return snapshot
+
+            snapshot["collection_exists"] = True
+            info = self.client.get_collection(self.config.collection_name)
+            points_count = int(info.points_count or 0)
+            vectors_count = int(info.vectors_count or points_count)
+            indexed_vectors_count = int(info.indexed_vectors_count or 0)
+            snapshot.update(
+                {
+                    "collection_status": str(info.status.name).lower(),
+                    "points_count": points_count,
+                    "vectors_count": vectors_count,
+                    "indexed_vectors_count": indexed_vectors_count,
+                    "unindexed_vectors_count": max(points_count - indexed_vectors_count, 0),
+                    "indexing_progress": (
+                        round(indexed_vectors_count / points_count, 4) if points_count else 0.0
+                    ),
+                }
+            )
+            return snapshot
+        except Exception as exc:
+            snapshot["error"] = str(exc)
+            return snapshot
 
     def close(self) -> None:
         """Close the client connection."""

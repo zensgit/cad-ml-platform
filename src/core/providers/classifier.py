@@ -12,6 +12,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
+from src.core.classification.coarse_labels import normalize_coarse_label
 from src.core.providers.base import BaseProvider, ProviderConfig
 from src.core.providers.registry import ProviderRegistry
 
@@ -37,6 +38,40 @@ class ClassifierRequest:
     file_bytes: Optional[bytes] = None
     file_path: Optional[str] = None
     history_file_path: Optional[str] = None
+
+
+def _normalize_source_value(value: Any) -> Optional[str]:
+    """Return a stable string form for decision source fields."""
+    if value is None:
+        return None
+    source_value = getattr(value, "value", value)
+    source_text = str(source_value).strip()
+    return source_text or None
+
+
+def _augment_label_payload(
+    payload: Dict[str, Any],
+    *,
+    label: Optional[str],
+    source: Any = None,
+    review_fields: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Attach stable fine/coarse label and review contract fields."""
+    fine_label = str(label).strip() if label is not None else ""
+    fine_value = fine_label or None
+    coarse_label = normalize_coarse_label(fine_value)
+    decision_source = _normalize_source_value(source)
+
+    payload.setdefault("fine_label", fine_value)
+    payload.setdefault("coarse_label", coarse_label)
+    payload.setdefault("is_coarse_label", bool(fine_value and fine_value == coarse_label))
+    if decision_source:
+        payload.setdefault("decision_source", decision_source)
+
+    for key, value in (review_fields or {}).items():
+        if value is not None:
+            payload.setdefault(key, value)
+    return payload
 
 
 class HybridClassifierProviderAdapter(
@@ -81,7 +116,33 @@ class HybridClassifierProviderAdapter(
                 file_bytes=request.file_bytes,
                 graph2d_result=kwargs.get("graph2d_result"),
             )
-        return result.to_dict()
+        payload = result.to_dict()
+        review_fields = {
+            "needs_review": getattr(result, "needs_review", None),
+            "confidence_band": getattr(result, "confidence_band", None),
+            "review_priority": getattr(result, "review_priority", None),
+            "review_priority_score": getattr(result, "review_priority_score", None),
+            "review_reasons": getattr(result, "review_reasons", None),
+            "review_reason_text": getattr(result, "review_reason_text", None),
+            "review_has_hybrid_rejection": getattr(
+                result, "review_has_hybrid_rejection", None
+            ),
+            "review_has_branch_conflict": getattr(
+                result, "review_has_branch_conflict", None
+            ),
+            "review_has_knowledge_conflict": getattr(
+                result, "review_has_knowledge_conflict", None
+            ),
+            "review_is_low_confidence": getattr(
+                result, "review_is_low_confidence", None
+            ),
+        }
+        return _augment_label_payload(
+            payload,
+            label=getattr(result, "label", None),
+            source=getattr(result, "source", None),
+            review_fields=review_fields,
+        )
 
     async def _health_check_impl(self) -> bool:
         # Cheap probe: filename-only path does not require optional ML deps.
@@ -129,6 +190,11 @@ class Graph2DClassifierProviderAdapter(
         # Add a tiny bit of context for callers using the provider registry.
         if isinstance(payload, dict):
             payload.setdefault("ensemble_enabled", self._ensemble)
+            return _augment_label_payload(
+                payload,
+                label=payload.get("label"),
+                source="graph2d",
+            )
         return payload
 
     async def _health_check_impl(self) -> bool:
@@ -223,7 +289,11 @@ class V16PartClassifierProviderAdapter(
                 "top2_category": getattr(result, "top2_category", None),
                 "top2_confidence": getattr(result, "top2_confidence", None),
             }
-            return payload
+            return _augment_label_payload(
+                payload,
+                label=result.category,
+                source=getattr(result, "model_version", "v16"),
+            )
         except Exception as exc:  # noqa: BLE001
             return {"status": "error", "error": str(exc)}
 
@@ -269,13 +339,17 @@ class V6PartClassifierProviderAdapter(
             result = clf.predict(str(request.file_path))
             if result is None:
                 return {"status": "no_prediction"}
-            return {
+            return _augment_label_payload(
+                {
                 "status": "ok",
                 "label": result.category,
                 "confidence": float(result.confidence),
                 "probabilities": dict(result.probabilities),
                 "model_version": getattr(result, "model_version", "v6"),
-            }
+                },
+                label=result.category,
+                source=getattr(result, "model_version", "v6"),
+            )
         except Exception as exc:  # noqa: BLE001
             return {"status": "error", "error": str(exc)}
 

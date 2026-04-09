@@ -121,6 +121,7 @@ class HistorySequenceConfig:
     """历史命令序列特征配置（HPSketch）"""
 
     enabled: bool = False
+    shadow_only: bool = False
     min_confidence: float = 0.55
     fusion_weight: float = 0.2
     prototypes_path: str = "data/knowledge/history_sequence_prototypes_template.json"
@@ -257,6 +258,7 @@ class HybridClassifierConfig:
             },
             "history_sequence": {
                 "enabled": self.history_sequence.enabled,
+                "shadow_only": self.history_sequence.shadow_only,
                 "min_confidence": self.history_sequence.min_confidence,
                 "fusion_weight": self.history_sequence.fusion_weight,
                 "prototypes_path": self.history_sequence.prototypes_path,
@@ -401,6 +403,10 @@ class HybridClassifierConfig:
         if isinstance(history_sequence, dict):
             self.history_sequence.enabled = _to_bool(
                 history_sequence.get("enabled"), self.history_sequence.enabled
+            )
+            self.history_sequence.shadow_only = _to_bool(
+                history_sequence.get("shadow_only"),
+                self.history_sequence.shadow_only,
             )
             self.history_sequence.min_confidence = _to_float(
                 history_sequence.get("min_confidence"),
@@ -618,6 +624,10 @@ class HybridClassifierConfig:
 
         self.history_sequence.enabled = _to_bool(
             os.getenv("HISTORY_SEQUENCE_ENABLED"), self.history_sequence.enabled
+        )
+        self.history_sequence.shadow_only = _to_bool(
+            os.getenv("HISTORY_SEQUENCE_SHADOW_ONLY"),
+            self.history_sequence.shadow_only,
         )
         self.history_sequence.min_confidence = _to_float(
             os.getenv("HISTORY_SEQUENCE_MIN_CONF"),

@@ -6,6 +6,7 @@ Maintenance API endpoints
 from __future__ import annotations
 
 import logging
+import os
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -22,6 +23,38 @@ from src.utils.analysis_result_store import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _get_qdrant_store_or_none():
+    if os.getenv("VECTOR_STORE_BACKEND", "memory") != "qdrant":
+        return None
+    try:
+        from src.core.vector_stores import get_vector_store as get_managed_vector_store
+
+        return get_managed_vector_store("qdrant")
+    except Exception:
+        return None
+
+
+async def _list_qdrant_vector_ids(qdrant_store) -> List[str]:
+    scan_limit = max(int(os.getenv("MAINTENANCE_VECTOR_SCAN_LIMIT", "5000")), 1)
+    total = await qdrant_store.count()
+    remaining = min(total, scan_limit)
+    ids: List[str] = []
+    offset = 0
+    page_size = min(500, remaining or 1)
+    while offset < remaining:
+        batch_size = min(page_size, remaining - offset)
+        results, _ = await qdrant_store.list_vectors(
+            offset=offset,
+            limit=batch_size,
+            with_vectors=False,
+        )
+        if not results:
+            break
+        ids.extend(result.id for result in results)
+        offset += len(results)
+    return ids
 
 
 class OrphanCleanupResponse(BaseModel):
@@ -243,11 +276,15 @@ async def cleanup_orphan_vectors(
 
     orphan_ids: List[str] = []
     redis_errors = 0
+    qdrant_store = _get_qdrant_store_or_none()
 
     # Find orphan vectors
     if client is not None:
-        with _VECTOR_LOCK:
-            keys_snapshot = list(_VECTOR_STORE.keys())
+        if qdrant_store is not None:
+            keys_snapshot = await _list_qdrant_vector_ids(qdrant_store)
+        else:
+            with _VECTOR_LOCK:
+                keys_snapshot = list(_VECTOR_STORE.keys())
 
         for vid in keys_snapshot:
             try:
@@ -280,8 +317,11 @@ async def cleanup_orphan_vectors(
                 continue
     else:
         logger.warning("No cache client available, assuming all vectors are orphans")
-        with _VECTOR_LOCK:
-            orphan_ids = list(_VECTOR_STORE.keys())
+        if qdrant_store is not None:
+            orphan_ids = await _list_qdrant_vector_ids(qdrant_store)
+        else:
+            with _VECTOR_LOCK:
+                orphan_ids = list(_VECTOR_STORE.keys())
 
     orphan_count = len(orphan_ids)
 
@@ -307,27 +347,37 @@ async def cleanup_orphan_vectors(
 
     # Execute deletion
     deleted_count = 0
-    with _VECTOR_LOCK:
+    if qdrant_store is not None:
         for oid in orphan_ids:
             try:
-                if oid in _VECTOR_STORE:
-                    del _VECTOR_STORE[oid]
+                if await qdrant_store.delete_vector(oid):
                     deleted_count += 1
                     vector_cold_pruned_total.inc()
             except Exception as e:
-                logger.error(f"Error deleting orphan vector {oid}: {e}")
+                logger.error(f"Error deleting orphan qdrant vector {oid}: {e}")
                 continue
-
-    # Also clean up metadata if exists
-    from src.core.similarity import _VECTOR_META  # type: ignore
-
-    with _VECTOR_LOCK:
-        for oid in orphan_ids:
-            if oid in _VECTOR_META:
+    else:
+        with _VECTOR_LOCK:
+            for oid in orphan_ids:
                 try:
-                    del _VECTOR_META[oid]
-                except Exception:
-                    pass
+                    if oid in _VECTOR_STORE:
+                        del _VECTOR_STORE[oid]
+                        deleted_count += 1
+                        vector_cold_pruned_total.inc()
+                except Exception as e:
+                    logger.error(f"Error deleting orphan vector {oid}: {e}")
+                    continue
+
+        # Also clean up metadata if exists
+        from src.core.similarity import _VECTOR_META  # type: ignore
+
+        with _VECTOR_LOCK:
+            for oid in orphan_ids:
+                if oid in _VECTOR_META:
+                    try:
+                        del _VECTOR_META[oid]
+                    except Exception:
+                        pass
 
     logger.info(f"Cleaned up {deleted_count} orphan vectors out of {orphan_count}")
 
@@ -410,13 +460,26 @@ async def get_maintenance_stats(api_key: str = Depends(get_api_key)):
     Returns:
         维护相关的统计数据
     """
-    from src.core.similarity import _VECTOR_LOCK, _VECTOR_META, _VECTOR_STORE  # type: ignore
     from src.utils.cache import get_client
 
     try:
-        with _VECTOR_LOCK:
-            total_vectors = len(_VECTOR_STORE)
-            metadata_entries = len(_VECTOR_META)
+        qdrant_store = _get_qdrant_store_or_none()
+        if qdrant_store is not None:
+            qdrant_observability = await _inspect_qdrant_observability(qdrant_store)
+            total_vectors = int(qdrant_observability.get("points_count") or 0)
+            metadata_entries = total_vectors
+            backend = "qdrant"
+        else:
+            from src.core.similarity import (  # type: ignore
+                _VECTOR_LOCK,
+                _VECTOR_META,
+                _VECTOR_STORE,
+            )
+
+            with _VECTOR_LOCK:
+                total_vectors = len(_VECTOR_STORE)
+                metadata_entries = len(_VECTOR_META)
+            backend = "memory"
     except Exception as e:
         err = build_error(
             ErrorCode.INTERNAL_ERROR,
@@ -430,11 +493,36 @@ async def get_maintenance_stats(api_key: str = Depends(get_api_key)):
         raise HTTPException(status_code=500, detail=err)
 
     stats = {
-        "vector_store": {"total_vectors": total_vectors, "metadata_entries": metadata_entries},
+        "vector_store": {
+            "backend": backend,
+            "total_vectors": total_vectors,
+            "metadata_entries": metadata_entries,
+        },
         "cache": {"available": False, "size": 0},
         "maintenance": {"orphan_check_available": False, "last_cleanup": None},
         "analysis_result_store": {},
     }
+    if qdrant_store is not None:
+        qdrant_error = qdrant_observability.get("error")
+        qdrant_error_type = _classify_qdrant_error(qdrant_error)
+        qdrant_error_severity = _classify_qdrant_error_severity(
+            reachable=bool(qdrant_observability.get("reachable", False)),
+            collection_exists=bool(qdrant_observability.get("collection_exists", False)),
+            error_type=qdrant_error_type,
+        )
+        stats["vector_store"]["qdrant"] = {
+            "reachable": bool(qdrant_observability.get("reachable", False)),
+            "collection_exists": bool(qdrant_observability.get("collection_exists", False)),
+            "collection_status": qdrant_observability.get("collection_status"),
+            "unindexed_vectors_count": int(
+                qdrant_observability.get("unindexed_vectors_count") or 0
+            ),
+            "indexing_progress": float(qdrant_observability.get("indexing_progress") or 0.0),
+            "error": qdrant_error,
+            "error_type": qdrant_error_type,
+            "error_severity": qdrant_error_severity,
+            "error_hint": _build_qdrant_error_hint(qdrant_error_type),
+        }
 
     # Check cache stats
     try:
@@ -461,6 +549,71 @@ async def get_maintenance_stats(api_key: str = Depends(get_api_key)):
         stats["analysis_result_store"] = {"enabled": False, "error": str(e)}
 
     return stats
+
+
+async def _inspect_qdrant_observability(qdrant_store) -> Dict[str, object]:
+    inspect_method = getattr(qdrant_store, "inspect_collection", None)
+    if callable(inspect_method):
+        return await inspect_method()
+    total_vectors = await qdrant_store.count()
+    return {
+        "reachable": True,
+        "collection_exists": True,
+        "collection_status": "unknown",
+        "points_count": total_vectors,
+        "unindexed_vectors_count": 0,
+        "indexing_progress": 1.0 if total_vectors else 0.0,
+        "error": None,
+    }
+
+
+def _classify_qdrant_error(error_text: Optional[object]) -> str:
+    text = str(error_text or "").strip().lower()
+    if not text:
+        return "none"
+    if "timeout" in text or "timed out" in text:
+        return "timeout"
+    if "auth" in text or "unauthorized" in text or "forbidden" in text:
+        return "authentication"
+    if "not found" in text or "missing collection" in text:
+        return "not_found"
+    if "sdk" in text or "qdrant-client" in text or "client unavailable" in text:
+        return "sdk_unavailable"
+    if "connection" in text or "refused" in text or "dns" in text:
+        return "connection"
+    if "config" in text or "invalid url" in text:
+        return "configuration"
+    return "unknown"
+
+
+def _classify_qdrant_error_severity(
+    *,
+    reachable: bool,
+    collection_exists: bool,
+    error_type: str,
+) -> str:
+    if error_type == "none":
+        return "none"
+    if error_type in {"timeout", "connection", "authentication", "sdk_unavailable"}:
+        return "critical"
+    if not reachable or not collection_exists:
+        return "critical"
+    if error_type in {"not_found", "configuration"}:
+        return "warning"
+    return "warning"
+
+
+def _build_qdrant_error_hint(error_type: str) -> Optional[str]:
+    hints = {
+        "timeout": "Check Qdrant latency, network path, and timeout settings.",
+        "connection": "Verify Qdrant host, port, DNS, and service reachability.",
+        "authentication": "Check Qdrant credentials or API key configuration.",
+        "not_found": "Confirm the target Qdrant collection exists before querying stats.",
+        "sdk_unavailable": "Install qdrant-client or disable the qdrant backend.",
+        "configuration": "Review Qdrant endpoint configuration and collection settings.",
+        "unknown": "Inspect Qdrant logs and recent deployment changes.",
+    }
+    return hints.get(error_type)
 
 
 class VectorStoreReloadResponse(BaseModel):

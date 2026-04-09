@@ -10,7 +10,7 @@ import random
 import sys
 from collections import Counter
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -93,6 +93,67 @@ def _apply_dxf_sampling_env(args: argparse.Namespace) -> None:
     )
     if token in {"true", "false"}:
         os.environ["DXF_ENHANCED_KEYPOINTS"] = token
+
+
+def _write_json_file(path: str, payload: Dict[str, Any]) -> None:
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _build_training_metrics_payload(
+    *,
+    args: argparse.Namespace,
+    best_val_acc: float,
+    best_epoch: int,
+    final_val_acc: float,
+    final_loss: float,
+    epochs_ran: int,
+    train_size: int,
+    val_size: int,
+    class_stats: Dict[str, Any],
+    checkpoint_path: str,
+    epoch_history: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    return {
+        "status": "ok",
+        "checkpoint_path": str(checkpoint_path),
+        "epochs_requested": int(args.epochs),
+        "epochs_ran": int(epochs_ran),
+        "stopped_early": bool(
+            int(epochs_ran) < int(args.epochs) and int(args.early_stop_patience) > 0
+        ),
+        "best_val_acc": float(best_val_acc),
+        "best_epoch": int(best_epoch),
+        "final_val_acc": float(final_val_acc),
+        "final_loss": float(final_loss),
+        "seed": int(args.seed),
+        "device": str(args.device),
+        "model": str(args.model),
+        "loss": str(args.loss),
+        "sampler": str(args.sampler),
+        "class_weighting": str(args.class_weighting),
+        "train_size": int(train_size),
+        "val_size": int(val_size),
+        "class_stats": dict(class_stats),
+        "config_path": str(args.config),
+        "sampling_overrides": {
+            "dxf_max_nodes": args.dxf_max_nodes,
+            "dxf_sampling_strategy": args.dxf_sampling_strategy,
+            "dxf_sampling_seed": args.dxf_sampling_seed,
+            "dxf_text_priority_ratio": args.dxf_text_priority_ratio,
+            "dxf_frame_priority_ratio": args.dxf_frame_priority_ratio,
+            "dxf_long_line_ratio": args.dxf_long_line_ratio,
+            "dxf_edge_augment_knn_k": args.dxf_edge_augment_knn_k,
+            "dxf_edge_augment_strategy": args.dxf_edge_augment_strategy,
+            "dxf_eps_scale": args.dxf_eps_scale,
+            "dxf_enhanced_keypoints": args.dxf_enhanced_keypoints,
+        },
+        "epoch_history": list(epoch_history),
+    }
 
 
 def _collate(
@@ -422,6 +483,11 @@ def main() -> int:
         help="How to select samples when max-samples > 0.",
     )
     parser.add_argument("--output", default="models/graph2d_merged_latest.pth")
+    parser.add_argument(
+        "--metrics-out",
+        default="",
+        help="Optional JSON path for training metrics artifact.",
+    )
     parser.add_argument(
         "--distill", action="store_true", help="Enable knowledge distillation training"
     )
@@ -789,6 +855,11 @@ def main() -> int:
 
     # Early stopping and best model tracking
     best_val_acc = 0.0
+    best_epoch = 0
+    final_val_acc = 0.0
+    final_loss = 0.0
+    epochs_ran = 0
+    epoch_history: List[Dict[str, Any]] = []
     best_model_state = None
     epochs_without_improvement = 0
 
@@ -899,11 +970,15 @@ def main() -> int:
                 correct += int((preds == labels_batch).sum().item())
                 total += int(labels_batch.size(0))
         acc = correct / max(1, total)
+        final_val_acc = acc
+        final_loss = avg_loss
+        epochs_ran = epoch
 
         # Track best model and early stopping
         improved = acc > best_val_acc
         if improved:
             best_val_acc = acc
+            best_epoch = epoch
             epochs_without_improvement = 0
             if args.save_best:
                 best_model_state = {
@@ -918,12 +993,23 @@ def main() -> int:
             scheduler.step()
             new_lr = optimizer.param_groups[0]["lr"]
             lr_info = f" lr={new_lr:.2e}" if new_lr != current_lr else ""
+            lr_for_history = float(new_lr)
         else:
             lr_info = ""
+            lr_for_history = float(optimizer.param_groups[0]["lr"])
 
         status = "← best" if improved else ""
         print(
             f"Epoch {epoch}/{args.epochs} loss={avg_loss:.4f} val_acc={acc:.3f}{lr_info} {status}"
+        )
+        epoch_history.append(
+            {
+                "epoch": int(epoch),
+                "loss": float(avg_loss),
+                "val_acc": float(acc),
+                "lr": float(lr_for_history),
+                "is_best": bool(improved),
+            }
         )
 
         # Early stopping check
@@ -991,6 +1077,23 @@ def main() -> int:
         print(f"Saved best checkpoint (val_acc={best_val_acc:.3f}): {out_path}")
     else:
         print(f"Saved checkpoint: {out_path}")
+
+    if str(args.metrics_out or "").strip():
+        metrics_payload = _build_training_metrics_payload(
+            args=args,
+            best_val_acc=best_val_acc,
+            best_epoch=best_epoch,
+            final_val_acc=final_val_acc,
+            final_loss=final_loss,
+            epochs_ran=epochs_ran,
+            train_size=len(train_idx),
+            val_size=len(val_idx),
+            class_stats=class_stats,
+            checkpoint_path=str(out_path),
+            epoch_history=epoch_history,
+        )
+        _write_json_file(str(args.metrics_out), metrics_payload)
+        print(f"Wrote metrics artifact: {args.metrics_out}")
     return 0
 
 

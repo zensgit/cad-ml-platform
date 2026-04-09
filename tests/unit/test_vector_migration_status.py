@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+from unittest.mock import patch
 
 from src.core import similarity
 from src.core.similarity import register_vector  # type: ignore
@@ -34,3 +35,113 @@ def test_vector_migration_status_flow(monkeypatch):
     assert data2.get("last_migration_id") == mig.get("migration_id")
     assert data2.get("last_total") == 2
     assert data2.get("last_skipped") >= 1  # dry-run counts as skipped
+
+
+def test_vector_migration_status_qdrant_versions():
+    class DummyPoint:
+        def __init__(self, metadata):
+            self.metadata = metadata
+
+    class DummyQdrantStore:
+        async def count(self):
+            return 3
+
+        async def list_vectors(self, offset=0, limit=50, with_vectors=False):
+            items = [
+                DummyPoint({"feature_version": "v4"}),
+                DummyPoint({"feature_version": "v4"}),
+                DummyPoint({"feature_version": "v3"}),
+            ]
+            return items[offset : offset + limit], 3
+
+    with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
+        "src.api.v1.vectors._get_qdrant_store_or_none",
+        return_value=DummyQdrantStore(),
+    ):
+        response = client.get("/api/v1/vectors/migrate/status", headers={"x-api-key": "test"})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["feature_versions"] == {"v4": 2, "v3": 1}
+    assert data["backend"] == "qdrant"
+    assert data["current_total_vectors"] == 3
+    assert data["scanned_vectors"] == 3
+    assert data["distribution_complete"] is True
+    assert data["scan_limit"] >= 3
+    assert data["target_version"] == "v4"
+    assert data["target_version_vectors"] == 2
+    assert data["target_version_ratio"] == 0.6667
+    assert data["pending_vectors"] == 1
+    assert data["migration_ready"] is False
+
+
+def test_vector_migration_summary_qdrant_versions():
+    class DummyPoint:
+        def __init__(self, metadata):
+            self.metadata = metadata
+
+    class DummyQdrantStore:
+        async def count(self):
+            return 3
+
+        async def list_vectors(self, offset=0, limit=50, with_vectors=False):
+            items = [
+                DummyPoint({"feature_version": "v4"}),
+                DummyPoint({"feature_version": "v4"}),
+                DummyPoint({"feature_version": "v2"}),
+            ]
+            return items[offset : offset + limit], 3
+
+    with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
+        "src.api.v1.vectors._get_qdrant_store_or_none",
+        return_value=DummyQdrantStore(),
+    ):
+        response = client.get("/api/v1/vectors/migrate/summary", headers={"x-api-key": "test"})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["backend"] == "qdrant"
+    assert data["current_total_vectors"] == 3
+    assert data["current_version_distribution"] == {"v4": 2, "v2": 1}
+    assert data["distribution_complete"] is True
+    assert data["scanned_vectors"] == 3
+    assert data["target_version"] == "v4"
+    assert data["target_version_vectors"] == 2
+    assert data["target_version_ratio"] == 0.6667
+    assert data["pending_vectors"] == 1
+    assert data["migration_ready"] is False
+
+
+def test_vector_migration_status_respects_target_version_env():
+    class DummyPoint:
+        def __init__(self, metadata):
+            self.metadata = metadata
+
+    class DummyQdrantStore:
+        async def count(self):
+            return 3
+
+        async def list_vectors(self, offset=0, limit=50, with_vectors=False):
+            items = [
+                DummyPoint({"feature_version": "v4"}),
+                DummyPoint({"feature_version": "v4"}),
+                DummyPoint({"feature_version": "v3"}),
+            ]
+            return items[offset : offset + limit], 3
+
+    with patch.dict(
+        "os.environ",
+        {"VECTOR_STORE_BACKEND": "qdrant", "VECTOR_MIGRATION_TARGET_VERSION": "v3"},
+    ), patch(
+        "src.api.v1.vectors._get_qdrant_store_or_none",
+        return_value=DummyQdrantStore(),
+    ):
+        response = client.get("/api/v1/vectors/migrate/status", headers={"x-api-key": "test"})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["target_version"] == "v3"
+    assert data["target_version_vectors"] == 1
+    assert data["target_version_ratio"] == 0.3333
+    assert data["pending_vectors"] == 2
+    assert data["migration_ready"] is False

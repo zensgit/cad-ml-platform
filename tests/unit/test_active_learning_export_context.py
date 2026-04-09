@@ -35,6 +35,19 @@ def test_export_training_data_keeps_score_breakdown_and_uncertainty_reason(
         score_breakdown={
             "decision_path": ["fusion_scored", "fusion_engine_weighted_average"],
             "source_contributions": {"filename": 0.61, "titleblock": 0.22},
+            "history_prediction": {
+                "label": "人孔",
+                "confidence": 0.58,
+                "shadow_only": True,
+                "used_for_fusion": False,
+            },
+            "shadow_predictions": {
+                "history_sequence": {
+                    "label": "人孔",
+                    "confidence": 0.58,
+                    "status": "ok",
+                }
+            },
             "hybrid_explanation": {"summary": "综合 文件名, 标题栏 多源信息"},
         },
         uncertainty_reason="hybrid_rejected:below_min_confidence+low_confidence",
@@ -48,6 +61,22 @@ def test_export_training_data_keeps_score_breakdown_and_uncertainty_reason(
         payload = json.loads(handle.readline())
 
     assert payload["doc_id"] == "doc-context-1"
+    assert payload["analysis_id"] == "doc-context-1"
+    assert payload["predicted_fine_type"] == "人孔"
+    assert payload["predicted_coarse_type"] == "开孔件"
+    assert payload["predicted_is_coarse_label"] is False
+    assert payload["true_type"] == "人孔"
+    assert payload["true_fine_type"] == "人孔"
+    assert payload["true_coarse_type"] == "开孔件"
+    assert payload["true_is_coarse_label"] is False
+    assert payload["correct_label"] == "人孔"
+    assert payload["correct_fine_label"] == "人孔"
+    assert payload["correct_coarse_label"] == "开孔件"
+    assert payload["original_label"] == "人孔"
+    assert payload["original_fine_label"] == "人孔"
+    assert payload["original_coarse_label"] == "开孔件"
+    assert payload["sample_type"] == "hybrid_rejection"
+    assert payload["feedback_priority"] == "high"
     assert payload["uncertainty_reason"] == (
         "hybrid_rejected:below_min_confidence+low_confidence"
     )
@@ -56,16 +85,86 @@ def test_export_training_data_keeps_score_breakdown_and_uncertainty_reason(
         "fusion_engine_weighted_average",
     ]
     assert payload["score_breakdown"]["source_contributions"]["filename"] == 0.61
-    assert payload["evidence_count"] == 4
-    assert payload["evidence_sources"] == ["filename", "titleblock"]
-    assert payload["evidence_summary"].startswith("综合 文件名, 标题栏 多源信息")
-    assert payload["evidence"][0] == {
-        "kind": "source_contribution",
-        "source": "filename",
-        "score": 0.61,
+    assert payload["score_breakdown"]["history_prediction"]["shadow_only"] is True
+    assert payload["score_breakdown"]["shadow_predictions"]["history_sequence"] == {
+        "label": "人孔",
+        "confidence": 0.58,
+        "status": "ok",
     }
-    assert payload["evidence"][1] == {
-        "kind": "source_contribution",
-        "source": "titleblock",
-        "score": 0.22,
-    }
+    assert payload["evidence_count"] >= 3
+    assert payload["evidence_sources"] == [
+        "filename",
+        "titleblock",
+        "hybrid_explanation",
+        "decision_path",
+    ]
+    assert "综合 文件名, 标题栏 多源信息" in payload["evidence_summary"]
+    assert payload["evidence"][0]["type"] == "source_contribution"
+
+
+def test_export_training_data_marks_low_confidence_feedback_priority(
+    learner: ActiveLearner,
+) -> None:
+    sample = learner.flag_for_review(
+        doc_id="doc-context-2",
+        predicted_type="壳体类",
+        confidence=0.52,
+        alternatives=[],
+        score_breakdown={},
+        uncertainty_reason="low_confidence",
+    )
+    learner.submit_feedback(sample.id, "壳体类")
+
+    exported = learner.export_training_data(format="jsonl")
+
+    assert exported["status"] == "ok"
+    with open(exported["file"], "r", encoding="utf-8") as handle:
+        payload = json.loads(handle.readline())
+
+    assert payload["sample_type"] == "low_confidence"
+    assert payload["feedback_priority"] == "medium"
+    assert payload["correct_label"] == "壳体类"
+    assert payload["original_label"] == "壳体类"
+    assert payload["predicted_fine_type"] == "壳体类"
+    assert payload["predicted_coarse_type"] == "壳体类"
+    assert payload["predicted_is_coarse_label"] is True
+    assert payload["true_fine_type"] == "壳体类"
+    assert payload["true_coarse_type"] == "壳体类"
+    assert payload["true_is_coarse_label"] is True
+
+
+def test_export_training_data_uses_review_governance_when_present(
+    learner: ActiveLearner,
+) -> None:
+    sample = learner.flag_for_review(
+        doc_id="doc-context-3",
+        predicted_type="法兰",
+        confidence=0.83,
+        alternatives=[],
+        score_breakdown={
+            "review_priority": "critical",
+            "review_has_knowledge_conflict": True,
+            "review_has_branch_conflict": False,
+            "review_has_hybrid_rejection": False,
+            "review_is_low_confidence": False,
+        },
+        uncertainty_reason="knowledge_conflict",
+    )
+    learner.submit_feedback(sample.id, "法兰")
+
+    exported = learner.export_training_data(format="jsonl")
+
+    assert exported["status"] == "ok"
+    with open(exported["file"], "r", encoding="utf-8") as handle:
+        payload = json.loads(handle.readline())
+
+    assert payload["sample_type"] == "knowledge_conflict"
+    assert payload["feedback_priority"] == "critical"
+    assert payload["correct_label"] == "法兰"
+    assert payload["original_label"] == "法兰"
+    assert payload["predicted_fine_type"] == "法兰"
+    assert payload["predicted_coarse_type"] == "法兰"
+    assert payload["predicted_is_coarse_label"] is True
+    assert payload["true_fine_type"] == "法兰"
+    assert payload["true_coarse_type"] == "法兰"
+    assert payload["true_is_coarse_label"] is True

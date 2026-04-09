@@ -2,15 +2,33 @@
 
 from __future__ import annotations
 
+import os
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from src.api.dependencies import get_api_key
 from src.core.errors_extended import ErrorCode, build_error
-from src.core.similarity import InMemoryVectorStore, _cosine
+from src.core.similarity import (
+    InMemoryVectorStore,
+    _VECTOR_META,
+    _cosine,
+    extract_vector_label_contract,
+)
 from src.utils.analysis_metrics import compare_requests_total
 
 router = APIRouter()
+
+
+def _get_qdrant_store_or_none():
+    if os.getenv("VECTOR_STORE_BACKEND", "memory") != "qdrant":
+        return None
+    try:
+        from src.core.vector_stores import get_vector_store as get_managed_vector_store
+
+        return get_managed_vector_store("qdrant")
+    except Exception:
+        return None
 
 
 class CompareRequest(BaseModel):
@@ -27,6 +45,11 @@ class CompareResponse(BaseModel):
     method: str
     dimension: int
     reference_id: str
+    reference_part_type: str | None = None
+    reference_fine_part_type: str | None = None
+    reference_coarse_part_type: str | None = None
+    reference_decision_source: str | None = None
+    reference_is_coarse_label: bool | None = None
 
 
 @router.post("", response_model=CompareResponse)
@@ -53,8 +76,19 @@ async def compare_features(
         )
         raise HTTPException(status_code=400, detail=err)
 
-    store = InMemoryVectorStore()
-    reference = store.get(candidate_id)
+    qdrant_store = _get_qdrant_store_or_none()
+    reference = None
+    meta = {}
+    if qdrant_store is not None:
+        result = await qdrant_store.get_vector(candidate_id)
+        if result is not None:
+            reference = list(result.vector or [])
+            meta = dict(result.metadata or {})
+    else:
+        store = InMemoryVectorStore()
+        reference = store.get(candidate_id)
+        if reference is not None:
+            meta = _VECTOR_META.get(candidate_id, {})
     if reference is None:
         compare_requests_total.labels(status="not_found").inc()
         err = build_error(
@@ -78,6 +112,7 @@ async def compare_features(
     score = _cosine(reference, payload.query_features)
     similarity = round(score, 4)
     compare_requests_total.labels(status="success").inc()
+    label_contract = extract_vector_label_contract(meta)
     return CompareResponse(
         similarity=similarity,
         score=similarity,
@@ -87,4 +122,9 @@ async def compare_features(
         method="cosine",
         dimension=len(reference),
         reference_id=candidate_id,
+        reference_part_type=label_contract.get("part_type"),
+        reference_fine_part_type=label_contract.get("fine_part_type"),
+        reference_coarse_part_type=label_contract.get("coarse_part_type"),
+        reference_decision_source=label_contract.get("decision_source"),
+        reference_is_coarse_label=label_contract.get("is_coarse_label"),
     )

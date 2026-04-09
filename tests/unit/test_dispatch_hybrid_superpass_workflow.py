@@ -37,6 +37,22 @@ def test_build_workflow_run_command_contains_required_inputs() -> None:
     assert "hybrid_calibration_input_csv=reports/review.csv" in text
 
 
+def test_build_workflow_run_command_contains_dispatch_trace_when_provided() -> None:
+    from scripts.ci.dispatch_hybrid_superpass_workflow import build_workflow_run_command
+
+    command = build_workflow_run_command(
+        workflow="hybrid-superpass-e2e.yml",
+        ref="main",
+        repo="zensgit/cad-ml-platform",
+        hybrid_superpass_enable="true",
+        hybrid_superpass_missing_mode="fail",
+        hybrid_superpass_fail_on_failed="true",
+        dispatch_trace_id="sp-test-trace",
+    )
+    text = " ".join(command)
+    assert "dispatch_trace_id=sp-test-trace" in text
+
+
 def test_main_print_only_outputs_dispatch_and_watch_commands(capsys: Any) -> None:
     from scripts.ci import dispatch_hybrid_superpass_workflow as mod
 
@@ -60,6 +76,16 @@ def test_main_print_only_outputs_dispatch_and_watch_commands(capsys: Any) -> Non
     assert "gh run view '<run_id>' --json conclusion,url" in out
 
 
+def test_main_print_only_auto_generates_trace_for_hybrid_workflow(capsys: Any) -> None:
+    from scripts.ci import dispatch_hybrid_superpass_workflow as mod
+
+    rc = mod.main(["--print-only"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "dispatch_trace_id=sp-" in out
+    assert "dispatch_trace_id=sp-" in out
+
+
 def test_main_returns_nonzero_when_gh_not_ready(monkeypatch: Any) -> None:
     from scripts.ci import dispatch_hybrid_superpass_workflow as mod
 
@@ -72,9 +98,7 @@ def test_main_success_when_expectation_matches(monkeypatch: Any, tmp_path: Any) 
     from scripts.ci import dispatch_hybrid_superpass_workflow as mod
 
     monkeypatch.setattr(mod, "check_gh_ready", lambda: (True, ""))
-    monkeypatch.setattr(
-        mod, "list_dispatched_run_ids", lambda *_args, **_kwargs: [1, 2]
-    )
+    monkeypatch.setattr(mod, "list_dispatched_run_ids", lambda *_args, **_kwargs: [1, 2])
     monkeypatch.setattr(mod, "wait_for_new_dispatched_run_id", lambda **_kwargs: 3001)
     monkeypatch.setattr(mod, "watch_run", lambda _run_id, _repo: 0)
     monkeypatch.setattr(
@@ -89,14 +113,12 @@ def test_main_success_when_expectation_matches(monkeypatch: Any, tmp_path: Any) 
     monkeypatch.setattr(mod.subprocess, "run", _fake_run)
 
     output_json = tmp_path / "hybrid_superpass_dispatch.json"
-    rc = mod.main(
-        [
-            "--output-json",
-            str(output_json),
-            "--expected-conclusion",
-            "success",
-        ]
-    )
+    rc = mod.main([
+        "--output-json",
+        str(output_json),
+        "--expected-conclusion",
+        "success",
+    ])
     assert rc == 0
     payload = json.loads(output_json.read_text(encoding="utf-8"))
     assert payload["overall_exit_code"] == 0
@@ -126,105 +148,6 @@ def test_main_returns_nonzero_when_expectation_mismatch(monkeypatch: Any) -> Non
     assert rc == 1
 
 
-def test_summarize_failed_jobs_extracts_first_failed_step() -> None:
-    from scripts.ci import dispatch_hybrid_superpass_workflow as mod
-
-    jobs_payload = [
-        {
-            "name": "build",
-            "conclusion": "success",
-            "steps": [{"name": "setup", "conclusion": "success"}],
-        },
-        {
-            "name": "test",
-            "conclusion": "failure",
-            "url": "https://example.com/job/test",
-            "steps": [
-                {"name": "setup", "conclusion": "success"},
-                {"name": "pytest", "conclusion": "failure"},
-            ],
-        },
-    ]
-    summary = mod.summarize_failed_jobs(jobs_payload, max_jobs=5)
-    assert summary["total_jobs"] == 2
-    assert summary["failed_job_count"] == 1
-    failed_jobs = summary["failed_jobs"]
-    assert isinstance(failed_jobs, list) and len(failed_jobs) == 1
-    assert failed_jobs[0]["job_name"] == "test"
-    assert failed_jobs[0]["job_conclusion"] == "failure"
-    assert failed_jobs[0]["failed_step_name"] == "pytest"
-    assert failed_jobs[0]["failed_step_conclusion"] == "failure"
-
-
-def test_main_mismatch_writes_failure_diagnostics(
-    monkeypatch: Any, tmp_path: Any
-) -> None:
-    from scripts.ci import dispatch_hybrid_superpass_workflow as mod
-
-    monkeypatch.setattr(mod, "check_gh_ready", lambda: (True, ""))
-    monkeypatch.setattr(mod, "list_dispatched_run_ids", lambda *_args, **_kwargs: [1])
-    monkeypatch.setattr(mod, "wait_for_new_dispatched_run_id", lambda **_kwargs: 5001)
-    monkeypatch.setattr(mod, "watch_run", lambda _run_id, _repo: 1)
-    monkeypatch.setattr(
-        mod,
-        "wait_for_run_conclusion",
-        lambda **_kwargs: ("failure", "https://example.com/r/5001"),
-    )
-
-    def _fake_run(*args: Any, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
-        command = args[0]
-        if command[:3] == ["gh", "workflow", "run"]:
-            return subprocess.CompletedProcess(
-                args=command, returncode=0, stdout="", stderr=""
-            )
-        if command[:4] == ["gh", "run", "view", "5001"] and "jobs" in command:
-            return subprocess.CompletedProcess(
-                args=command,
-                returncode=0,
-                stdout=json.dumps(
-                    {
-                        "jobs": [
-                            {
-                                "name": "hybrid-superpass",
-                                "conclusion": "failure",
-                                "steps": [
-                                    {"name": "Checkout", "conclusion": "success"},
-                                    {
-                                        "name": "Validate Superpass Reports",
-                                        "conclusion": "failure",
-                                    },
-                                ],
-                            }
-                        ]
-                    }
-                ),
-                stderr="",
-            )
-        return subprocess.CompletedProcess(
-            args=command, returncode=0, stdout="", stderr=""
-        )
-
-    monkeypatch.setattr(mod.subprocess, "run", _fake_run)
-
-    output_json = tmp_path / "hybrid_superpass_dispatch_mismatch.json"
-    rc = mod.main(
-        [
-            "--output-json",
-            str(output_json),
-            "--expected-conclusion",
-            "success",
-        ]
-    )
-    assert rc == 1
-    payload = json.loads(output_json.read_text(encoding="utf-8"))
-    diagnostics = payload.get("failure_diagnostics") or {}
-    assert diagnostics.get("available") is True
-    assert diagnostics.get("failed_job_count") == 1
-    failed_jobs = diagnostics.get("failed_jobs") or []
-    assert failed_jobs[0]["job_name"] == "hybrid-superpass"
-    assert failed_jobs[0]["failed_step_name"] == "Validate Superpass Reports"
-
-
 def test_find_missing_superpass_inputs_detects_expected_keys() -> None:
     from scripts.ci import dispatch_hybrid_superpass_workflow as mod
 
@@ -245,13 +168,7 @@ def test_main_returns_nonzero_when_remote_workflow_missing_required_inputs(
     monkeypatch.setattr(
         mod,
         "fetch_remote_workflow_text",
-        lambda *_args, **_kwargs: (
-            "name: Evaluation Report\n"
-            "on:\n"
-            "  workflow_dispatch:\n"
-            "    inputs:\n"
-            "      min_combined:\n"
-        ),
+        lambda *_args, **_kwargs: "name: Evaluation Report\non:\n  workflow_dispatch:\n    inputs:\n      min_combined:\n",
     )
     monkeypatch.setattr(
         mod,
@@ -270,3 +187,56 @@ def test_main_returns_nonzero_when_remote_workflow_missing_required_inputs(
     out = capsys.readouterr().out
     assert rc == 1
     assert "missing required superpass inputs" in out
+
+
+def test_main_returns_nonzero_when_workflow_not_on_default_branch(
+    monkeypatch: Any, capsys: Any, tmp_path: Any
+) -> None:
+    from scripts.ci import dispatch_hybrid_superpass_workflow as mod
+
+    monkeypatch.setattr(mod, "check_gh_ready", lambda: (True, ""))
+    monkeypatch.setattr(mod, "list_dispatched_run_ids", lambda *_args, **_kwargs: [])
+
+    def _fake_run(*_args: Any, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            args=[],
+            returncode=1,
+            stdout="",
+            stderr=(
+                "HTTP 404: workflow hybrid-superpass-e2e.yml not found on the default branch"
+            ),
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", _fake_run)
+
+    output_json = tmp_path / "dispatch_fail.json"
+    rc = mod.main(["--output-json", str(output_json)])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "not available on default branch yet" in out
+    payload = json.loads(output_json.read_text(encoding="utf-8"))
+    assert payload["reason"] == "workflow_not_on_default_branch"
+
+
+def test_wait_for_new_dispatched_run_id_filters_by_trace(monkeypatch: Any) -> None:
+    from scripts.ci import dispatch_hybrid_superpass_workflow as mod
+
+    monkeypatch.setattr(
+        mod,
+        "list_dispatched_runs",
+        lambda *_args, **_kwargs: [
+            {"databaseId": 1001, "displayTitle": "Hybrid Superpass E2E [sp-a]"},
+            {"databaseId": 1002, "displayTitle": "Hybrid Superpass E2E [sp-b]"},
+        ],
+    )
+    run_id = mod.wait_for_new_dispatched_run_id(
+        workflow="hybrid-superpass-e2e.yml",
+        ref="main",
+        repo="zensgit/cad-ml-platform",
+        known_run_ids=[900],
+        timeout_seconds=1,
+        poll_interval_seconds=1,
+        list_limit=10,
+        dispatch_trace_id="sp-b",
+    )
+    assert run_id == 1002

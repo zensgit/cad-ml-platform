@@ -117,6 +117,11 @@ class OcrResult(BaseModel):
     dimensions: List[Dict[str, Any]] = Field(default_factory=list)
     symbols: List[Dict[str, Any]] = Field(default_factory=list)
     title_block: Dict[str, Any] = Field(default_factory=dict)
+    identifiers: List[Dict[str, Any]] = Field(default_factory=list)
+    field_evidence: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    field_coverage: Dict[str, Any] = Field(default_factory=dict)
+    engineering_signals: Dict[str, Any] = Field(default_factory=dict)
+    review_hints: Dict[str, Any] = Field(default_factory=dict)
     fallback_level: Optional[str] = Field(
         None, description="json_strict|markdown_fence|text_regex"
     )
@@ -201,6 +206,77 @@ class VisionAnalyzeResponse(BaseModel):
                     "title_block": {
                         "drawing_number": "CAD-2025-001",
                         "material": "Aluminum 6061",
+                    },
+                    "identifiers": [
+                        {
+                            "identifier_type": "drawing_number",
+                            "label": "Drawing Number",
+                            "value": "CAD-2025-001",
+                            "normalized_value": "CAD-2025-001",
+                            "source_text": "Drawing No: CAD-2025-001",
+                            "bbox": [10, 10, 120, 12],
+                            "confidence": 0.92,
+                            "source": "ocr_line",
+                        }
+                    ],
+                    "field_evidence": {
+                        "drawing_number": {
+                            "label": "Drawing Number",
+                            "value": "CAD-2025-001",
+                            "normalized_value": "CAD-2025-001",
+                            "source_text": "Drawing No: CAD-2025-001",
+                            "bbox": [10, 10, 120, 12],
+                            "confidence": 0.92,
+                            "source": "ocr_line",
+                        }
+                    },
+                    "field_coverage": {
+                        "recognized_count": 2,
+                        "total_fields": 10,
+                        "coverage_ratio": 0.2,
+                        "recognized_keys": ["drawing_number", "material"],
+                        "missing_keys": ["revision", "part_name"],
+                    },
+                    "engineering_signals": {
+                        "dimension_count": 1,
+                        "symbol_count": 1,
+                        "symbol_types": ["surface_roughness"],
+                        "gdt_symbol_types": [],
+                        "has_surface_finish": True,
+                        "has_gdt": False,
+                        "process_requirement_counts": {
+                            "heat_treatments": 0,
+                            "surface_treatments": 0,
+                            "welding": 0,
+                            "general_notes": 0,
+                        },
+                        "materials_detected": ["Aluminum 6061"],
+                        "standards_candidates": [],
+                    },
+                    "review_hints": {
+                        "critical_fields": [
+                            "drawing_number",
+                            "part_name",
+                            "revision",
+                            "material",
+                        ],
+                        "present_critical_fields": ["drawing_number", "material"],
+                        "missing_critical_fields": ["part_name", "revision"],
+                        "has_identifiers": True,
+                        "has_dimensions": True,
+                        "has_symbols": True,
+                        "has_process_requirements": False,
+                        "has_standards_candidates": False,
+                        "review_recommended": True,
+                        "review_reasons": ["missing_critical_fields"],
+                        "primary_gap": "missing_critical_fields",
+                        "review_priority": "high",
+                        "automation_ready": False,
+                        "recommended_actions": [
+                            "fill_critical_title_block_fields",
+                        ],
+                        "readiness_score": 0.54,
+                        "readiness_band": "medium",
                     },
                     "fallback_level": "json_strict",
                     "confidence": 0.95,

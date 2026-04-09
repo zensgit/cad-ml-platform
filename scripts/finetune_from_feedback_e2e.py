@@ -13,12 +13,12 @@ import random
 import sys
 import uuid
 
-# Add project root to path for imports when running as a script
+# Add project root to path for imports when running as a script.
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.core.active_learning import get_active_learner, reset_active_learner
-from src.core import similarity
-from scripts import finetune_from_feedback as finetune
+from src.core.active_learning import get_active_learner, reset_active_learner  # noqa: E402
+from src.core import similarity  # noqa: E402
+from scripts import finetune_from_feedback as finetune  # noqa: E402
 
 
 def _reset_vector_store() -> None:
@@ -32,6 +32,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Fine-tune from feedback E2E demo")
     parser.add_argument("--dim", type=int, default=32, help="Vector dimension")
     parser.add_argument("--label", default="bolt", help="True label for demo sample")
+    parser.add_argument(
+        "--label-field",
+        default="true_fine_type",
+        choices=["true_fine_type", "true_coarse_type", "true_type"],
+        help="Feedback label field used for training targets",
+    )
     parser.add_argument("--skip-train", action="store_true", help="Skip model training")
     args = parser.parse_args()
 
@@ -61,7 +67,7 @@ def main() -> int:
     if not data_file:
         raise SystemExit("Failed to export training data")
 
-    X, y = finetune.load_training_data(data_file)
+    X, y = finetune.load_training_data(data_file, label_field=args.label_field)
     print(f"exported={export_result.get('count')} vectors={len(X)} labels={len(y)}")
 
     if args.skip_train:

@@ -1,4 +1,4 @@
-"""Regression checks for hybrid superpass wrapper workflow wiring."""
+from __future__ import annotations
 
 from pathlib import Path
 
@@ -20,69 +20,56 @@ def _get_step(workflow: dict, job_name: str, step_name: str) -> dict:
     raise AssertionError(f"Missing step {step_name!r} in job {job_name!r}")
 
 
-def test_workflow_has_expected_dispatch_inputs() -> None:
+def test_hybrid_superpass_e2e_workflow_dispatch_inputs() -> None:
     workflow = _load_workflow()
-    inputs = workflow["on"]["workflow_dispatch"]["inputs"]
-    assert "ref" in inputs
-    assert "expected_conclusion" in inputs
-    assert "hybrid_superpass_enable" in inputs
-    assert "hybrid_superpass_missing_mode" in inputs
-    assert "hybrid_superpass_fail_on_failed" in inputs
-    assert "hybrid_blind_enable" in inputs
-    assert "hybrid_blind_dxf_dir" in inputs
-    assert "hybrid_blind_fail_on_gate_failed" in inputs
-    assert "hybrid_blind_strict_require_real_data" in inputs
-    assert "hybrid_calibration_enable" in inputs
-    assert "hybrid_calibration_input_csv" in inputs
+    dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
+    run_name = workflow.get("run-name", "")
+
+    assert "hybrid_superpass_enable" in dispatch_inputs
+    assert "hybrid_superpass_missing_mode" in dispatch_inputs
+    assert "hybrid_superpass_fail_on_failed" in dispatch_inputs
+    assert "hybrid_blind_gate_report_json" in dispatch_inputs
+    assert "hybrid_calibration_json" in dispatch_inputs
+    assert "hybrid_superpass_config" in dispatch_inputs
+    assert "hybrid_superpass_output_json" in dispatch_inputs
+    assert "dispatch_trace_id" in dispatch_inputs
+    assert "dispatch_trace_id" in str(run_name)
 
 
-def test_workflow_job_permissions_and_steps() -> None:
+def test_hybrid_superpass_e2e_workflow_contains_gate_and_strict_steps() -> None:
     workflow = _load_workflow()
-    assert workflow["permissions"]["contents"] == "read"
-    assert workflow["permissions"]["actions"] == "write"
-    assert workflow["concurrency"]["group"] == "hybrid-superpass-e2e-${{ github.ref }}"
 
-    job = workflow["jobs"]["hybrid-superpass-e2e"]
-    assert job["runs-on"] == "ubuntu-latest"
-    assert job["permissions"]["contents"] == "read"
-    assert job["permissions"]["actions"] == "write"
-    assert job["env"]["GH_TOKEN"] == "${{ github.token }}"
+    gate = _get_step(workflow, "superpass", "Run Hybrid superpass gate")
+    gate_script = gate["run"]
+    assert "scripts/ci/check_hybrid_superpass_targets.py" in gate_script
+    assert "--hybrid-blind-gate-report" in gate_script
+    assert "--hybrid-calibration-json" in gate_script
+    assert "--config" in gate_script
+    assert "--missing-mode" in gate_script
+    assert "--output" in gate_script
 
-    run_step = _get_step(workflow, "hybrid-superpass-e2e", "Run hybrid superpass dispatcher")
-    run_script = run_step["run"]
-    assert "scripts/ci/dispatch_hybrid_superpass_workflow.py" in run_script
-    assert '--workflow "evaluation-report.yml"' in run_script
-    assert "--ref \"$REF_INPUT\"" in run_script
-    assert "--expected-conclusion \"$EXPECTED_INPUT\"" in run_script
-    assert "--output-json reports/ci/hybrid_superpass_e2e_summary.json" in run_script
-    assert "extra_args=()" in run_script
-    assert "--hybrid-superpass-enable" in run_script
-    assert "--hybrid-superpass-missing-mode" in run_script
-    assert "--hybrid-superpass-fail-on-failed" in run_script
+    strict = _get_step(workflow, "superpass", "Evaluate Hybrid superpass strict mode")
+    strict_script = strict["run"]
+    assert "hybrid_superpass_fail_on_failed" in strict_script
+    assert "status" in strict_script
 
-    render_step = _get_step(
-        workflow, "hybrid-superpass-e2e", "Render hybrid superpass summary markdown"
+    fail_step = _get_step(
+        workflow,
+        "superpass",
+        "Fail workflow when Hybrid superpass strict check requires blocking",
     )
-    render_script = render_step["run"]
-    assert "scripts/ci/render_hybrid_superpass_dispatch_summary.py" in render_script
-    assert "--dispatch-json reports/ci/hybrid_superpass_e2e_summary.json" in render_script
-    assert "--output-md reports/ci/hybrid_superpass_e2e_summary.md" in render_script
-    assert ">/dev/null" in render_script
+    assert fail_step["if"] == "steps.hybrid_superpass_gate_strict.outputs.should_fail == 'true'"
 
-    upload_step = _get_step(
-        workflow, "hybrid-superpass-e2e", "Upload hybrid superpass summary"
-    )
-    assert (
-        upload_step["uses"]
-        == "actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f"
-    )
-    assert upload_step["with"]["name"] == "hybrid-superpass-e2e-${{ github.run_number }}"
-    upload_path = upload_step["with"]["path"]
-    assert "reports/ci/hybrid_superpass_e2e_summary.json" in upload_path
-    assert "reports/ci/hybrid_superpass_e2e_summary.md" in upload_path
 
-    append_step = _get_step(workflow, "hybrid-superpass-e2e", "Append summary")
-    append_script = append_step["run"]
-    assert "cat reports/ci/hybrid_superpass_e2e_summary.md" in append_script
-    assert "summary_md missing" in append_script
-    assert '>> "$GITHUB_STEP_SUMMARY"' in append_script
+def test_hybrid_superpass_e2e_workflow_upload_and_summary() -> None:
+    workflow = _load_workflow()
+
+    upload = _get_step(workflow, "superpass", "Upload Hybrid superpass gate artifact")
+    assert upload["if"] == "steps.hybrid_superpass_gate.outputs.enabled == 'true'"
+    assert "steps.hybrid_superpass_gate.outputs.report_path" in upload["with"]["path"]
+
+    summary = _get_step(workflow, "superpass", "Create job summary")
+    summary_script = summary["run"]
+    assert "Hybrid Superpass E2E" in summary_script
+    assert "Gate status" in summary_script
+    assert "Strict should fail" in summary_script

@@ -1,5 +1,5 @@
 {
-  "components_schema_count": 212,
+  "components_schema_count": 234,
   "components_schema_names": [
     "ActiveLearningSample",
     "AlternativeItem",
@@ -83,6 +83,7 @@
     "FeaturesDiffResponse",
     "FeedbackRequest",
     "FeedbackResponse",
+    "FeedbackStatsResponse",
     "FitDeviationsResponse",
     "FullCompatibilityResponse",
     "GalvanicAnodeCathode",
@@ -107,6 +108,8 @@
     "HealthRuntime",
     "HealthServices",
     "HeatTreatmentCompatibilityResponse",
+    "HeatTreatmentInfo",
+    "HeatTreatmentType",
     "HybridRuntimeConfigResponse",
     "ITToleranceResponse",
     "KnowledgeReloadResponse",
@@ -142,6 +145,7 @@
     "PreferredDiameterResponse",
     "PreferredDiametersListResponse",
     "ProcessRecommendationResponse",
+    "ProcessRequirements",
     "ProcessRequirementsInput",
     "ProcessRouteRequest",
     "ProcessRouteResponse",
@@ -157,13 +161,21 @@
     "ProviderPluginErrorItem",
     "ProviderRegistryHealthResponse",
     "ProviderStatusSnapshot",
+    "QueryAlternative",
+    "QueryEvidence",
+    "QueryExplainability",
     "QueryRequest",
     "QueryResponse",
+    "QueryUncertainty",
     "ReadinessCheck",
     "ReadinessResponse",
     "RecommendationItem",
     "RecommendationPropertiesItem",
     "RecommendationResponse",
+    "ReviewQueueExportResponse",
+    "ReviewQueueResponse",
+    "ReviewQueueStatsResponse",
+    "ReviewQueueSummaryResponse",
     "SampleStatus",
     "SimilarityQuery",
     "SimilarityResult",
@@ -181,6 +193,8 @@
     "SurfaceFinishGradeResponse",
     "SurfaceFinishGradesListResponse",
     "SurfaceFinishSuggestResponse",
+    "SurfaceTreatmentInfo",
+    "SurfaceTreatmentType",
     "ThreadSpecResponse",
     "V16CacheClearResponse",
     "V16ClassifierHealthResponse",
@@ -196,6 +210,12 @@
     "VectorMigrateItem",
     "VectorMigrateRequest",
     "VectorMigrateResponse",
+    "VectorMigrationPendingItem",
+    "VectorMigrationPendingResponse",
+    "VectorMigrationPendingRunRequest",
+    "VectorMigrationPendingSummaryResponse",
+    "VectorMigrationPlanBatch",
+    "VectorMigrationPlanResponse",
     "VectorMigrationPreviewResponse",
     "VectorMigrationStatusResponse",
     "VectorMigrationSummaryResponse",
@@ -212,11 +232,13 @@
     "VisionAnalyzeRequest",
     "VisionAnalyzeResponse",
     "VisionDescription",
-    "WeldCompatibilityResponse"
+    "WeldCompatibilityResponse",
+    "WeldingInfo",
+    "WeldingType"
   ],
   "openapi": "3.1.0",
-  "operation_count": 178,
-  "path_count": 173,
+  "operation_count": 186,
+  "path_count": 181,
   "paths": {
     "/": {
       "get": {
@@ -251,6 +273,36 @@
       "get": {
         "deprecated": false,
         "operationId": "get_pending_samples_api_v1_active_learning_pending_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/active-learning/review-queue": {
+      "get": {
+        "deprecated": false,
+        "operationId": "get_review_queue_api_v1_active_learning_review_queue_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/active-learning/review-queue/export": {
+      "get": {
+        "deprecated": false,
+        "operationId": "export_review_queue_api_v1_active_learning_review_queue_export_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/active-learning/review-queue/stats": {
+      "get": {
+        "deprecated": false,
+        "operationId": "get_review_queue_stats_api_v1_active_learning_review_queue_stats_get",
         "responses": [
           "200",
           "422"
@@ -1043,6 +1095,16 @@
         ]
       }
     },
+    "/api/v1/feedback/stats": {
+      "get": {
+        "deprecated": false,
+        "operationId": "get_feedback_stats_api_v1_feedback_stats_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
     "/api/v1/health": {
       "get": {
         "deprecated": false,
@@ -1795,6 +1857,46 @@
       "post": {
         "deprecated": false,
         "operationId": "migrate_vectors_api_v1_vectors_migrate_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/vectors/migrate/pending": {
+      "get": {
+        "deprecated": false,
+        "operationId": "migrate_pending_api_v1_vectors_migrate_pending_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/vectors/migrate/pending/run": {
+      "post": {
+        "deprecated": false,
+        "operationId": "migrate_pending_run_api_v1_vectors_migrate_pending_run_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/vectors/migrate/pending/summary": {
+      "get": {
+        "deprecated": false,
+        "operationId": "migrate_pending_summary_api_v1_vectors_migrate_pending_summary_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/vectors/migrate/plan": {
+      "get": {
+        "deprecated": false,
+        "operationId": "migrate_plan_api_v1_vectors_migrate_plan_get",
         "responses": [
           "200",
           "422"

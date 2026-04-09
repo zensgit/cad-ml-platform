@@ -11,6 +11,13 @@ from src.main import app
 client = TestClient(app)
 
 
+class DummyQdrantResult:
+    def __init__(self, vector_id: str, metadata: Dict[str, str], vector: list[float]) -> None:
+        self.id = vector_id
+        self.metadata = metadata
+        self.vector = vector
+
+
 class DummyRedis:
     def __init__(self, data: Dict[object, Dict[object, str]]) -> None:
         self._data = data
@@ -24,10 +31,22 @@ class DummyRedis:
 
 def test_vector_stats_counts():
     # register some vectors
-    for m in ["steel", "aluminum", "steel"]:
+    for m, coarse, source in [
+        ("steel", "开孔件", "hybrid"),
+        ("aluminum", "传动件", "graph2d"),
+        ("steel", "开孔件", "hybrid"),
+    ]:
         vid = str(uuid.uuid4())
         register_vector(
-            vid, [0.1, 0.2, 0.3], meta={"material": m, "complexity": "low", "format": "dxf"}
+            vid,
+            [0.1, 0.2, 0.3],
+            meta={
+                "material": m,
+                "complexity": "low",
+                "format": "dxf",
+                "coarse_part_type": coarse,
+                "final_decision_source": source,
+            },
         )
     resp = client.get("/api/v1/vectors_stats/stats", headers={"X-API-Key": "test"})
     assert resp.status_code == 200
@@ -35,6 +54,8 @@ def test_vector_stats_counts():
     assert data["total"] >= 3
     assert "steel" in data["by_material"]
     assert data["by_material"]["steel"] >= 2
+    assert data["by_coarse_part_type"]["开孔件"] >= 2
+    assert data["by_decision_source"]["hybrid"] >= 2
 
 
 def test_vector_stats_redis_backend():
@@ -52,6 +73,8 @@ def test_vector_stats_redis_backend():
                     "material": "aluminum",
                     "complexity": "mid",
                     "format": "dwg",
+                    "coarse_part_type": "传动件",
+                    "final_decision_source": "graph2d",
                     "feature_version": "v3",
                 }
             ),
@@ -68,4 +91,90 @@ def test_vector_stats_redis_backend():
     assert data["total"] == 2
     assert data["by_material"]["steel"] == 1
     assert data["by_material"]["aluminum"] == 1
+    assert data["by_coarse_part_type"]["传动件"] == 1
+    assert data["by_decision_source"]["graph2d"] == 1
     assert data["versions"]["v4"] == 1
+
+
+def test_vector_stats_qdrant_backend():
+    class DummyQdrantStore:
+        async def list_vectors(self, offset=0, limit=5000, with_vectors=False, **kwargs):
+            assert offset == 0
+            assert limit == 5000
+            assert with_vectors is True
+            return (
+                [
+                    DummyQdrantResult(
+                        "q1",
+                        {
+                            "material": "steel",
+                            "complexity": "low",
+                            "format": "dxf",
+                            "coarse_part_type": "开孔件",
+                            "final_decision_source": "hybrid",
+                            "feature_version": "v4",
+                        },
+                        [0.1, 0.2, 0.3],
+                    ),
+                    DummyQdrantResult(
+                        "q2",
+                        {
+                            "material": "aluminum",
+                            "complexity": "mid",
+                            "format": "step",
+                            "coarse_part_type": "传动件",
+                            "final_decision_source": "graph2d",
+                            "feature_version": "v3",
+                        },
+                        [0.4, 0.5],
+                    ),
+                ],
+                2,
+            )
+
+        async def get_stats(self):
+            return {
+                "collection_name": "cad_vectors",
+                "points_count": 2,
+                "indexed_vectors_count": 2,
+                "status": "GREEN",
+                "config": {"vector_size": 7, "distance": "Cosine"},
+            }
+
+        async def inspect_collection(self):
+            return {
+                "reachable": True,
+                "collection_name": "cad_vectors",
+                "collection_exists": True,
+                "collection_status": "green",
+                "points_count": 2,
+                "vectors_count": 2,
+                "indexed_vectors_count": 2,
+                "unindexed_vectors_count": 0,
+                "indexing_progress": 1.0,
+                "requested_config": {
+                    "vector_size": 7,
+                    "distance": "Cosine",
+                    "on_disk": False,
+                    "timeout_seconds": 30.0,
+                },
+                "error": None,
+            }
+
+    with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
+        "src.api.v1.vectors_stats._get_qdrant_store_or_none",
+        return_value=DummyQdrantStore(),
+    ), patch("src.core.similarity._BACKEND", "qdrant"):
+        resp = client.get("/api/v1/vectors_stats/stats", headers={"X-API-Key": "test"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["backend"] == "qdrant"
+    assert data["total"] == 2
+    assert data["by_coarse_part_type"]["开孔件"] == 1
+    assert data["by_decision_source"]["graph2d"] == 1
+    assert data["backend_health"]["collection_name"] == "cad_vectors"
+    assert data["backend_health"]["reachable"] is True
+    assert data["backend_health"]["collection_exists"] is True
+    assert data["backend_health"]["indexed_ratio"] == 1.0
+    assert data["backend_health"]["readiness"] == "ready"
+    assert data["backend_health"]["readiness_hints"] == []

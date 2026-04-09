@@ -1,6 +1,7 @@
 """Regression checks for eval reporting stack wiring in evaluation-report workflow."""
 
 from pathlib import Path
+import re
 
 import yaml
 
@@ -18,6 +19,14 @@ def _get_step(workflow: dict, job_name: str, step_name: str) -> dict:
         if step.get("name") == step_name:
             return step
     raise AssertionError(f"Missing step {step_name!r} in job {job_name!r}")
+
+
+def _load_bash_helper_from_step(step: dict) -> str:
+    run = step["run"]
+    match = re.search(r"bash\s+(scripts/ci/[^\s]+)", run)
+    if not match:
+        return run
+    return (ROOT / match.group(1)).read_text(encoding="utf-8")
 
 
 def _step_names(workflow: dict, job_name: str) -> list[str]:
@@ -77,7 +86,6 @@ def test_old_generate_steps_removed() -> None:
     workflow = _load_workflow()
     names = _step_names(workflow, "evaluate")
 
-    assert "Generate trend charts" not in names
     assert "Generate HTML report" not in names
     assert "Generate weekly rolling summary" not in names
 
@@ -85,9 +93,9 @@ def test_old_generate_steps_removed() -> None:
 # --- artifact uploads ---
 
 
-def test_static_report_artifact_upload_exists() -> None:
+def test_evaluation_report_artifact_upload_exists() -> None:
     workflow = _load_workflow()
-    step = _get_step(workflow, "evaluate", "Upload static report")
+    step = _get_step(workflow, "evaluate", "Upload evaluation report")
 
     assert "REPORT_PATH" in str(step.get("with", {}).get("path", ""))
 
@@ -117,11 +125,11 @@ def test_fail_step_exists_after_uploads() -> None:
     names = _step_names(workflow, "evaluate")
 
     fail_idx = names.index("Fail workflow on refresh failure")
-    static_upload_idx = names.index("Upload static report")
+    eval_upload_idx = names.index("Upload evaluation report")
     interactive_upload_idx = names.index("Upload interactive report")
     stack_upload_idx = names.index("Upload eval reporting stack artifacts")
 
-    assert fail_idx > static_upload_idx
+    assert fail_idx > eval_upload_idx
     assert fail_idx > interactive_upload_idx
     assert fail_idx > stack_upload_idx
 
@@ -197,13 +205,7 @@ def test_landing_page_in_stack_artifacts() -> None:
 
 def test_pr_comment_step_has_stack_summary_env() -> None:
     workflow = _load_workflow()
-    steps = workflow["jobs"]["evaluate"]["steps"]
-    comment_step = None
-    for step in steps:
-        if "comment_evaluation_report_pr" in str(step.get("with", {}).get("script", "")):
-            comment_step = step
-            break
-    assert comment_step is not None, "PR comment step not found"
+    comment_step = _get_step(workflow, "evaluate", "Comment PR with results")
     step_env = comment_step.get("env", {})
     assert "EVAL_REPORTING_STACK_SUMMARY_JSON_FOR_COMMENT" in step_env
     assert "EVAL_REPORTING_INDEX_JSON_FOR_COMMENT" in step_env
@@ -231,6 +233,7 @@ def test_notify_step_passes_stack_summary_and_index() -> None:
 def test_stale_weekly_summary_reference_removed() -> None:
     workflow = _load_workflow()
     step = _get_step(workflow, "evaluate", "Create job summary")
+    summary_script = _load_bash_helper_from_step(step)
 
     assert "weekly_summary.outputs.output_md" not in step["run"]
-    assert "eval_reporting_stack_summary" in step["run"] or "eval_reporting_stack" in step["run"]
+    assert "eval_reporting_stack_summary" in summary_script or "eval_reporting_stack" in summary_script

@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from src.api.dependencies import get_api_key
+from src.core.classification.coarse_labels import normalize_coarse_label
 
 router = APIRouter()
 
@@ -21,6 +22,9 @@ class DriftStatusResponse(BaseModel):
     prediction_current: Dict[str, int]
     prediction_baseline: Optional[Dict[str, int]] = None
     prediction_drift_score: Optional[float] = None
+    prediction_current_coarse: Dict[str, int] = Field(default_factory=dict)
+    prediction_baseline_coarse: Optional[Dict[str, int]] = None
+    prediction_coarse_drift_score: Optional[float] = None
     baseline_min_count: int
     materials_total: int
     predictions_total: int
@@ -99,8 +103,10 @@ async def drift_status(api_key: str = Depends(get_api_key)):
 
     mats = _DRIFT_STATE["materials"]
     preds = _DRIFT_STATE["predictions"]
+    coarse_preds = [normalize_coarse_label(pred) or "unknown" for pred in preds]
     material_current_counts = dict(Counter(mats))
     prediction_current_counts = dict(Counter(preds))
+    prediction_current_coarse_counts = dict(Counter(coarse_preds))
     material_baseline_counts = (
         dict(Counter(_DRIFT_STATE["baseline_materials"]))
         if _DRIFT_STATE["baseline_materials"]
@@ -108,6 +114,16 @@ async def drift_status(api_key: str = Depends(get_api_key)):
     )
     prediction_baseline_counts = (
         dict(Counter(_DRIFT_STATE["baseline_predictions"]))
+        if _DRIFT_STATE["baseline_predictions"]
+        else None
+    )
+    prediction_baseline_coarse_counts = (
+        dict(
+            Counter(
+                normalize_coarse_label(pred) or "unknown"
+                for pred in _DRIFT_STATE["baseline_predictions"]
+            )
+        )
         if _DRIFT_STATE["baseline_predictions"]
         else None
     )
@@ -131,6 +147,7 @@ async def drift_status(api_key: str = Depends(get_api_key)):
 
     # Check prediction baseline age and soft refresh if stale
     pred_score = None
+    pred_coarse_score = None
     if prediction_baseline_counts:
         prediction_age = int(time.time() - _DRIFT_STATE.get("baseline_predictions_ts", 0))
         if auto_refresh_enabled and prediction_age > max_age and len(preds) >= min_count:
@@ -139,7 +156,12 @@ async def drift_status(api_key: str = Depends(get_api_key)):
             _DRIFT_STATE["baseline_predictions_ts"] = time.time()
             drift_baseline_refresh_total.labels(type="prediction", trigger="stale").inc()
             prediction_baseline_counts = dict(Counter(preds))  # Update for response
+            prediction_baseline_coarse_counts = dict(Counter(coarse_preds))
         pred_score = compute_drift(preds, _DRIFT_STATE["baseline_predictions"])  # type: ignore
+        pred_coarse_score = compute_drift(
+            coarse_preds,
+            [normalize_coarse_label(pred) or "unknown" for pred in _DRIFT_STATE["baseline_predictions"]],
+        )
     else:
         if len(preds) >= min_count:
             _DRIFT_STATE["baseline_predictions"] = list(preds)
@@ -183,6 +205,9 @@ async def drift_status(api_key: str = Depends(get_api_key)):
         prediction_current=prediction_current_counts,
         prediction_baseline=prediction_baseline_counts,
         prediction_drift_score=pred_score,
+        prediction_current_coarse=prediction_current_coarse_counts,
+        prediction_baseline_coarse=prediction_baseline_coarse_counts,
+        prediction_coarse_drift_score=pred_coarse_score,
         baseline_min_count=min_count,
         materials_total=len(mats),
         predictions_total=len(preds),

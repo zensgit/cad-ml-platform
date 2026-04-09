@@ -24,6 +24,137 @@ except ImportError:
     logger.warning("Torch not found. 3D Vision module running in mock mode.")
 
 
+def _coerce_float(value: Any, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _normalize_surface_types(features: Optional[Dict[str, Any]]) -> Dict[str, int]:
+    if not isinstance(features, dict):
+        return {}
+
+    raw_surface_types = features.get("surface_types")
+    if not isinstance(raw_surface_types, dict):
+        return {}
+
+    normalized: Dict[str, int] = {}
+    for name, count in raw_surface_types.items():
+        cleaned_name = str(name or "").strip()
+        if not cleaned_name:
+            continue
+        normalized_count = int(_coerce_float(count, 0.0))
+        if normalized_count > 0:
+            normalized[cleaned_name] = normalized_count
+    return normalized
+
+
+def _normalize_hint_scores(hints: Optional[Dict[str, Any]]) -> Dict[str, float]:
+    if not isinstance(hints, dict):
+        return {}
+
+    normalized: Dict[str, float] = {}
+    for label, score in hints.items():
+        cleaned_label = str(label or "").strip()
+        if not cleaned_label:
+            continue
+        normalized_score = _coerce_float(score, 0.0)
+        if normalized_score > 0.0:
+            normalized[cleaned_label] = normalized_score
+    return normalized
+
+
+def get_brep_feature_hints(features: Optional[Dict[str, Any]]) -> Dict[str, float]:
+    """
+    Derive semantic hints from B-Rep statistics for evaluation/reporting.
+
+    This mirrors the current L3 heuristic expectations without changing
+    classifier behavior.
+    """
+    if not isinstance(features, dict) or not bool(features.get("valid_3d")):
+        return {}
+
+    surface_types = _normalize_surface_types(features)
+    total_faces = int(_coerce_float(features.get("faces"), 0.0))
+    if total_faces <= 0:
+        total_faces = sum(surface_types.values())
+    if total_faces <= 0:
+        return {}
+
+    hints: Dict[str, float] = {}
+
+    cyl_ratio = surface_types.get("cylinder", 0) / total_faces
+    if cyl_ratio > 0.4:
+        hints["shaft"] = 0.6
+        hints["bolt"] = 0.4
+
+    plane_ratio = surface_types.get("plane", 0) / total_faces
+    if plane_ratio > 0.8 and 5 <= total_faces <= 8:
+        hints["block"] = 0.7
+        hints["plate"] = 0.5
+
+    if surface_types.get("torus", 0) > 0:
+        hints["bearing"] = 0.5
+        hints["seal"] = 0.6
+
+    return hints
+
+
+def prepare_brep_features_for_report(
+    features: Optional[Dict[str, Any]],
+    *,
+    brep_feature_hints: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """
+    Normalize B-Rep feature payloads into report-friendly summary fields.
+    """
+    feature_dict = features if isinstance(features, dict) else {}
+    surface_types = _normalize_surface_types(feature_dict)
+    faces = int(_coerce_float(feature_dict.get("faces"), 0.0))
+    if faces <= 0:
+        faces = sum(surface_types.values())
+
+    primary_surface_type: Optional[str] = None
+    primary_surface_ratio = 0.0
+    if surface_types:
+        primary_surface_type, primary_surface_count = max(
+            surface_types.items(),
+            key=lambda item: (item[1], item[0]),
+        )
+        if faces > 0:
+            primary_surface_ratio = round(primary_surface_count / faces, 6)
+
+    embedding_dim = int(_coerce_float(feature_dict.get("embedding_dim"), 0.0))
+    raw_embedding = feature_dict.get("embedding_vector")
+    if isinstance(raw_embedding, list):
+        embedding_dim = len(raw_embedding)
+
+    normalized_hints = _normalize_hint_scores(brep_feature_hints)
+    if not normalized_hints:
+        normalized_hints = get_brep_feature_hints(feature_dict)
+
+    top_hint_label: Optional[str] = None
+    top_hint_score = 0.0
+    if normalized_hints:
+        top_hint_label, top_hint_score = max(
+            normalized_hints.items(),
+            key=lambda item: (item[1], item[0]),
+        )
+
+    return {
+        "valid_3d": bool(feature_dict.get("valid_3d")),
+        "faces": faces,
+        "surface_types": surface_types,
+        "primary_surface_type": primary_surface_type,
+        "primary_surface_ratio": primary_surface_ratio,
+        "embedding_dim": embedding_dim,
+        "feature_hints": normalized_hints,
+        "top_hint_label": top_hint_label,
+        "top_hint_score": round(float(top_hint_score), 6),
+    }
+
+
 class UVNetEncoder:
     """
     Encoder for 3D B-Rep data using Deep Learning (GNN).

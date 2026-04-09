@@ -58,6 +58,11 @@ class VectorListItem(BaseModel):
     material: Optional[str] = None
     complexity: Optional[str] = None
     format: Optional[str] = None
+    part_type: Optional[str] = None
+    fine_part_type: Optional[str] = None
+    coarse_part_type: Optional[str] = None
+    decision_source: Optional[str] = None
+    is_coarse_label: Optional[bool] = None
 
 
 class VectorListResponse(BaseModel):
@@ -89,6 +94,13 @@ class VectorSearchRequest(BaseModel):
     k: int = Field(default=10, ge=1, le=100, description="返回数量")
     material_filter: Optional[str] = Field(default=None, description="材料过滤")
     complexity_filter: Optional[str] = Field(default=None, description="复杂度过滤")
+    fine_part_type_filter: Optional[str] = Field(default=None, description="细分类过滤")
+    coarse_part_type_filter: Optional[str] = Field(default=None, description="粗分类过滤")
+    decision_source_filter: Optional[str] = Field(default=None, description="决策来源过滤")
+    is_coarse_label_filter: Optional[bool] = Field(
+        default=None,
+        description="是否仅返回 coarse label 样本",
+    )
 
 
 class VectorSearchResponse(BaseModel):
@@ -96,8 +108,260 @@ class VectorSearchResponse(BaseModel):
     total: int
 
 
+def _build_vector_filter_conditions(
+    *,
+    material_filter: Optional[str],
+    complexity_filter: Optional[str],
+    fine_part_type_filter: Optional[str],
+    coarse_part_type_filter: Optional[str],
+    decision_source_filter: Optional[str],
+    is_coarse_label_filter: Optional[bool],
+) -> Dict[str, Any]:
+    conditions: Dict[str, Any] = {}
+    if material_filter:
+        conditions["material"] = material_filter
+    if complexity_filter:
+        conditions["complexity"] = complexity_filter
+    if fine_part_type_filter:
+        conditions["fine_part_type"] = fine_part_type_filter
+    if coarse_part_type_filter:
+        conditions["coarse_part_type"] = coarse_part_type_filter
+    if decision_source_filter:
+        conditions["decision_source"] = decision_source_filter
+    if is_coarse_label_filter is not None:
+        conditions["is_coarse_label"] = is_coarse_label_filter
+    return conditions
+
+
+def _build_vector_search_filter_conditions(payload: VectorSearchRequest) -> Dict[str, Any]:
+    return _build_vector_filter_conditions(
+        material_filter=payload.material_filter,
+        complexity_filter=payload.complexity_filter,
+        fine_part_type_filter=payload.fine_part_type_filter,
+        coarse_part_type_filter=payload.coarse_part_type_filter,
+        decision_source_filter=payload.decision_source_filter,
+        is_coarse_label_filter=payload.is_coarse_label_filter,
+    )
+
+
+def _vector_item_payload(
+    vector_id: str,
+    dimension: int,
+    meta: Dict[str, Any],
+    label_contract: Dict[str, Any],
+) -> Dict[str, Any]:
+    return {
+        "id": vector_id,
+        "dimension": dimension,
+        "material": meta.get("material"),
+        "complexity": meta.get("complexity"),
+        "format": meta.get("format"),
+        "part_type": label_contract.get("part_type"),
+        "fine_part_type": label_contract.get("fine_part_type"),
+        "coarse_part_type": label_contract.get("coarse_part_type"),
+        "decision_source": label_contract.get("decision_source"),
+        "is_coarse_label": label_contract.get("is_coarse_label"),
+    }
+
+
+def _get_qdrant_store_or_none():
+    if os.getenv("VECTOR_STORE_BACKEND", "memory") != "qdrant":
+        return None
+    try:
+        from src.core.vector_stores import get_vector_store as get_managed_vector_store
+
+        return get_managed_vector_store("qdrant")
+    except Exception:
+        return None
+
+
+def _resolve_vector_migration_scan_limit(default: int = 5000) -> int:
+    try:
+        resolved = int(os.getenv("VECTOR_MIGRATION_SCAN_LIMIT", str(default)))
+    except (TypeError, ValueError):
+        resolved = default
+    return max(int(resolved or 0), 1)
+
+
+def _resolve_vector_migration_target_version(default: str = "v4") -> str:
+    allowed_versions = {"v1", "v2", "v3", "v4"}
+    raw = str(os.getenv("VECTOR_MIGRATION_TARGET_VERSION", default) or default).strip().lower()
+    if raw in allowed_versions:
+        return raw
+    return default
+
+
+def _build_vector_migration_readiness(
+    version_distribution: Dict[str, int],
+    *,
+    total_vectors: int,
+    distribution_complete: bool,
+) -> Dict[str, Any]:
+    target_version = _resolve_vector_migration_target_version()
+    readiness: Dict[str, Any] = {
+        "target_version": target_version,
+        "target_version_vectors": None,
+        "target_version_ratio": None,
+        "pending_vectors": None,
+        "migration_ready": False,
+    }
+    if not distribution_complete:
+        return readiness
+
+    target_vectors = int(version_distribution.get(target_version, 0))
+    pending_vectors = max(int(total_vectors) - target_vectors, 0)
+    readiness["target_version_vectors"] = target_vectors
+    readiness["target_version_ratio"] = round(target_vectors / max(int(total_vectors), 1), 4)
+    readiness["pending_vectors"] = pending_vectors
+    readiness["migration_ready"] = pending_vectors == 0
+    return readiness
+
+
+async def _collect_qdrant_feature_versions(
+    qdrant_store,
+    *,
+    scan_limit: int | None = None,
+) -> tuple[Dict[str, int], int, int]:
+    resolved_scan_limit = scan_limit
+    if resolved_scan_limit is None:
+        resolved_scan_limit = _resolve_vector_migration_scan_limit()
+    resolved_scan_limit = max(int(resolved_scan_limit or 0), 1)
+
+    total_available = int(await qdrant_store.count())
+    versions: Dict[str, int] = {}
+    scanned = 0
+    offset = 0
+
+    while scanned < min(total_available, resolved_scan_limit):
+        batch_limit = min(200, resolved_scan_limit - scanned)
+        items, _ = await qdrant_store.list_vectors(
+            offset=offset,
+            limit=batch_limit,
+            with_vectors=False,
+        )
+        if not items:
+            break
+        for item in items:
+            meta = item.metadata or {}
+            version = str(meta.get("feature_version") or "unknown")
+            versions[version] = versions.get(version, 0) + 1
+        consumed = len(items)
+        scanned += consumed
+        offset += consumed
+
+    return versions, total_available, scanned
+
+
+async def _collect_qdrant_preview_samples(
+    qdrant_store,
+    *,
+    limit: int,
+) -> tuple[list[tuple[str, list[float], Dict[str, Any]]], int, Dict[str, int]]:
+    total_available = int(await qdrant_store.count())
+    items, _ = await qdrant_store.list_vectors(
+        offset=0,
+        limit=max(limit, 1),
+        with_vectors=True,
+    )
+    samples: list[tuple[str, list[float], Dict[str, Any]]] = []
+    by_version: Dict[str, int] = {}
+    for item in items:
+        meta = dict(item.metadata or {})
+        version = str(meta.get("feature_version") or "v1")
+        by_version[version] = by_version.get(version, 0) + 1
+        samples.append((str(item.id), list(item.vector or []), meta))
+    if total_available > len(items):
+        offset = len(items)
+        scan_limit = min(total_available, 5000)
+        while offset < scan_limit:
+            batch, _ = await qdrant_store.list_vectors(
+                offset=offset,
+                limit=min(200, scan_limit - offset),
+                with_vectors=False,
+            )
+            if not batch:
+                break
+            for item in batch:
+                meta = dict(item.metadata or {})
+                version = str(meta.get("feature_version") or "v1")
+                by_version[version] = by_version.get(version, 0) + 1
+            offset += len(batch)
+    return samples, total_available, by_version
+
+
+def _matches_vector_label_filters(
+    *,
+    material_filter: Optional[str],
+    complexity_filter: Optional[str],
+    fine_part_type_filter: Optional[str],
+    coarse_part_type_filter: Optional[str],
+    decision_source_filter: Optional[str],
+    is_coarse_label_filter: Optional[bool],
+    meta: Dict[str, Any],
+    label_contract: Dict[str, Any],
+) -> bool:
+    if material_filter and meta.get("material") != material_filter:
+        return False
+    if complexity_filter and meta.get("complexity") != complexity_filter:
+        return False
+    if fine_part_type_filter and label_contract.get("fine_part_type") != fine_part_type_filter:
+        return False
+    if (
+        coarse_part_type_filter
+        and label_contract.get("coarse_part_type") != coarse_part_type_filter
+    ):
+        return False
+    if decision_source_filter and label_contract.get("decision_source") != decision_source_filter:
+        return False
+    if (
+        is_coarse_label_filter is not None
+        and label_contract.get("is_coarse_label") is not is_coarse_label_filter
+    ):
+        return False
+    return True
+
+
+def _matches_vector_search_filters(
+    payload: VectorSearchRequest,
+    meta: Dict[str, Any],
+    label_contract: Dict[str, Any],
+) -> bool:
+    return _matches_vector_label_filters(
+        material_filter=payload.material_filter,
+        complexity_filter=payload.complexity_filter,
+        fine_part_type_filter=payload.fine_part_type_filter,
+        coarse_part_type_filter=payload.coarse_part_type_filter,
+        decision_source_filter=payload.decision_source_filter,
+        is_coarse_label_filter=payload.is_coarse_label_filter,
+        meta=meta,
+        label_contract=label_contract,
+    )
+
+
 @router.post("/delete", response_model=VectorDeleteResponse)
 async def delete_vector(payload: VectorDeleteRequest, api_key: str = Depends(get_api_key)):
+    qdrant_store = _get_qdrant_store_or_none()
+    if qdrant_store is not None:
+        existing = await qdrant_store.get_vector(payload.id)
+        if existing is None:
+            err = build_error(
+                ErrorCode.DATA_NOT_FOUND,
+                stage="vector_delete",
+                message="Vector not found",
+                id=payload.id,
+            )
+            raise HTTPException(status_code=404, detail=err)
+        deleted = await qdrant_store.delete_vector(payload.id)
+        if deleted:
+            return VectorDeleteResponse(id=payload.id, status="deleted")
+        err = build_error(
+            ErrorCode.INTERNAL_ERROR,
+            stage="vector_delete",
+            message="Delete failed",
+            id=payload.id,
+        )
+        raise HTTPException(status_code=500, detail=err)
+
     from src.core.similarity import (  # type: ignore
         _BACKEND,
         _VECTOR_META,
@@ -150,11 +414,20 @@ async def list_vectors(
     ),
     offset: int = Query(default=0, ge=0, description="结果偏移用于分页"),
     limit: int = Query(default=50, ge=1, description="返回数量上限"),
+    material_filter: Optional[str] = Query(default=None, description="材料过滤"),
+    complexity_filter: Optional[str] = Query(default=None, description="复杂度过滤"),
+    fine_part_type_filter: Optional[str] = Query(default=None, description="细分类过滤"),
+    coarse_part_type_filter: Optional[str] = Query(default=None, description="粗分类过滤"),
+    decision_source_filter: Optional[str] = Query(default=None, description="决策来源过滤"),
+    is_coarse_label_filter: Optional[bool] = Query(
+        default=None,
+        description="是否仅返回 coarse label 样本",
+    ),
     api_key: str = Depends(get_api_key),
 ):
     from src.core.similarity import _BACKEND, _VECTOR_META, _VECTOR_STORE  # type: ignore
 
-    allowed_sources = {"auto", "memory", "redis"}
+    allowed_sources = {"auto", "memory", "redis", "qdrant"}
     if source not in allowed_sources:
         err = build_error(
             ErrorCode.INPUT_VALIDATION_FAILED,
@@ -169,11 +442,66 @@ async def list_vectors(
     limit = min(limit, max_limit)
     scan_limit = int(os.getenv("VECTOR_LIST_SCAN_LIMIT", "5000"))
     resolved = _resolve_list_source(source, _BACKEND)
+    if resolved == "qdrant":
+        qdrant_store = _get_qdrant_store_or_none()
+        if qdrant_store is not None:
+            from src.core.similarity import extract_vector_label_contract
+
+            results, total = await qdrant_store.list_vectors(
+                offset=offset,
+                limit=limit,
+                filter_conditions=_build_vector_filter_conditions(
+                    material_filter=material_filter,
+                    complexity_filter=complexity_filter,
+                    fine_part_type_filter=fine_part_type_filter,
+                    coarse_part_type_filter=coarse_part_type_filter,
+                    decision_source_filter=decision_source_filter,
+                    is_coarse_label_filter=is_coarse_label_filter,
+                ),
+                with_vectors=True,
+            )
+            items = []
+            for result in results:
+                meta = result.metadata or {}
+                label_contract = extract_vector_label_contract(meta)
+                items.append(
+                    VectorListItem(
+                        **_vector_item_payload(
+                            result.id,
+                            len(result.vector or []),
+                            meta,
+                            label_contract,
+                        )
+                    )
+                )
+            return VectorListResponse(total=total, vectors=items)
     if resolved == "redis":
         client = get_client()
         if client is not None:
-            return await _list_vectors_redis(client, offset, limit, scan_limit)
-    return _list_vectors_memory(_VECTOR_STORE, _VECTOR_META, offset, limit)
+            return await _list_vectors_redis(
+                client,
+                offset,
+                limit,
+                scan_limit,
+                material_filter,
+                complexity_filter,
+                fine_part_type_filter,
+                coarse_part_type_filter,
+                decision_source_filter,
+                is_coarse_label_filter,
+            )
+    return _list_vectors_memory(
+        _VECTOR_STORE,
+        _VECTOR_META,
+        offset,
+        limit,
+        material_filter,
+        complexity_filter,
+        fine_part_type_filter,
+        coarse_part_type_filter,
+        decision_source_filter,
+        is_coarse_label_filter,
+    )
 
 
 @router.post("/register", response_model=VectorRegisterResponse)
@@ -181,6 +509,17 @@ async def register_vector_endpoint(
     payload: VectorRegisterRequest,
     api_key: str = Depends(get_api_key),
 ):
+    qdrant_store = _get_qdrant_store_or_none()
+    if qdrant_store is not None:
+        meta = dict(payload.meta or {})
+        meta.setdefault("total_dim", str(len(payload.vector)))
+        await qdrant_store.register_vector(payload.id, payload.vector, metadata=meta)
+        return VectorRegisterResponse(
+            id=payload.id,
+            status="accepted",
+            dimension=len(payload.vector),
+        )
+
     from src.core.similarity import FaissVectorStore, last_vector_error, register_vector
 
     meta = dict(payload.meta or {})
@@ -219,11 +558,51 @@ async def search_vectors(
     payload: VectorSearchRequest,
     api_key: str = Depends(get_api_key),
 ):
-    from src.core.similarity import _VECTOR_META, _VECTOR_STORE, get_vector_store
+    from src.core.similarity import (
+        _VECTOR_META,
+        _VECTOR_STORE,
+        extract_vector_label_contract,
+        get_vector_store,
+    )
+
+    qdrant_store = _get_qdrant_store_or_none()
+    if qdrant_store is not None:
+        results = await qdrant_store.search_similar(
+            payload.vector,
+            top_k=payload.k,
+            filter_conditions=_build_vector_search_filter_conditions(payload),
+            with_vectors=True,
+        )
+        items = []
+        for result in results:
+            meta = result.metadata or {}
+            label_contract = extract_vector_label_contract(meta)
+            items.append(
+                {
+                    "id": result.id,
+                    "score": round(float(result.score), 4),
+                    **_vector_item_payload(
+                        result.id,
+                        len(result.vector or []),
+                        meta,
+                        label_contract,
+                    ),
+                }
+            )
+        return VectorSearchResponse(results=items, total=len(items))
 
     store = get_vector_store()
     query_k = payload.k
-    if payload.material_filter or payload.complexity_filter:
+    if any(
+        [
+            payload.material_filter,
+            payload.complexity_filter,
+            payload.fine_part_type_filter,
+            payload.coarse_part_type_filter,
+            payload.decision_source_filter,
+            payload.is_coarse_label_filter is not None,
+        ]
+    ):
         query_k = min(payload.k * 5, payload.k + 100)
     results = store.query(payload.vector, top_k=query_k)
     seen: set[str] = set()
@@ -233,19 +612,17 @@ async def search_vectors(
             continue
         seen.add(vid)
         meta = _VECTOR_META.get(vid) or store.meta(vid) or {}
-        if payload.material_filter and meta.get("material") != payload.material_filter:
-            continue
-        if payload.complexity_filter and meta.get("complexity") != payload.complexity_filter:
+        label_contract = extract_vector_label_contract(meta)
+        if not _matches_vector_search_filters(payload, meta, label_contract):
             continue
         items.append(
-            {
-                "id": vid,
-                "score": round(float(score), 4),
-                "material": meta.get("material"),
-                "complexity": meta.get("complexity"),
-                "format": meta.get("format"),
-                "dimension": len(_VECTOR_STORE.get(vid, [])),
-            }
+            {"id": vid, "score": round(float(score), 4)}
+            | _vector_item_payload(
+                vid,
+                len(_VECTOR_STORE.get(vid, [])),
+                meta,
+                label_contract,
+            )
         )
         if len(items) >= payload.k:
             break
@@ -255,7 +632,11 @@ async def search_vectors(
 
 def _resolve_list_source(source: str, backend: str) -> str:
     if source == "auto":
-        return "redis" if backend == "redis" else "memory"
+        if backend == "redis":
+            return "redis"
+        if backend == "qdrant":
+            return "qdrant"
+        return "memory"
     return source
 
 
@@ -264,21 +645,51 @@ def _list_vectors_memory(
     vector_meta: Dict[str, Dict[str, str]],
     offset: int,
     limit: int,
+    material_filter: Optional[str],
+    complexity_filter: Optional[str],
+    fine_part_type_filter: Optional[str],
+    coarse_part_type_filter: Optional[str],
+    decision_source_filter: Optional[str],
+    is_coarse_label_filter: Optional[bool],
 ) -> VectorListResponse:
+    from src.core.similarity import extract_vector_label_contract
+
     items: list[VectorListItem] = []
+    matched_total = 0
     entries = list(vector_store.items())
-    for vid, vec in entries[offset : offset + limit]:
+    for vid, vec in entries:
         meta = vector_meta.get(vid, {})
-        items.append(
-            VectorListItem(
-                id=vid,
-                dimension=len(vec),
-                material=meta.get("material"),
-                complexity=meta.get("complexity"),
-                format=meta.get("format"),
+        label_contract = extract_vector_label_contract(meta)
+        if not _matches_vector_label_filters(
+            material_filter=material_filter,
+            complexity_filter=complexity_filter,
+            fine_part_type_filter=fine_part_type_filter,
+            coarse_part_type_filter=coarse_part_type_filter,
+            decision_source_filter=decision_source_filter,
+            is_coarse_label_filter=is_coarse_label_filter,
+            meta=meta,
+            label_contract=label_contract,
+        ):
+            continue
+        matched_total += 1
+        if matched_total <= offset:
+            continue
+        if len(items) < limit:
+            items.append(
+                VectorListItem(
+                    id=vid,
+                    dimension=len(vec),
+                    material=meta.get("material"),
+                    complexity=meta.get("complexity"),
+                    format=meta.get("format"),
+                    part_type=label_contract.get("part_type"),
+                    fine_part_type=label_contract.get("fine_part_type"),
+                    coarse_part_type=label_contract.get("coarse_part_type"),
+                    decision_source=label_contract.get("decision_source"),
+                    is_coarse_label=label_contract.get("is_coarse_label"),
+                )
             )
-        )
-    return VectorListResponse(total=len(vector_store), vectors=items)
+    return VectorListResponse(total=matched_total, vectors=items)
 
 
 async def _list_vectors_redis(
@@ -286,13 +697,25 @@ async def _list_vectors_redis(
     offset: int,
     limit: int,
     scan_limit: int,
+    material_filter: Optional[str],
+    complexity_filter: Optional[str],
+    fine_part_type_filter: Optional[str],
+    coarse_part_type_filter: Optional[str],
+    decision_source_filter: Optional[str],
+    is_coarse_label_filter: Optional[bool],
 ) -> VectorListResponse:
+    from src.core.similarity import extract_vector_label_contract
+
     items: list[VectorListItem] = []
-    total = 0
+    matched_total = 0
     scanned = 0
     cursor = 0
     while True:
-        cursor, batch = await client.scan(cursor=cursor, match="vector:*", count=500)  # type: ignore[attr-defined]
+        cursor, batch = await client.scan(  # type: ignore[attr-defined]
+            cursor=cursor,
+            match="vector:*",
+            count=500,
+        )
         for key in batch:
             scanned += 1
             if scan_limit > 0 and scanned > scan_limit:
@@ -301,9 +724,6 @@ async def _list_vectors_redis(
             data = await client.hgetall(key)  # type: ignore[attr-defined]
             raw_vec = data.get("v") or data.get(b"v")
             if not raw_vec:
-                continue
-            total += 1
-            if total <= offset:
                 continue
             raw_meta = data.get("m") or data.get(b"m")
             meta: Dict[str, Any] = {}
@@ -315,22 +735,39 @@ async def _list_vectors_redis(
             vec_dim = len([p for p in str(raw_vec).split(",") if p])
             key_str = key.decode() if isinstance(key, (bytes, bytearray)) else str(key)
             vid = key_str.split("vector:", 1)[1] if "vector:" in key_str else key_str
-            items.append(
-                VectorListItem(
-                    id=vid,
-                    dimension=vec_dim,
-                    material=meta.get("material"),
-                    complexity=meta.get("complexity"),
-                    format=meta.get("format"),
+            label_contract = extract_vector_label_contract(meta)
+            if not _matches_vector_label_filters(
+                material_filter=material_filter,
+                complexity_filter=complexity_filter,
+                fine_part_type_filter=fine_part_type_filter,
+                coarse_part_type_filter=coarse_part_type_filter,
+                decision_source_filter=decision_source_filter,
+                is_coarse_label_filter=is_coarse_label_filter,
+                meta=meta,
+                label_contract=label_contract,
+            ):
+                continue
+            matched_total += 1
+            if matched_total <= offset:
+                continue
+            if len(items) < limit:
+                items.append(
+                    VectorListItem(
+                        id=vid,
+                        dimension=vec_dim,
+                        material=meta.get("material"),
+                        complexity=meta.get("complexity"),
+                        format=meta.get("format"),
+                        part_type=label_contract.get("part_type"),
+                        fine_part_type=label_contract.get("fine_part_type"),
+                        coarse_part_type=label_contract.get("coarse_part_type"),
+                        decision_source=label_contract.get("decision_source"),
+                        is_coarse_label=label_contract.get("is_coarse_label"),
+                    )
                 )
-            )
-            if len(items) >= limit:
-                break
-        if len(items) >= limit:
-            break
         if cursor == 0:
             break
-    return VectorListResponse(total=total, vectors=items)
+    return VectorListResponse(total=matched_total, vectors=items)
 
 
 def _coerce_int(value: Optional[str]) -> Optional[int]:
@@ -390,6 +827,105 @@ class VectorUpdateResponse(BaseModel):
 
 @router.post("/update", response_model=VectorUpdateResponse)
 async def update_vector(payload: VectorUpdateRequest, api_key: str = Depends(get_api_key)):
+    qdrant_store = _get_qdrant_store_or_none()
+    if qdrant_store is not None:
+        from src.utils.analysis_metrics import analysis_error_code_total
+
+        current = await qdrant_store.get_vector(payload.id)
+        if current is None:
+            err = build_error(
+                ErrorCode.DATA_NOT_FOUND,
+                stage="vector_update",
+                message="Vector not found",
+                id=payload.id,
+            )
+            analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
+            return VectorUpdateResponse(id=payload.id, status="not_found", error=err)
+
+        vec = list(current.vector or [])
+        meta = dict(current.metadata or {})
+        original_dim = len(vec)
+        enforce = __import__("os").getenv("ANALYSIS_VECTOR_DIM_CHECK", "0") == "1"
+        try:
+            if payload.replace is not None:
+                if len(payload.replace) != original_dim:
+                    if enforce:
+                        err = build_error(
+                            ErrorCode.DIMENSION_MISMATCH,
+                            stage="vector_update",
+                            message=f"Expected {original_dim}, got {len(payload.replace)}",
+                            id=payload.id,
+                            expected=original_dim,
+                            found=len(payload.replace),
+                        )
+                        analysis_error_code_total.labels(
+                            code=ErrorCode.DIMENSION_MISMATCH.value
+                        ).inc()
+                        from src.utils.analysis_metrics import vector_dimension_rejections_total
+
+                        vector_dimension_rejections_total.labels(
+                            reason="dimension_mismatch_replace"
+                        ).inc()
+                        raise HTTPException(status_code=409, detail=err)
+                    return VectorUpdateResponse(
+                        id=payload.id,
+                        status="dimension_mismatch",
+                        dimension=original_dim,
+                        error={
+                            "code": ErrorCode.DIMENSION_MISMATCH.value,
+                            "expected": original_dim,
+                            "found": len(payload.replace),
+                            "id": payload.id,
+                        },
+                    )
+                vec = [float(x) for x in payload.replace]
+            elif payload.append is not None:
+                if enforce and original_dim != 0:
+                    new_dim = original_dim + len(payload.append)
+                    if new_dim != original_dim:
+                        err = build_error(
+                            ErrorCode.DIMENSION_MISMATCH,
+                            stage="vector_update",
+                            message=f"Append changes dimension {original_dim}->{new_dim}",
+                            id=payload.id,
+                            expected=original_dim,
+                            found=new_dim,
+                        )
+                        analysis_error_code_total.labels(
+                            code=ErrorCode.DIMENSION_MISMATCH.value
+                        ).inc()
+                        from src.utils.analysis_metrics import vector_dimension_rejections_total
+
+                        vector_dimension_rejections_total.labels(
+                            reason="dimension_mismatch_append"
+                        ).inc()
+                        raise HTTPException(status_code=409, detail=err)
+                vec = vec + [float(float(x)) for x in payload.append]
+
+            if payload.material is not None:
+                meta["material"] = payload.material
+            if payload.complexity is not None:
+                meta["complexity"] = payload.complexity
+            if payload.format is not None:
+                meta["format"] = payload.format
+            meta["total_dim"] = str(len(vec))
+
+            await qdrant_store.register_vector(payload.id, vec, metadata=meta)
+            return VectorUpdateResponse(
+                id=payload.id,
+                status="updated",
+                dimension=len(vec),
+                feature_version=meta.get("feature_version"),
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            err = build_error(
+                ErrorCode.INTERNAL_ERROR, stage="vector_update", message=str(e), id=payload.id
+            )
+            analysis_error_code_total.labels(code=ErrorCode.INTERNAL_ERROR.value).inc()
+            return VectorUpdateResponse(id=payload.id, status="error", error=err)
+
     from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
     from src.utils.analysis_metrics import analysis_error_code_total
 
@@ -517,6 +1053,15 @@ class VectorMigrationStatusResponse(BaseModel):
     pending_vectors: Optional[int] = None
     feature_versions: Optional[Dict[str, int]] = None
     history: Optional[List[Dict[str, Any]]] = None
+    backend: str = "memory"
+    current_total_vectors: Optional[int] = None
+    scanned_vectors: Optional[int] = None
+    scan_limit: Optional[int] = None
+    distribution_complete: bool = True
+    target_version: str = "v4"
+    target_version_vectors: Optional[int] = None
+    target_version_ratio: Optional[float] = None
+    migration_ready: bool = False
 
 
 class VectorMigrationSummaryResponse(BaseModel):
@@ -524,6 +1069,104 @@ class VectorMigrationSummaryResponse(BaseModel):
     total_migrations: int
     history_size: int
     statuses: List[str]
+    backend: str = "memory"
+    current_version_distribution: Optional[Dict[str, int]] = None
+    current_total_vectors: Optional[int] = None
+    scanned_vectors: Optional[int] = None
+    scan_limit: Optional[int] = None
+    distribution_complete: bool = True
+    target_version: str = "v4"
+    target_version_vectors: Optional[int] = None
+    target_version_ratio: Optional[float] = None
+    pending_vectors: Optional[int] = None
+    migration_ready: bool = False
+
+
+class VectorMigrationPendingItem(BaseModel):
+    id: str
+    from_version: str
+    to_version: str
+
+
+class VectorMigrationPendingResponse(BaseModel):
+    target_version: str
+    from_version_filter: Optional[str] = None
+    items: List[VectorMigrationPendingItem]
+    listed_count: int
+    total_pending: Optional[int] = None
+    backend: str = "memory"
+    scanned_vectors: Optional[int] = None
+    scan_limit: Optional[int] = None
+    distribution_complete: bool = True
+
+
+class VectorMigrationPendingSummaryResponse(BaseModel):
+    target_version: str
+    from_version_filter: Optional[str] = None
+    observed_by_from_version: Dict[str, int]
+    recommended_from_versions: List[str] = Field(default_factory=list)
+    largest_pending_from_version: Optional[str] = None
+    largest_pending_count: Optional[int] = None
+    total_pending: Optional[int] = None
+    pending_ratio: Optional[float] = None
+    backend: str = "memory"
+    scanned_vectors: Optional[int] = None
+    scan_limit: Optional[int] = None
+    distribution_complete: bool = True
+
+
+class VectorMigrationPlanBatch(BaseModel):
+    priority: int
+    from_version: str
+    pending_count: int
+    suggested_run_limit: int
+    allow_partial_scan_required: bool = False
+    request_payload: Dict[str, Any]
+    notes: List[str] = Field(default_factory=list)
+
+
+class VectorMigrationPlanResponse(BaseModel):
+    target_version: str
+    from_version_filter: Optional[str] = None
+    observed_by_from_version: Dict[str, int]
+    recommended_from_versions: List[str] = Field(default_factory=list)
+    largest_pending_from_version: Optional[str] = None
+    largest_pending_count: Optional[int] = None
+    total_pending: Optional[int] = None
+    pending_ratio: Optional[float] = None
+    backend: str = "memory"
+    scanned_vectors: Optional[int] = None
+    scan_limit: Optional[int] = None
+    distribution_complete: bool = True
+    max_batches: int
+    default_run_limit: int
+    estimated_total_runs: int = 0
+    estimated_runs_by_version: Dict[str, int] = Field(default_factory=dict)
+    plan_ready: bool = False
+    blocking_reasons: List[str] = Field(default_factory=list)
+    recommended_first_batch: Optional[VectorMigrationPlanBatch] = None
+    recommended_first_request_payload: Optional[Dict[str, Any]] = None
+    planned_pending_count: int = 0
+    remaining_pending_count: Optional[int] = None
+    planned_pending_ratio: Optional[float] = None
+    coverage_complete: bool = False
+    truncated_by_max_batches: bool = False
+    unplanned_from_versions: List[str] = Field(default_factory=list)
+    suggested_next_max_batches: Optional[int] = None
+    batches: List[VectorMigrationPlanBatch] = Field(default_factory=list)
+
+
+class VectorMigrationPendingRunRequest(BaseModel):
+    limit: int = Field(default=50, ge=1, le=200, description="最多处理多少个待迁移向量")
+    dry_run: bool = Field(default=False, description="是否只做试运行")
+    from_version_filter: Optional[str] = Field(
+        default=None,
+        description="仅处理指定来源版本的待迁移向量",
+    )
+    allow_partial_scan: bool = Field(
+        default=False,
+        description="Qdrant 扫描不完整时是否仍允许按已扫描结果执行",
+    )
 
 
 class VectorMigrationPreviewResponse(BaseModel):
@@ -578,14 +1221,25 @@ async def preview_migration(to_version: str, limit: int = 10, api_key: str = Dep
     # Get extractor for target version
     extractor = FeatureExtractor(feature_version=to_version)
 
-    # Collect version distribution
-    by_version: Dict[str, int] = {}
-    total_vectors = len(_VECTOR_STORE)
+    qdrant_store = _get_qdrant_store_or_none()
+    if qdrant_store is not None:
+        preview_source, total_vectors, by_version = await _collect_qdrant_preview_samples(
+            qdrant_store,
+            limit=limit,
+        )
+    else:
+        # Collect version distribution
+        by_version = {}
+        total_vectors = len(_VECTOR_STORE)
+        preview_source = []
 
-    for vid in _VECTOR_STORE.keys():
-        meta = _VECTOR_META.get(vid, {})
-        current_version = meta.get("feature_version", "v1")
-        by_version[current_version] = by_version.get(current_version, 0) + 1
+        for vid in _VECTOR_STORE.keys():
+            meta = _VECTOR_META.get(vid, {})
+            current_version = meta.get("feature_version", "v1")
+            by_version[current_version] = by_version.get(current_version, 0) + 1
+
+        for vid in list(_VECTOR_STORE.keys())[:limit]:
+            preview_source.append((vid, _VECTOR_STORE[vid], _VECTOR_META.get(vid, {})))
 
     # Preview sample vectors
     preview_items: list[VectorMigrateItem] = []
@@ -594,10 +1248,8 @@ async def preview_migration(to_version: str, limit: int = 10, api_key: str = Dep
     warnings: list[str] = []
     sampled = 0
 
-    for vid in list(_VECTOR_STORE.keys())[:limit]:
-        meta = _VECTOR_META.get(vid, {})
+    for vid, vec, meta in preview_source:
         from_version = meta.get("feature_version", "v1")
-        vec = _VECTOR_STORE[vid]
         dimension_before = len(vec)
 
         if from_version == to_version:
@@ -733,14 +1385,27 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
     # FeatureExtractor expects 'feature_version' parameter; pass target_version explicitly.
     extractor = FeatureExtractor(feature_version=target_version)
     from src.utils.analysis_metrics import vector_migrate_dimension_delta, vector_migrate_total
+    qdrant_store = _get_qdrant_store_or_none()
 
     for vid in payload.ids:
-        if vid not in _VECTOR_STORE:
-            items.append(VectorMigrateItem(id=vid, status="not_found", error="not_found"))
-            skipped += 1
-            vector_migrate_total.labels(status="not_found").inc()
-            continue
-        meta = _VECTOR_META.get(vid, {})
+        if qdrant_store is not None:
+            target = await qdrant_store.get_vector(vid)
+            if target is None:
+                items.append(VectorMigrateItem(id=vid, status="not_found", error="not_found"))
+                skipped += 1
+                vector_migrate_total.labels(status="not_found").inc()
+                continue
+            meta = dict(target.metadata or {})
+            vec = list(target.vector or [])
+        else:
+            if vid not in _VECTOR_STORE:
+                items.append(VectorMigrateItem(id=vid, status="not_found", error="not_found"))
+                skipped += 1
+                vector_migrate_total.labels(status="not_found").inc()
+                continue
+            meta = _VECTOR_META.get(vid, {})
+            vec = _VECTOR_STORE[vid]
+
         from_version = meta.get("feature_version", "v1")
         if from_version == target_version:
             items.append(
@@ -751,7 +1416,6 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
             skipped += 1
             vector_migrate_total.labels(status="skipped").inc()
             continue
-        vec = _VECTOR_STORE[vid]
         dimension_before = len(vec)
         try:
             base_vector, l3_tail, _ = _prepare_vector_for_upgrade(
@@ -792,7 +1456,11 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
                     meta["l3_3d_dim"] = str(len(l3_tail))
                 else:
                     meta.pop("l3_3d_dim", None)
-                _VECTOR_META[vid] = meta
+                if qdrant_store is not None:
+                    await qdrant_store.register_vector(vid, new_features, metadata=meta)
+                else:
+                    _VECTOR_STORE[vid] = new_features
+                    _VECTOR_META[vid] = meta
                 # Track downgrade separately if target lower than source
                 if (from_version, target_version) in {
                     ("v4", "v3"),
@@ -868,14 +1536,31 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
 
 @router.get("/migrate/status", response_model=VectorMigrationStatusResponse)
 async def migrate_status(api_key: str = Depends(get_api_key)):
-    from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
+    qdrant_store = _get_qdrant_store_or_none()
+    scan_limit = _resolve_vector_migration_scan_limit()
+    if qdrant_store is not None:
+        versions, total_available, scanned = await _collect_qdrant_feature_versions(qdrant_store)
+        backend = "qdrant"
+        distribution_complete = scanned >= total_available
+    else:
+        from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
 
-    versions: Dict[str, int] = {}
-    for vid, meta in _VECTOR_META.items():
-        if vid not in _VECTOR_STORE:
-            continue
-        ver = meta.get("feature_version", "unknown")
-        versions[ver] = versions.get(ver, 0) + 1
+        versions = {}
+        total_available = 0
+        for vid, meta in _VECTOR_META.items():
+            if vid not in _VECTOR_STORE:
+                continue
+            total_available += 1
+            ver = meta.get("feature_version", "unknown")
+            versions[ver] = versions.get(ver, 0) + 1
+        scanned = total_available
+        backend = "memory"
+        distribution_complete = True
+    readiness = _build_vector_migration_readiness(
+        versions,
+        total_vectors=total_available,
+        distribution_complete=distribution_complete,
+    )
     history = globals().get("_VECTOR_MIGRATION_HISTORY", [])
     last = history[-1] if history else None
     return VectorMigrationStatusResponse(
@@ -885,9 +1570,18 @@ async def migrate_status(api_key: str = Depends(get_api_key)):
         last_total=last.get("total") if last else None,
         last_migrated=last.get("migrated") if last else None,
         last_skipped=last.get("skipped") if last else None,
-        pending_vectors=None,
+        pending_vectors=readiness["pending_vectors"],
         feature_versions=versions,
         history=history,
+        backend=backend,
+        current_total_vectors=total_available,
+        scanned_vectors=scanned,
+        scan_limit=scan_limit,
+        distribution_complete=distribution_complete,
+        target_version=readiness["target_version"],
+        target_version_vectors=readiness["target_version_vectors"],
+        target_version_ratio=readiness["target_version_ratio"],
+        migration_ready=readiness["migration_ready"],
     )
 
 
@@ -901,11 +1595,53 @@ async def migrate_summary(api_key: str = Depends(get_api_key)):
             aggregate[k] = aggregate.get(k, 0) + int(v)
     total_migrations = sum(aggregate.values())
     statuses = sorted(aggregate.keys())
+    qdrant_store = _get_qdrant_store_or_none()
+    scan_limit = _resolve_vector_migration_scan_limit()
+    if qdrant_store is not None:
+        (
+            current_version_distribution,
+            current_total_vectors,
+            scanned_vectors,
+        ) = await _collect_qdrant_feature_versions(qdrant_store)
+        backend = "qdrant"
+        distribution_complete = scanned_vectors >= current_total_vectors
+    else:
+        from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
+
+        current_version_distribution = {}
+        current_total_vectors = 0
+        for vid, meta in _VECTOR_META.items():
+            if vid not in _VECTOR_STORE:
+                continue
+            current_total_vectors += 1
+            version = meta.get("feature_version", "unknown")
+            current_version_distribution[version] = (
+                current_version_distribution.get(version, 0) + 1
+            )
+        backend = "memory"
+        scanned_vectors = current_total_vectors
+        distribution_complete = True
+    readiness = _build_vector_migration_readiness(
+        current_version_distribution,
+        total_vectors=current_total_vectors,
+        distribution_complete=distribution_complete,
+    )
     return VectorMigrationSummaryResponse(
         counts=aggregate,
         total_migrations=total_migrations,
         history_size=len(history),
         statuses=statuses,
+        backend=backend,
+        current_version_distribution=current_version_distribution,
+        current_total_vectors=current_total_vectors,
+        scanned_vectors=scanned_vectors,
+        scan_limit=scan_limit,
+        distribution_complete=distribution_complete,
+        target_version=readiness["target_version"],
+        target_version_vectors=readiness["target_version_vectors"],
+        target_version_ratio=readiness["target_version_ratio"],
+        pending_vectors=readiness["pending_vectors"],
+        migration_ready=readiness["migration_ready"],
     )
 
 
@@ -922,6 +1658,386 @@ class VectorMigrationTrendsResponse(BaseModel):
     downgrade_rate: float = Field(description="降级比例")
     error_rate: float = Field(description="错误比例")
     time_range: Dict[str, Optional[str]] = Field(description="统计时间范围")
+    current_total_vectors: Optional[int] = Field(default=None, description="当前向量总数")
+    scanned_vectors: Optional[int] = Field(default=None, description="版本分布扫描数量")
+    scan_limit: Optional[int] = Field(default=None, description="版本分布扫描上限")
+    distribution_complete: bool = Field(default=True, description="版本分布是否为全量结果")
+    target_version: str = Field(default="v4", description="readiness 目标特征版本")
+    target_version_vectors: Optional[int] = Field(
+        default=None, description="目标版本向量数，仅在全量分布时返回"
+    )
+    target_version_ratio: Optional[float] = Field(
+        default=None, description="目标版本占比，仅在全量分布时返回"
+    )
+    pending_vectors: Optional[int] = Field(
+        default=None, description="待迁移向量数，仅在全量分布时返回"
+    )
+    migration_ready: bool = Field(
+        default=False, description="是否已经全部迁移到目标版本"
+    )
+
+
+async def _collect_vector_migration_pending_candidates(
+    *,
+    limit: int,
+    target_version: str,
+    from_version_filter: Optional[str] = None,
+) -> Dict[str, Any]:
+    qdrant_store = _get_qdrant_store_or_none()
+    scan_limit = _resolve_vector_migration_scan_limit()
+    normalized_filter = str(from_version_filter or "").strip() or None
+
+    if qdrant_store is not None:
+        total_available = int(await qdrant_store.count())
+        max_scan = min(total_available, scan_limit)
+        scanned = 0
+        offset = 0
+        items: list[VectorMigrationPendingItem] = []
+        pending_ids: list[str] = []
+        total_pending = 0
+        observed_by_from_version: Dict[str, int] = {}
+        while scanned < max_scan:
+            batch_limit = min(200, max_scan - scanned)
+            points, _ = await qdrant_store.list_vectors(
+                offset=offset,
+                limit=batch_limit,
+                with_vectors=False,
+            )
+            if not points:
+                break
+            for point in points:
+                meta = point.metadata or {}
+                from_version = str(meta.get("feature_version") or "unknown")
+                if from_version == target_version:
+                    continue
+                if normalized_filter and from_version != normalized_filter:
+                    continue
+                total_pending += 1
+                observed_by_from_version[from_version] = (
+                    observed_by_from_version.get(from_version, 0) + 1
+                )
+                pending_ids.append(str(point.id))
+                if len(items) < limit:
+                    items.append(
+                        VectorMigrationPendingItem(
+                            id=str(point.id),
+                            from_version=from_version,
+                            to_version=target_version,
+                        )
+                    )
+            consumed = len(points)
+            scanned += consumed
+            offset += consumed
+
+        distribution_complete = scanned >= total_available
+        return {
+            "target_version": target_version,
+            "from_version_filter": normalized_filter,
+            "items": items,
+            "pending_ids": pending_ids[:limit],
+            "listed_count": len(items),
+            "total_pending": total_pending if distribution_complete else None,
+            "observed_by_from_version": observed_by_from_version,
+            "backend": "qdrant",
+            "scanned_vectors": scanned,
+            "scan_limit": scan_limit,
+            "distribution_complete": distribution_complete,
+        }
+
+    from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
+
+    items: list[VectorMigrationPendingItem] = []
+    pending_ids: list[str] = []
+    scanned = 0
+    total_pending = 0
+    observed_by_from_version: Dict[str, int] = {}
+    for vid, meta in _VECTOR_META.items():
+        if vid not in _VECTOR_STORE:
+            continue
+        scanned += 1
+        from_version = str(meta.get("feature_version") or "unknown")
+        if from_version == target_version:
+            continue
+        if normalized_filter and from_version != normalized_filter:
+            continue
+        total_pending += 1
+        observed_by_from_version[from_version] = observed_by_from_version.get(from_version, 0) + 1
+        pending_ids.append(str(vid))
+        if len(items) < limit:
+            items.append(
+                VectorMigrationPendingItem(
+                    id=str(vid),
+                    from_version=from_version,
+                    to_version=target_version,
+                )
+            )
+
+    return {
+        "target_version": target_version,
+        "from_version_filter": normalized_filter,
+        "items": items,
+        "pending_ids": pending_ids[:limit],
+        "listed_count": len(items),
+        "total_pending": total_pending,
+        "observed_by_from_version": observed_by_from_version,
+        "backend": "memory",
+        "scanned_vectors": scanned,
+        "scan_limit": scan_limit,
+        "distribution_complete": True,
+    }
+
+
+@router.get("/migrate/pending", response_model=VectorMigrationPendingResponse)
+async def migrate_pending(
+    limit: int = 50,
+    from_version_filter: Optional[str] = Query(default=None),
+    api_key: str = Depends(get_api_key),
+):
+    limit = max(min(int(limit or 0), 200), 1)
+    target_version = _resolve_vector_migration_target_version()
+    pending = await _collect_vector_migration_pending_candidates(
+        limit=limit,
+        target_version=target_version,
+        from_version_filter=from_version_filter,
+    )
+    return VectorMigrationPendingResponse(
+        target_version=pending["target_version"],
+        from_version_filter=pending["from_version_filter"],
+        items=pending["items"],
+        listed_count=pending["listed_count"],
+        total_pending=pending["total_pending"],
+        backend=pending["backend"],
+        scanned_vectors=pending["scanned_vectors"],
+        scan_limit=pending["scan_limit"],
+        distribution_complete=pending["distribution_complete"],
+    )
+
+
+@router.get("/migrate/pending/summary", response_model=VectorMigrationPendingSummaryResponse)
+async def migrate_pending_summary(
+    from_version_filter: Optional[str] = Query(default=None),
+    api_key: str = Depends(get_api_key),
+):
+    target_version = _resolve_vector_migration_target_version()
+    pending = await _collect_vector_migration_pending_candidates(
+        limit=1,
+        target_version=target_version,
+        from_version_filter=from_version_filter,
+    )
+    pending_ratio: Optional[float] = None
+    recommended_from_versions = [
+        key
+        for key, _ in sorted(
+            pending["observed_by_from_version"].items(),
+            key=lambda item: (-int(item[1]), str(item[0])),
+        )
+    ]
+    largest_pending_from_version = (
+        recommended_from_versions[0] if recommended_from_versions else None
+    )
+    largest_pending_count = None
+    if largest_pending_from_version is not None:
+        largest_pending_count = int(
+            pending["observed_by_from_version"].get(largest_pending_from_version, 0)
+        )
+    if pending["distribution_complete"]:
+        scanned_vectors = int(pending["scanned_vectors"] or 0)
+        pending_ratio = round(int(pending["total_pending"] or 0) / max(scanned_vectors, 1), 4)
+    return VectorMigrationPendingSummaryResponse(
+        target_version=pending["target_version"],
+        from_version_filter=pending["from_version_filter"],
+        observed_by_from_version=pending["observed_by_from_version"],
+        recommended_from_versions=recommended_from_versions,
+        largest_pending_from_version=largest_pending_from_version,
+        largest_pending_count=largest_pending_count,
+        total_pending=pending["total_pending"],
+        pending_ratio=pending_ratio,
+        backend=pending["backend"],
+        scanned_vectors=pending["scanned_vectors"],
+        scan_limit=pending["scan_limit"],
+        distribution_complete=pending["distribution_complete"],
+    )
+
+
+def _build_vector_migration_plan_batches(
+    *,
+    observed_by_from_version: Dict[str, int],
+    max_batches: int,
+    default_run_limit: int,
+    allow_partial_scan_required: bool,
+) -> List[VectorMigrationPlanBatch]:
+    ordered = sorted(
+        observed_by_from_version.items(),
+        key=lambda item: (-int(item[1]), str(item[0])),
+    )[:max_batches]
+    batches: List[VectorMigrationPlanBatch] = []
+    for index, (from_version, count) in enumerate(ordered):
+        pending_count = int(count)
+        suggested_run_limit = min(pending_count, default_run_limit)
+        notes: List[str] = []
+        if pending_count > suggested_run_limit:
+            notes.append("split_batch_required")
+        else:
+            notes.append("single_batch_ready")
+        if allow_partial_scan_required:
+            notes.append("partial_scan_override_required")
+        batches.append(
+            VectorMigrationPlanBatch(
+                priority=index + 1,
+                from_version=str(from_version),
+                pending_count=pending_count,
+                suggested_run_limit=suggested_run_limit,
+                allow_partial_scan_required=allow_partial_scan_required,
+                request_payload={
+                    "limit": suggested_run_limit,
+                    "dry_run": True,
+                    "from_version_filter": str(from_version),
+                    "allow_partial_scan": allow_partial_scan_required,
+                },
+                notes=notes,
+            )
+        )
+    return batches
+
+
+@router.get("/migrate/plan", response_model=VectorMigrationPlanResponse)
+async def migrate_plan(
+    from_version_filter: Optional[str] = Query(default=None),
+    max_batches: int = Query(default=3, ge=1, le=10),
+    default_run_limit: int = Query(default=50, ge=1, le=200),
+    api_key: str = Depends(get_api_key),
+):
+    target_version = _resolve_vector_migration_target_version()
+    pending = await _collect_vector_migration_pending_candidates(
+        limit=1,
+        target_version=target_version,
+        from_version_filter=from_version_filter,
+    )
+    pending_ratio: Optional[float] = None
+    recommended_from_versions = [
+        key
+        for key, _ in sorted(
+            pending["observed_by_from_version"].items(),
+            key=lambda item: (-int(item[1]), str(item[0])),
+        )
+    ]
+    largest_pending_from_version = (
+        recommended_from_versions[0] if recommended_from_versions else None
+    )
+    largest_pending_count = None
+    if largest_pending_from_version is not None:
+        largest_pending_count = int(
+            pending["observed_by_from_version"].get(largest_pending_from_version, 0)
+        )
+    if pending["distribution_complete"]:
+        scanned_vectors = int(pending["scanned_vectors"] or 0)
+        pending_ratio = round(int(pending["total_pending"] or 0) / max(scanned_vectors, 1), 4)
+    allow_partial_scan_required = pending["backend"] == "qdrant" and not pending["distribution_complete"]
+    batches = _build_vector_migration_plan_batches(
+        observed_by_from_version=pending["observed_by_from_version"],
+        max_batches=max_batches,
+        default_run_limit=default_run_limit,
+        allow_partial_scan_required=allow_partial_scan_required,
+    )
+    blocking_reasons: List[str] = []
+    if allow_partial_scan_required:
+        blocking_reasons.append("partial_scan_override_required")
+    if not batches:
+        blocking_reasons.append("no_pending_vectors")
+    recommended_first_batch = batches[0] if batches else None
+    recommended_first_request_payload = None
+    if recommended_first_batch is not None:
+        recommended_first_request_payload = dict(recommended_first_batch.request_payload)
+    planned_pending_count = sum(int(batch.pending_count) for batch in batches)
+    planned_from_versions = {str(batch.from_version) for batch in batches}
+    unplanned_from_versions = [
+        from_version
+        for from_version in recommended_from_versions
+        if str(from_version) not in planned_from_versions
+    ]
+    remaining_pending_count: Optional[int] = None
+    planned_pending_ratio: Optional[float] = None
+    if pending["distribution_complete"] and pending["total_pending"] is not None:
+        remaining_pending_count = max(int(pending["total_pending"]) - planned_pending_count, 0)
+        planned_pending_ratio = round(
+            planned_pending_count / max(int(pending["total_pending"]), 1),
+            4,
+        )
+    coverage_complete = bool(batches) and not unplanned_from_versions
+    suggested_next_max_batches: Optional[int] = None
+    if unplanned_from_versions:
+        suggested_next_max_batches = len(recommended_from_versions)
+    estimated_runs_by_version = {
+        str(from_version): max((int(count) + default_run_limit - 1) // default_run_limit, 1)
+        for from_version, count in pending["observed_by_from_version"].items()
+    }
+    return VectorMigrationPlanResponse(
+        target_version=pending["target_version"],
+        from_version_filter=pending["from_version_filter"],
+        observed_by_from_version=pending["observed_by_from_version"],
+        recommended_from_versions=recommended_from_versions,
+        largest_pending_from_version=largest_pending_from_version,
+        largest_pending_count=largest_pending_count,
+        total_pending=pending["total_pending"],
+        pending_ratio=pending_ratio,
+        backend=pending["backend"],
+        scanned_vectors=pending["scanned_vectors"],
+        scan_limit=pending["scan_limit"],
+        distribution_complete=pending["distribution_complete"],
+        max_batches=max_batches,
+        default_run_limit=default_run_limit,
+        estimated_total_runs=sum(estimated_runs_by_version.values()),
+        estimated_runs_by_version=estimated_runs_by_version,
+        plan_ready=bool(batches) and not blocking_reasons,
+        blocking_reasons=blocking_reasons,
+        recommended_first_batch=recommended_first_batch,
+        recommended_first_request_payload=recommended_first_request_payload,
+        planned_pending_count=planned_pending_count,
+        remaining_pending_count=remaining_pending_count,
+        planned_pending_ratio=planned_pending_ratio,
+        coverage_complete=coverage_complete,
+        truncated_by_max_batches=bool(unplanned_from_versions),
+        unplanned_from_versions=unplanned_from_versions,
+        suggested_next_max_batches=suggested_next_max_batches,
+        batches=batches,
+    )
+
+
+@router.post("/migrate/pending/run", response_model=VectorMigrateResponse)
+async def migrate_pending_run(
+    payload: VectorMigrationPendingRunRequest,
+    api_key: str = Depends(get_api_key),
+):
+    target_version = _resolve_vector_migration_target_version()
+    pending = await _collect_vector_migration_pending_candidates(
+        limit=payload.limit,
+        target_version=target_version,
+        from_version_filter=payload.from_version_filter,
+    )
+    if pending["backend"] == "qdrant" and not pending["distribution_complete"]:
+        if not payload.allow_partial_scan:
+            raise HTTPException(
+                status_code=409,
+                detail=build_error(
+                    ErrorCode.CONSTRAINT_VIOLATION,
+                    stage="vector_migrate_pending_run",
+                    message=(
+                        "Qdrant distribution scan is partial; raise VECTOR_MIGRATION_SCAN_LIMIT "
+                        "or set allow_partial_scan=true"
+                    ),
+                    target_version=target_version,
+                    scanned_vectors=pending["scanned_vectors"],
+                    scan_limit=pending["scan_limit"],
+                ),
+            )
+    return await migrate_vectors(
+        VectorMigrateRequest(
+            ids=pending["pending_ids"],
+            to_version=target_version,
+            dry_run=payload.dry_run,
+        ),
+        api_key=api_key,
+    )
 
 
 @router.get("/migrate/trends", response_model=VectorMigrationTrendsResponse)
@@ -936,8 +2052,6 @@ async def migrate_trends(window_hours: int = 24, api_key: str = Depends(get_api_
     Returns:
         迁移趋势统计，包含成功率、v4采用率、维度变化等
     """
-    from src.core.similarity import _VECTOR_META, _VECTOR_STORE
-
     history = globals().get("_VECTOR_MIGRATION_HISTORY", [])
 
     # Filter history by time window
@@ -976,13 +2090,25 @@ async def migrate_trends(window_hours: int = 24, api_key: str = Depends(get_api_
     error_rate = total_errors / max(attempted, 1)
 
     # Calculate v4 adoption rate from current vectors
-    version_distribution: Dict[str, int] = {}
-    total_vectors = 0
-    for vid in _VECTOR_STORE.keys():
-        meta = _VECTOR_META.get(vid, {})
-        version = meta.get("feature_version", "v1")
-        version_distribution[version] = version_distribution.get(version, 0) + 1
-        total_vectors += 1
+    qdrant_store = _get_qdrant_store_or_none()
+    scan_limit = _resolve_vector_migration_scan_limit()
+    if qdrant_store is not None:
+        version_distribution, total_vectors, scanned_vectors = (
+            await _collect_qdrant_feature_versions(qdrant_store)
+        )
+        distribution_complete = scanned_vectors >= total_vectors
+    else:
+        from src.core.similarity import _VECTOR_META, _VECTOR_STORE
+
+        version_distribution = {}
+        total_vectors = 0
+        for vid in _VECTOR_STORE.keys():
+            meta = _VECTOR_META.get(vid, {})
+            version = meta.get("feature_version", "v1")
+            version_distribution[version] = version_distribution.get(version, 0) + 1
+            total_vectors += 1
+        scanned_vectors = total_vectors
+        distribution_complete = True
 
     v4_count = version_distribution.get("v4", 0)
     v4_adoption_rate = v4_count / max(total_vectors, 1)
@@ -1006,6 +2132,11 @@ async def migrate_trends(window_hours: int = 24, api_key: str = Depends(get_api_
         else None,
         "end": datetime.utcnow().isoformat(),
     }
+    readiness = _build_vector_migration_readiness(
+        version_distribution,
+        total_vectors=total_vectors,
+        distribution_complete=distribution_complete,
+    )
 
     return VectorMigrationTrendsResponse(
         total_migrations=total_migrations,
@@ -1018,6 +2149,15 @@ async def migrate_trends(window_hours: int = 24, api_key: str = Depends(get_api_
         downgrade_rate=round(downgrade_rate, 4),
         error_rate=round(error_rate, 4),
         time_range=time_range,
+        current_total_vectors=total_vectors,
+        scanned_vectors=scanned_vectors,
+        scan_limit=scan_limit,
+        distribution_complete=distribution_complete,
+        target_version=readiness["target_version"],
+        target_version_vectors=readiness["target_version_vectors"],
+        target_version_ratio=readiness["target_version_ratio"],
+        pending_vectors=readiness["pending_vectors"],
+        migration_ready=readiness["migration_ready"],
     )
 
 
@@ -1077,6 +2217,7 @@ async def batch_similarity(payload: BatchSimilarityRequest, api_key: str = Depen
     from src.core.similarity import (
         _VECTOR_META,
         _VECTOR_STORE,
+        extract_vector_label_contract,
         get_degraded_mode_info,
         get_vector_store,
     )
@@ -1117,6 +2258,117 @@ async def batch_similarity(payload: BatchSimilarityRequest, api_key: str = Depen
     items: list[BatchSimilarityItem] = []
     successful = 0
     failed = 0
+
+    qdrant_store = _get_qdrant_store_or_none()
+    if qdrant_store is not None:
+        from src.core.similarity import extract_vector_label_contract
+
+        filter_conditions = _build_vector_filter_conditions(
+            material_filter=payload.material,
+            complexity_filter=payload.complexity,
+            fine_part_type_filter=None,
+            coarse_part_type_filter=None,
+            decision_source_filter=None,
+            is_coarse_label_filter=None,
+        )
+
+        for vid in payload.ids:
+            target = await qdrant_store.get_vector(vid)
+            if target is None:
+                items.append(
+                    BatchSimilarityItem(
+                        id=vid,
+                        status="not_found",
+                        error=build_error(
+                            ErrorCode.DATA_NOT_FOUND,
+                            stage="batch_similarity",
+                            message="Vector not found",
+                            id=vid,
+                        ),
+                    )
+                )
+                failed += 1
+                continue
+
+            try:
+                query_vector = list(target.vector or [])
+                results = await qdrant_store.search_similar(
+                    query_vector,
+                    top_k=payload.top_k + 1,
+                    filter_conditions=filter_conditions or None,
+                    score_threshold=payload.min_score,
+                    with_vectors=True,
+                )
+
+                similar: list[Dict[str, Any]] = []
+                for result in results:
+                    if result.id == vid:
+                        continue
+                    meta = result.metadata or {}
+                    label_contract = extract_vector_label_contract(meta)
+                    dimension = len(result.vector or [])
+                    if dimension <= 0:
+                        try:
+                            dimension = int(meta.get("total_dim") or 0)
+                        except (TypeError, ValueError):
+                            dimension = 0
+                    similar.append(
+                        {
+                            "id": result.id,
+                            "score": round(float(result.score), 4),
+                            "material": meta.get("material"),
+                            "complexity": meta.get("complexity"),
+                            "format": meta.get("format"),
+                            "dimension": dimension,
+                            "part_type": label_contract.get("part_type"),
+                            "fine_part_type": label_contract.get("fine_part_type"),
+                            "coarse_part_type": label_contract.get("coarse_part_type"),
+                            "decision_source": label_contract.get("decision_source"),
+                            "is_coarse_label": label_contract.get("is_coarse_label"),
+                        }
+                    )
+                    if len(similar) >= payload.top_k:
+                        break
+
+                items.append(BatchSimilarityItem(id=vid, status="success", similar=similar))
+                successful += 1
+            except Exception as e:
+                items.append(
+                    BatchSimilarityItem(
+                        id=vid,
+                        status="error",
+                        error=build_error(
+                            ErrorCode.INTERNAL_ERROR,
+                            stage="batch_similarity",
+                            message="Query failed",
+                            id=vid,
+                            detail=str(e),
+                        ),
+                    )
+                )
+                failed += 1
+
+        duration = time.time() - start_time
+        vector_query_batch_latency_seconds.labels(batch_size_range=size_range).observe(duration)
+
+        if successful > 0 and all((not it.similar) for it in items if it.status == "success"):
+            try:
+                from src.utils.analysis_metrics import analysis_rejections_total
+
+                analysis_rejections_total.labels(reason="batch_empty_results").inc()
+            except Exception:
+                pass
+
+        return BatchSimilarityResponse(
+            total=len(payload.ids),
+            successful=successful,
+            failed=failed,
+            items=items,
+            batch_id=batch_id,
+            duration_ms=round(duration * 1000, 2),
+            fallback=None,
+            degraded=False,
+        )
 
     # Get vector store using factory (handles backend selection and fallback)
     store = get_vector_store()
@@ -1190,6 +2442,7 @@ async def batch_similarity(payload: BatchSimilarityRequest, api_key: str = Depen
                 if payload.format and meta.get("format") != payload.format:
                     continue
 
+                label_contract = extract_vector_label_contract(meta)
                 similar.append(
                     {
                         "id": result_id,
@@ -1198,6 +2451,11 @@ async def batch_similarity(payload: BatchSimilarityRequest, api_key: str = Depen
                         "complexity": meta.get("complexity"),
                         "format": meta.get("format"),
                         "dimension": len(_VECTOR_STORE.get(result_id, [])),
+                        "part_type": label_contract.get("part_type"),
+                        "fine_part_type": label_contract.get("fine_part_type"),
+                        "coarse_part_type": label_contract.get("coarse_part_type"),
+                        "decision_source": label_contract.get("decision_source"),
+                        "is_coarse_label": label_contract.get("is_coarse_label"),
                     }
                 )
 

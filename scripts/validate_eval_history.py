@@ -34,6 +34,11 @@ DEFAULT_SCHEMA_PATH = "docs/eval_history.schema.json"
 DEFAULT_EXCLUDE_GLOBS = (
     "hybrid_blind_drift_alert_report.json",
     "hybrid_blind_drift_threshold_suggestion.json",
+    "*_experiment_summary.json",
+    "*_reporting_bundle.json",
+    "eval_reporting_bundle_health_report.json",
+    "eval_reporting_index.json",
+    "history_sequence_surface_comparison_report.json",
 )
 
 
@@ -45,8 +50,7 @@ SCHEMAS = {
             "combined": ["vision_metrics", "ocr_metrics", "combined"],
             "ocr": ["metrics"],
             "vision": ["metrics"],
-            "history_sequence": ["history_metrics", "artifacts", "tuning"],
-            "hybrid_blind": ["metrics"],
+            "history_sequence": ["history_metrics", "artifacts", "tuning"]
         },
         "run_context_fields": ["runner", "machine", "os", "python", "start_time"],
         "optional_run_context": ["ci_job_id", "ci_workflow"]
@@ -146,23 +150,49 @@ def validate_file(filepath: Path, strict: bool = False) -> Tuple[bool, List[str]
 
     if "history_metrics" in data:
         hmetrics = data["history_metrics"]
-        for field in ["coverage", "accuracy_overall", "macro_f1_overall"]:
+        for field in [
+            "coverage",
+            "accuracy_overall",
+            "macro_f1_overall",
+            "coarse_accuracy_on_ok",
+            "coarse_accuracy_overall",
+            "coarse_macro_f1_on_ok",
+            "coarse_macro_f1_overall",
+        ]:
             if field in hmetrics:
                 value = hmetrics[field]
                 if not (0 <= value <= 1):
                     issues.append(f"history_metrics {field} out of range: {value}")
 
-    if data.get("type") == "hybrid_blind" and "metrics" in data:
-        hybrid_metrics = data["metrics"]
-        for field in [
-            "weak_label_coverage",
-            "hybrid_accuracy",
-            "graph2d_accuracy",
-        ]:
-            if field in hybrid_metrics:
-                value = hybrid_metrics[field]
-                if not (0 <= value <= 1):
-                    issues.append(f"hybrid_blind {field} out of range: {value}")
+        for field in ["exact_top_mismatches", "coarse_top_mismatches"]:
+            if field not in hmetrics:
+                continue
+            value = hmetrics[field]
+            if not isinstance(value, list):
+                issues.append(f"history_metrics {field} must be a list")
+                continue
+            for index, item in enumerate(value):
+                if not isinstance(item, dict):
+                    issues.append(
+                        f"history_metrics {field}[{index}] must be an object"
+                    )
+                    continue
+                expected = str(item.get("expected") or "").strip()
+                predicted = str(item.get("predicted") or "").strip()
+                count = item.get("count")
+                if not expected or not predicted:
+                    issues.append(
+                        f"history_metrics {field}[{index}] missing expected/predicted"
+                    )
+                try:
+                    if int(count) < 0:
+                        issues.append(
+                            f"history_metrics {field}[{index}] count out of range: {count}"
+                        )
+                except Exception:
+                    issues.append(
+                        f"history_metrics {field}[{index}] count must be integer"
+                    )
 
     if "tuning" in data:
         tuning = data["tuning"]
@@ -324,7 +354,6 @@ def main():
             skipped_files.append(path)
             continue
         json_files.append(path)
-
     if not json_files:
         print(f"No JSON files found in {history_dir} after exclusions")
         return

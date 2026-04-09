@@ -1,14 +1,12 @@
+import csv
 import json
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-from src.core.active_learning import (
-    get_active_learner,
-    reset_active_learner,
-    SampleStatus,
-)
+from src.core.classification.coarse_labels import normalize_coarse_label
+from src.core.active_learning import get_active_learner, reset_active_learner, SampleStatus
 from src.main import app
 
 
@@ -28,7 +26,10 @@ def test_active_learning_pending_limit(client):
         predicted_type="bolt",
         confidence=0.4,
         alternatives=[],
-        score_breakdown={},
+        score_breakdown={
+            "source_contributions": {"filename": 0.72},
+            "hybrid_explanation": {"summary": "文件名信号支持 bolt"},
+        },
         uncertainty_reason="low_confidence",
     )
     learner.flag_for_review(
@@ -46,60 +47,13 @@ def test_active_learning_pending_limit(client):
     assert len(payload) == 1
     assert payload[0]["id"] == sample_one.id
     assert payload[0]["status"] == SampleStatus.PENDING.value
-    assert payload[0]["evidence_count"] == 0
-    assert payload[0]["evidence_sources"] == []
-    assert payload[0]["evidence_summary"] is None
-    assert payload[0]["evidence"] == []
-
-
-def test_active_learning_pending_includes_structured_evidence(client):
-    learner = get_active_learner()
-    learner.flag_for_review(
-        doc_id="doc-evidence-1",
-        predicted_type="manhole",
-        confidence=0.41,
-        alternatives=[{"type": "shell", "confidence": 0.31}],
-        score_breakdown={
-            "decision_path": ["fusion_scored", "final_below_reject_min_conf"],
-            "source_contributions": {"filename": 0.61, "titleblock": 0.22},
-            "fusion_metadata": {
-                "strategy": "weighted_average",
-                "agreement_score": 0.5,
-                "num_sources": 2,
-            },
-            "hybrid_explanation": {"summary": "综合 文件名, 标题栏 多源信息"},
-            "hybrid_rejection": {
-                "reason": "below_min_confidence",
-                "raw_source": "filename",
-                "raw_confidence": 0.61,
-            },
-        },
-        uncertainty_reason="hybrid_rejected:below_min_confidence+low_confidence",
-    )
-
-    resp = client.get("/api/v1/active-learning/pending?limit=1")
-    assert resp.status_code == 200
-    payload = resp.json()[0]
-
-    assert payload["evidence_count"] == 6
-    assert payload["evidence_sources"] == ["filename", "titleblock"]
-    assert payload["evidence_summary"].startswith("综合 文件名, 标题栏 多源信息")
-    assert (
-        "Rejection: below_min_confidence via filename (0.610)"
-        in payload["evidence_summary"]
-    )
-    assert payload["evidence"][0] == {
-        "kind": "source_contribution",
-        "source": "filename",
-        "score": 0.61,
-    }
-    assert payload["evidence"][1] == {
-        "kind": "source_contribution",
-        "source": "titleblock",
-        "score": 0.22,
-    }
-    assert any(item["kind"] == "hybrid_explanation" for item in payload["evidence"])
-    assert any(item["kind"] == "decision_path" for item in payload["evidence"])
+    assert payload[0]["predicted_fine_type"] == "bolt"
+    assert payload[0]["predicted_coarse_type"] == normalize_coarse_label("bolt")
+    assert payload[0]["sample_type"] == "low_confidence"
+    assert payload[0]["feedback_priority"] == "medium"
+    assert payload[0]["evidence_count"] >= 2
+    assert payload[0]["evidence_sources"] == ["filename", "hybrid_explanation"]
+    assert "文件名信号支持 bolt" in payload[0]["evidence_summary"]
 
 
 def test_active_learning_feedback_missing_sample_returns_404(client):
@@ -126,7 +80,13 @@ def test_active_learning_feedback_updates_sample(client):
     )
     resp = client.post(
         "/api/v1/active-learning/feedback",
-        json={"sample_id": sample.id, "true_type": "screw", "reviewer_id": "user-1"},
+        json={
+            "sample_id": sample.id,
+            "true_type": "人孔",
+            "true_fine_type": "人孔",
+            "true_coarse_type": "开孔件",
+            "reviewer_id": "user-1",
+        },
     )
     assert resp.status_code == 200
     body = resp.json()
@@ -135,7 +95,10 @@ def test_active_learning_feedback_updates_sample(client):
     updated = learner.get_sample(sample.id)
     assert updated is not None
     assert updated.status == SampleStatus.LABELED
-    assert updated.true_type == "screw"
+    assert updated.true_type == "人孔"
+    assert updated.true_fine_type == "人孔"
+    assert updated.true_coarse_type == "开孔件"
+    assert updated.true_is_coarse_label is False
     assert updated.reviewer_id == "user-1"
 
 
@@ -156,7 +119,16 @@ def test_active_learning_stats_retrain_ready(client):
     assert body["retrain_ready"] is True
     assert body["labeled_samples"] == 1
     assert body["threshold"] == 1
+    assert body["remaining_samples"] == 0
+    assert body["retrain_recommendation"] == "threshold_met"
     assert body["stats"]["total"] == 1
+    assert body["sample_type_stats"]["low_confidence"] == 1
+    assert body["feedback_priority_stats"]["medium"] == 1
+    assert body["predicted_fine_stats"]["bolt"] == 1
+    assert body["predicted_coarse_stats"][normalize_coarse_label("bolt")] == 1
+    assert body["labeled_true_fine_stats"]["bolt"] == 1
+    assert body["labeled_true_coarse_stats"][normalize_coarse_label("bolt")] == 1
+    assert body["correction_count"] == 0
 
 
 def test_active_learning_export_no_samples(client):
@@ -189,29 +161,188 @@ def test_active_learning_export_labeled(client, tmp_path, monkeypatch):
     assert export_path.exists()
 
 
-def test_active_learning_export_includes_structured_evidence(client):
+def test_active_learning_review_queue_orders_by_priority_then_confidence(client):
     learner = get_active_learner()
-    sample = learner.flag_for_review(
-        doc_id="doc-export-evidence",
-        predicted_type="manhole",
-        confidence=0.41,
-        alternatives=[{"type": "shell", "confidence": 0.31}],
-        score_breakdown={
-            "decision_path": ["fusion_scored", "final_below_reject_min_conf"],
-            "source_contributions": {"filename": 0.61, "titleblock": 0.22},
-            "hybrid_explanation": {"summary": "综合 文件名, 标题栏 多源信息"},
-        },
-        uncertainty_reason="hybrid_rejected:below_min_confidence+low_confidence",
+    critical = learner.flag_for_review(
+        doc_id="doc-critical",
+        predicted_type="法兰",
+        confidence=0.82,
+        alternatives=[],
+        score_breakdown={"review_priority": "critical"},
+        uncertainty_reason="knowledge_conflict",
     )
-    learner.submit_feedback(sample.id, "manhole")
+    high = learner.flag_for_review(
+        doc_id="doc-high",
+        predicted_type="人孔",
+        confidence=0.41,
+        alternatives=[],
+        score_breakdown={},
+        uncertainty_reason="hybrid_rejected:below_min_confidence",
+    )
+    medium = learner.flag_for_review(
+        doc_id="doc-medium",
+        predicted_type="bolt",
+        confidence=0.22,
+        alternatives=[],
+        score_breakdown={},
+        uncertainty_reason="low_confidence",
+    )
 
-    resp = client.post("/api/v1/active-learning/export", json={"format": "jsonl"})
+    resp = client.get("/api/v1/active-learning/review-queue")
+    assert resp.status_code == 200
+
+    body = resp.json()
+    assert body["total"] == 3
+    assert body["returned"] == 3
+    assert body["sort_by"] == "priority"
+    assert [item["id"] for item in body["items"]] == [critical.id, high.id, medium.id]
+    assert body["summary"]["by_feedback_priority"]["critical"] == 1
+    assert body["summary"]["by_feedback_priority"]["high"] == 1
+    assert body["summary"]["by_feedback_priority"]["medium"] == 1
+
+
+def test_active_learning_review_queue_supports_filters_and_pagination(client):
+    learner = get_active_learner()
+    first = learner.flag_for_review(
+        doc_id="doc-queue-1",
+        predicted_type="法兰",
+        confidence=0.61,
+        alternatives=[],
+        score_breakdown={},
+        uncertainty_reason="low_confidence",
+    )
+    learner.flag_for_review(
+        doc_id="doc-queue-2",
+        predicted_type="人孔",
+        confidence=0.31,
+        alternatives=[],
+        score_breakdown={},
+        uncertainty_reason="hybrid_rejected:below_min_confidence",
+    )
+    learner.submit_feedback(first.id, "法兰")
+
+    filtered = client.get(
+        "/api/v1/active-learning/review-queue",
+        params={"status": "pending", "feedback_priority": "high"},
+    )
+    assert filtered.status_code == 200
+    filtered_body = filtered.json()
+    assert filtered_body["total"] == 1
+    assert filtered_body["items"][0]["doc_id"] == "doc-queue-2"
+    assert filtered_body["summary"]["by_sample_type"]["hybrid_rejection"] == 1
+
+    paged = client.get(
+        "/api/v1/active-learning/review-queue",
+        params={"status": "all", "limit": 1, "offset": 1, "sort_by": "created_at"},
+    )
+    assert paged.status_code == 200
+    paged_body = paged.json()
+    assert paged_body["total"] == 2
+    assert paged_body["returned"] == 1
+    assert paged_body["offset"] == 1
+    assert paged_body["has_more"] is False
+
+
+def test_active_learning_review_queue_summary_includes_decision_source_and_reasons(client):
+    learner = get_active_learner()
+    learner.flag_for_review(
+        doc_id="doc-summary-1",
+        predicted_type="法兰",
+        confidence=0.55,
+        alternatives=[],
+        score_breakdown={
+            "final_decision_source": "hybrid",
+            "review_reasons": ["missing_critical_fields", "low_confidence"],
+        },
+        uncertainty_reason="low_confidence",
+    )
+
+    resp = client.get("/api/v1/active-learning/review-queue")
+    assert resp.status_code == 200
+    summary = resp.json()["summary"]
+    assert summary["by_decision_source"]["hybrid"] == 1
+    assert summary["by_uncertainty_reason"]["low_confidence"] == 1
+    assert summary["by_review_reason"]["missing_critical_fields"] == 1
+    assert summary["by_review_reason"]["low_confidence"] == 1
+
+
+def test_active_learning_review_queue_export_csv(client):
+    learner = get_active_learner()
+    learner.flag_for_review(
+        doc_id="doc-export-1",
+        predicted_type="法兰",
+        confidence=0.55,
+        alternatives=[],
+        score_breakdown={
+            "final_decision_source": "hybrid",
+            "review_reasons": ["missing_critical_fields"],
+            "source_contributions": {"filename": 0.55, "graph2d": 0.21},
+            "hybrid_explanation": {"summary": "综合 文件名, 图结构 证据"},
+        },
+        uncertainty_reason="low_confidence",
+    )
+
+    resp = client.get("/api/v1/active-learning/review-queue/export")
     assert resp.status_code == 200
     body = resp.json()
-    export_path = Path(body["file"])
-    with open(export_path, "r", encoding="utf-8") as handle:
-        payload = json.loads(handle.readline())
+    assert body["status"] == "ok"
+    assert body["count"] == 1
+    assert body["format"] == "csv"
+    assert body["summary"]["by_decision_source"]["hybrid"] == 1
 
-    assert payload["evidence_count"] == 4
-    assert payload["evidence_sources"] == ["filename", "titleblock"]
-    assert payload["evidence_summary"].startswith("综合 文件名, 标题栏 多源信息")
+    export_path = Path(body["file"])
+    assert export_path.exists()
+    with export_path.open() as handle:
+        rows = list(csv.DictReader(handle))
+    assert len(rows) == 1
+    assert rows[0]["doc_id"] == "doc-export-1"
+    assert int(rows[0]["evidence_count"]) >= 2
+    assert "filename" in json.loads(rows[0]["evidence_sources"])
+    assert "综合 文件名, 图结构 证据" in rows[0]["evidence_summary"]
+    assert json.loads(rows[0]["evidence"])[0]["type"] == "source_contribution"
+    assert json.loads(rows[0]["review_reasons"]) == ["missing_critical_fields"]
+
+
+def test_active_learning_review_queue_export_jsonl_empty_returns_error(client):
+    resp = client.get(
+        "/api/v1/active-learning/review-queue/export",
+        params={"format": "jsonl"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "error"
+    assert "No review queue samples to export" in body["message"]
+
+
+def test_active_learning_review_queue_stats_endpoint(client):
+    learner = get_active_learner()
+    learner.flag_for_review(
+        doc_id="doc-stats-1",
+        predicted_type="bolt",
+        confidence=0.2,
+        alternatives=[],
+        score_breakdown={"decision_source": "graph2d", "review_automation_ready": True},
+        uncertainty_reason="low_confidence",
+    )
+    learner.flag_for_review(
+        doc_id="doc-stats-2",
+        predicted_type="人孔",
+        confidence=0.4,
+        alternatives=[],
+        score_breakdown={"decision_source": "hybrid", "review_reasons": ["branch_conflict"]},
+        uncertainty_reason="hybrid_rejected:below_min_confidence",
+    )
+
+    resp = client.get("/api/v1/active-learning/review-queue/stats")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 2
+    assert body["by_decision_source"]["graph2d"] == 1
+    assert body["by_decision_source"]["hybrid"] == 1
+    assert body["by_review_reason"]["branch_conflict"] == 1
+    assert body["high_count"] == 1
+    assert body["critical_count"] == 0
+    assert body["automation_ready_count"] == 1
+    assert body["high_ratio"] == 0.5
+    assert body["automation_ready_ratio"] == 0.5
+    assert body["operational_status"] == "managed_backlog"

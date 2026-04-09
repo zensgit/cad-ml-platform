@@ -126,6 +126,34 @@ class _FakeDedupClientTwoCandidates:
         }
 
 
+class _FakeDedupClientLabelledCandidate:
+    async def search_2d(self, **kwargs) -> Dict[str, Any]:
+        return {
+            "success": True,
+            "total_matches": 1,
+            "duplicates": [
+                {
+                    "drawing_id": "1",
+                    "file_hash": "abc",
+                    "file_name": "J2925001-01人孔v2.dxf",
+                    "similarity": 0.99,
+                    "confidence": 0.9,
+                    "match_level": 2,
+                    "verdict": "duplicate",
+                    "levels": {"l1": {}, "l2": {}},
+                    "diff_image_base64": None,
+                    "diff_regions": None,
+                }
+            ],
+            "similar": [],
+            "final_level": 2,
+            "timing": {"total_ms": 12.3},
+            "level_stats": {},
+            "warnings": [],
+            "error": None,
+        }
+
+
 class _FakeGeomStore:
     def __init__(self):
         self.saved: Dict[str, Dict[str, Any]] = {}
@@ -225,6 +253,27 @@ def test_dedup_2d_search_proxy_ok():
         app.dependency_overrides.clear()
 
 
+def test_dedup_2d_search_adds_coarse_label_contract_from_match_filename():
+    app.dependency_overrides[get_dedupcad_vision_client] = (
+        lambda: _FakeDedupClientLabelledCandidate()
+    )
+    try:
+        client = TestClient(app)
+        files = {"file": ("drawing.png", b"fake", "image/png")}
+        resp = client.post(
+            "/api/v1/dedup/2d/search?mode=balanced&max_results=10",
+            files=files,
+        )
+        assert resp.status_code == 200
+        match = resp.json()["duplicates"][0]
+        assert match["fine_part_type"] == "人孔"
+        assert match["coarse_part_type"] == "开孔件"
+        assert match["decision_source"] == "dedup_filename_exact"
+        assert match["is_coarse_label"] is False
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_dedup_2d_search_applies_precision_when_geom_json_provided():
     fake_store = _FakeGeomStore()
     fake_store.saved["abc"] = {"entities": []}
@@ -264,7 +313,9 @@ def test_dedup_2d_search_thresholds_can_reclassify_duplicate_to_similar():
         }
         # With default weights, fused sim is ~0.997 (<0.9999), so it should be "similar".
         resp = client.post(
-            "/api/v1/dedup/2d/search?mode=precise&max_results=10&duplicate_threshold=0.9999&similar_threshold=0.5",
+            "/api/v1/dedup/2d/search"
+            "?mode=precise&max_results=10"
+            "&duplicate_threshold=0.9999&similar_threshold=0.5",
             files=files,
         )
         assert resp.status_code == 200
@@ -324,7 +375,9 @@ def test_dedup_2d_search_preset_does_not_override_explicit_thresholds():
             ),
         }
         resp = client.post(
-            "/api/v1/dedup/2d/search?preset=version&mode=balanced&max_results=10&similar_threshold=0.90",
+            "/api/v1/dedup/2d/search"
+            "?preset=version&mode=balanced&max_results=10"
+            "&similar_threshold=0.90",
             files=files,
         )
         assert resp.status_code == 200
@@ -353,7 +406,9 @@ def test_dedup_2d_search_precision_diff_can_be_requested():
             ),
         }
         resp = client.post(
-            "/api/v1/dedup/2d/search?mode=balanced&max_results=10&precision_compute_diff=true&precision_diff_top_n=1",
+            "/api/v1/dedup/2d/search"
+            "?mode=balanced&max_results=10"
+            "&precision_compute_diff=true&precision_diff_top_n=1",
             files=files,
         )
         assert resp.status_code == 200
@@ -567,7 +622,9 @@ def test_dedup_2d_search_version_gate_file_name_filters_cross_drawing_candidates
             "geom_json": ("geom.json", b'{"entities":[]}', "application/json"),
         }
         resp = client.post(
-            "/api/v1/dedup/2d/search?preset=version&mode=precise&max_results=10&version_gate=file_name",
+            "/api/v1/dedup/2d/search"
+            "?preset=version&mode=precise&max_results=10"
+            "&version_gate=file_name",
             files=files,
         )
         assert resp.status_code == 200
@@ -684,7 +741,9 @@ def test_dedup_2d_search_async_callback_url_requires_redis_backend():
         client = TestClient(app)
         files = {"file": ("drawing.png", b"fake", "image/png")}
         resp = client.post(
-            "/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true&callback_url=https%3A%2F%2Fexample.com%2Fhook",
+            "/api/v1/dedup/2d/search"
+            "?mode=balanced&max_results=10"
+            "&async=true&callback_url=https%3A%2F%2Fexample.com%2Fhook",
             files=files,
         )
         assert resp.status_code == 400
@@ -712,7 +771,9 @@ def test_dedup_2d_search_async_invalid_callback_url_returns_400(monkeypatch):
         client = TestClient(app)
         files = {"file": ("drawing.png", b"fake", "image/png")}
         resp = client.post(
-            "/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true&callback_url=http%3A%2F%2Fexample.com%2Fhook",
+            "/api/v1/dedup/2d/search"
+            "?mode=balanced&max_results=10"
+            "&async=true&callback_url=http%3A%2F%2Fexample.com%2Fhook",
             files=files,
         )
         assert resp.status_code == 400
@@ -967,7 +1028,9 @@ def test_dedup_2d_async_backend_redis_can_submit_and_poll(monkeypatch):
         files = {"file": ("drawing.png", b"fake", "image/png")}
 
         resp = client.post(
-            "/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true&callback_url=https%3A%2F%2Fexample.com%2Fhook",
+            "/api/v1/dedup/2d/search"
+            "?mode=balanced&max_results=10"
+            "&async=true&callback_url=https%3A%2F%2Fexample.com%2Fhook",
             files=files,
         )
         assert resp.status_code == 200

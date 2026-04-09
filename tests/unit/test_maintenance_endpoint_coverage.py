@@ -230,6 +230,96 @@ class TestCleanupOrphanVectorsEndpoint:
                         # Should continue and handle 1 orphan (v2)
                         assert result.orphan_count == 1
 
+    @pytest.mark.asyncio
+    async def test_cleanup_orphans_qdrant_no_cache_client(self):
+        """Test qdrant orphan cleanup when cache client is unavailable."""
+        from src.api.v1.maintenance import cleanup_orphan_vectors
+
+        class DummyQdrantResult:
+            def __init__(self, vector_id):
+                self.id = vector_id
+
+        class DummyQdrantStore:
+            def __init__(self):
+                self.deleted = []
+
+            async def count(self, filter_conditions=None):
+                return 2
+
+            async def list_vectors(self, offset=0, limit=50, with_vectors=False):
+                items = [DummyQdrantResult("q1"), DummyQdrantResult("q2")]
+                return items[offset : offset + limit], 2
+
+            async def delete_vector(self, vector_id):
+                self.deleted.append(vector_id)
+                return True
+
+        store = DummyQdrantStore()
+        with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
+            "src.api.v1.maintenance._get_qdrant_store_or_none",
+            return_value=store,
+        ), patch("src.utils.cache.get_client", return_value=None):
+            result = await cleanup_orphan_vectors(
+                threshold=0,
+                force=True,
+                dry_run=False,
+                verbose=True,
+                api_key="test",
+            )
+
+        assert result.status == "ok"
+        assert result.orphan_count == 2
+        assert result.deleted_count == 2
+        assert store.deleted == ["q1", "q2"]
+
+    @pytest.mark.asyncio
+    async def test_cleanup_orphans_qdrant_cache_filters_live_vectors(self):
+        """Test qdrant orphan cleanup respects cache hits."""
+        from src.api.v1.maintenance import cleanup_orphan_vectors
+
+        class DummyQdrantResult:
+            def __init__(self, vector_id):
+                self.id = vector_id
+
+        class DummyQdrantStore:
+            def __init__(self):
+                self.deleted = []
+
+            async def count(self, filter_conditions=None):
+                return 2
+
+            async def list_vectors(self, offset=0, limit=50, with_vectors=False):
+                items = [DummyQdrantResult("q1"), DummyQdrantResult("q2")]
+                return items[offset : offset + limit], 2
+
+            async def delete_vector(self, vector_id):
+                self.deleted.append(vector_id)
+                return True
+
+        async def mock_get(key):
+            if key.endswith("q1"):
+                return b"cached"
+            return None
+
+        mock_client = AsyncMock()
+        mock_client.get = mock_get
+        store = DummyQdrantStore()
+        with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
+            "src.api.v1.maintenance._get_qdrant_store_or_none",
+            return_value=store,
+        ), patch("src.utils.cache.get_client", return_value=mock_client):
+            result = await cleanup_orphan_vectors(
+                threshold=0,
+                force=True,
+                dry_run=False,
+                verbose=True,
+                api_key="test",
+            )
+
+        assert result.orphan_count == 1
+        assert result.deleted_count == 1
+        assert store.deleted == ["q2"]
+
 
 class TestClearCacheEndpoint:
     """Tests for clear_cache endpoint."""
@@ -311,7 +401,70 @@ class TestGetMaintenanceStatsEndpoint:
 
                         assert result["vector_store"]["total_vectors"] == 2
                         assert result["vector_store"]["metadata_entries"] == 1
+                        assert result["vector_store"]["backend"] == "memory"
                         assert result["cache"]["available"] is False
+
+    @pytest.mark.asyncio
+    async def test_get_stats_qdrant_backend(self):
+        """Test get_maintenance_stats uses qdrant backend when enabled."""
+        from src.api.v1.maintenance import get_maintenance_stats
+
+        class DummyQdrantStore:
+            async def inspect_collection(self):
+                return {
+                    "reachable": True,
+                    "collection_exists": True,
+                    "collection_status": "green",
+                    "points_count": 7,
+                    "unindexed_vectors_count": 1,
+                    "indexing_progress": 0.8571,
+                    "error": None,
+                }
+
+        with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
+            "src.api.v1.maintenance._get_qdrant_store_or_none",
+            return_value=DummyQdrantStore(),
+        ), patch("src.utils.cache.get_client", return_value=None):
+            result = await get_maintenance_stats(api_key="test")
+
+        assert result["vector_store"]["backend"] == "qdrant"
+        assert result["vector_store"]["total_vectors"] == 7
+        assert result["vector_store"]["metadata_entries"] == 7
+        assert result["vector_store"]["qdrant"]["reachable"] is True
+        assert result["vector_store"]["qdrant"]["collection_exists"] is True
+        assert result["vector_store"]["qdrant"]["collection_status"] == "green"
+        assert result["vector_store"]["qdrant"]["unindexed_vectors_count"] == 1
+        assert result["vector_store"]["qdrant"]["error_type"] == "none"
+        assert result["vector_store"]["qdrant"]["error_severity"] == "none"
+        assert result["vector_store"]["qdrant"]["error_hint"] is None
+
+    @pytest.mark.asyncio
+    async def test_get_stats_qdrant_backend_classifies_errors(self):
+        """Test qdrant observability exposes actionable error taxonomy."""
+        from src.api.v1.maintenance import get_maintenance_stats
+
+        class DummyQdrantStore:
+            async def inspect_collection(self):
+                return {
+                    "reachable": False,
+                    "collection_exists": False,
+                    "collection_status": "red",
+                    "points_count": 0,
+                    "unindexed_vectors_count": 0,
+                    "indexing_progress": 0.0,
+                    "error": "Connection timeout while reaching qdrant host",
+                }
+
+        with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
+            "src.api.v1.maintenance._get_qdrant_store_or_none",
+            return_value=DummyQdrantStore(),
+        ), patch("src.utils.cache.get_client", return_value=None):
+            result = await get_maintenance_stats(api_key="test")
+
+        qdrant_stats = result["vector_store"]["qdrant"]
+        assert qdrant_stats["error_type"] == "timeout"
+        assert qdrant_stats["error_severity"] == "critical"
+        assert "timeout" in qdrant_stats["error_hint"].lower()
 
     @pytest.mark.asyncio
     async def test_get_stats_with_cache(self):

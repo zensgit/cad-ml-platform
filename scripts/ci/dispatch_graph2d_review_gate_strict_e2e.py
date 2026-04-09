@@ -67,20 +67,44 @@ def build_workflow_run_command(
     workflow: str,
     ref: str,
     review_pack_input_csv: str,
+    review_pack_input_artifact_name: str,
+    review_pack_input_artifact_run_id: str,
+    review_pack_input_artifact_repository: str,
+    review_pack_input_artifact_path: str,
     strict_value: str,
 ) -> list[str]:
-    return [
+    command = [
         "gh",
         "workflow",
         "run",
         str(workflow),
         "--ref",
         str(ref),
-        "-f",
-        f"review_pack_input_csv={review_pack_input_csv}",
-        "-f",
-        f"review_gate_strict={strict_value}",
     ]
+    if str(review_pack_input_csv).strip():
+        command.extend(["-f", f"review_pack_input_csv={review_pack_input_csv}"])
+    if str(review_pack_input_artifact_name).strip():
+        command.extend(
+            ["-f", f"review_pack_input_artifact_name={review_pack_input_artifact_name}"]
+        )
+    if str(review_pack_input_artifact_run_id).strip():
+        command.extend(
+            ["-f", f"review_pack_input_artifact_run_id={review_pack_input_artifact_run_id}"]
+        )
+    if str(review_pack_input_artifact_repository).strip():
+        command.extend(
+            [
+                "-f",
+                "review_pack_input_artifact_repository="
+                f"{review_pack_input_artifact_repository}",
+            ]
+        )
+    if str(review_pack_input_artifact_path).strip():
+        command.extend(
+            ["-f", f"review_pack_input_artifact_path={review_pack_input_artifact_path}"]
+        )
+    command.extend(["-f", f"review_gate_strict={strict_value}"])
+    return command
 
 
 def _build_list_dispatched_runs_command(
@@ -207,6 +231,26 @@ def _build_parser() -> argparse.ArgumentParser:
         default="tests/fixtures/ci/graph2d_review_pack_input.csv",
         help="Input CSV path passed to workflow_dispatch.review_pack_input_csv",
     )
+    parser.add_argument(
+        "--review-pack-input-artifact-name",
+        default="",
+        help="Artifact name passed to workflow_dispatch.review_pack_input_artifact_name",
+    )
+    parser.add_argument(
+        "--review-pack-input-artifact-run-id",
+        default="",
+        help="Run id passed to workflow_dispatch.review_pack_input_artifact_run_id",
+    )
+    parser.add_argument(
+        "--review-pack-input-artifact-repository",
+        default="",
+        help="Repository passed to workflow_dispatch.review_pack_input_artifact_repository",
+    )
+    parser.add_argument(
+        "--review-pack-input-artifact-path",
+        default="",
+        help="Artifact path passed to workflow_dispatch.review_pack_input_artifact_path",
+    )
     parser.add_argument("--wait-timeout-seconds", type=int, default=300)
     parser.add_argument("--poll-interval-seconds", type=int, default=3)
     parser.add_argument("--list-limit", type=int, default=20)
@@ -231,6 +275,10 @@ def _serialize_results(
     workflow: str,
     ref: str,
     review_pack_input_csv: str,
+    review_pack_input_artifact_name: str,
+    review_pack_input_artifact_run_id: str,
+    review_pack_input_artifact_repository: str,
+    review_pack_input_artifact_path: str,
     timeout_seconds: int,
     poll_interval_seconds: int,
     list_limit: int,
@@ -241,6 +289,10 @@ def _serialize_results(
         "workflow": workflow,
         "ref": ref,
         "review_pack_input_csv": review_pack_input_csv,
+        "review_pack_input_artifact_name": review_pack_input_artifact_name,
+        "review_pack_input_artifact_run_id": review_pack_input_artifact_run_id,
+        "review_pack_input_artifact_repository": review_pack_input_artifact_repository,
+        "review_pack_input_artifact_path": review_pack_input_artifact_path,
         "wait_timeout_seconds": timeout_seconds,
         "poll_interval_seconds": poll_interval_seconds,
         "list_limit": list_limit,
@@ -278,6 +330,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             workflow=str(args.workflow),
             ref=str(args.ref),
             review_pack_input_csv=str(args.review_pack_input_csv),
+            review_pack_input_artifact_name=str(args.review_pack_input_artifact_name),
+            review_pack_input_artifact_run_id=str(args.review_pack_input_artifact_run_id),
+            review_pack_input_artifact_repository=str(
+                args.review_pack_input_artifact_repository
+            ),
+            review_pack_input_artifact_path=str(args.review_pack_input_artifact_path),
             strict_value=case.strict_value,
         )
         for case in cases
@@ -312,6 +370,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             workflow=str(args.workflow),
             ref=str(args.ref),
             review_pack_input_csv=str(args.review_pack_input_csv),
+            review_pack_input_artifact_name=str(args.review_pack_input_artifact_name),
+            review_pack_input_artifact_run_id=str(args.review_pack_input_artifact_run_id),
+            review_pack_input_artifact_repository=str(
+                args.review_pack_input_artifact_repository
+            ),
+            review_pack_input_artifact_path=str(args.review_pack_input_artifact_path),
             strict_value=case.strict_value,
         )
         print(f"Dispatching strict={case.strict_value}: {shlex.join(dispatch_cmd)}")
@@ -369,6 +433,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         workflow=str(args.workflow),
         ref=str(args.ref),
         review_pack_input_csv=str(args.review_pack_input_csv),
+        review_pack_input_artifact_name=str(args.review_pack_input_artifact_name),
+        review_pack_input_artifact_run_id=str(args.review_pack_input_artifact_run_id),
+        review_pack_input_artifact_repository=str(args.review_pack_input_artifact_repository),
+        review_pack_input_artifact_path=str(args.review_pack_input_artifact_path),
         timeout_seconds=int(args.wait_timeout_seconds),
         poll_interval_seconds=int(args.poll_interval_seconds),
         list_limit=int(args.list_limit),

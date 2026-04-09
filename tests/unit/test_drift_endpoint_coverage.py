@@ -101,6 +101,10 @@ class TestDriftStatusEndpoint:
         assert result.material_drift_score > 0
         assert result.prediction_drift_score is not None
         assert result.prediction_drift_score > 0
+        assert result.prediction_current_coarse
+        assert result.prediction_baseline_coarse
+        assert result.prediction_coarse_drift_score is not None
+        assert result.prediction_coarse_drift_score >= 0
         assert result.material_baseline is not None
         assert result.prediction_baseline is not None
 
@@ -542,6 +546,9 @@ class TestDriftResponseModels:
             prediction_current={"simple": 60},
             prediction_baseline={"simple": 55},
             prediction_drift_score=0.1,
+            prediction_current_coarse={"simple": 60},
+            prediction_baseline_coarse={"simple": 55},
+            prediction_coarse_drift_score=0.1,
             baseline_min_count=100,
             materials_total=80,
             predictions_total=60,
@@ -573,6 +580,9 @@ class TestDriftResponseModels:
         assert response.prediction_baseline is None
         assert response.material_drift_score is None
         assert response.prediction_drift_score is None
+        assert response.prediction_current_coarse == {}
+        assert response.prediction_baseline_coarse is None
+        assert response.prediction_coarse_drift_score is None
         assert response.stale is None
 
     def test_drift_reset_response_model_creation(self):
