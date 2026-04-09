@@ -11,7 +11,7 @@ filename:
   synonyms_path: "data/knowledge/label_synonyms_template.json"
 
 graph2d:
-  enabled: false
+  enabled: true
   min_confidence: 0.5
   min_margin: 0.0
   fusion_weight: 0.3
@@ -39,7 +39,7 @@ process:
   fusion_weight: 0.15
 
 history_sequence:
-  enabled: false
+  enabled: true
   min_confidence: 0.55
   fusion_weight: 0.2
   prototypes_path: "data/knowledge/history_sequence_prototypes_template.json"
@@ -48,7 +48,7 @@ history_sequence:
   prototype_bigram_weight: 1.0
 
 rejection:
-  enabled: false
+  enabled: true
   min_confidence: 0.35
 
 auto_enable:
@@ -82,7 +82,7 @@ multimodal:
   gate_type: "weighted"
 
 distillation:
-  enabled: false
+  enabled: true
   alpha: 0.3
   temperature: 3.0
   teacher_type: "hybrid"
