@@ -2306,6 +2306,17 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "BENCHMARK_SCORECARD_KNOWLEDGE_READINESS_JSON" in benchmark_script
 
 
+def test_install_dependencies_step_includes_torch_for_hybrid_blind_runtime() -> None:
+    workflow = _load_workflow()
+    install_step = _get_step(workflow, "evaluate", "Install dependencies")
+    install_script = install_step["run"]
+
+    assert "pip install -r requirements.txt" in install_script
+    assert "pip install -r requirements-dev.txt" in install_script
+    assert "pip install torch==2.1.0" in install_script
+    assert "Graph2D blind benchmark requires torch on the GitHub runner." in install_script
+
+
 def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     workflow = _load_workflow()
 
