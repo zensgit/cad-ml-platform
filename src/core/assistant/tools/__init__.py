@@ -13,6 +13,8 @@ from .feature_tool import FeatureTool
 from .process_tool import ProcessTool
 from .quality_tool import QualityTool
 from .knowledge_tool import KnowledgeTool
+from .graph_knowledge_tool import GraphKnowledgeTool
+from .pointcloud_tool import PointCloudTool
 
 # Instantiate one of each tool and index by name.
 TOOL_REGISTRY = {
@@ -25,6 +27,8 @@ TOOL_REGISTRY = {
         ProcessTool(),
         QualityTool(),
         KnowledgeTool(),
+        GraphKnowledgeTool(),
+        PointCloudTool(),
     ]
 }
 
@@ -37,5 +41,7 @@ __all__ = [
     "ProcessTool",
     "QualityTool",
     "KnowledgeTool",
+    "GraphKnowledgeTool",
+    "PointCloudTool",
     "TOOL_REGISTRY",
 ]

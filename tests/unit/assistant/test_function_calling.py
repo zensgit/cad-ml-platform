@@ -15,6 +15,8 @@ from src.core.assistant.tools import (
     ProcessTool,
     QualityTool,
     KnowledgeTool,
+    GraphKnowledgeTool,
+    PointCloudTool,
 )
 from src.core.assistant.function_calling import FunctionCallingEngine
 from src.core.assistant.report_generator import AnalysisReportGenerator
@@ -32,6 +34,8 @@ EXPECTED_TOOL_NAMES = {
     "recommend_process",
     "assess_quality",
     "query_knowledge",
+    "query_graph",
+    "analyze_3d",
 }
 
 
@@ -44,7 +48,7 @@ class TestToolRegistry:
 
     def test_tool_registry_count(self):
         """Registry contains exactly 7 tools."""
-        assert len(TOOL_REGISTRY) == 7
+        assert len(TOOL_REGISTRY) == 9
 
     def test_all_tools_are_base_tool_instances(self):
         """Every registered tool inherits from BaseTool."""
@@ -158,7 +162,7 @@ class TestFunctionCallingEngine:
         """Anthropic-format definitions are well-formed."""
         engine = FunctionCallingEngine(llm_provider="offline")
         defs = engine._build_tool_definitions_anthropic()
-        assert len(defs) == 7
+        assert len(defs) == 9
         for d in defs:
             assert "name" in d
             assert "description" in d
@@ -168,7 +172,7 @@ class TestFunctionCallingEngine:
         """OpenAI-format definitions are well-formed."""
         engine = FunctionCallingEngine(llm_provider="offline")
         defs = engine._build_tool_definitions_openai()
-        assert len(defs) == 7
+        assert len(defs) == 9
         for d in defs:
             assert d["type"] == "function"
             assert "function" in d
