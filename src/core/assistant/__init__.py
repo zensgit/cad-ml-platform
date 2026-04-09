@@ -18,6 +18,7 @@ from .query_analyzer import QueryAnalyzer, QueryIntent, AnalyzedQuery
 from .knowledge_retriever import KnowledgeRetriever, RetrievalResult, RetrievalMode, RetrievalSource
 from .context_assembler import ContextAssembler, AssembledContext
 from .assistant import CADAssistant, AssistantConfig, LLMProvider
+from .explainability import AssistantEvidence, build_assistant_evidence
 from .llm_providers import (
     LLMConfig,
     BaseLLMProvider,
@@ -228,6 +229,8 @@ __all__ = [
     "CADAssistant",
     "AssistantConfig",
     "LLMProvider",
+    "AssistantEvidence",
+    "build_assistant_evidence",
     # LLM Providers
     "LLMConfig",
     "BaseLLMProvider",

@@ -275,6 +275,8 @@ class TestBatchClassifyEndpoint:
         mock_result.probabilities = {"轴类": 0.95, "其他": 0.05}
         mock_result.needs_review = False
         mock_result.review_reason = None
+        mock_result.top2_category = "连接件"
+        mock_result.top2_confidence = 0.03
         mock_result.model_version = "v16_ensemble"
 
         mock_classifier = MagicMock()
@@ -293,7 +295,12 @@ class TestBatchClassifyEndpoint:
         assert payload["success"] == 2
         assert payload["failed"] == 0
         assert payload["results"][0]["category"] == "轴类"
+        assert payload["results"][0]["fine_category"] == "轴类"
+        assert payload["results"][0]["coarse_category"] == "轴类"
+        assert payload["results"][0]["is_coarse_label"] is True
         assert payload["results"][0]["confidence"] == 0.95
+        assert payload["results"][0]["top2_category"] == "连接件"
+        assert payload["results"][0]["top2_confidence"] == 0.03
 
     def test_batch_classify_mixed_formats(self, client, api_headers):
         """Batch classify handles mixed valid and invalid formats."""
@@ -309,6 +316,8 @@ class TestBatchClassifyEndpoint:
         mock_result.probabilities = {"壳体类": 0.88}
         mock_result.needs_review = False
         mock_result.review_reason = None  # Explicit None, not MagicMock
+        mock_result.top2_category = None
+        mock_result.top2_confidence = None
         mock_result.model_version = "v16"
 
         mock_classifier = MagicMock()
@@ -326,3 +335,45 @@ class TestBatchClassifyEndpoint:
         assert payload["total"] == 2
         assert payload["success"] == 1
         assert payload["failed"] == 1
+        assert payload["results"][0]["fine_category"] == "壳体类"
+        assert payload["results"][0]["coarse_category"] == "壳体类"
+        assert payload["results"][0]["is_coarse_label"] is True
+
+    def test_batch_classify_v6_fallback_exposes_coarse_contract(self, client, api_headers):
+        """Sequential V6 fallback still exposes fine/coarse batch contract fields."""
+        dxf_content = b"0\nSECTION\n2\nHEADER\n0\nENDSEC\n0\nEOF\n"
+        files = [
+            ("files", ("part1.dxf", io.BytesIO(dxf_content), "application/octet-stream")),
+        ]
+
+        mock_result = MagicMock()
+        mock_result.category = "人孔"
+        mock_result.confidence = 0.91
+        mock_result.probabilities = {"人孔": 0.91, "法兰": 0.09}
+        mock_result.needs_review = True
+        mock_result.review_reason = "edge_case"
+        mock_result.top2_category = "法兰"
+        mock_result.top2_confidence = 0.09
+
+        mock_classifier = MagicMock()
+        mock_classifier.predict.return_value = mock_result
+
+        with patch("src.core.analyzer._get_v16_classifier", return_value=None):
+            with patch("src.core.analyzer._get_ml_classifier", return_value=mock_classifier):
+                response = client.post(
+                    "/api/v1/analyze/batch-classify",
+                    files=files,
+                    headers=api_headers,
+                )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["success"] == 1
+        assert payload["results"][0]["category"] == "人孔"
+        assert payload["results"][0]["fine_category"] == "人孔"
+        assert payload["results"][0]["coarse_category"] == "开孔件"
+        assert payload["results"][0]["is_coarse_label"] is False
+        assert payload["results"][0]["needs_review"] is True
+        assert payload["results"][0]["review_reason"] == "edge_case"
+        assert payload["results"][0]["top2_category"] == "法兰"
+        assert payload["results"][0]["top2_confidence"] == 0.09

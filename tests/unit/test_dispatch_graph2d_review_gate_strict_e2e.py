@@ -14,6 +14,10 @@ def test_build_workflow_run_command_contains_required_inputs() -> None:
         workflow="evaluation-report.yml",
         ref="main",
         review_pack_input_csv="tests/fixtures/ci/graph2d_review_pack_input.csv",
+        review_pack_input_artifact_name="",
+        review_pack_input_artifact_run_id="",
+        review_pack_input_artifact_repository="",
+        review_pack_input_artifact_path="",
         strict_value="true",
     )
     text = " ".join(command)
@@ -21,6 +25,30 @@ def test_build_workflow_run_command_contains_required_inputs() -> None:
     assert "--ref main" in text
     assert "review_pack_input_csv=tests/fixtures/ci/graph2d_review_pack_input.csv" in text
     assert "review_gate_strict=true" in text
+
+
+def test_build_workflow_run_command_supports_artifact_input_fields() -> None:
+    from scripts.ci.dispatch_graph2d_review_gate_strict_e2e import (
+        build_workflow_run_command,
+    )
+
+    command = build_workflow_run_command(
+        workflow="evaluation-report.yml",
+        ref="main",
+        review_pack_input_csv="",
+        review_pack_input_artifact_name="batch-results-artifact",
+        review_pack_input_artifact_run_id="123456789",
+        review_pack_input_artifact_repository="zensgit/cad-ml-platform",
+        review_pack_input_artifact_path="batch_results_sanitized.csv",
+        strict_value="false",
+    )
+    text = " ".join(command)
+    assert "review_pack_input_artifact_name=batch-results-artifact" in text
+    assert "review_pack_input_artifact_run_id=123456789" in text
+    assert "review_pack_input_artifact_repository=zensgit/cad-ml-platform" in text
+    assert "review_pack_input_artifact_path=batch_results_sanitized.csv" in text
+    assert "review_gate_strict=false" in text
+    assert "review_pack_input_csv=" not in text
 
 
 def test_main_print_only_outputs_dispatch_and_watch_commands(capsys: Any) -> None:
@@ -97,9 +125,40 @@ def test_main_success_when_expectations_match(monkeypatch: Any, tmp_path: Any) -
     assert rc == 0
     payload = json.loads(output_json.read_text(encoding="utf-8"))
     assert payload["overall_exit_code"] == 0
+    assert payload["review_pack_input_artifact_name"] == ""
     assert len(payload["runs"]) == 2
     assert payload["runs"][0]["matched_expectation"] is True
     assert payload["runs"][1]["matched_expectation"] is True
+
+
+def test_main_print_only_supports_artifact_input_flags(capsys: Any) -> None:
+    from scripts.ci import dispatch_graph2d_review_gate_strict_e2e as mod
+
+    rc = mod.main(
+        [
+            "--print-only",
+            "--workflow",
+            "evaluation-report.yml",
+            "--ref",
+            "main",
+            "--review-pack-input-csv",
+            "",
+            "--review-pack-input-artifact-name",
+            "batch-results-artifact",
+            "--review-pack-input-artifact-run-id",
+            "123456789",
+            "--review-pack-input-artifact-repository",
+            "zensgit/cad-ml-platform",
+            "--review-pack-input-artifact-path",
+            "batch_results_sanitized.csv",
+        ]
+    )
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "review_pack_input_artifact_name=batch-results-artifact" in out
+    assert "review_pack_input_artifact_run_id=123456789" in out
+    assert "review_pack_input_artifact_repository=zensgit/cad-ml-platform" in out
+    assert "review_pack_input_artifact_path=batch_results_sanitized.csv" in out
 
 
 def test_main_returns_nonzero_when_strict_true_unexpected_success(monkeypatch: Any) -> None:

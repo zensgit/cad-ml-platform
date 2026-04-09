@@ -18,12 +18,18 @@ from pydantic import BaseModel, ConfigDict, Field
 from src.adapters.factory import AdapterFactory
 from src.api.dependencies import get_api_key
 from src.core.analyzer import CADAnalyzer
+from src.core.classification import (
+    build_review_governance,
+    labels_conflict,
+    normalize_coarse_label,
+)
 from src.core.errors_extended import (
     ErrorCode,
     build_error,
     create_extended_error,
     create_migration_error,
 )
+from src.core.knowledge.analysis_summary import build_knowledge_summary
 from src.core.feature_extractor import FeatureExtractor
 from src.core.ocr.manager import OcrManager
 from src.core.ocr.providers.deepseek_hf import DeepSeekHfProvider
@@ -63,6 +69,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _get_qdrant_store_or_none():
+    if os.getenv("VECTOR_STORE_BACKEND", "memory") != "qdrant":
+        return None
+    try:
+        from src.core.vector_stores import get_vector_store as get_managed_vector_store
+
+        return get_managed_vector_store("qdrant")
+    except Exception:
+        return None
+
+
 # Local helper for env float parsing to avoid runtime 500s on bad values.
 def _safe_float_env(name: str, default: float) -> float:
     raw = os.getenv(name, str(default))
@@ -71,6 +88,49 @@ def _safe_float_env(name: str, default: float) -> float:
     except (TypeError, ValueError):
         logger.warning("Invalid %s=%s; using default %.2f", name, raw, default)
         return float(default)
+
+
+def _get_qdrant_store_or_none():
+    if os.getenv("VECTOR_STORE_BACKEND", "memory") != "qdrant":
+        return None
+    try:
+        from src.core.vector_stores import get_vector_store as get_managed_vector_store
+
+        return get_managed_vector_store("qdrant")
+    except Exception:
+        return None
+
+
+async def _compute_similarity_qdrant(
+    qdrant_store,
+    reference_id: str,
+    candidate_vector: list[float],
+) -> Dict[str, Any]:
+    from src.core.similarity import _cosine
+
+    reference = await qdrant_store.get_vector(reference_id)
+    if reference is None:
+        return {
+            "reference_id": reference_id,
+            "status": "reference_not_found",
+            "score": 0.0,
+        }
+    ref_vector = list(reference.vector or [])
+    if len(ref_vector) != len(candidate_vector):
+        return {
+            "reference_id": reference_id,
+            "status": "dimension_mismatch",
+            "score": 0.0,
+            "method": "cosine",
+            "dimension": min(len(ref_vector), len(candidate_vector)),
+        }
+    score = _cosine(ref_vector, candidate_vector)
+    return {
+        "reference_id": reference_id,
+        "score": round(score, 4),
+        "method": "cosine",
+        "dimension": len(candidate_vector),
+    }
 
 
 DEFAULT_GRAPH2D_DRAWING_LABELS = {
@@ -257,12 +317,19 @@ class BatchClassifyResultItem(BaseModel):
 
     file_name: str = Field(description="文件名")
     category: Optional[str] = Field(default=None, description="分类类别")
+    fine_category: Optional[str] = Field(default=None, description="细粒度分类类别")
+    coarse_category: Optional[str] = Field(default=None, description="归一化粗粒度分类类别")
+    is_coarse_label: Optional[bool] = Field(
+        default=None, description="分类类别是否已经是粗粒度标签"
+    )
     confidence: Optional[float] = Field(default=None, description="置信度")
     probabilities: Optional[Dict[str, float]] = Field(
         default=None, description="各类别概率"
     )
     needs_review: bool = Field(default=False, description="是否需要人工复核")
     review_reason: Optional[str] = Field(default=None, description="复核原因")
+    top2_category: Optional[str] = Field(default=None, description="第二候选类别")
+    top2_confidence: Optional[float] = Field(default=None, description="第二候选置信度")
     classifier: Optional[str] = Field(default=None, description="使用的分类器版本")
     error: Optional[str] = Field(default=None, description="错误信息")
 
@@ -282,12 +349,57 @@ class SimilarityQuery(BaseModel):
     target_id: str = Field(description="目标分析ID")
 
 
+def _build_batch_classify_item(
+    *,
+    file_name: str,
+    category: Optional[str],
+    confidence: Optional[float],
+    probabilities: Optional[Dict[str, float]],
+    classifier: Optional[str],
+    needs_review: bool = False,
+    review_reason: Optional[str] = None,
+    top2_category: Optional[str] = None,
+    top2_confidence: Optional[float] = None,
+    error: Optional[str] = None,
+) -> BatchClassifyResultItem:
+    fine_category = str(category or "").strip() or None
+    coarse_category = normalize_coarse_label(fine_category)
+    is_coarse_label = None
+    if fine_category:
+        is_coarse_label = fine_category == coarse_category
+    return BatchClassifyResultItem(
+        file_name=file_name,
+        category=fine_category,
+        fine_category=fine_category,
+        coarse_category=coarse_category,
+        is_coarse_label=is_coarse_label,
+        confidence=confidence,
+        probabilities=probabilities,
+        needs_review=needs_review,
+        review_reason=review_reason,
+        top2_category=top2_category,
+        top2_confidence=top2_confidence,
+        classifier=classifier,
+        error=error,
+    )
+
+
 class SimilarityResult(BaseModel):
     reference_id: str
     target_id: str
     score: float
     method: str
     dimension: int
+    reference_part_type: Optional[str] = None
+    reference_fine_part_type: Optional[str] = None
+    reference_coarse_part_type: Optional[str] = None
+    reference_decision_source: Optional[str] = None
+    reference_is_coarse_label: Optional[bool] = None
+    target_part_type: Optional[str] = None
+    target_fine_part_type: Optional[str] = None
+    target_coarse_part_type: Optional[str] = None
+    target_decision_source: Optional[str] = None
+    target_is_coarse_label: Optional[bool] = None
     status: Optional[str] = None
     error: Optional[Dict[str, Any]] = None
 
@@ -299,6 +411,13 @@ class SimilarityTopKQuery(BaseModel):
     offset: int = Field(default=0, description="结果偏移用于分页")
     material_filter: Optional[str] = Field(default=None, description="按材料过滤")
     complexity_filter: Optional[str] = Field(default=None, description="按复杂度过滤")
+    fine_part_type_filter: Optional[str] = Field(default=None, description="按细分类过滤")
+    coarse_part_type_filter: Optional[str] = Field(default=None, description="按粗分类过滤")
+    decision_source_filter: Optional[str] = Field(default=None, description="按决策来源过滤")
+    is_coarse_label_filter: Optional[bool] = Field(
+        default=None,
+        description="是否按 coarse label 标记过滤",
+    )
 
 
 class SimilarityTopKItem(BaseModel):
@@ -307,6 +426,11 @@ class SimilarityTopKItem(BaseModel):
     material: Optional[str] = None
     complexity: Optional[str] = None
     format: Optional[str] = None
+    part_type: Optional[str] = None
+    fine_part_type: Optional[str] = None
+    coarse_part_type: Optional[str] = None
+    decision_source: Optional[str] = None
+    is_coarse_label: Optional[bool] = None
 
 
 class SimilarityTopKResponse(BaseModel):
@@ -315,6 +439,34 @@ class SimilarityTopKResponse(BaseModel):
     results: list[SimilarityTopKItem]
     status: Optional[str] = None
     error: Optional[Dict[str, Any]] = None
+
+
+def _matches_similarity_topk_filters(
+    payload: SimilarityTopKQuery,
+    meta: Dict[str, Any],
+    label_contract: Dict[str, Any],
+) -> bool:
+    if payload.material_filter and meta.get("material") != payload.material_filter:
+        return False
+    if payload.complexity_filter and meta.get("complexity") != payload.complexity_filter:
+        return False
+    if payload.fine_part_type_filter and (
+        label_contract.get("fine_part_type") != payload.fine_part_type_filter
+    ):
+        return False
+    if payload.coarse_part_type_filter and (
+        label_contract.get("coarse_part_type") != payload.coarse_part_type_filter
+    ):
+        return False
+    if payload.decision_source_filter and (
+        label_contract.get("decision_source") != payload.decision_source_filter
+    ):
+        return False
+    if payload.is_coarse_label_filter is not None and (
+        label_contract.get("is_coarse_label") is not payload.is_coarse_label_filter
+    ):
+        return False
+    return True
 
 
 class VectorDeleteRequest(BaseModel):  # deprecated moved to vectors.py
@@ -1727,6 +1879,101 @@ async def analyze_cad_file(
                             "decision_confidence": hybrid_conf,
                             "label": hybrid_label,
                         }
+
+                cls_payload["final_decision_source"] = str(
+                    cls_payload.get("confidence_source") or "rules"
+                )
+                cls_payload["coarse_part_type"] = normalize_coarse_label(
+                    cls_payload.get("part_type")
+                )
+                cls_payload["coarse_fine_part_type"] = normalize_coarse_label(
+                    cls_payload.get("fine_part_type")
+                )
+                cls_payload["coarse_hybrid_label"] = normalize_coarse_label(
+                    ((cls_payload.get("hybrid_decision") or {}).get("label"))
+                )
+                cls_payload["coarse_graph2d_label"] = normalize_coarse_label(
+                    ((cls_payload.get("graph2d_prediction") or {}).get("label"))
+                )
+                cls_payload["coarse_filename_label"] = normalize_coarse_label(
+                    ((cls_payload.get("filename_prediction") or {}).get("label"))
+                )
+                cls_payload["coarse_titleblock_label"] = normalize_coarse_label(
+                    ((cls_payload.get("titleblock_prediction") or {}).get("label"))
+                )
+                cls_payload["coarse_history_label"] = normalize_coarse_label(
+                    ((cls_payload.get("history_prediction") or {}).get("label"))
+                )
+                cls_payload["coarse_process_label"] = normalize_coarse_label(
+                    ((cls_payload.get("process_prediction") or {}).get("label"))
+                )
+                cls_payload["coarse_part_family"] = normalize_coarse_label(
+                    cls_payload.get("part_family")
+                )
+
+                branch_conflicts = {
+                    "hybrid_vs_graph2d": labels_conflict(
+                        cls_payload.get("coarse_hybrid_label"),
+                        cls_payload.get("coarse_graph2d_label"),
+                    ),
+                    "filename_vs_graph2d": labels_conflict(
+                        cls_payload.get("coarse_filename_label"),
+                        cls_payload.get("coarse_graph2d_label"),
+                    ),
+                    "titleblock_vs_graph2d": labels_conflict(
+                        cls_payload.get("coarse_titleblock_label"),
+                        cls_payload.get("coarse_graph2d_label"),
+                    ),
+                    "history_vs_final": labels_conflict(
+                        cls_payload.get("coarse_history_label"),
+                        cls_payload.get("coarse_part_type"),
+                    ),
+                }
+                cls_payload["branch_conflicts"] = {
+                    key: value for key, value in branch_conflicts.items() if value
+                }
+                cls_payload["has_branch_conflict"] = bool(
+                    cls_payload["branch_conflicts"]
+                )
+
+                knowledge_payload = build_knowledge_summary(
+                    text_signals=text_signals,
+                    text_items=doc.metadata.get("text_content")
+                    if isinstance(doc.metadata.get("text_content"), list)
+                    else None,
+                    geometric_features=l2_features,
+                    entity_counts=ent_counts,
+                    fine_part_type=cls_payload.get("fine_part_type"),
+                    coarse_part_type=cls_payload.get("coarse_part_type"),
+                )
+                cls_payload["knowledge_checks"] = knowledge_payload.get(
+                    "knowledge_checks", []
+                )
+                cls_payload["violations"] = knowledge_payload.get("violations", [])
+                cls_payload["standards_candidates"] = knowledge_payload.get(
+                    "standards_candidates", []
+                )
+                cls_payload["knowledge_hints"] = knowledge_payload.get(
+                    "knowledge_hints", []
+                )
+                review_low_conf_threshold = _safe_float_env(
+                    "ANALYSIS_REVIEW_LOW_CONFIDENCE_THRESHOLD",
+                    _safe_float_env("ACTIVE_LEARNING_CONFIDENCE_THRESHOLD", 0.6),
+                )
+                review_high_conf_threshold = _safe_float_env(
+                    "ANALYSIS_REVIEW_HIGH_CONFIDENCE_THRESHOLD",
+                    0.85,
+                )
+                cls_payload.update(
+                    build_review_governance(
+                        confidence=cls_payload.get("confidence", 0.0),
+                        hybrid_rejection=cls_payload.get("hybrid_rejection"),
+                        branch_conflicts=cls_payload.get("branch_conflicts"),
+                        violations=cls_payload.get("violations"),
+                        low_confidence_threshold=review_low_conf_threshold,
+                        high_confidence_threshold=review_high_conf_threshold,
+                    )
+                )
                 results["classification"] = cls_payload
                 # Active learning: flag low-confidence samples for review
                 try:
@@ -1736,34 +1983,32 @@ async def analyze_cad_file(
                         .lower()
                         == "true"
                     )
-                    threshold = float(
-                        __import__("os").getenv(
-                            "ACTIVE_LEARNING_CONFIDENCE_THRESHOLD", "0.6"
-                        )
-                    )
-                    confidence_value = float(cls_payload.get("confidence", 1.0) or 1.0)
                     hybrid_rejection_payload = cls_payload.get("hybrid_rejection")
                     if not isinstance(hybrid_rejection_payload, dict):
                         hybrid_rejection_payload = None
-                    is_low_confidence = confidence_value < threshold
-                    if (
-                        enabled
-                        and (is_low_confidence or hybrid_rejection_payload is not None)
-                    ):
-                        uncertainty_reason = "low_confidence"
-                        if hybrid_rejection_payload is not None:
-                            rejection_reason = (
-                                str(
-                                    hybrid_rejection_payload.get("reason")
-                                    or "unknown"
-                                ).strip()
-                                or "unknown"
-                            )
-                            uncertainty_reason = f"hybrid_rejected:{rejection_reason}"
-                            if is_low_confidence:
-                                uncertainty_reason = (
-                                    f"{uncertainty_reason}+low_confidence"
-                                )
+                    needs_review = bool(cls_payload.get("needs_review"))
+                    if enabled and needs_review:
+                        review_reasons = [
+                            str(reason).strip()
+                            for reason in (cls_payload.get("review_reasons") or [])
+                            if str(reason).strip()
+                        ]
+                        uncertainty_reason = (
+                            "+".join(review_reasons) or "low_confidence"
+                        )
+                        review_priority = str(
+                            cls_payload.get("review_priority") or "medium"
+                        ).strip() or "medium"
+                        if cls_payload.get("review_has_knowledge_conflict"):
+                            sample_type = "knowledge_conflict"
+                        elif cls_payload.get("review_has_branch_conflict"):
+                            sample_type = "branch_conflict"
+                        elif cls_payload.get("review_has_hybrid_rejection"):
+                            sample_type = "hybrid_rejection"
+                        elif cls_payload.get("review_is_low_confidence"):
+                            sample_type = "low_confidence"
+                        else:
+                            sample_type = "review"
                         from src.core.active_learning import get_active_learner
 
                         learner = get_active_learner()
@@ -1773,6 +2018,14 @@ async def analyze_cad_file(
                             confidence=float(cls_payload.get("confidence", 0.0)),
                             alternatives=cls_payload.get("alternatives", []),
                             score_breakdown={
+                                "coarse_part_type": cls_payload.get("coarse_part_type"),
+                                "fine_part_type": cls_payload.get("fine_part_type"),
+                                "coarse_hybrid_label": cls_payload.get(
+                                    "coarse_hybrid_label"
+                                ),
+                                "coarse_graph2d_label": cls_payload.get(
+                                    "coarse_graph2d_label"
+                                ),
                                 "rule_version": cls_payload.get("rule_version"),
                                 "model_version": cls_payload.get("model_version"),
                                 "confidence_source": cls_payload.get(
@@ -1786,12 +2039,43 @@ async def analyze_cad_file(
                                 "source_contributions": cls_payload.get(
                                     "source_contributions"
                                 ),
+                                "history_prediction": cls_payload.get(
+                                    "history_prediction"
+                                ),
                                 "fusion_metadata": cls_payload.get("fusion_metadata"),
+                                "shadow_predictions": (
+                                    (cls_payload.get("fusion_metadata") or {}).get(
+                                        "shadow_predictions"
+                                    )
+                                    if isinstance(
+                                        cls_payload.get("fusion_metadata"), dict
+                                    )
+                                    else None
+                                ),
                                 "hybrid_explanation": cls_payload.get(
                                     "hybrid_explanation"
                                 ),
+                                "knowledge_checks": cls_payload.get(
+                                    "knowledge_checks"
+                                ),
+                                "violations": cls_payload.get("violations"),
+                                "standards_candidates": cls_payload.get(
+                                    "standards_candidates"
+                                ),
+                                "branch_conflicts": cls_payload.get(
+                                    "branch_conflicts"
+                                ),
+                                "needs_review": cls_payload.get("needs_review"),
+                                "confidence_band": cls_payload.get("confidence_band"),
+                                "review_priority": cls_payload.get("review_priority"),
+                                "review_priority_score": cls_payload.get(
+                                    "review_priority_score"
+                                ),
+                                "review_reasons": cls_payload.get("review_reasons"),
                             },
                             uncertainty_reason=uncertainty_reason,
+                            sample_type=sample_type,
+                            feedback_priority=review_priority,
                         )
                 except Exception as e:
                     logger.warning(f"Active learning flag failed: {e}")
@@ -2098,11 +2382,53 @@ async def analyze_cad_file(
             if l3_dim is not None:
                 meta["l3_3d_dim"] = str(l3_dim)
 
-            accepted = register_vector(
-                analysis_id,
-                feature_vector,
-                meta=meta,
-            )
+            classification_meta = results.get("classification", {})
+            if isinstance(classification_meta, dict):
+                final_part_type = str(
+                    classification_meta.get("part_type") or ""
+                ).strip()
+                fine_part_type = str(
+                    classification_meta.get("fine_part_type") or final_part_type
+                ).strip()
+                coarse_part_type = str(
+                    classification_meta.get("coarse_part_type")
+                    or normalize_coarse_label(fine_part_type or final_part_type)
+                    or ""
+                ).strip()
+                final_decision_source = str(
+                    classification_meta.get("final_decision_source")
+                    or classification_meta.get("decision_source")
+                    or classification_meta.get("confidence_source")
+                    or ""
+                ).strip()
+                if final_part_type:
+                    meta["part_type"] = final_part_type
+                if fine_part_type:
+                    meta["fine_part_type"] = fine_part_type
+                if coarse_part_type:
+                    meta["coarse_part_type"] = coarse_part_type
+                    meta["is_coarse_label"] = str(
+                        bool(fine_part_type and fine_part_type == coarse_part_type)
+                    ).lower()
+                if final_decision_source:
+                    meta["final_decision_source"] = final_decision_source
+
+            qdrant_store = _get_qdrant_store_or_none()
+            stored_in_qdrant = False
+            if qdrant_store is not None:
+                await qdrant_store.register_vector(
+                    analysis_id,
+                    feature_vector,
+                    metadata=meta,
+                )
+                accepted = True
+                stored_in_qdrant = True
+            else:
+                accepted = register_vector(
+                    analysis_id,
+                    feature_vector,
+                    meta=meta,
+                )
             if accepted:
                 vector_store_material_total.labels(material=m_used).inc()
                 # Optional FAISS backend add if enabled
@@ -2114,24 +2440,42 @@ async def analyze_cad_file(
                         pass
                 analysis_feature_vector_dimension.observe(len(feature_vector))
                 # enrich meta with dimension breakdown for future migrations
-                try:
-                    _VECTOR_META = __import__("src.core.similarity", fromlist=["_VECTOR_META"])._VECTOR_META  # type: ignore
-                    _VECTOR_META[analysis_id].update(meta)
-                except Exception:
-                    pass
+                if not stored_in_qdrant:
+                    try:
+                        _VECTOR_META = __import__(
+                            "src.core.similarity", fromlist=["_VECTOR_META"]
+                        )._VECTOR_META  # type: ignore
+                        _VECTOR_META[analysis_id].update(meta)
+                    except Exception:
+                        pass
         except Exception:
             pass
 
         if analysis_options.calculate_similarity and analysis_options.reference_id:
-            sim = compute_similarity(analysis_options.reference_id, feature_vector)
+            qdrant_store = _get_qdrant_store_or_none()
+            if qdrant_store is not None:
+                sim = await _compute_similarity_qdrant(
+                    qdrant_store,
+                    analysis_options.reference_id,
+                    feature_vector,
+                )
+            else:
+                sim = compute_similarity(analysis_options.reference_id, feature_vector)
             results["similarity"] = sim
-        elif analysis_options.reference_id and not has_vector(
-            analysis_options.reference_id
-        ):
-            results["similarity"] = {
-                "reference_id": analysis_options.reference_id,
-                "status": "reference_not_found",
-            }
+        elif analysis_options.reference_id:
+            qdrant_store = _get_qdrant_store_or_none()
+            if qdrant_store is not None:
+                reference = await qdrant_store.get_vector(analysis_options.reference_id)
+                if reference is None:
+                    results["similarity"] = {
+                        "reference_id": analysis_options.reference_id,
+                        "status": "reference_not_found",
+                    }
+            elif not has_vector(analysis_options.reference_id):
+                results["similarity"] = {
+                    "reference_id": analysis_options.reference_id,
+                    "status": "reference_not_found",
+                }
         if "similarity" in results:
             stage_times["similarity"] = (
                 time.time() - started - sum(stage_times.values())
@@ -2307,46 +2651,95 @@ async def similarity_query(
     payload: SimilarityQuery, api_key: str = Depends(get_api_key)
 ):
     """在已存在的向量之间计算相似度。"""
-    from src.core.similarity import _VECTOR_STORE  # type: ignore
+    from src.core.similarity import extract_vector_label_contract
 
-    if payload.reference_id not in _VECTOR_STORE:
-        # ErrorCode and build_error imported at module level
-        err = build_error(
-            ErrorCode.DATA_NOT_FOUND,
-            stage="similarity",
-            message="Reference vector not found",
-            id=payload.reference_id,
+    qdrant_store = _get_qdrant_store_or_none()
+    if qdrant_store is not None:
+        ref_result = await qdrant_store.get_vector(payload.reference_id)
+        if ref_result is None:
+            err = build_error(
+                ErrorCode.DATA_NOT_FOUND,
+                stage="similarity",
+                message="Reference vector not found",
+                id=payload.reference_id,
+            )
+            analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
+            return SimilarityResult(
+                reference_id=payload.reference_id,
+                target_id=payload.target_id,
+                score=0.0,
+                method="cosine",
+                dimension=0,
+                status="reference_not_found",
+                error=err,
+            )
+        tgt_result = await qdrant_store.get_vector(payload.target_id)
+        if tgt_result is None:
+            err = build_error(
+                ErrorCode.DATA_NOT_FOUND,
+                stage="similarity",
+                message="Target vector not found",
+                id=payload.target_id,
+            )
+            analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
+            return SimilarityResult(
+                reference_id=payload.reference_id,
+                target_id=payload.target_id,
+                score=0.0,
+                method="cosine",
+                dimension=0,
+                status="target_not_found",
+                error=err,
+            )
+        ref = list(ref_result.vector or [])
+        tgt = list(tgt_result.vector or [])
+        reference_contract = extract_vector_label_contract(ref_result.metadata)
+        target_contract = extract_vector_label_contract(tgt_result.metadata)
+    else:
+        from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
+
+        if payload.reference_id not in _VECTOR_STORE:
+            # ErrorCode and build_error imported at module level
+            err = build_error(
+                ErrorCode.DATA_NOT_FOUND,
+                stage="similarity",
+                message="Reference vector not found",
+                id=payload.reference_id,
+            )
+            analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
+            return SimilarityResult(
+                reference_id=payload.reference_id,
+                target_id=payload.target_id,
+                score=0.0,
+                method="cosine",
+                dimension=0,
+                status="reference_not_found",
+                error=err,
+            )
+        if payload.target_id not in _VECTOR_STORE:
+            # ErrorCode and build_error imported at module level
+            err = build_error(
+                ErrorCode.DATA_NOT_FOUND,
+                stage="similarity",
+                message="Target vector not found",
+                id=payload.target_id,
+            )
+            analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
+            return SimilarityResult(
+                reference_id=payload.reference_id,
+                target_id=payload.target_id,
+                score=0.0,
+                method="cosine",
+                dimension=0,
+                status="target_not_found",
+                error=err,
+            )
+        ref = _VECTOR_STORE[payload.reference_id]
+        tgt = _VECTOR_STORE[payload.target_id]
+        reference_contract = extract_vector_label_contract(
+            _VECTOR_META.get(payload.reference_id)
         )
-        analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
-        return SimilarityResult(
-            reference_id=payload.reference_id,
-            target_id=payload.target_id,
-            score=0.0,
-            method="cosine",
-            dimension=0,
-            status="reference_not_found",
-            error=err,
-        )
-    if payload.target_id not in _VECTOR_STORE:
-        # ErrorCode and build_error imported at module level
-        err = build_error(
-            ErrorCode.DATA_NOT_FOUND,
-            stage="similarity",
-            message="Target vector not found",
-            id=payload.target_id,
-        )
-        analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
-        return SimilarityResult(
-            reference_id=payload.reference_id,
-            target_id=payload.target_id,
-            score=0.0,
-            method="cosine",
-            dimension=0,
-            status="target_not_found",
-            error=err,
-        )
-    ref = _VECTOR_STORE[payload.reference_id]
-    tgt = _VECTOR_STORE[payload.target_id]
+        target_contract = extract_vector_label_contract(_VECTOR_META.get(payload.target_id))
     if len(ref) != len(tgt):
         # ErrorCode and build_error imported at module level
         err = build_error(
@@ -2375,6 +2768,16 @@ async def similarity_query(
         score=round(score, 4),
         method="cosine",
         dimension=len(ref),
+        reference_part_type=reference_contract.get("part_type"),
+        reference_fine_part_type=reference_contract.get("fine_part_type"),
+        reference_coarse_part_type=reference_contract.get("coarse_part_type"),
+        reference_decision_source=reference_contract.get("decision_source"),
+        reference_is_coarse_label=reference_contract.get("is_coarse_label"),
+        target_part_type=target_contract.get("part_type"),
+        target_fine_part_type=target_contract.get("fine_part_type"),
+        target_coarse_part_type=target_contract.get("coarse_part_type"),
+        target_decision_source=target_contract.get("decision_source"),
+        target_is_coarse_label=target_contract.get("is_coarse_label"),
     )
 
 
@@ -2383,7 +2786,83 @@ async def similarity_topk(
     payload: SimilarityTopKQuery, api_key: str = Depends(get_api_key)
 ):
     """基于已存储向量的 Top-K 相似检索。"""
-    from src.core.similarity import InMemoryVectorStore  # type: ignore
+    qdrant_store = _get_qdrant_store_or_none()
+    if qdrant_store is not None:
+        try:
+            from src.core.similarity import extract_vector_label_contract
+            target = await qdrant_store.get_vector(payload.target_id)
+            if target is None:
+                ext = create_extended_error(
+                    ErrorCode.DATA_NOT_FOUND, "Target vector not found", stage="similarity"
+                )
+                analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
+                return SimilarityTopKResponse(
+                    target_id=payload.target_id,
+                    k=payload.k,
+                    results=[],
+                    status="target_not_found",
+                    error=ext.to_dict(),
+                )
+            query_vector = target.vector or []
+            filter_conditions: Dict[str, Any] = {}
+            if payload.material_filter:
+                filter_conditions["material"] = payload.material_filter
+            if payload.complexity_filter:
+                filter_conditions["complexity"] = payload.complexity_filter
+            if payload.fine_part_type_filter:
+                filter_conditions["fine_part_type"] = payload.fine_part_type_filter
+            if payload.coarse_part_type_filter:
+                filter_conditions["coarse_part_type"] = payload.coarse_part_type_filter
+            if payload.decision_source_filter:
+                filter_conditions["decision_source"] = payload.decision_source_filter
+            if payload.is_coarse_label_filter is not None:
+                filter_conditions["is_coarse_label"] = payload.is_coarse_label_filter
+            query_k = max(payload.k + payload.offset + 1, min(payload.k * 5, payload.k + 100))
+            raw = await qdrant_store.search_similar(
+                query_vector,
+                top_k=query_k,
+                filter_conditions=filter_conditions or None,
+            )
+            items: list[SimilarityTopKItem] = []
+            matched = 0
+            for result in raw:
+                if payload.exclude_self and result.id == payload.target_id:
+                    continue
+                if matched < payload.offset:
+                    matched += 1
+                    continue
+                meta = result.metadata or {}
+                label_contract = extract_vector_label_contract(meta)
+                items.append(
+                    SimilarityTopKItem(
+                        id=result.id,
+                        score=round(float(result.score), 4),
+                        material=meta.get("material"),
+                        complexity=meta.get("complexity"),
+                        format=meta.get("format"),
+                        part_type=label_contract.get("part_type"),
+                        fine_part_type=label_contract.get("fine_part_type"),
+                        coarse_part_type=label_contract.get("coarse_part_type"),
+                        decision_source=label_contract.get("decision_source"),
+                        is_coarse_label=label_contract.get("is_coarse_label"),
+                    )
+                )
+                if len(items) >= payload.k:
+                    break
+            return SimilarityTopKResponse(
+                target_id=payload.target_id,
+                k=payload.k,
+                results=items,
+            )
+        except Exception:
+            pass
+
+    backend = os.getenv("VECTOR_STORE_BACKEND", "memory")
+
+    from src.core.similarity import (
+        InMemoryVectorStore,
+        extract_vector_label_contract,
+    )  # type: ignore
 
     store = InMemoryVectorStore()
     if not store.exists(payload.target_id):
@@ -2402,7 +2881,6 @@ async def similarity_topk(
     base_vec = store.get(payload.target_id)
     assert base_vec is not None  # for type checker
     # Choose backend dynamically
-    backend = os.getenv("VECTOR_STORE_BACKEND", "memory")
     import time as _time
 
     t0 = _time.time()
@@ -2420,19 +2898,13 @@ async def similarity_topk(
     vector_query_latency_seconds.labels(backend=backend).observe(_time.time() - t0)
     items: list[SimilarityTopKItem] = []
     sliced = raw[payload.offset : payload.offset + payload.k]
-    from src.core.similarity import InMemoryVectorStore  # type: ignore
-
     meta_store = InMemoryVectorStore()
     for vid, score in sliced:
         if payload.exclude_self and vid == payload.target_id:
             continue
         meta = meta_store.meta(vid) or {}
-        if payload.material_filter and meta.get("material") != payload.material_filter:
-            continue
-        if (
-            payload.complexity_filter
-            and meta.get("complexity") != payload.complexity_filter
-        ):
+        label_contract = extract_vector_label_contract(meta)
+        if not _matches_similarity_topk_filters(payload, meta, label_contract):
             continue
         items.append(
             SimilarityTopKItem(
@@ -2441,6 +2913,11 @@ async def similarity_topk(
                 material=meta.get("material"),
                 complexity=meta.get("complexity"),
                 format=meta.get("format"),
+                part_type=label_contract.get("part_type"),
+                fine_part_type=label_contract.get("fine_part_type"),
+                coarse_part_type=label_contract.get("coarse_part_type"),
+                decision_source=label_contract.get("decision_source"),
+                is_coarse_label=label_contract.get("is_coarse_label"),
             )
         )
     return SimilarityTopKResponse(
@@ -3314,7 +3791,7 @@ async def batch_classify(
                     if ml_classifier:
                         result = ml_classifier.predict(temp_path)
                         if result:
-                            results[i] = BatchClassifyResultItem(
+                            results[i] = _build_batch_classify_item(
                                 file_name=results[i].file_name,
                                 category=result.category,
                                 confidence=round(result.confidence, 4),
@@ -3323,6 +3800,14 @@ async def batch_classify(
                                     for k, v in result.probabilities.items()
                                 },
                                 classifier="ml_v6",
+                                needs_review=bool(
+                                    getattr(result, "needs_review", False)
+                                ),
+                                review_reason=getattr(result, "review_reason", None),
+                                top2_category=getattr(result, "top2_category", None),
+                                top2_confidence=getattr(
+                                    result, "top2_confidence", None
+                                ),
                             )
                         else:
                             results[i] = BatchClassifyResultItem(
@@ -3351,7 +3836,7 @@ async def batch_classify(
                 if valid_idx < len(batch_results):
                     result = batch_results[valid_idx]
                     if result:
-                        results[i] = BatchClassifyResultItem(
+                        results[i] = _build_batch_classify_item(
                             file_name=item.file_name,
                             category=result.category,
                             confidence=round(result.confidence, 4),
@@ -3360,6 +3845,8 @@ async def batch_classify(
                             },
                             needs_review=getattr(result, "needs_review", False),
                             review_reason=getattr(result, "review_reason", None),
+                            top2_category=getattr(result, "top2_category", None),
+                            top2_confidence=getattr(result, "top2_confidence", None),
                             classifier=getattr(result, "model_version", "v16"),
                         )
                     else:

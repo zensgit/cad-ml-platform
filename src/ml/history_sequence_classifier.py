@@ -17,6 +17,11 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from src.ml.history_sequence_tools import (
+    load_command_tokens_from_h5,
+    sequence_statistics,
+)
+
 logger = logging.getLogger(__name__)
 
 HAS_TORCH = False
@@ -29,14 +34,6 @@ try:  # pragma: no cover - optional dependency
 except Exception:  # pragma: no cover - optional dependency
     torch = None
     SequenceCommandClassifier = None
-
-try:  # pragma: no cover - optional dependency
-    import h5py
-
-    HAS_H5PY = True
-except Exception:  # pragma: no cover - optional dependency
-    h5py = None
-    HAS_H5PY = False
 
 
 class HistorySequenceClassifier:
@@ -143,9 +140,9 @@ class HistorySequenceClassifier:
                         weight_f = float(weight)
                     except Exception:
                         continue
-                if left < 0 or right < 0:
-                    continue
-                bigram_weights[(left, right)] = weight_f
+                    if left < 0 or right < 0:
+                        continue
+                    bigram_weights[(left, right)] = weight_f
             if not weights and not bigram_weights:
                 continue
             parsed_bigram_scores[label_text] = bigram_weights
@@ -218,36 +215,11 @@ class HistorySequenceClassifier:
             self._loaded_model = False
 
     def _extract_tokens_from_h5(self, file_path: str) -> List[int]:
-        if not HAS_H5PY or h5py is None:
-            raise RuntimeError("h5py not available")
-
-        path = Path(file_path).expanduser()
-        with h5py.File(path, "r") as handle:
-            if self.vec_key not in handle:
-                raise KeyError(f"dataset key not found: {self.vec_key}")
-            vec = handle[self.vec_key][()]
-
-        if getattr(vec, "ndim", 0) == 1:
-            raw_tokens = vec.tolist()
-        elif getattr(vec, "ndim", 0) >= 2:
-            if vec.shape[1] <= self.command_col:
-                raise IndexError(
-                    f"command_col={self.command_col} out of bounds for vec shape={tuple(vec.shape)}"
-                )
-            raw_tokens = vec[:, self.command_col].tolist()
-        else:
-            raw_tokens = []
-
-        tokens: List[int] = []
-        for value in raw_tokens:
-            try:
-                token = int(value)
-            except Exception:
-                continue
-            if token < 0:
-                continue
-            tokens.append(token)
-        return tokens
+        return load_command_tokens_from_h5(
+            file_path,
+            vec_key=self.vec_key,
+            command_col=self.command_col,
+        )
 
     @staticmethod
     def _label_from_index(label_map: Dict[str, int], index: int) -> Optional[str]:
@@ -406,6 +378,7 @@ class HistorySequenceClassifier:
         payload.setdefault("source", "history_sequence")
         payload["sequence_length"] = seq_len
         payload["unique_commands"] = len(set(sequence))
+        payload["sequence_summary"] = sequence_statistics(sequence, top_k=3)
         return payload
 
     def predict_from_h5_file(self, file_path: str) -> Dict[str, Any]:

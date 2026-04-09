@@ -21,12 +21,12 @@ jobs:
     name: Code Quality Analysis
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Full history for better analysis
 
       - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -69,7 +69,7 @@ jobs:
           echo '```' >> quality-report.md
 
       - name: Upload quality report
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@v4
         with:
           name: code-quality-report
           path: |
@@ -78,21 +78,23 @@ jobs:
 
       - name: Comment PR with quality report
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
+        uses: actions/github-script@v7
         with:
           script: |
-            const { upsertBotIssueComment } = require('./scripts/ci/comment_pr_utils.js');
             const fs = require('fs');
             const report = fs.readFileSync('quality-report.md', 'utf8');
-            const marker = '<!-- ci:code-quality-report -->';
-            const body = `${marker}\n## 📊 Code Quality Report\n\n${report}`;
-            upsertBotIssueComment({
-              github,
+            const maxCommentChars = 65000;
+            const prefix = '## 📊 Code Quality Report\n\n';
+            const artifactNote = '\n\n...[truncated] Full report is available in the `code-quality-report` artifact.';
+            let body = prefix + report;
+            if (body.length > maxCommentChars) {
+              body = body.slice(0, maxCommentChars - artifactNote.length) + artifactNote;
+            }
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issueNumber: context.issue.number,
-              body,
-              marker
+              body
             });
 
   # ============================================
@@ -102,10 +104,10 @@ jobs:
     name: Duplicate Code Detection
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -123,10 +125,10 @@ jobs:
     name: Documentation Coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -144,10 +146,10 @@ jobs:
     name: Dead Code Detection
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -165,10 +167,10 @@ jobs:
     name: Type Checking (mypy)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -196,30 +198,25 @@ jobs:
           echo '```' >> mypy-report.md
 
       - name: Upload mypy report
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@v4
         with:
           name: mypy-report
           path: mypy-report.md
 
       - name: Comment PR with mypy issues
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
+        uses: actions/github-script@v7
         with:
           script: |
-            const { upsertBotIssueComment } = require('./scripts/ci/comment_pr_utils.js');
             const fs = require('fs');
             if (fs.existsSync('mypy-report.md')) {
               const report = fs.readFileSync('mypy-report.md', 'utf8');
               if (report.includes('error:')) {
-                const marker = '<!-- ci:mypy-type-check-report -->';
-                const body = `${marker}\n## 🔍 Type Check Report\n\n${report.substring(0, 5000)}`;
-                upsertBotIssueComment({
-                  github,
+                github.rest.issues.createComment({
+                  issue_number: context.issue.number,
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  issueNumber: context.issue.number,
-                  body,
-                  marker
+                  body: '## 🔍 Type Check Report\n\n' + report.substring(0, 5000)
                 });
               }
             }

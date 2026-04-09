@@ -187,6 +187,15 @@ class TestAssistantAPI:
         assert "success" in data
         assert "answer" in data
         assert "confidence" in data
+        assert "evidence" in data
+        assert isinstance(data["evidence"], list)
+        assert "explainability" in data
+        explainability = data["explainability"]
+        assert "summary" in explainability
+        assert "decision_path" in explainability
+        assert "source_contributions" in explainability
+        assert "alternative_labels" in explainability
+        assert "uncertainty" in explainability
 
     def test_query_tolerance_precision(self, client):
         """Test tolerance precision query endpoint."""
@@ -229,6 +238,32 @@ class TestAssistantAPI:
         # Verbose mode should include intent and entities
         if data["success"]:
             assert "intent" in data
+            assert "evidence" in data
+            explainability = data["explainability"]
+            assert explainability["decision_path"][0] == "query_analyzed"
+            assert "score" in explainability["uncertainty"]
+            assert "reasons" in explainability["uncertainty"]
+
+    def test_query_returns_structured_evidence(self, client):
+        """Test query returns stable structured evidence."""
+        response = client.post(
+            "/assistant/query",
+            json={"query": "M10螺纹的底孔是多少？"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["evidence"]
+        evidence = data["evidence"][0]
+        assert evidence["reference_id"] == "E1"
+        assert evidence["source"] == "threads"
+        assert "key_facts" in evidence
+        assert any("攻丝底孔" in fact for fact in evidence["key_facts"])
+        explainability = data["explainability"]
+        assert explainability["summary"]
+        assert isinstance(explainability["source_contributions"], dict)
+        assert 0.0 <= explainability["uncertainty"]["score"] <= 1.0
 
     def test_suggest_endpoint(self, client):
         """Test suggestion endpoint."""

@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+from unittest.mock import patch
 
 from src.main import app
 
@@ -18,7 +19,7 @@ def test_similarity_reference_not_found():
 
 
 def test_similarity_dimension_mismatch():
-    # Create two analyses with different feature dimensions by toggling options (semantic length same now; simulate by manual vector injection)
+    # Force a mismatch by mutating one stored vector after registration.
     r1 = client.post(
         "/api/v1/analyze",
         files={"file": ("a.dxf", b"1", "application/octet-stream")},
@@ -43,6 +44,56 @@ def test_similarity_dimension_mismatch():
         json={"reference_id": id1, "target_id": id2},
         headers={"X-API-Key": "test"},
     )
+    assert rq.status_code == 200
+    data = rq.json()
+    assert data["status"] == "dimension_mismatch"
+    assert data["error"]["code"] == "VALIDATION_FAILED"
+
+
+def test_similarity_reference_not_found_qdrant():
+    class DummyQdrantStore:
+        async def get_vector(self, vector_id):
+            return None
+
+    with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
+        "src.api.v1.analyze._get_qdrant_store_or_none",
+        return_value=DummyQdrantStore(),
+    ):
+        r = client.post(
+            "/api/v1/analyze/similarity",
+            json={"reference_id": "nope", "target_id": "also_no"},
+            headers={"X-API-Key": "test"},
+        )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["status"] == "reference_not_found"
+    assert data["error"]["code"] == "DATA_NOT_FOUND"
+
+
+def test_similarity_dimension_mismatch_qdrant():
+    class DummyQdrantResult:
+        def __init__(self, vector_id, vector):
+            self.id = vector_id
+            self.vector = vector
+            self.metadata = {}
+
+    class DummyQdrantStore:
+        async def get_vector(self, vector_id):
+            if vector_id == "ref":
+                return DummyQdrantResult("ref", [0.1, 0.2])
+            if vector_id == "tgt":
+                return DummyQdrantResult("tgt", [0.1, 0.2, 0.3])
+            return None
+
+    with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
+        "src.api.v1.analyze._get_qdrant_store_or_none",
+        return_value=DummyQdrantStore(),
+    ):
+        rq = client.post(
+            "/api/v1/analyze/similarity",
+            json={"reference_id": "ref", "target_id": "tgt"},
+            headers={"X-API-Key": "test"},
+        )
     assert rq.status_code == 200
     data = rq.json()
     assert data["status"] == "dimension_mismatch"

@@ -319,7 +319,22 @@ class TestCADAssistantAPI:
         mock_result.answer = "304不锈钢的抗拉强度约为520MPa"
         mock_result.confidence = 0.9
         mock_result.sources = []
-        mock_result.intent = MagicMock(value="material_property")
+        mock_result.evidence = [
+            MagicMock(
+                to_dict=MagicMock(
+                    return_value={
+                        "reference_id": "E1",
+                        "source": "materials",
+                        "summary": "材料 S30408: 304不锈钢",
+                        "relevance": 0.95,
+                        "match_type": "direct",
+                        "key_facts": ["抗拉强度: 520 MPa"],
+                    }
+                )
+            )
+        ]
+        mock_result.intent = None
+        mock_result.metadata = {"intent": "material_property"}
         mock_assistant.ask.return_value = mock_result
         mock_get_assistant.return_value = mock_assistant
 
@@ -328,6 +343,8 @@ class TestCADAssistantAPI:
         assert response.success is True
         assert "520MPa" in response.data["answer"]
         assert response.data["confidence"] == 0.9
+        assert response.data["intent"] == "material_property"
+        assert response.data["evidence"][0]["source"] == "materials"
 
     @patch.object(CADAssistantAPI, "_get_assistant")
     def test_conversation_create(self, mock_get_assistant):

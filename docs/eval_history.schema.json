@@ -41,7 +41,7 @@
     "type": {
       "type": "string",
       "description": "Evaluation type",
-      "enum": ["combined", "ocr", "vision", "history_sequence", "hybrid_blind"],
+      "enum": ["combined", "ocr", "vision", "history_sequence"],
       "examples": ["combined"]
     },
     "run_context": {
@@ -216,7 +216,7 @@
     },
     "metrics": {
       "type": "object",
-      "description": "Generic metrics for OCR and hybrid-blind evaluations",
+      "description": "Generic metrics for OCR-only evaluations",
       "properties": {
         "dimension_recall": {
           "type": "number",
@@ -232,82 +232,6 @@
           "type": "number",
           "minimum": 0,
           "maximum": 1
-        },
-        "sample_size": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "weak_label_coverage": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1
-        },
-        "hybrid_accuracy": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1
-        },
-        "graph2d_accuracy": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1
-        },
-        "hybrid_gain_vs_graph2d": {
-          "type": "number"
-        },
-        "gate_status": {
-          "type": "string"
-        },
-        "label_slices": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": ["label", "support"],
-            "properties": {
-              "label": { "type": "string", "minLength": 1 },
-              "support": { "type": "integer", "minimum": 0 },
-              "hybrid_accuracy": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
-              "graph2d_accuracy": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
-              "hybrid_gain_vs_graph2d": { "type": ["number", "null"] }
-            },
-            "additionalProperties": true
-          }
-        },
-        "label_slice_meta": {
-          "type": "object",
-          "properties": {
-            "source": { "type": "string" },
-            "min_support": { "type": "integer", "minimum": 0 },
-            "max_slices": { "type": "integer", "minimum": 0 },
-            "slice_count": { "type": "integer", "minimum": 0 }
-          },
-          "additionalProperties": true
-        },
-        "family_slices": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": ["family", "support"],
-            "properties": {
-              "family": { "type": "string", "minLength": 1 },
-              "support": { "type": "integer", "minimum": 0 },
-              "hybrid_accuracy": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
-              "graph2d_accuracy": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
-              "hybrid_gain_vs_graph2d": { "type": ["number", "null"] }
-            },
-            "additionalProperties": true
-          }
-        },
-        "family_slice_meta": {
-          "type": "object",
-          "properties": {
-            "source": { "type": "string" },
-            "prefix_len": { "type": "integer", "minimum": 0 },
-            "family_map_json": { "type": "string" },
-            "max_slices": { "type": "integer", "minimum": 0 },
-            "slice_count": { "type": "integer", "minimum": 0 }
-          },
-          "additionalProperties": true
         }
       }
     },
@@ -334,6 +258,52 @@
           "type": "number",
           "minimum": 0,
           "maximum": 1
+        },
+        "coarse_accuracy_on_ok": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "coarse_accuracy_overall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "coarse_macro_f1_on_ok": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "coarse_macro_f1_overall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "exact_top_mismatches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["expected", "predicted", "count"],
+            "properties": {
+              "expected": { "type": "string", "minLength": 1 },
+              "predicted": { "type": "string", "minLength": 1 },
+              "count": { "type": "integer", "minimum": 0 }
+            },
+            "additionalProperties": false
+          }
+        },
+        "coarse_top_mismatches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["expected", "predicted", "count"],
+            "properties": {
+              "expected": { "type": "string", "minLength": 1 },
+              "predicted": { "type": "string", "minLength": 1 },
+              "count": { "type": "integer", "minimum": 0 }
+            },
+            "additionalProperties": false
+          }
         }
       },
       "additionalProperties": true
@@ -405,12 +375,6 @@
         "type": { "const": "history_sequence" }
       },
       "required": ["history_metrics", "artifacts", "tuning"]
-    },
-    {
-      "properties": {
-        "type": { "const": "hybrid_blind" }
-      },
-      "required": ["metrics"]
     }
   ],
   "additionalProperties": false,

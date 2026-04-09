@@ -134,9 +134,29 @@ Result: `ok`.
 
 To avoid dependency on repository variable configuration, workflow dispatch now supports:
 - `review_pack_input_csv`
+- `review_pack_input_artifact_name`
+- `review_pack_input_artifact_run_id`
+- `review_pack_input_artifact_repository`
+- `review_pack_input_artifact_path`
 
 Fixture used:
 - `tests/fixtures/ci/graph2d_review_pack_input.csv`
+
+Artifact-backed input is intended for business CSVs that should not be committed into the
+repository. The workflow now supports downloading a CSV artifact from another workflow run
+before executing `export_hybrid_rejection_review_pack.py`.
+
+Example:
+
+```bash
+gh workflow run evaluation-report.yml \
+  --ref main \
+  -f review_pack_input_artifact_name=batch-results-artifact \
+  -f review_pack_input_artifact_run_id=123456789 \
+  -f review_pack_input_artifact_repository=zensgit/cad-ml-platform \
+  -f review_pack_input_artifact_path=batch_results_sanitized.csv \
+  -f review_gate_strict=false
+```
 
 Dispatch runs on commit `8fe0383`:
 

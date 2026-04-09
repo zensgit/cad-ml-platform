@@ -1,143 +1,189 @@
 name: Hybrid Superpass E2E
+run-name: Hybrid Superpass E2E${{ github.event.inputs.dispatch_trace_id && format(' [{0}]', github.event.inputs.dispatch_trace_id) || '' }}
 
 on:
   workflow_dispatch:
     inputs:
-      ref:
-        description: "Git ref for evaluation-report dispatch"
-        required: false
-        default: "main"
-      expected_conclusion:
-        description: "Expected conclusion for dispatched run"
-        required: false
-        default: "success"
       hybrid_superpass_enable:
-        description: "Enable hybrid superpass gate (true/false)"
+        description: 'Enable hybrid superpass target gate (true/false)'
         required: false
-        default: "true"
+        default: 'true'
       hybrid_superpass_missing_mode:
-        description: "Superpass missing mode (skip/fail)"
+        description: 'Hybrid superpass missing-mode (skip/fail)'
         required: false
-        default: "fail"
+        default: 'fail'
       hybrid_superpass_fail_on_failed:
-        description: "Fail on non-passed superpass result (true/false)"
+        description: 'Strict fail when superpass gate status is not passed (true/false)'
         required: false
-        default: "true"
-      hybrid_blind_enable:
-        description: "Optional hybrid blind enable override"
+        default: 'true'
+      hybrid_blind_gate_report_json:
+        description: 'Optional hybrid blind gate report JSON path'
         required: false
-        default: ""
-      hybrid_blind_dxf_dir:
-        description: "Optional hybrid blind dxf dir override"
+        default: ''
+      hybrid_calibration_json:
+        description: 'Optional hybrid calibration JSON path'
         required: false
-        default: ""
-      hybrid_blind_fail_on_gate_failed:
-        description: "Optional hybrid blind strict gate fail flag"
+        default: ''
+      hybrid_superpass_config:
+        description: 'Optional superpass config YAML path'
         required: false
-        default: ""
-      hybrid_blind_strict_require_real_data:
-        description: "Optional hybrid blind require real data flag"
+        default: 'config/hybrid_superpass_targets.yaml'
+      hybrid_superpass_output_json:
+        description: 'Optional superpass report output path'
         required: false
-        default: ""
-      hybrid_calibration_enable:
-        description: "Optional hybrid calibration enable override"
+        default: 'reports/history_sequence_eval/hybrid_superpass_report.json'
+      dispatch_trace_id:
+        description: 'Optional trace id for concurrent dispatch correlation'
         required: false
-        default: ""
-      hybrid_calibration_input_csv:
-        description: "Optional hybrid calibration input csv"
-        required: false
-        default: ""
-
-permissions:
-  contents: read
-  actions: write
-
-concurrency:
-  group: hybrid-superpass-e2e-${{ github.ref }}
-  cancel-in-progress: false
+        default: ''
 
 jobs:
-  hybrid-superpass-e2e:
+  superpass:
+    name: Run Hybrid Superpass Gate
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: write
-    env:
-      GH_TOKEN: ${{ github.token }}
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
-        with:
-          python-version: "3.11"
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
 
-      - name: Run hybrid superpass dispatcher
-        run: |
-          set -euo pipefail
-          REF_INPUT="${{ github.event.inputs.ref || '' }}"
-          if [[ -z "$REF_INPUT" ]]; then
-            REF_INPUT="main"
-          fi
-          EXPECTED_INPUT="${{ github.event.inputs.expected_conclusion || '' }}"
-          if [[ -z "$EXPECTED_INPUT" ]]; then
-            EXPECTED_INPUT="success"
-          fi
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
 
-          extra_args=()
-          HYBRID_BLIND_ENABLE_INPUT="$(echo "${{ github.event.inputs.hybrid_blind_enable || '' }}" | xargs)"
-          HYBRID_BLIND_DXF_DIR_INPUT="$(echo "${{ github.event.inputs.hybrid_blind_dxf_dir || '' }}" | xargs)"
-          HYBRID_BLIND_FAIL_ON_GATE_FAILED_INPUT="$(echo "${{ github.event.inputs.hybrid_blind_fail_on_gate_failed || '' }}" | xargs)"
-          HYBRID_BLIND_STRICT_REQUIRE_REAL_DATA_INPUT="$(echo "${{ github.event.inputs.hybrid_blind_strict_require_real_data || '' }}" | xargs)"
-          HYBRID_CALIBRATION_ENABLE_INPUT="$(echo "${{ github.event.inputs.hybrid_calibration_enable || '' }}" | xargs)"
-          HYBRID_CALIBRATION_INPUT_CSV_INPUT="$(echo "${{ github.event.inputs.hybrid_calibration_input_csv || '' }}" | xargs)"
-          if [[ -n "$HYBRID_BLIND_ENABLE_INPUT" ]]; then extra_args+=(--hybrid-blind-enable "$HYBRID_BLIND_ENABLE_INPUT"); fi
-          if [[ -n "$HYBRID_BLIND_DXF_DIR_INPUT" ]]; then extra_args+=(--hybrid-blind-dxf-dir "$HYBRID_BLIND_DXF_DIR_INPUT"); fi
-          if [[ -n "$HYBRID_BLIND_FAIL_ON_GATE_FAILED_INPUT" ]]; then extra_args+=(--hybrid-blind-fail-on-gate-failed "$HYBRID_BLIND_FAIL_ON_GATE_FAILED_INPUT"); fi
-          if [[ -n "$HYBRID_BLIND_STRICT_REQUIRE_REAL_DATA_INPUT" ]]; then extra_args+=(--hybrid-blind-strict-require-real-data "$HYBRID_BLIND_STRICT_REQUIRE_REAL_DATA_INPUT"); fi
-          if [[ -n "$HYBRID_CALIBRATION_ENABLE_INPUT" ]]; then extra_args+=(--hybrid-calibration-enable "$HYBRID_CALIBRATION_ENABLE_INPUT"); fi
-          if [[ -n "$HYBRID_CALIBRATION_INPUT_CSV_INPUT" ]]; then extra_args+=(--hybrid-calibration-input-csv "$HYBRID_CALIBRATION_INPUT_CSV_INPUT"); fi
+    - name: Run Hybrid superpass gate
+      id: hybrid_superpass_gate
+      continue-on-error: true
+      run: |
+        ENABLE_VALUE="${{ github.event.inputs.hybrid_superpass_enable || 'true' }}"
+        token="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+        is_enabled="false"
+        if [[ "$token" == "1" || "$token" == "true" || "$token" == "yes" || "$token" == "on" ]]; then
+          is_enabled="true"
+        fi
 
-          mkdir -p reports/ci
-          python3 scripts/ci/dispatch_hybrid_superpass_workflow.py \
-            --repo "${GITHUB_REPOSITORY}" \
-            --workflow "evaluation-report.yml" \
-            --ref "$REF_INPUT" \
-            --hybrid-superpass-enable "${{ github.event.inputs.hybrid_superpass_enable || 'true' }}" \
-            --hybrid-superpass-missing-mode "${{ github.event.inputs.hybrid_superpass_missing_mode || 'fail' }}" \
-            --hybrid-superpass-fail-on-failed "${{ github.event.inputs.hybrid_superpass_fail_on_failed || 'true' }}" \
-            --expected-conclusion "$EXPECTED_INPUT" \
-            --wait-timeout-seconds 1200 \
-            --poll-interval-seconds 3 \
-            --list-limit 30 \
-            --output-json reports/ci/hybrid_superpass_e2e_summary.json \
-            "${extra_args[@]}"
+        if [[ "$is_enabled" != "true" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "status=skipped" >> $GITHUB_OUTPUT
+          echo "headline=disabled" >> $GITHUB_OUTPUT
+          echo "exit_code=0" >> $GITHUB_OUTPUT
+          echo "report_path=" >> $GITHUB_OUTPUT
+          echo "missing_mode=${{ github.event.inputs.hybrid_superpass_missing_mode || 'fail' }}" >> $GITHUB_OUTPUT
+          exit 0
+        fi
 
-      - name: Render hybrid superpass summary markdown
-        if: always()
-        run: |
-          if [[ -f reports/ci/hybrid_superpass_e2e_summary.json ]]; then
-            python3 scripts/ci/render_hybrid_superpass_dispatch_summary.py \
-              --dispatch-json reports/ci/hybrid_superpass_e2e_summary.json \
-              --output-md reports/ci/hybrid_superpass_e2e_summary.md \
-              >/dev/null
-          fi
+        REPORT_PATH="${{ github.event.inputs.hybrid_superpass_output_json || 'reports/history_sequence_eval/hybrid_superpass_report.json' }}"
+        mkdir -p "$(dirname "$REPORT_PATH")"
+        GATE_JSON="${{ github.event.inputs.hybrid_blind_gate_report_json || '' }}"
+        CALIBRATION_JSON="${{ github.event.inputs.hybrid_calibration_json || '' }}"
+        MISSING_MODE="${{ github.event.inputs.hybrid_superpass_missing_mode || 'fail' }}"
+        CONFIG_PATH="${{ github.event.inputs.hybrid_superpass_config || 'config/hybrid_superpass_targets.yaml' }}"
 
-      - name: Upload hybrid superpass summary
-        if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
-        with:
-          name: hybrid-superpass-e2e-${{ github.run_number }}
-          path: |
-            reports/ci/hybrid_superpass_e2e_summary.json
-            reports/ci/hybrid_superpass_e2e_summary.md
+        CMD=(
+          python scripts/ci/check_hybrid_superpass_targets.py
+          --config "$CONFIG_PATH"
+          --missing-mode "$MISSING_MODE"
+          --output "$REPORT_PATH"
+        )
+        if [[ -n "$GATE_JSON" ]]; then
+          CMD+=(--hybrid-blind-gate-report "$GATE_JSON")
+        fi
+        if [[ -n "$CALIBRATION_JSON" ]]; then
+          CMD+=(--hybrid-calibration-json "$CALIBRATION_JSON")
+        fi
 
-      - name: Append summary
-        if: always()
-        run: |
-          if [[ -f reports/ci/hybrid_superpass_e2e_summary.md ]]; then
-            cat reports/ci/hybrid_superpass_e2e_summary.md
-          else
-            echo "- summary_md missing: reports/ci/hybrid_superpass_e2e_summary.md"
-          fi >> "$GITHUB_STEP_SUMMARY"
+        set +e
+        "${CMD[@]}"
+        GATE_EXIT_CODE=$?
+        set -e
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "report_path=$REPORT_PATH" >> $GITHUB_OUTPUT
+        echo "exit_code=$GATE_EXIT_CODE" >> $GITHUB_OUTPUT
+        echo "missing_mode=$MISSING_MODE" >> $GITHUB_OUTPUT
+
+        export HYBRID_SUPERPASS_REPORT="$REPORT_PATH"
+        python - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(Path(os.environ["HYBRID_SUPERPASS_REPORT"]).read_text(encoding="utf-8"))
+        failures = payload.get("failures") if isinstance(payload.get("failures"), list) else []
+        warnings = payload.get("warnings") if isinstance(payload.get("warnings"), list) else []
+        first_failure = str(failures[0]).replace("\n", " ").replace("\r", " ").strip() if failures else ""
+        first_warning = str(warnings[0]).replace("\n", " ").replace("\r", " ").strip() if warnings else ""
+        headline = "passed"
+        if payload.get("status") != "passed":
+            headline = f"failed: {first_failure or 'unknown reason'}"
+        elif first_warning:
+            headline = f"passed_with_warning: {first_warning}"
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"status={payload.get('status', 'unknown')}\n")
+            f.write(f"headline={headline}\n")
+            f.write(f"failure_count={len(failures)}\n")
+            f.write(f"warning_count={len(warnings)}\n")
+            f.write(f"first_failure={first_failure}\n")
+            f.write(f"first_warning={first_warning}\n")
+        PY
+
+    - name: Evaluate Hybrid superpass strict mode
+      id: hybrid_superpass_gate_strict
+      if: steps.hybrid_superpass_gate.outputs.enabled == 'true'
+      run: |
+        STRICT_VALUE="${{ github.event.inputs.hybrid_superpass_fail_on_failed || 'true' }}"
+        token="$(echo "$STRICT_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+        is_strict="false"
+        if [[ "$token" == "1" || "$token" == "true" || "$token" == "yes" || "$token" == "on" ]]; then
+          is_strict="true"
+        fi
+        gate_status="${{ steps.hybrid_superpass_gate.outputs.status }}"
+        echo "strict_mode=$is_strict" >> $GITHUB_OUTPUT
+        echo "gate_status=$gate_status" >> $GITHUB_OUTPUT
+        if [[ "$is_strict" != "true" ]]; then
+          echo "should_fail=false" >> $GITHUB_OUTPUT
+          echo "reason=strict_mode_disabled" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+        if [[ "$gate_status" != "passed" ]]; then
+          echo "should_fail=true" >> $GITHUB_OUTPUT
+          echo "reason=superpass_failed_under_strict_mode" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+        echo "should_fail=false" >> $GITHUB_OUTPUT
+        echo "reason=superpass_passed_under_strict_mode" >> $GITHUB_OUTPUT
+
+    - name: Fail workflow when Hybrid superpass strict check requires blocking
+      if: steps.hybrid_superpass_gate_strict.outputs.should_fail == 'true'
+      run: |
+        echo "Hybrid superpass strict-mode check requested failure."
+        echo "Failure reason: ${{ steps.hybrid_superpass_gate_strict.outputs.reason }}"
+        exit 1
+
+    - name: Upload Hybrid superpass gate artifact
+      if: steps.hybrid_superpass_gate.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: hybrid-superpass-gate-${{ github.run_number }}
+        path: ${{ steps.hybrid_superpass_gate.outputs.report_path }}
+        retention-days: 30
+
+    - name: Create job summary
+      run: |
+        echo "# Hybrid Superpass E2E" >> $GITHUB_STEP_SUMMARY
+        if [[ "${{ steps.hybrid_superpass_gate.outputs.enabled }}" == "true" ]]; then
+          echo "- Gate status: ${{ steps.hybrid_superpass_gate.outputs.status }} (exit=${{ steps.hybrid_superpass_gate.outputs.exit_code }})" >> $GITHUB_STEP_SUMMARY
+          echo "- Headline: ${{ steps.hybrid_superpass_gate.outputs.headline }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Report: ${{ steps.hybrid_superpass_gate.outputs.report_path }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Missing mode: ${{ steps.hybrid_superpass_gate.outputs.missing_mode }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Strict mode: ${{ steps.hybrid_superpass_gate_strict.outputs.strict_mode || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Strict should fail: ${{ steps.hybrid_superpass_gate_strict.outputs.should_fail || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Strict reason: ${{ steps.hybrid_superpass_gate_strict.outputs.reason || 'n/a' }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Gate: skipped" >> $GITHUB_STEP_SUMMARY
+        fi

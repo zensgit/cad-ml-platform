@@ -1,50 +1,43 @@
-# Active Learning Evidence Review Queue Validation
+# Active Learning Evidence Review Queue Validation 2026-03-08
 
-Date: 2026-03-08
+## 目标
 
-## Scope
+让 active-learning 样本不只暴露 `score_breakdown` 原始 JSON，还直接给 reviewer
+可读的 evidence 结构，减少人工复核时的解析成本。
 
-- Surface assistant structured evidence from `score_breakdown` into the active-learning review queue payload.
-- Preserve the same evidence context in exported review/training JSONL.
-- Keep the upstream analyze payload contract unchanged.
+## 改动
 
-## Implemented Behavior
-
-- `ActiveLearningSample` now derives reviewer-facing evidence fields from `score_breakdown`:
+- 扩展 [active_learning.py](/private/tmp/cad-ml-platform-active-learning-evidence-20260308/src/core/active_learning.py)
+- `ActiveLearningSample` 新增：
   - `evidence_count`
   - `evidence_sources`
   - `evidence_summary`
   - `evidence`
-- Evidence is built from existing hybrid-classifier context when present:
+- evidence 统一从 `score_breakdown` 自动派生：
   - `source_contributions`
   - `hybrid_explanation.summary`
   - `hybrid_rejection`
   - `decision_path`
   - `fusion_metadata`
-- `GET /api/v1/active-learning/pending` exposes those fields through the existing sample response model.
-- `POST /api/v1/active-learning/export` writes the same evidence fields into exported JSONL rows.
-- File-backed samples loaded from `samples.jsonl` re-derive evidence from legacy `score_breakdown` content.
+- 覆盖面：
+  - pending API
+  - review queue API
+  - review queue export
+  - training export
+  - file-store 旧样本重载
 
-## Validation Commands
+## 验证
+
+执行：
 
 ```bash
-python3 -m black src/core/active_learning.py tests/test_active_learning_api.py tests/unit/test_active_learning_export_context.py tests/unit/test_active_learning_loop.py
-pytest tests/test_active_learning_api.py tests/unit/test_active_learning_export_context.py tests/unit/test_active_learning_loop.py tests/integration/test_analyze_dxf_active_learning_context.py -v
+python3 -m py_compile src/core/active_learning.py tests/test_active_learning_api.py tests/unit/test_active_learning_export_context.py tests/unit/test_active_learning_loop.py
+flake8 src/core/active_learning.py tests/test_active_learning_api.py tests/unit/test_active_learning_export_context.py tests/unit/test_active_learning_loop.py --max-line-length=100
+pytest -q tests/test_active_learning_api.py tests/unit/test_active_learning_export_context.py tests/unit/test_active_learning_loop.py
 ```
 
-## Validation Results
+## 结果预期
 
-- `black`: reformatted `src/core/active_learning.py` and `tests/test_active_learning_api.py`; no errors.
-- `pytest`: `20 passed` in `1.10s`.
-- Warnings observed only from existing third-party deprecations in `starlette/httpx/ezdxf`; no active-learning failures.
-
-## Coverage Notes
-
-- API queue coverage:
-  - empty evidence defaults
-  - structured evidence exposed in `/pending`
-  - structured evidence persisted into `/export`
-- Core/file-store coverage:
-  - evidence derived at flag time
-  - evidence exported with `score_breakdown`
-  - evidence re-derived when loading existing `samples.jsonl`
+- pending/review-queue 响应直接带 evidence 字段
+- review queue CSV / JSONL 带 evidence 相关列
+- training export 保留 evidence，便于后续人工复核和再训练分析

@@ -329,8 +329,8 @@ class SecurityAuditor:
         if identifier:
             events = [e for e in events if e.get("identifier") == identifier]
 
-        if start_time:
-            events = [e for e in events if e["timestamp"] >= start_time]
+        if start_time is not None:
+            events = [e for e in events if e["timestamp"] > start_time]
 
         return events[-limit:]
 

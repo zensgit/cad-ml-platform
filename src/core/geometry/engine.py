@@ -68,9 +68,20 @@ BREP_GRAPH_NODE_FEATURES = (
     "normal_x",
     "normal_y",
     "normal_z",
+    "bbox_diag",
+    "center_x",
+    "center_y",
+    "center_z",
+    "normal_defined",
 )
 
-BREP_GRAPH_EDGE_FEATURES = ("dihedral_angle", "convexity")
+BREP_GRAPH_EDGE_FEATURES = (
+    "dihedral_angle",
+    "convexity",
+    "shared_edge_length",
+    "same_surface_type",
+    "angle_defined",
+)
 
 
 class GeometryEngine:
@@ -184,7 +195,7 @@ class GeometryEngine:
         """Extract a face adjacency graph with node and edge features."""
         graph = {
             "valid_3d": False,
-            "graph_schema_version": "v1",
+            "graph_schema_version": "v2",
             "node_schema": BREP_GRAPH_NODE_FEATURES,
             "edge_schema": BREP_GRAPH_EDGE_FEATURES,
             "node_count": 0,
@@ -192,6 +203,7 @@ class GeometryEngine:
             "node_features": [],
             "edge_index": [],
             "edge_features": [],
+            "graph_metadata": {},
         }
 
         if not HAS_OCC or shape is None:
@@ -219,19 +231,21 @@ class GeometryEngine:
                     exp.Next()
             faces = []
             node_features = []
+            face_surface_types: List[str] = []
             face_count = _map_extent(face_map)
             for i in range(1, face_count + 1):
                 face = face_map(i)
                 faces.append(face)
+                face_surface_types.append(self._face_surface_type_name(face))
                 node_features.append(self._face_feature_vector(face))
 
-            edge_index = []
-            edge_features = []
+            edge_pairs: Dict[Tuple[int, int], Dict[str, float]] = {}
             if hasattr(TopExp, "MapShapesAndAncestors"):
                 edge_face_map = TopTools_IndexedDataMapOfShapeListOfShape()
                 TopExp.MapShapesAndAncestors(shape, TopAbs_EDGE, TopAbs_FACE, edge_face_map)
                 edge_face_count = _map_extent(edge_face_map)
                 for i in range(1, edge_face_count + 1):
+                    edge_shape = edge_face_map.FindKey(i)
                     face_indices = []
                     face_list = edge_face_map.FindFromIndex(i)
                     it = TopTools_ListIteratorOfListOfShape(face_list)
@@ -249,9 +263,14 @@ class GeometryEngine:
                     for j in range(len(face_indices)):
                         for k in range(j + 1, len(face_indices)):
                             a_idx, b_idx = face_indices[j], face_indices[k]
-                            edge_feat = self._edge_feature_vector(faces[a_idx], faces[b_idx])
-                            edge_index.extend([[a_idx, b_idx], [b_idx, a_idx]])
-                            edge_features.extend([edge_feat, edge_feat])
+                            edge_feat = self._edge_feature_vector(
+                                faces[a_idx],
+                                faces[b_idx],
+                                edge_shape=edge_shape,
+                                surface_type_a=face_surface_types[a_idx],
+                                surface_type_b=face_surface_types[b_idx],
+                            )
+                            self._accumulate_edge_pair(edge_pairs, a_idx, b_idx, edge_feat)
             else:
                 edge_map = TopTools_IndexedMapOfShape()
                 edge_to_faces: Dict[int, set[int]] = {}
@@ -274,9 +293,22 @@ class GeometryEngine:
                     for i in range(len(face_list)):
                         for j in range(i + 1, len(face_list)):
                             a_idx, b_idx = face_list[i], face_list[j]
-                            edge_feat = self._edge_feature_vector(faces[a_idx], faces[b_idx])
-                            edge_index.extend([[a_idx, b_idx], [b_idx, a_idx]])
-                            edge_features.extend([edge_feat, edge_feat])
+                            edge_feat = self._edge_feature_vector(
+                                faces[a_idx],
+                                faces[b_idx],
+                                surface_type_a=face_surface_types[a_idx],
+                                surface_type_b=face_surface_types[b_idx],
+                            )
+                            self._accumulate_edge_pair(edge_pairs, a_idx, b_idx, edge_feat)
+
+            undirected_edge_index = []
+            edge_index = []
+            edge_features = []
+            for (a_idx, b_idx), payload in sorted(edge_pairs.items()):
+                undirected_edge_index.append([a_idx, b_idx])
+                averaged = self._finalize_edge_feature_payload(payload)
+                edge_index.extend([[a_idx, b_idx], [b_idx, a_idx]])
+                edge_features.extend([averaged, averaged])
 
             graph["valid_3d"] = True
             graph["node_features"] = node_features
@@ -284,6 +316,13 @@ class GeometryEngine:
             graph["edge_features"] = edge_features
             graph["node_count"] = len(node_features)
             graph["edge_count"] = len(edge_features)
+            graph["graph_metadata"] = {
+                "undirected_edge_count": len(undirected_edge_index),
+                "directed_edge_count": len(edge_index),
+                "undirected_edge_index": undirected_edge_index,
+                "surface_type_histogram": self._analyze_surface_types(shape),
+                "bbox": self._bbox_summary(shape),
+            }
 
         except Exception as e:
             logger.error(f"Error extracting BREP graph: {e}")
@@ -359,14 +398,22 @@ class GeometryEngine:
         brepgprop.SurfaceProperties(face, gprops)
         area = gprops.Mass()
 
-        bbox = Bnd_Box()
-        brepbndlib.Add(face, bbox)
-        xmin, ymin, zmin, xmax, ymax, zmax = bbox.Get()
-        dims = [xmax - xmin, ymax - ymin, zmax - zmin]
+        bbox = self._bbox_summary(face)
+        dims = [bbox["x"], bbox["y"], bbox["z"]]
 
         normal = self._face_normal_vector(surf)
+        normal_defined = 0.0 if normal == (0.0, 0.0, 0.0) else 1.0
 
-        return one_hot + [area] + dims + list(normal)
+        return one_hot + [
+            area,
+            *dims,
+            *list(normal),
+            float(bbox["diag"]),
+            float(bbox["center_x"]),
+            float(bbox["center_y"]),
+            float(bbox["center_z"]),
+            normal_defined,
+        ]
 
     def _surface_type_one_hot(self, surface_type: Any) -> List[float]:
         mapping = {
@@ -391,17 +438,117 @@ class GeometryEngine:
         direction = plane.Axis().Direction()
         return direction.X(), direction.Y(), direction.Z()
 
-    def _edge_feature_vector(self, face_a: Any, face_b: Any) -> List[float]:
+    def _edge_feature_vector(
+        self,
+        face_a: Any,
+        face_b: Any,
+        *,
+        edge_shape: Optional[Any] = None,
+        surface_type_a: Optional[str] = None,
+        surface_type_b: Optional[str] = None,
+    ) -> List[float]:
         normal_a = self._face_normal_vector(BRepAdaptor_Surface(face_a, True))
         normal_b = self._face_normal_vector(BRepAdaptor_Surface(face_b, True))
+        shared_edge_length = self._edge_length(edge_shape)
+        same_surface_type = 1.0 if surface_type_a and surface_type_a == surface_type_b else 0.0
 
         if normal_a == (0.0, 0.0, 0.0) or normal_b == (0.0, 0.0, 0.0):
-            return [0.0, 0.0]
+            return [0.0, 0.0, shared_edge_length, same_surface_type, 0.0]
 
         dot = max(-1.0, min(1.0, sum(a * b for a, b in zip(normal_a, normal_b))))
         angle = math.acos(dot)
         convexity = 1.0 if dot >= 0.0 else -1.0
-        return [angle, convexity]
+        return [angle, convexity, shared_edge_length, same_surface_type, 1.0]
+
+    def _face_surface_type_name(self, face: Any) -> str:
+        surf = BRepAdaptor_Surface(face, True)
+        return self._surface_type_name(surf.GetType())
+
+    @staticmethod
+    def _surface_type_name(surface_type: Any) -> str:
+        mapping = {
+            GeomAbs_Plane: "plane",
+            GeomAbs_Cylinder: "cylinder",
+            GeomAbs_Cone: "cone",
+            GeomAbs_Sphere: "sphere",
+            GeomAbs_Torus: "torus",
+            GeomAbs_BezierSurface: "bezier",
+            GeomAbs_BSplineSurface: "bspline",
+        }
+        return mapping.get(surface_type, "other")
+
+    def _bbox_summary(self, shape: Any) -> Dict[str, float]:
+        bbox = Bnd_Box()
+        brepbndlib.Add(shape, bbox)
+        xmin, ymin, zmin, xmax, ymax, zmax = bbox.Get()
+        dx = xmax - xmin
+        dy = ymax - ymin
+        dz = zmax - zmin
+        return {
+            "x": dx,
+            "y": dy,
+            "z": dz,
+            "diag": math.sqrt(dx * dx + dy * dy + dz * dz),
+            "center_x": (xmin + xmax) * 0.5,
+            "center_y": (ymin + ymax) * 0.5,
+            "center_z": (zmin + zmax) * 0.5,
+        }
+
+    @staticmethod
+    def _edge_length(edge_shape: Optional[Any]) -> float:
+        if edge_shape is None:
+            return 0.0
+        gprops = GProp_GProps()
+        brepgprop.LinearProperties(edge_shape, gprops)
+        return float(gprops.Mass())
+
+    @staticmethod
+    def _accumulate_edge_pair(
+        edge_pairs: Dict[Tuple[int, int], Dict[str, float]],
+        a_idx: int,
+        b_idx: int,
+        edge_feat: List[float],
+    ) -> None:
+        key = (min(a_idx, b_idx), max(a_idx, b_idx))
+        payload = edge_pairs.setdefault(
+            key,
+            {
+                "angle_sum": 0.0,
+                "angle_count": 0.0,
+                "convexity_sum": 0.0,
+                "shared_edge_length": 0.0,
+                "same_surface_type": 0.0,
+                "angle_defined": 0.0,
+            },
+        )
+        angle, convexity, shared_edge_length, same_surface_type, angle_defined = edge_feat
+        if angle_defined > 0.0:
+            payload["angle_sum"] += float(angle)
+            payload["convexity_sum"] += float(convexity)
+            payload["angle_count"] += 1.0
+            payload["angle_defined"] = 1.0
+        payload["shared_edge_length"] += float(shared_edge_length)
+        payload["same_surface_type"] = max(
+            float(payload["same_surface_type"]), float(same_surface_type)
+        )
+
+    @staticmethod
+    def _finalize_edge_feature_payload(payload: Dict[str, float]) -> List[float]:
+        angle_count = max(1.0, float(payload.get("angle_count", 0.0)))
+        angle_defined = float(payload.get("angle_defined", 0.0))
+        if angle_defined > 0.0:
+            angle = float(payload.get("angle_sum", 0.0)) / angle_count
+            convexity = float(payload.get("convexity_sum", 0.0)) / angle_count
+        else:
+            angle = 0.0
+            convexity = 0.0
+        return [
+            angle,
+            convexity,
+            float(payload.get("shared_edge_length", 0.0)),
+            float(payload.get("same_surface_type", 0.0)),
+            angle_defined,
+        ]
 
     def _count_subshapes(self, shape: Any, shape_type: Any) -> int:
         count = 0

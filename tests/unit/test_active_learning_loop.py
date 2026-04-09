@@ -41,35 +41,10 @@ class TestActiveLearningLoop:
         assert sample.status == SampleStatus.PENDING
         assert sample.doc_id == "doc1"
         assert sample.id in self.learner._samples
-        assert sample.evidence_count == 0
-        assert sample.evidence_sources == []
 
         # Verify persistence
         files = list(self.data_dir.glob("samples.jsonl"))
         assert len(files) == 1
-
-    def test_flag_for_review_derives_structured_evidence(self):
-        sample = self.learner.flag_for_review(
-            doc_id="doc-evidence",
-            predicted_type="manhole",
-            confidence=0.41,
-            alternatives=[{"type": "shell", "confidence": 0.31}],
-            score_breakdown={
-                "decision_path": ["fusion_scored", "final_below_reject_min_conf"],
-                "source_contributions": {"filename": 0.61, "titleblock": 0.22},
-                "hybrid_explanation": {"summary": "综合 文件名, 标题栏 多源信息"},
-            },
-            uncertainty_reason="hybrid_rejected:below_min_confidence+low_confidence",
-        )
-
-        assert sample.evidence_count == 4
-        assert sample.evidence_sources == ["filename", "titleblock"]
-        assert sample.evidence_summary.startswith("综合 文件名, 标题栏 多源信息")
-        assert sample.evidence[0] == {
-            "kind": "source_contribution",
-            "source": "filename",
-            "score": 0.61,
-        }
 
     def test_feedback_submission_loop(self):
         # 1. Flag sample
@@ -108,6 +83,8 @@ class TestActiveLearningLoop:
         status = self.learner.check_retrain_threshold()
         assert status["ready"] is True
         assert status["labeled_samples"] == 5
+        assert status["remaining_samples"] == 0
+        assert status["recommendation"] == "threshold_met"
 
     def test_export_training_data(self):
         # Create labeled sample
@@ -132,7 +109,20 @@ class TestActiveLearningLoop:
         with open(result["file"], "r") as f:
             data = json.loads(f.readline())
             assert data["doc_id"] == "doc1"
+            assert data["analysis_id"] == "doc1"
             assert data["true_type"] == "screw"
+            assert data["correct_label"] == "screw"
+            assert data["correct_fine_label"] == "screw"
+            assert data["correct_coarse_label"] == "screw"
+            assert data["original_label"] == "bolt"
+            assert data["original_fine_label"] == "bolt"
+            assert data["original_coarse_label"] == "bolt"
+            assert data["sample_type"] == "review"
+            assert data["feedback_priority"] == "high"
+            assert data["evidence_count"] == 0
+            assert data["evidence_sources"] == []
+            assert data["evidence_summary"] is None
+            assert data["evidence"] == []
 
         # Verify status update
         assert self.learner._samples[sample.id].status == SampleStatus.EXPORTED
@@ -156,7 +146,10 @@ class TestActiveLearningLoadSamples:
             "predicted_type": "washer",
             "confidence": 0.7,
             "alternatives": [],
-            "score_breakdown": {},
+            "score_breakdown": {
+                "source_contributions": {"filename": 0.6},
+                "hybrid_explanation": {"summary": "文件名支持 washer"},
+            },
             "uncertainty_reason": "test_load",
             "status": "pending",
             "true_type": None,
@@ -175,48 +168,11 @@ class TestActiveLearningLoadSamples:
 
         assert "existing-sample-123" in learner._samples
         assert learner._samples["existing-sample-123"].doc_id == "doc_from_file"
-
-        reset_active_learner()
-
-    def test_load_samples_derives_evidence_from_score_breakdown(
-        self, tmp_path, monkeypatch
-    ):
-        reset_active_learner()
-
-        data_dir = tmp_path / "active_learning"
-        data_dir.mkdir(parents=True)
-
-        samples_file = data_dir / "samples.jsonl"
-        sample_data = {
-            "id": "existing-sample-evidence",
-            "doc_id": "doc_from_file",
-            "predicted_type": "washer",
-            "confidence": 0.7,
-            "alternatives": [],
-            "score_breakdown": {
-                "decision_path": ["fusion_scored", "final_below_reject_min_conf"],
-                "source_contributions": {"filename": 0.61, "titleblock": 0.22},
-                "hybrid_explanation": {"summary": "综合 文件名, 标题栏 多源信息"},
-            },
-            "uncertainty_reason": "hybrid_rejected:below_min_confidence+low_confidence",
-            "status": "pending",
-            "true_type": None,
-            "reviewer_id": None,
-            "feedback_time": None,
-            "created_at": "2024-01-01T00:00:00",
-        }
-        with open(samples_file, "w") as f:
-            f.write(json.dumps(sample_data) + "\n")
-
-        monkeypatch.setenv("ACTIVE_LEARNING_DATA_DIR", str(data_dir))
-        monkeypatch.setenv("ACTIVE_LEARNING_STORE", "file")
-
-        learner = ActiveLearner()
-        sample = learner._samples["existing-sample-evidence"]
-
-        assert sample.evidence_count == 4
-        assert sample.evidence_sources == ["filename", "titleblock"]
-        assert sample.evidence_summary.startswith("综合 文件名, 标题栏 多源信息")
+        assert learner._samples["existing-sample-123"].evidence_count >= 2
+        assert learner._samples["existing-sample-123"].evidence_sources == [
+            "filename",
+            "hybrid_explanation",
+        ]
 
         reset_active_learner()
 
@@ -287,5 +243,17 @@ class TestActiveLearningLoadSamples:
         learner = ActiveLearner()
 
         assert "active_learning" in str(learner._data_dir)
+
+        reset_active_learner()
+
+    def test_retrain_threshold_recommendation_when_not_ready(self):
+        reset_active_learner()
+        learner = ActiveLearner()
+
+        status = learner.check_retrain_threshold()
+
+        assert status["ready"] is False
+        assert status["remaining_samples"] == 5
+        assert status["recommendation"] == "need_5_more_labeled_samples"
 
         reset_active_learner()

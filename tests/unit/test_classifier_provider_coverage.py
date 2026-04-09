@@ -91,6 +91,50 @@ class TestHybridClassifierProviderAdapter:
         assert ok is False
         assert provider.status.value == "down"
 
+    @pytest.mark.asyncio
+    async def test_process_adds_coarse_and_review_contract_fields(self):
+        class _Result:
+            label = "人孔"
+            confidence = 0.93
+            source = "fusion"
+            needs_review = True
+            confidence_band = "high"
+            review_priority = "critical"
+            review_priority_score = 95
+            review_reasons = ["knowledge_conflict", "branch_conflict"]
+            review_reason_text = "knowledge_conflict; branch_conflict"
+            review_has_hybrid_rejection = False
+            review_has_branch_conflict = True
+            review_has_knowledge_conflict = True
+            review_is_low_confidence = False
+
+            def to_dict(self):
+                return {
+                    "label": self.label,
+                    "confidence": self.confidence,
+                    "source": self.source,
+                    "decision_path": ["fusion_scored"],
+                }
+
+        config = ClassifierProviderConfig(
+            name="hybrid", provider_type="classifier", provider_name="hybrid"
+        )
+        mock_classifier = MagicMock()
+        mock_classifier.classify.return_value = _Result()
+
+        provider = HybridClassifierProviderAdapter(config, wrapped_classifier=mock_classifier)
+        result = await provider.process(ClassifierRequest(filename="test.dxf"))
+
+        assert result["fine_label"] == "人孔"
+        assert result["coarse_label"] == "开孔件"
+        assert result["is_coarse_label"] is False
+        assert result["decision_source"] == "fusion"
+        assert result["needs_review"] is True
+        assert result["confidence_band"] == "high"
+        assert result["review_priority"] == "critical"
+        assert result["review_priority_score"] == 95
+        assert result["review_reasons"] == ["knowledge_conflict", "branch_conflict"]
+
 
 # --- Graph2DClassifierProviderAdapter Tests ---
 
@@ -126,7 +170,7 @@ class TestGraph2DClassifierProviderAdapter:
             name="graph2d", provider_type="classifier", provider_name="graph2d"
         )
         mock_classifier = MagicMock()
-        mock_classifier.predict_from_bytes.return_value = {"label": "test"}
+        mock_classifier.predict_from_bytes.return_value = {"label": "人孔"}
 
         provider = Graph2DClassifierProviderAdapter(
             config, wrapped_classifier=mock_classifier, ensemble=True
@@ -136,6 +180,10 @@ class TestGraph2DClassifierProviderAdapter:
         )
 
         assert result["ensemble_enabled"] is True
+        assert result["fine_label"] == "人孔"
+        assert result["coarse_label"] == "开孔件"
+        assert result["is_coarse_label"] is False
+        assert result["decision_source"] == "graph2d"
 
     @pytest.mark.asyncio
     async def test_health_check_disabled_by_config(self):
@@ -239,6 +287,37 @@ class TestV16PartClassifierProviderAdapter:
             assert result["status"] == "unavailable"
 
     @pytest.mark.asyncio
+    async def test_process_adds_coarse_label_contract(self):
+        config = ClassifierProviderConfig(
+            name="v16", provider_type="classifier", provider_name="v16"
+        )
+        provider = V16PartClassifierProviderAdapter(config)
+
+        mock_result = MagicMock()
+        mock_result.category = "人孔"
+        mock_result.confidence = 0.91
+        mock_result.probabilities = {"人孔": 0.91}
+        mock_result.model_version = "v16"
+        mock_result.needs_review = False
+        mock_result.review_reason = None
+        mock_result.top2_category = "法兰"
+        mock_result.top2_confidence = 0.04
+
+        mock_classifier = MagicMock()
+        mock_classifier.predict.return_value = mock_result
+
+        with patch("src.core.analyzer._get_v16_classifier", return_value=mock_classifier):
+            result = await provider.process(
+                ClassifierRequest(filename="test.dxf", file_path="/path/to/test.dxf")
+            )
+
+        assert result["status"] == "ok"
+        assert result["fine_label"] == "人孔"
+        assert result["coarse_label"] == "开孔件"
+        assert result["is_coarse_label"] is False
+        assert result["decision_source"] == "v16"
+
+    @pytest.mark.asyncio
     async def test_health_check_disabled_by_config(self):
         config = ClassifierProviderConfig(
             name="v16", provider_type="classifier", provider_name="v16"
@@ -326,10 +405,39 @@ class TestV6PartClassifierProviderAdapter:
         provider = V6PartClassifierProviderAdapter(config)
 
         with patch.object(V6PartClassifierProviderAdapter, "_has_torch", return_value=True):
-            with patch.object(V6PartClassifierProviderAdapter, "_model_present", return_value=False):
+            with patch.object(
+                V6PartClassifierProviderAdapter, "_model_present", return_value=False
+            ):
                 ok = await provider.health_check()
                 assert ok is False
                 assert "model_missing" in (provider.last_error or "")
+
+    @pytest.mark.asyncio
+    async def test_process_adds_coarse_label_contract(self):
+        config = ClassifierProviderConfig(
+            name="v6", provider_type="classifier", provider_name="v6"
+        )
+        provider = V6PartClassifierProviderAdapter(config)
+
+        mock_result = MagicMock()
+        mock_result.category = "传动件"
+        mock_result.confidence = 0.82
+        mock_result.probabilities = {"传动件": 0.82}
+        mock_result.model_version = "v6"
+
+        mock_classifier = MagicMock()
+        mock_classifier.predict.return_value = mock_result
+
+        with patch("src.core.analyzer._get_ml_classifier", return_value=mock_classifier):
+            result = await provider.process(
+                ClassifierRequest(filename="test.dxf", file_path="/path/to/test.dxf")
+            )
+
+        assert result["status"] == "ok"
+        assert result["fine_label"] == "传动件"
+        assert result["coarse_label"] == "传动件"
+        assert result["is_coarse_label"] is True
+        assert result["decision_source"] == "v6"
 
 
 # --- Bootstrap Tests ---

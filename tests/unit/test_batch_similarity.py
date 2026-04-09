@@ -2,6 +2,7 @@
 
 import pytest
 from fastapi.testclient import TestClient
+from unittest.mock import patch
 
 from src.main import app
 
@@ -321,3 +322,105 @@ def test_batch_similarity_mixed_success_failure(sample_vectors):
     statuses = [item["status"] for item in data["items"]]
     assert statuses.count("success") == 2
     assert statuses.count("not_found") == 2
+
+
+def test_batch_similarity_uses_qdrant_when_enabled():
+    class DummyQdrantResult:
+        def __init__(self, vector_id, score=1.0, metadata=None, vector=None):
+            self.id = vector_id
+            self.score = score
+            self.metadata = metadata or {}
+            self.vector = vector
+
+    class DummyQdrantStore:
+        async def get_vector(self, vector_id):
+            if vector_id == "vec-qdrant-1":
+                return DummyQdrantResult(
+                    "vec-qdrant-1",
+                    vector=[1.0, 0.0, 0.0],
+                )
+            return None
+
+        async def search_similar(
+            self,
+            query_vector,
+            top_k=10,
+            filter_conditions=None,
+            score_threshold=None,
+            with_vectors=False,
+        ):
+            assert query_vector == [1.0, 0.0, 0.0]
+            assert top_k == 3
+            assert filter_conditions == {"material": "steel"}
+            assert score_threshold == 0.7
+            assert with_vectors is True
+            return [
+                DummyQdrantResult(
+                    "vec-qdrant-1",
+                    1.0,
+                    {"material": "steel"},
+                    [1.0, 0.0, 0.0],
+                ),
+                DummyQdrantResult(
+                    "vec-qdrant-2",
+                    0.93,
+                    {
+                        "material": "steel",
+                        "part_type": "人孔",
+                        "fine_part_type": "人孔",
+                        "coarse_part_type": "开孔件",
+                        "decision_source": "hybrid",
+                        "is_coarse_label": False,
+                    },
+                    [0.9, 0.1, 0.0],
+                ),
+            ]
+
+    with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
+        "src.api.v1.vectors._get_qdrant_store_or_none",
+        return_value=DummyQdrantStore(),
+    ):
+        response = client.post(
+            "/api/v1/vectors/similarity/batch",
+            json={
+                "ids": ["vec-qdrant-1"],
+                "top_k": 2,
+                "material": "steel",
+                "min_score": 0.7,
+            },
+            headers={"X-API-Key": "test"},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["successful"] == 1
+    assert data["failed"] == 0
+    item = data["items"][0]
+    assert item["status"] == "success"
+    assert len(item["similar"]) == 1
+    assert item["similar"][0]["id"] == "vec-qdrant-2"
+    assert item["similar"][0]["coarse_part_type"] == "开孔件"
+    assert item["similar"][0]["decision_source"] == "hybrid"
+    assert item["similar"][0]["is_coarse_label"] is False
+
+
+def test_batch_similarity_qdrant_not_found():
+    class DummyQdrantStore:
+        async def get_vector(self, vector_id):
+            return None
+
+    with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
+        "src.api.v1.vectors._get_qdrant_store_or_none",
+        return_value=DummyQdrantStore(),
+    ):
+        response = client.post(
+            "/api/v1/vectors/similarity/batch",
+            json={"ids": ["missing-qdrant"], "top_k": 2},
+            headers={"X-API-Key": "test"},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["successful"] == 0
+    assert data["failed"] == 1
+    assert data["items"][0]["status"] == "not_found"

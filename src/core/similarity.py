@@ -11,6 +11,7 @@ import sys
 from math import sqrt
 from typing import Any, Dict, List, Optional, Protocol, Set, Union, runtime_checkable
 
+from src.core.classification.coarse_labels import normalize_coarse_label
 from src.core.errors_extended import ErrorCode
 from src.core.vector_layouts import VECTOR_LAYOUT_BASE
 from src.utils.analysis_metrics import (
@@ -62,6 +63,54 @@ _FAISS_RECOVERY_SUPPRESSION_SECONDS = int(
     os.getenv("FAISS_RECOVERY_SUPPRESSION_SECONDS", "300")
 )  # 5m
 _FAISS_RECOVERY_STATE_BACKEND = os.getenv("FAISS_RECOVERY_STATE_BACKEND", "file").lower()
+
+
+def _clean_meta_text(value: Any) -> Optional[str]:
+    """Return a stable stripped string value for vector metadata fields."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _coerce_meta_bool(value: Any) -> Optional[bool]:
+    """Convert vector metadata boolean-like values into bools."""
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "y"}:
+        return True
+    if text in {"0", "false", "no", "n"}:
+        return False
+    return None
+
+
+def extract_vector_label_contract(meta: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Extract stable fine/coarse semantic fields from vector metadata."""
+    payload = dict(meta or {})
+    part_type = _clean_meta_text(payload.get("part_type"))
+    fine_part_type = _clean_meta_text(payload.get("fine_part_type")) or part_type
+    coarse_part_type = _clean_meta_text(payload.get("coarse_part_type"))
+    if not coarse_part_type:
+        coarse_part_type = _clean_meta_text(normalize_coarse_label(fine_part_type or part_type))
+    if not part_type:
+        part_type = fine_part_type or coarse_part_type
+    decision_source = _clean_meta_text(
+        payload.get("final_decision_source") or payload.get("decision_source")
+    )
+    is_coarse_label = _coerce_meta_bool(payload.get("is_coarse_label"))
+    if is_coarse_label is None and fine_part_type and coarse_part_type:
+        is_coarse_label = fine_part_type == coarse_part_type
+
+    return {
+        "part_type": part_type,
+        "fine_part_type": fine_part_type,
+        "coarse_part_type": coarse_part_type,
+        "decision_source": decision_source,
+        "is_coarse_label": is_coarse_label,
+    }
 
 
 def get_client() -> Optional[Any]:
@@ -423,6 +472,7 @@ class InMemoryVectorStore(VectorStoreProtocol):
 __all__ = [
     "register_vector",
     "compute_similarity",
+    "extract_vector_label_contract",
     "has_vector",
     "VectorStoreProtocol",
     "InMemoryVectorStore",
@@ -617,7 +667,7 @@ class FaissVectorStore(VectorStoreProtocol):
                         globals()["_FAISS_LAST_ERROR"] = str(e)
 
     def rebuild(self) -> bool:
-        global _FAISS_INDEX, _FAISS_ID_MAP, _FAISS_REVERSE_MAP, _FAISS_PENDING_DELETE, _FAISS_DIM
+        global _FAISS_INDEX, _FAISS_ID_MAP, _FAISS_REVERSE_MAP
         if not self._available or _FAISS_INDEX is None or _FAISS_DIM is None:
             return False
         import time

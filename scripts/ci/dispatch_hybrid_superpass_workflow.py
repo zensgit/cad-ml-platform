@@ -8,9 +8,8 @@ from pathlib import Path
 import shlex
 import subprocess
 import time
+import uuid
 from typing import Any, Optional, Sequence
-
-_NON_FAILING_CONCLUSIONS = {"success", "skipped", "neutral"}
 
 
 def _extract_short_error(
@@ -64,6 +63,7 @@ def build_workflow_run_command(
     hybrid_blind_strict_require_real_data: str = "",
     hybrid_calibration_enable: str = "",
     hybrid_calibration_input_csv: str = "",
+    dispatch_trace_id: str = "",
 ) -> list[str]:
     command = [
         "gh",
@@ -98,6 +98,7 @@ def build_workflow_run_command(
     )
     _append_if_present("hybrid_calibration_enable", hybrid_calibration_enable)
     _append_if_present("hybrid_calibration_input_csv", hybrid_calibration_input_csv)
+    _append_if_present("dispatch_trace_id", dispatch_trace_id)
     return command
 
 
@@ -119,7 +120,7 @@ def _build_list_dispatched_runs_command(
         "--event",
         "workflow_dispatch",
         "--json",
-        "databaseId",
+        "databaseId,displayTitle",
         "--limit",
         str(max(1, int(limit))),
     ]
@@ -128,9 +129,9 @@ def _build_list_dispatched_runs_command(
     return command
 
 
-def list_dispatched_run_ids(
+def list_dispatched_runs(
     workflow: str, ref: str, repo: str, *, limit: int
-) -> list[int]:
+) -> list[dict[str, Any]]:
     command = _build_list_dispatched_runs_command(workflow, ref, repo, limit=limit)
     result = subprocess.run(command, capture_output=True, text=True, check=False)
     if result.returncode != 0:
@@ -141,15 +142,26 @@ def list_dispatched_run_ids(
         return []
     if not isinstance(payload, list):
         return []
-    run_ids: list[int] = []
+    runs: list[dict[str, Any]] = []
     for item in payload:
         if not isinstance(item, dict):
             continue
         try:
-            run_ids.append(int(item.get("databaseId")))
+            run_id = int(item.get("databaseId"))
         except (TypeError, ValueError):
             continue
-    return run_ids
+        runs.append(
+            {
+                "databaseId": run_id,
+                "displayTitle": str(item.get("displayTitle") or ""),
+            }
+        )
+    return runs
+
+
+def list_dispatched_run_ids(workflow: str, ref: str, repo: str, *, limit: int) -> list[int]:
+    runs = list_dispatched_runs(workflow, ref, repo, limit=limit)
+    return [int(item["databaseId"]) for item in runs if "databaseId" in item]
 
 
 def wait_for_new_dispatched_run_id(
@@ -161,13 +173,20 @@ def wait_for_new_dispatched_run_id(
     timeout_seconds: int,
     poll_interval_seconds: int,
     list_limit: int,
+    dispatch_trace_id: str = "",
 ) -> Optional[int]:
     known = set(int(item) for item in known_run_ids)
     deadline = time.time() + max(0, int(timeout_seconds))
     interval = max(1, int(poll_interval_seconds))
+    trace_token = _normalize_optional(dispatch_trace_id)
     while True:
-        run_ids = list_dispatched_run_ids(workflow, ref, repo, limit=list_limit)
-        for run_id in run_ids:
+        runs = list_dispatched_runs(workflow, ref, repo, limit=list_limit)
+        for run in runs:
+            run_id = int(run.get("databaseId", 0))
+            if run_id <= 0:
+                continue
+            if trace_token and trace_token not in str(run.get("displayTitle") or ""):
+                continue
             if run_id not in known:
                 return int(run_id)
         if time.time() >= deadline:
@@ -229,110 +248,7 @@ def _write_output_json(path_value: str, payload: dict[str, Any]) -> None:
     path = Path(path_value).expanduser()
     if path.parent != Path("."):
         path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        f"{json.dumps(payload, ensure_ascii=False, indent=2)}\n", encoding="utf-8"
-    )
-
-
-def _is_failed_conclusion(raw_value: Any) -> bool:
-    conclusion = str(raw_value or "").strip().lower()
-    if not conclusion:
-        return False
-    return conclusion not in _NON_FAILING_CONCLUSIONS
-
-
-def summarize_failed_jobs(
-    jobs_payload: Any,
-    *,
-    max_jobs: int = 5,
-) -> dict[str, Any]:
-    if not isinstance(jobs_payload, list):
-        return {
-            "total_jobs": 0,
-            "failed_job_count": 0,
-            "failed_jobs": [],
-            "failed_jobs_truncated": False,
-        }
-
-    failed_jobs: list[dict[str, str]] = []
-    failed_job_count = 0
-    total_jobs = 0
-    max_items = max(1, int(max_jobs))
-    for item in jobs_payload:
-        if not isinstance(item, dict):
-            continue
-        total_jobs += 1
-        job_conclusion = str(item.get("conclusion") or "")
-        if not _is_failed_conclusion(job_conclusion):
-            continue
-        failed_job_count += 1
-
-        first_failed_step_name = ""
-        first_failed_step_conclusion = ""
-        steps_payload = item.get("steps")
-        if isinstance(steps_payload, list):
-            for step in steps_payload:
-                if not isinstance(step, dict):
-                    continue
-                step_conclusion = str(step.get("conclusion") or "")
-                if _is_failed_conclusion(step_conclusion):
-                    first_failed_step_name = str(step.get("name") or "")
-                    first_failed_step_conclusion = step_conclusion
-                    break
-
-        if len(failed_jobs) < max_items:
-            failed_jobs.append(
-                {
-                    "job_name": str(item.get("name") or ""),
-                    "job_conclusion": job_conclusion,
-                    "job_url": str(item.get("url") or ""),
-                    "failed_step_name": first_failed_step_name,
-                    "failed_step_conclusion": first_failed_step_conclusion,
-                }
-            )
-
-    return {
-        "total_jobs": total_jobs,
-        "failed_job_count": failed_job_count,
-        "failed_jobs": failed_jobs,
-        "failed_jobs_truncated": len(failed_jobs) < failed_job_count,
-    }
-
-
-def fetch_run_failure_diagnostics(run_id: int, repo: str) -> dict[str, Any]:
-    command = ["gh", "run", "view", str(run_id), "--json", "jobs"]
-    if _normalize_optional(repo):
-        command.extend(["--repo", _normalize_optional(repo)])
-    result = subprocess.run(
-        command,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if result.returncode != 0:
-        return {
-            "available": False,
-            "reason": "gh_run_view_failed",
-            "stderr": (result.stderr or "").strip(),
-        }
-    try:
-        payload = json.loads(result.stdout)
-    except json.JSONDecodeError:
-        return {
-            "available": False,
-            "reason": "gh_run_view_json_decode_failed",
-        }
-    if not isinstance(payload, dict):
-        return {
-            "available": False,
-            "reason": "gh_run_view_invalid_payload",
-        }
-    summary = summarize_failed_jobs(payload.get("jobs"))
-    return {
-        "available": True,
-        "reason": "",
-        **summary,
-    }
+    path.write_text(f"{json.dumps(payload, ensure_ascii=False, indent=2)}\n", encoding="utf-8")
 
 
 def fetch_remote_workflow_text(repo: str, workflow: str, ref: str) -> str:
@@ -385,11 +301,9 @@ def _build_parser() -> argparse.ArgumentParser:
             "optionally watch result."
         )
     )
-    parser.add_argument("--workflow", default="evaluation-report.yml")
+    parser.add_argument("--workflow", default="hybrid-superpass-e2e.yml")
     parser.add_argument("--ref", default="main")
-    parser.add_argument(
-        "--repo", default="", help="Optional owner/repo for gh commands."
-    )
+    parser.add_argument("--repo", default="", help="Optional owner/repo for gh commands.")
     parser.add_argument(
         "--hybrid-superpass-enable",
         default="true",
@@ -412,6 +326,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--hybrid-blind-strict-require-real-data", default="")
     parser.add_argument("--hybrid-calibration-enable", default="")
     parser.add_argument("--hybrid-calibration-input-csv", default="")
+    parser.add_argument(
+        "--dispatch-trace-id",
+        default="",
+        help="Optional trace id for run correlation under concurrent dispatch.",
+    )
     parser.add_argument(
         "--expected-conclusion",
         default="success",
@@ -439,6 +358,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
+    resolved_dispatch_trace_id = _normalize_optional(str(args.dispatch_trace_id))
+    if (
+        not resolved_dispatch_trace_id
+        and str(args.workflow).strip() == "hybrid-superpass-e2e.yml"
+    ):
+        resolved_dispatch_trace_id = f"sp-{uuid.uuid4().hex[:12]}"
+
     dispatch_cmd = build_workflow_run_command(
         workflow=str(args.workflow),
         ref=str(args.ref),
@@ -454,6 +380,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
         hybrid_calibration_enable=str(args.hybrid_calibration_enable),
         hybrid_calibration_input_csv=str(args.hybrid_calibration_input_csv),
+        dispatch_trace_id=resolved_dispatch_trace_id,
     )
 
     watch_hint_cmd = ["gh", "run", "watch", "<run_id>", "--exit-status"]
@@ -465,6 +392,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     view_hint = shlex.join(view_hint_cmd)
 
     print("dispatch_command=" + shlex.join(dispatch_cmd))
+    if resolved_dispatch_trace_id:
+        print("dispatch_trace_id=" + resolved_dispatch_trace_id)
     print("watch_hint=" + watch_hint)
     print("view_hint=" + view_hint)
 
@@ -472,6 +401,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         payload = {
             "mode": "print_only",
             "dispatch_command": dispatch_cmd,
+            "dispatch_trace_id": resolved_dispatch_trace_id,
             "watch_hint": watch_hint,
             "view_hint": view_hint,
         }
@@ -514,23 +444,28 @@ def main(argv: Sequence[str] | None = None) -> int:
         str(args.workflow), str(args.ref), str(args.repo), limit=int(args.list_limit)
     )
 
-    dispatch_result = subprocess.run(
-        dispatch_cmd, capture_output=True, text=True, check=False
-    )
+    dispatch_result = subprocess.run(dispatch_cmd, capture_output=True, text=True, check=False)
     dispatch_output = (dispatch_result.stdout or dispatch_result.stderr or "").strip()
     if dispatch_result.returncode != 0:
         msg = _extract_short_error(dispatch_result, "failed to dispatch workflow")
         print(f"error: {msg}")
-        if (
-            "Unexpected inputs provided:" in dispatch_output
-            and "hybrid_superpass_" in dispatch_output
-        ):
+        reason = "dispatch_failed"
+        if "not found on the default branch" in dispatch_output and "workflow" in dispatch_output:
+            reason = "workflow_not_on_default_branch"
+            print(
+                "error: target workflow file is not available on default branch yet. "
+                "Merge/sync workflow definition to default branch, or dispatch a workflow "
+                "that already exists on default branch."
+            )
+        if "Unexpected inputs provided:" in dispatch_output and "hybrid_superpass_" in dispatch_output:
+            reason = "missing_remote_workflow_inputs"
             print(
                 "error: remote workflow does not recognize hybrid superpass inputs. "
                 "Sync .github/workflows/evaluation-report.yml first."
             )
         payload = {
             "overall_exit_code": 1,
+            "reason": reason,
             "dispatch_exit_code": int(dispatch_result.returncode),
             "dispatch_stdout": dispatch_result.stdout or "",
             "dispatch_stderr": dispatch_result.stderr or "",
@@ -548,12 +483,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         timeout_seconds=int(args.wait_timeout_seconds),
         poll_interval_seconds=int(args.poll_interval_seconds),
         list_limit=int(args.list_limit),
+        dispatch_trace_id=resolved_dispatch_trace_id,
     )
     if run_id is None:
         print("error: timed out waiting for dispatched workflow run id.")
         payload = {
             "overall_exit_code": 1,
             "dispatch_command": dispatch_cmd,
+            "dispatch_trace_id": resolved_dispatch_trace_id,
             "reason": "run_id_timeout",
         }
         if args.output_json:
@@ -575,6 +512,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "workflow": str(args.workflow),
         "ref": str(args.ref),
         "repo": str(args.repo),
+        "dispatch_trace_id": resolved_dispatch_trace_id,
         "run_id": int(run_id),
         "run_url": run_url,
         "conclusion": conclusion,
@@ -583,35 +521,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         "watch_exit_code": int(watch_exit_code),
         "overall_exit_code": int(overall_exit_code),
     }
-    if overall_exit_code != 0:
-        payload["failure_diagnostics"] = fetch_run_failure_diagnostics(
-            int(run_id), str(args.repo)
-        )
-        diag = payload["failure_diagnostics"]
-        has_failed_jobs = bool(diag.get("available")) and int(
-            diag.get("failed_job_count") or 0
-        ) > 0
-        if has_failed_jobs:
-            first_failed = (diag.get("failed_jobs") or [{}])[0]
-            print(
-                (
-                    "diagnostic first_failed_job={} job_conclusion={} "
-                    "failed_step={} step_conclusion={}"
-                ).format(
-                    first_failed.get("job_name") or "",
-                    first_failed.get("job_conclusion") or "",
-                    first_failed.get("failed_step_name") or "",
-                    first_failed.get("failed_step_conclusion") or "",
-                )
-            )
     if args.output_json:
         _write_output_json(str(args.output_json), payload)
 
     print(
-        (
-            "result run_id={} conclusion={} expected={} matched_expectation={} "
-            "watch_exit_code={}"
-        ).format(run_id, conclusion, args.expected_conclusion, matched, watch_exit_code)
+        "result run_id={} conclusion={} expected={} matched_expectation={} watch_exit_code={}".format(
+            run_id, conclusion, args.expected_conclusion, matched, watch_exit_code
+        )
     )
     if run_url:
         print(f"run_url={run_url}")

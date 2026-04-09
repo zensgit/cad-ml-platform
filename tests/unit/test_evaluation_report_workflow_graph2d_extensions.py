@@ -1,11 +1,13 @@
 """Regression checks for Graph2D extensions in evaluation-report workflow."""
 
 from pathlib import Path
+import re
 
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github" / "workflows" / "evaluation-report.yml"
+CI_SCRIPTS = ROOT / "scripts" / "ci"
 
 
 def _load_workflow() -> dict:
@@ -20,11 +22,118 @@ def _get_step(workflow: dict, job_name: str, step_name: str) -> dict:
     raise AssertionError(f"Missing step {step_name!r} in job {job_name!r}")
 
 
+def _assert_empty_workflow_dispatch(workflow: dict) -> None:
+    assert workflow["on"]["workflow_dispatch"] == {}
+
+
+def _load_bash_helper_from_step(step: dict) -> str:
+    run = step["run"]
+    match = re.search(r"bash\s+(scripts/ci/[^\s]+)", run)
+    if not match:
+        return run
+    return (ROOT / match.group(1)).read_text(encoding="utf-8")
+
+
+def _load_comment_helper() -> str:
+    return (CI_SCRIPTS / "comment_evaluation_report_pr.js").read_text(encoding="utf-8")
+
+
+def test_workflow_wires_knowledge_domain_api_surface_matrix() -> None:
+    workflow = _load_workflow()
+    env = workflow["env"]
+    _assert_empty_workflow_dispatch(workflow)
+
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_ENABLE" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_TITLE" in env
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON"
+        in env
+    )
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_OUTPUT_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_OUTPUT_MD" in env
+
+    step = _get_step(
+        workflow,
+        "evaluate",
+        "Build benchmark knowledge domain API surface matrix (optional)",
+    )
+    script = step["run"]
+    assert "scripts/export_benchmark_knowledge_domain_api_surface_matrix.py" in script
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_ENABLE" in script
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_API_SURFACE_MATRIX_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON"
+        in script
+    )
+    assert "steps.benchmark_knowledge_domain_capability_matrix.outputs.output_json" in script
+    assert "total_api_route_count=" in script
+    assert "public_api_gap_domains=" in script
+    assert "reference_gap_domains=" in script
+
+    summary_step = _get_step(workflow, "evaluate", "Create job summary")
+    summary_script = _load_bash_helper_from_step(summary_step)
+    assert "Benchmark knowledge domain API surface matrix status" in summary_script
+    assert "Benchmark knowledge domain API surface matrix public API gaps" in summary_script
+
+
+def test_workflow_wires_knowledge_domain_surface_action_plan() -> None:
+    workflow = _load_workflow()
+    env = workflow["env"]
+    _assert_empty_workflow_dispatch(workflow)
+
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_ENABLE" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_TITLE" in env
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_KNOWLEDGE_DOMAIN_SURFACE_MATRIX_JSON"
+        in env
+    )
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_OUTPUT_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_OUTPUT_MD" in env
+
+    step = _get_step(
+        workflow,
+        "evaluate",
+        "Build benchmark knowledge domain surface action plan (optional)",
+    )
+    script = step["run"]
+    assert "scripts/export_benchmark_knowledge_domain_surface_action_plan.py" in script
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_ENABLE" in script
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_SURFACE_ACTION_PLAN_KNOWLEDGE_DOMAIN_SURFACE_MATRIX_JSON"
+        in script
+    )
+    assert "total_subcapability_count=" in script
+    assert "total_action_count=" in script
+    assert "high_priority_action_count=" in script
+    assert "priority_domains=" in script
+    assert "recommended_first_actions=" in script
+    assert "domain_action_counts=" in script
+
+    upload_step = _get_step(
+        workflow,
+        "evaluate",
+        "Upload benchmark knowledge domain surface action plan",
+    )
+    assert (
+        upload_step["if"]
+        == "steps.benchmark_knowledge_domain_surface_action_plan.outputs.enabled == 'true'"
+    )
+
+    summary_step = _get_step(workflow, "evaluate", "Create job summary")
+    summary_script = _load_bash_helper_from_step(summary_step)
+    assert "Benchmark knowledge domain surface action plan status" in summary_script
+    assert "Benchmark knowledge domain surface action plan priority domains" in summary_script
+
+
 def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     workflow = _load_workflow()
     env = workflow["env"]
+    permissions = workflow["jobs"]["evaluate"]["permissions"]
 
     assert "GRAPH2D_REVIEW_PACK_INPUT_CSV" in env
+    assert "GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_NAME" in env
+    assert "GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_RUN_ID" in env
+    assert "GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_REPOSITORY" in env
+    assert "GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_PATH" in env
     assert "GRAPH2D_REVIEW_PACK_OUTPUT_CSV" in env
     assert "GRAPH2D_REVIEW_PACK_SUMMARY_JSON" in env
     assert "GRAPH2D_REVIEW_PACK_LOW_CONF_THRESHOLD" in env
@@ -37,109 +146,306 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "GRAPH2D_TRAIN_SWEEP_RECIPES" in env
     assert "GRAPH2D_TRAIN_SWEEP_SEEDS" in env
     assert "GRAPH2D_TRAIN_SWEEP_BASE_ARGS_JSON" in env
-    assert "HYBRID_CONFIDENCE_CALIBRATION_ENABLE" in env
-    assert "HYBRID_CONFIDENCE_CALIBRATION_INPUT_CSV" in env
-    assert "HYBRID_CONFIDENCE_CALIBRATION_OUTPUT_JSON" in env
-    assert "HYBRID_CONFIDENCE_CALIBRATION_GATE_CONFIG" in env
-    assert "HYBRID_CONFIDENCE_CALIBRATION_GATE_BASELINE_JSON" in env
-    assert "HYBRID_CONFIDENCE_CALIBRATION_GATE_MISSING_MODE" in env
-    assert "HYBRID_CONFIDENCE_CALIBRATION_FAIL_ON_GATE_FAILED" in env
-    assert "HYBRID_CONFIDENCE_CALIBRATION_BASELINE_UPDATE_ENABLE" in env
-    assert "HYBRID_CONFIDENCE_CALIBRATION_BASELINE_OUTPUT_JSON" in env
-    assert "HYBRID_CONFIDENCE_CALIBRATION_BASELINE_SNAPSHOT_JSON" in env
-    assert "HYBRID_BLIND_ENABLE" in env
-    assert "HYBRID_BLIND_DXF_DIR" in env
-    assert "HYBRID_BLIND_MANIFEST_CSV" in env
-    assert "HYBRID_BLIND_SYNTH_MANIFEST" in env
-    assert "HYBRID_BLIND_SYNTH_OUTPUT_DIR" in env
-    assert "HYBRID_BLIND_MAX_FILES" in env
-    assert "HYBRID_BLIND_FAMILY_PREFIX_LEN" in env
-    assert "HYBRID_BLIND_FAMILY_MAP_JSON" in env
-    assert "HYBRID_BLIND_FAMILY_SLICE_MAX_SNAPSHOTS" in env
-    assert "HYBRID_BLIND_GATE_CONFIG" in env
-    assert "HYBRID_BLIND_FAIL_ON_GATE_FAILED" in env
-    assert "HYBRID_BLIND_STRICT_REQUIRE_REAL_DATA" in env
-    assert "HYBRID_BLIND_DRIFT_ALERT_ENABLE" in env
-    assert "HYBRID_BLIND_DRIFT_ALERT_CONSECUTIVE_WINDOW" in env
-    assert "HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_ENABLE" in env
-    assert "HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MIN_COMMON" in env
-    assert "HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_AUTO_CAP_MIN_COMMON" in env
-    assert "HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MIN_SUPPORT" in env
-    assert "HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MAX_ACC_DROP" in env
-    assert "HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MAX_GAIN_DROP" in env
-    assert "HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_ENABLE" in env
-    assert "HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MIN_COMMON" in env
-    assert "HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_AUTO_CAP_MIN_COMMON" in env
-    assert "HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MIN_SUPPORT" in env
-    assert "HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MAX_ACC_DROP" in env
-    assert "HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MAX_GAIN_DROP" in env
-    assert "HYBRID_SUPERPASS_ENABLE" in env
-    assert "HYBRID_SUPERPASS_CONFIG" in env
-    assert "HYBRID_SUPERPASS_OUTPUT_JSON" in env
-    assert "HYBRID_SUPERPASS_MISSING_MODE" in env
-    assert "HYBRID_SUPERPASS_FAIL_ON_FAILED" in env
-    assert "HYBRID_SUPERPASS_VALIDATION_STRICT" in env
-    assert "HYBRID_SUPERPASS_VALIDATION_SCHEMA_MODE" in env
-    assert "CI_WATCH_SUMMARY_JSON_FOR_COMMENT" in env
-    assert "CI_WATCH_VALIDATION_REPORT_JSON_FOR_COMMENT" in env
-    assert "CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT" in env
-    assert "EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON_FOR_COMMENT" in env
-    assert "WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT" in env
-    assert "WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT" in env
-    assert "WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT" in env
-    assert "WORKFLOW_GUARDRAIL_SUMMARY_JSON_FOR_COMMENT" in env
+    assert "BENCHMARK_SCORECARD_ENABLE" in env
+    assert "BENCHMARK_SCORECARD_TITLE" in env
+    assert "BENCHMARK_SCORECARD_HYBRID_SUMMARY_JSON" in env
+    assert "BENCHMARK_SCORECARD_GRAPH2D_METRICS_JSON" in env
+    assert "BENCHMARK_SCORECARD_GRAPH2D_DIAGNOSE_JSON" in env
+    assert "BENCHMARK_SCORECARD_GRAPH2D_BLIND_DIAGNOSE_JSON" in env
+    assert "BENCHMARK_SCORECARD_HISTORY_SUMMARY_JSON" in env
+    assert "BENCHMARK_SCORECARD_BREP_SUMMARY_JSON" in env
+    assert "BENCHMARK_SCORECARD_MIGRATION_SUMMARY_JSON" in env
+    assert "BENCHMARK_SCORECARD_ASSISTANT_EVIDENCE_SUMMARY_JSON" in env
+    assert "BENCHMARK_SCORECARD_REVIEW_QUEUE_SUMMARY_JSON" in env
+    assert "BENCHMARK_SCORECARD_FEEDBACK_SUMMARY_JSON" in env
+    assert "BENCHMARK_SCORECARD_FINETUNE_SUMMARY_JSON" in env
+    assert "BENCHMARK_SCORECARD_METRIC_TRAIN_SUMMARY_JSON" in env
+    assert "BENCHMARK_SCORECARD_OCR_REVIEW_SUMMARY_JSON" in env
+    assert "BENCHMARK_SCORECARD_QDRANT_READINESS_JSON" in env
+    assert "BENCHMARK_SCORECARD_ENGINEERING_SIGNALS_SUMMARY_JSON" in env
+    assert "BENCHMARK_SCORECARD_KNOWLEDGE_READINESS_JSON" in env
+    assert "BENCHMARK_SCORECARD_OPERATOR_ADOPTION_SUMMARY_JSON" in env
+    assert "BENCHMARK_SCORECARD_OUTPUT_JSON" in env
+    assert "BENCHMARK_SCORECARD_OUTPUT_MD" in env
+    assert "BENCHMARK_ENGINEERING_SIGNALS_ENABLE" in env
+    assert "BENCHMARK_ENGINEERING_SIGNALS_TITLE" in env
+    assert "BENCHMARK_ENGINEERING_SIGNALS_HYBRID_SUMMARY_JSON" in env
+    assert "BENCHMARK_ENGINEERING_SIGNALS_OCR_REVIEW_SUMMARY_JSON" in env
+    assert "BENCHMARK_ENGINEERING_SIGNALS_OUTPUT_JSON" in env
+    assert "BENCHMARK_ENGINEERING_SIGNALS_OUTPUT_MD" in env
+    assert "BENCHMARK_REALDATA_SIGNALS_ENABLE" in env
+    assert "BENCHMARK_REALDATA_SIGNALS_TITLE" in env
+    assert "BENCHMARK_REALDATA_SIGNALS_HYBRID_SUMMARY_JSON" in env
+    assert "BENCHMARK_REALDATA_SIGNALS_ONLINE_EXAMPLE_REPORT_JSON" in env
+    assert "BENCHMARK_REALDATA_SIGNALS_STEP_DIR_SUMMARY_JSON" in env
+    assert "BENCHMARK_REALDATA_SIGNALS_OUTPUT_JSON" in env
+    assert "BENCHMARK_REALDATA_SIGNALS_OUTPUT_MD" in env
+    assert "BENCHMARK_REALDATA_SCORECARD_ENABLE" in env
+    assert "BENCHMARK_REALDATA_SCORECARD_TITLE" in env
+    assert "BENCHMARK_REALDATA_SCORECARD_HYBRID_SUMMARY_JSON" in env
+    assert "BENCHMARK_REALDATA_SCORECARD_HISTORY_SUMMARY_JSON" in env
+    assert "BENCHMARK_REALDATA_SCORECARD_ONLINE_EXAMPLE_REPORT_JSON" in env
+    assert "BENCHMARK_REALDATA_SCORECARD_STEP_DIR_SUMMARY_JSON" in env
+    assert "BENCHMARK_REALDATA_SCORECARD_OUTPUT_JSON" in env
+    assert "BENCHMARK_REALDATA_SCORECARD_OUTPUT_MD" in env
+    assert "BENCHMARK_KNOWLEDGE_READINESS_ENABLE" in env
+    assert "BENCHMARK_KNOWLEDGE_READINESS_TITLE" in env
+    assert "BENCHMARK_KNOWLEDGE_READINESS_SNAPSHOT_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_READINESS_OUTPUT_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_READINESS_OUTPUT_MD" in env
+    assert "BENCHMARK_KNOWLEDGE_APPLICATION_ENABLE" in env
+    assert "BENCHMARK_KNOWLEDGE_APPLICATION_TITLE" in env
+    assert "BENCHMARK_KNOWLEDGE_APPLICATION_ENGINEERING_SIGNALS_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_APPLICATION_KNOWLEDGE_READINESS_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_APPLICATION_OUTPUT_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_APPLICATION_OUTPUT_MD" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_ENABLE" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_TITLE" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_KNOWLEDGE_READINESS_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_KNOWLEDGE_APPLICATION_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_KNOWLEDGE_DOMAIN_MATRIX_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_OUTPUT_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_OUTPUT_MD" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_ACTION_PLAN_ENABLE" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_ACTION_PLAN_TITLE" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_ACTION_PLAN_KNOWLEDGE_DOMAIN_MATRIX_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_ACTION_PLAN_OUTPUT_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_ACTION_PLAN_OUTPUT_MD" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_ENABLE" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_TITLE" in env
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON"
+        in env
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_JSON"
+        in env
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_KNOWLEDGE_REALDATA_CORRELATION_JSON"
+        in env
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_KNOWLEDGE_OUTCOME_CORRELATION_JSON"
+        in env
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON"
+        in env
+    )
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_OUTPUT_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_OUTPUT_MD" in env
+    assert "BENCHMARK_KNOWLEDGE_SOURCE_ACTION_PLAN_ENABLE" in env
+    assert "BENCHMARK_KNOWLEDGE_SOURCE_ACTION_PLAN_TITLE" in env
+    assert "BENCHMARK_KNOWLEDGE_SOURCE_ACTION_PLAN_KNOWLEDGE_SOURCE_COVERAGE_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_SOURCE_ACTION_PLAN_OUTPUT_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_SOURCE_ACTION_PLAN_OUTPUT_MD" in env
+    assert "BENCHMARK_COMPETITIVE_SURPASS_INDEX_ENABLE" in env
+    assert "BENCHMARK_COMPETITIVE_SURPASS_INDEX_TITLE" in env
+    assert "BENCHMARK_COMPETITIVE_SURPASS_INDEX_ENGINEERING_SIGNALS_JSON" in env
+    assert "BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_READINESS_JSON" in env
+    assert "BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_APPLICATION_JSON" in env
+    assert (
+        "BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_REALDATA_CORRELATION_JSON"
+        in env
+    )
+    assert "BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_DOMAIN_MATRIX_JSON" in env
+    assert "BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON" in env
+    assert (
+        "BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_OUTCOME_CORRELATION_JSON"
+        in env
+    )
+    assert "BENCHMARK_COMPETITIVE_SURPASS_INDEX_KNOWLEDGE_OUTCOME_DRIFT_JSON" in env
+    assert "BENCHMARK_COMPETITIVE_SURPASS_INDEX_REALDATA_SIGNALS_JSON" in env
+    assert "BENCHMARK_COMPETITIVE_SURPASS_INDEX_REALDATA_SCORECARD_JSON" in env
+    assert "BENCHMARK_COMPETITIVE_SURPASS_INDEX_OPERATOR_ADOPTION_JSON" in env
+    assert "BENCHMARK_COMPETITIVE_SURPASS_INDEX_OUTPUT_JSON" in env
+    assert "BENCHMARK_COMPETITIVE_SURPASS_INDEX_OUTPUT_MD" in env
+    assert "FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_JSON" in env
+    assert "FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_MD" in env
+    assert "BENCHMARK_OPERATIONAL_SUMMARY_ENABLE" in env
+    assert "BENCHMARK_OPERATIONAL_SUMMARY_TITLE" in env
+    assert "BENCHMARK_OPERATIONAL_SUMMARY_SCORECARD_JSON" in env
+    assert "BENCHMARK_OPERATIONAL_SUMMARY_FEEDBACK_JSON" in env
+    assert "BENCHMARK_OPERATIONAL_SUMMARY_ASSISTANT_JSON" in env
+    assert "BENCHMARK_OPERATIONAL_SUMMARY_REVIEW_QUEUE_JSON" in env
+    assert "BENCHMARK_OPERATIONAL_SUMMARY_OCR_REVIEW_JSON" in env
+    assert "BENCHMARK_OPERATIONAL_SUMMARY_OPERATOR_ADOPTION_JSON" in env
+    assert "BENCHMARK_OPERATIONAL_SUMMARY_OUTPUT_JSON" in env
+    assert "BENCHMARK_OPERATIONAL_SUMMARY_OUTPUT_MD" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_ENABLE" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_TITLE" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_SCORECARD_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_OPERATIONAL_SUMMARY_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_FEEDBACK_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_ASSISTANT_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_REVIEW_QUEUE_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_OCR_REVIEW_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_COMPANION_SUMMARY_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_RELEASE_DECISION_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_ENGINEERING_SIGNALS_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_REALDATA_SIGNALS_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_READINESS_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DRIFT_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_APPLICATION_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_COMPETITIVE_SURPASS_INDEX_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_MD" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_ENABLE" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_TITLE" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_SCORECARD_JSON" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_OPERATIONAL_SUMMARY_JSON" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_ARTIFACT_BUNDLE_JSON" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_ENGINEERING_SIGNALS_JSON" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_REALDATA_SIGNALS_JSON" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_READINESS_JSON" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DRIFT_JSON" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_APPLICATION_JSON" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_COMPETITIVE_SURPASS_INDEX_JSON" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_OUTPUT_JSON" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_OUTPUT_MD" in env
+    assert "BENCHMARK_RELEASE_DECISION_ENABLE" in env
+    assert "BENCHMARK_RELEASE_DECISION_TITLE" in env
+    assert "BENCHMARK_RELEASE_DECISION_SCORECARD_JSON" in env
+    assert "BENCHMARK_RELEASE_DECISION_OPERATIONAL_SUMMARY_JSON" in env
+    assert "BENCHMARK_RELEASE_DECISION_ARTIFACT_BUNDLE_JSON" in env
+    assert "BENCHMARK_RELEASE_DECISION_COMPANION_SUMMARY_JSON" in env
+    assert "BENCHMARK_RELEASE_DECISION_ENGINEERING_SIGNALS_JSON" in env
+    assert "BENCHMARK_RELEASE_DECISION_REALDATA_SIGNALS_JSON" in env
+    assert "BENCHMARK_RELEASE_DECISION_OPERATOR_ADOPTION_JSON" in env
+    assert "BENCHMARK_RELEASE_DECISION_KNOWLEDGE_READINESS_JSON" in env
+    assert "BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DRIFT_JSON" in env
+    assert "BENCHMARK_RELEASE_DECISION_KNOWLEDGE_APPLICATION_JSON" in env
+    assert "BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON" in env
+    assert "BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON" in env
+    assert "BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON" in env
+    assert "BENCHMARK_RELEASE_DECISION_COMPETITIVE_SURPASS_INDEX_JSON" in env
+    assert "BENCHMARK_RELEASE_DECISION_OUTPUT_JSON" in env
+    assert "BENCHMARK_RELEASE_DECISION_OUTPUT_MD" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_ENABLE" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_TITLE" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_RELEASE_DECISION_JSON" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_COMPANION_SUMMARY_JSON" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_ARTIFACT_BUNDLE_JSON" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_ENGINEERING_SIGNALS_JSON" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_REALDATA_SIGNALS_JSON" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_OPERATOR_ADOPTION_JSON" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_READINESS_JSON" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DRIFT_JSON" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_APPLICATION_JSON" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_JSON" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_COMPETITIVE_SURPASS_INDEX_JSON" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_OUTPUT_JSON" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_OUTPUT_MD" in env
+    assert "BENCHMARK_OPERATOR_ADOPTION_ENABLE" in env
+    assert "BENCHMARK_OPERATOR_ADOPTION_TITLE" in env
+    assert "BENCHMARK_OPERATOR_ADOPTION_RELEASE_DECISION_JSON" in env
+    assert "BENCHMARK_OPERATOR_ADOPTION_RELEASE_RUNBOOK_JSON" in env
+    assert "BENCHMARK_OPERATOR_ADOPTION_REVIEW_QUEUE_JSON" in env
+    assert "BENCHMARK_OPERATOR_ADOPTION_FEEDBACK_FLYWHEEL_JSON" in env
+    assert "BENCHMARK_OPERATOR_ADOPTION_KNOWLEDGE_DRIFT_JSON" in env
+    assert "BENCHMARK_OPERATOR_ADOPTION_OUTPUT_JSON" in env
+    assert "BENCHMARK_OPERATOR_ADOPTION_OUTPUT_MD" in env
+    assert "OCR_REVIEW_PACK_ENABLE" in env
+    assert "OCR_REVIEW_PACK_INPUT" in env
+    assert "OCR_REVIEW_PACK_OUTPUT_CSV" in env
+    assert "OCR_REVIEW_PACK_OUTPUT_JSON" in env
+    assert "OCR_REVIEW_PACK_TOP_K" in env
+    assert "OCR_REVIEW_PACK_INCLUDE_READY" in env
+    assert "ASSISTANT_EVIDENCE_REPORT_ENABLE" in env
+    assert "ASSISTANT_EVIDENCE_REPORT_INPUT" in env
+    assert "ASSISTANT_EVIDENCE_REPORT_OUTPUT_CSV" in env
+    assert "ASSISTANT_EVIDENCE_REPORT_OUTPUT_JSON" in env
+    assert "ASSISTANT_EVIDENCE_REPORT_TOP_K" in env
+    assert "ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_ENABLE" in env
+    assert "ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_INPUT" in env
+    assert "ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_OUTPUT_CSV" in env
+    assert "ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_OUTPUT_JSON" in env
+    assert "ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_TOP_K" in env
 
-    dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
-    assert "review_gate_min_total_rows" in dispatch_inputs
-    assert "review_gate_max_candidate_rate" in dispatch_inputs
-    assert "review_gate_max_hybrid_rejected_rate" in dispatch_inputs
-    assert "review_gate_max_conflict_rate" in dispatch_inputs
-    assert "review_gate_max_low_confidence_rate" in dispatch_inputs
-    assert "review_gate_strict" in dispatch_inputs
-    assert "review_pack_input_csv" in dispatch_inputs
-    assert "hybrid_calibration_enable" in dispatch_inputs
-    assert "hybrid_calibration_input_csv" in dispatch_inputs
-    assert "hybrid_calibration_missing_mode" in dispatch_inputs
-    assert "hybrid_calibration_fail_on_gate_failed" in dispatch_inputs
-    assert "hybrid_calibration_update_baseline" in dispatch_inputs
-    assert "hybrid_blind_enable" in dispatch_inputs
-    assert "hybrid_blind_dxf_dir" in dispatch_inputs
-    assert "hybrid_blind_manifest_csv" in dispatch_inputs
-    assert "hybrid_blind_synth_manifest" in dispatch_inputs
-    assert "hybrid_blind_fail_on_gate_failed" in dispatch_inputs
-    assert "hybrid_blind_strict_require_real_data" in dispatch_inputs
-    assert "hybrid_blind_drift_alert_enable" in dispatch_inputs
-    assert "hybrid_superpass_enable" in dispatch_inputs
-    assert "hybrid_superpass_missing_mode" in dispatch_inputs
-    assert "hybrid_superpass_fail_on_failed" in dispatch_inputs
+    _assert_empty_workflow_dispatch(workflow)
+    assert "MIN_COMBINED" in env
+    assert "MIN_VISION" in env
+    assert "MIN_OCR" in env
+    assert "REVIEW_GATE_MIN_TOTAL_ROWS" in env
+    assert "REVIEW_GATE_MAX_CANDIDATE_RATE" in env
+    assert "REVIEW_GATE_MAX_HYBRID_REJECTED_RATE" in env
+    assert "REVIEW_GATE_MAX_CONFLICT_RATE" in env
+    assert "REVIEW_GATE_MAX_LOW_CONFIDENCE_RATE" in env
+    assert "REVIEW_GATE_STRICT" in env
+    assert "REVIEW_PACK_INPUT_CSV" in env
+    assert "REVIEW_PACK_INPUT_ARTIFACT_NAME" in env
+    assert "REVIEW_PACK_INPUT_ARTIFACT_RUN_ID" in env
+    assert "REVIEW_PACK_INPUT_ARTIFACT_REPOSITORY" in env
+    assert "REVIEW_PACK_INPUT_ARTIFACT_PATH" in env
+    assert "BENCHMARK_SCORECARD_ASSISTANT_EVIDENCE_SUMMARY" in env
+    assert "BENCHMARK_SCORECARD_REVIEW_QUEUE_SUMMARY" in env
+    assert "BENCHMARK_SCORECARD_FEEDBACK_SUMMARY" in env
+    assert "BENCHMARK_SCORECARD_FINETUNE_SUMMARY" in env
+    assert "BENCHMARK_SCORECARD_METRIC_TRAIN_SUMMARY" in env
+    assert "BENCHMARK_SCORECARD_OCR_REVIEW_SUMMARY" in env
+    assert "BENCHMARK_SCORECARD_QDRANT_READINESS_SUMMARY" in env
+    assert "BENCHMARK_SCORECARD_ENGINEERING_SIGNALS_SUMMARY" in env
+    assert "BENCHMARK_SCORECARD_KNOWLEDGE_READINESS_SUMMARY" in env
+    assert "BENCHMARK_SCORECARD_OPERATOR_ADOPTION_SUMMARY" in env
+    assert permissions["actions"] == "read"
 
 
 def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> None:
     workflow = _load_workflow()
-    review_step = _get_step(
-        workflow, "evaluate", "Build hybrid rejection review pack (optional)"
+    workflow_text = WORKFLOW.read_text(encoding="utf-8")
+    download_step = _get_step(
+        workflow, "evaluate", "Download review-pack input artifact (optional)"
     )
+    assert download_step["uses"] == "actions/download-artifact@v4"
+    assert "REVIEW_PACK_INPUT_ARTIFACT_NAME" in download_step["if"]
+    download_with = download_step["with"]
+    assert "run-id" in download_with
+    assert "repository" in download_with
+    assert "github-token" in download_with
+
+    review_step = _get_step(workflow, "evaluate", "Build hybrid rejection review pack (optional)")
     review_script = review_step["run"]
     assert "scripts/export_hybrid_rejection_review_pack.py" in review_script
-    assert "github.event.inputs.review_pack_input_csv" in review_script
+    assert "env.REVIEW_PACK_INPUT_CSV" in review_script
+    assert "env.REVIEW_PACK_INPUT_ARTIFACT_PATH" in review_script
+    assert "find \"$ARTIFACT_INPUT_DIR\" -type f -name '*.csv'" in review_script
+    assert "input_source=" in review_script
     assert "--low-confidence-threshold" in review_script
     assert "--top-k" in review_script
     assert "top_review_reasons=" in review_script
+    assert "top_coarse_labels=" in review_script
+    assert "top_fine_labels=" in review_script
+    assert "top_rejection_reasons=" in review_script
+    assert "knowledge_conflict_count=" in review_script
+    assert "knowledge_check_row_count=" in review_script
+    assert "standards_candidate_row_count=" in review_script
+    assert "top_knowledge_conflicts=" in review_script
+    assert "top_review_priorities=" in review_script
+    assert "top_confidence_bands=" in review_script
+    assert "top_knowledge_check_categories=" in review_script
+    assert "top_standard_candidate_types=" in review_script
+    assert "top_knowledge_hint_labels=" in review_script
     assert "top_primary_sources=" in review_script
+    assert "top_shadow_sources=" in review_script
     assert "sample_explanations=" in review_script
 
-    sweep_step = _get_step(
-        workflow, "evaluate", "Run Graph2D train recipe sweep (optional)"
-    )
+    sweep_step = _get_step(workflow, "evaluate", "Run Graph2D train recipe sweep (optional)")
     sweep_script = sweep_step["run"]
     assert "scripts/sweep_graph2d_train_recipes.py" in sweep_script
     assert "--recipes" in sweep_script
     assert "--seeds" in sweep_script
     assert "--base-args-json" in sweep_script
 
-    gate_step = _get_step(
-        workflow, "evaluate", "Check Graph2D review-pack gate (optional)"
-    )
+    gate_step = _get_step(workflow, "evaluate", "Check Graph2D review-pack gate (optional)")
     gate_script = gate_step["run"]
     assert "scripts/ci/check_graph2d_review_pack_gate.py" in gate_script
     assert "--summary-json" in gate_script
@@ -151,18 +457,772 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         workflow, "evaluate", "Emit Graph2D review gate annotations (optional)"
     )
     annotation_script = annotation_step["run"]
-    assert (
-        "scripts/ci/emit_graph2d_review_pack_gate_annotations.py" in annotation_script
-    )
+    assert "scripts/ci/emit_graph2d_review_pack_gate_annotations.py" in annotation_script
 
     strict_step = _get_step(
         workflow, "evaluate", "Evaluate Graph2D review gate strict mode (optional)"
     )
     strict_script = strict_step["run"]
     assert "GRAPH2D_REVIEW_PACK_GATE_STRICT" in strict_script
-    assert "review_gate_strict" in strict_script
+    assert "REVIEW_GATE_STRICT" in strict_script
     assert "gate status is not passed" in strict_script
     assert strict_step["continue-on-error"] == "true"
+
+    ocr_review_step = _get_step(workflow, "evaluate", "Build OCR review pack (optional)")
+    ocr_review_script = ocr_review_step["run"]
+    assert "scripts/export_ocr_review_pack.py" in ocr_review_script
+    assert "OCR_REVIEW_PACK_ENABLE" in ocr_review_script
+    assert "OCR_REVIEW_PACK_INPUT" in ocr_review_script
+    assert "review_priority_counts=" in ocr_review_script
+    assert "top_recommended_actions=" in ocr_review_script
+
+    benchmark_engineering_step = _get_step(
+        workflow, "evaluate", "Build benchmark engineering signals (optional)"
+    )
+    benchmark_engineering_script = benchmark_engineering_step["run"]
+    assert "scripts/export_benchmark_engineering_signals.py" in benchmark_engineering_script
+    assert "BENCHMARK_ENGINEERING_SIGNALS_ENABLE" in benchmark_engineering_script
+    assert "BENCHMARK_ENGINEERING_SIGNALS_HYBRID_SUMMARY_JSON" in benchmark_engineering_script
+    assert "BENCHMARK_ENGINEERING_SIGNALS_OCR_REVIEW_SUMMARY_JSON" in benchmark_engineering_script
+    assert "steps.ocr_review_pack.outputs.output_json" in benchmark_engineering_script
+    assert "INPUT_COUNT=0" in benchmark_engineering_script
+    assert "coverage_ratio=" in benchmark_engineering_script
+    assert "rows_with_violations=" in benchmark_engineering_script
+    assert "rows_with_standards_candidates=" in benchmark_engineering_script
+    assert "ocr_standard_signal_count=" in benchmark_engineering_script
+    assert "recommendations=" in benchmark_engineering_script
+
+    benchmark_realdata_step = _get_step(
+        workflow, "evaluate", "Build benchmark realdata signals (optional)"
+    )
+    benchmark_realdata_script = benchmark_realdata_step["run"]
+    assert "scripts/export_benchmark_realdata_signals.py" in benchmark_realdata_script
+    assert "BENCHMARK_REALDATA_SIGNALS_ENABLE" in benchmark_realdata_script
+    assert "BENCHMARK_REALDATA_SIGNALS_HYBRID_SUMMARY_JSON" in benchmark_realdata_script
+    assert (
+        "BENCHMARK_REALDATA_SIGNALS_ONLINE_EXAMPLE_REPORT_JSON"
+        in benchmark_realdata_script
+    )
+    assert "BENCHMARK_REALDATA_SIGNALS_STEP_DIR_SUMMARY_JSON" in benchmark_realdata_script
+    assert "BENCHMARK_REALDATA_SIGNALS_HYBRID_SUMMARY_JSON" in benchmark_realdata_script
+    assert (
+        "BENCHMARK_REALDATA_SIGNALS_ONLINE_EXAMPLE_REPORT_JSON"
+        in benchmark_realdata_script
+    )
+    assert "BENCHMARK_REALDATA_SIGNALS_STEP_DIR_SUMMARY_JSON" in benchmark_realdata_script
+    assert "ready_component_count=" in benchmark_realdata_script
+    assert "partial_component_count=" in benchmark_realdata_script
+    assert "environment_blocked_count=" in benchmark_realdata_script
+    assert "available_component_count=" in benchmark_realdata_script
+    assert "hybrid_dxf_status=" in benchmark_realdata_script
+    assert "history_h5_status=" in benchmark_realdata_script
+    assert "step_smoke_status=" in benchmark_realdata_script
+    assert "step_dir_status=" in benchmark_realdata_script
+    assert "recommendations=" in benchmark_realdata_script
+
+    benchmark_realdata_scorecard_step = _get_step(
+        workflow, "evaluate", "Build benchmark real-data scorecard (optional)"
+    )
+    benchmark_realdata_scorecard_script = benchmark_realdata_scorecard_step["run"]
+    assert (
+        "scripts/export_benchmark_realdata_scorecard.py"
+        in benchmark_realdata_scorecard_script
+    )
+    assert "BENCHMARK_REALDATA_SCORECARD_ENABLE" in benchmark_realdata_scorecard_script
+    assert (
+        "BENCHMARK_REALDATA_SCORECARD_HYBRID_SUMMARY_JSON"
+        in benchmark_realdata_scorecard_script
+    )
+    assert (
+        "BENCHMARK_REALDATA_SCORECARD_HISTORY_SUMMARY_JSON"
+        in benchmark_realdata_scorecard_script
+    )
+    assert (
+        "BENCHMARK_REALDATA_SCORECARD_ONLINE_EXAMPLE_REPORT_JSON"
+        in benchmark_realdata_scorecard_script
+    )
+    assert (
+        "BENCHMARK_REALDATA_SCORECARD_STEP_DIR_SUMMARY_JSON"
+        in benchmark_realdata_scorecard_script
+    )
+    assert (
+        "BENCHMARK_REALDATA_SCORECARD_HYBRID_SUMMARY_JSON"
+        in benchmark_realdata_scorecard_script
+    )
+    assert (
+        "BENCHMARK_REALDATA_SCORECARD_HISTORY_SUMMARY_JSON"
+        in benchmark_realdata_scorecard_script
+    )
+    assert (
+        "BENCHMARK_REALDATA_SCORECARD_ONLINE_EXAMPLE_REPORT_JSON"
+        in benchmark_realdata_scorecard_script
+    )
+    assert (
+        "BENCHMARK_REALDATA_SCORECARD_STEP_DIR_SUMMARY_JSON"
+        in benchmark_realdata_scorecard_script
+    )
+    assert "BENCHMARK_SCORECARD_HISTORY_SUMMARY_JSON" in benchmark_realdata_scorecard_script
+    assert "ready_component_count=" in benchmark_realdata_scorecard_script
+    assert "partial_component_count=" in benchmark_realdata_scorecard_script
+    assert "environment_blocked_count=" in benchmark_realdata_scorecard_script
+    assert "available_component_count=" in benchmark_realdata_scorecard_script
+    assert "best_surface=" in benchmark_realdata_scorecard_script
+    assert "hybrid_dxf_status=" in benchmark_realdata_scorecard_script
+    assert "history_h5_status=" in benchmark_realdata_scorecard_script
+    assert "step_smoke_status=" in benchmark_realdata_scorecard_script
+    assert "step_dir_status=" in benchmark_realdata_scorecard_script
+    assert "recommendations=" in benchmark_realdata_scorecard_script
+
+    benchmark_knowledge_step = _get_step(
+        workflow, "evaluate", "Build benchmark knowledge readiness (optional)"
+    )
+    benchmark_knowledge_script = benchmark_knowledge_step["run"]
+    assert "scripts/export_benchmark_knowledge_readiness.py" in benchmark_knowledge_script
+    assert "BENCHMARK_KNOWLEDGE_READINESS_ENABLE" in benchmark_knowledge_script
+    assert "BENCHMARK_KNOWLEDGE_READINESS_SNAPSHOT_JSON" in benchmark_knowledge_script
+    assert "BENCHMARK_KNOWLEDGE_READINESS_SNAPSHOT_JSON" in benchmark_knowledge_script
+    assert "total_reference_items=" in benchmark_knowledge_script
+    assert "ready_component_count=" in benchmark_knowledge_script
+    assert "partial_component_count=" in benchmark_knowledge_script
+    assert "missing_component_count=" in benchmark_knowledge_script
+    assert "focus_area_count=" in benchmark_knowledge_script
+    assert "focus_areas=" in benchmark_knowledge_script
+    assert "domain_count=" in benchmark_knowledge_script
+    assert "priority_domains=" in benchmark_knowledge_script
+    assert "domain_focus_areas=" in benchmark_knowledge_script
+    assert "recommendations=" in benchmark_knowledge_script
+    benchmark_knowledge_drift_step = _get_step(
+        workflow, "evaluate", "Build benchmark knowledge drift (optional)"
+    )
+    benchmark_knowledge_drift_script = benchmark_knowledge_drift_step["run"]
+    assert "scripts/export_benchmark_knowledge_drift.py" in benchmark_knowledge_drift_script
+    assert "BENCHMARK_KNOWLEDGE_DRIFT_ENABLE" in benchmark_knowledge_drift_script
+    assert "BENCHMARK_KNOWLEDGE_DRIFT_CURRENT_SUMMARY_JSON" in benchmark_knowledge_drift_script
+    assert "steps.benchmark_knowledge_readiness.outputs.output_json" in (
+        benchmark_knowledge_drift_script
+    )
+    assert "reference_item_delta=" in benchmark_knowledge_drift_script
+    assert "regressions=" in benchmark_knowledge_drift_script
+    assert "improvements=" in benchmark_knowledge_drift_script
+    assert "domain_regressions=" in benchmark_knowledge_drift_script
+    assert "domain_improvements=" in benchmark_knowledge_drift_script
+    assert "resolved_focus_areas=" in benchmark_knowledge_drift_script
+    assert "new_focus_areas=" in benchmark_knowledge_drift_script
+    assert "resolved_priority_domains=" in benchmark_knowledge_drift_script
+    assert "new_priority_domains=" in benchmark_knowledge_drift_script
+
+    benchmark_knowledge_application_step = _get_step(
+        workflow, "evaluate", "Build benchmark knowledge application (optional)"
+    )
+    benchmark_knowledge_application_script = benchmark_knowledge_application_step["run"]
+    assert (
+        "scripts/export_benchmark_knowledge_application.py"
+        in benchmark_knowledge_application_script
+    )
+    assert "BENCHMARK_KNOWLEDGE_APPLICATION_ENABLE" in benchmark_knowledge_application_script
+    assert (
+        "BENCHMARK_KNOWLEDGE_APPLICATION_ENGINEERING_SIGNALS_JSON"
+        in benchmark_knowledge_application_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_APPLICATION_KNOWLEDGE_READINESS_JSON"
+        in benchmark_knowledge_application_script
+    )
+    assert (
+        "steps.benchmark_engineering_signals.outputs.output_json"
+        in benchmark_knowledge_application_script
+    )
+    assert (
+        "steps.benchmark_knowledge_readiness.outputs.output_json"
+        in benchmark_knowledge_application_script
+    )
+    assert "ready_domain_count=" in benchmark_knowledge_application_script
+    assert "partial_domain_count=" in benchmark_knowledge_application_script
+    assert "missing_domain_count=" in benchmark_knowledge_application_script
+    assert "total_domain_count=" in benchmark_knowledge_application_script
+    assert "focus_area_count=" in benchmark_knowledge_application_script
+    assert "focus_areas=" in benchmark_knowledge_application_script
+    assert "priority_domains=" in benchmark_knowledge_application_script
+    assert "domain_statuses=" in benchmark_knowledge_application_script
+    assert "recommendations=" in benchmark_knowledge_application_script
+
+    benchmark_knowledge_realdata_step = _get_step(
+        workflow, "evaluate", "Build benchmark knowledge realdata correlation (optional)"
+    )
+    benchmark_knowledge_realdata_script = benchmark_knowledge_realdata_step["run"]
+    assert (
+        "scripts/export_benchmark_knowledge_realdata_correlation.py"
+        in benchmark_knowledge_realdata_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_ENABLE"
+        in benchmark_knowledge_realdata_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_KNOWLEDGE_READINESS_JSON"
+        in benchmark_knowledge_realdata_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_KNOWLEDGE_APPLICATION_JSON"
+        in benchmark_knowledge_realdata_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_REALDATA_SIGNALS_JSON"
+        in benchmark_knowledge_realdata_script
+    )
+    assert (
+        "steps.benchmark_knowledge_readiness.outputs.output_json"
+        in benchmark_knowledge_realdata_script
+    )
+    assert (
+        "steps.benchmark_knowledge_application.outputs.output_json"
+        in benchmark_knowledge_realdata_script
+    )
+    assert (
+        "steps.benchmark_realdata_signals.outputs.output_json"
+        in benchmark_knowledge_realdata_script
+    )
+    assert "ready_domain_count=" in benchmark_knowledge_realdata_script
+    assert "partial_domain_count=" in benchmark_knowledge_realdata_script
+    assert "blocked_domain_count=" in benchmark_knowledge_realdata_script
+    assert "total_domain_count=" in benchmark_knowledge_realdata_script
+    assert "focus_area_count=" in benchmark_knowledge_realdata_script
+    assert "focus_areas=" in benchmark_knowledge_realdata_script
+    assert "priority_domains=" in benchmark_knowledge_realdata_script
+    assert "domain_statuses=" in benchmark_knowledge_realdata_script
+    assert "recommendations=" in benchmark_knowledge_realdata_script
+
+    benchmark_knowledge_domain_matrix_step = _get_step(
+        workflow, "evaluate", "Build benchmark knowledge domain matrix (optional)"
+    )
+    benchmark_knowledge_domain_matrix_script = benchmark_knowledge_domain_matrix_step["run"]
+    assert (
+        "scripts/export_benchmark_knowledge_domain_matrix.py"
+        in benchmark_knowledge_domain_matrix_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_MATRIX_ENABLE"
+        in benchmark_knowledge_domain_matrix_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_MATRIX_KNOWLEDGE_READINESS_JSON"
+        in benchmark_knowledge_domain_matrix_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_MATRIX_KNOWLEDGE_APPLICATION_JSON"
+        in benchmark_knowledge_domain_matrix_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_MATRIX_KNOWLEDGE_REALDATA_CORRELATION_JSON"
+        in benchmark_knowledge_domain_matrix_script
+    )
+    assert (
+        "steps.benchmark_knowledge_readiness.outputs.output_json"
+        in benchmark_knowledge_domain_matrix_script
+    )
+    assert (
+        "steps.benchmark_knowledge_application.outputs.output_json"
+        in benchmark_knowledge_domain_matrix_script
+    )
+    assert (
+        "steps.benchmark_knowledge_realdata_correlation.outputs.output_json"
+        in benchmark_knowledge_domain_matrix_script
+    )
+    assert "ready_domain_count=" in benchmark_knowledge_domain_matrix_script
+    assert "partial_domain_count=" in benchmark_knowledge_domain_matrix_script
+    assert "blocked_domain_count=" in benchmark_knowledge_domain_matrix_script
+    assert "total_domain_count=" in benchmark_knowledge_domain_matrix_script
+    assert "focus_area_count=" in benchmark_knowledge_domain_matrix_script
+    assert "focus_areas=" in benchmark_knowledge_domain_matrix_script
+    assert "priority_domains=" in benchmark_knowledge_domain_matrix_script
+    assert "domain_statuses=" in benchmark_knowledge_domain_matrix_script
+    assert "recommendations=" in benchmark_knowledge_domain_matrix_script
+
+    benchmark_knowledge_domain_capability_matrix_step = _get_step(
+        workflow, "evaluate", "Build benchmark knowledge domain capability matrix (optional)"
+    )
+    benchmark_knowledge_domain_capability_matrix_script = (
+        benchmark_knowledge_domain_capability_matrix_step["run"]
+    )
+    assert (
+        "scripts/export_benchmark_knowledge_domain_capability_matrix.py"
+        in benchmark_knowledge_domain_capability_matrix_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_ENABLE"
+        in benchmark_knowledge_domain_capability_matrix_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_KNOWLEDGE_READINESS_JSON"
+        in benchmark_knowledge_domain_capability_matrix_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_KNOWLEDGE_APPLICATION_JSON"
+        in benchmark_knowledge_domain_capability_matrix_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_KNOWLEDGE_DOMAIN_MATRIX_JSON"
+        in benchmark_knowledge_domain_capability_matrix_script
+    )
+    assert (
+        "steps.benchmark_knowledge_readiness.outputs.output_json"
+        in benchmark_knowledge_domain_capability_matrix_script
+    )
+    assert (
+        "steps.benchmark_knowledge_application.outputs.output_json"
+        in benchmark_knowledge_domain_capability_matrix_script
+    )
+    assert "steps.benchmark_knowledge_domain_matrix.outputs.output_json" in (
+        benchmark_knowledge_domain_capability_matrix_script
+    )
+    assert "ready_domain_count=" in benchmark_knowledge_domain_capability_matrix_script
+    assert "partial_domain_count=" in benchmark_knowledge_domain_capability_matrix_script
+    assert "blocked_domain_count=" in benchmark_knowledge_domain_capability_matrix_script
+    assert "total_domain_count=" in benchmark_knowledge_domain_capability_matrix_script
+    assert "focus_area_count=" in benchmark_knowledge_domain_capability_matrix_script
+    assert "focus_areas=" in benchmark_knowledge_domain_capability_matrix_script
+    assert "priority_domains=" in benchmark_knowledge_domain_capability_matrix_script
+    assert "provider_gap_domains=" in benchmark_knowledge_domain_capability_matrix_script
+    assert "surface_gap_domains=" in benchmark_knowledge_domain_capability_matrix_script
+    assert "domain_statuses=" in benchmark_knowledge_domain_capability_matrix_script
+    assert "recommendations=" in benchmark_knowledge_domain_capability_matrix_script
+
+    benchmark_knowledge_domain_capability_drift_step = _get_step(
+        workflow, "evaluate", "Build benchmark knowledge domain capability drift (optional)"
+    )
+    benchmark_knowledge_domain_capability_drift_script = (
+        benchmark_knowledge_domain_capability_drift_step["run"]
+    )
+    assert (
+        "scripts/export_benchmark_knowledge_domain_capability_drift.py"
+        in benchmark_knowledge_domain_capability_drift_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_ENABLE"
+        in benchmark_knowledge_domain_capability_drift_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_CURRENT_SUMMARY_JSON"
+        in benchmark_knowledge_domain_capability_drift_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_PREVIOUS_SUMMARY_JSON"
+        in benchmark_knowledge_domain_capability_drift_script
+    )
+    assert "steps.benchmark_knowledge_domain_capability_matrix.outputs.output_json" in (
+        benchmark_knowledge_domain_capability_drift_script
+    )
+    assert "current_status=" in benchmark_knowledge_domain_capability_drift_script
+    assert "previous_status=" in benchmark_knowledge_domain_capability_drift_script
+    assert "provider_gap_delta=" in benchmark_knowledge_domain_capability_drift_script
+    assert "surface_gap_delta=" in benchmark_knowledge_domain_capability_drift_script
+    assert "domain_regressions=" in benchmark_knowledge_domain_capability_drift_script
+    assert "domain_improvements=" in benchmark_knowledge_domain_capability_drift_script
+    assert (
+        "resolved_provider_gap_domains="
+        in benchmark_knowledge_domain_capability_drift_script
+    )
+    assert (
+        "new_surface_gap_domains=" in benchmark_knowledge_domain_capability_drift_script
+    )
+    assert "recommendations=" in benchmark_knowledge_domain_capability_drift_script
+
+    benchmark_knowledge_domain_action_plan_step = _get_step(
+        workflow, "evaluate", "Build benchmark knowledge domain action plan (optional)"
+    )
+    benchmark_knowledge_domain_action_plan_script = (
+        benchmark_knowledge_domain_action_plan_step["run"]
+    )
+    assert (
+        "scripts/export_benchmark_knowledge_domain_action_plan.py"
+        in benchmark_knowledge_domain_action_plan_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_ACTION_PLAN_ENABLE"
+        in benchmark_knowledge_domain_action_plan_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_ACTION_PLAN_KNOWLEDGE_DOMAIN_MATRIX_JSON"
+        in benchmark_knowledge_domain_action_plan_script
+    )
+    assert "steps.benchmark_knowledge_domain_matrix.outputs.output_json" in (
+        benchmark_knowledge_domain_action_plan_script
+    )
+    assert "ready_domain_count=" in benchmark_knowledge_domain_action_plan_script
+    assert "partial_domain_count=" in benchmark_knowledge_domain_action_plan_script
+    assert "blocked_domain_count=" in benchmark_knowledge_domain_action_plan_script
+    assert "total_domain_count=" in benchmark_knowledge_domain_action_plan_script
+    assert "total_action_count=" in benchmark_knowledge_domain_action_plan_script
+    assert "high_priority_action_count=" in benchmark_knowledge_domain_action_plan_script
+    assert (
+        "medium_priority_action_count="
+        in benchmark_knowledge_domain_action_plan_script
+    )
+    assert "priority_domains=" in benchmark_knowledge_domain_action_plan_script
+    assert "recommended_first_actions=" in benchmark_knowledge_domain_action_plan_script
+    assert "domain_action_counts=" in benchmark_knowledge_domain_action_plan_script
+    assert "recommendations=" in benchmark_knowledge_domain_action_plan_script
+
+    benchmark_knowledge_domain_control_plane_step = _get_step(
+        workflow, "evaluate", "Build benchmark knowledge domain control plane (optional)"
+    )
+    benchmark_knowledge_domain_control_plane_script = (
+        benchmark_knowledge_domain_control_plane_step["run"]
+    )
+    assert (
+        "scripts/export_benchmark_knowledge_domain_control_plane.py"
+        in benchmark_knowledge_domain_control_plane_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_ENABLE"
+        in benchmark_knowledge_domain_control_plane_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON"
+        in benchmark_knowledge_domain_control_plane_script
+    )
+    assert (
+        "steps.benchmark_knowledge_realdata_correlation.outputs.output_json"
+        in benchmark_knowledge_domain_control_plane_script
+    )
+    assert (
+        "steps.benchmark_knowledge_domain_action_plan.outputs.output_json"
+        in benchmark_knowledge_domain_control_plane_script
+    )
+    assert "ready_domain_count=" in benchmark_knowledge_domain_control_plane_script
+    assert "partial_domain_count=" in benchmark_knowledge_domain_control_plane_script
+    assert "blocked_domain_count=" in benchmark_knowledge_domain_control_plane_script
+    assert "missing_domain_count=" in benchmark_knowledge_domain_control_plane_script
+    assert "total_domain_count=" in benchmark_knowledge_domain_control_plane_script
+    assert "total_action_count=" in benchmark_knowledge_domain_control_plane_script
+    assert (
+        "high_priority_action_count="
+        in benchmark_knowledge_domain_control_plane_script
+    )
+    assert "release_blockers=" in benchmark_knowledge_domain_control_plane_script
+    assert "priority_domains=" in benchmark_knowledge_domain_control_plane_script
+    assert "focus_areas=" in benchmark_knowledge_domain_control_plane_script
+    assert "recommendations=" in benchmark_knowledge_domain_control_plane_script
+
+    benchmark_knowledge_domain_control_plane_drift_step = _get_step(
+        workflow,
+        "evaluate",
+        "Build benchmark knowledge domain control plane drift (optional)",
+    )
+    benchmark_knowledge_domain_control_plane_drift_script = (
+        benchmark_knowledge_domain_control_plane_drift_step["run"]
+    )
+    assert (
+        "scripts/export_benchmark_knowledge_domain_control_plane_drift.py"
+        in benchmark_knowledge_domain_control_plane_drift_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_ENABLE"
+        in benchmark_knowledge_domain_control_plane_drift_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_CURRENT_SUMMARY_JSON"
+        in benchmark_knowledge_domain_control_plane_drift_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_PREVIOUS_SUMMARY_JSON"
+        in benchmark_knowledge_domain_control_plane_drift_script
+    )
+    assert "steps.benchmark_knowledge_domain_control_plane.outputs.output_json" in (
+        benchmark_knowledge_domain_control_plane_drift_script
+    )
+    assert "current_status=" in benchmark_knowledge_domain_control_plane_drift_script
+    assert "previous_status=" in benchmark_knowledge_domain_control_plane_drift_script
+    assert "ready_domain_delta=" in benchmark_knowledge_domain_control_plane_drift_script
+    assert "blocked_domain_delta=" in benchmark_knowledge_domain_control_plane_drift_script
+    assert "total_action_delta=" in benchmark_knowledge_domain_control_plane_drift_script
+    assert (
+        "high_priority_action_delta="
+        in benchmark_knowledge_domain_control_plane_drift_script
+    )
+    assert "domain_regressions=" in benchmark_knowledge_domain_control_plane_drift_script
+    assert "domain_improvements=" in benchmark_knowledge_domain_control_plane_drift_script
+    assert (
+        "resolved_release_blockers="
+        in benchmark_knowledge_domain_control_plane_drift_script
+    )
+    assert (
+        "new_release_blockers=" in benchmark_knowledge_domain_control_plane_drift_script
+    )
+    assert "recommendations=" in benchmark_knowledge_domain_control_plane_drift_script
+
+    benchmark_knowledge_domain_release_gate_step = _get_step(
+        workflow, "evaluate", "Build benchmark knowledge domain release gate (optional)"
+    )
+    benchmark_knowledge_domain_release_gate_script = (
+        benchmark_knowledge_domain_release_gate_step["run"]
+    )
+    assert (
+        "scripts/export_benchmark_knowledge_domain_release_gate.py"
+        in benchmark_knowledge_domain_release_gate_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_ENABLE"
+        in benchmark_knowledge_domain_release_gate_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_KNOWLEDGE_DOMAIN_CAPABILITY_MATRIX_JSON"
+        in benchmark_knowledge_domain_release_gate_script
+    )
+    assert "steps.benchmark_knowledge_domain_action_plan.outputs.output_json" in (
+        benchmark_knowledge_domain_release_gate_script
+    )
+    assert "steps.benchmark_knowledge_domain_control_plane.outputs.output_json" in (
+        benchmark_knowledge_domain_release_gate_script
+    )
+    assert "steps.benchmark_knowledge_domain_control_plane_drift.outputs.output_json" in (
+        benchmark_knowledge_domain_release_gate_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_GATE_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_JSON"
+        in benchmark_knowledge_domain_release_gate_script
+    )
+    assert "gate_open=" in benchmark_knowledge_domain_release_gate_script
+    assert "releasable_domain_count=" in benchmark_knowledge_domain_release_gate_script
+    assert "blocked_domain_count=" in benchmark_knowledge_domain_release_gate_script
+    assert "partial_domain_count=" in benchmark_knowledge_domain_release_gate_script
+    assert "blocking_reasons=" in benchmark_knowledge_domain_release_gate_script
+    assert "warning_reasons=" in benchmark_knowledge_domain_release_gate_script
+    assert "releasable_domains=" in benchmark_knowledge_domain_release_gate_script
+    assert "blocked_domains=" in benchmark_knowledge_domain_release_gate_script
+    assert "priority_domains=" in benchmark_knowledge_domain_release_gate_script
+    assert "recommended_first_action=" in benchmark_knowledge_domain_release_gate_script
+    assert "recommendations=" in benchmark_knowledge_domain_release_gate_script
+    benchmark_knowledge_domain_release_surface_alignment_step = _get_step(
+        workflow,
+        "evaluate",
+        "Build benchmark knowledge domain release surface alignment (optional)",
+    )
+    benchmark_knowledge_domain_release_surface_alignment_script = (
+        benchmark_knowledge_domain_release_surface_alignment_step["run"]
+    )
+    assert (
+        "scripts/export_benchmark_knowledge_domain_release_surface_alignment.py"
+        in benchmark_knowledge_domain_release_surface_alignment_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_ENABLE"
+        in benchmark_knowledge_domain_release_surface_alignment_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_RELEASE_DECISION_JSON"
+        in benchmark_knowledge_domain_release_surface_alignment_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_SURFACE_ALIGNMENT_RELEASE_RUNBOOK_JSON"
+        in benchmark_knowledge_domain_release_surface_alignment_script
+    )
+    assert "steps.benchmark_release_decision.outputs.output_json" in (
+        benchmark_knowledge_domain_release_surface_alignment_script
+    )
+    assert "steps.benchmark_release_runbook.outputs.output_json" in (
+        benchmark_knowledge_domain_release_surface_alignment_script
+    )
+    assert "status=" in benchmark_knowledge_domain_release_surface_alignment_script
+    assert "summary=" in benchmark_knowledge_domain_release_surface_alignment_script
+    assert "mismatch_count=" in (
+        benchmark_knowledge_domain_release_surface_alignment_script
+    )
+    assert "mismatches=" in benchmark_knowledge_domain_release_surface_alignment_script
+    assert "domain_mismatches=" in (
+        benchmark_knowledge_domain_release_surface_alignment_script
+    )
+    assert "release_blocker_mismatches=" in (
+        benchmark_knowledge_domain_release_surface_alignment_script
+    )
+    assert "recommendations=" in (
+        benchmark_knowledge_domain_release_surface_alignment_script
+    )
+
+    benchmark_knowledge_source_coverage_step = _get_step(
+        workflow, "evaluate", "Build benchmark knowledge source coverage (optional)"
+    )
+    benchmark_knowledge_source_coverage_script = (
+        benchmark_knowledge_source_coverage_step["run"]
+    )
+    assert (
+        "scripts/export_benchmark_knowledge_source_coverage.py"
+        in benchmark_knowledge_source_coverage_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_SOURCE_COVERAGE_ENABLE"
+        in benchmark_knowledge_source_coverage_script
+    )
+    assert "ready_source_group_count=" in benchmark_knowledge_source_coverage_script
+    assert "partial_source_group_count=" in benchmark_knowledge_source_coverage_script
+    assert "missing_source_group_count=" in benchmark_knowledge_source_coverage_script
+    assert "total_source_group_count=" in benchmark_knowledge_source_coverage_script
+    assert "total_source_table_count=" in benchmark_knowledge_source_coverage_script
+    assert "total_source_item_count=" in benchmark_knowledge_source_coverage_script
+    assert "total_reference_standard_count=" in benchmark_knowledge_source_coverage_script
+    assert "ready_expansion_candidate_count=" in benchmark_knowledge_source_coverage_script
+    assert "focus_areas=" in benchmark_knowledge_source_coverage_script
+    assert "priority_domains=" in benchmark_knowledge_source_coverage_script
+    assert "domain_statuses=" in benchmark_knowledge_source_coverage_script
+    assert "expansion_candidates=" in benchmark_knowledge_source_coverage_script
+    assert "recommendations=" in benchmark_knowledge_source_coverage_script
+
+    benchmark_knowledge_source_action_plan_step = _get_step(
+        workflow, "evaluate", "Build benchmark knowledge source action plan (optional)"
+    )
+    benchmark_knowledge_source_action_plan_script = (
+        benchmark_knowledge_source_action_plan_step["run"]
+    )
+    assert (
+        "scripts/export_benchmark_knowledge_source_action_plan.py"
+        in benchmark_knowledge_source_action_plan_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_SOURCE_ACTION_PLAN_ENABLE"
+        in benchmark_knowledge_source_action_plan_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_SOURCE_ACTION_PLAN_KNOWLEDGE_SOURCE_COVERAGE_JSON"
+        in benchmark_knowledge_source_action_plan_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_SOURCE_ACTION_PLAN_KNOWLEDGE_SOURCE_COVERAGE_JSON"
+        in benchmark_knowledge_source_action_plan_script
+    )
+    assert "--benchmark-knowledge-source-coverage" in (
+        benchmark_knowledge_source_action_plan_script
+    )
+    assert "total_action_count=" in benchmark_knowledge_source_action_plan_script
+    assert "high_priority_action_count=" in benchmark_knowledge_source_action_plan_script
+    assert (
+        "medium_priority_action_count="
+        in benchmark_knowledge_source_action_plan_script
+    )
+    assert "expansion_action_count=" in benchmark_knowledge_source_action_plan_script
+    assert "priority_domains=" in benchmark_knowledge_source_action_plan_script
+    assert (
+        "recommended_first_actions="
+        in benchmark_knowledge_source_action_plan_script
+    )
+    assert "source_group_action_counts=" in benchmark_knowledge_source_action_plan_script
+    assert "recommendations=" in benchmark_knowledge_source_action_plan_script
+
+    benchmark_knowledge_source_drift_step = _get_step(
+        workflow, "evaluate", "Build benchmark knowledge source drift (optional)"
+    )
+    benchmark_knowledge_source_drift_script = (
+        benchmark_knowledge_source_drift_step["run"]
+    )
+    assert (
+        "scripts/export_benchmark_knowledge_source_drift.py"
+        in benchmark_knowledge_source_drift_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_ENABLE"
+        in benchmark_knowledge_source_drift_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_CURRENT_SUMMARY_JSON"
+        in benchmark_knowledge_source_drift_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_SOURCE_DRIFT_PREVIOUS_SUMMARY_JSON"
+        in benchmark_knowledge_source_drift_script
+    )
+    assert "steps.benchmark_knowledge_source_coverage.outputs.output_json" in (
+        benchmark_knowledge_source_drift_script
+    )
+    assert "--current-summary" in benchmark_knowledge_source_drift_script
+    assert "current_status=" in benchmark_knowledge_source_drift_script
+    assert "previous_status=" in benchmark_knowledge_source_drift_script
+    assert "ready_source_group_delta=" in benchmark_knowledge_source_drift_script
+    assert "missing_source_group_delta=" in benchmark_knowledge_source_drift_script
+    assert "regressions=" in benchmark_knowledge_source_drift_script
+    assert "improvements=" in benchmark_knowledge_source_drift_script
+    assert "source_group_regressions=" in benchmark_knowledge_source_drift_script
+    assert "source_group_improvements=" in benchmark_knowledge_source_drift_script
+    assert "resolved_focus_areas=" in benchmark_knowledge_source_drift_script
+    assert "new_focus_areas=" in benchmark_knowledge_source_drift_script
+    assert "resolved_priority_domains=" in benchmark_knowledge_source_drift_script
+    assert "new_priority_domains=" in benchmark_knowledge_source_drift_script
+    assert "recommendations=" in benchmark_knowledge_source_drift_script
+
+    benchmark_knowledge_outcome_correlation_step = _get_step(
+        workflow, "evaluate", "Build benchmark knowledge outcome correlation (optional)"
+    )
+    benchmark_knowledge_outcome_correlation_script = (
+        benchmark_knowledge_outcome_correlation_step["run"]
+    )
+    assert (
+        "scripts/export_benchmark_knowledge_outcome_correlation.py"
+        in benchmark_knowledge_outcome_correlation_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_OUTCOME_CORRELATION_ENABLE"
+        in benchmark_knowledge_outcome_correlation_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_OUTCOME_CORRELATION_KNOWLEDGE_DOMAIN_MATRIX_JSON"
+        in benchmark_knowledge_outcome_correlation_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_OUTCOME_CORRELATION_REALDATA_SCORECARD_JSON"
+        in benchmark_knowledge_outcome_correlation_script
+    )
+    assert (
+        "steps.benchmark_knowledge_domain_matrix.outputs.output_json"
+        in benchmark_knowledge_outcome_correlation_script
+    )
+    assert (
+        "steps.benchmark_realdata_scorecard.outputs.output_json"
+        in benchmark_knowledge_outcome_correlation_script
+    )
+    assert "ready_domain_count=" in benchmark_knowledge_outcome_correlation_script
+    assert "partial_domain_count=" in benchmark_knowledge_outcome_correlation_script
+    assert "blocked_domain_count=" in benchmark_knowledge_outcome_correlation_script
+    assert "total_domain_count=" in benchmark_knowledge_outcome_correlation_script
+    assert "focus_area_count=" in benchmark_knowledge_outcome_correlation_script
+    assert "focus_areas=" in benchmark_knowledge_outcome_correlation_script
+    assert "priority_domains=" in benchmark_knowledge_outcome_correlation_script
+    assert "domain_statuses=" in benchmark_knowledge_outcome_correlation_script
+    assert "recommendations=" in benchmark_knowledge_outcome_correlation_script
+
+    benchmark_knowledge_outcome_drift_step = _get_step(
+        workflow, "evaluate", "Build benchmark knowledge outcome drift (optional)"
+    )
+    benchmark_knowledge_outcome_drift_script = benchmark_knowledge_outcome_drift_step["run"]
+    assert (
+        "scripts/export_benchmark_knowledge_outcome_drift.py"
+        in benchmark_knowledge_outcome_drift_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_ENABLE"
+        in benchmark_knowledge_outcome_drift_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_CURRENT_SUMMARY_JSON"
+        in benchmark_knowledge_outcome_drift_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_PREVIOUS_SUMMARY_JSON"
+        in benchmark_knowledge_outcome_drift_script
+    )
+    assert "steps.benchmark_knowledge_outcome_correlation.outputs.output_json" in (
+        benchmark_knowledge_outcome_drift_script
+    )
+    assert "current_status=" in benchmark_knowledge_outcome_drift_script
+    assert "previous_status=" in benchmark_knowledge_outcome_drift_script
+    assert "ready_domain_delta=" in benchmark_knowledge_outcome_drift_script
+    assert "blocked_domain_delta=" in benchmark_knowledge_outcome_drift_script
+    assert "regressions=" in benchmark_knowledge_outcome_drift_script
+    assert "improvements=" in benchmark_knowledge_outcome_drift_script
+    assert "domain_regressions=" in benchmark_knowledge_outcome_drift_script
+    assert "domain_improvements=" in benchmark_knowledge_outcome_drift_script
+    assert "resolved_focus_areas=" in benchmark_knowledge_outcome_drift_script
+    assert "new_focus_areas=" in benchmark_knowledge_outcome_drift_script
+    assert "resolved_priority_domains=" in benchmark_knowledge_outcome_drift_script
+    assert "new_priority_domains=" in benchmark_knowledge_outcome_drift_script
+    assert "recommendations=" in benchmark_knowledge_outcome_drift_script
 
     final_fail_step = _get_step(
         workflow,
@@ -171,225 +1231,1090 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     )
     assert (
         final_fail_step["if"]
-        == "steps.graph2d_review_gate_strict.outputs.should_fail == 'true' && steps.strict_fail_mode.outputs.mode != 'soft'"
+        == "steps.graph2d_review_gate_strict.outputs.should_fail == 'true'"
     )
     assert "Failure reason" in final_fail_step["run"]
 
-    hybrid_cal_step = _get_step(
-        workflow, "evaluate", "Calibrate Hybrid confidence from review CSV (optional)"
-    )
-    hybrid_cal_script = hybrid_cal_step["run"]
-    assert "scripts/calibrate_hybrid_confidence.py" in hybrid_cal_script
-    assert "hybrid_calibration_enable" in hybrid_cal_script
-    assert "--input-csv" in hybrid_cal_script
-    assert "--output-json" in hybrid_cal_script
+    benchmark_step = _get_step(workflow, "evaluate", "Generate benchmark scorecard (optional)")
+    benchmark_script = benchmark_step["run"]
+    assert "scripts/generate_benchmark_scorecard.py" in benchmark_script
+    assert "BENCHMARK_SCORECARD_ENABLE" in benchmark_script
+    assert "--hybrid-summary" in benchmark_script
+    assert "--graph2d-metrics" in benchmark_script
+    assert "--history-summary" in benchmark_script
+    assert "--assistant-evidence-summary" in benchmark_script
+    assert "--review-queue-summary" in benchmark_script
+    assert "--feedback-summary" in benchmark_script
+    assert "--finetune-summary" in benchmark_script
+    assert "--metric-train-summary" in benchmark_script
+    assert "--ocr-review-summary" in benchmark_script
+    assert "--qdrant-readiness-summary" in benchmark_script
+    assert "--engineering-signals-summary" in benchmark_script
+    assert "--knowledge-readiness-summary" in benchmark_script
+    assert "--benchmark-operator-adoption-summary" in benchmark_script
+    assert "overall_status=" in benchmark_script
+    assert "assistant_status=" in benchmark_script
+    assert "review_queue_status=" in benchmark_script
+    assert "feedback_flywheel_status=" in benchmark_script
+    assert "ocr_status=" in benchmark_script
+    assert "qdrant_status=" in benchmark_script
+    assert "knowledge_status=" in benchmark_script
+    assert "knowledge_total_reference_items=" in benchmark_script
+    assert "knowledge_focus_area_count=" in benchmark_script
+    assert "knowledge_focus_areas=" in benchmark_script
+    assert "engineering_status=" in benchmark_script
+    assert "engineering_coverage_ratio=" in benchmark_script
+    assert "engineering_top_standard_types=" in benchmark_script
+    assert "operator_adoption_status=" in benchmark_script
+    assert "operator_adoption_mode=" in benchmark_script
+    assert "operator_adoption_knowledge_outcome_drift_status=" in benchmark_script
+    assert "operator_adoption_knowledge_outcome_drift_summary=" in benchmark_script
 
-    hybrid_gate_step = _get_step(
-        workflow, "evaluate", "Check Hybrid confidence calibration gate (optional)"
+    feedback_flywheel_step = _get_step(
+        workflow, "evaluate", "Build feedback flywheel benchmark artifact (optional)"
     )
-    hybrid_gate_script = hybrid_gate_step["run"]
+    feedback_flywheel_script = feedback_flywheel_step["run"]
+    assert "scripts/export_feedback_flywheel_benchmark.py" in feedback_flywheel_script
+    assert "--feedback-summary" in feedback_flywheel_script
+    assert "--finetune-summary" in feedback_flywheel_script
+    assert "--metric-train-summary" in feedback_flywheel_script
+    assert "INPUT_COUNT=0" in feedback_flywheel_script
+    assert "feedback_total=" in feedback_flywheel_script
+    assert "metric_triplet_count=" in feedback_flywheel_script
+
+    benchmark_operational_step = _get_step(
+        workflow, "evaluate", "Build benchmark operational summary (optional)"
+    )
+    benchmark_operational_script = benchmark_operational_step["run"]
+    assert "scripts/export_benchmark_operational_summary.py" in benchmark_operational_script
+    assert "BENCHMARK_OPERATIONAL_SUMMARY_ENABLE" in benchmark_operational_script
+    assert "--benchmark-scorecard" in benchmark_operational_script
+    assert "--feedback-flywheel" in benchmark_operational_script
+    assert "--assistant-evidence" in benchmark_operational_script
+    assert "--review-queue" in benchmark_operational_script
+    assert "--ocr-review" in benchmark_operational_script
+    assert "--benchmark-operator-adoption" in benchmark_operational_script
+    assert "INPUT_COUNT=0" in benchmark_operational_script
+    assert "feedback_status=" in benchmark_operational_script
+    assert "assistant_status=" in benchmark_operational_script
+    assert "review_queue_status=" in benchmark_operational_script
+    assert "ocr_status=" in benchmark_operational_script
+    assert "operator_adoption_status=" in benchmark_operational_script
+    assert "operator_adoption_knowledge_outcome_drift_status=" in benchmark_operational_script
+    assert "operator_adoption_knowledge_outcome_drift_summary=" in benchmark_operational_script
+    assert "blockers=" in benchmark_operational_script
+    assert "recommendations=" in benchmark_operational_script
+
+    benchmark_bundle_step = _get_step(
+        workflow, "evaluate", "Build benchmark artifact bundle (optional)"
+    )
+    benchmark_bundle_script = _load_bash_helper_from_step(benchmark_bundle_step)
+    assert "scripts/export_benchmark_artifact_bundle.py" in benchmark_bundle_script
+    assert "BENCHMARK_ARTIFACT_BUNDLE_ENABLE" in benchmark_bundle_script
+    assert "--benchmark-scorecard" in benchmark_bundle_script
+    assert "--benchmark-operational-summary" in benchmark_bundle_script
+    assert "--feedback-flywheel" in benchmark_bundle_script
+    assert "--assistant-evidence" in benchmark_bundle_script
+    assert "--review-queue" in benchmark_bundle_script
+    assert "--ocr-review" in benchmark_bundle_script
+    assert "--benchmark-companion-summary" in benchmark_bundle_script
+    assert "--benchmark-release-decision" in benchmark_bundle_script
+    assert "--benchmark-engineering-signals" in benchmark_bundle_script
+    assert "--benchmark-realdata-signals" in benchmark_bundle_script
+    assert "--benchmark-realdata-scorecard" in benchmark_bundle_script
+    assert "--benchmark-knowledge-readiness" in benchmark_bundle_script
+    assert "--benchmark-knowledge-drift" in benchmark_bundle_script
+    assert "--benchmark-knowledge-application" in benchmark_bundle_script
+    assert "--benchmark-knowledge-domain-capability-matrix" in benchmark_bundle_script
+    assert "--benchmark-knowledge-domain-action-plan" in benchmark_bundle_script
+    assert "--benchmark-knowledge-source-action-plan" in benchmark_bundle_script
+    assert "--benchmark-knowledge-outcome-correlation" in benchmark_bundle_script
+    assert "--benchmark-knowledge-outcome-drift" in benchmark_bundle_script
+    assert "--benchmark-competitive-surpass-index" in benchmark_bundle_script
+    assert "--benchmark-competitive-surpass-trend" in benchmark_bundle_script
+    assert "--benchmark-competitive-surpass-action-plan" in benchmark_bundle_script
+    assert "INPUT_COUNT=0" in benchmark_bundle_script
+    assert "available_artifact_count=" in benchmark_bundle_script
+    assert "feedback_status=" in benchmark_bundle_script
+    assert "assistant_status=" in benchmark_bundle_script
+    assert "review_queue_status=" in benchmark_bundle_script
+    assert "ocr_status=" in benchmark_bundle_script
+    assert "knowledge_status=" in benchmark_bundle_script
+    assert "knowledge_drift_status=" in benchmark_bundle_script
+    assert "knowledge_drift_summary=" in benchmark_bundle_script
+    assert "knowledge_drift_recommendations=" in benchmark_bundle_script
+    assert "knowledge_drift_component_changes=" in benchmark_bundle_script
+    assert "knowledge_drift_domain_regressions=" in benchmark_bundle_script
+    assert "knowledge_drift_domain_improvements=" in benchmark_bundle_script
+    assert "knowledge_drift_resolved_priority_domains=" in benchmark_bundle_script
+    assert "knowledge_drift_new_priority_domains=" in benchmark_bundle_script
+    assert "engineering_status=" in benchmark_bundle_script
+    assert "realdata_status=" in benchmark_bundle_script
+    assert "realdata_scorecard_status=" in benchmark_bundle_script
+    assert "realdata_scorecard_recommendations=" in benchmark_bundle_script
+    assert "realdata_recommendations=" in benchmark_bundle_script
+    assert "knowledge_application_status=" in benchmark_bundle_script
+    assert "knowledge_application_focus_areas=" in benchmark_bundle_script
+    assert "knowledge_application_priority_domains=" in benchmark_bundle_script
+    assert "knowledge_application_domain_statuses=" in benchmark_bundle_script
+    assert "knowledge_application_recommendations=" in benchmark_bundle_script
+    assert "knowledge_domain_capability_matrix_status=" in benchmark_bundle_script
+    assert "knowledge_domain_capability_matrix_focus_areas=" in benchmark_bundle_script
+    assert "knowledge_domain_capability_matrix_priority_domains=" in benchmark_bundle_script
+    assert "knowledge_domain_capability_matrix_domain_statuses=" in benchmark_bundle_script
+    assert "knowledge_domain_capability_matrix_recommendations=" in benchmark_bundle_script
+    assert "--benchmark-knowledge-domain-capability-drift" in benchmark_bundle_script
+    assert "knowledge_domain_capability_drift_status=" in benchmark_bundle_script
     assert (
-        "scripts/ci/check_hybrid_confidence_calibration_gate.py" in hybrid_gate_script
-    )
-    assert "--current-json" in hybrid_gate_script
-    assert "--baseline-json" in hybrid_gate_script
-    assert "--config" in hybrid_gate_script
-    assert "--missing-mode" in hybrid_gate_script
-    assert "--output-json" in hybrid_gate_script
-
-    hybrid_summary_step = _get_step(
-        workflow,
-        "evaluate",
-        "Append Hybrid confidence calibration gate summary (optional)",
-    )
-    hybrid_summary_script = hybrid_summary_step["run"]
-    assert (
-        "scripts/ci/summarize_hybrid_confidence_calibration_gate.py"
-        in hybrid_summary_script
-    )
-
-    hybrid_strict_step = _get_step(
-        workflow, "evaluate", "Evaluate Hybrid calibration gate strict mode (optional)"
-    )
-    hybrid_strict_script = hybrid_strict_step["run"]
-    assert "HYBRID_CONFIDENCE_CALIBRATION_FAIL_ON_GATE_FAILED" in hybrid_strict_script
-    assert "hybrid_calibration_fail_on_gate_failed" in hybrid_strict_script
-    assert "gate status is not passed" in hybrid_strict_script
-
-    hybrid_baseline_step = _get_step(
-        workflow, "evaluate", "Update Hybrid calibration baseline (optional)"
-    )
-    hybrid_baseline_script = hybrid_baseline_step["run"]
-    assert (
-        "scripts/ci/update_hybrid_confidence_calibration_baseline.py"
-        in hybrid_baseline_script
-    )
-    assert "hybrid_calibration_update_baseline" in hybrid_baseline_script
-    assert (
-        "HYBRID_CONFIDENCE_CALIBRATION_BASELINE_UPDATE_ENABLE" in hybrid_baseline_script
-    )
-    assert "--current-json" in hybrid_baseline_script
-    assert "--output-baseline-json" in hybrid_baseline_script
-
-    hybrid_blind_eval_step = _get_step(
-        workflow, "evaluate", "Run Hybrid blind benchmark (optional)"
-    )
-    hybrid_blind_eval_script = hybrid_blind_eval_step["run"]
-    assert "scripts/batch_analyze_dxf_local.py" in hybrid_blind_eval_script
-    assert (
-        "scripts/ci/build_hybrid_blind_synthetic_dxf_dataset.py"
-        in hybrid_blind_eval_script
-    )
-    assert "hybrid_blind_enable" in hybrid_blind_eval_script
-    assert "hybrid_blind_synth_manifest" in hybrid_blind_eval_script
-    assert "--geometry-only" in hybrid_blind_eval_script
-
-    hybrid_blind_gate_step = _get_step(
-        workflow, "evaluate", "Check Hybrid blind gate (optional)"
-    )
-    hybrid_blind_gate_script = hybrid_blind_gate_step["run"]
-    assert "scripts/ci/check_hybrid_blind_gate.py" in hybrid_blind_gate_script
-    assert "--summary-json" in hybrid_blind_gate_script
-    assert "--config" in hybrid_blind_gate_script
-    assert "--output" in hybrid_blind_gate_script
-
-    hybrid_blind_strict_step = _get_step(
-        workflow, "evaluate", "Evaluate Hybrid blind gate strict mode (optional)"
-    )
-    hybrid_blind_strict_script = hybrid_blind_strict_step["run"]
-    assert "HYBRID_BLIND_FAIL_ON_GATE_FAILED" in hybrid_blind_strict_script
-    assert "hybrid_blind_fail_on_gate_failed" in hybrid_blind_strict_script
-    assert "HYBRID_BLIND_STRICT_REQUIRE_REAL_DATA" in hybrid_blind_strict_script
-    assert "hybrid_blind_strict_require_real_data" in hybrid_blind_strict_script
-    assert "strict_mode_requires_real_dataset" in hybrid_blind_strict_script
-    assert "gate status is not passed" in hybrid_blind_strict_script
-
-    hybrid_blind_history_step = _get_step(
-        workflow, "evaluate", "Archive Hybrid blind eval history snapshot (optional)"
-    )
-    hybrid_blind_history_script = hybrid_blind_history_step["run"]
-    assert (
-        "scripts/ci/archive_hybrid_blind_eval_history.py" in hybrid_blind_history_script
-    )
-    assert "--summary-json" in hybrid_blind_history_script
-    assert "--gate-report-json" in hybrid_blind_history_script
-    assert "--output-dir reports/eval_history" in hybrid_blind_history_script
-    assert "--label-slice-min-support" in hybrid_blind_history_script
-    assert "--label-slice-max-slices" in hybrid_blind_history_script
-    assert "--family-prefix-len" in hybrid_blind_history_script
-    assert "--family-map-json" in hybrid_blind_history_script
-    assert "--family-slice-max-slices" in hybrid_blind_history_script
-    assert '--runner "ci"' in hybrid_blind_history_script
-
-    hybrid_blind_drift_step = _get_step(
-        workflow, "evaluate", "Check Hybrid blind drift alerts (optional)"
-    )
-    hybrid_blind_drift_script = hybrid_blind_drift_step["run"]
-    assert "scripts/ci/check_hybrid_blind_drift_alerts.py" in hybrid_blind_drift_script
-    assert "hybrid_blind_drift_alert_enable" in hybrid_blind_drift_script
-    assert "--output-md" in hybrid_blind_drift_script
-    assert "hybrid_blind_drift_alert_consecutive_window" in hybrid_blind_drift_script
-    assert "--consecutive-drop-window" in hybrid_blind_drift_script
-    assert "--max-hybrid-accuracy-drop" in hybrid_blind_drift_script
-    assert "--max-gain-drop" in hybrid_blind_drift_script
-    assert "--max-coverage-drop" in hybrid_blind_drift_script
-    assert "hybrid_blind_drift_alert_label_slice_enable" in hybrid_blind_drift_script
-    assert "--label-slice-enable" in hybrid_blind_drift_script
-    assert "--label-slice-min-common" in hybrid_blind_drift_script
-    assert (
-        "HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_AUTO_CAP_MIN_COMMON"
-        in hybrid_blind_drift_script
-    )
-    assert "--label-slice-auto-cap-min-common" in hybrid_blind_drift_script
-    assert "--no-label-slice-auto-cap-min-common" in hybrid_blind_drift_script
-    assert "--label-slice-min-support" in hybrid_blind_drift_script
-    assert "--label-slice-max-hybrid-accuracy-drop" in hybrid_blind_drift_script
-    assert "--label-slice-max-gain-drop" in hybrid_blind_drift_script
-    assert "hybrid_blind_drift_alert_family_slice_enable" in hybrid_blind_drift_script
-    assert "--family-slice-enable" in hybrid_blind_drift_script
-    assert "--family-slice-min-common" in hybrid_blind_drift_script
-    assert (
-        "HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_AUTO_CAP_MIN_COMMON"
-        in hybrid_blind_drift_script
-    )
-    assert "--family-slice-auto-cap-min-common" in hybrid_blind_drift_script
-    assert "--no-family-slice-auto-cap-min-common" in hybrid_blind_drift_script
-    assert "--family-slice-min-support" in hybrid_blind_drift_script
-    assert "--family-slice-max-hybrid-accuracy-drop" in hybrid_blind_drift_script
-    assert "--family-slice-max-gain-drop" in hybrid_blind_drift_script
-
-    hybrid_superpass_step = _get_step(
-        workflow, "evaluate", "Check Hybrid superpass gate (optional)"
-    )
-    hybrid_superpass_script = hybrid_superpass_step["run"]
-    assert "scripts/ci/check_hybrid_superpass_targets.py" in hybrid_superpass_script
-    assert "hybrid_superpass_enable" in hybrid_superpass_script
-    assert "--hybrid-blind-gate-report" in hybrid_superpass_script
-    assert "--hybrid-calibration-json" in hybrid_superpass_script
-    assert "--config" in hybrid_superpass_script
-    assert "--missing-mode" in hybrid_superpass_script
-    assert "--output" in hybrid_superpass_script
-
-    hybrid_superpass_strict_step = _get_step(
-        workflow, "evaluate", "Evaluate Hybrid superpass strict mode (optional)"
-    )
-    hybrid_superpass_strict_script = hybrid_superpass_strict_step["run"]
-    assert "HYBRID_SUPERPASS_FAIL_ON_FAILED" in hybrid_superpass_strict_script
-    assert "hybrid_superpass_fail_on_failed" in hybrid_superpass_strict_script
-    assert "status is not passed" in hybrid_superpass_strict_script
-
-    hybrid_superpass_validate_step = _get_step(
-        workflow, "evaluate", "Validate Hybrid superpass report structure (optional)"
-    )
-    hybrid_superpass_validate_script = hybrid_superpass_validate_step["run"]
-    assert (
-        "scripts/ci/validate_hybrid_superpass_reports.py"
-        in hybrid_superpass_validate_script
-    )
-    assert "--schema-mode" in hybrid_superpass_validate_script
-
-    hybrid_superpass_fail_step = _get_step(
-        workflow,
-        "evaluate",
-        "Fail workflow when Hybrid superpass strict check requires blocking",
+        "knowledge_domain_capability_drift_domain_regressions="
+        in benchmark_bundle_script
     )
     assert (
-        hybrid_superpass_fail_step["if"]
-        == "steps.hybrid_superpass_gate_strict.outputs.should_fail == 'true' && steps.strict_fail_mode.outputs.mode != 'soft'"
-    )
-    assert "Failure reason" in hybrid_superpass_fail_step["run"]
-
-    hybrid_superpass_validate_fail_step = _get_step(
-        workflow,
-        "evaluate",
-        "Fail workflow when Hybrid superpass structure validation requires blocking",
+        "knowledge_domain_capability_drift_domain_improvements="
+        in benchmark_bundle_script
     )
     assert (
-        hybrid_superpass_validate_fail_step["if"]
-        == "steps.hybrid_superpass_validate.outputs.strict_mode == 'true' && steps.hybrid_superpass_validate.outputs.exit_code != '0' && steps.strict_fail_mode.outputs.mode != 'soft'"
+        "knowledge_domain_capability_drift_recommendations="
+        in benchmark_bundle_script
     )
-
-    hybrid_final_fail_step = _get_step(
-        workflow,
-        "evaluate",
-        "Fail workflow when Hybrid calibration gate strict check requires blocking",
+    assert "--benchmark-knowledge-domain-control-plane-drift" in benchmark_bundle_script
+    assert "knowledge_domain_control_plane_drift_status=" in benchmark_bundle_script
+    assert (
+        "knowledge_domain_control_plane_drift_domain_regressions="
+        in benchmark_bundle_script
     )
     assert (
-        hybrid_final_fail_step["if"]
-        == "steps.hybrid_calibration_gate_strict.outputs.should_fail == 'true' && steps.strict_fail_mode.outputs.mode != 'soft'"
-    )
-    assert "Failure reason" in hybrid_final_fail_step["run"]
-
-    hybrid_blind_final_fail_step = _get_step(
-        workflow,
-        "evaluate",
-        "Fail workflow when Hybrid blind gate strict check requires blocking",
+        "knowledge_domain_control_plane_drift_domain_improvements="
+        in benchmark_bundle_script
     )
     assert (
-        hybrid_blind_final_fail_step["if"]
-        == "steps.hybrid_blind_gate_strict.outputs.should_fail == 'true' && steps.strict_fail_mode.outputs.mode != 'soft'"
+        "knowledge_domain_control_plane_drift_resolved_release_blockers="
+        in benchmark_bundle_script
     )
-    assert "Failure reason" in hybrid_blind_final_fail_step["run"]
+    assert (
+        "knowledge_domain_control_plane_drift_new_release_blockers="
+        in benchmark_bundle_script
+    )
+    assert (
+        "knowledge_domain_control_plane_drift_recommendations="
+        in benchmark_bundle_script
+    )
+    assert (
+        "--benchmark-knowledge-domain-release-surface-alignment"
+        in benchmark_bundle_script
+    )
+    assert "knowledge_domain_release_surface_alignment_status=" in (
+        benchmark_bundle_script
+    )
+    assert "knowledge_domain_release_surface_alignment_summary=" in (
+        benchmark_bundle_script
+    )
+    assert "knowledge_domain_release_surface_alignment_mismatches=" in (
+        benchmark_bundle_script
+    )
+    assert "knowledge_domain_action_plan_status=" in benchmark_bundle_script
+    assert "knowledge_domain_action_plan_actions=" in benchmark_bundle_script
+    assert "knowledge_domain_action_plan_priority_domains=" in benchmark_bundle_script
+    assert "knowledge_domain_action_plan_recommendations=" in benchmark_bundle_script
+    assert "knowledge_domain_control_plane_status=" in benchmark_bundle_script
+    assert "knowledge_domain_control_plane_domains=" in benchmark_bundle_script
+    assert "knowledge_domain_control_plane_release_blockers=" in benchmark_bundle_script
+    assert "knowledge_domain_control_plane_recommendations=" in benchmark_bundle_script
+    assert "--benchmark-knowledge-domain-release-gate" in benchmark_bundle_script
+    assert "knowledge_domain_release_gate_status=" in benchmark_bundle_script
+    assert "knowledge_domain_release_gate_summary=" in benchmark_bundle_script
+    assert "knowledge_domain_release_gate_gate_open=" in benchmark_bundle_script
+    assert "knowledge_domain_release_gate_blocking_reasons=" in benchmark_bundle_script
+    assert "knowledge_domain_release_gate_releasable_domains=" in benchmark_bundle_script
+    assert "knowledge_domain_release_gate_blocked_domains=" in benchmark_bundle_script
+    assert "knowledge_domain_release_gate_priority_domains=" in benchmark_bundle_script
+    assert "knowledge_domain_release_gate_recommendations=" in benchmark_bundle_script
+    assert "knowledge_source_coverage_status=" in benchmark_bundle_script
+    assert "knowledge_source_coverage_domain_statuses=" in benchmark_bundle_script
+    assert "knowledge_source_coverage_expansion_candidates=" in benchmark_bundle_script
+    assert "knowledge_source_coverage_recommendations=" in benchmark_bundle_script
+    assert "knowledge_source_action_plan_status=" in benchmark_bundle_script
+    assert "knowledge_source_action_plan_priority_domains=" in benchmark_bundle_script
+    assert "knowledge_source_action_plan_recommended_first_actions=" in (
+        benchmark_bundle_script
+    )
+    assert "knowledge_source_action_plan_source_group_action_counts=" in (
+        benchmark_bundle_script
+    )
+    assert "knowledge_source_action_plan_recommendations=" in benchmark_bundle_script
+    assert "knowledge_source_drift_status=" in benchmark_bundle_script
+    assert "knowledge_source_drift_summary=" in benchmark_bundle_script
+    assert "knowledge_source_drift_source_group_regressions=" in benchmark_bundle_script
+    assert "knowledge_source_drift_source_group_improvements=" in benchmark_bundle_script
+    assert "knowledge_source_drift_resolved_priority_domains=" in benchmark_bundle_script
+    assert "knowledge_source_drift_new_priority_domains=" in benchmark_bundle_script
+    assert "knowledge_source_drift_recommendations=" in benchmark_bundle_script
+    assert "knowledge_outcome_correlation_status=" in benchmark_bundle_script
+    assert "knowledge_outcome_correlation_focus_areas=" in benchmark_bundle_script
+    assert "knowledge_outcome_correlation_priority_domains=" in benchmark_bundle_script
+    assert "knowledge_outcome_correlation_domain_statuses=" in benchmark_bundle_script
+    assert "knowledge_outcome_correlation_recommendations=" in benchmark_bundle_script
+    assert "knowledge_outcome_drift_status=" in benchmark_bundle_script
+    assert "knowledge_outcome_drift_summary=" in benchmark_bundle_script
+    assert "knowledge_outcome_drift_domain_regressions=" in benchmark_bundle_script
+    assert "knowledge_outcome_drift_domain_improvements=" in benchmark_bundle_script
+    assert "knowledge_outcome_drift_resolved_priority_domains=" in benchmark_bundle_script
+    assert "knowledge_outcome_drift_new_priority_domains=" in benchmark_bundle_script
+    assert "knowledge_outcome_drift_recommendations=" in benchmark_bundle_script
+    assert "competitive_surpass_index_status=" in benchmark_bundle_script
+    assert "competitive_surpass_trend_status=" in benchmark_bundle_script
+    assert "competitive_surpass_trend_summary=" in benchmark_bundle_script
+    assert "competitive_surpass_trend_recommendations=" in benchmark_bundle_script
+    assert "competitive_surpass_action_plan_status=" in benchmark_bundle_script
+    assert (
+        "competitive_surpass_action_plan_total_action_count=" in benchmark_bundle_script
+    )
+    assert (
+        "competitive_surpass_action_plan_priority_pillars=" in benchmark_bundle_script
+    )
+    assert (
+        "competitive_surpass_action_plan_recommendations=" in benchmark_bundle_script
+    )
+    assert "competitive_surpass_primary_gaps=" in benchmark_bundle_script
+    assert "competitive_surpass_recommendations=" in benchmark_bundle_script
+    assert "operator_adoption_knowledge_drift_status=" in benchmark_bundle_script
+    assert "operator_adoption_knowledge_drift_summary=" in benchmark_bundle_script
+    assert "operator_adoption_knowledge_outcome_drift_status=" in benchmark_bundle_script
+    assert "operator_adoption_knowledge_outcome_drift_summary=" in benchmark_bundle_script
+    assert "scorecard_operator_adoption_status=" in benchmark_bundle_script
+    assert "scorecard_operator_adoption_mode=" in benchmark_bundle_script
+    assert "scorecard_operator_adoption_knowledge_outcome_drift_status=" in (
+        benchmark_bundle_script
+    )
+    assert "operational_operator_adoption_status=" in benchmark_bundle_script
+    assert "operational_operator_adoption_knowledge_outcome_drift_status=" in (
+        benchmark_bundle_script
+    )
+    assert "blockers=" in benchmark_bundle_script
+    assert "recommendations=" in benchmark_bundle_script
+
+    benchmark_companion_step = _get_step(
+        workflow, "evaluate", "Build benchmark companion summary (optional)"
+    )
+    benchmark_companion_script = _load_bash_helper_from_step(benchmark_companion_step)
+    assert "scripts/export_benchmark_companion_summary.py" in benchmark_companion_script
+    assert "BENCHMARK_COMPANION_SUMMARY_ENABLE" in benchmark_companion_script
+    assert "--benchmark-scorecard" in benchmark_companion_script
+    assert "--benchmark-operational-summary" in benchmark_companion_script
+    assert "--benchmark-artifact-bundle" in benchmark_companion_script
+    assert "--benchmark-engineering-signals" in benchmark_companion_script
+    assert "--benchmark-realdata-signals" in benchmark_companion_script
+    assert "--benchmark-realdata-scorecard" in benchmark_companion_script
+    assert "--benchmark-knowledge-readiness" in benchmark_companion_script
+    assert "--benchmark-knowledge-drift" in benchmark_companion_script
+    assert "--benchmark-knowledge-application" in benchmark_companion_script
+    assert "--benchmark-knowledge-domain-capability-matrix" in benchmark_companion_script
+    assert "--benchmark-knowledge-domain-action-plan" in benchmark_companion_script
+    assert "--benchmark-knowledge-source-action-plan" in benchmark_companion_script
+    assert "--benchmark-knowledge-outcome-correlation" in benchmark_companion_script
+    assert "--benchmark-knowledge-outcome-drift" in benchmark_companion_script
+    assert "--benchmark-competitive-surpass-index" in benchmark_companion_script
+    assert "--benchmark-competitive-surpass-trend" in benchmark_companion_script
+    assert "--benchmark-competitive-surpass-action-plan" in benchmark_companion_script
+    assert "review_surface=" in benchmark_companion_script
+    assert "primary_gap=" in benchmark_companion_script
+    assert "recommended_actions=" in benchmark_companion_script
+    assert "qdrant_status=" in benchmark_companion_script
+    assert "knowledge_status=" in benchmark_companion_script
+    assert "knowledge_drift_status=" in benchmark_companion_script
+    assert "knowledge_drift_summary=" in benchmark_companion_script
+    assert "knowledge_drift_recommendations=" in benchmark_companion_script
+    assert "knowledge_drift_component_changes=" in benchmark_companion_script
+    assert "knowledge_drift_domain_regressions=" in benchmark_companion_script
+    assert "knowledge_drift_domain_improvements=" in benchmark_companion_script
+    assert "knowledge_drift_resolved_priority_domains=" in benchmark_companion_script
+    assert "knowledge_drift_new_priority_domains=" in benchmark_companion_script
+    assert "engineering_status=" in benchmark_companion_script
+    assert "realdata_status=" in benchmark_companion_script
+    assert "realdata_scorecard_status=" in benchmark_companion_script
+    assert "realdata_scorecard_recommendations=" in benchmark_companion_script
+    assert "realdata_recommendations=" in benchmark_companion_script
+    assert "knowledge_application_status=" in benchmark_companion_script
+    assert "knowledge_application_focus_areas=" in benchmark_companion_script
+    assert "knowledge_application_priority_domains=" in benchmark_companion_script
+    assert "knowledge_application_domain_statuses=" in benchmark_companion_script
+    assert "knowledge_application_recommendations=" in benchmark_companion_script
+    assert "knowledge_domain_capability_matrix_status=" in benchmark_companion_script
+    assert "knowledge_domain_capability_matrix_focus_areas=" in benchmark_companion_script
+    assert "knowledge_domain_capability_matrix_priority_domains=" in benchmark_companion_script
+    assert "knowledge_domain_capability_matrix_domain_statuses=" in benchmark_companion_script
+    assert "knowledge_domain_capability_matrix_recommendations=" in benchmark_companion_script
+    assert "--benchmark-knowledge-domain-capability-drift" in benchmark_companion_script
+    assert "knowledge_domain_capability_drift_status=" in benchmark_companion_script
+    assert (
+        "knowledge_domain_capability_drift_domain_regressions="
+        in benchmark_companion_script
+    )
+    assert (
+        "knowledge_domain_capability_drift_domain_improvements="
+        in benchmark_companion_script
+    )
+    assert (
+        "knowledge_domain_capability_drift_recommendations="
+        in benchmark_companion_script
+    )
+    assert "--benchmark-knowledge-domain-control-plane-drift" in benchmark_companion_script
+    assert "knowledge_domain_control_plane_drift_status=" in benchmark_companion_script
+    assert (
+        "knowledge_domain_control_plane_drift_domain_regressions="
+        in benchmark_companion_script
+    )
+    assert (
+        "knowledge_domain_control_plane_drift_domain_improvements="
+        in benchmark_companion_script
+    )
+    assert (
+        "knowledge_domain_control_plane_drift_resolved_release_blockers="
+        in benchmark_companion_script
+    )
+    assert (
+        "knowledge_domain_control_plane_drift_new_release_blockers="
+        in benchmark_companion_script
+    )
+    assert (
+        "knowledge_domain_control_plane_drift_recommendations="
+        in benchmark_companion_script
+    )
+    assert (
+        "--benchmark-knowledge-domain-release-surface-alignment"
+        in benchmark_companion_script
+    )
+    assert "knowledge_domain_release_surface_alignment_status=" in (
+        benchmark_companion_script
+    )
+    assert "knowledge_domain_release_surface_alignment_summary=" in (
+        benchmark_companion_script
+    )
+    assert "knowledge_domain_release_surface_alignment_mismatches=" in (
+        benchmark_companion_script
+    )
+    assert "knowledge_domain_action_plan_status=" in benchmark_companion_script
+    assert "knowledge_domain_action_plan_actions=" in benchmark_companion_script
+    assert "knowledge_domain_action_plan_priority_domains=" in benchmark_companion_script
+    assert "knowledge_domain_action_plan_recommendations=" in benchmark_companion_script
+    assert "knowledge_domain_control_plane_status=" in benchmark_companion_script
+    assert "knowledge_domain_control_plane_domains=" in benchmark_companion_script
+    assert (
+        "knowledge_domain_control_plane_release_blockers="
+        in benchmark_companion_script
+    )
+    assert (
+        "knowledge_domain_control_plane_recommendations="
+        in benchmark_companion_script
+    )
+    assert "--benchmark-knowledge-domain-release-gate" in benchmark_companion_script
+    assert "knowledge_domain_release_gate_status=" in benchmark_companion_script
+    assert "knowledge_domain_release_gate_summary=" in benchmark_companion_script
+    assert "knowledge_domain_release_gate_gate_open=" in benchmark_companion_script
+    assert "knowledge_domain_release_gate_blocking_reasons=" in benchmark_companion_script
+    assert "knowledge_domain_release_gate_releasable_domains=" in benchmark_companion_script
+    assert "knowledge_domain_release_gate_blocked_domains=" in benchmark_companion_script
+    assert "knowledge_domain_release_gate_priority_domains=" in benchmark_companion_script
+    assert "knowledge_domain_release_gate_recommendations=" in benchmark_companion_script
+    assert "knowledge_source_coverage_status=" in benchmark_companion_script
+    assert "knowledge_source_coverage_domain_statuses=" in benchmark_companion_script
+    assert "knowledge_source_coverage_expansion_candidates=" in benchmark_companion_script
+    assert "knowledge_source_coverage_recommendations=" in benchmark_companion_script
+    assert "knowledge_source_action_plan_status=" in benchmark_companion_script
+    assert "knowledge_source_action_plan_priority_domains=" in benchmark_companion_script
+    assert "knowledge_source_action_plan_recommended_first_actions=" in (
+        benchmark_companion_script
+    )
+    assert "knowledge_source_action_plan_source_group_action_counts=" in (
+        benchmark_companion_script
+    )
+    assert "knowledge_source_action_plan_recommendations=" in benchmark_companion_script
+    assert "knowledge_source_drift_status=" in benchmark_companion_script
+    assert "knowledge_source_drift_summary=" in benchmark_companion_script
+    assert "knowledge_source_drift_source_group_regressions=" in benchmark_companion_script
+    assert "knowledge_source_drift_source_group_improvements=" in benchmark_companion_script
+    assert "knowledge_source_drift_resolved_priority_domains=" in benchmark_companion_script
+    assert "knowledge_source_drift_new_priority_domains=" in benchmark_companion_script
+    assert "knowledge_source_drift_recommendations=" in benchmark_companion_script
+    assert "knowledge_outcome_correlation_status=" in benchmark_companion_script
+    assert "knowledge_outcome_correlation_focus_areas=" in benchmark_companion_script
+    assert "knowledge_outcome_correlation_priority_domains=" in benchmark_companion_script
+    assert "knowledge_outcome_correlation_domain_statuses=" in benchmark_companion_script
+    assert "knowledge_outcome_correlation_recommendations=" in benchmark_companion_script
+    assert "knowledge_outcome_drift_status=" in benchmark_companion_script
+    assert "knowledge_outcome_drift_summary=" in benchmark_companion_script
+    assert "knowledge_outcome_drift_domain_regressions=" in benchmark_companion_script
+    assert "knowledge_outcome_drift_domain_improvements=" in benchmark_companion_script
+    assert "knowledge_outcome_drift_resolved_priority_domains=" in benchmark_companion_script
+    assert "knowledge_outcome_drift_new_priority_domains=" in benchmark_companion_script
+    assert "knowledge_outcome_drift_recommendations=" in benchmark_companion_script
+    assert "competitive_surpass_index_status=" in benchmark_companion_script
+    assert "competitive_surpass_trend_status=" in benchmark_companion_script
+    assert "competitive_surpass_trend_summary=" in benchmark_companion_script
+    assert "competitive_surpass_trend_recommendations=" in benchmark_companion_script
+    assert "competitive_surpass_action_plan_status=" in benchmark_companion_script
+    assert (
+        "competitive_surpass_action_plan_total_action_count="
+        in benchmark_companion_script
+    )
+    assert (
+        "competitive_surpass_action_plan_priority_pillars="
+        in benchmark_companion_script
+    )
+    assert (
+        "competitive_surpass_action_plan_recommendations="
+        in benchmark_companion_script
+    )
+    assert "competitive_surpass_primary_gaps=" in benchmark_companion_script
+    assert "competitive_surpass_recommendations=" in benchmark_companion_script
+    assert "operator_adoption_knowledge_drift_status=" in benchmark_companion_script
+    assert "operator_adoption_knowledge_drift_summary=" in benchmark_companion_script
+    assert "operator_adoption_knowledge_outcome_drift_status=" in benchmark_companion_script
+    assert "operator_adoption_knowledge_outcome_drift_summary=" in benchmark_companion_script
+    assert "scorecard_operator_adoption_status=" in benchmark_companion_script
+    assert "scorecard_operator_adoption_mode=" in benchmark_companion_script
+    assert "scorecard_operator_adoption_knowledge_outcome_drift_status=" in (
+        benchmark_companion_script
+    )
+    assert "operational_operator_adoption_status=" in benchmark_companion_script
+    assert "operational_operator_adoption_knowledge_outcome_drift_status=" in (
+        benchmark_companion_script
+    )
+
+    benchmark_release_step = _get_step(
+        workflow, "evaluate", "Build benchmark release decision (optional)"
+    )
+    benchmark_release_script = _load_bash_helper_from_step(benchmark_release_step)
+    assert "scripts/export_benchmark_release_decision.py" in benchmark_release_script
+    assert "BENCHMARK_RELEASE_DECISION_ENABLE" in benchmark_release_script
+    assert "--benchmark-scorecard" in benchmark_release_script
+    assert "--benchmark-operational-summary" in benchmark_release_script
+    assert "--benchmark-artifact-bundle" in benchmark_release_script
+    assert "--benchmark-companion-summary" in benchmark_release_script
+    assert "--benchmark-engineering-signals" in benchmark_release_script
+    assert "--benchmark-realdata-signals" in benchmark_release_script
+    assert "--benchmark-realdata-scorecard" in benchmark_release_script
+    assert "--benchmark-operator-adoption" in benchmark_release_script
+    assert "--benchmark-knowledge-readiness" in benchmark_release_script
+    assert "--benchmark-knowledge-drift" in benchmark_release_script
+    assert "--benchmark-knowledge-application" in benchmark_release_script
+    assert "--benchmark-knowledge-domain-capability-matrix" in benchmark_release_script
+    assert "--benchmark-knowledge-domain-release-gate" in benchmark_release_script
+    assert "--benchmark-knowledge-domain-action-plan" in benchmark_release_script
+    assert "--benchmark-knowledge-source-action-plan" in benchmark_release_script
+    assert "--benchmark-knowledge-outcome-correlation" in benchmark_release_script
+    assert "--benchmark-knowledge-outcome-drift" in benchmark_release_script
+    assert "--benchmark-competitive-surpass-index" in benchmark_release_script
+    assert "--benchmark-competitive-surpass-trend" in benchmark_release_script
+    assert "--benchmark-competitive-surpass-action-plan" in benchmark_release_script
+    assert "release_status=" in benchmark_release_script
+    assert "automation_ready=" in benchmark_release_script
+    assert "primary_signal_source=" in benchmark_release_script
+    assert "blocking_signals=" in benchmark_release_script
+    assert "review_signals=" in benchmark_release_script
+    assert "qdrant_status=" in benchmark_release_script
+    assert "knowledge_status=" in benchmark_release_script
+    assert "knowledge_drift_status=" in benchmark_release_script
+    assert "knowledge_drift_summary=" in benchmark_release_script
+    assert "knowledge_drift_domain_regressions=" in benchmark_release_script
+    assert "knowledge_drift_domain_improvements=" in benchmark_release_script
+    assert "knowledge_drift_resolved_priority_domains=" in benchmark_release_script
+    assert "knowledge_drift_new_priority_domains=" in benchmark_release_script
+    assert "engineering_status=" in benchmark_release_script
+    assert "realdata_status=" in benchmark_release_script
+    assert "realdata_scorecard_status=" in benchmark_release_script
+    assert "realdata_scorecard_recommendations=" in benchmark_release_script
+    assert "realdata_recommendations=" in benchmark_release_script
+    assert "knowledge_application_status=" in benchmark_release_script
+    assert "knowledge_application_focus_areas=" in benchmark_release_script
+    assert "knowledge_application_priority_domains=" in benchmark_release_script
+    assert "knowledge_application_domain_statuses=" in benchmark_release_script
+    assert "knowledge_application_recommendations=" in benchmark_release_script
+    assert "knowledge_domain_capability_matrix_status=" in benchmark_release_script
+    assert "knowledge_domain_capability_matrix_focus_areas=" in benchmark_release_script
+    assert "knowledge_domain_capability_matrix_priority_domains=" in benchmark_release_script
+    assert "knowledge_domain_capability_matrix_domain_statuses=" in benchmark_release_script
+    assert "knowledge_domain_capability_matrix_recommendations=" in benchmark_release_script
+    assert "--benchmark-knowledge-domain-capability-drift" in benchmark_release_script
+    assert "knowledge_domain_capability_drift_status=" in benchmark_release_script
+    assert (
+        "knowledge_domain_capability_drift_domain_regressions="
+        in benchmark_release_script
+    )
+    assert (
+        "knowledge_domain_capability_drift_domain_improvements="
+        in benchmark_release_script
+    )
+    assert (
+        "knowledge_domain_capability_drift_recommendations="
+        in benchmark_release_script
+    )
+    assert "--benchmark-knowledge-domain-control-plane-drift" in benchmark_release_script
+    assert "knowledge_domain_control_plane_drift_status=" in benchmark_release_script
+    assert (
+        "knowledge_domain_control_plane_drift_domain_regressions="
+        in benchmark_release_script
+    )
+    assert (
+        "knowledge_domain_control_plane_drift_domain_improvements="
+        in benchmark_release_script
+    )
+    assert (
+        "knowledge_domain_control_plane_drift_resolved_release_blockers="
+        in benchmark_release_script
+    )
+    assert (
+        "knowledge_domain_control_plane_drift_new_release_blockers="
+        in benchmark_release_script
+    )
+    assert (
+        "knowledge_domain_control_plane_drift_recommendations="
+        in benchmark_release_script
+    )
+    assert "knowledge_domain_action_plan_status=" in benchmark_release_script
+    assert "knowledge_domain_action_plan_actions=" in benchmark_release_script
+    assert "knowledge_domain_action_plan_priority_domains=" in benchmark_release_script
+    assert "knowledge_domain_action_plan_recommendations=" in benchmark_release_script
+    assert "knowledge_domain_control_plane_status=" in benchmark_release_script
+    assert "knowledge_domain_control_plane_domains=" in benchmark_release_script
+    assert (
+        "knowledge_domain_control_plane_release_blockers="
+        in benchmark_release_script
+    )
+    assert (
+        "knowledge_domain_control_plane_recommendations="
+        in benchmark_release_script
+    )
+    assert "knowledge_domain_release_gate_status=" in benchmark_release_script
+    assert "knowledge_domain_release_gate_gate_open=" in benchmark_release_script
+    assert "knowledge_domain_release_gate_releasable_domains=" in benchmark_release_script
+    assert "knowledge_domain_release_gate_blocked_domains=" in benchmark_release_script
+    assert "knowledge_domain_release_gate_priority_domains=" in benchmark_release_script
+    assert "knowledge_domain_release_gate_blocking_reasons=" in benchmark_release_script
+    assert "knowledge_domain_release_gate_recommendations=" in benchmark_release_script
+    assert "--benchmark-knowledge-reference-inventory" in benchmark_release_script
+    assert (
+        "BENCHMARK_RELEASE_DECISION_KNOWLEDGE_REFERENCE_INVENTORY_JSON"
+        in benchmark_release_script
+    )
+    assert (
+        "STEP_BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_OUTPUT_JSON"
+        in benchmark_release_script
+    )
+    assert "knowledge_reference_inventory_status=" in benchmark_release_script
+    assert "knowledge_reference_inventory_summary=" in benchmark_release_script
+    assert "knowledge_reference_inventory_priority_domains=" in benchmark_release_script
+    assert (
+        "knowledge_reference_inventory_total_reference_items="
+        in benchmark_release_script
+    )
+    assert (
+        "knowledge_reference_inventory_recommendations="
+        in benchmark_release_script
+    )
+    assert "knowledge_source_coverage_status=" in benchmark_release_script
+    assert "knowledge_source_coverage_domain_statuses=" in benchmark_release_script
+    assert "knowledge_source_coverage_expansion_candidates=" in benchmark_release_script
+    assert "knowledge_source_coverage_recommendations=" in benchmark_release_script
+    assert "knowledge_source_action_plan_status=" in benchmark_release_script
+    assert "knowledge_source_action_plan_priority_domains=" in benchmark_release_script
+    assert "knowledge_source_action_plan_recommended_first_actions=" in (
+        benchmark_release_script
+    )
+    assert "knowledge_source_action_plan_source_group_action_counts=" in (
+        benchmark_release_script
+    )
+    assert "knowledge_source_action_plan_recommendations=" in benchmark_release_script
+    assert "knowledge_source_drift_status=" in benchmark_release_script
+    assert "knowledge_source_drift_summary=" in benchmark_release_script
+    assert "knowledge_source_drift_source_group_regressions=" in benchmark_release_script
+    assert "knowledge_source_drift_source_group_improvements=" in benchmark_release_script
+    assert "knowledge_source_drift_resolved_priority_domains=" in benchmark_release_script
+    assert "knowledge_source_drift_new_priority_domains=" in benchmark_release_script
+    assert "knowledge_source_drift_recommendations=" in benchmark_release_script
+    assert "knowledge_outcome_correlation_status=" in benchmark_release_script
+    assert "knowledge_outcome_correlation_focus_areas=" in benchmark_release_script
+    assert "knowledge_outcome_correlation_priority_domains=" in benchmark_release_script
+    assert "knowledge_outcome_correlation_domain_statuses=" in benchmark_release_script
+    assert "knowledge_outcome_correlation_recommendations=" in benchmark_release_script
+    assert "knowledge_outcome_drift_status=" in benchmark_release_script
+    assert "knowledge_outcome_drift_summary=" in benchmark_release_script
+    assert "knowledge_outcome_drift_domain_regressions=" in benchmark_release_script
+    assert "knowledge_outcome_drift_domain_improvements=" in benchmark_release_script
+    assert "knowledge_outcome_drift_resolved_priority_domains=" in benchmark_release_script
+    assert "knowledge_outcome_drift_new_priority_domains=" in benchmark_release_script
+    assert "knowledge_outcome_drift_recommendations=" in benchmark_release_script
+    assert "competitive_surpass_index_status=" in benchmark_release_script
+    assert "competitive_surpass_trend_status=" in benchmark_release_script
+    assert "competitive_surpass_trend_summary=" in benchmark_release_script
+    assert "competitive_surpass_trend_recommendations=" in benchmark_release_script
+    assert "competitive_surpass_action_plan_status=" in benchmark_release_script
+    assert (
+        "competitive_surpass_action_plan_total_action_count="
+        in benchmark_release_script
+    )
+    assert (
+        "competitive_surpass_action_plan_priority_pillars="
+        in benchmark_release_script
+    )
+    assert (
+        "competitive_surpass_action_plan_recommendations="
+        in benchmark_release_script
+    )
+    assert "competitive_surpass_primary_gaps=" in benchmark_release_script
+    assert "competitive_surpass_recommendations=" in benchmark_release_script
+    assert "operator_adoption_status=" in benchmark_release_script
+    assert "operator_adoption_knowledge_drift_status=" in benchmark_release_script
+    assert "operator_adoption_knowledge_drift_summary=" in benchmark_release_script
+    assert "operator_adoption_knowledge_outcome_drift_status=" in benchmark_release_script
+    assert "operator_adoption_knowledge_outcome_drift_summary=" in benchmark_release_script
+    assert "scorecard_operator_adoption_status=" in benchmark_release_script
+    assert "scorecard_operator_adoption_mode=" in benchmark_release_script
+    assert "scorecard_operator_adoption_knowledge_outcome_drift_status=" in (
+        benchmark_release_script
+    )
+    assert "operational_operator_adoption_status=" in benchmark_release_script
+    assert "operational_operator_adoption_knowledge_outcome_drift_status=" in (
+        benchmark_release_script
+    )
+
+    benchmark_runbook_step = _get_step(
+        workflow, "evaluate", "Build benchmark release runbook (optional)"
+    )
+    benchmark_runbook_script = _load_bash_helper_from_step(benchmark_runbook_step)
+    assert "scripts/export_benchmark_release_runbook.py" in benchmark_runbook_script
+    assert "BENCHMARK_RELEASE_RUNBOOK_ENABLE" in benchmark_runbook_script
+    assert "--benchmark-release-decision" in benchmark_runbook_script
+    assert "--benchmark-scorecard" in benchmark_runbook_script
+    assert "--benchmark-operational-summary" in benchmark_runbook_script
+    assert "--benchmark-companion-summary" in benchmark_runbook_script
+    assert "--benchmark-artifact-bundle" in benchmark_runbook_script
+    assert "--benchmark-engineering-signals" in benchmark_runbook_script
+    assert "--benchmark-realdata-signals" in benchmark_runbook_script
+    assert "--benchmark-realdata-scorecard" in benchmark_runbook_script
+    assert "--benchmark-operator-adoption" in benchmark_runbook_script
+    assert "--benchmark-knowledge-readiness" in benchmark_runbook_script
+    assert "--benchmark-knowledge-drift" in benchmark_runbook_script
+    assert "--benchmark-knowledge-application" in benchmark_runbook_script
+    assert "--benchmark-knowledge-domain-capability-matrix" in benchmark_runbook_script
+    assert "--benchmark-knowledge-domain-release-gate" in benchmark_runbook_script
+    assert "--benchmark-knowledge-domain-action-plan" in benchmark_runbook_script
+    assert "--benchmark-knowledge-source-action-plan" in benchmark_runbook_script
+    assert "--benchmark-knowledge-outcome-correlation" in benchmark_runbook_script
+    assert "--benchmark-knowledge-outcome-drift" in benchmark_runbook_script
+    assert "--benchmark-competitive-surpass-index" in benchmark_runbook_script
+    assert "--benchmark-competitive-surpass-trend" in benchmark_runbook_script
+    assert "--benchmark-competitive-surpass-action-plan" in benchmark_runbook_script
+    assert "ready_to_freeze_baseline=" in benchmark_runbook_script
+    assert "next_action=" in benchmark_runbook_script
+    assert "missing_artifacts=" in benchmark_runbook_script
+    assert "blocking_signals=" in benchmark_runbook_script
+    assert "review_signals=" in benchmark_runbook_script
+    assert "knowledge_status=" in benchmark_runbook_script
+    assert "knowledge_drift_status=" in benchmark_runbook_script
+    assert "knowledge_drift_summary=" in benchmark_runbook_script
+    assert "knowledge_drift_domain_regressions=" in benchmark_runbook_script
+    assert "knowledge_drift_domain_improvements=" in benchmark_runbook_script
+    assert "knowledge_drift_resolved_priority_domains=" in benchmark_runbook_script
+    assert "knowledge_drift_new_priority_domains=" in benchmark_runbook_script
+    assert "engineering_status=" in benchmark_runbook_script
+    assert "realdata_status=" in benchmark_runbook_script
+    assert "realdata_scorecard_status=" in benchmark_runbook_script
+    assert "realdata_scorecard_recommendations=" in benchmark_runbook_script
+    assert "realdata_recommendations=" in benchmark_runbook_script
+    assert "knowledge_application_status=" in benchmark_runbook_script
+    assert "knowledge_application_focus_areas=" in benchmark_runbook_script
+    assert "knowledge_application_priority_domains=" in benchmark_runbook_script
+    assert "knowledge_application_domain_statuses=" in benchmark_runbook_script
+    assert "knowledge_application_recommendations=" in benchmark_runbook_script
+    assert "knowledge_domain_capability_matrix_status=" in benchmark_runbook_script
+    assert "knowledge_domain_capability_matrix_focus_areas=" in benchmark_runbook_script
+    assert "knowledge_domain_capability_matrix_priority_domains=" in benchmark_runbook_script
+    assert "knowledge_domain_capability_matrix_domain_statuses=" in benchmark_runbook_script
+    assert "knowledge_domain_capability_matrix_recommendations=" in benchmark_runbook_script
+    assert "--benchmark-knowledge-domain-capability-drift" in benchmark_runbook_script
+    assert "knowledge_domain_capability_drift_status=" in benchmark_runbook_script
+    assert (
+        "knowledge_domain_capability_drift_domain_regressions="
+        in benchmark_runbook_script
+    )
+    assert (
+        "knowledge_domain_capability_drift_domain_improvements="
+        in benchmark_runbook_script
+    )
+    assert (
+        "knowledge_domain_capability_drift_recommendations="
+        in benchmark_runbook_script
+    )
+    assert "--benchmark-knowledge-domain-control-plane-drift" in benchmark_runbook_script
+    assert "knowledge_domain_control_plane_drift_status=" in benchmark_runbook_script
+    assert (
+        "knowledge_domain_control_plane_drift_domain_regressions="
+        in benchmark_runbook_script
+    )
+    assert (
+        "knowledge_domain_control_plane_drift_domain_improvements="
+        in benchmark_runbook_script
+    )
+    assert (
+        "knowledge_domain_control_plane_drift_resolved_release_blockers="
+        in benchmark_runbook_script
+    )
+    assert (
+        "knowledge_domain_control_plane_drift_new_release_blockers="
+        in benchmark_runbook_script
+    )
+    assert (
+        "knowledge_domain_control_plane_drift_recommendations="
+        in benchmark_runbook_script
+    )
+    assert "knowledge_domain_action_plan_status=" in benchmark_runbook_script
+    assert "knowledge_domain_action_plan_actions=" in benchmark_runbook_script
+    assert "knowledge_domain_action_plan_priority_domains=" in benchmark_runbook_script
+    assert "knowledge_domain_action_plan_recommendations=" in benchmark_runbook_script
+    assert "knowledge_domain_control_plane_status=" in benchmark_runbook_script
+    assert "knowledge_domain_control_plane_domains=" in benchmark_runbook_script
+    assert (
+        "knowledge_domain_control_plane_release_blockers="
+        in benchmark_runbook_script
+    )
+    assert (
+        "knowledge_domain_control_plane_recommendations="
+        in benchmark_runbook_script
+    )
+    assert "knowledge_domain_release_gate_status=" in benchmark_runbook_script
+    assert "knowledge_domain_release_gate_gate_open=" in benchmark_runbook_script
+    assert "knowledge_domain_release_gate_releasable_domains=" in benchmark_runbook_script
+    assert "knowledge_domain_release_gate_blocked_domains=" in benchmark_runbook_script
+    assert "knowledge_domain_release_gate_priority_domains=" in benchmark_runbook_script
+    assert "knowledge_domain_release_gate_blocking_reasons=" in benchmark_runbook_script
+    assert "knowledge_domain_release_gate_recommendations=" in benchmark_runbook_script
+    assert "--benchmark-knowledge-reference-inventory" in benchmark_runbook_script
+    assert (
+        "BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_REFERENCE_INVENTORY_JSON"
+        in benchmark_runbook_script
+    )
+    assert (
+        "STEP_BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_OUTPUT_JSON"
+        in benchmark_runbook_script
+    )
+    assert "knowledge_reference_inventory_status=" in benchmark_runbook_script
+    assert "knowledge_reference_inventory_summary=" in benchmark_runbook_script
+    assert "knowledge_reference_inventory_priority_domains=" in benchmark_runbook_script
+    assert (
+        "knowledge_reference_inventory_total_reference_items="
+        in benchmark_runbook_script
+    )
+    assert (
+        "knowledge_reference_inventory_recommendations="
+        in benchmark_runbook_script
+    )
+    assert "knowledge_source_coverage_status=" in benchmark_runbook_script
+    assert "knowledge_source_coverage_domain_statuses=" in benchmark_runbook_script
+    assert "knowledge_source_coverage_expansion_candidates=" in benchmark_runbook_script
+    assert "knowledge_source_coverage_recommendations=" in benchmark_runbook_script
+    assert "knowledge_source_action_plan_status=" in benchmark_runbook_script
+    assert "knowledge_source_action_plan_priority_domains=" in benchmark_runbook_script
+    assert "knowledge_source_action_plan_recommended_first_actions=" in (
+        benchmark_runbook_script
+    )
+    assert "knowledge_source_action_plan_source_group_action_counts=" in (
+        benchmark_runbook_script
+    )
+    assert "knowledge_source_action_plan_recommendations=" in benchmark_runbook_script
+    assert "knowledge_source_drift_status=" in benchmark_runbook_script
+    assert "knowledge_source_drift_summary=" in benchmark_runbook_script
+    assert "knowledge_source_drift_source_group_regressions=" in benchmark_runbook_script
+    assert "knowledge_source_drift_source_group_improvements=" in benchmark_runbook_script
+    assert "knowledge_source_drift_resolved_priority_domains=" in benchmark_runbook_script
+    assert "knowledge_source_drift_new_priority_domains=" in benchmark_runbook_script
+    assert "knowledge_source_drift_recommendations=" in benchmark_runbook_script
+    assert "knowledge_outcome_correlation_status=" in benchmark_runbook_script
+    assert "knowledge_outcome_correlation_focus_areas=" in benchmark_runbook_script
+    assert "knowledge_outcome_correlation_priority_domains=" in benchmark_runbook_script
+    assert "knowledge_outcome_correlation_domain_statuses=" in benchmark_runbook_script
+    assert "knowledge_outcome_correlation_recommendations=" in benchmark_runbook_script
+    assert "knowledge_outcome_drift_status=" in benchmark_runbook_script
+    assert "knowledge_outcome_drift_summary=" in benchmark_runbook_script
+    assert "knowledge_outcome_drift_domain_regressions=" in benchmark_runbook_script
+    assert "knowledge_outcome_drift_domain_improvements=" in benchmark_runbook_script
+    assert "knowledge_outcome_drift_resolved_priority_domains=" in benchmark_runbook_script
+    assert "knowledge_outcome_drift_new_priority_domains=" in benchmark_runbook_script
+    assert "knowledge_outcome_drift_recommendations=" in benchmark_runbook_script
+    assert "competitive_surpass_index_status=" in benchmark_runbook_script
+    assert "competitive_surpass_trend_status=" in benchmark_runbook_script
+    assert "competitive_surpass_trend_summary=" in benchmark_runbook_script
+    assert "competitive_surpass_trend_recommendations=" in benchmark_runbook_script
+    assert "competitive_surpass_action_plan_status=" in benchmark_runbook_script
+    assert (
+        "competitive_surpass_action_plan_total_action_count="
+        in benchmark_runbook_script
+    )
+    assert (
+        "competitive_surpass_action_plan_priority_pillars="
+        in benchmark_runbook_script
+    )
+    assert (
+        "competitive_surpass_action_plan_recommendations="
+        in benchmark_runbook_script
+    )
+    assert "competitive_surpass_primary_gaps=" in benchmark_runbook_script
+    assert "competitive_surpass_recommendations=" in benchmark_runbook_script
+    assert "operator_adoption_status=" in benchmark_runbook_script
+    assert "operator_adoption_knowledge_drift_status=" in benchmark_runbook_script
+    assert "operator_adoption_knowledge_drift_summary=" in benchmark_runbook_script
+    assert "operator_adoption_knowledge_outcome_drift_status=" in benchmark_runbook_script
+    assert "operator_adoption_knowledge_outcome_drift_summary=" in benchmark_runbook_script
+    assert "scorecard_operator_adoption_status=" in benchmark_runbook_script
+    assert "scorecard_operator_adoption_mode=" in benchmark_runbook_script
+    assert "scorecard_operator_adoption_knowledge_outcome_drift_status=" in (
+        benchmark_runbook_script
+    )
+    assert "operational_operator_adoption_status=" in benchmark_runbook_script
+    assert "operational_operator_adoption_knowledge_outcome_drift_status=" in (
+        benchmark_runbook_script
+    )
+    helper_text = _load_comment_helper() + _load_bash_helper_from_step(
+        _get_step(workflow, "evaluate", "Create job summary")
+    )
+    assert "Benchmark Release Decision Competitive Surpass" in helper_text
+    assert "Benchmark Release Runbook Competitive Surpass" in helper_text
+    assert "Benchmark release knowledge reference inventory" in helper_text
+    assert "Benchmark release runbook knowledge reference inventory" in helper_text
+
+    benchmark_operator_adoption_step = _get_step(
+        workflow, "evaluate", "Build benchmark operator adoption (optional)"
+    )
+    benchmark_operator_adoption_script = benchmark_operator_adoption_step["run"]
+    assert (
+        "scripts/export_benchmark_operator_adoption.py"
+        in benchmark_operator_adoption_script
+    )
+    assert "BENCHMARK_OPERATOR_ADOPTION_ENABLE" in benchmark_operator_adoption_script
+    assert "--benchmark-release-decision" in benchmark_operator_adoption_script
+    assert "--benchmark-release-runbook" in benchmark_operator_adoption_script
+    assert "--review-queue" in benchmark_operator_adoption_script
+    assert "--feedback-flywheel" in benchmark_operator_adoption_script
+    assert "--benchmark-knowledge-drift" in benchmark_operator_adoption_script
+    assert "--benchmark-knowledge-outcome-drift" in benchmark_operator_adoption_script
+    assert "INPUT_COUNT=0" in benchmark_operator_adoption_script
+    assert "adoption_readiness=" in benchmark_operator_adoption_script
+    assert "operator_mode=" in benchmark_operator_adoption_script
+    assert "next_action=" in benchmark_operator_adoption_script
+    assert "automation_ready=" in benchmark_operator_adoption_script
+    assert "freeze_ready=" in benchmark_operator_adoption_script
+    assert "release_status=" in benchmark_operator_adoption_script
+    assert "runbook_status=" in benchmark_operator_adoption_script
+    assert "review_queue_status=" in benchmark_operator_adoption_script
+    assert "feedback_status=" in benchmark_operator_adoption_script
+    assert "knowledge_drift_status=" in benchmark_operator_adoption_script
+    assert "knowledge_drift_summary=" in benchmark_operator_adoption_script
+    assert "knowledge_outcome_drift_status=" in benchmark_operator_adoption_script
+    assert "knowledge_outcome_drift_summary=" in benchmark_operator_adoption_script
+    assert "blocking_signals=" in benchmark_operator_adoption_script
+    assert "recommended_actions=" in benchmark_operator_adoption_script
+
+    benchmark_competitive_surpass_step = _get_step(
+        workflow, "evaluate", "Build benchmark competitive surpass index (optional)"
+    )
+    benchmark_competitive_surpass_script = benchmark_competitive_surpass_step["run"]
+    assert (
+        "scripts/export_benchmark_competitive_surpass_index.py"
+        in benchmark_competitive_surpass_script
+    )
+    assert (
+        "BENCHMARK_COMPETITIVE_SURPASS_INDEX_ENABLE"
+        in benchmark_competitive_surpass_script
+    )
+    assert "--benchmark-engineering-signals" in benchmark_competitive_surpass_script
+    assert "--benchmark-knowledge-readiness" in benchmark_competitive_surpass_script
+    assert "--benchmark-knowledge-application" in benchmark_competitive_surpass_script
+    assert (
+        "--benchmark-knowledge-realdata-correlation"
+        in benchmark_competitive_surpass_script
+    )
+    assert "--benchmark-knowledge-domain-matrix" in benchmark_competitive_surpass_script
+    assert "--benchmark-knowledge-source-drift" in benchmark_competitive_surpass_script
+    assert (
+        "--benchmark-knowledge-outcome-correlation"
+        in benchmark_competitive_surpass_script
+    )
+    assert "--benchmark-knowledge-outcome-drift" in benchmark_competitive_surpass_script
+    assert "--benchmark-realdata-signals" in benchmark_competitive_surpass_script
+    assert "--benchmark-realdata-scorecard" in benchmark_competitive_surpass_script
+    assert "--benchmark-operator-adoption" in benchmark_competitive_surpass_script
+    assert (
+        "--benchmark-knowledge-domain-release-surface-alignment"
+        in benchmark_competitive_surpass_script
+    )
+    assert "INPUT_COUNT=0" in benchmark_competitive_surpass_script
+    assert "status=" in benchmark_competitive_surpass_script
+    assert "score=" in benchmark_competitive_surpass_script
+    assert "ready_pillars=" in benchmark_competitive_surpass_script
+    assert "partial_pillars=" in benchmark_competitive_surpass_script
+    assert "blocked_pillars=" in benchmark_competitive_surpass_script
+    assert "primary_gaps=" in benchmark_competitive_surpass_script
+    assert "recommendations=" in benchmark_competitive_surpass_script
+
+    benchmark_competitive_surpass_trend_step = _get_step(
+        workflow, "evaluate", "Build benchmark competitive surpass trend (optional)"
+    )
+    benchmark_competitive_surpass_trend_script = benchmark_competitive_surpass_trend_step[
+        "run"
+    ]
+    assert (
+        "scripts/export_benchmark_competitive_surpass_trend.py"
+        in benchmark_competitive_surpass_trend_script
+    )
+    assert (
+        "BENCHMARK_COMPETITIVE_SURPASS_TREND_ENABLE"
+        in benchmark_competitive_surpass_trend_script
+    )
+    assert (
+        "BENCHMARK_COMPETITIVE_SURPASS_TREND_CURRENT_SUMMARY_JSON"
+        in benchmark_competitive_surpass_trend_script
+    )
+    assert (
+        "BENCHMARK_COMPETITIVE_SURPASS_TREND_PREVIOUS_SUMMARY_JSON"
+        in benchmark_competitive_surpass_trend_script
+    )
+    assert "--current-summary" in benchmark_competitive_surpass_trend_script
+    assert "--previous-summary" in benchmark_competitive_surpass_trend_script
+    assert "INPUT_COUNT=0" in benchmark_competitive_surpass_trend_script
+    assert "status=" in benchmark_competitive_surpass_trend_script
+    assert "score_delta=" in benchmark_competitive_surpass_trend_script
+    assert "pillar_improvements=" in benchmark_competitive_surpass_trend_script
+    assert "pillar_regressions=" in benchmark_competitive_surpass_trend_script
+    assert "resolved_primary_gaps=" in benchmark_competitive_surpass_trend_script
+    assert "new_primary_gaps=" in benchmark_competitive_surpass_trend_script
+    assert "summary=" in benchmark_competitive_surpass_trend_script
+    assert "recommendations=" in benchmark_competitive_surpass_trend_script
+
+    benchmark_competitive_surpass_action_plan_step = _get_step(
+        workflow, "evaluate", "Build benchmark competitive surpass action plan (optional)"
+    )
+    benchmark_competitive_surpass_action_plan_script = (
+        benchmark_competitive_surpass_action_plan_step["run"]
+    )
+    assert (
+        "scripts/export_benchmark_competitive_surpass_action_plan.py"
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert (
+        "BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_ENABLE"
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert (
+        "BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_COMPETITIVE_SURPASS_INDEX_JSON"
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert (
+        "BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_COMPETITIVE_SURPASS_TREND_JSON"
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert (
+        "BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_ENGINEERING_SIGNALS_JSON"
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert (
+        "BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON"
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert (
+        "BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_REALDATA_SIGNALS_JSON"
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert (
+        "BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_REALDATA_SCORECARD_JSON"
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert (
+        "BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_OPERATOR_ADOPTION_JSON"
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert (
+        "--benchmark-competitive-surpass-index"
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert (
+        "--benchmark-competitive-surpass-trend"
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert "--benchmark-engineering-signals" in benchmark_competitive_surpass_action_plan_script
+    assert (
+        "--benchmark-knowledge-domain-action-plan"
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert "--benchmark-realdata-signals" in benchmark_competitive_surpass_action_plan_script
+    assert (
+        "--benchmark-realdata-scorecard" in benchmark_competitive_surpass_action_plan_script
+    )
+    assert "--benchmark-operator-adoption" in benchmark_competitive_surpass_action_plan_script
+    assert "INPUT_COUNT=0" in benchmark_competitive_surpass_action_plan_script
+    assert "status=" in benchmark_competitive_surpass_action_plan_script
+    assert "total_action_count=" in benchmark_competitive_surpass_action_plan_script
+    assert (
+        "high_priority_action_count="
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert (
+        "medium_priority_action_count="
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert "priority_pillars=" in benchmark_competitive_surpass_action_plan_script
+    assert (
+        "recommended_first_actions="
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert "pillar_action_counts=" in benchmark_competitive_surpass_action_plan_script
+    assert "recommendations=" in benchmark_competitive_surpass_action_plan_script
+
+    assistant_step = _get_step(
+        workflow, "evaluate", "Build assistant evidence report (optional)"
+    )
+    assistant_script = assistant_step["run"]
+    assert "scripts/export_assistant_evidence_report.py" in assistant_script
+    assert "ASSISTANT_EVIDENCE_REPORT_ENABLE" in assistant_script
+    assert "ASSISTANT_EVIDENCE_REPORT_INPUT" in assistant_script
+    assert "average_evidence_count=" in assistant_script
+    assert "top_evidence_types=" in assistant_script
+    assert "top_missing_fields=" in assistant_script
+
+    review_queue_step = _get_step(
+        workflow, "evaluate", "Build active-learning review queue report (optional)"
+    )
+    review_queue_script = review_queue_step["run"]
+    assert "scripts/export_active_learning_review_queue_report.py" in review_queue_script
+    assert "ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_ENABLE" in review_queue_script
+    assert "ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_INPUT" in review_queue_script
+    assert "--top-k" in review_queue_script
+    assert "operational_status=" in review_queue_script
+    assert "top_feedback_priorities=" in review_queue_script
+    assert "top_decision_sources=" in review_queue_script
+    assert "top_review_reasons=" in review_queue_script
+
+    review_queue_summary_flag = (
+        '--review-queue-summary '
+        '"${{ steps.active_learning_review_queue_report.outputs.output_json || \'\' }}"'
+    )
+    assert review_queue_summary_flag in benchmark_script
+    engineering_summary_flag = (
+        '--engineering-signals-summary '
+        '"${{ steps.benchmark_engineering_signals.outputs.output_json || \'\' }}"'
+    )
+    assert engineering_summary_flag in benchmark_script
+    assert "BENCHMARK_SCORECARD_KNOWLEDGE_READINESS_JSON" in benchmark_script
+
+
+def test_install_dependencies_step_includes_torch_for_hybrid_blind_runtime() -> None:
+    workflow = _load_workflow()
+    install_step = _get_step(workflow, "evaluate", "Install dependencies")
+    install_script = install_step["run"]
+
+    assert "pip install -r requirements.txt" in install_script
+    assert "pip install -r requirements-dev.txt" in install_script
+    assert "pip install torch==2.1.0" in install_script
+    assert "Graph2D blind benchmark requires torch on the GitHub runner." in install_script
 
 
 def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
@@ -401,458 +2326,2188 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     upload_sweep = _get_step(workflow, "evaluate", "Upload Graph2D train sweep")
     assert upload_sweep["if"] == "steps.graph2d_train_sweep.outputs.enabled == 'true'"
 
-    upload_hybrid = _get_step(
-        workflow, "evaluate", "Upload Hybrid confidence calibration artifacts"
+    upload_scorecard = _get_step(workflow, "evaluate", "Upload benchmark scorecard")
+    assert upload_scorecard["if"] == "steps.benchmark_scorecard.outputs.enabled == 'true'"
+    upload_engineering = _get_step(workflow, "evaluate", "Upload benchmark engineering signals")
+    assert (
+        upload_engineering["if"]
+        == "steps.benchmark_engineering_signals.outputs.enabled == 'true'"
     )
-    assert upload_hybrid["if"] == "steps.hybrid_calibration.outputs.enabled == 'true'"
-
-    upload_hybrid_baseline = _get_step(
-        workflow, "evaluate", "Upload Hybrid confidence calibration baseline artifact"
+    upload_realdata = _get_step(workflow, "evaluate", "Upload benchmark realdata signals")
+    assert (
+        upload_realdata["if"]
+        == "steps.benchmark_realdata_signals.outputs.enabled == 'true'"
+    )
+    upload_realdata_scorecard = _get_step(
+        workflow, "evaluate", "Upload benchmark realdata scorecard"
     )
     assert (
-        upload_hybrid_baseline["if"]
-        == "steps.hybrid_calibration_baseline_update.outputs.enabled == 'true'"
+        upload_realdata_scorecard["if"]
+        == "steps.benchmark_realdata_scorecard.outputs.enabled == 'true'"
     )
-
-    upload_hybrid_blind = _get_step(
-        workflow, "evaluate", "Upload Hybrid blind benchmark artifacts"
+    upload_knowledge = _get_step(workflow, "evaluate", "Upload benchmark knowledge readiness")
+    assert (
+        upload_knowledge["if"]
+        == "steps.benchmark_knowledge_readiness.outputs.enabled == 'true'"
+    )
+    upload_knowledge_drift = _get_step(workflow, "evaluate", "Upload benchmark knowledge drift")
+    assert (
+        upload_knowledge_drift["if"]
+        == "steps.benchmark_knowledge_drift.outputs.enabled == 'true'"
+    )
+    upload_knowledge_application = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge application"
     )
     assert (
-        upload_hybrid_blind["if"] == "steps.hybrid_blind_eval.outputs.enabled == 'true'"
+        upload_knowledge_application["if"]
+        == "steps.benchmark_knowledge_application.outputs.enabled == 'true'"
     )
-
-    upload_hybrid_blind_history = _get_step(
-        workflow, "evaluate", "Upload Hybrid blind history snapshot"
-    )
-    assert (
-        upload_hybrid_blind_history["if"]
-        == "steps.hybrid_blind_history.outputs.enabled == 'true'"
-    )
-
-    upload_hybrid_blind_drift = _get_step(
-        workflow, "evaluate", "Upload Hybrid blind drift alert report"
+    upload_knowledge_realdata = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge realdata correlation"
     )
     assert (
-        upload_hybrid_blind_drift["if"]
-        == "steps.hybrid_blind_drift_alert.outputs.enabled == 'true'"
+        upload_knowledge_realdata["if"]
+        == "steps.benchmark_knowledge_realdata_correlation.outputs.enabled == 'true'"
     )
-    assert "report_md_path" in upload_hybrid_blind_drift["with"]["path"]
-
-    upload_hybrid_superpass = _get_step(
-        workflow, "evaluate", "Upload Hybrid superpass gate artifact"
+    upload_knowledge_domain_matrix = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge domain matrix"
     )
     assert (
-        upload_hybrid_superpass["if"]
-        == "steps.hybrid_superpass_gate.outputs.enabled == 'true'"
+        upload_knowledge_domain_matrix["if"]
+        == "steps.benchmark_knowledge_domain_matrix.outputs.enabled == 'true'"
     )
-    assert "report_path" in upload_hybrid_superpass["with"]["path"]
+    upload_knowledge_domain_capability_matrix = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge domain capability matrix"
+    )
     assert (
-        "steps.hybrid_superpass_validate.outputs.report_path"
-        in upload_hybrid_superpass["with"]["path"]
+        upload_knowledge_domain_capability_matrix["if"]
+        == "steps.benchmark_knowledge_domain_capability_matrix.outputs.enabled == 'true'"
     )
-
-    weekly_summary_step = _get_step(
-        workflow, "evaluate", "Generate weekly rolling summary"
+    upload_knowledge_domain_api_surface_matrix = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge domain API surface matrix"
     )
-    weekly_summary_script = weekly_summary_step["run"]
-    assert "scripts/ci/generate_eval_weekly_summary.py" in weekly_summary_script
-    assert "--eval-history-dir" in weekly_summary_script
-    assert "--output-md" in weekly_summary_script
-    assert "--days 7" in weekly_summary_script
-
-    upload_weekly_summary = _get_step(workflow, "evaluate", "Upload weekly summary")
     assert (
-        upload_weekly_summary["with"]["name"]
-        == "evaluation-weekly-summary-${{ github.run_number }}"
+        upload_knowledge_domain_api_surface_matrix["if"]
+        == "steps.benchmark_knowledge_domain_api_surface_matrix.outputs.enabled == 'true'"
     )
+    upload_knowledge_domain_capability_drift = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge domain capability drift"
+    )
+    assert (
+        upload_knowledge_domain_capability_drift["if"]
+        == "steps.benchmark_knowledge_domain_capability_drift.outputs.enabled == 'true'"
+    )
+    upload_knowledge_domain_action_plan = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge domain action plan"
+    )
+    assert (
+        upload_knowledge_domain_action_plan["if"]
+        == "steps.benchmark_knowledge_domain_action_plan.outputs.enabled == 'true'"
+    )
+    upload_knowledge_domain_control_plane = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge domain control plane"
+    )
+    assert (
+        upload_knowledge_domain_control_plane["if"]
+        == "steps.benchmark_knowledge_domain_control_plane.outputs.enabled == 'true'"
+    )
+    upload_knowledge_domain_control_plane_drift = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge domain control plane drift"
+    )
+    assert (
+        upload_knowledge_domain_control_plane_drift["if"]
+        == "steps.benchmark_knowledge_domain_control_plane_drift.outputs.enabled == 'true'"
+    )
+    upload_knowledge_domain_release_gate = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge domain release gate"
+    )
+    assert (
+        upload_knowledge_domain_release_gate["if"]
+        == "steps.benchmark_knowledge_domain_release_gate.outputs.enabled == 'true'"
+    )
+    upload_knowledge_domain_release_surface_alignment = _get_step(
+        workflow,
+        "evaluate",
+        "Upload benchmark knowledge domain release surface alignment",
+    )
+    assert (
+        upload_knowledge_domain_release_surface_alignment["if"]
+        == "steps.benchmark_knowledge_domain_release_surface_alignment.outputs.enabled == 'true'"
+    )
+    upload_knowledge_source_coverage = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge source coverage"
+    )
+    assert (
+        upload_knowledge_source_coverage["if"]
+        == "steps.benchmark_knowledge_source_coverage.outputs.enabled == 'true'"
+    )
+    upload_knowledge_source_action_plan = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge source action plan"
+    )
+    assert (
+        upload_knowledge_source_action_plan["if"]
+        == "steps.benchmark_knowledge_source_action_plan.outputs.enabled == 'true'"
+    )
+    upload_knowledge_source_drift = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge source drift"
+    )
+    assert (
+        upload_knowledge_source_drift["if"]
+        == "steps.benchmark_knowledge_source_drift.outputs.enabled == 'true'"
+    )
+    upload_knowledge_outcome_correlation = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge outcome correlation"
+    )
+    assert (
+        upload_knowledge_outcome_correlation["if"]
+        == "steps.benchmark_knowledge_outcome_correlation.outputs.enabled == 'true'"
+    )
+    upload_knowledge_outcome_drift = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge outcome drift"
+    )
+    assert (
+        upload_knowledge_outcome_drift["if"]
+        == "steps.benchmark_knowledge_outcome_drift.outputs.enabled == 'true'"
+    )
+    upload_feedback_flywheel = _get_step(
+        workflow, "evaluate", "Upload feedback flywheel benchmark artifact"
+    )
+    assert (
+        upload_feedback_flywheel["if"]
+        == "steps.feedback_flywheel_benchmark.outputs.enabled == 'true'"
+    )
+    upload_benchmark_operational = _get_step(
+        workflow, "evaluate", "Upload benchmark operational summary"
+    )
+    assert (
+        upload_benchmark_operational["if"]
+        == "steps.benchmark_operational_summary.outputs.enabled == 'true'"
+    )
+    upload_benchmark_competitive_surpass = _get_step(
+        workflow, "evaluate", "Upload benchmark competitive surpass index"
+    )
+    assert (
+        upload_benchmark_competitive_surpass["if"]
+        == "steps.benchmark_competitive_surpass_index.outputs.enabled == 'true'"
+    )
+    upload_benchmark_competitive_surpass_trend = _get_step(
+        workflow, "evaluate", "Upload benchmark competitive surpass trend"
+    )
+    assert (
+        upload_benchmark_competitive_surpass_trend["if"]
+        == "steps.benchmark_competitive_surpass_trend.outputs.enabled == 'true'"
+    )
+    upload_benchmark_competitive_surpass_action_plan = _get_step(
+        workflow, "evaluate", "Upload benchmark competitive surpass action plan"
+    )
+    assert (
+        upload_benchmark_competitive_surpass_action_plan["if"]
+        == "steps.benchmark_competitive_surpass_action_plan.outputs.enabled == 'true'"
+    )
+    upload_benchmark_bundle = _get_step(
+        workflow, "evaluate", "Upload benchmark artifact bundle"
+    )
+    assert (
+        upload_benchmark_bundle["if"]
+        == "steps.benchmark_artifact_bundle.outputs.enabled == 'true'"
+    )
+    upload_benchmark_companion = _get_step(
+        workflow, "evaluate", "Upload benchmark companion summary"
+    )
+    assert (
+        upload_benchmark_companion["if"]
+        == "steps.benchmark_companion_summary.outputs.enabled == 'true'"
+    )
+    upload_benchmark_release = _get_step(
+        workflow, "evaluate", "Upload benchmark release decision"
+    )
+    assert (
+        upload_benchmark_release["if"]
+        == "steps.benchmark_release_decision.outputs.enabled == 'true'"
+    )
+    upload_benchmark_runbook = _get_step(
+        workflow, "evaluate", "Upload benchmark release runbook"
+    )
+    assert (
+        upload_benchmark_runbook["if"]
+        == "steps.benchmark_release_runbook.outputs.enabled == 'true'"
+    )
+    upload_benchmark_operator_adoption = _get_step(
+        workflow, "evaluate", "Upload benchmark operator adoption"
+    )
+    assert (
+        upload_benchmark_operator_adoption["if"]
+        == "steps.benchmark_operator_adoption.outputs.enabled == 'true'"
+    )
+    upload_assistant = _get_step(workflow, "evaluate", "Upload assistant evidence report")
+    assert (
+        upload_assistant["if"]
+        == "steps.assistant_evidence_report.outputs.enabled == 'true'"
+    )
+    upload_review_queue = _get_step(
+        workflow, "evaluate", "Upload active-learning review queue report"
+    )
+    assert (
+        upload_review_queue["if"]
+        == "steps.active_learning_review_queue_report.outputs.enabled == 'true'"
+    )
+    upload_ocr_review = _get_step(workflow, "evaluate", "Upload OCR review pack")
+    assert upload_ocr_review["if"] == "steps.ocr_review_pack.outputs.enabled == 'true'"
 
     summary_step = _get_step(workflow, "evaluate", "Create job summary")
-    summary_script = summary_step["run"]
+    summary_script = _load_bash_helper_from_step(summary_step)
+    assert "Graph2D review input" in summary_script
     assert "Graph2D review candidates" in summary_script
     assert "Graph2D review gate status" in summary_script
     assert "Graph2D review gate headline" in summary_script
     assert "Graph2D review top reasons" in summary_script
+    assert "Graph2D review priorities" in summary_script
+    assert "Graph2D review confidence bands" in summary_script
+    assert "Graph2D review coarse labels" in summary_script
+    assert "Graph2D review fine labels" in summary_script
+    assert "Graph2D review rejection reasons" in summary_script
+    assert "Graph2D review knowledge_conflicts" in summary_script
+    assert "Graph2D review knowledge conflict details" in summary_script
+    assert "Graph2D review knowledge rows" in summary_script
+    assert "Graph2D review standards rows" in summary_script
+    assert "Graph2D review knowledge categories" in summary_script
+    assert "Graph2D review standard candidates" in summary_script
+    assert "Graph2D review knowledge hints" in summary_script
     assert "Graph2D review top sources" in summary_script
+    assert "Graph2D review shadow sources" in summary_script
     assert "Graph2D review example explanations" in summary_script
     assert "Graph2D review gate strict_mode" in summary_script
     assert "Graph2D train sweep total_runs" in summary_script
     assert "Graph2D train sweep best run script" in summary_script
-    assert "Hybrid calibration status" in summary_script
-    assert "Hybrid calibration metrics_after" in summary_script
-    assert "Hybrid calibration gate status" in summary_script
-    assert "Hybrid calibration gate strict_should_fail" in summary_script
-    assert "Hybrid calibration baseline update" in summary_script
-    assert "Hybrid calibration baseline path" in summary_script
-    assert "Weekly summary" in summary_script
-    assert "Hybrid blind eval status" in summary_script
-    assert "Hybrid blind dataset_source" in summary_script
-    assert "Hybrid blind dxf_dir" in summary_script
-    assert "Hybrid blind gain_vs_graph2d" in summary_script
-    assert "Hybrid blind gate status" in summary_script
-    assert "Hybrid blind strict_require_real_data" in summary_script
-    assert "Hybrid blind gate strict_should_fail" in summary_script
-    assert "Hybrid blind history snapshot" in summary_script
-    assert "Hybrid blind drift alert status" in summary_script
-    assert "Hybrid blind drift report" in summary_script
-    assert "Hybrid blind delta_hybrid_accuracy" in summary_script
-    assert "Hybrid blind label_slice_enabled" in summary_script
-    assert "Hybrid blind label_slice_auto_cap_min_common" in summary_script
-    assert "Hybrid blind label_slice_effective_min_common" in summary_script
-    assert "Hybrid blind label_slice_common_count" in summary_script
-    assert "Hybrid blind label_slice_worst_acc_drop" in summary_script
-    assert "Hybrid blind family_slice_enabled" in summary_script
-    assert "Hybrid blind family_slice_auto_cap_min_common" in summary_script
-    assert "Hybrid blind family_slice_effective_min_common" in summary_script
-    assert "Hybrid blind family_slice_common_count" in summary_script
-    assert "Hybrid blind family_slice_worst_acc_drop" in summary_script
-    assert "Hybrid superpass gate status" in summary_script
-    assert "Hybrid superpass gate headline" in summary_script
-    assert "Hybrid superpass gate report" in summary_script
-    assert "Hybrid superpass structure validation status" in summary_script
-    assert "Hybrid superpass structure validation strict_mode" in summary_script
-    assert "Hybrid superpass structure validation schema_mode" in summary_script
-    assert "Hybrid superpass gate strict_should_fail" in summary_script
+    assert "Benchmark scorecard overall" in summary_script
+    assert "Benchmark hybrid status" in summary_script
+    assert "Benchmark Graph2D status" in summary_script
+    assert "Benchmark recommendations" in summary_script
+    assert "Benchmark assistant status" in summary_script
+    assert "Benchmark review queue status" in summary_script
+    assert "Benchmark feedback flywheel status" in summary_script
+    assert "Benchmark OCR status" in summary_script
+    assert "Benchmark Qdrant status" in summary_script
+    assert "Benchmark knowledge readiness status" in summary_script
+    assert "Benchmark knowledge reference items" in summary_script
+    assert "Benchmark knowledge focus areas" in summary_script
+    assert "Benchmark engineering signals status" in summary_script
+    assert "Benchmark engineering coverage ratio" in summary_script
+    assert "Benchmark engineering standard types" in summary_script
+    assert "Benchmark scorecard operator adoption" in summary_script
+    assert "Benchmark scorecard operator adoption mode" in summary_script
+    assert "Benchmark scorecard operator outcome drift" in summary_script
+    assert "Benchmark scorecard operator outcome drift summary" in summary_script
+    assert "Feedback flywheel benchmark status" in summary_script
+    assert "Feedback flywheel feedback total" in summary_script
+    assert "Feedback flywheel artifact" in summary_script
+    assert "Benchmark operational summary overall" in summary_script
+    assert "Benchmark operational feedback status" in summary_script
+    assert "Benchmark operational assistant status" in summary_script
+    assert "Benchmark operational review queue status" in summary_script
+    assert "Benchmark operational OCR status" in summary_script
+    assert "Benchmark operational operator adoption" in summary_script
+    assert "Benchmark operational operator outcome drift" in summary_script
+    assert "Benchmark operational operator outcome drift summary" in summary_script
+    assert "Benchmark operational blockers" in summary_script
+    assert "Benchmark operational recommendations" in summary_script
+    assert "Benchmark operational artifact" in summary_script
+    assert "Benchmark competitive surpass status" in summary_script
+    assert "Benchmark competitive surpass score" in summary_script
+    assert "Benchmark competitive surpass ready pillars" in summary_script
+    assert "Benchmark competitive surpass partial pillars" in summary_script
+    assert "Benchmark competitive surpass blocked pillars" in summary_script
+    assert "Benchmark competitive surpass primary gaps" in summary_script
+    assert "Benchmark competitive surpass recommendations" in summary_script
+    assert "Benchmark competitive surpass artifact" in summary_script
+    assert "Benchmark competitive surpass trend status" in summary_script
+    assert "Benchmark competitive surpass trend score delta" in summary_script
+    assert "Benchmark competitive surpass trend pillar improvements" in summary_script
+    assert "Benchmark competitive surpass trend pillar regressions" in summary_script
+    assert "Benchmark competitive surpass trend resolved gaps" in summary_script
+    assert "Benchmark competitive surpass trend new gaps" in summary_script
+    assert "Benchmark competitive surpass trend recommendations" in summary_script
+    assert "Benchmark competitive surpass trend artifact" in summary_script
+    assert "Benchmark artifact bundle overall" in summary_script
+    assert "Benchmark artifact bundle available artifacts" in summary_script
+    assert "Benchmark artifact bundle feedback status" in summary_script
+    assert "Benchmark artifact bundle assistant status" in summary_script
+    assert "Benchmark artifact bundle review queue status" in summary_script
+    assert "Benchmark artifact bundle OCR status" in summary_script
+    assert "Benchmark artifact bundle knowledge status" in summary_script
+    assert "Benchmark artifact bundle engineering status" in summary_script
+    assert "Benchmark artifact bundle operator adoption knowledge drift" in summary_script
+    assert "Benchmark artifact bundle operator adoption knowledge drift summary" in summary_script
+    assert "Benchmark artifact bundle operator adoption knowledge outcome drift" in summary_script
+    assert (
+        "Benchmark artifact bundle operator adoption knowledge outcome drift summary"
+        in summary_script
+    )
+    assert "Benchmark artifact bundle blockers" in summary_script
+    assert "Benchmark artifact bundle recommendations" in summary_script
+    assert "Benchmark artifact bundle artifact" in summary_script
+    assert "Benchmark companion summary overall" in summary_script
+    assert "Benchmark companion engineering status" in summary_script
+    assert "Benchmark companion review surface" in summary_script
+    assert "Benchmark companion primary gap" in summary_script
+    assert "Benchmark companion review queue status" in summary_script
+    assert "Benchmark companion knowledge status" in summary_script
+    assert "Benchmark companion operator adoption knowledge drift" in summary_script
+    assert "Benchmark companion operator adoption knowledge drift summary" in summary_script
+    assert "Benchmark companion operator adoption knowledge outcome drift" in summary_script
+    assert (
+        "Benchmark companion operator adoption knowledge outcome drift summary"
+        in summary_script
+    )
+    assert "Benchmark companion recommended actions" in summary_script
+    assert "Benchmark companion artifact" in summary_script
+    assert "Benchmark release decision status" in summary_script
+    assert "Benchmark release automation ready" in summary_script
+    assert "Benchmark release primary signal source" in summary_script
+    assert "Benchmark release review queue status" in summary_script
+    assert "Benchmark release knowledge status" in summary_script
+    assert "Benchmark release engineering status" in summary_script
+    assert "Benchmark release operator adoption status" in summary_script
+    assert "Benchmark release operator adoption knowledge drift" in summary_script
+    assert "Benchmark release operator adoption knowledge drift summary" in summary_script
+    assert "Benchmark release operator adoption knowledge outcome drift" in summary_script
+    assert "Benchmark release operator adoption knowledge outcome drift summary" in summary_script
+    assert "Benchmark release review signals" in summary_script
+    assert "Benchmark release artifact" in summary_script
+    assert "Benchmark release runbook status" in summary_script
+    assert "Benchmark release runbook freeze_ready" in summary_script
+    assert "Benchmark release runbook primary signal source" in summary_script
+    assert "Benchmark release runbook next action" in summary_script
+    assert "Benchmark release runbook knowledge status" in summary_script
+    assert "Benchmark release runbook engineering status" in summary_script
+    assert "Benchmark release runbook operator adoption status" in summary_script
+    assert "Benchmark release runbook operator adoption knowledge drift" in summary_script
+    assert "Benchmark release runbook operator adoption knowledge drift summary" in summary_script
+    assert "Benchmark release runbook operator adoption knowledge outcome drift" in summary_script
+    assert (
+        "Benchmark release runbook operator adoption knowledge outcome drift summary"
+        in summary_script
+    )
+    assert "Benchmark release runbook missing artifacts" in summary_script
+    assert "Benchmark release runbook blocking signals" in summary_script
+    assert "Benchmark release runbook review signals" in summary_script
+    assert "Benchmark release runbook artifact" in summary_script
+    assert "Benchmark operator adoption readiness" in summary_script
+    assert "Benchmark operator adoption mode" in summary_script
+    assert "Benchmark operator adoption next action" in summary_script
+    assert "Benchmark operator adoption automation ready" in summary_script
+    assert "Benchmark operator adoption freeze ready" in summary_script
+    assert "Benchmark operator adoption release status" in summary_script
+    assert "Benchmark operator adoption runbook status" in summary_script
+    assert "Benchmark operator adoption review queue status" in summary_script
+    assert "Benchmark operator adoption feedback status" in summary_script
+    assert "Benchmark operator adoption knowledge drift" in summary_script
+    assert "Benchmark operator adoption knowledge drift summary" in summary_script
+    assert "Benchmark operator adoption knowledge outcome drift" in summary_script
+    assert "Benchmark operator adoption knowledge outcome drift summary" in summary_script
+    assert "Benchmark operator adoption release surface alignment" in summary_script
+    assert "Benchmark operator adoption release surface alignment summary" in (
+        summary_script
+    )
+    assert "Benchmark operator adoption release surface mismatches" in summary_script
+    assert "Benchmark operator adoption blockers" in summary_script
+    assert "Benchmark operator adoption actions" in summary_script
+    assert "Benchmark operator adoption artifact" in summary_script
+    assert "Benchmark engineering signals: skipped" in summary_script
+    assert "Benchmark real-data status" in summary_script
+    assert "Benchmark real-data ready components" in summary_script
+    assert "Benchmark real-data partial components" in summary_script
+    assert "Benchmark real-data environment blocked" in summary_script
+    assert "Benchmark real-data available components" in summary_script
+    assert "Benchmark real-data hybrid status" in summary_script
+    assert "Benchmark real-data history status" in summary_script
+    assert "Benchmark real-data STEP smoke status" in summary_script
+    assert "Benchmark real-data STEP dir status" in summary_script
+    assert "Benchmark real-data recommendations" in summary_script
+    assert "Benchmark real-data artifact" in summary_script
+    assert "Benchmark real-data scorecard status" in summary_script
+    assert "Benchmark real-data scorecard ready components" in summary_script
+    assert "Benchmark real-data scorecard partial components" in summary_script
+    assert "Benchmark real-data scorecard environment blocked" in summary_script
+    assert "Benchmark real-data scorecard available components" in summary_script
+    assert "Benchmark real-data scorecard best surface" in summary_script
+    assert "Benchmark real-data scorecard hybrid status" in summary_script
+    assert "Benchmark real-data scorecard history status" in summary_script
+    assert "Benchmark real-data scorecard STEP smoke status" in summary_script
+    assert "Benchmark real-data scorecard STEP dir status" in summary_script
+    assert "Benchmark real-data scorecard recommendations" in summary_script
+    assert "Benchmark real-data scorecard artifact" in summary_script
+    assert "Benchmark competitive surpass status" in summary_script
+    assert "Benchmark competitive surpass score" in summary_script
+    assert "Benchmark competitive surpass ready pillars" in summary_script
+    assert "Benchmark competitive surpass partial pillars" in summary_script
+    assert "Benchmark competitive surpass blocked pillars" in summary_script
+    assert "Benchmark competitive surpass primary gaps" in summary_script
+    assert "Benchmark competitive surpass recommendations" in summary_script
+    assert "Benchmark competitive surpass artifact" in summary_script
+    assert "Benchmark competitive surpass trend status" in summary_script
+    assert "Benchmark competitive surpass trend score delta" in summary_script
+    assert "Benchmark competitive surpass trend pillar improvements" in summary_script
+    assert "Benchmark competitive surpass trend pillar regressions" in summary_script
+    assert "Benchmark competitive surpass trend resolved gaps" in summary_script
+    assert "Benchmark competitive surpass trend new gaps" in summary_script
+    assert "Benchmark competitive surpass trend recommendations" in summary_script
+    assert "Benchmark competitive surpass trend artifact" in summary_script
+    assert "Benchmark engineering violations" in summary_script
+    assert "Benchmark engineering standards rows" in summary_script
+    assert "Benchmark engineering OCR standards" in summary_script
+    assert "Benchmark engineering recommendations" in summary_script
+    assert "Benchmark engineering artifact" in summary_script
+    assert "Benchmark knowledge readiness: skipped" in summary_script
+    assert "Benchmark knowledge total reference items" in summary_script
+    assert "Benchmark knowledge ready components" in summary_script
+    assert "Benchmark knowledge partial components" in summary_script
+    assert "Benchmark knowledge missing components" in summary_script
+    assert "Benchmark knowledge focus area count" in summary_script
+    assert "Benchmark knowledge domain count" in summary_script
+    assert "Benchmark knowledge priority domains" in summary_script
+    assert "Benchmark knowledge domain focus areas" in summary_script
+    assert "Benchmark knowledge recommendations" in summary_script
+    assert "Benchmark knowledge artifact" in summary_script
+    assert "Benchmark knowledge drift status" in summary_script
+    assert "Benchmark knowledge drift current status" in summary_script
+    assert "Benchmark knowledge drift previous status" in summary_script
+    assert "Benchmark knowledge drift reference item delta" in summary_script
+    assert "Benchmark knowledge drift regressions" in summary_script
+    assert "Benchmark knowledge drift improvements" in summary_script
+    assert "Benchmark knowledge drift resolved focus areas" in summary_script
+    assert "Benchmark knowledge drift new focus areas" in summary_script
+    assert "Benchmark knowledge drift recommendations" in summary_script
+    assert "Benchmark knowledge drift artifact" in summary_script
+    assert "Benchmark knowledge application status" in summary_script
+    assert "Benchmark knowledge application ready domains" in summary_script
+    assert "Benchmark knowledge application partial domains" in summary_script
+    assert "Benchmark knowledge application missing domains" in summary_script
+    assert "Benchmark knowledge application total domains" in summary_script
+    assert "Benchmark knowledge application focus area count" in summary_script
+    assert "Benchmark knowledge application focus areas" in summary_script
+    assert "Benchmark knowledge application priority domains" in summary_script
+    assert "Benchmark knowledge application domain statuses" in summary_script
+    assert "Benchmark knowledge application recommendations" in summary_script
+    assert "Benchmark knowledge application artifact" in summary_script
+    assert "Benchmark knowledge realdata correlation status" in summary_script
+    assert "Benchmark knowledge realdata correlation ready domains" in summary_script
+    assert "Benchmark knowledge realdata correlation partial domains" in summary_script
+    assert "Benchmark knowledge realdata correlation blocked domains" in summary_script
+    assert "Benchmark knowledge realdata correlation total domains" in summary_script
+    assert "Benchmark knowledge realdata correlation focus areas" in summary_script
+    assert "Benchmark knowledge realdata correlation priority domains" in summary_script
+    assert "Benchmark knowledge realdata correlation domain statuses" in summary_script
+    assert "Benchmark knowledge realdata correlation recommendations" in summary_script
+    assert "Benchmark knowledge realdata correlation artifact" in summary_script
+    assert "Benchmark knowledge domain capability matrix status" in summary_script
+    assert "Benchmark knowledge domain capability matrix ready domains" in summary_script
+    assert "Benchmark knowledge domain capability matrix partial domains" in summary_script
+    assert "Benchmark knowledge domain capability matrix blocked domains" in summary_script
+    assert "Benchmark knowledge domain capability matrix total domains" in summary_script
+    assert "Benchmark knowledge domain capability matrix focus areas" in summary_script
+    assert "Benchmark knowledge domain capability matrix priority domains" in summary_script
+    assert "Benchmark knowledge domain capability matrix provider gaps" in summary_script
+    assert "Benchmark knowledge domain capability matrix surface gaps" in summary_script
+    assert "Benchmark knowledge domain capability matrix domain statuses" in summary_script
+    assert "Benchmark knowledge domain capability matrix recommendations" in summary_script
+    assert "Benchmark knowledge domain capability matrix artifact" in summary_script
+    assert "Benchmark knowledge domain action plan status" in summary_script
+    assert "Benchmark knowledge domain action plan ready domains" in summary_script
+    assert "Benchmark knowledge domain action plan partial domains" in summary_script
+    assert "Benchmark knowledge domain action plan blocked domains" in summary_script
+    assert "Benchmark knowledge domain action plan total domains" in summary_script
+    assert "Benchmark knowledge domain action plan total actions" in summary_script
+    assert "Benchmark knowledge domain action plan high-priority actions" in summary_script
+    assert "Benchmark knowledge domain action plan medium-priority actions" in summary_script
+    assert "Benchmark knowledge domain action plan priority domains" in summary_script
+    assert "Benchmark knowledge domain action plan first actions" in summary_script
+    assert "Benchmark knowledge domain action plan domain action counts" in summary_script
+    assert "Benchmark knowledge domain action plan recommendations" in summary_script
+    assert "Benchmark knowledge domain action plan artifact" in summary_script
+    assert "Benchmark knowledge domain control plane status" in summary_script
+    assert "Benchmark knowledge domain control plane ready domains" in summary_script
+    assert "Benchmark knowledge domain control plane partial domains" in summary_script
+    assert "Benchmark knowledge domain control plane blocked domains" in summary_script
+    assert "Benchmark knowledge domain control plane missing domains" in summary_script
+    assert "Benchmark knowledge domain control plane total domains" in summary_script
+    assert "Benchmark knowledge domain control plane total actions" in summary_script
+    assert "Benchmark knowledge domain control plane high-priority actions" in summary_script
+    assert "Benchmark knowledge domain control plane release blockers" in summary_script
+    assert "Benchmark knowledge domain control plane priority domains" in summary_script
+    assert "Benchmark knowledge domain control plane focus areas" in summary_script
+    assert "Benchmark knowledge domain control plane recommendations" in summary_script
+    assert "Benchmark knowledge domain control plane artifact" in summary_script
+    assert "Benchmark knowledge domain control plane drift current status" in (
+        summary_script
+    )
+    assert "Benchmark knowledge domain control plane drift previous status" in (
+        summary_script
+    )
+    assert "Benchmark knowledge domain control plane drift ready domain delta" in (
+        summary_script
+    )
+    assert "Benchmark knowledge domain control plane drift blocked domain delta" in (
+        summary_script
+    )
+    assert "Benchmark knowledge domain control plane drift total action delta" in (
+        summary_script
+    )
+    assert (
+        "Benchmark knowledge domain control plane drift high-priority action delta"
+        in summary_script
+    )
+    assert "Benchmark knowledge domain control plane drift domain regressions" in (
+        summary_script
+    )
+    assert "Benchmark knowledge domain control plane drift domain improvements" in (
+        summary_script
+    )
+    assert (
+        "Benchmark knowledge domain control plane drift resolved release blockers"
+        in summary_script
+    )
+    assert (
+        "Benchmark knowledge domain control plane drift new release blockers"
+        in summary_script
+    )
+    assert "Benchmark knowledge domain control plane drift artifact" in summary_script
+    assert "Benchmark knowledge domain release surface alignment status" in (
+        summary_script
+    )
+    assert "Benchmark knowledge domain release surface alignment summary" in (
+        summary_script
+    )
+    assert "Benchmark knowledge domain release surface alignment mismatches" in (
+        summary_script
+    )
+    assert "Benchmark knowledge domain release surface alignment artifact" in (
+        summary_script
+    )
+    assert "Benchmark knowledge source coverage status" in summary_script
+    assert "Benchmark knowledge source coverage ready source groups" in summary_script
+    assert "Benchmark knowledge source coverage partial source groups" in summary_script
+    assert "Benchmark knowledge source coverage missing source groups" in summary_script
+    assert "Benchmark knowledge source coverage total source groups" in summary_script
+    assert "Benchmark knowledge source coverage total source tables" in summary_script
+    assert "Benchmark knowledge source coverage total source items" in summary_script
+    assert "Benchmark knowledge source coverage reference standards" in summary_script
+    assert "Benchmark knowledge source coverage ready expansion candidates" in summary_script
+    assert "Benchmark knowledge source coverage focus areas" in summary_script
+    assert "Benchmark knowledge source coverage priority domains" in summary_script
+    assert "Benchmark knowledge source coverage domain statuses" in summary_script
+    assert "Benchmark knowledge source coverage expansion candidates" in summary_script
+    assert "Benchmark knowledge source coverage recommendations" in summary_script
+    assert "Benchmark knowledge source coverage artifact" in summary_script
+    assert "Benchmark knowledge source action plan status" in summary_script
+    assert "Benchmark knowledge source action plan total actions" in summary_script
+    assert "Benchmark knowledge source action plan high-priority actions" in (
+        summary_script
+    )
+    assert "Benchmark knowledge source action plan medium-priority actions" in (
+        summary_script
+    )
+    assert "Benchmark knowledge source action plan expansion actions" in summary_script
+    assert "Benchmark knowledge source action plan priority domains" in summary_script
+    assert "Benchmark knowledge source action plan first actions" in summary_script
+    assert "Benchmark knowledge source action plan source-group counts" in (
+        summary_script
+    )
+    assert "Benchmark knowledge source action plan recommendations" in summary_script
+    assert "Benchmark knowledge source action plan artifact" in summary_script
+    assert "Benchmark artifact bundle knowledge drift" in summary_script
+    assert "Benchmark artifact bundle knowledge drift summary" in summary_script
+    assert "Benchmark artifact bundle knowledge drift recommendations" in summary_script
+    assert "Benchmark artifact bundle knowledge drift component changes" in summary_script
+    assert "Benchmark artifact bundle knowledge focus areas" in summary_script
+    assert "Benchmark artifact bundle knowledge application" in summary_script
+    assert "Benchmark artifact bundle knowledge application focus areas" in summary_script
+    assert "Benchmark artifact bundle knowledge application domains" in summary_script
+    assert "Benchmark artifact bundle knowledge application recommendations" in summary_script
+    assert "Benchmark artifact bundle knowledge realdata correlation" in summary_script
+    assert "Benchmark artifact bundle knowledge realdata focus areas" in summary_script
+    assert "Benchmark artifact bundle knowledge realdata domains" in summary_script
+    assert "Benchmark artifact bundle knowledge realdata recommendations" in summary_script
+    assert "Benchmark artifact bundle knowledge domain capability matrix" in summary_script
+    assert "Benchmark artifact bundle knowledge domain capability matrix focus areas" in (
+        summary_script
+    )
+    assert "Benchmark artifact bundle knowledge domain capability matrix domains" in (
+        summary_script
+    )
+    assert (
+        "Benchmark artifact bundle knowledge domain capability matrix recommendations"
+        in summary_script
+    )
+    assert "Benchmark artifact bundle knowledge domain control plane drift" in (
+        summary_script
+    )
+    assert (
+        "Benchmark artifact bundle knowledge domain control plane drift resolved release blockers"
+        in summary_script
+    )
+    assert (
+        "Benchmark artifact bundle knowledge domain control plane drift recommendations"
+        in summary_script
+    )
+    assert "Benchmark artifact bundle knowledge source coverage" in summary_script
+    assert "Benchmark artifact bundle knowledge source coverage domains" in summary_script
+    assert "Benchmark artifact bundle knowledge source coverage expansion candidates" in (
+        summary_script
+    )
+    assert "Benchmark artifact bundle knowledge source coverage recommendations" in (
+        summary_script
+    )
+    assert "Benchmark artifact bundle knowledge source action plan" in summary_script
+    assert "Benchmark artifact bundle knowledge source action plan domains" in (
+        summary_script
+    )
+    assert "Benchmark artifact bundle knowledge source action plan first actions" in (
+        summary_script
+    )
+    assert "Benchmark artifact bundle knowledge source action plan source-group counts" in (
+        summary_script
+    )
+    assert (
+        "Benchmark artifact bundle knowledge source action plan recommendations"
+        in summary_script
+    )
+    assert "Benchmark artifact bundle real-data status" in summary_script
+    assert "Benchmark artifact bundle real-data recommendations" in summary_script
+    assert "Benchmark artifact bundle competitive surpass" in summary_script
+    assert "Benchmark artifact bundle competitive surpass gaps" in summary_script
+    assert "Benchmark artifact bundle competitive surpass recommendations" in summary_script
+    assert "Benchmark artifact bundle competitive surpass trend" in summary_script
+    assert "Benchmark artifact bundle competitive surpass trend summary" in summary_script
+    assert "Benchmark artifact bundle competitive surpass trend recommendations" in (
+        summary_script
+    )
+    assert "Benchmark artifact bundle scorecard operator adoption" in summary_script
+    assert "Benchmark artifact bundle scorecard operator outcome drift" in summary_script
+    assert "Benchmark artifact bundle operational operator adoption" in summary_script
+    assert "Benchmark artifact bundle operational operator outcome drift" in summary_script
+    assert "Benchmark artifact bundle operator adoption release surface alignment" in (
+        summary_script
+    )
+    assert "Benchmark artifact bundle operator adoption release surface mismatches" in (
+        summary_script
+    )
+    assert "Benchmark artifact bundle knowledge domain release surface alignment" in (
+        summary_script
+    )
+    assert (
+        "Benchmark artifact bundle knowledge domain release surface alignment summary"
+        in summary_script
+    )
+    assert "Benchmark artifact bundle knowledge domain release surface mismatches" in (
+        summary_script
+    )
+    assert "Benchmark companion knowledge drift" in summary_script
+    assert "Benchmark companion knowledge drift summary" in summary_script
+    assert "Benchmark companion knowledge drift recommendations" in summary_script
+    assert "Benchmark companion knowledge drift component changes" in summary_script
+    assert "Benchmark companion knowledge focus areas" in summary_script
+    assert "Benchmark companion knowledge application" in summary_script
+    assert "Benchmark companion knowledge application focus areas" in summary_script
+    assert "Benchmark companion knowledge application domains" in summary_script
+    assert "Benchmark companion knowledge application recommendations" in summary_script
+    assert "Benchmark companion knowledge realdata correlation" in summary_script
+    assert "Benchmark companion knowledge realdata focus areas" in summary_script
+    assert "Benchmark companion knowledge realdata domains" in summary_script
+    assert "Benchmark companion knowledge realdata recommendations" in summary_script
+    assert "Benchmark companion knowledge domain capability matrix" in summary_script
+    assert "Benchmark companion knowledge domain capability matrix focus areas" in (
+        summary_script
+    )
+    assert "Benchmark companion knowledge domain capability matrix domains" in (
+        summary_script
+    )
+    assert (
+        "Benchmark companion knowledge domain capability matrix recommendations"
+        in summary_script
+    )
+    assert "Benchmark companion knowledge domain control plane drift" in summary_script
+    assert (
+        "Benchmark companion knowledge domain control plane drift resolved release blockers"
+        in summary_script
+    )
+    assert (
+        "Benchmark companion knowledge domain control plane drift recommendations"
+        in summary_script
+    )
+    assert "Benchmark companion knowledge source coverage" in summary_script
+    assert "Benchmark companion knowledge source coverage domains" in summary_script
+    assert "Benchmark companion knowledge source coverage expansion candidates" in (
+        summary_script
+    )
+    assert "Benchmark companion knowledge source coverage recommendations" in (
+        summary_script
+    )
+    assert "Benchmark companion knowledge source action plan" in summary_script
+    assert "Benchmark companion knowledge source action plan domains" in summary_script
+    assert "Benchmark companion knowledge source action plan first actions" in (
+        summary_script
+    )
+    assert "Benchmark companion knowledge source action plan source-group counts" in (
+        summary_script
+    )
+    assert "Benchmark companion knowledge source action plan recommendations" in (
+        summary_script
+    )
+    assert "Benchmark companion real-data status" in summary_script
+    assert "Benchmark companion real-data recommendations" in summary_script
+    assert "Benchmark companion competitive surpass" in summary_script
+    assert "Benchmark companion competitive surpass gaps" in summary_script
+    assert "Benchmark companion competitive surpass recommendations" in summary_script
+    assert "Benchmark companion competitive surpass trend" in summary_script
+    assert "Benchmark companion competitive surpass trend summary" in summary_script
+    assert "Benchmark companion competitive surpass trend recommendations" in (
+        summary_script
+    )
+    assert "Benchmark companion scorecard operator adoption" in summary_script
+    assert "Benchmark companion scorecard operator outcome drift" in summary_script
+    assert "Benchmark companion operational operator adoption" in summary_script
+    assert "Benchmark companion operational operator outcome drift" in summary_script
+    assert "Benchmark companion operator adoption release surface alignment" in (
+        summary_script
+    )
+    assert "Benchmark companion operator adoption release surface mismatches" in (
+        summary_script
+    )
+    assert "Benchmark companion knowledge domain release surface alignment" in (
+        summary_script
+    )
+    assert (
+        "Benchmark companion knowledge domain release surface alignment summary"
+        in summary_script
+    )
+    assert "Benchmark companion knowledge domain release surface mismatches" in (
+        summary_script
+    )
+    assert "Benchmark release knowledge drift" in summary_script
+    assert "Benchmark release knowledge drift summary" in summary_script
+    assert "Benchmark release knowledge focus areas" in summary_script
+    assert "Benchmark release knowledge application" in summary_script
+    assert "Benchmark release knowledge application focus areas" in summary_script
+    assert "Benchmark release knowledge application domains" in summary_script
+    assert "Benchmark release competitive surpass trend" in summary_script
+    assert "Benchmark release competitive surpass trend summary" in summary_script
+    assert "Benchmark release competitive surpass trend recommendations" in summary_script
+    assert "Benchmark release knowledge application recommendations" in summary_script
+    assert "Benchmark release knowledge realdata correlation" in summary_script
+    assert "Benchmark release knowledge realdata focus areas" in summary_script
+    assert "Benchmark release knowledge realdata domains" in summary_script
+    assert "Benchmark release knowledge realdata recommendations" in summary_script
+    assert "Benchmark release knowledge domain capability matrix" in summary_script
+    assert "Benchmark release knowledge domain capability matrix focus areas" in (
+        summary_script
+    )
+    assert "Benchmark release knowledge domain capability matrix domains" in (
+        summary_script
+    )
+    assert (
+        "Benchmark release knowledge domain capability matrix recommendations"
+        in summary_script
+    )
+    assert "Benchmark release knowledge domain control plane drift" in summary_script
+    assert (
+        "Benchmark release knowledge domain control plane drift resolved release blockers"
+        in summary_script
+    )
+    assert (
+        "Benchmark release knowledge domain control plane drift recommendations"
+        in summary_script
+    )
+    assert "Benchmark release knowledge source coverage" in summary_script
+    assert "Benchmark release knowledge source coverage domains" in summary_script
+    assert "Benchmark release knowledge source coverage expansion candidates" in (
+        summary_script
+    )
+    assert "Benchmark release knowledge source coverage recommendations" in (
+        summary_script
+    )
+    assert "Benchmark release knowledge source action plan" in summary_script
+    assert "Benchmark release knowledge source action plan domains" in summary_script
+    assert "Benchmark release knowledge source action plan first actions" in (
+        summary_script
+    )
+    assert "Benchmark release knowledge source action plan source-group counts" in (
+        summary_script
+    )
+    assert "Benchmark release knowledge source action plan recommendations" in (
+        summary_script
+    )
+    assert "Benchmark release real-data status" in summary_script
+    assert "Benchmark release real-data recommendations" in summary_script
+    assert "Benchmark release runbook knowledge drift" in summary_script
+    assert "Benchmark release runbook knowledge drift summary" in summary_script
+    assert "Benchmark release runbook knowledge focus areas" in summary_script
+    assert "Benchmark release runbook knowledge application" in summary_script
+    assert "Benchmark release runbook knowledge application focus areas" in summary_script
+    assert "Benchmark release runbook knowledge application domains" in summary_script
+    assert "Benchmark release runbook knowledge application recommendations" in summary_script
+    assert "Benchmark release runbook knowledge realdata correlation" in summary_script
+    assert "Benchmark release runbook knowledge realdata focus areas" in summary_script
+    assert "Benchmark release runbook knowledge realdata domains" in summary_script
+    assert "Benchmark release runbook knowledge realdata recommendations" in summary_script
+    assert "Benchmark release runbook knowledge domain capability matrix" in (
+        summary_script
+    )
+    assert "Benchmark release runbook knowledge domain capability matrix focus areas" in (
+        summary_script
+    )
+    assert "Benchmark release runbook knowledge domain capability matrix domains" in (
+        summary_script
+    )
+    assert (
+        "Benchmark release runbook knowledge domain capability matrix recommendations"
+        in summary_script
+    )
+    assert "Benchmark knowledge domain control plane drift status" in summary_script
+    assert (
+        "Benchmark knowledge domain control plane drift recommendations"
+        in summary_script
+    )
+    assert (
+        "Benchmark release runbook knowledge domain control plane drift" in summary_script
+    )
+    assert (
+        "Benchmark release runbook knowledge domain control plane drift recommendations"
+        in summary_script
+    )
+    assert "Benchmark release runbook knowledge source coverage" in summary_script
+    assert "Benchmark release runbook knowledge source coverage domains" in (
+        summary_script
+    )
+    assert "Benchmark release runbook knowledge source coverage expansion candidates" in (
+        summary_script
+    )
+    assert "Benchmark release runbook knowledge source coverage recommendations" in (
+        summary_script
+    )
+    assert "Benchmark release runbook knowledge source action plan" in summary_script
+    assert "Benchmark release runbook knowledge source action plan domains" in (
+        summary_script
+    )
+    assert "Benchmark release runbook knowledge source action plan first actions" in (
+        summary_script
+    )
+    assert (
+        "Benchmark release runbook knowledge source action plan source-group counts"
+        in summary_script
+    )
+    assert (
+        "Benchmark release runbook knowledge source action plan recommendations"
+        in summary_script
+    )
+    assert "Benchmark release runbook real-data status" in summary_script
+    assert "Benchmark release runbook real-data recommendations" in summary_script
+    assert "Benchmark release runbook competitive surpass trend" in summary_script
+    assert "Benchmark release runbook competitive surpass trend summary" in summary_script
+    assert "Benchmark release runbook competitive surpass trend recommendations" in (
+        summary_script
+    )
+    assert "Assistant evidence input" in summary_script
+    assert "Assistant evidence records" in summary_script
+    assert "Assistant evidence items" in summary_script
+    assert "Assistant record kinds" in summary_script
+    assert "Assistant evidence types" in summary_script
+    assert "Assistant missing fields" in summary_script
+    assert "Active-learning review queue input" in summary_script
+    assert "Active-learning review queue total" in summary_script
+    assert "Active-learning review queue status" in summary_script
+    assert "Active-learning review queue priorities" in summary_script
+    assert "Active-learning review queue decision sources" in summary_script
+    assert "Active-learning review queue review reasons" in summary_script
+    assert "OCR review pack input" in summary_script
+    assert "OCR review pack exported" in summary_script
+    assert "OCR review priorities" in summary_script
+    assert "OCR recommended actions" in summary_script
 
     pr_comment_step = _get_step(workflow, "evaluate", "Comment PR with results")
-    pr_comment_script = pr_comment_step["with"]["script"]
-    assert "comment_evaluation_report_pr.js" in pr_comment_script
-    assert "commentEvaluationReportPR" in pr_comment_script
-
-    wf_health_step = _get_step(
-        workflow,
-        "evaluate",
-        "Build workflow-file-health summary for PR comment (optional)",
+    pr_comment_script = _load_comment_helper()
+    assert "reviewInputCsv" in pr_comment_script
+    assert "reviewInputSource" in pr_comment_script
+    assert "Graph2D Review Gate" in pr_comment_script
+    assert "Graph2D Review Gate Strict" in pr_comment_script
+    assert "Graph2D Train Sweep" in pr_comment_script
+    assert "Graph2D Review Insights" in pr_comment_script
+    assert "knowledge=" in pr_comment_script
+    assert "priorities=" in pr_comment_script
+    assert "bands=" in pr_comment_script
+    assert "Graph2D Signal Lights" in pr_comment_script
+    assert "reviewTopShadowSources" in pr_comment_script
+    assert "script=${sweepBestRunScript}" in pr_comment_script
+    assert "benchmarkScorecardEnabled" in pr_comment_script
+    assert "Benchmark Scorecard" in pr_comment_script
+    assert "benchmarkScorecardOperatorAdoptionStatus" in pr_comment_script
+    assert "benchmarkScorecardOperatorAdoptionMode" in pr_comment_script
+    assert "benchmarkScorecardOperatorAdoptionKnowledgeOutcomeDriftStatus" in pr_comment_script
+    assert "benchmarkScorecardOperatorAdoptionKnowledgeOutcomeDriftSummary" in pr_comment_script
+    assert "Benchmark Recommendations" in pr_comment_script
+    assert "benchmarkAssistantStatus" in pr_comment_script
+    assert "benchmarkReviewQueueStatus" in pr_comment_script
+    assert "benchmarkFeedbackFlywheelStatus" in pr_comment_script
+    assert "feedbackFlywheelBenchmarkEnabled" in pr_comment_script
+    assert "feedbackFlywheelBenchmarkStatus" in pr_comment_script
+    assert "feedbackFlywheelBenchmarkArtifact" in pr_comment_script
+    assert "benchmarkOperationalSummaryEnabled" in pr_comment_script
+    assert "benchmarkOperationalSummaryOverall" in pr_comment_script
+    assert "benchmarkOperationalSummaryStatus" in pr_comment_script
+    assert "benchmarkOperationalOperatorAdoptionStatus" in pr_comment_script
+    assert "benchmarkOperationalOperatorAdoptionKnowledgeOutcomeDriftStatus" in pr_comment_script
+    assert "benchmarkOperationalOperatorAdoptionKnowledgeOutcomeDriftSummary" in pr_comment_script
+    assert "benchmarkOperationalLight" in pr_comment_script
+    assert "benchmarkArtifactBundleEnabled" in pr_comment_script
+    assert "benchmarkArtifactBundleOverall" in pr_comment_script
+    assert "benchmarkArtifactBundleAvailableArtifacts" in pr_comment_script
+    assert "benchmarkArtifactBundleStatus" in pr_comment_script
+    assert "benchmarkArtifactBundleLight" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeDriftStatus" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeDriftSummary" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeDriftRecommendations" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeDriftChanges" in pr_comment_script
+    assert "benchmarkArtifactBundleEngineeringStatus" in pr_comment_script
+    assert "benchmarkArtifactBundleOperatorAdoptionKnowledgeDriftStatus" in pr_comment_script
+    assert "benchmarkArtifactBundleOperatorAdoptionKnowledgeDriftSummary" in pr_comment_script
+    assert "benchmarkArtifactBundleScorecardOperatorAdoptionStatus" in pr_comment_script
+    assert "benchmarkArtifactBundleScorecardOperatorAdoptionMode" in pr_comment_script
+    assert "benchmarkArtifactBundleOperatorAdoptionReleaseSurfaceAlignmentStatus" in (
+        pr_comment_script
     )
-    wf_health_script = wf_health_step["run"]
-    assert "scripts/ci/check_workflow_file_issues.py" in wf_health_script
-    assert "--mode auto" in wf_health_script
-    assert "--summary-json-out reports/ci/workflow_file_health_for_comment.json" in wf_health_script
-
-    workflow_inventory_step = _get_step(
-        workflow,
-        "evaluate",
-        "Build workflow inventory summary for PR comment (optional)",
+    assert "benchmarkArtifactBundleOperatorAdoptionReleaseSurfaceAlignmentMismatches" in (
+        pr_comment_script
     )
-    workflow_inventory_script = workflow_inventory_step["run"]
-    assert "scripts/ci/generate_workflow_inventory_report.py" in workflow_inventory_script
-    assert "--workflow-root \".github/workflows\"" in workflow_inventory_script
-    assert "--output-json reports/ci/workflow_inventory_for_comment.json" in workflow_inventory_script
-    assert "--output-md reports/ci/workflow_inventory_for_comment.md" in workflow_inventory_script
-
-    workflow_publish_helper_step = _get_step(
-        workflow,
-        "evaluate",
-        "Build workflow publish helper summary for PR comment (optional)",
+    assert "benchmarkArtifactBundleKnowledgeDomainReleaseSurfaceAlignmentStatus" in (
+        pr_comment_script
     )
-    workflow_publish_helper_script = workflow_publish_helper_step["run"]
-    assert "scripts/ci/check_workflow_publish_helper_adoption.py" in workflow_publish_helper_script
-    assert "--workflow-root \".github/workflows\"" in workflow_publish_helper_script
-    assert "--summary-json-out reports/ci/workflow_publish_helper_for_comment.json" in workflow_publish_helper_script
-    assert "--output-md reports/ci/workflow_publish_helper_for_comment.md" in workflow_publish_helper_script
-
-    workflow_guardrail_step = _get_step(
-        workflow,
-        "evaluate",
-        "Build workflow guardrail summary for PR comment (optional)",
+    assert "benchmarkArtifactBundleKnowledgeDomainReleaseSurfaceAlignmentSummary" in (
+        pr_comment_script
     )
-    workflow_guardrail_script = workflow_guardrail_step["run"]
-    assert "scripts/ci/generate_workflow_guardrail_summary.py" in workflow_guardrail_script
-    assert 'WORKFLOW_FILE_HEALTH_JSON="reports/ci/workflow_file_health_for_comment.json"' in workflow_guardrail_script
-    assert 'WORKFLOW_INVENTORY_JSON="reports/ci/workflow_inventory_for_comment.json"' in workflow_guardrail_script
-    assert 'WORKFLOW_PUBLISH_HELPER_JSON="reports/ci/workflow_publish_helper_for_comment.json"' in workflow_guardrail_script
-    assert '--workflow-file-health-json "$WORKFLOW_FILE_HEALTH_JSON"' in workflow_guardrail_script
-    assert '--workflow-inventory-json "$WORKFLOW_INVENTORY_JSON"' in workflow_guardrail_script
-    assert '--workflow-publish-helper-json "$WORKFLOW_PUBLISH_HELPER_JSON"' in workflow_guardrail_script
-    assert "--output-json reports/ci/workflow_guardrail_for_comment.json" in workflow_guardrail_script
-    assert "--output-md reports/ci/workflow_guardrail_for_comment.md" in workflow_guardrail_script
-
-    ci_workflow_guardrail_overview_step = _get_step(
-        workflow,
-        "evaluate",
-        "Build CI workflow guardrail overview for PR comment (optional)",
-    )
-    ci_workflow_guardrail_overview_script = ci_workflow_guardrail_overview_step["run"]
-    assert "scripts/ci/generate_ci_workflow_guardrail_overview.py" in ci_workflow_guardrail_overview_script
-    assert 'CI_WATCH_JSON="${CI_WATCH_SUMMARY_JSON_FOR_COMMENT:-}"' in ci_workflow_guardrail_overview_script
-    assert 'WORKFLOW_GUARDRAIL_JSON="reports/ci/workflow_guardrail_for_comment.json"' in ci_workflow_guardrail_overview_script
-    assert '--ci-watch-summary-json "$CI_WATCH_JSON"' in ci_workflow_guardrail_overview_script
-    assert '--workflow-guardrail-json "$WORKFLOW_GUARDRAIL_JSON"' in ci_workflow_guardrail_overview_script
-    assert "--output-json reports/ci/ci_workflow_guardrail_overview_for_comment.json" in ci_workflow_guardrail_overview_script
-    assert "--output-md reports/ci/ci_workflow_guardrail_overview_for_comment.md" in ci_workflow_guardrail_overview_script
-
-    ci_watch_validation_step = _get_step(
-        workflow,
-        "evaluate",
-        "Build CI watch validation report for PR comment (optional)",
-    )
-    ci_watch_validation_script = ci_watch_validation_step["run"]
-    assert "scripts/ci/generate_ci_watcher_validation_report.py" in ci_watch_validation_script
-    assert 'CI_WATCH_JSON="${CI_WATCH_SUMMARY_JSON_FOR_COMMENT:-}"' in ci_watch_validation_script
-    assert 'WORKFLOW_GUARDRAIL_JSON="${{ steps.workflow_guardrail_for_comment.outputs.summary_json || env.WORKFLOW_GUARDRAIL_SUMMARY_JSON_FOR_COMMENT }}"' in ci_watch_validation_script
-    assert 'CI_WORKFLOW_OVERVIEW_JSON="${{ steps.ci_workflow_guardrail_overview_for_comment.outputs.summary_json || env.CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT }}"' in ci_watch_validation_script
-    assert 'EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON="${{ steps.evaluation_comment_support_manifest.outputs.summary_json || env.EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON_FOR_COMMENT }}"' in ci_watch_validation_script
-    assert '--summary-json "$CI_WATCH_JSON"' in ci_watch_validation_script
-    assert '--workflow-guardrail-summary-json "$WORKFLOW_GUARDRAIL_JSON"' in ci_watch_validation_script
-    assert '--ci-workflow-guardrail-overview-json "$CI_WORKFLOW_OVERVIEW_JSON"' in ci_watch_validation_script
-    assert '--evaluation-comment-support-manifest-json "$EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON"' in ci_watch_validation_script
-    assert "--output-json reports/ci/ci_watch_validation_for_comment.json" in ci_watch_validation_script
-    assert "--output-md reports/ci/ci_watch_validation_for_comment.md" in ci_watch_validation_script
-
-    support_manifest_step = _get_step(
-        workflow,
-        "evaluate",
-        "Build evaluation comment support manifest (optional)",
-    )
-    support_manifest_script = support_manifest_step["run"]
-    assert (
-        "scripts/ci/generate_evaluation_comment_support_manifest.py"
-        in support_manifest_script
-    )
-    assert "--reports-dir reports/ci" in support_manifest_script
-    assert "--output-json reports/ci/evaluation_comment_support_manifest.json" in support_manifest_script
-    assert "--output-md reports/ci/evaluation_comment_support_manifest.md" in support_manifest_script
-
-    append_inventory_step = _get_step(
-        workflow,
-        "evaluate",
-        "Append workflow inventory summary for evaluation report (optional)",
-    )
-    append_inventory_script = append_inventory_step["run"]
-    assert "## Workflow Inventory Audit" in append_inventory_script
-    assert "cat reports/ci/workflow_inventory_for_comment.md" in append_inventory_script
-    assert "workflow inventory markdown missing" in append_inventory_script
-    assert '>> "$GITHUB_STEP_SUMMARY"' in append_inventory_script
-
-    append_publish_helper_step = _get_step(
-        workflow,
-        "evaluate",
-        "Append workflow publish helper summary for evaluation report (optional)",
-    )
-    append_publish_helper_script = append_publish_helper_step["run"]
-    assert "## Workflow Publish Helper Adoption" in append_publish_helper_script
-    assert "cat reports/ci/workflow_publish_helper_for_comment.md" in append_publish_helper_script
-    assert "workflow publish helper markdown missing" in append_publish_helper_script
-    assert '>> "$GITHUB_STEP_SUMMARY"' in append_publish_helper_script
-
-    append_guardrail_step = _get_step(
-        workflow,
-        "evaluate",
-        "Append workflow guardrail summary for evaluation report (optional)",
-    )
-    append_guardrail_script = append_guardrail_step["run"]
-    assert "## Workflow Guardrail Summary" in append_guardrail_script
-    assert "cat reports/ci/workflow_guardrail_for_comment.md" in append_guardrail_script
-    assert "workflow guardrail markdown missing" in append_guardrail_script
-    assert '>> "$GITHUB_STEP_SUMMARY"' in append_guardrail_script
-
-    append_ci_workflow_guardrail_overview_step = _get_step(
-        workflow,
-        "evaluate",
-        "Append CI workflow guardrail overview for evaluation report (optional)",
-    )
-    append_ci_workflow_guardrail_overview_script = append_ci_workflow_guardrail_overview_step["run"]
-    assert "## CI Workflow Guardrail Overview" in append_ci_workflow_guardrail_overview_script
-    assert "cat reports/ci/ci_workflow_guardrail_overview_for_comment.md" in append_ci_workflow_guardrail_overview_script
-    assert "ci workflow guardrail overview markdown missing" in append_ci_workflow_guardrail_overview_script
-    assert '>> "$GITHUB_STEP_SUMMARY"' in append_ci_workflow_guardrail_overview_script
-
-    append_ci_watch_validation_step = _get_step(
-        workflow,
-        "evaluate",
-        "Append CI watch validation report for evaluation report (optional)",
-    )
-    append_ci_watch_validation_script = append_ci_watch_validation_step["run"]
-    assert "## CI Watch Validation Report" in append_ci_watch_validation_script
-    assert "cat reports/ci/ci_watch_validation_for_comment.md" in append_ci_watch_validation_script
-    assert "ci watch validation markdown missing" in append_ci_watch_validation_script
-    assert '>> "$GITHUB_STEP_SUMMARY"' in append_ci_watch_validation_script
-
-    append_support_manifest_step = _get_step(
-        workflow,
-        "evaluate",
-        "Append evaluation comment support manifest for evaluation report (optional)",
-    )
-    append_support_manifest_script = append_support_manifest_step["run"]
-    assert "## Evaluation Comment Support Manifest" in append_support_manifest_script
-    assert "cat reports/ci/evaluation_comment_support_manifest.md" in append_support_manifest_script
-    assert "evaluation comment support manifest markdown missing" in append_support_manifest_script
-    assert '>> "$GITHUB_STEP_SUMMARY"' in append_support_manifest_script
-
-    upload_comment_support_step = _get_step(
-        workflow,
-        "evaluate",
-        "Upload evaluation comment support artifacts",
+    assert "benchmarkArtifactBundleKnowledgeDomainReleaseSurfaceAlignmentMismatches" in (
+        pr_comment_script
     )
     assert (
-        upload_comment_support_step["uses"]
-        == "actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f"
+        "benchmarkArtifactBundleScorecardOperatorAdoptionKnowledgeOutcomeDriftStatus"
+        in pr_comment_script
+    )
+    assert "benchmarkArtifactBundleOperationalOperatorAdoptionStatus" in pr_comment_script
+    assert (
+        "benchmarkArtifactBundleOperationalOperatorAdoptionKnowledgeOutcomeDriftStatus"
+        in pr_comment_script
+    )
+    assert "benchmarkCompanionSummaryEnabled" in pr_comment_script
+    assert "benchmarkCompanionSummaryOverall" in pr_comment_script
+    assert "benchmarkCompanionSummaryStatus" in pr_comment_script
+    assert "benchmarkCompanionLight" in pr_comment_script
+    assert "benchmarkCompanionReviewSurface" in pr_comment_script
+    assert "benchmarkCompanionPrimaryGap" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeDriftStatus" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeDriftSummary" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeDriftRecommendations" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeDriftChanges" in pr_comment_script
+    assert "benchmarkCompanionEngineeringStatus" in pr_comment_script
+    assert "benchmarkCompanionOperatorAdoptionKnowledgeDriftStatus" in pr_comment_script
+    assert "benchmarkCompanionOperatorAdoptionKnowledgeDriftSummary" in pr_comment_script
+    assert "benchmarkCompanionScorecardOperatorAdoptionStatus" in pr_comment_script
+    assert "benchmarkCompanionScorecardOperatorAdoptionMode" in pr_comment_script
+    assert "benchmarkCompanionOperatorAdoptionReleaseSurfaceAlignmentStatus" in (
+        pr_comment_script
+    )
+    assert "benchmarkCompanionOperatorAdoptionReleaseSurfaceAlignmentMismatches" in (
+        pr_comment_script
+    )
+    assert "benchmarkCompanionKnowledgeDomainReleaseSurfaceAlignmentStatus" in (
+        pr_comment_script
+    )
+    assert "benchmarkCompanionKnowledgeDomainReleaseSurfaceAlignmentSummary" in (
+        pr_comment_script
+    )
+    assert "benchmarkCompanionKnowledgeDomainReleaseSurfaceAlignmentMismatches" in (
+        pr_comment_script
     )
     assert (
-        upload_comment_support_step["with"]["name"]
-        == "evaluation-comment-support-${{ github.run_number }}"
+        "benchmarkCompanionScorecardOperatorAdoptionKnowledgeOutcomeDriftStatus"
+        in pr_comment_script
     )
-    upload_comment_support_path = upload_comment_support_step["with"]["path"]
-    assert "reports/ci/workflow_file_health_for_comment.json" in upload_comment_support_path
-    assert "reports/ci/workflow_inventory_for_comment.json" in upload_comment_support_path
-    assert "reports/ci/workflow_publish_helper_for_comment.json" in upload_comment_support_path
-    assert "reports/ci/workflow_guardrail_for_comment.json" in upload_comment_support_path
-    assert "reports/ci/ci_workflow_guardrail_overview_for_comment.json" in upload_comment_support_path
-    assert "reports/ci/ci_watch_validation_for_comment.json" in upload_comment_support_path
-    assert "reports/ci/ci_watch_validation_for_comment.md" in upload_comment_support_path
-    assert "reports/ci/evaluation_comment_support_manifest.json" in upload_comment_support_path
-    assert "reports/ci/evaluation_comment_support_manifest.md" in upload_comment_support_path
-    assert upload_comment_support_step["with"]["if-no-files-found"] == "ignore"
+    assert "benchmarkCompanionOperationalOperatorAdoptionStatus" in pr_comment_script
     assert (
-        upload_comment_support_step["with"]["retention-days"]
-        == "${{ env.ARTIFACT_RETENTION_DAYS }}"
+        "benchmarkCompanionOperationalOperatorAdoptionKnowledgeOutcomeDriftStatus"
+        in pr_comment_script
     )
-
-    pr_comment_env = pr_comment_step["env"]
-    assert "EVALUATION_STRICT_FAIL_MODE" in pr_comment_env
-    assert "EVALUATION_STRICT_FAIL_MODE_RESOLVED" in pr_comment_env
-    assert "EVALUATION_STRICT_FAIL_MODE_RAW" in pr_comment_env
-    assert "HYBRID_SUPERPASS_STRICT_MODE" in pr_comment_env
-    assert "HYBRID_SUPERPASS_STRICT_SHOULD_FAIL" in pr_comment_env
-    assert "HYBRID_SUPERPASS_VALIDATION_STRICT_MODE" in pr_comment_env
-    assert "HYBRID_SUPERPASS_VALIDATION_EXIT_CODE" in pr_comment_env
-    assert "CI_WATCH_SUMMARY_JSON_FOR_COMMENT" in pr_comment_env
-    assert "CI_WATCH_VALIDATION_REPORT_JSON_FOR_COMMENT" in pr_comment_env
-    assert "CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT" in pr_comment_env
-    assert "EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON_FOR_COMMENT" in pr_comment_env
-    assert "WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT" in pr_comment_env
-    assert "WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT" in pr_comment_env
-    assert "WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT" in pr_comment_env
-    assert "WORKFLOW_GUARDRAIL_SUMMARY_JSON_FOR_COMMENT" in pr_comment_env
-    assert "workflow_file_health_for_comment.outputs.summary_json" in pr_comment_env[
-        "WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT"
-    ]
-    assert "workflow_inventory_for_comment.outputs.summary_json" in pr_comment_env[
-        "WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT"
-    ]
-    assert "workflow_publish_helper_for_comment.outputs.summary_json" in pr_comment_env[
-        "WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT"
-    ]
-    assert "workflow_guardrail_for_comment.outputs.summary_json" in pr_comment_env[
-        "WORKFLOW_GUARDRAIL_SUMMARY_JSON_FOR_COMMENT"
-    ]
-    assert "ci_watch_validation_for_comment.outputs.summary_json" in pr_comment_env[
-        "CI_WATCH_VALIDATION_REPORT_JSON_FOR_COMMENT"
-    ]
-    assert "ci_workflow_guardrail_overview_for_comment.outputs.summary_json" in pr_comment_env[
-        "CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT"
-    ]
-    assert "evaluation_comment_support_manifest.outputs.summary_json" in pr_comment_env[
-        "EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON_FOR_COMMENT"
-    ]
-
-    module_script = (
-        ROOT / "scripts" / "ci" / "comment_evaluation_report_pr.js"
-    ).read_text(encoding="utf-8")
-    assert "Graph2D Review Gate" in module_script
-    assert "Graph2D Review Gate Strict" in module_script
-    assert "Graph2D Train Sweep" in module_script
-    assert "Graph2D Review Insights" in module_script
-    assert "Hybrid Calibration" in module_script
-    assert "Hybrid Calibration Gate" in module_script
-    assert "Hybrid Calibration Strict" in module_script
-    assert "Hybrid Superpass Strict" in module_script
-    assert "Hybrid Superpass Validation Strict" in module_script
-    assert "Strict Gate Policy" in module_script
-    assert "Strict Gate Decision Path" in module_script
-    assert "Strict Gate Playbook" in module_script
-    assert "strictPlaybookAnchor(" in module_script
-    assert "STRICT_GATE_PLAYBOOK.md" in module_script
-    assert "Hybrid Calibration Baseline" in module_script
-    assert "CI Watch Failure Details" in module_script
-    assert "CI Watch Validation Report" in module_script
-    assert "Workflow File Health" in module_script
-    assert "Workflow Inventory Audit" in module_script
-    assert "Workflow Publish Helper Adoption" in module_script
-    assert "Workflow Guardrail Summary" in module_script
-    assert "CI Workflow Guardrail Overview" in module_script
-    assert "Evaluation Comment Support Manifest" in module_script
-    assert "CI Watcher" in module_script
-    assert "CI Watch Validation" in module_script
-    assert "Workflow Health" in module_script
-    assert "Workflow Inventory" in module_script
-    assert "Workflow Publish Helper" in module_script
-    assert "Workflow Guardrails" in module_script
-    assert "CI+Workflow Overview" in module_script
-    assert "Comment Support Bundle" in module_script
-    assert "function summarizeCiWatchFailure(summaryPath, fsApi = fs)" in module_script
-    assert "function summarizeCiWatchValidationReport(summaryPath, fsApi = fs)" in module_script
-    assert "function summarizeWorkflowFileHealth(summaryPath, fsApi = fs)" in module_script
-    assert "function summarizeWorkflowInventory(summaryPath, fsApi = fs)" in module_script
-    assert "function summarizeWorkflowPublishHelper(summaryPath, fsApi = fs)" in module_script
-    assert "function summarizeWorkflowGuardrail(summaryPath, fsApi = fs)" in module_script
-    assert "function summarizeCiWorkflowGuardrailOverview(summaryPath, fsApi = fs)" in module_script
-    assert "function summarizeEvaluationCommentSupportManifest(summaryPath, fsApi = fs)" in module_script
-    assert "fsApi.existsSync(summaryPath)" in module_script
-    assert "summarizeCiWatchFailure(ciWatchSummaryPath)" in module_script
-    assert "summarizeCiWatchValidationReport(ciWatchValidationReportSummaryPath)" in module_script
-    assert "summarizeWorkflowFileHealth(workflowFileHealthSummaryPath)" in module_script
-    assert "summarizeWorkflowInventory(workflowInventorySummaryPath)" in module_script
-    assert "summarizeWorkflowPublishHelper(workflowPublishHelperSummaryPath)" in module_script
-    assert "summarizeWorkflowGuardrail(workflowGuardrailSummaryPath)" in module_script
-    assert "summarizeCiWorkflowGuardrailOverview(ciWorkflowGuardrailOverviewSummaryPath)" in module_script
-    assert "summarizeEvaluationCommentSupportManifest(" in module_script
-    assert "workflowFileHealthSummaryPath" in module_script
-    assert "Hybrid Blind Eval" in module_script
-    assert "Hybrid Blind Gate" in module_script
-    assert "Hybrid Blind Strict" in module_script
-    assert "Hybrid Blind Drift Alert" in module_script
-    assert "source=${hybridBlindDatasetSource" in module_script
-    assert "require_real=${hybridBlindStrictRequireReal" in module_script
-    assert "label_slice_enabled=${hybridBlindLabelSliceEnabled" in module_script
-    assert "label_auto_cap=${hybridBlindLabelSliceAutoCap" in module_script
+    assert "benchmarkReleaseDecisionEnabled" in pr_comment_script
+    assert "benchmarkReleaseStatus" in pr_comment_script
+    assert "benchmarkReleaseDecisionStatus" in pr_comment_script
+    assert "benchmarkReleaseDecisionLight" in pr_comment_script
+    assert "benchmarkReleasePrimarySignalSource" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeDriftStatus" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeDriftSummary" in pr_comment_script
+    assert "benchmarkReleaseEngineeringStatus" in pr_comment_script
+    assert "benchmarkReleaseOperatorAdoptionStatus" in pr_comment_script
+    assert "benchmarkReleaseOperatorAdoptionKnowledgeDriftStatus" in pr_comment_script
+    assert "benchmarkReleaseOperatorAdoptionKnowledgeDriftSummary" in pr_comment_script
+    assert "benchmarkReleaseRunbookEnabled" in pr_comment_script
+    assert "benchmarkReleaseRunbookStatus" in pr_comment_script
+    assert "benchmarkReleaseRunbookStatusLine" in pr_comment_script
+    assert "benchmarkReleaseRunbookLight" in pr_comment_script
+    assert "benchmarkReleaseRunbookNextAction" in pr_comment_script
+    assert "benchmarkReleaseRunbookKnowledgeDriftStatus" in pr_comment_script
+    assert "benchmarkReleaseRunbookKnowledgeDriftSummary" in pr_comment_script
+    assert "benchmarkReleaseRunbookEngineeringStatus" in pr_comment_script
+    assert "benchmarkReleaseRunbookOperatorAdoptionStatus" in pr_comment_script
+    assert "benchmarkReleaseRunbookOperatorAdoptionKnowledgeDriftStatus" in pr_comment_script
+    assert "benchmarkReleaseRunbookOperatorAdoptionKnowledgeDriftSummary" in pr_comment_script
+    assert "benchmarkOperatorAdoptionEnabled" in pr_comment_script
+    assert "benchmarkOperatorAdoptionReadiness" in pr_comment_script
+    assert "benchmarkOperatorAdoptionStatusLine" in pr_comment_script
+    assert "benchmarkOperatorAdoptionLight" in pr_comment_script
+    assert "benchmarkOperatorAdoptionNextAction" in pr_comment_script
+    assert "benchmarkOperatorAdoptionKnowledgeDriftStatus" in pr_comment_script
+    assert "benchmarkOperatorAdoptionKnowledgeDriftSummary" in pr_comment_script
+    assert "benchmarkOcrStatus" in pr_comment_script
+    assert "benchmarkQdrantStatus" in pr_comment_script
+    assert "benchmarkKnowledgeStatus" in pr_comment_script
+    assert "benchmarkEngineeringEnabled" in pr_comment_script
+    assert "benchmarkEngineeringStatus" in pr_comment_script
+    assert "benchmarkEngineeringTopStandardTypes" in pr_comment_script
+    assert "benchmarkEngineeringStatusLine" in pr_comment_script
+    assert "benchmarkEngineeringLight" in pr_comment_script
+    assert "benchmarkRealdataEnabled" in pr_comment_script
+    assert "benchmarkRealdataStatus" in pr_comment_script
+    assert "benchmarkRealdataStatusLine" in pr_comment_script
+    assert "benchmarkRealdataLight" in pr_comment_script
+    assert "benchmarkRealdataRecommendations" in pr_comment_script
+    assert "benchmarkRealdataScorecardEnabled" in pr_comment_script
+    assert "benchmarkRealdataScorecardStatus" in pr_comment_script
+    assert "benchmarkRealdataScorecardStatusLine" in pr_comment_script
+    assert "benchmarkRealdataScorecardLight" in pr_comment_script
+    assert "benchmarkRealdataScorecardRecommendations" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassEnabled" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassStatus" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassStatusLine" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassLight" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassRecommendations" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassTrendEnabled" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassTrendStatus" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassTrendStatusLine" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassTrendLight" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassTrendRecommendations" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassActionPlanEnabled" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassActionPlanStatus" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassActionPlanStatusLine" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassActionPlanLight" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassActionPlanRecommendations" in pr_comment_script
+    assert "Benchmark Competitive Surpass" in pr_comment_script
+    assert "Benchmark Competitive Surpass Trend" in pr_comment_script
+    assert "Benchmark Competitive Surpass Action Plan" in pr_comment_script
+    assert "benchmarkKnowledgeEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeStatusLine" in pr_comment_script
+    assert "benchmarkKnowledgeLight" in pr_comment_script
+    assert "benchmarkKnowledgeDriftEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeDriftStatusLine" in pr_comment_script
+    assert "benchmarkKnowledgeDriftLight" in pr_comment_script
+    assert "benchmarkKnowledgeDriftDomainRegressions" in pr_comment_script
+    assert "benchmarkKnowledgeDriftResolvedPriorityDomains" in pr_comment_script
+    assert "benchmarkKnowledgeApplicationEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeApplicationStatus" in pr_comment_script
+    assert "benchmarkKnowledgeApplicationStatusLine" in pr_comment_script
+    assert "benchmarkKnowledgeApplicationLight" in pr_comment_script
+    assert "benchmarkKnowledgeApplicationFocusAreas" in pr_comment_script
+    assert "benchmarkKnowledgeApplicationPriorityDomains" in pr_comment_script
+    assert "benchmarkKnowledgeApplicationDomainStatuses" in pr_comment_script
+    assert "benchmarkKnowledgeApplicationRecommendations" in pr_comment_script
+    assert "benchmarkKnowledgeRealdataCorrelationEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeRealdataCorrelationStatus" in pr_comment_script
+    assert "benchmarkKnowledgeRealdataCorrelationStatusLine" in pr_comment_script
+    assert "benchmarkKnowledgeRealdataCorrelationLight" in pr_comment_script
+    assert "benchmarkKnowledgeRealdataCorrelationFocusAreas" in pr_comment_script
+    assert "benchmarkKnowledgeRealdataCorrelationPriorityDomains" in pr_comment_script
+    assert "benchmarkKnowledgeRealdataCorrelationDomainStatuses" in pr_comment_script
+    assert "benchmarkKnowledgeRealdataCorrelationRecommendations" in pr_comment_script
+    assert "benchmarkKnowledgeDomainMatrixEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeDomainMatrixStatus" in pr_comment_script
+    assert "benchmarkKnowledgeDomainMatrixStatusLine" in pr_comment_script
+    assert "benchmarkKnowledgeDomainMatrixLight" in pr_comment_script
+    assert "benchmarkKnowledgeDomainMatrixFocusAreas" in pr_comment_script
+    assert "benchmarkKnowledgeDomainMatrixPriorityDomains" in pr_comment_script
+    assert "benchmarkKnowledgeDomainMatrixDomainStatuses" in pr_comment_script
+    assert "benchmarkKnowledgeDomainMatrixRecommendations" in pr_comment_script
+    assert "benchmarkKnowledgeDomainCapabilityMatrixEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeDomainCapabilityMatrixStatus" in pr_comment_script
+    assert "benchmarkKnowledgeDomainCapabilityMatrixStatusLine" in pr_comment_script
+    assert "benchmarkKnowledgeDomainCapabilityMatrixLight" in pr_comment_script
+    assert "benchmarkKnowledgeDomainCapabilityMatrixFocusAreas" in pr_comment_script
+    assert "benchmarkKnowledgeDomainCapabilityMatrixPriorityDomains" in pr_comment_script
+    assert "benchmarkKnowledgeDomainCapabilityMatrixProviderGapDomains" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeDomainCapabilityMatrixSurfaceGapDomains" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeDomainCapabilityMatrixDomainStatuses" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeDomainCapabilityMatrixRecommendations" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeDomainCapabilityDriftEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeDomainCapabilityDriftStatus" in pr_comment_script
+    assert "benchmarkKnowledgeDomainCapabilityDriftStatusLine" in pr_comment_script
+    assert "benchmarkKnowledgeDomainCapabilityDriftLight" in pr_comment_script
+    assert "benchmarkKnowledgeDomainCapabilityDriftDomainRegressions" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeDomainCapabilityDriftDomainImprovements" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeDomainCapabilityDriftRecommendations" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeDomainActionPlanEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeDomainActionPlanStatus" in pr_comment_script
+    assert "benchmarkKnowledgeDomainActionPlanStatusLine" in pr_comment_script
+    assert "benchmarkKnowledgeDomainActionPlanLight" in pr_comment_script
+    assert "benchmarkKnowledgeDomainActionPlanPriorityDomains" in pr_comment_script
+    assert "benchmarkKnowledgeDomainActionPlanRecommendedFirstActions" in pr_comment_script
+    assert "benchmarkKnowledgeDomainActionPlanRecommendations" in pr_comment_script
+    assert "benchmarkKnowledgeDomainSurfaceActionPlanEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeDomainSurfaceActionPlanStatus" in pr_comment_script
+    assert "benchmarkKnowledgeDomainSurfaceActionPlanStatusLine" in pr_comment_script
+    assert "benchmarkKnowledgeDomainSurfaceActionPlanLight" in pr_comment_script
+    assert "benchmarkKnowledgeDomainSurfaceActionPlanPriorityDomains" in pr_comment_script
+    assert "benchmarkKnowledgeDomainSurfaceActionPlanRecommendedFirstActions" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeDomainSurfaceActionPlanRecommendations" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeDomainControlPlaneEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeDomainControlPlaneStatus" in pr_comment_script
+    assert "benchmarkKnowledgeDomainControlPlaneStatusLine" in pr_comment_script
+    assert "benchmarkKnowledgeDomainControlPlaneLight" in pr_comment_script
+    assert "benchmarkKnowledgeDomainControlPlanePriorityDomains" in pr_comment_script
+    assert "benchmarkKnowledgeDomainControlPlaneFocusAreas" in pr_comment_script
+    assert "benchmarkKnowledgeDomainControlPlaneRecommendations" in pr_comment_script
+    assert "benchmarkKnowledgeDomainControlPlaneDriftEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeDomainControlPlaneDriftStatus" in pr_comment_script
+    assert "benchmarkKnowledgeDomainControlPlaneDriftStatusLine" in pr_comment_script
+    assert "benchmarkKnowledgeDomainControlPlaneDriftLight" in pr_comment_script
+    assert "benchmarkKnowledgeDomainControlPlaneDriftDomainRegressions" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeDomainControlPlaneDriftDomainImprovements" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeDomainControlPlaneDriftRecommendations" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeDomainReleaseGateEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeDomainReleaseGateStatus" in pr_comment_script
+    assert "benchmarkKnowledgeDomainReleaseGateStatusLine" in pr_comment_script
+    assert "benchmarkKnowledgeDomainReleaseGateLight" in pr_comment_script
+    assert "benchmarkKnowledgeDomainReleaseGateReleasableDomains" in pr_comment_script
+    assert "benchmarkKnowledgeDomainReleaseGateBlockedDomains" in pr_comment_script
+    assert "benchmarkKnowledgeDomainReleaseGatePriorityDomains" in pr_comment_script
+    assert "benchmarkKnowledgeDomainReleaseGateRecommendedFirstAction" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeDomainReleaseGateRecommendations" in pr_comment_script
+    assert "benchmarkKnowledgeDomainReleaseSurfaceAlignmentEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeDomainReleaseSurfaceAlignmentStatus" in pr_comment_script
+    assert "benchmarkKnowledgeDomainReleaseSurfaceAlignmentSummary" in pr_comment_script
+    assert "benchmarkKnowledgeDomainReleaseSurfaceAlignmentMismatches" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeDomainReleaseSurfaceAlignmentStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeDomainReleaseSurfaceAlignmentLight" in pr_comment_script
+    assert "benchmarkKnowledgeSourceActionPlanEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeSourceActionPlanStatus" in pr_comment_script
+    assert "benchmarkKnowledgeSourceActionPlanStatusLine" in pr_comment_script
+    assert "benchmarkKnowledgeSourceActionPlanLight" in pr_comment_script
+    assert "benchmarkKnowledgeSourceActionPlanPriorityDomains" in pr_comment_script
+    assert "benchmarkKnowledgeSourceActionPlanRecommendedFirstActions" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeSourceActionPlanRecommendations" in pr_comment_script
+    assert "benchmarkKnowledgeSourceDriftEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeSourceDriftStatus" in pr_comment_script
+    assert "benchmarkKnowledgeSourceDriftStatusLine" in pr_comment_script
+    assert "benchmarkKnowledgeSourceDriftLight" in pr_comment_script
+    assert "benchmarkKnowledgeSourceDriftSourceGroupRegressions" in pr_comment_script
+    assert "benchmarkKnowledgeSourceDriftRecommendations" in pr_comment_script
+    assert "benchmarkKnowledgeOutcomeCorrelationEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeOutcomeCorrelationStatus" in pr_comment_script
+    assert "benchmarkKnowledgeOutcomeCorrelationStatusLine" in pr_comment_script
+    assert "benchmarkKnowledgeOutcomeCorrelationLight" in pr_comment_script
+    assert "benchmarkKnowledgeOutcomeCorrelationFocusAreas" in pr_comment_script
+    assert "benchmarkKnowledgeOutcomeCorrelationPriorityDomains" in pr_comment_script
+    assert "benchmarkKnowledgeOutcomeCorrelationDomainStatuses" in pr_comment_script
+    assert "benchmarkKnowledgeOutcomeCorrelationRecommendations" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeApplicationStatus" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeApplicationStatusLine" in pr_comment_script
+    assert "benchmarkArtifactBundleCompetitiveSurpassStatus" in pr_comment_script
+    assert "benchmarkArtifactBundleCompetitiveSurpassStatusLine" in pr_comment_script
+    assert "benchmarkArtifactBundleCompetitiveSurpassLight" in pr_comment_script
+    assert "benchmarkArtifactBundleCompetitiveSurpassTrendStatus" in pr_comment_script
+    assert "benchmarkArtifactBundleCompetitiveSurpassTrendStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkArtifactBundleCompetitiveSurpassTrendLight" in pr_comment_script
+    assert "Benchmark Artifact Bundle Competitive Surpass" in pr_comment_script
+    assert "Benchmark Artifact Bundle Competitive Surpass Trend" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeRealdataCorrelationStatus" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeRealdataCorrelationStatusLine" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeDomainMatrixStatus" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeDomainMatrixStatusLine" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeDomainCapabilityMatrixStatus" in (
+        pr_comment_script
+    )
+    assert "benchmarkArtifactBundleKnowledgeDomainCapabilityMatrixStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkArtifactBundleKnowledgeDomainCapabilityDriftStatus" in (
+        pr_comment_script
+    )
+    assert "benchmarkArtifactBundleKnowledgeDomainCapabilityDriftStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkArtifactBundleKnowledgeDomainActionPlanStatus" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeDomainActionPlanStatusLine" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeDomainControlPlaneDriftStatus" in (
+        pr_comment_script
+    )
+    assert "benchmarkArtifactBundleKnowledgeDomainControlPlaneDriftStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkArtifactBundleKnowledgeDomainReleaseGateStatus" in (
+        pr_comment_script
+    )
+    assert "benchmarkArtifactBundleKnowledgeDomainReleaseGateStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkArtifactBundleKnowledgeSourceCoverageStatus" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeSourceCoverageStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkArtifactBundleKnowledgeSourceActionPlanStatus" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeSourceActionPlanStatusLine" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeSourceDriftStatus" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeSourceDriftStatusLine" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeOutcomeCorrelationStatus" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeOutcomeCorrelationStatusLine" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeApplicationStatus" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeApplicationStatusLine" in pr_comment_script
+    assert "benchmarkCompanionCompetitiveSurpassStatus" in pr_comment_script
+    assert "benchmarkCompanionCompetitiveSurpassStatusLine" in pr_comment_script
+    assert "benchmarkCompanionCompetitiveSurpassLight" in pr_comment_script
+    assert "benchmarkCompanionCompetitiveSurpassTrendStatus" in pr_comment_script
+    assert "benchmarkCompanionCompetitiveSurpassTrendStatusLine" in pr_comment_script
+    assert "benchmarkCompanionCompetitiveSurpassTrendLight" in pr_comment_script
+    assert "Benchmark Companion Competitive Surpass" in pr_comment_script
+    assert "Benchmark Companion Competitive Surpass Trend" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeRealdataCorrelationStatus" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeRealdataCorrelationStatusLine" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeDomainMatrixStatus" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeDomainMatrixStatusLine" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeDomainCapabilityMatrixStatus" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeDomainCapabilityMatrixStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkCompanionKnowledgeDomainCapabilityDriftStatus" in (
+        pr_comment_script
+    )
+    assert "benchmarkCompanionKnowledgeDomainCapabilityDriftStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkCompanionKnowledgeDomainActionPlanStatus" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeDomainActionPlanStatusLine" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeDomainControlPlaneDriftStatus" in (
+        pr_comment_script
+    )
+    assert "benchmarkCompanionKnowledgeDomainControlPlaneDriftStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkCompanionKnowledgeDomainReleaseGateStatus" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeDomainReleaseGateStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkCompanionKnowledgeSourceCoverageStatus" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeSourceCoverageStatusLine" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeSourceActionPlanStatus" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeSourceActionPlanStatusLine" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeSourceDriftStatus" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeSourceDriftStatusLine" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeOutcomeCorrelationStatus" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeOutcomeCorrelationStatusLine" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeApplicationStatus" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeApplicationStatusLine" in pr_comment_script
+    assert "benchmarkReleaseCompetitiveSurpassTrendStatus" in pr_comment_script
+    assert "benchmarkReleaseCompetitiveSurpassTrendStatusLine" in pr_comment_script
+    assert "benchmarkReleaseDecisionCompetitiveSurpassTrendLight" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeRealdataCorrelationStatus" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeRealdataCorrelationStatusLine" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeDomainMatrixStatus" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeDomainMatrixStatusLine" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeDomainCapabilityMatrixStatus" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeDomainCapabilityMatrixStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkReleaseKnowledgeDomainCapabilityDriftStatus" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeDomainCapabilityDriftStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkReleaseKnowledgeDomainActionPlanStatus" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeDomainActionPlanStatusLine" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeDomainControlPlaneDriftStatus" in (
+        pr_comment_script
+    )
+    assert "benchmarkReleaseKnowledgeDomainControlPlaneDriftStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkReleaseKnowledgeSourceCoverageStatus" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeSourceCoverageStatusLine" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeSourceActionPlanStatus" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeSourceActionPlanStatusLine" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeSourceDriftStatus" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeSourceDriftStatusLine" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeOutcomeCorrelationStatus" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeOutcomeCorrelationStatusLine" in pr_comment_script
+    assert "benchmarkReleaseRunbookKnowledgeApplicationStatus" in pr_comment_script
+    assert "benchmarkReleaseRunbookKnowledgeApplicationStatusLine" in pr_comment_script
+    assert "benchmarkReleaseRunbookCompetitiveSurpassTrendStatus" in pr_comment_script
+    assert "benchmarkReleaseRunbookCompetitiveSurpassTrendStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkReleaseRunbookCompetitiveSurpassTrendLight" in pr_comment_script
+    assert "benchmarkReleaseRunbookKnowledgeRealdataCorrelationStatus" in pr_comment_script
+    assert "benchmarkReleaseRunbookKnowledgeRealdataCorrelationStatusLine" in pr_comment_script
+    assert "benchmarkReleaseRunbookKnowledgeDomainMatrixStatus" in pr_comment_script
+    assert "benchmarkReleaseRunbookKnowledgeDomainMatrixStatusLine" in pr_comment_script
+    assert "benchmarkReleaseRunbookKnowledgeDomainCapabilityMatrixStatus" in (
+        pr_comment_script
+    )
+    assert "benchmarkReleaseRunbookKnowledgeDomainCapabilityMatrixStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkReleaseRunbookKnowledgeDomainCapabilityDriftStatus" in (
+        pr_comment_script
+    )
+    assert "benchmarkReleaseRunbookKnowledgeDomainCapabilityDriftStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkReleaseRunbookKnowledgeDomainActionPlanStatus" in pr_comment_script
+    assert "benchmarkReleaseRunbookKnowledgeDomainActionPlanStatusLine" in pr_comment_script
+    assert "benchmarkReleaseRunbookKnowledgeDomainControlPlaneDriftStatus" in (
+        pr_comment_script
+    )
+    assert "benchmarkReleaseRunbookKnowledgeDomainControlPlaneDriftStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkReleaseRunbookKnowledgeSourceCoverageStatus" in pr_comment_script
+    assert "benchmarkReleaseRunbookKnowledgeSourceCoverageStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkReleaseRunbookKnowledgeSourceActionPlanStatus" in pr_comment_script
+    assert "benchmarkReleaseRunbookKnowledgeSourceActionPlanStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkReleaseRunbookKnowledgeSourceDriftStatus" in pr_comment_script
+    assert "benchmarkReleaseRunbookKnowledgeSourceDriftStatusLine" in pr_comment_script
+    assert "benchmarkReleaseRunbookKnowledgeOutcomeCorrelationStatus" in pr_comment_script
+    assert "benchmarkReleaseRunbookKnowledgeOutcomeCorrelationStatusLine" in pr_comment_script
+    assert "assistant=${benchmarkAssistantStatus}" in pr_comment_script
+    assert "review_queue=${benchmarkReviewQueueStatus}" in pr_comment_script
+    assert "feedback_flywheel=${benchmarkFeedbackFlywheelStatus}" in pr_comment_script
+    assert "ocr=${benchmarkOcrStatus}" in pr_comment_script
+    assert "qdrant=${benchmarkQdrantStatus}" in pr_comment_script
+    assert "knowledge=${benchmarkKnowledgeStatus}" in pr_comment_script
+    assert "engineering=${benchmarkEngineeringStatus}" in pr_comment_script
+    assert "Benchmark Feedback Flywheel" in pr_comment_script
+    assert "Benchmark Engineering Signals" in pr_comment_script
+    assert "Benchmark Scorecard Operator Adoption" in pr_comment_script
+    assert "Benchmark Scorecard Operator Outcome Drift" in pr_comment_script
+    assert "Benchmark Real-Data Signals" in pr_comment_script
+    assert "Benchmark Real-Data Scorecard" in pr_comment_script
+    assert "Benchmark Knowledge Readiness" in pr_comment_script
+    assert "Benchmark Knowledge Drift" in pr_comment_script
+    assert "Benchmark Knowledge Focus Areas" in pr_comment_script
+    assert "Benchmark Knowledge Domains" in pr_comment_script
+    assert "Benchmark Knowledge Recommendations" in pr_comment_script
+    assert "Benchmark Knowledge Application" in pr_comment_script
+    assert "Benchmark Knowledge Application Recommendations" in pr_comment_script
+    assert "Benchmark Knowledge Real-Data Correlation" in pr_comment_script
+    assert "Benchmark Knowledge Domain Matrix" in pr_comment_script
+    assert "Benchmark Knowledge Domain Capability Matrix" in pr_comment_script
+    assert "Benchmark Knowledge Domain Capability Drift" in pr_comment_script
+    assert "Benchmark Knowledge Domain Action Plan" in pr_comment_script
+    assert "Benchmark Knowledge Domain Surface Action Plan" in pr_comment_script
+    assert "Benchmark Knowledge Domain Control Plane" in pr_comment_script
+    assert "Benchmark Knowledge Domain Control Plane Drift" in pr_comment_script
+    assert "Benchmark Knowledge Domain Release Gate" in pr_comment_script
+    assert "Benchmark Knowledge Domain Release Surface Alignment" in pr_comment_script
+    assert "Benchmark Knowledge Domain Release Gate" in pr_comment_script
+    assert "Benchmark Knowledge Domain Release Surface Alignment" in pr_comment_script
+    assert "Benchmark Knowledge Source Coverage" in pr_comment_script
+    assert "Benchmark Knowledge Source Action Plan" in pr_comment_script
+    assert "Benchmark Knowledge Source Drift" in pr_comment_script
+    assert "Benchmark Knowledge Outcome Correlation" in pr_comment_script
+    assert "Benchmark Knowledge Real-Data Recommendations" in pr_comment_script
+    assert "Benchmark Knowledge Outcome Recommendations" in pr_comment_script
+    assert "Benchmark Knowledge Drift Recommendations" in pr_comment_script
+    assert "Benchmark Engineering Recommendations" in pr_comment_script
+    assert "Feedback Flywheel Artifact" in pr_comment_script
+    assert "Benchmark Operational Summary" in pr_comment_script
+    assert "Benchmark Operational Operator Adoption" in pr_comment_script
+    assert "Benchmark Operational Operator Outcome Drift" in pr_comment_script
+    assert "Benchmark Artifact Bundle Knowledge Drift" in pr_comment_script
+    assert "Benchmark Artifact Bundle" in pr_comment_script
+    assert "Benchmark Artifact Bundle Knowledge Application" in pr_comment_script
+    assert "Benchmark Artifact Bundle Knowledge Real-Data" in pr_comment_script
+    assert "Benchmark Artifact Bundle Knowledge Domain Matrix" in pr_comment_script
+    assert "Benchmark Artifact Bundle Knowledge Domain Capability Matrix" in (
+        pr_comment_script
+    )
+    assert "Benchmark Artifact Bundle Knowledge Domain Capability Drift" in (
+        pr_comment_script
+    )
+    assert "Benchmark Artifact Bundle Knowledge Domain Action Plan" in pr_comment_script
+    assert "Benchmark Artifact Bundle Knowledge Domain Control Plane" in (
+        pr_comment_script
+    )
+    assert "Benchmark Artifact Bundle Knowledge Domain Control Plane Drift" in (
+        pr_comment_script
+    )
+    assert "Benchmark Artifact Bundle Knowledge Domain Release Gate" in (
+        pr_comment_script
+    )
+    assert "Benchmark Artifact Bundle Knowledge Source Coverage" in pr_comment_script
+    assert "Benchmark Artifact Bundle Knowledge Source Action Plan" in pr_comment_script
+    assert "Benchmark Artifact Bundle Knowledge Source Drift" in pr_comment_script
+    assert "Benchmark Artifact Bundle Knowledge Outcome Correlation" in pr_comment_script
+    assert "Benchmark Artifact Bundle Real-Data" in pr_comment_script
+    assert "Benchmark Artifact Bundle Real-Data Scorecard" in pr_comment_script
+    assert "available_artifacts=${benchmarkArtifactBundleAvailableArtifacts}" in pr_comment_script
+    assert "feedback=${benchmarkArtifactBundleFeedbackStatus}" in pr_comment_script
+    assert "assistant=${benchmarkArtifactBundleAssistantStatus}" in pr_comment_script
+    assert "review_queue=${benchmarkArtifactBundleReviewQueueStatus}" in pr_comment_script
+    assert "ocr=${benchmarkArtifactBundleOcrStatus}" in pr_comment_script
+    assert "knowledge=${benchmarkArtifactBundleKnowledgeStatus}" in pr_comment_script
+    assert "knowledge_drift=${benchmarkArtifactBundleKnowledgeDriftStatus}" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeDriftDomainRegressions" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgePriorityDomains" in pr_comment_script
+    assert "Benchmark Companion Knowledge Application" in pr_comment_script
+    assert "Benchmark Companion Knowledge Real-Data" in pr_comment_script
+    assert "Benchmark Companion Knowledge Domain Matrix" in pr_comment_script
+    assert "Benchmark Companion Knowledge Domain Capability Matrix" in (
+        pr_comment_script
+    )
+    assert "Benchmark Companion Knowledge Domain Capability Drift" in (
+        pr_comment_script
+    )
+    assert "Benchmark Companion Knowledge Domain Action Plan" in pr_comment_script
+    assert "Benchmark Companion Knowledge Domain Control Plane" in pr_comment_script
+    assert "Benchmark Companion Knowledge Domain Control Plane Drift" in (
+        pr_comment_script
+    )
+    assert "Benchmark Companion Knowledge Domain Release Gate" in pr_comment_script
+    assert "Benchmark Companion Knowledge Source Coverage" in pr_comment_script
+    assert "Benchmark Companion Knowledge Source Action Plan" in pr_comment_script
+    assert "Benchmark Companion Knowledge Source Drift" in pr_comment_script
+    assert "Benchmark Companion Knowledge Outcome Correlation" in pr_comment_script
+    assert "Benchmark Release Decision Knowledge Application" in pr_comment_script
+    assert "Benchmark Release Decision Knowledge Real-Data" in pr_comment_script
+    assert "Benchmark Release Decision Knowledge Domain Matrix" in pr_comment_script
+    assert "Benchmark Release Decision Knowledge Domain Capability Matrix" in (
+        pr_comment_script
+    )
+    assert "Benchmark Release Decision Knowledge Domain Capability Drift" in (
+        pr_comment_script
+    )
+    assert "Benchmark Release Decision Knowledge Domain Action Plan" in pr_comment_script
+    assert "Benchmark Release Decision Knowledge Domain Control Plane" in (
+        pr_comment_script
+    )
+    assert "Benchmark Release Decision Knowledge Domain Control Plane Drift" in (
+        pr_comment_script
+    )
+    assert "Benchmark Release Decision Knowledge Source Coverage" in pr_comment_script
+    assert "Benchmark Release Decision Knowledge Source Action Plan" in pr_comment_script
+    assert "Benchmark Release Decision Knowledge Source Drift" in pr_comment_script
+    assert "Benchmark Release Decision Knowledge Outcome Correlation" in pr_comment_script
+    assert "Benchmark Release Decision Competitive Surpass Trend" in pr_comment_script
+    assert "Benchmark Release Runbook Knowledge Application" in pr_comment_script
+    assert "Benchmark Release Runbook Knowledge Real-Data" in pr_comment_script
+    assert "Benchmark Release Runbook Knowledge Domain Matrix" in pr_comment_script
+    assert "Benchmark Release Runbook Knowledge Domain Capability Matrix" in (
+        pr_comment_script
+    )
+    assert "Benchmark Release Runbook Knowledge Domain Capability Drift" in (
+        pr_comment_script
+    )
+    assert "Benchmark Release Runbook Knowledge Domain Action Plan" in pr_comment_script
+    assert "Benchmark Release Runbook Knowledge Domain Control Plane" in (
+        pr_comment_script
+    )
+    assert "Benchmark Release Runbook Knowledge Domain Control Plane Drift" in (
+        pr_comment_script
+    )
+    assert "Benchmark Release Runbook Knowledge Source Coverage" in pr_comment_script
+    assert "Benchmark Release Runbook Knowledge Source Action Plan" in pr_comment_script
+    assert "Benchmark Release Runbook Knowledge Source Drift" in pr_comment_script
+    assert "Benchmark Release Runbook Knowledge Outcome Correlation" in pr_comment_script
+    assert "Benchmark Release Runbook Competitive Surpass Trend" in pr_comment_script
     assert (
-        "label_effective_min_common=${hybridBlindLabelSliceEffectiveMinCommon"
-        in module_script
+        "recommendations=${benchmarkKnowledgeApplicationRecommendations || 'n/a'}"
+        in pr_comment_script
     )
-    assert "worst_label_acc_drop=${hybridBlindLabelSliceWorstAccDrop" in module_script
-    assert "family_slice_enabled=${hybridBlindFamilySliceEnabled" in module_script
-    assert "family_auto_cap=${hybridBlindFamilySliceAutoCap" in module_script
     assert (
-        "family_effective_min_common=${hybridBlindFamilySliceEffectiveMinCommon"
-        in module_script
+        "recommendations=${benchmarkKnowledgeRealdataCorrelationRecommendations || 'n/a'}"
+        in pr_comment_script
     )
-    assert "worst_family_acc_drop=${hybridBlindFamilySliceWorstAccDrop" in module_script
-    assert "Blind Gain (Hybrid-Graph2D)" in module_script
-    assert 'require("./comment_markdown_utils.js")' in module_script
-    assert "buildEvaluationReportCommentBody(" in module_script
-    assert "const body = buildEvaluationReportCommentBody({" in module_script
-    assert "Signal Lights" in module_script
-    assert "strictFailureRequests.length" in module_script
-    assert "parseBoolText(" in module_script
-    assert "script=${sweepBestRunScript}" in module_script
+    assert (
+        "recommendations=${benchmarkKnowledgeDomainMatrixRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkKnowledgeDomainCapabilityMatrixRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkKnowledgeDomainCapabilityDriftRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkKnowledgeDomainActionPlanRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkKnowledgeDomainControlPlaneRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkKnowledgeSourceCoverageRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkKnowledgeSourceActionPlanRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "domains=${benchmarkKnowledgeSourceCoveragePriorityDomains || 'n/a'} / "
+        "${benchmarkKnowledgeSourceCoverageDomainStatuses || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "expansion_candidates=${benchmarkKnowledgeSourceCoverageExpansionCandidates || 'n/a'}"
+        in pr_comment_script
+    )
+    assert "benchmarkKnowledgeSourceCoverageLight" in pr_comment_script
+    assert (
+        "recommendations=${benchmarkKnowledgeOutcomeCorrelationRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkArtifactBundleKnowledgeApplicationRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkArtifactBundleKnowledgeRealdataCorrelation"
+        "Recommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkArtifactBundleKnowledgeDomainMatrixRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkArtifactBundleKnowledgeDomainCapabilityMatrix"
+        "Recommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkArtifactBundleKnowledgeDomainActionPlan"
+        "Recommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkArtifactBundleKnowledgeSourceActionPlan"
+        "Recommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkArtifactBundleKnowledgeOutcomeCorrelation"
+        "Recommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkCompanionKnowledgeApplicationRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkCompanionKnowledgeRealdataCorrelationRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkCompanionKnowledgeDomainMatrixRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkCompanionKnowledgeDomainCapabilityMatrix"
+        "Recommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkCompanionKnowledgeDomainActionPlanRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkCompanionKnowledgeSourceActionPlanRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkCompanionKnowledgeOutcomeCorrelationRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkReleaseKnowledgeApplicationRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkReleaseKnowledgeRealdataCorrelationRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkReleaseKnowledgeDomainMatrixRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkReleaseKnowledgeDomainCapabilityMatrix"
+        "Recommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkReleaseKnowledgeDomainActionPlanRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkReleaseKnowledgeSourceActionPlanRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkReleaseKnowledgeOutcomeCorrelationRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkReleaseRunbookKnowledgeApplicationRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkReleaseRunbookKnowledgeRealdataCorrelation"
+        "Recommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkReleaseRunbookKnowledgeDomainMatrix"
+        "Recommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkReleaseRunbookKnowledgeDomainCapabilityMatrix"
+        "Recommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkReleaseRunbookKnowledgeDomainActionPlan"
+        "Recommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkReleaseRunbookKnowledgeSourceActionPlan"
+        "Recommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkReleaseRunbookKnowledgeOutcomeCorrelation"
+        "Recommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert "engineering=${benchmarkArtifactBundleEngineeringStatus}" in pr_comment_script
+    assert "Benchmark Artifact Bundle Knowledge Domains" in pr_comment_script
+    assert "Benchmark Companion Knowledge Drift" in pr_comment_script
+    assert (
+        "operator_drift=${benchmarkArtifactBundleOperatorAdoptionKnowledgeDriftStatus}"
+        in pr_comment_script
+    )
+    assert "Benchmark Companion Summary" in pr_comment_script
+    assert "Benchmark Companion Real-Data" in pr_comment_script
+    assert "Benchmark Companion Real-Data Scorecard" in pr_comment_script
+    assert "knowledge=${benchmarkCompanionKnowledgeStatus}" in pr_comment_script
+    assert "knowledge_drift=${benchmarkCompanionKnowledgeDriftStatus}" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeDriftDomainRegressions" in pr_comment_script
+    assert "benchmarkCompanionKnowledgePriorityDomains" in pr_comment_script
+    assert "engineering=${benchmarkCompanionEngineeringStatus}" in pr_comment_script
+    assert "Benchmark Companion Knowledge Domains" in pr_comment_script
+    assert "Benchmark Release Decision Knowledge Drift" in pr_comment_script
+    assert (
+        "operator_drift=${benchmarkCompanionOperatorAdoptionKnowledgeDriftStatus}"
+        in pr_comment_script
+    )
+    assert "Benchmark Release Decision" in pr_comment_script
+    assert "Benchmark Release Decision Real-Data" in pr_comment_script
+    assert "Benchmark Release Decision Real-Data Scorecard" in pr_comment_script
+    assert "Benchmark Release Decision Scorecard Operator Adoption" in pr_comment_script
+    assert "Benchmark Release Decision Scorecard Operator Outcome Drift" in (
+        pr_comment_script
+    )
+    assert "Benchmark Release Decision Operational Operator Adoption" in (
+        pr_comment_script
+    )
+    assert "Benchmark Release Decision Operational Operator Outcome Drift" in (
+        pr_comment_script
+    )
+    assert "Benchmark Release Decision Release Surface Alignment" in (
+        pr_comment_script
+    )
+    assert "Benchmark Release Decision Knowledge Domain Release Gate" in (
+        pr_comment_script
+    )
+    assert "knowledge=${benchmarkReleaseKnowledgeStatus}" in pr_comment_script
+    assert "knowledge_drift=${benchmarkReleaseKnowledgeDriftStatus}" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeDriftDomainRegressions" in pr_comment_script
+    assert "benchmarkReleaseKnowledgePriorityDomains" in pr_comment_script
+    assert "engineering=${benchmarkReleaseEngineeringStatus}" in pr_comment_script
+    assert "operator_adoption=${benchmarkReleaseOperatorAdoptionStatus}" in pr_comment_script
+    assert (
+        "benchmarkReleaseScorecardOperatorAdoptionStatus || 'n/a'" in pr_comment_script
+    )
+    assert (
+        "benchmarkReleaseOperationalOperatorAdoptionStatus || 'n/a'" in pr_comment_script
+    )
+    assert (
+        "benchmarkReleaseOperatorAdoptionReleaseSurfaceAlignmentStatus || 'n/a'"
+        in pr_comment_script
+    )
+    assert "benchmarkReleaseKnowledgeDomainReleaseGateStatusLine" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeReferenceInventoryStatusLine" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeReferenceInventoryStatus" in pr_comment_script
+    assert "benchmarkReleaseDecisionKnowledgeReferenceInventoryLight" in (
+        pr_comment_script
+    )
+    assert "Benchmark Release Decision Knowledge Domains" in pr_comment_script
+    assert "Benchmark Release Decision Knowledge Reference Inventory" in (
+        pr_comment_script
+    )
+    assert "Benchmark Release Runbook Knowledge Drift" in pr_comment_script
+    assert (
+        "operator_drift=${benchmarkReleaseOperatorAdoptionKnowledgeDriftStatus}"
+        in pr_comment_script
+    )
+    assert "Benchmark Release Runbook" in pr_comment_script
+    assert "Benchmark Release Runbook Real-Data" in pr_comment_script
+    assert "Benchmark Release Runbook Real-Data Scorecard" in pr_comment_script
+    assert "Benchmark Release Runbook Scorecard Operator Adoption" in pr_comment_script
+    assert "Benchmark Release Runbook Scorecard Operator Outcome Drift" in (
+        pr_comment_script
+    )
+    assert "Benchmark Release Runbook Operational Operator Adoption" in (
+        pr_comment_script
+    )
+    assert "Benchmark Release Runbook Operational Operator Outcome Drift" in (
+        pr_comment_script
+    )
+    assert "Benchmark Release Runbook Release Surface Alignment" in (
+        pr_comment_script
+    )
+    assert "Benchmark Release Runbook Knowledge Domain Release Gate" in (
+        pr_comment_script
+    )
+    assert "knowledge=${benchmarkReleaseRunbookKnowledgeStatus}" in pr_comment_script
+    assert "knowledge_drift=${benchmarkReleaseRunbookKnowledgeDriftStatus}" in pr_comment_script
+    assert "benchmarkReleaseRunbookKnowledgeDriftDomainRegressions" in pr_comment_script
+    assert "benchmarkReleaseRunbookKnowledgePriorityDomains" in pr_comment_script
+    assert "engineering=${benchmarkReleaseRunbookEngineeringStatus}" in pr_comment_script
+    assert "operator_adoption=${benchmarkReleaseRunbookOperatorAdoptionStatus}" in pr_comment_script
+    assert (
+        "benchmarkReleaseRunbookScorecardOperatorAdoptionStatus || 'n/a'"
+        in pr_comment_script
+    )
+    assert (
+        "benchmarkReleaseRunbookOperationalOperatorAdoptionStatus || 'n/a'"
+        in pr_comment_script
+    )
+    assert (
+        "benchmarkReleaseRunbookOperatorAdoptionReleaseSurfaceAlignmentStatus || 'n/a'"
+        in pr_comment_script
+    )
+    assert "benchmarkReleaseRunbookKnowledgeDomainReleaseGateStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkReleaseRunbookKnowledgeReferenceInventoryStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkReleaseRunbookKnowledgeReferenceInventoryStatus" in (
+        pr_comment_script
+    )
+    assert "benchmarkReleaseRunbookKnowledgeReferenceInventoryLight" in (
+        pr_comment_script
+    )
+    assert (
+        "operator_drift=${benchmarkReleaseRunbookOperatorAdoptionKnowledgeDriftStatus}"
+        in pr_comment_script
+    )
+    assert "Benchmark Release Runbook Knowledge Domains" in pr_comment_script
+    assert "Benchmark Release Runbook Knowledge Reference Inventory" in (
+        pr_comment_script
+    )
+    assert "Benchmark Operator Adoption" in pr_comment_script
+    assert "automation_ready=${benchmarkReleaseAutomationReady}" in pr_comment_script
+    assert "source=${benchmarkReleasePrimarySignalSource}" in pr_comment_script
+    assert "next=${benchmarkReleaseRunbookNextAction || 'n/a'}" in pr_comment_script
+    assert "mode=${benchmarkOperatorAdoptionMode}" in pr_comment_script
+    assert "readiness=${benchmarkOperatorAdoptionReadiness}" in pr_comment_script
+    assert "knowledge_drift=${benchmarkOperatorAdoptionKnowledgeDriftStatus}" in pr_comment_script
+    assert "Benchmark Operator Adoption Release Surface Alignment" in pr_comment_script
+    assert "Benchmark Operator Adoption Release Surface Mismatches" in (
+        pr_comment_script
+    )
+    assert (
+        "benchmarkOperatorAdoptionReleaseSurfaceAlignmentStatus || 'n/a'"
+        in pr_comment_script
+    )
+    assert (
+        "benchmarkOperatorAdoptionReleaseSurfaceAlignmentMismatches || 'n/a'"
+        in pr_comment_script
+    )
+    assert "Benchmark Artifact Bundle Operator Drift" in pr_comment_script
+    assert "Benchmark Artifact Bundle Operator Outcome Drift" in pr_comment_script
+    assert "Benchmark Artifact Bundle Scorecard Operator Adoption" in pr_comment_script
+    assert "Benchmark Artifact Bundle Scorecard Operator Outcome Drift" in (
+        pr_comment_script
+    )
+    assert "Benchmark Artifact Bundle Operational Operator Adoption" in pr_comment_script
+    assert "Benchmark Artifact Bundle Operational Operator Outcome Drift" in (
+        pr_comment_script
+    )
+    assert "Benchmark Artifact Bundle Release Surface Alignment" in pr_comment_script
+    assert "Benchmark Artifact Bundle Release Surface Mismatches" in pr_comment_script
+    assert "Benchmark Artifact Bundle Knowledge Domain Release Surface Alignment" in (
+        pr_comment_script
+    )
+    assert "Benchmark Artifact Bundle Knowledge Domain Release Surface Mismatches" in (
+        pr_comment_script
+    )
+    assert "Benchmark Companion Operator Drift" in pr_comment_script
+    assert "Benchmark Companion Operator Outcome Drift" in pr_comment_script
+    assert "Benchmark Companion Scorecard Operator Adoption" in pr_comment_script
+    assert "Benchmark Companion Scorecard Operator Outcome Drift" in (
+        pr_comment_script
+    )
+    assert "Benchmark Companion Operational Operator Adoption" in pr_comment_script
+    assert "Benchmark Companion Operational Operator Outcome Drift" in (
+        pr_comment_script
+    )
+    assert "Benchmark Companion Release Surface Alignment" in pr_comment_script
+    assert "Benchmark Companion Release Surface Mismatches" in pr_comment_script
+    assert "Benchmark Companion Knowledge Domain Release Surface Alignment" in (
+        pr_comment_script
+    )
+    assert "Benchmark Companion Knowledge Domain Release Surface Mismatches" in (
+        pr_comment_script
+    )
+    assert "Benchmark Release Decision Operator Drift" in pr_comment_script
+    assert "Benchmark Release Runbook Operator Drift" in pr_comment_script
+    assert "Benchmark Operator Adoption Knowledge Drift" in pr_comment_script
+    assert "realdata=${benchmarkArtifactBundleRealdataStatus || 'n/a'}" in pr_comment_script
+    assert "benchmarkArtifactBundleRealdataScorecardStatus || 'n/a'" in pr_comment_script
+    assert "realdata=${benchmarkCompanionRealdataStatus || 'n/a'}" in pr_comment_script
+    assert "benchmarkCompanionRealdataScorecardStatus || 'n/a'" in pr_comment_script
+    assert "realdata=${benchmarkReleaseRealdataStatus || 'n/a'}" in pr_comment_script
+    assert "benchmarkReleaseRealdataScorecardStatus || 'n/a'" in pr_comment_script
+    assert "realdata=${benchmarkReleaseRunbookRealdataStatus || 'n/a'}" in pr_comment_script
+    assert "benchmarkReleaseRunbookRealdataScorecardStatus || 'n/a'" in pr_comment_script
+    assert "assistantEvidenceEnabled" in pr_comment_script
+    assert "Assistant Evidence Report" in pr_comment_script
+    assert "Assistant Evidence Insights" in pr_comment_script
+    assert "activeLearningReviewQueueEnabled" in pr_comment_script
+    assert "Active-Learning Review Queue" in pr_comment_script
+    assert "Active-Learning Review Queue Insights" in pr_comment_script
+    assert "activeLearningReviewQueueTopDecisionSources" in pr_comment_script
+    assert "ocrReviewPackEnabled" in pr_comment_script
+    assert "OCR Review Pack" in pr_comment_script
+    assert "OCR Review Insights" in pr_comment_script
 
 
-def test_workflow_runs_eval_with_history_regression_tests() -> None:
+def test_workflow_wires_benchmark_knowledge_reference_inventory() -> None:
     workflow = _load_workflow()
+    env = workflow["env"]
+    _assert_empty_workflow_dispatch(workflow)
+
+    assert "BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_ENABLE" in env
+    assert "BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_TITLE" in env
+    assert "BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_SNAPSHOT_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_OUTPUT_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_OUTPUT_MD" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_REFERENCE_INVENTORY_JSON" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_REFERENCE_INVENTORY_JSON" in env
+
+    build_step = _get_step(
+        workflow,
+        "evaluate",
+        "Build benchmark knowledge reference inventory (optional)",
+    )
+    build_script = build_step["run"]
+    assert (
+        "scripts/export_benchmark_knowledge_reference_inventory.py" in build_script
+    )
+    assert "BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_ENABLE" in build_script
+    assert "BENCHMARK_KNOWLEDGE_REFERENCE_INVENTORY_SNAPSHOT_JSON" in build_script
+    assert "ready_domain_count=" in build_script
+    assert "partial_domain_count=" in build_script
+    assert "blocked_domain_count=" in build_script
+    assert "total_reference_items=" in build_script
+    assert "focus_tables=" in build_script
+    assert "recommendations=" in build_script
+
+    bundle_step = _get_step(
+        workflow, "evaluate", "Build benchmark artifact bundle (optional)"
+    )
+    bundle_script = _load_bash_helper_from_step(bundle_step)
+    assert "--benchmark-knowledge-reference-inventory" in bundle_script
+    assert (
+        "benchmark_artifact_bundle_knowledge_reference_inventory_json"
+        in bundle_script
+    )
+
+    companion_step = _get_step(
+        workflow, "evaluate", "Build benchmark companion summary (optional)"
+    )
+    companion_script = _load_bash_helper_from_step(companion_step)
+    assert "--benchmark-knowledge-reference-inventory" in companion_script
+    assert (
+        "benchmark_companion_summary_knowledge_reference_inventory_json"
+        in companion_script
+    )
+
+    upload_step = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge reference inventory"
+    )
+    assert (
+        upload_step["if"]
+        == "steps.benchmark_knowledge_reference_inventory.outputs.enabled == 'true'"
+    )
+
+    summary_step = _get_step(workflow, "evaluate", "Create job summary")
+    summary_script = _load_bash_helper_from_step(summary_step)
+    assert "Benchmark knowledge reference inventory status" in summary_script
+    assert "Benchmark artifact bundle knowledge reference inventory" in summary_script
+    assert "Benchmark companion knowledge reference inventory" in summary_script
+
+
+def test_workflow_wires_benchmark_knowledge_reference_inventory_pr_comment() -> None:
+    workflow = _load_workflow()
+
+    pr_comment_step = _get_step(
+        workflow,
+        "evaluate",
+        "Comment PR with results",
+    )
+    pr_comment_script = _load_comment_helper()
+
+    assert "benchmarkKnowledgeReferenceInventoryEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeReferenceInventoryStatusLine" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeReferenceInventoryStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkCompanionKnowledgeReferenceInventoryStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeReferenceInventoryLight" in pr_comment_script
+    assert "Benchmark Knowledge Reference Inventory" in pr_comment_script
+    assert "Benchmark Artifact Bundle Knowledge Reference Inventory" in (
+        pr_comment_script
+    )
+    assert "Benchmark Companion Knowledge Reference Inventory" in pr_comment_script
+
+
+def test_workflow_env_includes_release_readiness_action_plan_wiring() -> None:
+    workflow = _load_workflow()
+    _assert_empty_workflow_dispatch(workflow)
+    env = workflow["env"]
+    matrix_env = (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_"
+        "KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_JSON"
+    )
+    drift_env = (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_"
+        "KNOWLEDGE_DOMAIN_RELEASE_READINESS_DRIFT_JSON"
+    )
+    gate_env = (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_"
+        "KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON"
+    )
+
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_ENABLE" in env
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_TITLE" in env
+    )
+    assert matrix_env in env
+    assert drift_env in env
+    assert gate_env in env
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_OUTPUT_JSON"
+        in env
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_OUTPUT_MD"
+        in env
+    )
+
+
+def test_workflow_builds_release_readiness_action_plan_artifact() -> None:
+    workflow = _load_workflow()
+    matrix_ref = (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_"
+        "KNOWLEDGE_DOMAIN_RELEASE_READINESS_MATRIX_JSON"
+    )
+    drift_ref = (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_"
+        "KNOWLEDGE_DOMAIN_RELEASE_READINESS_DRIFT_JSON"
+    )
+    gate_ref = (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_RELEASE_READINESS_ACTION_PLAN_"
+        "KNOWLEDGE_DOMAIN_RELEASE_GATE_JSON"
+    )
+    upload_if = (
+        "steps.benchmark_knowledge_domain_release_readiness_action_plan.outputs."
+        "enabled == 'true'"
+    )
+
     step = _get_step(
-        workflow, "evaluate", "Run eval_with_history regression unit tests"
+        workflow,
+        "evaluate",
+        "Build benchmark knowledge domain release readiness action plan (optional)",
     )
-    run_script = step["run"]
-    assert "pytest -q" in run_script
-    assert "tests/unit/test_eval_with_history_script_history_sequence.py" in run_script
-    assert "tests/unit/test_validate_eval_history_history_sequence.py" in run_script
+    script = step["run"]
 
-
-def test_workflow_runs_hybrid_calibration_regression_tests() -> None:
-    workflow = _load_workflow()
-    step = _get_step(
-        workflow, "evaluate", "Run hybrid calibration regression unit tests"
+    assert (
+        "scripts/export_benchmark_knowledge_domain_release_readiness_action_plan.py"
+        in script
     )
-    run_script = step["run"]
-    assert "pytest -q" in run_script
-    assert "tests/unit/test_calibrate_hybrid_confidence_script.py" in run_script
-    assert "tests/unit/test_hybrid_confidence_calibration_gate_check.py" in run_script
+    assert matrix_ref in script
+    assert drift_ref in script
+    assert gate_ref in script
+    assert (
+        "steps.benchmark_knowledge_domain_release_gate.outputs.output_json" in script
+    )
+    assert "total_action_count=" in script
+    assert "high_priority_action_count=" in script
+    assert "medium_priority_action_count=" in script
+    assert "priority_domains=" in script
+    assert "recommended_first_actions=" in script
+    assert "recommendations=" in script
+
+    upload_step = _get_step(
+        workflow,
+        "evaluate",
+        "Upload benchmark knowledge domain release readiness action plan",
+    )
+    assert upload_step["if"] == upload_if
 
 
-def test_workflow_validate_history_excludes_non_history_sidecar_reports() -> None:
+def test_workflow_summarizes_release_readiness_action_plan() -> None:
     workflow = _load_workflow()
-    step = _get_step(workflow, "evaluate", "Validate history with JSON Schema")
-    run_script = step["run"]
-    assert "scripts/validate_eval_history.py" in run_script
-    assert "--exclude-glob hybrid_blind_drift_alert_report.json" in run_script
-    assert "--exclude-glob hybrid_blind_drift_threshold_suggestion.json" in run_script
+    summary_step = _get_step(workflow, "evaluate", "Create job summary")
+    summary_script = _load_bash_helper_from_step(summary_step)
+
+    assert (
+        "Benchmark knowledge domain release readiness action plan" in summary_script
+    )
+    assert "total actions" in summary_script
+    assert "high priority actions" in summary_script
+    assert "medium priority actions" in summary_script
+    assert "first actions" in summary_script
+
+
+def test_workflow_wires_release_readiness_action_plan_pr_comment() -> None:
+    workflow = _load_workflow()
+
+    pr_comment_step = _get_step(
+        workflow,
+        "evaluate",
+        "Comment PR with results",
+    )
+    pr_comment_script = _load_comment_helper()
+
+    assert "benchmarkKnowledgeDomainReleaseReadinessActionPlanEnabled" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeDomainReleaseReadinessActionPlanStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeDomainReleaseReadinessActionPlanLight" in (
+        pr_comment_script
+    )
+    assert "benchmarkArtifactBundleKnowledgeDomainReleaseReadinessActionPlanStatus" in (
+        pr_comment_script
+    )
+    assert (
+        "benchmarkArtifactBundleKnowledgeDomainReleaseReadinessActionPlanStatusLine"
+        in pr_comment_script
+    )
+    assert "benchmarkCompanionKnowledgeDomainReleaseReadinessActionPlanStatus" in (
+        pr_comment_script
+    )
+    assert (
+        "benchmarkCompanionKnowledgeDomainReleaseReadinessActionPlanStatusLine"
+        in pr_comment_script
+    )
+    assert "benchmarkReleaseKnowledgeDomainReleaseReadinessActionPlanStatus" in (
+        pr_comment_script
+    )
+    assert (
+        "benchmarkReleaseKnowledgeDomainReleaseReadinessActionPlanStatusLine"
+        in pr_comment_script
+    )
+    assert "benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessActionPlanStatus" in (
+        pr_comment_script
+    )
+    assert (
+        "benchmarkReleaseRunbookKnowledgeDomainReleaseReadinessActionPlanStatusLine"
+        in pr_comment_script
+    )
+    assert "Benchmark Knowledge Domain Release Readiness Action Plan" in (
+        pr_comment_script
+    )
+    assert (
+        "Benchmark Artifact Bundle Knowledge Domain Release Readiness Action Plan"
+        in pr_comment_script
+    )
+    assert "Benchmark Companion Knowledge Domain Release Readiness Action Plan" in (
+        pr_comment_script
+    )
+    assert (
+        "Benchmark Release Decision Knowledge Domain Release Readiness Action Plan"
+        in pr_comment_script
+    )
+    assert (
+        "Benchmark Release Runbook Knowledge Domain Release Readiness Action Plan"
+        in pr_comment_script
+    )
+
+
+def test_workflow_wires_knowledge_api_surface_matrix_pr_comment() -> None:
+    workflow = _load_workflow()
+
+    pr_comment_step = _get_step(workflow, "evaluate", "Comment PR with results")
+    pr_comment_script = _load_comment_helper()
+
+    assert "benchmarkKnowledgeDomainApiSurfaceMatrixEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeDomainApiSurfaceMatrixStatusLine" in pr_comment_script
+    assert "benchmarkKnowledgeDomainApiSurfaceMatrixLight" in pr_comment_script
+    assert "benchmarkKnowledgeDomainApiSurfaceMatrixPublicApiGapDomains" in pr_comment_script
+    assert "benchmarkKnowledgeDomainApiSurfaceMatrixReferenceGapDomains" in pr_comment_script
+    assert "Benchmark Knowledge Domain API Surface Matrix" in pr_comment_script

@@ -7,7 +7,7 @@ import base64
 import binascii
 import logging
 import uuid
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, File, Header, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
@@ -16,6 +16,12 @@ from src.core.assembly.confidence_calibrator import ConfidenceCalibrationSystem
 from src.core.errors import ErrorCode
 from src.core.ocr.exceptions import OcrError
 from src.core.ocr.manager import OcrManager
+from src.core.ocr.parsing.identifier_parser import build_field_evidence
+from src.core.ocr.response_summary import (
+    build_engineering_signals,
+    build_field_coverage,
+    build_review_hints,
+)
 from src.core.providers import ProviderRegistry, bootstrap_core_provider_registry
 from src.middleware.rate_limit import rate_limit
 from src.security.input_validator import validate_and_read, validate_bytes
@@ -63,6 +69,26 @@ class OcrResponse(BaseModel):
     dimensions: List
     symbols: List
     title_block: Dict
+    identifiers: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Structured identifiers with OCR evidence",
+    )
+    field_evidence: Dict[str, Dict[str, Any]] = Field(
+        default_factory=dict,
+        description="Per-field OCR evidence derived from identifiers",
+    )
+    field_coverage: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Recognized vs missing title-block fields",
+    )
+    engineering_signals: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Engineering-oriented OCR summary for downstream consumers",
+    )
+    review_hints: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Review readiness hints derived from OCR evidence",
+    )
     material: Optional[str] = Field(
         None, description="Extracted material from title block"
     )
@@ -171,6 +197,11 @@ def _input_error_response(provider: str, detail: str) -> OcrResponse:
         dimensions=[],
         symbols=[],
         title_block={},
+        identifiers=[],
+        field_evidence={},
+        field_coverage={},
+        engineering_signals={},
+        review_hints={},
         material=None,
         material_info=None,
         process_requirements=None,
@@ -207,6 +238,11 @@ async def _run_ocr_extract(
             dimensions=[],
             symbols=[],
             title_block={},
+            identifiers=[],
+            field_evidence={},
+            field_coverage={},
+            engineering_signals={},
+            review_hints={},
             material=None,
             material_info=None,
             process_requirements=None,
@@ -305,6 +341,17 @@ async def _run_ocr_extract(
         except Exception as e:
             logger.warning("process_route.generation_failed", extra={"error": str(e)})
 
+    field_coverage = build_field_coverage(
+        result.title_block,
+        type(result.title_block).model_fields.keys(),
+    )
+    engineering_signals = build_engineering_signals(
+        title_block=result.title_block,
+        dimensions=[d.model_dump() for d in result.dimensions],
+        symbols=result.symbols,
+        process_requirements=result.process_requirements,
+    )
+
     return OcrResponse(
         provider=result.provider or provider,
         confidence=(result.calibrated_confidence or result.confidence),
@@ -313,6 +360,16 @@ async def _run_ocr_extract(
         dimensions=[d.model_dump() for d in result.dimensions],
         symbols=[s.model_dump() for s in result.symbols],
         title_block=result.title_block.model_dump(),
+        identifiers=[identifier.model_dump() for identifier in result.identifiers],
+        field_evidence=build_field_evidence(result.identifiers),
+        field_coverage=field_coverage,
+        engineering_signals=engineering_signals,
+        review_hints=build_review_hints(
+            title_block=result.title_block,
+            identifiers=result.identifiers,
+            field_coverage=field_coverage,
+            engineering_signals=engineering_signals,
+        ),
         material=result.title_block.material,
         material_info=material_info,
         process_requirements=(
@@ -387,6 +444,11 @@ async def ocr_extract(
             dimensions=[],
             symbols=[],
             title_block={},
+            identifiers=[],
+            field_evidence={},
+            field_coverage={},
+            engineering_signals={},
+            review_hints={},
             material=None,
             material_info=None,
             process_requirements=None,
@@ -415,6 +477,11 @@ async def ocr_extract(
             dimensions=[],
             symbols=[],
             title_block={},
+            identifiers=[],
+            field_evidence={},
+            field_coverage={},
+            engineering_signals={},
+            review_hints={},
             material=None,
             material_info=None,
             process_requirements=None,

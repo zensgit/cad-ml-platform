@@ -2,11 +2,19 @@
 from __future__ import annotations
 
 import argparse
-import json
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.history_sequence_reporting_helpers import load_history_sequence_reporting_assets
+from scripts import summarize_eval_signal_runs as eval_signal_canonical
+from scripts import summarize_history_sequence_runs as history_canonical
 
 
 def _safe_float(value: Any, default: float = 0.0) -> float:
@@ -44,6 +52,17 @@ class WeeklyMetrics:
     history_coverage_mean: float
     history_accuracy_mean: float
     history_macro_f1_mean: float
+    history_named_explainability_rate_mean: float
+    history_named_error_rate_mean: float
+    history_named_low_conf_rate_mean: float
+    history_sequence_surface_kind_latest: str
+    history_named_vocabulary_kind_latest: str
+    history_named_worst_primary_family_latest: str
+    history_named_worst_primary_reference_surface_latest: str
+    history_named_worst_primary_status_latest: str
+    history_surface_group_count: int
+    history_best_surface_key_by_mean_accuracy_overall: str
+    history_surface_groups: List[Dict[str, Any]]
     hybrid_blind_reports: int
     hybrid_blind_accuracy_mean: float
     hybrid_blind_graph2d_accuracy_mean: float
@@ -53,151 +72,119 @@ class WeeklyMetrics:
     hybrid_blind_label_slice_count_latest: int
     hybrid_blind_family_slice_count_mean: float
     hybrid_blind_family_slice_count_latest: int
-
-
-def _mean(values: List[float]) -> float:
-    if not values:
-        return 0.0
-    return sum(values) / float(len(values))
-
-
-def collect_metrics(eval_history_dir: Path, days: int, now: Optional[datetime] = None) -> WeeklyMetrics:
+def collect_metrics(
+    eval_history_dir: Path,
+    days: int,
+    now: Optional[datetime] = None,
+    eval_signal_summary_json: Optional[Path] = None,
+    eval_signal_summary: Optional[Dict[str, Any]] = None,
+    history_sequence_summary_json: Optional[Path] = None,
+    history_sequence_reporting_bundle_json: Optional[Path] = None,
+    history_sequence_summary: Optional[Dict[str, Any]] = None,
+) -> WeeklyMetrics:
     ref_now = now or datetime.now(timezone.utc)
     cutoff = ref_now - timedelta(days=max(1, int(days)))
+    if isinstance(eval_signal_summary, dict):
+        signal_summary = eval_signal_summary
+    else:
+        signal_summary = eval_signal_canonical._load_or_build_summary(
+            eval_signal_summary_json or (eval_history_dir / "eval_signal_experiment_summary.json"),
+            eval_history_dir=eval_history_dir,
+            report_glob="*.json",
+        )
+    signal_rows = [
+        row
+        for row in eval_signal_canonical._rows_from_summary(signal_summary)
+        if (_parse_ts(row.get("timestamp")) or datetime.fromtimestamp(0, tz=timezone.utc)) >= cutoff
+    ]
+    signal_window = eval_signal_canonical._build_window_summary(signal_rows)
 
-    total_reports = 0
-    ocr_metrics: List[Dict[str, float]] = []
-    combined_metrics: List[Dict[str, float]] = []
-    history_metrics: List[Dict[str, float]] = []
-    hybrid_blind_metrics: List[Dict[str, float]] = []
-    latest_hybrid_blind_ts: Optional[datetime] = None
-    latest_hybrid_blind_label_slice_count = 0
-    latest_hybrid_blind_family_slice_count = 0
-
-    for path in sorted(eval_history_dir.glob("*.json")):
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
-            continue
-        if not isinstance(payload, dict):
-            continue
-        ts = _parse_ts(payload.get("timestamp"))
-        if ts is None:
-            continue
-        if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
-        if ts < cutoff:
-            continue
-
-        total_reports += 1
-        report_type = str(payload.get("type") or "").strip()
-        if report_type == "ocr":
-            metrics = payload.get("metrics") if isinstance(payload.get("metrics"), dict) else {}
-            ocr_metrics.append(
-                {
-                    "dimension_recall": _safe_float(metrics.get("dimension_recall"), 0.0),
-                    "brier_score": _safe_float(metrics.get("brier_score"), 0.0),
-                    "edge_f1": _safe_float(metrics.get("edge_f1"), 0.0),
-                }
+    if isinstance(history_sequence_summary, dict):
+        history_summary = history_sequence_summary
+    else:
+        if history_sequence_summary_json is not None:
+            history_summary = history_canonical._load_or_build_summary(
+                history_sequence_summary_json,
+                eval_history_dir=eval_history_dir,
+                report_glob="*.json",
             )
-        elif report_type == "combined":
-            combined = payload.get("combined") if isinstance(payload.get("combined"), dict) else {}
-            combined_metrics.append(
-                {
-                    "combined_score": _safe_float(combined.get("combined_score"), 0.0),
-                    "vision_score": _safe_float(combined.get("vision_score"), 0.0),
-                    "ocr_score": _safe_float(combined.get("ocr_score"), 0.0),
-                }
+        else:
+            bundle, bundled_summary, _ = load_history_sequence_reporting_assets(
+                eval_history_dir,
+                bundle_json_path=history_sequence_reporting_bundle_json,
             )
-        elif report_type == "history_sequence":
-            metrics = payload.get("metrics") if isinstance(payload.get("metrics"), dict) else {}
-            history_metrics.append(
-                {
-                    "coverage": _safe_float(metrics.get("coverage"), 0.0),
-                    "accuracy_overall": _safe_float(metrics.get("accuracy_overall"), 0.0),
-                    "macro_f1_overall": _safe_float(metrics.get("macro_f1_overall"), 0.0),
-                }
-            )
-        elif report_type == "hybrid_blind":
-            metrics = payload.get("metrics") if isinstance(payload.get("metrics"), dict) else {}
-            label_slice_meta = (
-                metrics.get("label_slice_meta")
-                if isinstance(metrics.get("label_slice_meta"), dict)
-                else {}
-            )
-            label_slice_count = 0
-            if "slice_count" in label_slice_meta:
-                label_slice_count = int(_safe_float(label_slice_meta.get("slice_count"), 0.0))
+            if bundle and bundled_summary:
+                history_summary = bundled_summary
             else:
-                raw_slices = metrics.get("label_slices")
-                if isinstance(raw_slices, list):
-                    label_slice_count = len(raw_slices)
-            family_slice_meta = (
-                metrics.get("family_slice_meta")
-                if isinstance(metrics.get("family_slice_meta"), dict)
-                else {}
-            )
-            family_slice_count = 0
-            if "slice_count" in family_slice_meta:
-                family_slice_count = int(
-                    _safe_float(family_slice_meta.get("slice_count"), 0.0)
+                history_summary = history_canonical._load_or_build_summary(
+                    eval_history_dir / "history_sequence_experiment_summary.json",
+                    eval_history_dir=eval_history_dir,
+                    report_glob="*.json",
                 )
-            else:
-                raw_family_slices = metrics.get("family_slices")
-                if isinstance(raw_family_slices, list):
-                    family_slice_count = len(raw_family_slices)
-            hybrid_blind_metrics.append(
-                {
-                    "hybrid_accuracy": _safe_float(metrics.get("hybrid_accuracy"), 0.0),
-                    "graph2d_accuracy": _safe_float(metrics.get("graph2d_accuracy"), 0.0),
-                    "hybrid_gain_vs_graph2d": _safe_float(
-                        metrics.get("hybrid_gain_vs_graph2d"), 0.0
-                    ),
-                    "weak_label_coverage": _safe_float(
-                        metrics.get("weak_label_coverage"), 0.0
-                    ),
-                    "label_slice_count": float(max(0, label_slice_count)),
-                    "family_slice_count": float(max(0, family_slice_count)),
-                }
-            )
-            if latest_hybrid_blind_ts is None or ts > latest_hybrid_blind_ts:
-                latest_hybrid_blind_ts = ts
-                latest_hybrid_blind_label_slice_count = max(0, int(label_slice_count))
-                latest_hybrid_blind_family_slice_count = max(0, int(family_slice_count))
+    history_rows = [
+        row
+        for row in history_canonical._rows_from_summary(history_summary)
+        if (_parse_ts(row.get("timestamp")) or datetime.fromtimestamp(0, tz=timezone.utc)) >= cutoff
+    ]
+    history_window = history_canonical._build_window_summary(history_rows)
+    total_reports = int(signal_window["report_count"]) + int(history_window["report_count"])
 
     return WeeklyMetrics(
         total_reports=total_reports,
-        ocr_reports=len(ocr_metrics),
-        combined_reports=len(combined_metrics),
-        history_reports=len(history_metrics),
-        ocr_dimension_recall_mean=_mean([m["dimension_recall"] for m in ocr_metrics]),
-        ocr_brier_score_mean=_mean([m["brier_score"] for m in ocr_metrics]),
-        ocr_edge_f1_mean=_mean([m["edge_f1"] for m in ocr_metrics]),
-        combined_score_mean=_mean([m["combined_score"] for m in combined_metrics]),
-        combined_vision_score_mean=_mean([m["vision_score"] for m in combined_metrics]),
-        combined_ocr_score_mean=_mean([m["ocr_score"] for m in combined_metrics]),
-        history_coverage_mean=_mean([m["coverage"] for m in history_metrics]),
-        history_accuracy_mean=_mean([m["accuracy_overall"] for m in history_metrics]),
-        history_macro_f1_mean=_mean([m["macro_f1_overall"] for m in history_metrics]),
-        hybrid_blind_reports=len(hybrid_blind_metrics),
-        hybrid_blind_accuracy_mean=_mean([m["hybrid_accuracy"] for m in hybrid_blind_metrics]),
-        hybrid_blind_graph2d_accuracy_mean=_mean(
-            [m["graph2d_accuracy"] for m in hybrid_blind_metrics]
+        ocr_reports=int(signal_window["ocr_reports"]),
+        combined_reports=int(signal_window["combined_reports"]),
+        history_reports=int(history_window["report_count"]),
+        ocr_dimension_recall_mean=_safe_float(signal_window["ocr_dimension_recall_mean"], 0.0),
+        ocr_brier_score_mean=_safe_float(signal_window["ocr_brier_score_mean"], 0.0),
+        ocr_edge_f1_mean=_safe_float(signal_window["ocr_edge_f1_mean"], 0.0),
+        combined_score_mean=_safe_float(signal_window["combined_score_mean"], 0.0),
+        combined_vision_score_mean=_safe_float(signal_window["combined_vision_score_mean"], 0.0),
+        combined_ocr_score_mean=_safe_float(signal_window["combined_ocr_score_mean"], 0.0),
+        history_coverage_mean=_safe_float(history_window["coverage_mean"], 0.0),
+        history_accuracy_mean=_safe_float(history_window["accuracy_mean"], 0.0),
+        history_macro_f1_mean=_safe_float(history_window["macro_f1_mean"], 0.0),
+        history_named_explainability_rate_mean=_safe_float(
+            history_window["named_explainability_rate_mean"], 0.0
         ),
-        hybrid_blind_gain_mean=_mean(
-            [m["hybrid_gain_vs_graph2d"] for m in hybrid_blind_metrics]
+        history_named_error_rate_mean=_safe_float(history_window["named_error_rate_mean"], 0.0),
+        history_named_low_conf_rate_mean=_safe_float(
+            history_window["named_low_conf_rate_mean"], 0.0
         ),
-        hybrid_blind_coverage_mean=_mean(
-            [m["weak_label_coverage"] for m in hybrid_blind_metrics]
+        history_sequence_surface_kind_latest=str(history_window["latest_sequence_surface_kind"]),
+        history_named_vocabulary_kind_latest=str(history_window["latest_named_vocabulary_kind"]),
+        history_named_worst_primary_family_latest=str(
+            history_window["latest_worst_primary_family"]
         ),
-        hybrid_blind_label_slice_count_mean=_mean(
-            [m["label_slice_count"] for m in hybrid_blind_metrics]
+        history_named_worst_primary_reference_surface_latest=str(
+            history_window["latest_worst_primary_reference_surface"]
         ),
-        hybrid_blind_label_slice_count_latest=latest_hybrid_blind_label_slice_count,
-        hybrid_blind_family_slice_count_mean=_mean(
-            [m["family_slice_count"] for m in hybrid_blind_metrics]
+        history_named_worst_primary_status_latest=str(
+            history_window["latest_worst_primary_status"]
         ),
-        hybrid_blind_family_slice_count_latest=latest_hybrid_blind_family_slice_count,
+        history_surface_group_count=int(history_window["surface_group_count"]),
+        history_best_surface_key_by_mean_accuracy_overall=str(
+            history_window["best_surface_key_by_mean_accuracy_overall"]
+        ),
+        history_surface_groups=list(history_window["surface_groups"]),
+        hybrid_blind_reports=int(signal_window["hybrid_blind_reports"]),
+        hybrid_blind_accuracy_mean=_safe_float(signal_window["hybrid_blind_accuracy_mean"], 0.0),
+        hybrid_blind_graph2d_accuracy_mean=_safe_float(
+            signal_window["hybrid_blind_graph2d_accuracy_mean"], 0.0
+        ),
+        hybrid_blind_gain_mean=_safe_float(signal_window["hybrid_blind_gain_mean"], 0.0),
+        hybrid_blind_coverage_mean=_safe_float(signal_window["hybrid_blind_coverage_mean"], 0.0),
+        hybrid_blind_label_slice_count_mean=_safe_float(
+            signal_window["hybrid_blind_label_slice_count_mean"], 0.0
+        ),
+        hybrid_blind_label_slice_count_latest=int(
+            signal_window["hybrid_blind_label_slice_count_latest"]
+        ),
+        hybrid_blind_family_slice_count_mean=_safe_float(
+            signal_window["hybrid_blind_family_slice_count_mean"], 0.0
+        ),
+        hybrid_blind_family_slice_count_latest=int(
+            signal_window["hybrid_blind_family_slice_count_latest"]
+        ),
     )
 
 
@@ -230,6 +217,36 @@ def build_weekly_markdown(
     lines.append(f"| History coverage mean | {metrics.history_coverage_mean:.6f} |")
     lines.append(f"| History accuracy mean | {metrics.history_accuracy_mean:.6f} |")
     lines.append(f"| History macro_f1 mean | {metrics.history_macro_f1_mean:.6f} |")
+    lines.append(
+        f"| History named explainability rate mean | {metrics.history_named_explainability_rate_mean:.6f} |"
+    )
+    lines.append(
+        f"| History named error rate mean | {metrics.history_named_error_rate_mean:.6f} |"
+    )
+    lines.append(
+        f"| History named low-conf rate mean | {metrics.history_named_low_conf_rate_mean:.6f} |"
+    )
+    lines.append(
+        f"| History sequence surface latest | `{metrics.history_sequence_surface_kind_latest or 'n/a'}` |"
+    )
+    lines.append(
+        f"| History named vocabulary latest | `{metrics.history_named_vocabulary_kind_latest or 'n/a'}` |"
+    )
+    lines.append(
+        f"| History worst family latest | `{metrics.history_named_worst_primary_family_latest or 'n/a'}` |"
+    )
+    lines.append(
+        f"| History worst reference surface latest | `{metrics.history_named_worst_primary_reference_surface_latest or 'n/a'}` |"
+    )
+    lines.append(
+        f"| History worst status latest | `{metrics.history_named_worst_primary_status_latest or 'n/a'}` |"
+    )
+    lines.append(
+        f"| History surface group count | {metrics.history_surface_group_count} |"
+    )
+    lines.append(
+        f"| History best surface key | `{metrics.history_best_surface_key_by_mean_accuracy_overall or 'n/a'}` |"
+    )
     lines.append(f"| Hybrid blind reports | {metrics.hybrid_blind_reports} |")
     lines.append(f"| Hybrid blind accuracy mean | {metrics.hybrid_blind_accuracy_mean:.6f} |")
     lines.append(
@@ -269,6 +286,16 @@ def build_weekly_markdown(
         f"| Hybrid calibration gate | `{context.get('hybrid_calibration_gate_status', 'unknown')}` |"
     )
     lines.append("")
+    lines.append("## History Surface Groups")
+    lines.append("")
+    for group in metrics.history_surface_groups:
+        lines.append(
+            f"- `{group.get('surface_key', '')}`: reports=`{group.get('report_count', 0)}`, "
+            f"mean_accuracy=`{_safe_float(group.get('mean_accuracy_overall'), 0.0):.6f}`, "
+            f"mean_named_explainability=`{_safe_float(group.get('mean_named_explainability_rate'), 0.0):.6f}`, "
+            f"latest=`{group.get('latest_timestamp', '')}`"
+        )
+    lines.append("")
     return "\n".join(lines) + "\n"
 
 
@@ -284,6 +311,31 @@ def main(argv: Optional[List[str]] = None) -> int:
         default="reports/eval_history/weekly_summary.md",
         help="Output markdown path.",
     )
+    parser.add_argument(
+        "--eval-signal-summary-json",
+        default="",
+        help=(
+            "Optional canonical eval-signal experiment summary JSON. "
+            "When present, weekly combined/OCR/hybrid metrics prefer the canonical artifact."
+        ),
+    )
+    parser.add_argument(
+        "--history-sequence-summary-json",
+        default="",
+        help=(
+            "Optional canonical history-sequence experiment summary JSON. "
+            "When present, weekly history-sequence metrics prefer the canonical artifact."
+        ),
+    )
+    parser.add_argument(
+        "--history-sequence-reporting-bundle-json",
+        default="",
+        help=(
+            "Optional history-sequence reporting bundle JSON. When summary JSON is not "
+            "explicitly set, weekly history-sequence metrics prefer the bundle-referenced "
+            "canonical summary artifact."
+        ),
+    )
     parser.add_argument("--days", type=int, default=7, help="Rolling window in days.")
     parser.add_argument("--graph2d-blind-status", default="unknown")
     parser.add_argument("--graph2d-blind-accuracy", default="n/a")
@@ -298,7 +350,28 @@ def main(argv: Optional[List[str]] = None) -> int:
     out_md = Path(args.output_md)
     out_md.parent.mkdir(parents=True, exist_ok=True)
 
-    metrics = collect_metrics(eval_dir, days=max(1, int(args.days)))
+    eval_signal_summary_json = (
+        Path(str(args.eval_signal_summary_json))
+        if str(args.eval_signal_summary_json).strip()
+        else None
+    )
+    summary_json = (
+        Path(str(args.history_sequence_summary_json))
+        if str(args.history_sequence_summary_json).strip()
+        else None
+    )
+    bundle_json = (
+        Path(str(args.history_sequence_reporting_bundle_json))
+        if str(args.history_sequence_reporting_bundle_json).strip()
+        else eval_dir / "history_sequence_reporting_bundle.json"
+    )
+    metrics = collect_metrics(
+        eval_dir,
+        days=max(1, int(args.days)),
+        eval_signal_summary_json=eval_signal_summary_json,
+        history_sequence_summary_json=summary_json,
+        history_sequence_reporting_bundle_json=bundle_json,
+    )
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     context = {
         "graph2d_blind_status": args.graph2d_blind_status,

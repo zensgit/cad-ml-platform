@@ -162,6 +162,17 @@ class TitleBlock(BaseModel):
     projection: Optional[str] = None
 
 
+class IdentifierInfo(BaseModel):
+    identifier_type: str
+    label: Optional[str] = Field(None, description="Human-readable label caption")
+    value: str
+    normalized_value: str
+    source_text: Optional[str] = Field(None, description="Original OCR text line or snippet")
+    bbox: Optional[list[int]] = Field(None, description="[x,y,w,h] normalized bbox")
+    confidence: Optional[float] = Field(None, description="Evidence confidence if available")
+    source: str = Field(..., description="ocr_line|regex_text|provider_json")
+
+
 class OcrStage(str, Enum):
     preprocess = "preprocess"
     infer = "infer"
@@ -175,6 +186,7 @@ class OcrResult(BaseModel):
     symbols: List[SymbolInfo] = Field(default_factory=list)
     title_block: TitleBlock = Field(default_factory=TitleBlock)
     title_block_confidence: Dict[str, float] = Field(default_factory=dict)
+    identifiers: List[IdentifierInfo] = Field(default_factory=list)
     process_requirements: ProcessRequirements = Field(default_factory=ProcessRequirements)
     confidence: Optional[float] = None
     calibrated_confidence: Optional[float] = None

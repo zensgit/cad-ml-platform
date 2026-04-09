@@ -1,0 +1,10 @@
+hybrid_blind_gate:
+  # batch_analyze_dxf_local.py --geometry-only summary gate
+  min_sample_size: 20
+  min_weak_label_coverage: 0.70
+  min_hybrid_accuracy: 0.30
+  min_gain_vs_graph2d: 0.00
+  max_hybrid_missing_pred_rate: 0.30
+  require_geometry_only: true
+  require_mask_filename: true
+  require_strip_text: true

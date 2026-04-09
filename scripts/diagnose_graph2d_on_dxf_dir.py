@@ -108,6 +108,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--max-files", type=int, default=200)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
+        "--low-conf-threshold",
+        type=float,
+        default=0.2,
+        help="Threshold used to compute low-confidence rate (default: 0.2).",
+    )
+    parser.add_argument(
         "--output-dir",
         default=f"reports/experiments/{time.strftime('%Y%m%d')}/graph2d_diagnose",
         help="Directory to write CSV/JSON artifacts.",
@@ -392,6 +398,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     conf_sorted = sorted(confs)
     conf_p50 = conf_sorted[len(conf_sorted) // 2] if conf_sorted else 0.0
     conf_p90 = conf_sorted[int(len(conf_sorted) * 0.9)] if conf_sorted else 0.0
+    low_conf_threshold = float(args.low_conf_threshold)
+    low_conf_count = sum(1 for c in confs if c < low_conf_threshold)
+    low_conf_rate = (float(low_conf_count) / float(len(confs))) if confs else 0.0
 
     top_confusions: List[Dict[str, Any]] = []
     for (t, pred), count in confusion_counts.most_common(25):
@@ -418,10 +427,17 @@ def main(argv: Optional[List[str]] = None) -> int:
         "label_map_size": len(getattr(clf, "label_map", {}) or {}),
         "top_pred_labels": _summarize_counts(pred_counts, topn=20),
         "top_pred_labels_canon": _summarize_counts(pred_canon_counts, topn=20),
+        "pred_labels": {
+            "distinct_count": len(pred_counts),
+            "distinct_canon_count": len(pred_canon_counts),
+        },
         "confidence": {
             "count": len(confs),
             "p50": round(conf_p50, 4),
             "p90": round(conf_p90, 4),
+            "low_conf_threshold": round(low_conf_threshold, 4),
+            "low_conf_count": int(low_conf_count),
+            "low_conf_rate": round(low_conf_rate, 6),
         },
         "true_labels": (
             {

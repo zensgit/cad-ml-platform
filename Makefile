@@ -1,15 +1,13 @@
 # CAD ML Platform - Makefile
 # 统一的开发工作流
 
-.PHONY: help install dev test test-dedupcad-vision lint format type-check clean run docs docker eval-history health-check eval-trend history-sequence-reporting-bundle eval-signal-reporting-bundle eval-reporting-bundle eval-reporting-bundle-health eval-reporting-refresh eval-reporting-landing-page \
+.PHONY: help install dev test test-dedupcad-vision lint format type-check clean run docs docker eval-history health-check eval-trend \
 	observability-up observability-down observability-status self-check metrics-validate prom-validate \
 	dashboard-import security-audit metrics-audit cardinality-check verify-metrics test-targeted e2e-smoke \
 	dedup2d-secure-smoke chrome-devtools cdp-console-demo cdp-network-demo cdp-perf-demo cdp-response-demo \
 	cdp-screenshot-demo cdp-trace-demo playwright-console-demo playwright-trace-demo playwright-install \
 		uvnet-checkpoint-inspect graph2d-freeze-baseline worktree-bootstrap validate-iso286 validate-tolerance \
 		validate-openapi \
-		validate-workflow-action-pins \
-		refresh-workflow-action-pin-policy \
 		graph2d-review-summary validate-core-fast test-provider-core test-provider-contract \
 		validate-graph2d-seed-gate validate-graph2d-seed-gate-strict \
 		validate-graph2d-seed-gate-regression validate-graph2d-seed-gate-strict-regression \
@@ -25,23 +23,12 @@
 		validate-ci-watchers clean-ci-watch-summaries \
 			check-gh-actions-ready validate-check-gh-actions-ready \
 				watch-commit-workflows-safe clean-gh-readiness-summaries \
-					clean-ci-watch-artifacts watch-commit-workflows-safe-auto \
-					generate-ci-watch-validation-report validate-generate-ci-watch-validation-report \
-					validate-eval-with-history-ci-workflows \
-					graph2d-review-pack graph2d-review-pack-gate graph2d-train-sweep \
-					graph2d-review-pack-gate-strict-e2e validate-graph2d-review-pack-gate-strict-e2e \
-					hybrid-calibrate-confidence hybrid-calibration-gate update-hybrid-calibration-baseline \
-					refresh-hybrid-calibration-baseline validate-hybrid-calibration-workflow \
-						hybrid-blind-build-synth hybrid-blind-eval hybrid-blind-gate hybrid-blind-strict-real \
-						hybrid-blind-strict-real-template-gh \
-						hybrid-blind-strict-real-e2e-gh validate-hybrid-blind-strict-real-e2e-gh \
-						hybrid-blind-drift-alert hybrid-blind-drift-suggest-thresholds hybrid-blind-history-bootstrap hybrid-blind-drift-activate \
-						hybrid-blind-drift-apply-suggestion-gh hybrid-superpass-gate \
-							hybrid-superpass-e2e-gh hybrid-superpass-apply-gh-vars \
-							validate-soft-mode-smoke validate-soft-mode-smoke-auto-pr validate-soft-mode-smoke-workflow validate-soft-mode-smoke-comment \
-							render-soft-mode-smoke-summary validate-render-soft-mode-smoke-summary render-hybrid-blind-strict-real-dispatch-summary validate-render-hybrid-blind-strict-real-dispatch-summary render-hybrid-superpass-dispatch-summary validate-render-hybrid-superpass-dispatch-summary render-hybrid-superpass-validation-summary validate-render-hybrid-superpass-validation-summary soft-mode-smoke-comment-pr validate-soft-mode-smoke-comment-pr \
-							validate-hybrid-superpass-workflow \
-							eval-weekly-summary validate-hybrid-blind-workflow
+				clean-ci-watch-artifacts watch-commit-workflows-safe-auto \
+				generate-ci-watch-validation-report validate-generate-ci-watch-validation-report \
+				graph2d-review-pack graph2d-review-pack-gate graph2d-train-sweep \
+				graph2d-review-pack-gate-strict-e2e validate-graph2d-review-pack-gate-strict-e2e \
+				hybrid-superpass-gate hybrid-superpass-e2e-gh hybrid-superpass-apply-gh-vars \
+				validate-hybrid-superpass-workflow
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -79,20 +66,7 @@ ARCHIVE_WORKFLOW_WATCH ?= 0
 ARCHIVE_WORKFLOW_PRINT_ONLY ?= 0
 ARCHIVE_WORKFLOW_WAIT_TIMEOUT ?= 120
 ARCHIVE_WORKFLOW_POLL_INTERVAL ?= 3
-OPTIONAL_BOOL_FLAG = $(if $(filter 1,$($(1))),$(2),)
-ARCHIVE_WORKFLOW_COMMON_ARGS = \
-	--ref "$(ARCHIVE_WORKFLOW_REF)" \
-	--experiments-root "$(ARCHIVE_WORKFLOW_EXPERIMENTS_ROOT)" \
-	--archive-root "$(ARCHIVE_WORKFLOW_ARCHIVE_ROOT)" \
-	--keep-latest-days "$(ARCHIVE_WORKFLOW_KEEP_DAYS)" \
-	--today "$(ARCHIVE_WORKFLOW_TODAY)" \
-	--wait-timeout-seconds "$(ARCHIVE_WORKFLOW_WAIT_TIMEOUT)" \
-	--poll-interval-seconds "$(ARCHIVE_WORKFLOW_POLL_INTERVAL)"
-ARCHIVE_WORKFLOW_OPTIONAL_FLAGS = \
-	$(call OPTIONAL_BOOL_FLAG,ARCHIVE_WORKFLOW_WATCH,--watch) \
-	$(call OPTIONAL_BOOL_FLAG,ARCHIVE_WORKFLOW_PRINT_ONLY,--print-only)
 CI_WATCH_SHA ?= HEAD
-CI_WATCH_REPO ?=
 CI_WATCH_EVENTS ?= push
 CI_WATCH_REQUIRED_WORKFLOWS ?= CI,CI Enhanced,CI Tiered Tests,Code Quality,Multi-Architecture Docker Build,Security Audit,Observability Checks,Self-Check,GHCR Publish,Evaluation Report
 CI_WATCH_TIMEOUT ?= 1800
@@ -107,260 +81,15 @@ CI_WATCH_SUMMARY_JSON ?=
 CI_WATCH_SUMMARY_DIR ?= reports/ci
 CI_WATCH_ARTIFACT_SHA_LEN ?= 12
 CI_WATCH_PRINT_ONLY ?= 0
-CI_WATCH_PRINT_FAILURE_DETAILS ?= 1
-CI_WATCH_FAILURE_DETAILS_MAX_RUNS ?= 3
 CI_WATCH_PRECHECK_STRICT ?= 1
-CI_WATCH_OPTIONAL_FLAGS = \
-	$(call OPTIONAL_BOOL_FLAG,CI_WATCH_PRINT_ONLY,--print-only) \
-	$(call OPTIONAL_BOOL_FLAG,CI_WATCH_PRINT_FAILURE_DETAILS,--print-failure-details)
-CI_WATCH_PRECHECK_TARGET = $(if $(filter 1,$(CI_WATCH_PRECHECK_STRICT)),check-gh-actions-ready,check-gh-actions-ready-soft)
-CI_WATCH_PRECHECK_WARNING_CMD = $(if $(filter 1,$(CI_WATCH_PRECHECK_STRICT)),,@echo "$(YELLOW)[warn] CI_WATCH_PRECHECK_STRICT=0: precheck failures will be ignored$(NC)")
-CI_WATCH_SAFE_AUTO_READY_PREFIX ?= $(CI_WATCH_SUMMARY_DIR)/gh_readiness_watch
-CI_WATCH_SAFE_AUTO_SUMMARY_PREFIX ?= $(CI_WATCH_SUMMARY_DIR)/watch_commit
 CI_WATCH_REPORT_SUMMARY_JSON ?=
 CI_WATCH_REPORT_READINESS_JSON ?=
-CI_WATCH_REPORT_SOFT_SMOKE_JSON ?=
-CI_WATCH_REPORT_SOFT_SMOKE_MD ?=
-CI_WATCH_REPORT_EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON ?=
-CI_WATCH_REPORT_OUTPUT_JSON ?=
 CI_WATCH_REPORT_OUTPUT_MD ?=
 CI_WATCH_REPORT_DIR ?= reports
 CI_WATCH_REPORT_SHA_LEN ?= 7
 CI_WATCH_REPORT_DATE ?=
-CI_WATCH_SUMMARY_ARTIFACT_GLOB = "$(CI_WATCH_SUMMARY_DIR)"/watch_*_summary.json
-GH_READINESS_SUMMARY_ARTIFACT_GLOB = "$(CI_WATCH_SUMMARY_DIR)"/gh_readiness*.json
-CI_WATCH_VALIDATION_REPORT_INPUT_ARGS = \
-	--summary-dir "$(CI_WATCH_SUMMARY_DIR)" \
-	--summary-json "$(CI_WATCH_REPORT_SUMMARY_JSON)" \
-	--readiness-json "$(CI_WATCH_REPORT_READINESS_JSON)" \
-	--soft-smoke-summary-json "$(CI_WATCH_REPORT_SOFT_SMOKE_JSON)" \
-	--soft-smoke-summary-md "$(CI_WATCH_REPORT_SOFT_SMOKE_MD)" \
-	--workflow-guardrail-summary-json "$(WORKFLOW_GUARDRAIL_SUMMARY_JSON)" \
-	--ci-workflow-guardrail-overview-json "$(CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON)" \
-	--evaluation-comment-support-manifest-json "$(CI_WATCH_REPORT_EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON)"
-CI_WATCH_VALIDATION_REPORT_OUTPUT_ARGS = \
-	--output-json "$(CI_WATCH_REPORT_OUTPUT_JSON)" \
-	--output-md "$(CI_WATCH_REPORT_OUTPUT_MD)" \
-	--report-dir "$(CI_WATCH_REPORT_DIR)" \
-	--report-sha-len "$(CI_WATCH_REPORT_SHA_LEN)" \
-	--date "$(CI_WATCH_REPORT_DATE)"
-VALIDATE_WATCH_COMMIT_WORKFLOWS_TESTS = \
-	$(TEST_DIR)/unit/test_ci_watch_summary_utils.py \
-	$(TEST_DIR)/unit/test_watch_commit_workflows.py \
-	$(TEST_DIR)/unit/test_watch_commit_workflows_make_target.py
-VALIDATE_CI_WATCH_VALIDATION_REPORT_TESTS = \
-	$(TEST_DIR)/unit/test_summary_status_utils.py \
-	$(TEST_DIR)/unit/test_summary_section_utils.py \
-	$(TEST_DIR)/unit/test_ci_watch_summary_utils.py \
-	$(TEST_DIR)/unit/test_evaluation_comment_support_manifest_utils.py \
-	$(TEST_DIR)/unit/test_workflow_guardrail_summary_utils.py \
-	$(TEST_DIR)/unit/test_generate_ci_watcher_validation_report.py
-VALIDATE_CI_WATCHERS_TARGETS = \
-	validate-check-gh-actions-ready \
-	validate-watch-commit-workflows \
-	validate-generate-ci-watch-validation-report \
-	validate-generate-ci-workflow-guardrail-overview \
-	validate-workflow-file-health-tests \
-	validate-workflow-comment-helper-tests \
-	validate-workflow-issue-helper-tests \
-	validate-workflow-identity-tests \
-	validate-workflow-publish-helper-adoption \
-	validate-workflow-publish-helper-adoption-tests \
-	validate-workflow-guardrail-summary-report \
-	validate-workflow-inventory-report \
-	validate-archive-workflow-dispatcher \
-	validate-eval-with-history-ci-workflows \
-	validate-graph2d-review-pack-gate-strict-e2e
-CI_WORKFLOW_GUARDRAIL_OVERVIEW_ARGS = \
-	--ci-watch-summary-dir "$(CI_WATCH_SUMMARY_DIR)" \
-	--ci-watch-summary-json "$(CI_WATCH_REPORT_SUMMARY_JSON)" \
-	--workflow-guardrail-json "$(WORKFLOW_GUARDRAIL_SUMMARY_JSON)" \
-	--output-json "$(CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON)" \
-	--output-md "$(CI_WORKFLOW_GUARDRAIL_OVERVIEW_MD)"
-VALIDATE_CI_WORKFLOW_GUARDRAIL_OVERVIEW_TESTS = \
-	$(TEST_DIR)/unit/test_summary_section_utils.py \
-	$(TEST_DIR)/unit/test_ci_watch_summary_utils.py \
-	$(TEST_DIR)/unit/test_workflow_guardrail_summary_utils.py \
-	$(TEST_DIR)/unit/test_generate_ci_workflow_guardrail_overview.py \
-	$(TEST_DIR)/unit/test_watch_commit_workflows_make_target.py
-VALIDATE_WORKFLOW_FILE_HEALTH_TESTS = \
-	$(TEST_DIR)/unit/test_workflow_file_health_summary_utils_js.py \
-	$(TEST_DIR)/unit/test_workflow_file_health_summary_utils.py \
-	$(TEST_DIR)/unit/test_check_workflow_file_issues.py \
-	$(TEST_DIR)/unit/test_stress_workflow_workflow_file_health.py \
-	$(TEST_DIR)/unit/test_workflow_file_health_make_target.py
-VALIDATE_WORKFLOW_COMMENT_HELPER_TESTS = \
-	$(TEST_DIR)/unit/test_workflow_publish_helper_policy.py \
-	$(TEST_DIR)/unit/test_workflow_publish_helper_policy_adoption.py \
-	$(TEST_DIR)/unit/test_additional_workflow_comment_helper_adoption.py \
-	$(TEST_DIR)/unit/test_release_risk_comment_workflow.py \
-	$(TEST_DIR)/unit/test_pr_auto_label_comment_workflow.py \
-	$(TEST_DIR)/unit/test_sbom_comment_workflow.py \
-	$(TEST_DIR)/unit/test_workflow_file_health_make_target.py
-VALIDATE_WORKFLOW_ISSUE_HELPER_TESTS = \
-	$(TEST_DIR)/unit/test_workflow_publish_helper_policy.py \
-	$(TEST_DIR)/unit/test_workflow_publish_helper_policy_adoption.py \
-	$(TEST_DIR)/unit/test_issue_upsert_utils_js.py \
-	$(TEST_DIR)/unit/test_workflow_issue_helper_adoption.py \
-	$(TEST_DIR)/unit/test_workflow_file_health_make_target.py
-VALIDATE_WORKFLOW_IDENTITY_TESTS = \
-	$(TEST_DIR)/unit/test_check_workflow_identity_invariants.py \
-	$(TEST_DIR)/unit/test_workflow_file_health_make_target.py
-VALIDATE_WORKFLOW_PUBLISH_HELPER_ADOPTION_TESTS = \
-	$(TEST_DIR)/unit/test_workflow_publish_helper_summary_utils.py \
-	$(TEST_DIR)/unit/test_workflow_publish_helper_policy.py \
-	$(TEST_DIR)/unit/test_workflow_publish_helper_policy_adoption.py \
-	$(TEST_DIR)/unit/test_check_workflow_publish_helper_adoption.py \
-	$(TEST_DIR)/unit/test_workflow_file_health_make_target.py
-VALIDATE_WORKFLOW_GUARDRAIL_SUMMARY_REPORT_TESTS = \
-	$(TEST_DIR)/unit/test_summary_section_utils.py \
-	$(TEST_DIR)/unit/test_workflow_file_health_summary_utils_js.py \
-	$(TEST_DIR)/unit/test_workflow_file_health_summary_utils.py \
-	$(TEST_DIR)/unit/test_workflow_inventory_summary_utils.py \
-	$(TEST_DIR)/unit/test_workflow_publish_helper_summary_utils.py \
-	$(TEST_DIR)/unit/test_generate_workflow_guardrail_summary.py \
-	$(TEST_DIR)/unit/test_workflow_file_health_make_target.py
-VALIDATE_WORKFLOW_INVENTORY_REPORT_TESTS = \
-	$(TEST_DIR)/unit/test_workflow_inventory_summary_utils.py \
-	$(TEST_DIR)/unit/test_generate_workflow_inventory_report.py \
-	$(TEST_DIR)/unit/test_workflow_file_health_make_target.py
-VALIDATE_OPENAPI_TESTS = \
-	$(TEST_DIR)/contract/test_openapi_operation_ids.py \
-	$(TEST_DIR)/contract/test_openapi_schema_snapshot.py \
-	$(TEST_DIR)/unit/test_api_route_uniqueness.py
-VALIDATE_WORKFLOW_ACTION_PINS_TESTS = \
-	$(TEST_DIR)/unit/test_check_workflow_action_pins.py \
-	$(TEST_DIR)/unit/test_action_pin_guard_workflow.py \
-	$(TEST_DIR)/unit/test_generate_workflow_action_pin_policy.py
-VALIDATE_CHECK_GH_ACTIONS_READY_TESTS = \
-	$(TEST_DIR)/unit/test_check_gh_actions_ready.py
-VALIDATE_ARCHIVE_WORKFLOW_DISPATCHER_TESTS = \
-	$(TEST_DIR)/unit/test_dispatch_experiment_archive_workflow.py \
-	$(TEST_DIR)/unit/test_experiment_archive_workflows.py \
-	$(TEST_DIR)/unit/test_archive_experiment_dirs.py \
-	$(TEST_DIR)/unit/test_archive_workflow_make_targets.py
-VALIDATE_GRAPH2D_REVIEW_PACK_GATE_STRICT_E2E_TESTS = \
-	$(TEST_DIR)/unit/test_dispatch_graph2d_review_gate_strict_e2e.py \
-	$(TEST_DIR)/unit/test_graph2d_parallel_make_targets.py \
-	$(TEST_DIR)/unit/test_evaluation_report_workflow_graph2d_extensions.py \
-	$(TEST_DIR)/unit/test_eval_with_history_script_history_sequence.py
-VALIDATE_HYBRID_SUPERPASS_WORKFLOW_TESTS = \
-	$(TEST_DIR)/unit/test_dispatch_hybrid_superpass_workflow.py \
-	$(TEST_DIR)/unit/test_dispatch_evaluation_soft_mode_smoke.py \
-	$(TEST_DIR)/unit/test_apply_hybrid_superpass_gh_vars.py \
-	$(TEST_DIR)/unit/test_check_hybrid_superpass_targets.py \
-	$(TEST_DIR)/unit/test_validate_hybrid_superpass_reports.py \
-	$(TEST_DIR)/unit/test_evaluation_report_workflow_hybrid_superpass_step.py \
-	$(TEST_DIR)/unit/test_evaluation_soft_mode_smoke_workflow.py \
-	$(TEST_DIR)/unit/test_hybrid_superpass_e2e_workflow.py \
-	$(TEST_DIR)/unit/test_hybrid_superpass_workflow_integration.py \
-	$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py \
-	$(TEST_DIR)/unit/test_evaluation_report_workflow_graph2d_extensions.py
-VALIDATE_HYBRID_BLIND_WORKFLOW_TESTS = \
-	$(TEST_DIR)/unit/test_dispatch_hybrid_blind_strict_real_workflow.py \
-	$(TEST_DIR)/unit/test_print_hybrid_blind_strict_real_gh_template.py \
-	$(TEST_DIR)/unit/test_check_hybrid_blind_drift_alerts.py \
-	$(TEST_DIR)/unit/test_build_hybrid_blind_synthetic_dxf_dataset.py \
-	$(TEST_DIR)/unit/test_hybrid_blind_gate_check.py \
-	$(TEST_DIR)/unit/test_archive_hybrid_blind_eval_history.py \
-	$(TEST_DIR)/unit/test_bootstrap_hybrid_blind_eval_history.py \
-	$(TEST_DIR)/unit/test_apply_hybrid_blind_drift_suggestion_to_gh_vars.py \
-	$(TEST_DIR)/unit/test_suggest_hybrid_blind_drift_thresholds.py \
-	$(TEST_DIR)/unit/test_validate_eval_history_hybrid_blind.py \
-	$(TEST_DIR)/unit/test_generate_eval_weekly_summary.py \
-	$(TEST_DIR)/unit/test_check_hybrid_superpass_targets.py \
-	$(TEST_DIR)/unit/test_dispatch_hybrid_superpass_workflow.py \
-	$(TEST_DIR)/unit/test_apply_hybrid_superpass_gh_vars.py \
-	$(TEST_DIR)/unit/test_evaluation_report_workflow_hybrid_superpass_step.py \
-	$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py \
-	$(TEST_DIR)/unit/test_evaluation_report_workflow_graph2d_extensions.py
-VALIDATE_RENDER_SOFT_MODE_SMOKE_SUMMARY_TESTS = \
-	$(TEST_DIR)/unit/test_summary_render_utils.py \
-	$(TEST_DIR)/unit/test_render_soft_mode_smoke_summary.py \
-	$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py
-VALIDATE_RENDER_HYBRID_BLIND_STRICT_REAL_DISPATCH_SUMMARY_TESTS = \
-	$(TEST_DIR)/unit/test_summary_render_utils.py \
-	$(TEST_DIR)/unit/test_render_hybrid_blind_strict_real_dispatch_summary.py \
-	$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py
-VALIDATE_RENDER_HYBRID_SUPERPASS_DISPATCH_SUMMARY_TESTS = \
-	$(TEST_DIR)/unit/test_summary_render_utils.py \
-	$(TEST_DIR)/unit/test_render_hybrid_superpass_dispatch_summary.py \
-	$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py
-VALIDATE_RENDER_HYBRID_SUPERPASS_VALIDATION_SUMMARY_TESTS = \
-	$(TEST_DIR)/unit/test_summary_render_utils.py \
-	$(TEST_DIR)/unit/test_render_hybrid_superpass_validation_summary.py \
-	$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py
-VALIDATE_SOFT_MODE_SMOKE_WORKFLOW_TESTS = \
-	$(TEST_DIR)/unit/test_dispatch_evaluation_soft_mode_smoke.py \
-	$(TEST_DIR)/unit/test_render_soft_mode_smoke_summary.py \
-	$(TEST_DIR)/unit/test_evaluation_soft_mode_smoke_workflow.py \
-	$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py
-VALIDATE_SOFT_MODE_SMOKE_COMMENT_TESTS = \
-	$(TEST_DIR)/unit/test_comment_markdown_utils_js.py \
-	$(TEST_DIR)/unit/test_comment_pr_utils_js.py \
-	$(TEST_DIR)/unit/test_soft_mode_comment_body_consistency.py \
-	$(TEST_DIR)/unit/test_comment_soft_mode_smoke_pr_js.py
-VALIDATE_SOFT_MODE_SMOKE_COMMENT_PR_TESTS = \
-	$(TEST_DIR)/unit/test_comment_markdown_utils_py.py \
-	$(TEST_DIR)/unit/test_soft_mode_comment_body_consistency.py \
-	$(TEST_DIR)/unit/test_post_soft_mode_smoke_pr_comment.py \
-	$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py
-VALIDATE_HYBRID_BLIND_STRICT_REAL_E2E_GH_TESTS = \
-	$(TEST_DIR)/unit/test_dispatch_hybrid_blind_strict_real_workflow.py \
-	$(TEST_DIR)/unit/test_hybrid_blind_strict_real_e2e_workflow.py \
-	$(TEST_DIR)/unit/test_print_hybrid_blind_strict_real_gh_template.py \
-	$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py
-VALIDATE_HYBRID_CALIBRATION_WORKFLOW_TESTS = \
-	$(TEST_DIR)/unit/test_calibrate_hybrid_confidence_script.py \
-	$(TEST_DIR)/unit/test_hybrid_confidence_calibration_gate_check.py \
-	$(TEST_DIR)/unit/test_hybrid_confidence_calibration_baseline_update.py \
-	$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py \
-	$(TEST_DIR)/unit/test_evaluation_report_workflow_graph2d_extensions.py \
-	$(TEST_DIR)/unit/test_ci_workflow_hybrid_calibration_regression_step.py \
-	$(TEST_DIR)/unit/test_ci_enhanced_hybrid_calibration_regression_step.py \
-	$(TEST_DIR)/unit/test_ci_tiered_hybrid_calibration_regression_step.py
-VALIDATE_EVAL_WITH_HISTORY_CI_WORKFLOWS_TESTS = \
-	$(TEST_DIR)/unit/test_eval_with_history_script_history_sequence.py \
-	$(TEST_DIR)/unit/test_validate_eval_history_history_sequence.py \
-	$(TEST_DIR)/unit/test_summary_status_utils.py \
-	$(TEST_DIR)/unit/test_summary_section_utils.py \
-	$(TEST_DIR)/unit/test_evaluation_comment_support_manifest_utils.py \
-	$(TEST_DIR)/unit/test_generate_evaluation_comment_support_manifest.py \
-	$(TEST_DIR)/unit/test_evaluation_report_workflow_graph2d_extensions.py \
-	$(TEST_DIR)/unit/test_comment_markdown_utils_js.py \
-	$(TEST_DIR)/unit/test_comment_pr_utils_js.py \
-	$(TEST_DIR)/unit/test_comment_evaluation_report_pr_js.py \
-	$(TEST_DIR)/unit/test_comment_summary_path_utils_js.py \
-	$(TEST_DIR)/unit/test_section_status_detail_utils_js.py \
-	$(TEST_DIR)/unit/test_summary_status_utils_js.py \
-	$(TEST_DIR)/unit/test_evaluation_comment_support_manifest_utils_js.py \
-	$(TEST_DIR)/unit/test_ci_watch_summary_utils_js.py \
-	$(TEST_DIR)/unit/test_ci_watch_validation_report_utils_js.py \
-	$(TEST_DIR)/unit/test_workflow_file_health_summary_utils_js.py \
-	$(TEST_DIR)/unit/test_workflow_guardrail_summary_utils_js.py \
-	$(TEST_DIR)/unit/test_workflow_inventory_summary_utils_js.py \
-	$(TEST_DIR)/unit/test_workflow_publish_helper_summary_utils_js.py \
-	$(TEST_DIR)/unit/test_ci_workflow_eval_with_history_regression_step.py \
-	$(TEST_DIR)/unit/test_ci_enhanced_eval_with_history_regression_step.py \
-	$(TEST_DIR)/unit/test_ci_tiered_eval_with_history_regression_step.py \
-	$(TEST_DIR)/unit/test_ci_workflow_hybrid_calibration_regression_step.py \
-	$(TEST_DIR)/unit/test_ci_enhanced_hybrid_calibration_regression_step.py \
-	$(TEST_DIR)/unit/test_ci_tiered_hybrid_calibration_regression_step.py
 GH_READY_JSON ?= reports/ci/gh_readiness_latest.json
 GH_READY_SKIP_ACTIONS_API ?= 0
-GH_READY_OPTIONAL_FLAGS = \
-	$(call OPTIONAL_BOOL_FLAG,GH_READY_SKIP_ACTIONS_API,--skip-actions-api)
-WORKFLOW_FILE_HEALTH_GLOB ?= .github/workflows/*.yml
-WORKFLOW_FILE_HEALTH_REF ?= HEAD
-WORKFLOW_FILE_HEALTH_MODE ?= auto
-WORKFLOW_FILE_HEALTH_SUMMARY_JSON ?= reports/ci/workflow_file_health_summary.json
-WORKFLOW_IDENTITY_SUMMARY_JSON ?= reports/ci/workflow_identity_summary.json
-WORKFLOW_INVENTORY_REPORT_JSON ?= reports/ci/workflow_inventory_report.json
-WORKFLOW_INVENTORY_REPORT_MD ?= reports/ci/workflow_inventory_report.md
-WORKFLOW_GUARDRAIL_SUMMARY_JSON ?= reports/ci/workflow_guardrail_summary.json
-WORKFLOW_GUARDRAIL_SUMMARY_MD ?= reports/ci/workflow_guardrail_summary.md
-CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON ?= reports/ci/ci_workflow_guardrail_overview.json
-CI_WORKFLOW_GUARDRAIL_OVERVIEW_MD ?= reports/ci/ci_workflow_guardrail_overview.md
 
 # 项目路径
 SRC_DIR := src
@@ -467,22 +196,10 @@ validate-tolerance: ## 一键校验公差知识（数据 + API/模块测试）
 
 validate-openapi: ## 校验 OpenAPI operationId 唯一性
 	@echo "$(GREEN)Validating OpenAPI operation IDs...$(NC)"
-	$(PYTEST) $(VALIDATE_OPENAPI_TESTS) -q
-
-validate-workflow-action-pins: ## 校验 workflow actions 固定 SHA 与版本策略
-	@echo "$(GREEN)Validating workflow action pin policy...$(NC)"
-	$(PYTHON) scripts/ci/check_workflow_action_pins.py \
-		--workflows-dir .github/workflows \
-		--policy-json config/workflow_action_pin_policy.json \
-		--require-policy-for-all-external
-	$(PYTEST) $(VALIDATE_WORKFLOW_ACTION_PINS_TESTS) -q
-
-refresh-workflow-action-pin-policy: ## 根据 workflow 现状刷新 action pin policy
-	@echo "$(GREEN)Refreshing workflow action pin policy...$(NC)"
-	$(PYTHON) scripts/ci/generate_workflow_action_pin_policy.py \
-		--workflows-dir .github/workflows \
-		--output-json config/workflow_action_pin_policy.json \
-		--strict
+	$(PYTEST) \
+		$(TEST_DIR)/contract/test_openapi_operation_ids.py \
+		$(TEST_DIR)/contract/test_openapi_schema_snapshot.py \
+		$(TEST_DIR)/unit/test_api_route_uniqueness.py -q
 
 openapi-snapshot-update: ## 更新 OpenAPI 快照基线
 	@echo "$(GREEN)Updating OpenAPI schema snapshot baseline...$(NC)"
@@ -501,31 +218,56 @@ archive-experiments: ## 归档 reports/experiments 日期目录（默认 dry-run
 
 archive-workflow-dry-run-gh: ## 通过 workflow_dispatch 触发 Experiment Archive Dry Run
 	@echo "$(GREEN)Dispatching experiment archive dry-run workflow...$(NC)"
+	@watch_flag=""; \
+	if [ "$(ARCHIVE_WORKFLOW_WATCH)" = "1" ]; then watch_flag="--watch"; fi; \
+	print_only_flag=""; \
+	if [ "$(ARCHIVE_WORKFLOW_PRINT_ONLY)" = "1" ]; then print_only_flag="--print-only"; fi; \
 	$(PYTHON) scripts/ci/dispatch_experiment_archive_workflow.py \
 		--mode dry-run \
-		$(ARCHIVE_WORKFLOW_COMMON_ARGS) \
-		$(ARCHIVE_WORKFLOW_OPTIONAL_FLAGS)
+		--ref "$(ARCHIVE_WORKFLOW_REF)" \
+		--experiments-root "$(ARCHIVE_WORKFLOW_EXPERIMENTS_ROOT)" \
+		--archive-root "$(ARCHIVE_WORKFLOW_ARCHIVE_ROOT)" \
+		--keep-latest-days "$(ARCHIVE_WORKFLOW_KEEP_DAYS)" \
+		--today "$(ARCHIVE_WORKFLOW_TODAY)" \
+		--wait-timeout-seconds "$(ARCHIVE_WORKFLOW_WAIT_TIMEOUT)" \
+		--poll-interval-seconds "$(ARCHIVE_WORKFLOW_POLL_INTERVAL)" \
+		$$watch_flag $$print_only_flag
 
 archive-workflow-apply-gh: ## 通过 workflow_dispatch 触发 Experiment Archive Apply（需审批短语）
 	@echo "$(GREEN)Dispatching experiment archive apply workflow...$(NC)"
 	@test -n "$${ARCHIVE_APPROVAL_PHRASE:-}" || (echo "$(RED)ARCHIVE_APPROVAL_PHRASE is required$(NC)"; exit 1)
+	@watch_flag=""; \
+	if [ "$(ARCHIVE_WORKFLOW_WATCH)" = "1" ]; then watch_flag="--watch"; fi; \
+	print_only_flag=""; \
+	if [ "$(ARCHIVE_WORKFLOW_PRINT_ONLY)" = "1" ]; then print_only_flag="--print-only"; fi; \
 	$(PYTHON) scripts/ci/dispatch_experiment_archive_workflow.py \
 		--mode apply \
-		$(ARCHIVE_WORKFLOW_COMMON_ARGS) \
+		--ref "$(ARCHIVE_WORKFLOW_REF)" \
+		--experiments-root "$(ARCHIVE_WORKFLOW_EXPERIMENTS_ROOT)" \
+		--archive-root "$(ARCHIVE_WORKFLOW_ARCHIVE_ROOT)" \
+		--keep-latest-days "$(ARCHIVE_WORKFLOW_KEEP_DAYS)" \
+		--today "$(ARCHIVE_WORKFLOW_TODAY)" \
 		--approval-phrase "$${ARCHIVE_APPROVAL_PHRASE}" \
 		--dirs-csv "$(ARCHIVE_WORKFLOW_DIRS_CSV)" \
 		--require-exists "$(ARCHIVE_WORKFLOW_REQUIRE_EXISTS)" \
-		$(ARCHIVE_WORKFLOW_OPTIONAL_FLAGS)
+		--wait-timeout-seconds "$(ARCHIVE_WORKFLOW_WAIT_TIMEOUT)" \
+		--poll-interval-seconds "$(ARCHIVE_WORKFLOW_POLL_INTERVAL)" \
+		$$watch_flag $$print_only_flag
 
 validate-archive-workflow-dispatcher: ## 一键校验 archive workflow dispatcher（脚本/工作流/Make 参数透传）
 	@echo "$(GREEN)Validating archive workflow dispatcher...$(NC)"
-	$(PYTEST) $(VALIDATE_ARCHIVE_WORKFLOW_DISPATCHER_TESTS) -q
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_dispatch_experiment_archive_workflow.py \
+		$(TEST_DIR)/unit/test_experiment_archive_workflows.py \
+		$(TEST_DIR)/unit/test_archive_experiment_dirs.py \
+		$(TEST_DIR)/unit/test_archive_workflow_make_targets.py -q
 
 watch-commit-workflows: ## 监控指定提交 SHA 的 CI 工作流并等待完成
 	@echo "$(GREEN)Watching commit workflows...$(NC)"
+	@print_only_flag=""; \
+	if [ "$(CI_WATCH_PRINT_ONLY)" = "1" ]; then print_only_flag="--print-only"; fi; \
 	$(PYTHON) scripts/ci/watch_commit_workflows.py \
 		--sha "$(CI_WATCH_SHA)" \
-		--repo "$(CI_WATCH_REPO)" \
 		--events-csv "$(CI_WATCH_EVENTS)" \
 		--require-workflows-csv "$(CI_WATCH_REQUIRED_WORKFLOWS)" \
 		--wait-timeout-seconds "$(CI_WATCH_TIMEOUT)" \
@@ -536,13 +278,16 @@ watch-commit-workflows: ## 监控指定提交 SHA 的 CI 工作流并等待完�
 		--missing-required-mode "$(CI_WATCH_MISSING_REQUIRED_MODE)" \
 		--failure-mode "$(CI_WATCH_FAILURE_MODE)" \
 		--success-conclusions-csv "$(CI_WATCH_SUCCESS_CONCLUSIONS)" \
-		--failure-details-max-runs "$(CI_WATCH_FAILURE_DETAILS_MAX_RUNS)" \
 		--summary-json-out "$(CI_WATCH_SUMMARY_JSON)" \
-		$(CI_WATCH_OPTIONAL_FLAGS)
+		$$print_only_flag
 
 watch-commit-workflows-safe: ## 先做 gh readiness 预检，再执行 commit workflow watcher
-	$(CI_WATCH_PRECHECK_WARNING_CMD)
-	@$(MAKE) $(CI_WATCH_PRECHECK_TARGET)
+	@if [ "$(CI_WATCH_PRECHECK_STRICT)" = "1" ]; then \
+		$(MAKE) check-gh-actions-ready; \
+	else \
+		echo "$(YELLOW)[warn] CI_WATCH_PRECHECK_STRICT=0: precheck failures will be ignored$(NC)"; \
+		$(MAKE) check-gh-actions-ready-soft; \
+	fi
 	@$(MAKE) watch-commit-workflows
 
 watch-commit-workflows-safe-auto: ## 自动按提交 SHA 命名产物并执行 safe watcher
@@ -554,10 +299,8 @@ watch-commit-workflows-safe-auto: ## 自动按提交 SHA 命名产物并执行 s
 	esac; \
 	short_sha="$$full_sha"; \
 	if [ "$$sha_len" -gt 0 ]; then short_sha="$$(printf '%s' "$$full_sha" | cut -c1-$$sha_len)"; fi; \
-	ready_prefix="$(CI_WATCH_SAFE_AUTO_READY_PREFIX)"; \
-	watch_prefix="$(CI_WATCH_SAFE_AUTO_SUMMARY_PREFIX)"; \
-	ready_json="$${ready_prefix}_$${short_sha}.json"; \
-	watch_json="$${watch_prefix}_$${short_sha}_summary.json"; \
+	ready_json="$(CI_WATCH_SUMMARY_DIR)/gh_readiness_watch_$${short_sha}.json"; \
+	watch_json="$(CI_WATCH_SUMMARY_DIR)/watch_commit_$${short_sha}_summary.json"; \
 	echo "$(GREEN)Auto watch artifacts$(NC): $$ready_json | $$watch_json (resolved_sha=$$full_sha)"; \
 	$(MAKE) watch-commit-workflows-safe \
 		CI_WATCH_SHA="$$full_sha" \
@@ -567,140 +310,62 @@ watch-commit-workflows-safe-auto: ## 自动按提交 SHA 命名产物并执行 s
 generate-ci-watch-validation-report: ## 根据 watcher 产物生成 CI 验证 Markdown 报告
 	@echo "$(GREEN)Generating CI watcher validation report...$(NC)"
 	$(PYTHON) scripts/ci/generate_ci_watcher_validation_report.py \
-		$(CI_WATCH_VALIDATION_REPORT_INPUT_ARGS) \
-		$(CI_WATCH_VALIDATION_REPORT_OUTPUT_ARGS)
-
-generate-ci-workflow-guardrail-overview: ## 聚合 CI watcher summary 与 workflow guardrail summary（JSON + Markdown）
-	@echo "$(GREEN)Generating CI workflow guardrail overview...$(NC)"
-	$(PYTHON) scripts/ci/generate_ci_workflow_guardrail_overview.py \
-		$(CI_WORKFLOW_GUARDRAIL_OVERVIEW_ARGS)
+		--summary-dir "$(CI_WATCH_SUMMARY_DIR)" \
+		--summary-json "$(CI_WATCH_REPORT_SUMMARY_JSON)" \
+		--readiness-json "$(CI_WATCH_REPORT_READINESS_JSON)" \
+		--output-md "$(CI_WATCH_REPORT_OUTPUT_MD)" \
+		--report-dir "$(CI_WATCH_REPORT_DIR)" \
+		--report-sha-len "$(CI_WATCH_REPORT_SHA_LEN)" \
+		--date "$(CI_WATCH_REPORT_DATE)"
 
 validate-watch-commit-workflows: ## 校验 commit workflow watcher（脚本 + Make 参数透传）
 	@echo "$(GREEN)Validating commit workflow watcher...$(NC)"
-	$(PYTEST) $(VALIDATE_WATCH_COMMIT_WORKFLOWS_TESTS) -q
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_watch_commit_workflows.py \
+		$(TEST_DIR)/unit/test_watch_commit_workflows_make_target.py -q
 
 check-gh-actions-ready: ## 检查 gh CLI / 认证 / Actions API 可用性
 	@echo "$(GREEN)Checking gh Actions readiness...$(NC)"
+	@skip_actions_flag=""; \
+	if [ "$(GH_READY_SKIP_ACTIONS_API)" = "1" ]; then skip_actions_flag="--skip-actions-api"; fi; \
 	$(PYTHON) scripts/ci/check_gh_actions_ready.py \
 		--json-out "$(GH_READY_JSON)" \
-		$(GH_READY_OPTIONAL_FLAGS)
+		$$skip_actions_flag
 
 check-gh-actions-ready-soft: ## 检查 gh readiness（软模式：失败不返回非零）
 	@echo "$(GREEN)Checking gh Actions readiness (soft mode)...$(NC)"
+	@skip_actions_flag=""; \
+	if [ "$(GH_READY_SKIP_ACTIONS_API)" = "1" ]; then skip_actions_flag="--skip-actions-api"; fi; \
 	$(PYTHON) scripts/ci/check_gh_actions_ready.py \
 		--json-out "$(GH_READY_JSON)" \
-		$(GH_READY_OPTIONAL_FLAGS) \
+		$$skip_actions_flag \
 		--allow-fail
 
 validate-check-gh-actions-ready: ## 校验 gh readiness 检查脚本
 	@echo "$(GREEN)Validating gh readiness checker...$(NC)"
-	$(PYTEST) $(VALIDATE_CHECK_GH_ACTIONS_READY_TESTS) -q
+	$(PYTEST) $(TEST_DIR)/unit/test_check_gh_actions_ready.py -q
 
 validate-generate-ci-watch-validation-report: ## 校验 CI watcher 验证报告生成脚本
 	@echo "$(GREEN)Validating CI watcher validation report generator...$(NC)"
-	$(PYTEST) $(VALIDATE_CI_WATCH_VALIDATION_REPORT_TESTS) -q
-
-validate-generate-ci-workflow-guardrail-overview: ## 校验 CI watcher + workflow guardrail 概览脚本
-	@echo "$(GREEN)Validating CI workflow guardrail overview generator...$(NC)"
-	$(PYTEST) $(VALIDATE_CI_WORKFLOW_GUARDRAIL_OVERVIEW_TESTS) -q
-
-validate-workflow-file-health: ## 校验 GitHub workflow 文件健康（优先 gh 解析，失败回退 yaml）
-	@echo "$(GREEN)Validating workflow file health...$(NC)"
-	$(PYTHON) scripts/ci/check_workflow_file_issues.py \
-		--glob "$(WORKFLOW_FILE_HEALTH_GLOB)" \
-		--ref "$(WORKFLOW_FILE_HEALTH_REF)" \
-		--mode "$(WORKFLOW_FILE_HEALTH_MODE)" \
-		--summary-json-out "$(WORKFLOW_FILE_HEALTH_SUMMARY_JSON)"
-
-validate-workflow-file-health-tests: ## 校验 workflow 文件健康脚本与 stress workflow 接线
-	@echo "$(GREEN)Validating workflow file health tests...$(NC)"
-	$(PYTEST) $(VALIDATE_WORKFLOW_FILE_HEALTH_TESTS) -q
-
-validate-workflow-comment-helper-tests: ## 校验 workflow 内联 PR 评论已复用共享 helper
-	@echo "$(GREEN)Validating workflow PR comment helper adoption...$(NC)"
-	$(PYTEST) $(VALIDATE_WORKFLOW_COMMENT_HELPER_TESTS) -q
-
-validate-workflow-issue-helper-tests: ## 校验 workflow 内联 GitHub issue 发布已复用共享 helper
-	@echo "$(GREEN)Validating workflow issue helper adoption...$(NC)"
-	node --check scripts/ci/issue_upsert_utils.js
-	$(PYTEST) $(VALIDATE_WORKFLOW_ISSUE_HELPER_TESTS) -q
-
-validate-workflow-identity: ## 校验关键 workflow 的文件名、显示名与 dispatch 输入不变量
-	@echo "$(GREEN)Validating workflow identity invariants...$(NC)"
-	$(PYTHON) scripts/ci/check_workflow_identity_invariants.py \
-		--workflow-root ".github/workflows" \
-		--ci-watch-required-workflows "$(CI_WATCH_REQUIRED_WORKFLOWS)" \
-		--summary-json-out "$(WORKFLOW_IDENTITY_SUMMARY_JSON)"
-
-validate-workflow-identity-tests: ## 校验 workflow identity 脚本与 Make 接线
-	@echo "$(GREEN)Validating workflow identity invariant tests...$(NC)"
-	$(PYTEST) $(VALIDATE_WORKFLOW_IDENTITY_TESTS) -q
-
-validate-workflow-publish-helper-adoption: ## 校验 workflow GitHub publish 逻辑必须复用共享 helper
-	@echo "$(GREEN)Validating workflow publish helper adoption...$(NC)"
-	$(PYTHON) scripts/ci/check_workflow_publish_helper_adoption.py \
-		--workflow-root ".github/workflows" \
-		--summary-json-out "reports/ci/workflow_publish_helper_adoption.json" \
-		--output-md "reports/ci/workflow_publish_helper_adoption.md"
-
-validate-workflow-publish-helper-adoption-tests: ## 校验 workflow publish helper adoption 脚本与 Make 接线
-	@echo "$(GREEN)Validating workflow publish helper adoption tests...$(NC)"
-	node --check scripts/ci/comment_pr_utils.js
-	node --check scripts/ci/issue_upsert_utils.js
-	$(PYTEST) $(VALIDATE_WORKFLOW_PUBLISH_HELPER_ADOPTION_TESTS) -q
-
-workflow-guardrail-summary-report: ## 聚合 workflow health/inventory/publish-helper 摘要（JSON + Markdown）
-	@echo "$(GREEN)Generating workflow guardrail summary report...$(NC)"
-	$(PYTHON) scripts/ci/generate_workflow_guardrail_summary.py \
-		--workflow-file-health-json "$(WORKFLOW_FILE_HEALTH_SUMMARY_JSON)" \
-		--workflow-inventory-json "$(WORKFLOW_INVENTORY_REPORT_JSON)" \
-		--workflow-publish-helper-json "reports/ci/workflow_publish_helper_adoption.json" \
-		--output-json "$(WORKFLOW_GUARDRAIL_SUMMARY_JSON)" \
-		--output-md "$(WORKFLOW_GUARDRAIL_SUMMARY_MD)"
-
-validate-workflow-guardrail-summary-report: ## 校验 workflow guardrail summary 聚合脚本与 Make 接线
-	@echo "$(GREEN)Validating workflow guardrail summary report tooling...$(NC)"
-	$(PYTEST) $(VALIDATE_WORKFLOW_GUARDRAIL_SUMMARY_REPORT_TESTS) -q
-
-workflow-inventory-report: ## 生成只读 workflow 名单审计报告（JSON + Markdown）
-	@echo "$(GREEN)Generating workflow inventory audit report...$(NC)"
-	$(PYTHON) scripts/ci/generate_workflow_inventory_report.py \
-		--workflow-root ".github/workflows" \
-		--ci-watch-required-workflows "$(CI_WATCH_REQUIRED_WORKFLOWS)" \
-		--output-json "$(WORKFLOW_INVENTORY_REPORT_JSON)" \
-		--output-md "$(WORKFLOW_INVENTORY_REPORT_MD)"
-
-validate-workflow-inventory-report: ## 校验 workflow inventory 审计报告脚本与 Make 接线
-	@echo "$(GREEN)Validating workflow inventory audit report tooling...$(NC)"
-	$(PYTEST) $(VALIDATE_WORKFLOW_INVENTORY_REPORT_TESTS) -q
+	$(PYTEST) $(TEST_DIR)/unit/test_generate_ci_watcher_validation_report.py -q
 
 validate-ci-watchers: ## 一键校验 CI watchers（commit + archive + Graph2D strict e2e dispatcher）
 	@echo "$(GREEN)Validating CI watcher stack...$(NC)"
-	$(MAKE) $(word 1,$(VALIDATE_CI_WATCHERS_TARGETS))
-	$(MAKE) $(word 2,$(VALIDATE_CI_WATCHERS_TARGETS))
-	$(MAKE) $(word 3,$(VALIDATE_CI_WATCHERS_TARGETS))
-	$(MAKE) $(word 4,$(VALIDATE_CI_WATCHERS_TARGETS))
-	$(MAKE) $(word 5,$(VALIDATE_CI_WATCHERS_TARGETS))
-	$(MAKE) $(word 6,$(VALIDATE_CI_WATCHERS_TARGETS))
-	$(MAKE) $(word 7,$(VALIDATE_CI_WATCHERS_TARGETS))
-	$(MAKE) $(word 8,$(VALIDATE_CI_WATCHERS_TARGETS))
-	$(MAKE) $(word 9,$(VALIDATE_CI_WATCHERS_TARGETS))
-	$(MAKE) $(word 10,$(VALIDATE_CI_WATCHERS_TARGETS))
-	$(MAKE) $(word 11,$(VALIDATE_CI_WATCHERS_TARGETS))
-	$(MAKE) $(word 12,$(VALIDATE_CI_WATCHERS_TARGETS))
-	$(MAKE) $(word 13,$(VALIDATE_CI_WATCHERS_TARGETS))
-	$(MAKE) $(word 14,$(VALIDATE_CI_WATCHERS_TARGETS))
-	$(MAKE) $(word 15,$(VALIDATE_CI_WATCHERS_TARGETS))
+	$(MAKE) validate-check-gh-actions-ready
+	$(MAKE) validate-watch-commit-workflows
+	$(MAKE) validate-generate-ci-watch-validation-report
+	$(MAKE) validate-archive-workflow-dispatcher
+	$(MAKE) validate-graph2d-review-pack-gate-strict-e2e
 
 clean-ci-watch-summaries: ## 清理 watcher 运行时 summary JSON
 	@echo "$(GREEN)Cleaning watcher summary artifacts...$(NC)"
 	@mkdir -p "$(CI_WATCH_SUMMARY_DIR)"
-	@rm -f $(CI_WATCH_SUMMARY_ARTIFACT_GLOB)
+	@rm -f "$(CI_WATCH_SUMMARY_DIR)"/watch_*_summary.json
 
 clean-gh-readiness-summaries: ## 清理 gh readiness 运行时 JSON
 	@echo "$(GREEN)Cleaning gh readiness artifacts...$(NC)"
 	@mkdir -p "$(CI_WATCH_SUMMARY_DIR)"
-	@rm -f $(GH_READINESS_SUMMARY_ARTIFACT_GLOB)
+	@rm -f "$(CI_WATCH_SUMMARY_DIR)"/gh_readiness*.json
 
 clean-ci-watch-artifacts: ## 清理 watcher + readiness 全部运行时 JSON
 	@$(MAKE) clean-ci-watch-summaries
@@ -1175,40 +840,6 @@ eval-history: ## 保存评测结果到历史目录
 	@echo "$(GREEN)Saving evaluation results to history...$(NC)"
 	bash scripts/eval_with_history.sh
 
-history-sequence-reporting-bundle: ## Materialize canonical history-sequence reporting bundle
-	@echo "$(GREEN)Materializing history-sequence reporting bundle...$(NC)"
-	$(PYTHON) scripts/ci/generate_history_sequence_reporting_bundle.py \
-		--eval-history-dir "$(HISTORY_SEQUENCE_REPORTING_BUNDLE_EVAL_HISTORY_DIR)" \
-		--days "$(HISTORY_SEQUENCE_REPORTING_BUNDLE_DAYS)"
-
-eval-signal-reporting-bundle: ## Materialize canonical eval-signal reporting bundle
-	@echo "$(GREEN)Materializing eval-signal reporting bundle...$(NC)"
-	$(PYTHON) scripts/ci/generate_eval_signal_reporting_bundle.py \
-		--eval-history-dir "$(EVAL_SIGNAL_REPORTING_BUNDLE_EVAL_HISTORY_DIR)" \
-		--days "$(EVAL_SIGNAL_REPORTING_BUNDLE_DAYS)"
-
-eval-reporting-bundle: ## Materialize top-level eval reporting bundle (all sub-bundles + HTML reports)
-	@echo "$(GREEN)Materializing top-level eval reporting bundle...$(NC)"
-	$(PYTHON) scripts/ci/generate_eval_reporting_bundle.py \
-		--eval-history-dir "$(EVAL_REPORTING_BUNDLE_EVAL_HISTORY_DIR)" \
-		--days "$(EVAL_REPORTING_BUNDLE_DAYS)"
-
-eval-reporting-bundle-health: ## Check health of the top-level eval reporting bundle
-	@echo "$(GREEN)Checking eval reporting bundle health...$(NC)"
-	$(PYTHON) scripts/ci/check_eval_reporting_bundle_health.py \
-		--eval-history-dir "$(EVAL_REPORTING_BUNDLE_EVAL_HISTORY_DIR)"
-
-eval-reporting-refresh: ## Refresh full eval reporting stack (bundle + health + index + landing page)
-	@echo "$(GREEN)Refreshing eval reporting stack...$(NC)"
-	$(PYTHON) scripts/ci/refresh_eval_reporting_stack.py \
-		--eval-history-dir "$(EVAL_REPORTING_BUNDLE_EVAL_HISTORY_DIR)" \
-		--days "$(EVAL_REPORTING_BUNDLE_DAYS)"
-
-eval-reporting-landing-page: ## Generate eval reporting landing page
-	@echo "$(GREEN)Generating eval reporting landing page...$(NC)"
-	$(PYTHON) scripts/generate_eval_reporting_landing_page.py \
-		--eval-history-dir "$(EVAL_REPORTING_BUNDLE_EVAL_HISTORY_DIR)"
-
 health-check: ## 一键输出系统关键健康状态
 	@echo "$(GREEN)Quick health summary...$(NC)"
 	python3 scripts/quick_health.py
@@ -1352,37 +983,12 @@ GRAPH2D_REVIEW_PACK_GATE_E2E_POLL_INTERVAL ?= 3
 GRAPH2D_REVIEW_PACK_GATE_E2E_LIST_LIMIT ?= 20
 GRAPH2D_REVIEW_PACK_GATE_E2E_OUTPUT_JSON ?= $(GRAPH2D_REVIEW_OUT_DIR)/graph2d_review_pack_gate_strict_e2e.json
 GRAPH2D_REVIEW_PACK_GATE_E2E_PRINT_ONLY ?= 0
-HYBRID_CALIBRATION_INPUT_CSV ?= reports/experiments/20260123/soft_override_reviewed_20260124.csv
-HYBRID_CALIBRATION_OUTPUT_JSON ?= models/calibration/hybrid_confidence_calibration.json
-HYBRID_CALIBRATION_METHOD ?= temperature_scaling
-HYBRID_CALIBRATION_CONFIDENCE_COL ?= confidence
-HYBRID_CALIBRATION_CORRECT_COL ?= is_correct
-HYBRID_CALIBRATION_PRED_LABEL_COL ?= predicted_label
-HYBRID_CALIBRATION_TRUTH_LABEL_COL ?= correct_label
-HYBRID_CALIBRATION_SOURCE_COL ?= source
-HYBRID_CALIBRATION_MIN_SAMPLES ?= 30
-HYBRID_CALIBRATION_MIN_SAMPLES_PER_SOURCE ?= 10
-HYBRID_CALIBRATION_MAX_ROWS ?= 0
-HYBRID_CALIBRATION_INCLUDE_FIT_DATA ?= 1
-HYBRID_CALIBRATION_FAIL_ON_INSUFFICIENT ?= 0
-HYBRID_CALIBRATION_REFRESH_MIN_SAMPLES ?= 10
-HYBRID_CALIBRATION_GATE_CURRENT_JSON ?= $(HYBRID_CALIBRATION_OUTPUT_JSON)
-HYBRID_CALIBRATION_GATE_BASELINE_JSON ?= config/hybrid_confidence_calibration_baseline.json
-HYBRID_CALIBRATION_GATE_CONFIG ?= config/hybrid_confidence_calibration_gate.yaml
-HYBRID_CALIBRATION_GATE_OUTPUT_JSON ?= reports/eval_history/hybrid_confidence_calibration_gate_report.json
-HYBRID_CALIBRATION_GATE_MISSING_MODE ?= skip
-HYBRID_CALIBRATION_BASELINE_SOURCE_JSON ?= $(HYBRID_CALIBRATION_OUTPUT_JSON)
-HYBRID_CALIBRATION_BASELINE_OUTPUT_JSON ?= config/hybrid_confidence_calibration_baseline.json
-HYBRID_CALIBRATION_BASELINE_SNAPSHOT_JSON ?=
-HYBRID_CALIBRATION_BASELINE_ALLOW_NON_OK ?= 0
 HYBRID_SUPERPASS_GATE_REPORT_JSON ?= reports/history_sequence_eval/hybrid_blind_gate_report.json
 HYBRID_SUPERPASS_CALIBRATION_JSON ?= models/calibration/hybrid_confidence_calibration.json
 HYBRID_SUPERPASS_CONFIG ?= config/hybrid_superpass_targets.yaml
 HYBRID_SUPERPASS_OUTPUT_JSON ?= reports/history_sequence_eval/hybrid_superpass_report.json
-HYBRID_SUPERPASS_VALIDATION_JSON ?= reports/history_sequence_eval/hybrid_superpass_validation.json
-HYBRID_SUPERPASS_VALIDATION_MD ?= reports/history_sequence_eval/hybrid_superpass_validation.md
 HYBRID_SUPERPASS_MISSING_MODE ?= skip
-HYBRID_SUPERPASS_E2E_WORKFLOW ?= evaluation-report.yml
+HYBRID_SUPERPASS_E2E_WORKFLOW ?= hybrid-superpass-e2e.yml
 HYBRID_SUPERPASS_E2E_REF ?= main
 HYBRID_SUPERPASS_E2E_REPO ?=
 HYBRID_SUPERPASS_E2E_ENABLE ?= true
@@ -1399,135 +1005,10 @@ HYBRID_SUPERPASS_E2E_TIMEOUT ?= 600
 HYBRID_SUPERPASS_E2E_POLL_INTERVAL ?= 3
 HYBRID_SUPERPASS_E2E_LIST_LIMIT ?= 20
 HYBRID_SUPERPASS_E2E_OUTPUT_JSON ?= $(GRAPH2D_REVIEW_OUT_DIR)/hybrid_superpass_e2e.json
-HYBRID_SUPERPASS_E2E_OUTPUT_MD ?= $(GRAPH2D_REVIEW_OUT_DIR)/hybrid_superpass_e2e.md
 HYBRID_SUPERPASS_E2E_PRINT_ONLY ?= 0
 HYBRID_SUPERPASS_APPLY_REPO ?=
 HYBRID_SUPERPASS_APPLY_CONFIG_PATH ?= config/hybrid_superpass_targets.yaml
 HYBRID_SUPERPASS_APPLY_EXECUTE ?= 0
-SOFT_MODE_SMOKE_WORKFLOW ?= evaluation-report.yml
-SOFT_MODE_SMOKE_REF ?= main
-SOFT_MODE_SMOKE_REPO ?=
-SOFT_MODE_SMOKE_EXPECTED_CONCLUSION ?= success
-SOFT_MODE_SMOKE_WAIT_TIMEOUT ?= 1200
-SOFT_MODE_SMOKE_POLL_INTERVAL ?= 3
-SOFT_MODE_SMOKE_LIST_LIMIT ?= 30
-SOFT_MODE_SMOKE_OUTPUT_JSON ?= $(GRAPH2D_REVIEW_OUT_DIR)/soft_mode_smoke.json
-SOFT_MODE_SMOKE_SUMMARY_MD ?= $(GRAPH2D_REVIEW_OUT_DIR)/soft_mode_smoke.md
-SOFT_MODE_SMOKE_KEEP_SOFT ?= 0
-SOFT_MODE_SMOKE_SKIP_LOG_CHECK ?= 0
-SOFT_MODE_SMOKE_SKIP_REMOTE_INPUT_CHECK ?= 0
-SOFT_MODE_SMOKE_MAX_DISPATCH_ATTEMPTS ?= 1
-SOFT_MODE_SMOKE_RETRY_SLEEP_SECONDS ?= 15
-SOFT_MODE_SMOKE_COMMENT_PR_NUMBER ?=
-SOFT_MODE_SMOKE_COMMENT_PR_AUTO ?= 0
-SOFT_MODE_SMOKE_COMMENT_REPO ?=
-SOFT_MODE_SMOKE_COMMENT_TITLE ?= CAD ML Platform - Soft Mode Smoke
-SOFT_MODE_SMOKE_COMMENT_COMMIT_SHA ?=
-SOFT_MODE_SMOKE_COMMENT_DRY_RUN ?= 0
-SOFT_MODE_SMOKE_COMMENT_FAIL_ON_ERROR ?= 0
-SOFT_MODE_SMOKE_COMMENT_OUTPUT_JSON ?=
-SOFT_MODE_COMMENT_REPO ?=
-SOFT_MODE_COMMENT_PR_NUMBER ?=
-SOFT_MODE_COMMENT_SUMMARY_JSON ?=
-SOFT_MODE_COMMENT_COMMIT_SHA ?=
-SOFT_MODE_COMMENT_TITLE ?= CAD ML Platform - Soft Mode Smoke
-SOFT_MODE_COMMENT_DRY_RUN ?= 1
-SOFT_MODE_COMMENT_OUTPUT_JSON ?= reports/ci/soft_mode_smoke_pr_comment_result.json
-HYBRID_BLIND_DXF_DIR ?=
-HYBRID_BLIND_MANIFEST_CSV ?=
-HYBRID_BLIND_OUTPUT_DIR ?= reports/history_sequence_eval/hybrid_blind
-HYBRID_BLIND_SYNTH_MANIFEST ?= tests/golden/golden_dxf_hybrid_cases.json
-HYBRID_BLIND_SYNTH_OUTPUT_DIR ?= reports/history_sequence_eval/hybrid_blind_synth
-HYBRID_BLIND_MAX_FILES ?= 200
-HYBRID_BLIND_SEED ?= 22
-HYBRID_BLIND_LABEL_SLICE_MAX_SNAPSHOTS ?= 20
-HYBRID_BLIND_FAMILY_PREFIX_LEN ?= 2
-HYBRID_BLIND_FAMILY_MAP_JSON ?= config/hybrid_blind_family_map.json
-HYBRID_BLIND_FAMILY_SLICE_MAX_SNAPSHOTS ?= 20
-HYBRID_BLIND_GATE_CONFIG ?= config/hybrid_blind_gate.yaml
-HYBRID_BLIND_GATE_REPORT ?= reports/history_sequence_eval/hybrid_blind_gate_report.json
-HYBRID_BLIND_HISTORY_BOOTSTRAP_SUMMARY_JSON ?= $(HYBRID_BLIND_OUTPUT_DIR)/summary.json
-HYBRID_BLIND_HISTORY_BOOTSTRAP_GATE_JSON ?= $(HYBRID_BLIND_GATE_REPORT)
-HYBRID_BLIND_HISTORY_BOOTSTRAP_OUTPUT_DIR ?= reports/eval_history
-HYBRID_BLIND_HISTORY_BOOTSTRAP_BRANCH ?= main
-HYBRID_BLIND_HISTORY_BOOTSTRAP_COMMIT ?= bootstrap
-HYBRID_BLIND_HISTORY_BOOTSTRAP_COUNT ?= 3
-HYBRID_BLIND_HISTORY_BOOTSTRAP_HOURS_STEP ?= 24
-HYBRID_BLIND_HISTORY_BOOTSTRAP_END_TIMESTAMP ?=
-HYBRID_BLIND_HISTORY_BOOTSTRAP_HYBRID_DELTAS ?= 0,-0.01,-0.02
-HYBRID_BLIND_HISTORY_BOOTSTRAP_GRAPH2D_DELTAS ?= 0,0,0
-HYBRID_BLIND_HISTORY_BOOTSTRAP_COVERAGE_DELTAS ?= 0,-0.01,-0.02
-HYBRID_BLIND_STRICT_REQUIRE_REAL_DATA ?= 1
-HYBRID_BLIND_STRICT_E2E_WORKFLOW ?= evaluation-report.yml
-HYBRID_BLIND_STRICT_E2E_REF ?= main
-HYBRID_BLIND_STRICT_E2E_REPO ?=
-HYBRID_BLIND_STRICT_E2E_DXF_DIR ?= tests/fixtures/ci/hybrid_blind_dxf
-HYBRID_BLIND_STRICT_E2E_MANIFEST_CSV ?=
-HYBRID_BLIND_STRICT_E2E_SYNTH_MANIFEST ?=
-HYBRID_BLIND_STRICT_E2E_EXPECTED_CONCLUSION ?= success
-HYBRID_BLIND_STRICT_E2E_TIMEOUT ?= 600
-HYBRID_BLIND_STRICT_E2E_POLL_INTERVAL ?= 3
-HYBRID_BLIND_STRICT_E2E_LIST_LIMIT ?= 20
-HYBRID_BLIND_STRICT_E2E_OUTPUT_JSON ?= $(GRAPH2D_REVIEW_OUT_DIR)/hybrid_blind_strict_real_e2e.json
-HYBRID_BLIND_STRICT_E2E_OUTPUT_MD ?= $(GRAPH2D_REVIEW_OUT_DIR)/hybrid_blind_strict_real_e2e.md
-HYBRID_BLIND_STRICT_E2E_PRINT_ONLY ?= 0
-HYBRID_BLIND_DRIFT_ALERT_EVAL_HISTORY_DIR ?= reports/eval_history
-HYBRID_BLIND_DRIFT_ALERT_OUTPUT_JSON ?= reports/eval_history/hybrid_blind_drift_alert_report.json
-HYBRID_BLIND_DRIFT_ALERT_OUTPUT_MD ?= reports/eval_history/hybrid_blind_drift_alert_report.md
-HYBRID_BLIND_DRIFT_ALERT_MIN_REPORTS ?= 2
-HYBRID_BLIND_DRIFT_ALERT_MAX_ACC_DROP ?= 0.05
-HYBRID_BLIND_DRIFT_ALERT_MAX_GAIN_DROP ?= 0.05
-HYBRID_BLIND_DRIFT_ALERT_MAX_COVERAGE_DROP ?= 0.10
-HYBRID_BLIND_DRIFT_ALERT_CONSECUTIVE_WINDOW ?= 2
-HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_ENABLE ?= 1
-HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MIN_COMMON ?= 3
-HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_AUTO_CAP_MIN_COMMON ?= 1
-HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MIN_SUPPORT ?= 3
-HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MAX_ACC_DROP ?= 0.15
-HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MAX_GAIN_DROP ?= 0.15
-HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_ENABLE ?= 1
-HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MIN_COMMON ?= 2
-HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_AUTO_CAP_MIN_COMMON ?= 1
-HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MIN_SUPPORT ?= 5
-HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MAX_ACC_DROP ?= 0.20
-HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MAX_GAIN_DROP ?= 0.20
-HYBRID_BLIND_DRIFT_ALERT_ALLOW_MISSING ?= 1
-HYBRID_BLIND_DRIFT_SUGGEST_HISTORY_DIR ?= reports/eval_history
-HYBRID_BLIND_DRIFT_SUGGEST_OUTPUT_JSON ?= reports/eval_history/hybrid_blind_drift_threshold_suggestion.json
-HYBRID_BLIND_DRIFT_SUGGEST_OUTPUT_MD ?= reports/eval_history/hybrid_blind_drift_threshold_suggestion.md
-HYBRID_BLIND_DRIFT_SUGGEST_QUANTILE ?= 0.90
-HYBRID_BLIND_DRIFT_SUGGEST_MIN_REPORTS ?= 4
-HYBRID_BLIND_DRIFT_SUGGEST_LABEL_SLICE_MIN_SUPPORT ?= 3
-HYBRID_BLIND_DRIFT_SUGGEST_FAMILY_SLICE_MIN_SUPPORT ?= 5
-HYBRID_BLIND_DRIFT_SUGGEST_MIN_FLOOR_ACC_DROP ?= 0.03
-HYBRID_BLIND_DRIFT_SUGGEST_MIN_FLOOR_GAIN_DROP ?= 0.03
-HYBRID_BLIND_DRIFT_SUGGEST_MIN_FLOOR_COVERAGE_DROP ?= 0.05
-HYBRID_BLIND_DRIFT_SUGGEST_SAFETY_MULTIPLIER ?= 1.20
-HYBRID_BLIND_DRIFT_SUGGEST_FLOOR_LABEL_ACC_DROP ?= 0.15
-HYBRID_BLIND_DRIFT_SUGGEST_FLOOR_LABEL_GAIN_DROP ?= 0.15
-HYBRID_BLIND_DRIFT_SUGGEST_FLOOR_FAMILY_ACC_DROP ?= 0.20
-HYBRID_BLIND_DRIFT_SUGGEST_FLOOR_FAMILY_GAIN_DROP ?= 0.20
-HYBRID_BLIND_DRIFT_SUGGEST_APPLY_REPO ?= zensgit/cad-ml-platform
-HYBRID_BLIND_DRIFT_SUGGEST_APPLY_EXECUTE ?= 0
-HYBRID_BLIND_STRICT_TEMPLATE_REPO ?=
-HYBRID_BLIND_STRICT_TEMPLATE_WORKFLOW ?= evaluation-report.yml
-HYBRID_BLIND_STRICT_TEMPLATE_REF ?= main
-HYBRID_BLIND_STRICT_TEMPLATE_DXF_DIR ?= datasets/hybrid_blind_real
-HYBRID_BLIND_STRICT_TEMPLATE_MANIFEST_CSV ?=
-HYBRID_BLIND_STRICT_TEMPLATE_SYNTH_MANIFEST ?= tests/golden/golden_dxf_hybrid_cases.json
-HYBRID_BLIND_STRICT_APPLY_REPO ?=
-HYBRID_BLIND_STRICT_APPLY_DXF_DIR ?= datasets/hybrid_blind_real
-HYBRID_BLIND_STRICT_APPLY_EXECUTE ?= 0
-HYBRID_SUPERPASS_HYBRID_BLIND_GATE_REPORT ?= $(HYBRID_SUPERPASS_GATE_REPORT_JSON)
-HYBRID_SUPERPASS_HYBRID_CALIBRATION_JSON ?= $(HYBRID_SUPERPASS_CALIBRATION_JSON)
-EVAL_WEEKLY_SUMMARY_DAYS ?= 7
-EVAL_WEEKLY_SUMMARY_OUTPUT ?= reports/eval_history/weekly_summary.md
-HISTORY_SEQUENCE_REPORTING_BUNDLE_EVAL_HISTORY_DIR ?= reports/eval_history
-HISTORY_SEQUENCE_REPORTING_BUNDLE_DAYS ?= 7
-EVAL_SIGNAL_REPORTING_BUNDLE_EVAL_HISTORY_DIR ?= reports/eval_history
-EVAL_SIGNAL_REPORTING_BUNDLE_DAYS ?= 7
-EVAL_REPORTING_BUNDLE_EVAL_HISTORY_DIR ?= reports/eval_history
-EVAL_REPORTING_BUNDLE_DAYS ?= 7
 
 graph2d-review-summary: ## 汇总 Graph2D soft-override 复核模板（生成 summary + correct-label counts）
 	@echo "$(GREEN)Summarizing Graph2D soft-override review...$(NC)"
@@ -1586,271 +1067,12 @@ graph2d-review-pack-gate-strict-e2e: ## 触发 strict=false/true 两次 workflow
 		--output-json "$(GRAPH2D_REVIEW_PACK_GATE_E2E_OUTPUT_JSON)" \
 		$$extra_flags
 
-hybrid-calibrate-confidence: ## 从复核 CSV 拟合并导出 Hybrid 置信度校准参数
-	@echo "$(GREEN)Calibrating hybrid confidence...$(NC)"
-	@extra_flags=""; \
-	if [ "$(HYBRID_CALIBRATION_INCLUDE_FIT_DATA)" = "1" ]; then extra_flags="$$extra_flags --include-fit-data"; fi; \
-	if [ "$(HYBRID_CALIBRATION_FAIL_ON_INSUFFICIENT)" = "1" ]; then extra_flags="$$extra_flags --fail-on-insufficient-data"; fi; \
-	$(PYTHON) scripts/calibrate_hybrid_confidence.py \
-		--input-csv "$(HYBRID_CALIBRATION_INPUT_CSV)" \
-		--output-json "$(HYBRID_CALIBRATION_OUTPUT_JSON)" \
-		--method "$(HYBRID_CALIBRATION_METHOD)" \
-		--per-source \
-		--confidence-col "$(HYBRID_CALIBRATION_CONFIDENCE_COL)" \
-		--correct-col "$(HYBRID_CALIBRATION_CORRECT_COL)" \
-		--pred-label-col "$(HYBRID_CALIBRATION_PRED_LABEL_COL)" \
-		--truth-label-col "$(HYBRID_CALIBRATION_TRUTH_LABEL_COL)" \
-		--source-col "$(HYBRID_CALIBRATION_SOURCE_COL)" \
-		--min-samples "$(HYBRID_CALIBRATION_MIN_SAMPLES)" \
-		--min-samples-per-source "$(HYBRID_CALIBRATION_MIN_SAMPLES_PER_SOURCE)" \
-		--max-rows "$(HYBRID_CALIBRATION_MAX_ROWS)" \
-		$$extra_flags
-
-hybrid-calibration-gate: ## 执行 Hybrid 置信度校准回归门禁
-	@echo "$(GREEN)Checking hybrid confidence calibration gate...$(NC)"
-	$(PYTHON) scripts/ci/check_hybrid_confidence_calibration_gate.py \
-		--current-json "$(HYBRID_CALIBRATION_GATE_CURRENT_JSON)" \
-		--baseline-json "$(HYBRID_CALIBRATION_GATE_BASELINE_JSON)" \
-		--config "$(HYBRID_CALIBRATION_GATE_CONFIG)" \
-		--missing-mode "$(HYBRID_CALIBRATION_GATE_MISSING_MODE)" \
-		--output-json "$(HYBRID_CALIBRATION_GATE_OUTPUT_JSON)"
-
-update-hybrid-calibration-baseline: ## 从当前校准结果更新 Hybrid 校准基线（含当天快照）
-	@echo "$(GREEN)Updating hybrid confidence calibration baseline...$(NC)"
-	@extra_flags=""; \
-	if [ -n "$(HYBRID_CALIBRATION_BASELINE_SNAPSHOT_JSON)" ]; then extra_flags="$$extra_flags --snapshot-output-json $(HYBRID_CALIBRATION_BASELINE_SNAPSHOT_JSON)"; fi; \
-	if [ "$(HYBRID_CALIBRATION_BASELINE_ALLOW_NON_OK)" = "1" ]; then extra_flags="$$extra_flags --allow-non-ok-status"; fi; \
-	$(PYTHON) scripts/ci/update_hybrid_confidence_calibration_baseline.py \
-		--current-json "$(HYBRID_CALIBRATION_BASELINE_SOURCE_JSON)" \
-		--output-baseline-json "$(HYBRID_CALIBRATION_BASELINE_OUTPUT_JSON)" \
-		$$extra_flags
-
-refresh-hybrid-calibration-baseline: ## 一键完成 Hybrid 校准与基线落地（推荐日常更新命令）
-	@echo "$(GREEN)Refreshing hybrid confidence calibration baseline...$(NC)"
-	$(MAKE) hybrid-calibrate-confidence \
-		HYBRID_CALIBRATION_MIN_SAMPLES="$(HYBRID_CALIBRATION_REFRESH_MIN_SAMPLES)"
-	$(MAKE) update-hybrid-calibration-baseline \
-		HYBRID_CALIBRATION_BASELINE_SOURCE_JSON="$(HYBRID_CALIBRATION_OUTPUT_JSON)"
-
-validate-hybrid-calibration-workflow: ## 校验 Hybrid 校准 workflow 集成（workflow/Make/脚本）
-	@echo "$(GREEN)Validating hybrid calibration workflow integration...$(NC)"
-	$(PYTEST) $(VALIDATE_HYBRID_CALIBRATION_WORKFLOW_TESTS) -q
-
-hybrid-blind-build-synth: ## 生成 Hybrid 盲测 synthetic DXF 数据集（无真实目录时回退）
-	@echo "$(GREEN)Building synthetic DXF dataset for hybrid blind...$(NC)"
-	$(PYTHON) scripts/ci/build_hybrid_blind_synthetic_dxf_dataset.py \
-		--manifest "$(HYBRID_BLIND_SYNTH_MANIFEST)" \
-		--output-dir "$(HYBRID_BLIND_SYNTH_OUTPUT_DIR)" \
-		--max-files "$(HYBRID_BLIND_MAX_FILES)"
-
-hybrid-blind-eval: ## 运行 Hybrid 盲测（geometry-only）并输出 summary.json
-	@echo "$(GREEN)Running hybrid blind benchmark...$(NC)"
-	@set -e; \
-	dxf_dir="$(HYBRID_BLIND_DXF_DIR)"; \
-	is_dry_run=0; \
-	case " $(MAKEFLAGS) " in \
-		*" n "*) is_dry_run=1 ;; \
-	esac; \
-	if [ -n "$$dxf_dir" ] && [ ! -d "$$dxf_dir" ]; then \
-		echo "$(YELLOW)[warn] configured HYBRID_BLIND_DXF_DIR does not exist: $$dxf_dir$(NC)"; \
-		dxf_dir=""; \
-	fi; \
-	if [ -z "$$dxf_dir" ]; then \
-		echo "$(YELLOW)[info] HYBRID_BLIND_DXF_DIR unavailable, fallback to synthetic dataset$(NC)"; \
-		$(PYTHON) scripts/ci/build_hybrid_blind_synthetic_dxf_dataset.py \
-			--manifest "$(HYBRID_BLIND_SYNTH_MANIFEST)" \
-			--output-dir "$(HYBRID_BLIND_SYNTH_OUTPUT_DIR)" \
-			--max-files "$(HYBRID_BLIND_MAX_FILES)"; \
-		dxf_dir="$(HYBRID_BLIND_SYNTH_OUTPUT_DIR)"; \
-	fi; \
-	if [ "$$is_dry_run" -ne 1 ] && [ ! -d "$$dxf_dir" ]; then \
-		echo "$(RED)hybrid blind DXF dir not found: $$dxf_dir$(NC)"; \
-		exit 1; \
-	fi; \
-	extra_flags=""; \
-	if [ -n "$(HYBRID_BLIND_MANIFEST_CSV)" ]; then extra_flags="$$extra_flags --manifest $(HYBRID_BLIND_MANIFEST_CSV)"; fi; \
-	$(PYTHON) scripts/batch_analyze_dxf_local.py \
-		--dxf-dir "$$dxf_dir" \
-		--output-dir "$(HYBRID_BLIND_OUTPUT_DIR)" \
-		--max-files "$(HYBRID_BLIND_MAX_FILES)" \
-		--seed "$(HYBRID_BLIND_SEED)" \
-		--geometry-only \
-		$$extra_flags
-
-hybrid-blind-gate: ## 对 Hybrid 盲测 summary 执行门禁
-	@echo "$(GREEN)Checking hybrid blind gate...$(NC)"
-	$(PYTHON) scripts/ci/check_hybrid_blind_gate.py \
-		--summary-json "$(HYBRID_BLIND_OUTPUT_DIR)/summary.json" \
-		--config "$(HYBRID_BLIND_GATE_CONFIG)" \
-		--output "$(HYBRID_BLIND_GATE_REPORT)"
-
-hybrid-blind-history-bootstrap: ## 基于 summary/gate 自举多条 hybrid_blind 历史快照（用于激活 drift 判定）
-	@echo "$(GREEN)Bootstrapping hybrid blind eval history snapshots...$(NC)"
-	@summary_json="$(HYBRID_BLIND_HISTORY_BOOTSTRAP_SUMMARY_JSON)"; \
-	gate_json="$(HYBRID_BLIND_HISTORY_BOOTSTRAP_GATE_JSON)"; \
-	if [ ! -f "$$summary_json" ] && [ -f "reports/evaluations/hybrid_blind_summary.json" ]; then \
-		echo "$(YELLOW)[info] fallback summary -> reports/evaluations/hybrid_blind_summary.json$(NC)"; \
-		summary_json="reports/evaluations/hybrid_blind_summary.json"; \
-	fi; \
-	if [ ! -f "$$summary_json" ]; then \
-		echo "$(RED)summary not found: $$summary_json$(NC)"; \
-		echo "$(YELLOW)[hint] run: make hybrid-blind-eval && make hybrid-blind-gate$(NC)"; \
-		exit 1; \
-	fi; \
-	if [ ! -f "$$gate_json" ] && [ -f "reports/evaluations/hybrid_blind_gate_report.json" ]; then \
-		echo "$(YELLOW)[info] fallback gate report -> reports/evaluations/hybrid_blind_gate_report.json$(NC)"; \
-		gate_json="reports/evaluations/hybrid_blind_gate_report.json"; \
-	fi; \
-	extra_flags=""; \
-	if [ -n "$(HYBRID_BLIND_HISTORY_BOOTSTRAP_END_TIMESTAMP)" ]; then extra_flags="$$extra_flags --end-timestamp $(HYBRID_BLIND_HISTORY_BOOTSTRAP_END_TIMESTAMP)"; fi; \
-	if [ -n "$(HYBRID_BLIND_FAMILY_MAP_JSON)" ]; then extra_flags="$$extra_flags --family-map-json $(HYBRID_BLIND_FAMILY_MAP_JSON)"; fi; \
-	$(PYTHON) scripts/ci/bootstrap_hybrid_blind_eval_history.py \
-		--summary-json "$$summary_json" \
-		--gate-report-json "$$gate_json" \
-		--output-dir "$(HYBRID_BLIND_HISTORY_BOOTSTRAP_OUTPUT_DIR)" \
-		--branch "$(HYBRID_BLIND_HISTORY_BOOTSTRAP_BRANCH)" \
-		--commit "$(HYBRID_BLIND_HISTORY_BOOTSTRAP_COMMIT)" \
-		--count "$(HYBRID_BLIND_HISTORY_BOOTSTRAP_COUNT)" \
-		--hours-step "$(HYBRID_BLIND_HISTORY_BOOTSTRAP_HOURS_STEP)" \
-		--hybrid-accuracy-deltas "$(HYBRID_BLIND_HISTORY_BOOTSTRAP_HYBRID_DELTAS)" \
-		--graph2d-accuracy-deltas "$(HYBRID_BLIND_HISTORY_BOOTSTRAP_GRAPH2D_DELTAS)" \
-		--coverage-deltas "$(HYBRID_BLIND_HISTORY_BOOTSTRAP_COVERAGE_DELTAS)" \
-		--label-slice-min-support "$(HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MIN_SUPPORT)" \
-		--label-slice-max-slices "$(HYBRID_BLIND_LABEL_SLICE_MAX_SNAPSHOTS)" \
-		--family-prefix-len "$(HYBRID_BLIND_FAMILY_PREFIX_LEN)" \
-		--family-slice-max-slices "$(HYBRID_BLIND_FAMILY_SLICE_MAX_SNAPSHOTS)" \
-		$$extra_flags
-
-hybrid-blind-drift-activate: ## 一键生成历史快照并执行 drift 检查（避免 skipped）
-	@echo "$(GREEN)Activating hybrid blind drift checks with bootstrapped history...$(NC)"
-	@$(MAKE) hybrid-blind-history-bootstrap
-	@$(MAKE) hybrid-blind-drift-alert
-
-hybrid-blind-strict-real: ## 严格模式：仅允许真实 DXF 目录，串行执行 blind eval + gate
-	@echo "$(GREEN)Running strict hybrid blind flow with real DXF dataset...$(NC)"
-	@test -n "$(HYBRID_BLIND_DXF_DIR)" || (echo "$(RED)HYBRID_BLIND_DXF_DIR is required in strict-real mode$(NC)"; exit 1)
-	@test -d "$(HYBRID_BLIND_DXF_DIR)" || (echo "$(RED)HYBRID_BLIND_DXF_DIR not found: $(HYBRID_BLIND_DXF_DIR)$(NC)"; exit 1)
-	@$(MAKE) hybrid-blind-eval \
-		HYBRID_BLIND_DXF_DIR="$(HYBRID_BLIND_DXF_DIR)" \
-		HYBRID_BLIND_MANIFEST_CSV="$(HYBRID_BLIND_MANIFEST_CSV)" \
-		HYBRID_BLIND_OUTPUT_DIR="$(HYBRID_BLIND_OUTPUT_DIR)" \
-		HYBRID_BLIND_MAX_FILES="$(HYBRID_BLIND_MAX_FILES)" \
-		HYBRID_BLIND_SEED="$(HYBRID_BLIND_SEED)"
-	@$(MAKE) hybrid-blind-gate \
-		HYBRID_BLIND_OUTPUT_DIR="$(HYBRID_BLIND_OUTPUT_DIR)" \
-		HYBRID_BLIND_GATE_CONFIG="$(HYBRID_BLIND_GATE_CONFIG)" \
-		HYBRID_BLIND_GATE_REPORT="$(HYBRID_BLIND_GATE_REPORT)"
-
-hybrid-blind-strict-real-e2e-gh: ## 通过 gh workflow_dispatch 触发 strict-real blind E2E 并等待结果
-	@echo "$(GREEN)Dispatching hybrid blind strict-real workflow e2e...$(NC)"
-	@extra_flags=""; \
-	if [ "$(HYBRID_BLIND_STRICT_E2E_PRINT_ONLY)" = "1" ]; then extra_flags="$$extra_flags --print-only"; fi; \
-	if [ -n "$(HYBRID_BLIND_STRICT_E2E_REPO)" ]; then extra_flags="$$extra_flags --repo $(HYBRID_BLIND_STRICT_E2E_REPO)"; fi; \
-	if [ -n "$(HYBRID_BLIND_STRICT_E2E_MANIFEST_CSV)" ]; then extra_flags="$$extra_flags --hybrid-blind-manifest-csv $(HYBRID_BLIND_STRICT_E2E_MANIFEST_CSV)"; fi; \
-	if [ -n "$(HYBRID_BLIND_STRICT_E2E_SYNTH_MANIFEST)" ]; then extra_flags="$$extra_flags --hybrid-blind-synth-manifest $(HYBRID_BLIND_STRICT_E2E_SYNTH_MANIFEST)"; fi; \
-	$(PYTHON) scripts/ci/dispatch_hybrid_blind_strict_real_workflow.py \
-		--workflow "$(HYBRID_BLIND_STRICT_E2E_WORKFLOW)" \
-		--ref "$(HYBRID_BLIND_STRICT_E2E_REF)" \
-		--hybrid-blind-dxf-dir "$(HYBRID_BLIND_STRICT_E2E_DXF_DIR)" \
-		--strict-fail-on-gate-failed true \
-		--strict-require-real-data true \
-		--expected-conclusion "$(HYBRID_BLIND_STRICT_E2E_EXPECTED_CONCLUSION)" \
-		--wait-timeout-seconds "$(HYBRID_BLIND_STRICT_E2E_TIMEOUT)" \
-		--poll-interval-seconds "$(HYBRID_BLIND_STRICT_E2E_POLL_INTERVAL)" \
-		--list-limit "$(HYBRID_BLIND_STRICT_E2E_LIST_LIMIT)" \
-		--output-json "$(HYBRID_BLIND_STRICT_E2E_OUTPUT_JSON)" \
-		$$extra_flags
-
-hybrid-blind-strict-real-template-gh: ## 打印 strict-real blind 的 gh 变量/dispatch/watch 命令模板
-	@echo "$(GREEN)Printing hybrid blind strict-real gh command templates...$(NC)"
-	@extra_flags="--print-vars --print-watch"; \
-	if [ -n "$(HYBRID_BLIND_STRICT_TEMPLATE_REPO)" ]; then extra_flags="$$extra_flags --repo $(HYBRID_BLIND_STRICT_TEMPLATE_REPO)"; fi; \
-	if [ -n "$(HYBRID_BLIND_STRICT_TEMPLATE_MANIFEST_CSV)" ]; then extra_flags="$$extra_flags --manifest-csv $(HYBRID_BLIND_STRICT_TEMPLATE_MANIFEST_CSV)"; fi; \
-	if [ -n "$(HYBRID_BLIND_STRICT_TEMPLATE_SYNTH_MANIFEST)" ]; then extra_flags="$$extra_flags --synth-manifest $(HYBRID_BLIND_STRICT_TEMPLATE_SYNTH_MANIFEST)"; fi; \
-	$(PYTHON) scripts/ci/print_hybrid_blind_strict_real_gh_template.py \
-		--workflow "$(HYBRID_BLIND_STRICT_TEMPLATE_WORKFLOW)" \
-		--ref "$(HYBRID_BLIND_STRICT_TEMPLATE_REF)" \
-		--dxf-dir "$(HYBRID_BLIND_STRICT_TEMPLATE_DXF_DIR)" \
-		$$extra_flags
-
-hybrid-blind-strict-real-apply-gh-vars: ## 将 strict-real 建议变量同步到 GitHub Variables（默认仅预览）
-	@echo "$(GREEN)Applying hybrid blind strict-real variables to GitHub...$(NC)"
-	@extra_flags=""; \
-	if [ "$(HYBRID_BLIND_STRICT_APPLY_EXECUTE)" = "1" ]; then extra_flags="$$extra_flags --apply"; fi; \
-	$(PYTHON) scripts/ci/apply_hybrid_blind_strict_real_gh_vars.py \
-		--repo "$(HYBRID_BLIND_STRICT_APPLY_REPO)" \
-		--dxf-dir "$(HYBRID_BLIND_STRICT_APPLY_DXF_DIR)" \
-		$$extra_flags
-
-hybrid-blind-drift-alert: ## 检查 Hybrid blind 最新两次评测漂移（accuracy/gain/coverage）
-	@echo "$(GREEN)Checking hybrid blind drift alerts...$(NC)"
-	@extra_flags=""; \
-	if [ "$(HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_ENABLE)" = "1" ]; then \
-		extra_flags="$$extra_flags --label-slice-enable --label-slice-min-common $(HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MIN_COMMON) --label-slice-min-support $(HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MIN_SUPPORT) --label-slice-max-hybrid-accuracy-drop $(HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MAX_ACC_DROP) --label-slice-max-gain-drop $(HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_MAX_GAIN_DROP)"; \
-		if [ "$(HYBRID_BLIND_DRIFT_ALERT_LABEL_SLICE_AUTO_CAP_MIN_COMMON)" = "1" ]; then \
-			extra_flags="$$extra_flags --label-slice-auto-cap-min-common"; \
-		else \
-			extra_flags="$$extra_flags --no-label-slice-auto-cap-min-common"; \
-		fi; \
-	fi; \
-	if [ "$(HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_ENABLE)" = "1" ]; then \
-		extra_flags="$$extra_flags --family-slice-enable --family-slice-min-common $(HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MIN_COMMON) --family-slice-min-support $(HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MIN_SUPPORT) --family-slice-max-hybrid-accuracy-drop $(HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MAX_ACC_DROP) --family-slice-max-gain-drop $(HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_MAX_GAIN_DROP)"; \
-		if [ "$(HYBRID_BLIND_DRIFT_ALERT_FAMILY_SLICE_AUTO_CAP_MIN_COMMON)" = "1" ]; then \
-			extra_flags="$$extra_flags --family-slice-auto-cap-min-common"; \
-		else \
-			extra_flags="$$extra_flags --no-family-slice-auto-cap-min-common"; \
-		fi; \
-	fi; \
-	if [ "$(HYBRID_BLIND_DRIFT_ALERT_ALLOW_MISSING)" = "1" ]; then extra_flags="$$extra_flags --allow-missing"; fi; \
-	$(PYTHON) scripts/ci/check_hybrid_blind_drift_alerts.py \
-		--eval-history-dir "$(HYBRID_BLIND_DRIFT_ALERT_EVAL_HISTORY_DIR)" \
-		--output-json "$(HYBRID_BLIND_DRIFT_ALERT_OUTPUT_JSON)" \
-		--output-md "$(HYBRID_BLIND_DRIFT_ALERT_OUTPUT_MD)" \
-		--min-reports "$(HYBRID_BLIND_DRIFT_ALERT_MIN_REPORTS)" \
-		--max-hybrid-accuracy-drop "$(HYBRID_BLIND_DRIFT_ALERT_MAX_ACC_DROP)" \
-		--max-gain-drop "$(HYBRID_BLIND_DRIFT_ALERT_MAX_GAIN_DROP)" \
-		--max-coverage-drop "$(HYBRID_BLIND_DRIFT_ALERT_MAX_COVERAGE_DROP)" \
-		--consecutive-drop-window "$(HYBRID_BLIND_DRIFT_ALERT_CONSECUTIVE_WINDOW)" \
-		$$extra_flags
-
-hybrid-blind-drift-suggest-thresholds: ## 基于历史快照分布建议 Hybrid blind drift 阈值（JSON+Markdown）
-	@echo "$(GREEN)Suggesting hybrid blind drift thresholds from eval history...$(NC)"
-	$(PYTHON) scripts/ci/suggest_hybrid_blind_drift_thresholds.py \
-		--eval-history-dir "$(HYBRID_BLIND_DRIFT_SUGGEST_HISTORY_DIR)" \
-		--output-json "$(HYBRID_BLIND_DRIFT_SUGGEST_OUTPUT_JSON)" \
-		--output-md "$(HYBRID_BLIND_DRIFT_SUGGEST_OUTPUT_MD)" \
-		--quantile "$(HYBRID_BLIND_DRIFT_SUGGEST_QUANTILE)" \
-		--min-reports "$(HYBRID_BLIND_DRIFT_SUGGEST_MIN_REPORTS)" \
-		--safety-multiplier "$(HYBRID_BLIND_DRIFT_SUGGEST_SAFETY_MULTIPLIER)" \
-		--label-slice-min-support "$(HYBRID_BLIND_DRIFT_SUGGEST_LABEL_SLICE_MIN_SUPPORT)" \
-		--family-slice-min-support "$(HYBRID_BLIND_DRIFT_SUGGEST_FAMILY_SLICE_MIN_SUPPORT)" \
-		--min-floor-acc-drop "$(HYBRID_BLIND_DRIFT_SUGGEST_MIN_FLOOR_ACC_DROP)" \
-		--min-floor-gain-drop "$(HYBRID_BLIND_DRIFT_SUGGEST_MIN_FLOOR_GAIN_DROP)" \
-		--min-floor-coverage-drop "$(HYBRID_BLIND_DRIFT_SUGGEST_MIN_FLOOR_COVERAGE_DROP)" \
-		--floor-label-acc-drop "$(HYBRID_BLIND_DRIFT_SUGGEST_FLOOR_LABEL_ACC_DROP)" \
-		--floor-label-gain-drop "$(HYBRID_BLIND_DRIFT_SUGGEST_FLOOR_LABEL_GAIN_DROP)" \
-		--floor-family-acc-drop "$(HYBRID_BLIND_DRIFT_SUGGEST_FLOOR_FAMILY_ACC_DROP)" \
-		--floor-family-gain-drop "$(HYBRID_BLIND_DRIFT_SUGGEST_FLOOR_FAMILY_GAIN_DROP)"
-
-hybrid-blind-drift-apply-suggestion-gh: ## 将建议阈值同步到 GitHub Variables（默认仅预览）
-	@echo "$(GREEN)Applying suggested hybrid blind drift thresholds to GitHub variables...$(NC)"
-	@extra_flags=""; \
-	if [ "$(HYBRID_BLIND_DRIFT_SUGGEST_APPLY_EXECUTE)" = "1" ]; then extra_flags="$$extra_flags --apply"; fi; \
-	$(PYTHON) scripts/ci/apply_hybrid_blind_drift_suggestion_to_gh_vars.py \
-		--suggestion-json "$(HYBRID_BLIND_DRIFT_SUGGEST_OUTPUT_JSON)" \
-		--repo "$(HYBRID_BLIND_DRIFT_SUGGEST_APPLY_REPO)" \
-		$$extra_flags
-
-hybrid-superpass-gate: ## 检查 Hybrid “超越目标”门禁（盲测精度/增益 + 校准ECE）
+hybrid-superpass-gate: ## 检查 Hybrid 超越目标门禁（盲测精度/增益 + 校准ECE）
 	@echo "$(GREEN)Checking hybrid superpass targets...$(NC)"
-	@gate_report="$(HYBRID_SUPERPASS_HYBRID_BLIND_GATE_REPORT)"; \
-	if [ -z "$$gate_report" ]; then gate_report="$(HYBRID_SUPERPASS_GATE_REPORT_JSON)"; fi; \
-	calibration_json="$(HYBRID_SUPERPASS_HYBRID_CALIBRATION_JSON)"; \
-	if [ -z "$$calibration_json" ]; then calibration_json="$(HYBRID_SUPERPASS_CALIBRATION_JSON)"; fi; \
-	extra_flags=""; \
+	@extra_flags=""; \
+	if [ -n "$(HYBRID_SUPERPASS_GATE_REPORT_JSON)" ]; then extra_flags="$$extra_flags --hybrid-blind-gate-report $(HYBRID_SUPERPASS_GATE_REPORT_JSON)"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_CALIBRATION_JSON)" ]; then extra_flags="$$extra_flags --hybrid-calibration-json $(HYBRID_SUPERPASS_CALIBRATION_JSON)"; fi; \
 	$(PYTHON) scripts/ci/check_hybrid_superpass_targets.py \
-		--hybrid-blind-gate-report "$$gate_report" \
-		--hybrid-calibration-json "$$calibration_json" \
 		--config "$(HYBRID_SUPERPASS_CONFIG)" \
 		--missing-mode "$(HYBRID_SUPERPASS_MISSING_MODE)" \
 		--output "$(HYBRID_SUPERPASS_OUTPUT_JSON)" \
@@ -1889,160 +1111,24 @@ hybrid-superpass-apply-gh-vars: ## 将 superpass 推荐变量同步到 GitHub Va
 		--config-path "$(HYBRID_SUPERPASS_APPLY_CONFIG_PATH)" \
 		$$extra_flags
 
-validate-soft-mode-smoke: ## 触发 Evaluation Report soft-mode 冒烟（自动恢复 EVALUATION_STRICT_FAIL_MODE）
-	@echo "$(GREEN)Dispatching evaluation soft-mode smoke run...$(NC)"
-	@test -n "$(SOFT_MODE_SMOKE_REPO)" || (echo "$(RED)SOFT_MODE_SMOKE_REPO is required (e.g. owner/repo)$(NC)"; exit 1)
-	@extra_flags=""; \
-	if [ "$(SOFT_MODE_SMOKE_KEEP_SOFT)" = "1" ]; then extra_flags="$$extra_flags --keep-soft"; fi; \
-	if [ "$(SOFT_MODE_SMOKE_SKIP_LOG_CHECK)" = "1" ]; then extra_flags="$$extra_flags --skip-log-check"; fi; \
-	if [ "$(SOFT_MODE_SMOKE_SKIP_REMOTE_INPUT_CHECK)" = "1" ]; then extra_flags="$$extra_flags --skip-remote-input-check"; fi; \
-	if [ -n "$(SOFT_MODE_SMOKE_COMMENT_PR_NUMBER)" ]; then extra_flags="$$extra_flags --comment-pr-number $(SOFT_MODE_SMOKE_COMMENT_PR_NUMBER)"; fi; \
-	if [ "$(SOFT_MODE_SMOKE_COMMENT_PR_AUTO)" = "1" ]; then extra_flags="$$extra_flags --comment-pr-auto"; fi; \
-	if [ "$(SOFT_MODE_SMOKE_COMMENT_DRY_RUN)" = "1" ]; then extra_flags="$$extra_flags --comment-dry-run"; fi; \
-	if [ "$(SOFT_MODE_SMOKE_COMMENT_FAIL_ON_ERROR)" = "1" ]; then extra_flags="$$extra_flags --comment-fail-on-error"; fi; \
-	$(PYTHON) scripts/ci/dispatch_evaluation_soft_mode_smoke.py \
-		--repo "$(SOFT_MODE_SMOKE_REPO)" \
-		--workflow "$(SOFT_MODE_SMOKE_WORKFLOW)" \
-		--ref "$(SOFT_MODE_SMOKE_REF)" \
-		--expected-conclusion "$(SOFT_MODE_SMOKE_EXPECTED_CONCLUSION)" \
-		--comment-repo "$(SOFT_MODE_SMOKE_COMMENT_REPO)" \
-		--comment-title "$(SOFT_MODE_SMOKE_COMMENT_TITLE)" \
-		--comment-commit-sha "$(SOFT_MODE_SMOKE_COMMENT_COMMIT_SHA)" \
-		--comment-output-json "$(SOFT_MODE_SMOKE_COMMENT_OUTPUT_JSON)" \
-		--wait-timeout-seconds "$(SOFT_MODE_SMOKE_WAIT_TIMEOUT)" \
-		--poll-interval-seconds "$(SOFT_MODE_SMOKE_POLL_INTERVAL)" \
-		--list-limit "$(SOFT_MODE_SMOKE_LIST_LIMIT)" \
-		--max-dispatch-attempts "$(SOFT_MODE_SMOKE_MAX_DISPATCH_ATTEMPTS)" \
-		--retry-sleep-seconds "$(SOFT_MODE_SMOKE_RETRY_SLEEP_SECONDS)" \
-		--output-json "$(SOFT_MODE_SMOKE_OUTPUT_JSON)" \
-		$$extra_flags
-
-validate-soft-mode-smoke-auto-pr: ## 一键开启 comment-pr-auto 的 soft-mode 冒烟
-	@echo "$(GREEN)Dispatching evaluation soft-mode smoke run with auto PR comment bridge...$(NC)"
-	$(MAKE) validate-soft-mode-smoke \
-		SOFT_MODE_SMOKE_COMMENT_PR_AUTO=1 \
-		SOFT_MODE_SMOKE_REPO="$(SOFT_MODE_SMOKE_REPO)" \
-		SOFT_MODE_SMOKE_WORKFLOW="$(SOFT_MODE_SMOKE_WORKFLOW)" \
-		SOFT_MODE_SMOKE_REF="$(SOFT_MODE_SMOKE_REF)" \
-		SOFT_MODE_SMOKE_EXPECTED_CONCLUSION="$(SOFT_MODE_SMOKE_EXPECTED_CONCLUSION)" \
-		SOFT_MODE_SMOKE_WAIT_TIMEOUT="$(SOFT_MODE_SMOKE_WAIT_TIMEOUT)" \
-		SOFT_MODE_SMOKE_POLL_INTERVAL="$(SOFT_MODE_SMOKE_POLL_INTERVAL)" \
-		SOFT_MODE_SMOKE_LIST_LIMIT="$(SOFT_MODE_SMOKE_LIST_LIMIT)" \
-		SOFT_MODE_SMOKE_OUTPUT_JSON="$(SOFT_MODE_SMOKE_OUTPUT_JSON)" \
-		SOFT_MODE_SMOKE_KEEP_SOFT="$(SOFT_MODE_SMOKE_KEEP_SOFT)" \
-		SOFT_MODE_SMOKE_SKIP_LOG_CHECK="$(SOFT_MODE_SMOKE_SKIP_LOG_CHECK)" \
-		SOFT_MODE_SMOKE_SKIP_REMOTE_INPUT_CHECK="$(SOFT_MODE_SMOKE_SKIP_REMOTE_INPUT_CHECK)" \
-		SOFT_MODE_SMOKE_MAX_DISPATCH_ATTEMPTS="$(SOFT_MODE_SMOKE_MAX_DISPATCH_ATTEMPTS)" \
-		SOFT_MODE_SMOKE_RETRY_SLEEP_SECONDS="$(SOFT_MODE_SMOKE_RETRY_SLEEP_SECONDS)" \
-		SOFT_MODE_SMOKE_COMMENT_PR_NUMBER="$(SOFT_MODE_SMOKE_COMMENT_PR_NUMBER)" \
-		SOFT_MODE_SMOKE_COMMENT_REPO="$(SOFT_MODE_SMOKE_COMMENT_REPO)" \
-		SOFT_MODE_SMOKE_COMMENT_TITLE="$(SOFT_MODE_SMOKE_COMMENT_TITLE)" \
-		SOFT_MODE_SMOKE_COMMENT_COMMIT_SHA="$(SOFT_MODE_SMOKE_COMMENT_COMMIT_SHA)" \
-		SOFT_MODE_SMOKE_COMMENT_DRY_RUN="$(SOFT_MODE_SMOKE_COMMENT_DRY_RUN)" \
-		SOFT_MODE_SMOKE_COMMENT_FAIL_ON_ERROR="$(SOFT_MODE_SMOKE_COMMENT_FAIL_ON_ERROR)" \
-		SOFT_MODE_SMOKE_COMMENT_OUTPUT_JSON="$(SOFT_MODE_SMOKE_COMMENT_OUTPUT_JSON)"
-
-render-soft-mode-smoke-summary: ## 将 soft-mode smoke summary json 渲染为 markdown
-	@echo "$(GREEN)Rendering soft-mode smoke summary markdown...$(NC)"
-	@test -n "$(SOFT_MODE_SMOKE_OUTPUT_JSON)" || (echo "$(RED)SOFT_MODE_SMOKE_OUTPUT_JSON is required$(NC)"; exit 1)
-	$(PYTHON) scripts/ci/render_soft_mode_smoke_summary.py \
-		--summary-json "$(SOFT_MODE_SMOKE_OUTPUT_JSON)" \
-		--output-md "$(SOFT_MODE_SMOKE_SUMMARY_MD)"
-
-validate-render-soft-mode-smoke-summary: ## 校验 soft-mode smoke summary 渲染脚本
-	@echo "$(GREEN)Validating soft-mode smoke summary renderer...$(NC)"
-	$(PYTEST) -q $(VALIDATE_RENDER_SOFT_MODE_SMOKE_SUMMARY_TESTS)
-
-render-hybrid-blind-strict-real-dispatch-summary: ## 将 strict-real dispatch json 渲染为 markdown
-	@echo "$(GREEN)Rendering hybrid blind strict-real dispatch summary markdown...$(NC)"
-	@test -n "$(HYBRID_BLIND_STRICT_E2E_OUTPUT_JSON)" || (echo "$(RED)HYBRID_BLIND_STRICT_E2E_OUTPUT_JSON is required$(NC)"; exit 1)
-	$(PYTHON) scripts/ci/render_hybrid_blind_strict_real_dispatch_summary.py \
-		--dispatch-json "$(HYBRID_BLIND_STRICT_E2E_OUTPUT_JSON)" \
-		--output-md "$(HYBRID_BLIND_STRICT_E2E_OUTPUT_MD)"
-
-validate-render-hybrid-blind-strict-real-dispatch-summary: ## 校验 strict-real dispatch 渲染脚本
-	@echo "$(GREEN)Validating hybrid blind strict-real dispatch summary renderer...$(NC)"
-	$(PYTEST) -q $(VALIDATE_RENDER_HYBRID_BLIND_STRICT_REAL_DISPATCH_SUMMARY_TESTS)
-
-render-hybrid-superpass-dispatch-summary: ## 将 hybrid superpass dispatch json 渲染为 markdown
-	@echo "$(GREEN)Rendering hybrid superpass dispatch summary markdown...$(NC)"
-	@test -n "$(HYBRID_SUPERPASS_E2E_OUTPUT_JSON)" || (echo "$(RED)HYBRID_SUPERPASS_E2E_OUTPUT_JSON is required$(NC)"; exit 1)
-	$(PYTHON) scripts/ci/render_hybrid_superpass_dispatch_summary.py \
-		--dispatch-json "$(HYBRID_SUPERPASS_E2E_OUTPUT_JSON)" \
-		--output-md "$(HYBRID_SUPERPASS_E2E_OUTPUT_MD)"
-
-validate-render-hybrid-superpass-dispatch-summary: ## 校验 hybrid superpass dispatch 渲染脚本
-	@echo "$(GREEN)Validating hybrid superpass dispatch summary renderer...$(NC)"
-	$(PYTEST) -q $(VALIDATE_RENDER_HYBRID_SUPERPASS_DISPATCH_SUMMARY_TESTS)
-
-render-hybrid-superpass-validation-summary: ## 将 hybrid superpass validation json 渲染为 markdown
-	@echo "$(GREEN)Rendering hybrid superpass validation summary markdown...$(NC)"
-	@test -n "$(HYBRID_SUPERPASS_VALIDATION_JSON)" || (echo "$(RED)HYBRID_SUPERPASS_VALIDATION_JSON is required$(NC)"; exit 1)
-	$(PYTHON) scripts/ci/render_hybrid_superpass_validation_summary.py \
-		--validation-json "$(HYBRID_SUPERPASS_VALIDATION_JSON)" \
-		--output-md "$(HYBRID_SUPERPASS_VALIDATION_MD)"
-
-validate-render-hybrid-superpass-validation-summary: ## 校验 hybrid superpass validation 渲染脚本
-	@echo "$(GREEN)Validating hybrid superpass validation summary renderer...$(NC)"
-	$(PYTEST) -q $(VALIDATE_RENDER_HYBRID_SUPERPASS_VALIDATION_SUMMARY_TESTS)
-
-validate-soft-mode-smoke-workflow: ## 校验 soft-mode 冒烟脚本与 workflow 接线
-	@echo "$(GREEN)Validating evaluation soft-mode smoke workflow integration...$(NC)"
-	$(PYTEST) $(VALIDATE_SOFT_MODE_SMOKE_WORKFLOW_TESTS) -q
-
-validate-soft-mode-smoke-comment: ## 校验 soft-mode PR 评论脚本（语法 + Node 回归）
-	@echo "$(GREEN)Validating soft-mode smoke PR comment script...$(NC)"
-	node --check scripts/ci/comment_markdown_utils.js
-	node --check scripts/ci/comment_pr_utils.js
-	node --check scripts/ci/comment_soft_mode_smoke_pr.js
-	$(PYTEST) -q $(VALIDATE_SOFT_MODE_SMOKE_COMMENT_TESTS)
-
-soft-mode-smoke-comment-pr: ## 将 soft-mode smoke summary 回写到 PR 评论（本地 gh api）
-	@echo "$(GREEN)Posting soft-mode smoke summary comment to PR...$(NC)"
-	@test -n "$(SOFT_MODE_COMMENT_REPO)" || (echo "$(RED)SOFT_MODE_COMMENT_REPO is required (e.g. owner/repo)$(NC)"; exit 1)
-	@test -n "$(SOFT_MODE_COMMENT_PR_NUMBER)" || (echo "$(RED)SOFT_MODE_COMMENT_PR_NUMBER is required$(NC)"; exit 1)
-	@test -n "$(SOFT_MODE_COMMENT_SUMMARY_JSON)" || (echo "$(RED)SOFT_MODE_COMMENT_SUMMARY_JSON is required$(NC)"; exit 1)
-	@extra_flags=""; \
-	if [ "$(SOFT_MODE_COMMENT_DRY_RUN)" = "1" ]; then extra_flags="$$extra_flags --dry-run"; fi; \
-	$(PYTHON) scripts/ci/post_soft_mode_smoke_pr_comment.py \
-		--repo "$(SOFT_MODE_COMMENT_REPO)" \
-		--pr-number "$(SOFT_MODE_COMMENT_PR_NUMBER)" \
-		--summary-json "$(SOFT_MODE_COMMENT_SUMMARY_JSON)" \
-		--commit-sha "$(SOFT_MODE_COMMENT_COMMIT_SHA)" \
-		--title "$(SOFT_MODE_COMMENT_TITLE)" \
-		--output-json "$(SOFT_MODE_COMMENT_OUTPUT_JSON)" \
-		$$extra_flags
-
-validate-soft-mode-smoke-comment-pr: ## 校验本地 soft-mode PR 回写脚本与 Make 参数透传
-	@echo "$(GREEN)Validating local soft-mode smoke PR comment bridge...$(NC)"
-	$(PYTEST) -q $(VALIDATE_SOFT_MODE_SMOKE_COMMENT_PR_TESTS)
-
-validate-hybrid-blind-strict-real-e2e-gh: ## 校验 strict-real gh dispatch 脚本与 Make 参数透传
-	@echo "$(GREEN)Validating hybrid blind strict-real gh dispatch integration...$(NC)"
-	$(PYTEST) $(VALIDATE_HYBRID_BLIND_STRICT_REAL_E2E_GH_TESTS) -q
+validate-graph2d-review-pack-gate-strict-e2e: ## 校验 strict e2e dispatcher（脚本 + Make 参数透传 + workflow 绑定）
+	@echo "$(GREEN)Validating Graph2D review-pack gate strict e2e dispatcher...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_dispatch_graph2d_review_gate_strict_e2e.py \
+		$(TEST_DIR)/unit/test_graph2d_parallel_make_targets.py \
+		$(TEST_DIR)/unit/test_evaluation_report_workflow_graph2d_extensions.py -q
 
 validate-hybrid-superpass-workflow: ## 校验 superpass gh 自动化与 workflow 集成
 	@echo "$(GREEN)Validating hybrid superpass workflow integration...$(NC)"
-	$(PYTEST) $(VALIDATE_HYBRID_SUPERPASS_WORKFLOW_TESTS) -q
-
-eval-weekly-summary: ## 生成滚动7天评测周报（Markdown）
-	@echo "$(GREEN)Generating rolling weekly eval summary...$(NC)"
-	$(PYTHON) scripts/ci/generate_eval_weekly_summary.py \
-		--eval-history-dir reports/eval_history \
-		--output-md "$(EVAL_WEEKLY_SUMMARY_OUTPUT)" \
-		--days "$(EVAL_WEEKLY_SUMMARY_DAYS)"
-
-validate-hybrid-blind-workflow: ## 校验 Hybrid 盲测 workflow 集成（workflow/Make/脚本）
-	@echo "$(GREEN)Validating hybrid blind workflow integration...$(NC)"
-	$(PYTEST) $(VALIDATE_HYBRID_BLIND_WORKFLOW_TESTS) -q
-
-validate-graph2d-review-pack-gate-strict-e2e: ## 校验 strict e2e dispatcher（脚本 + Make 参数透传 + workflow 绑定）
-	@echo "$(GREEN)Validating Graph2D review-pack gate strict e2e dispatcher...$(NC)"
-	$(PYTEST) $(VALIDATE_GRAPH2D_REVIEW_PACK_GATE_STRICT_E2E_TESTS) -q
-
-validate-eval-with-history-ci-workflows: ## 校验 eval_with_history 回归门禁在三条 CI workflow 中均已接入
-	@echo "$(GREEN)Validating eval_with_history regression gates across CI workflows...$(NC)"
-	$(PYTEST) $(VALIDATE_EVAL_WITH_HISTORY_CI_WORKFLOWS_TESTS) -q
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_dispatch_hybrid_superpass_workflow.py \
+		$(TEST_DIR)/unit/test_apply_hybrid_superpass_gh_vars.py \
+		$(TEST_DIR)/unit/test_check_hybrid_superpass_targets.py \
+		$(TEST_DIR)/unit/test_hybrid_superpass_e2e_workflow.py \
+		$(TEST_DIR)/unit/test_evaluation_report_workflow_hybrid_superpass_step.py \
+		$(TEST_DIR)/unit/test_hybrid_superpass_workflow_integration.py \
+		$(TEST_DIR)/unit/test_graph2d_parallel_make_targets.py \
+		$(TEST_DIR)/unit/test_evaluation_report_workflow_graph2d_extensions.py -q
 
 eval-migrate: ## 迁移旧版评测历史到 v1.0.0 schema
 	@echo "$(YELLOW)Migrating legacy evaluation history files...$(NC)"
@@ -2257,70 +1343,3 @@ rules-cd: ## 运行规则 CD 流程
 rules-report: ## 生成规则版本报告
 	@echo "Generating rules version report..."
 	$(PYTHON) scripts/recording_rules_versioning.py report --format markdown
-
-# ============================================================
-# New Module Testing Targets (2026 Q2)
-# ============================================================
-
-## Run all new module tests (215+ tests)
-test-new-modules:
-	python3 -m pytest \
-		tests/integration/test_hybrid_enabled_features.py \
-		tests/unit/test_cost_estimator.py \
-		tests/unit/assistant/test_function_calling.py \
-		tests/unit/test_anomaly_detector.py \
-		tests/unit/test_geometry_diff.py \
-		tests/unit/test_feedback_loop.py \
-		tests/unit/test_hybrid_intelligence.py \
-		tests/unit/test_pointnet.py \
-		tests/unit/test_domain_embeddings.py \
-		tests/unit/test_knowledge_graph.py \
-		tests/unit/test_synthetic_3d.py \
-		tests/unit/test_metric_pair_miner.py \
-		tests/unit/test_training_scripts.py \
-		-v --tb=short
-
-## Run cost estimation tests only
-test-cost:
-	python3 -m pytest tests/unit/test_cost_estimator.py -v
-
-## Run AI intelligence tests (feedback + hybrid)
-test-ai-intelligence:
-	python3 -m pytest tests/unit/test_feedback_loop.py tests/unit/test_hybrid_intelligence.py -v
-
-## Run diff + ECN tests
-test-diff:
-	python3 -m pytest tests/unit/test_geometry_diff.py -v
-
-## Run 3D point cloud tests
-test-pointcloud:
-	python3 -m pytest tests/unit/test_pointnet.py tests/unit/test_synthetic_3d.py -v
-
-## Run knowledge graph tests
-test-knowledge:
-	python3 -m pytest tests/unit/test_knowledge_graph.py -v
-
-## Run embeddings tests
-test-embeddings:
-	python3 -m pytest tests/unit/test_domain_embeddings.py -v
-
-## Run copilot tool tests
-test-copilot:
-	python3 -m pytest tests/unit/assistant/test_function_calling.py -v
-
-## Run training script tests
-test-training-scripts:
-	python3 -m pytest tests/unit/test_training_scripts.py tests/unit/test_metric_pair_miner.py -v
-
-## Smoke test: verify core new modules import correctly
-smoke-new-modules:
-	python3 -c "from src.ml.cost.estimator import CostEstimator; print('cost: OK')"
-	python3 -c "from src.ml.knowledge import ManufacturingKnowledgeGraph; print('knowledge: OK')"
-	python3 -c "from src.ml.monitoring.anomaly_detector import MetricsAnomalyDetector; print('anomaly: OK')"
-	python3 -c "from src.ml.hybrid.intelligence import HybridIntelligence; print('intelligence: OK')"
-	python3 -c "from src.ml.learning import FeedbackLearningPipeline; print('feedback: OK')"
-	python3 -c "from src.ml.pointnet import PointNetClassifier; print('pointnet: OK')"
-	python3 -c "from src.ml.embeddings import ManufacturingCorpusBuilder; print('embeddings: OK')"
-	python3 -c "from src.core.diff import GeometryDiff; print('diff: OK')"
-	python3 -c "from src.core.assistant.tools import TOOL_REGISTRY; print(f'copilot: {len(TOOL_REGISTRY)} tools OK')"
-	@echo "All new module smoke tests passed!"
