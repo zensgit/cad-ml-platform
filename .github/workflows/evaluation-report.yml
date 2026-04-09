@@ -4923,6 +4923,7 @@ jobs:
         set +e
         python3 scripts/ci/check_hybrid_blind_gate.py \
           --summary-json "$SUMMARY_JSON" \
+          --dataset-source "${{ steps.hybrid_blind_eval.outputs.dataset_source }}" \
           --config "${HYBRID_BLIND_GATE_CONFIG:-config/hybrid_blind_gate.yaml}" \
           --output "$REPORT_PATH"
         GATE_EXIT_CODE=$?
@@ -5098,6 +5099,7 @@ jobs:
         set +e
         python3 scripts/ci/check_hybrid_superpass_targets.py \
           --hybrid-blind-gate-report "$GATE_JSON" \
+          --hybrid-blind-dataset-source "${{ steps.hybrid_blind_eval.outputs.dataset_source }}" \
           --hybrid-calibration-json "$CALIBRATION_JSON" \
           --config "${HYBRID_SUPERPASS_CONFIG:-config/hybrid_superpass_targets.yaml}" \
           --missing-mode "$MISSING_MODE" \

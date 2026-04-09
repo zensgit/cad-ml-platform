@@ -66,6 +66,8 @@ def test_workflow_materializes_hybrid_superpass_prerequisites() -> None:
     blind_gate_script = blind_gate_step["run"]
     assert "scripts/ci/check_hybrid_blind_gate.py" in blind_gate_script
     assert "--summary-json" in blind_gate_script
+    assert "--dataset-source" in blind_gate_script
+    assert "steps.hybrid_blind_eval.outputs.dataset_source" in blind_gate_script
     assert "--config" in blind_gate_script
     assert "--output" in blind_gate_script
 
@@ -83,8 +85,10 @@ def test_workflow_has_optional_hybrid_superpass_gate_step() -> None:
     run_script = step["run"]
     assert "scripts/ci/check_hybrid_superpass_targets.py" in run_script
     assert "steps.hybrid_blind_gate.outputs.report_path" in run_script
+    assert "steps.hybrid_blind_eval.outputs.dataset_source" in run_script
     assert "steps.hybrid_calibration.outputs.output_json" in run_script
     assert "--hybrid-blind-gate-report" in run_script
+    assert "--hybrid-blind-dataset-source" in run_script
     assert "--hybrid-calibration-json" in run_script
     assert "--config" in run_script
     assert "--missing-mode" in run_script

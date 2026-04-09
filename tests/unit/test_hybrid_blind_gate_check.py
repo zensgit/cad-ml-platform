@@ -28,10 +28,15 @@ def test_hybrid_blind_gate_passes_with_gain_and_coverage() -> None:
         "require_mask_filename": True,
         "require_strip_text": True,
     }
-    report = evaluate_hybrid_blind_gate(summary, thresholds)
+    report = evaluate_hybrid_blind_gate(
+        summary,
+        thresholds,
+        dataset_source="configured_dxf_dir",
+    )
     assert report["status"] == "passed"
     assert report["failures"] == []
     assert report["metrics"]["hybrid_gain_vs_graph2d"] > 0
+    assert report["input_summary"]["dataset_source"] == "configured_dxf_dir"
 
 
 def test_hybrid_blind_gate_fails_on_drop_and_bad_flags() -> None:
@@ -61,7 +66,11 @@ def test_hybrid_blind_gate_fails_on_drop_and_bad_flags() -> None:
         "require_mask_filename": True,
         "require_strip_text": True,
     }
-    report = evaluate_hybrid_blind_gate(summary, thresholds)
+    report = evaluate_hybrid_blind_gate(
+        summary,
+        thresholds,
+        dataset_source="synthetic_manifest",
+    )
     assert report["status"] == "failed"
     joined = "\n".join(report["failures"])
     assert "geometry_only" in joined
@@ -72,3 +81,4 @@ def test_hybrid_blind_gate_fails_on_drop_and_bad_flags() -> None:
     assert "hybrid_accuracy" in joined
     assert "hybrid_gain_vs_graph2d" in joined
     assert "hybrid_missing_pred_rate" in joined
+    assert report["input_summary"]["dataset_source"] == "synthetic_manifest"

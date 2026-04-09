@@ -56,7 +56,10 @@ def test_workflow_has_hybrid_superpass_steps_and_artifacts() -> None:
     blind_step = _get_step(workflow, "evaluate", "Run Hybrid blind benchmark (optional)")
     assert "scripts/ci/build_hybrid_blind_synthetic_dxf_dataset.py" in blind_step["run"]
     blind_gate_step = _get_step(workflow, "evaluate", "Check Hybrid blind gate (optional)")
-    assert "scripts/ci/check_hybrid_blind_gate.py" in blind_gate_step["run"]
+    blind_gate_script = blind_gate_step["run"]
+    assert "scripts/ci/check_hybrid_blind_gate.py" in blind_gate_script
+    assert "--dataset-source" in blind_gate_script
+    assert "steps.hybrid_blind_eval.outputs.dataset_source" in blind_gate_script
     calibration_step = _get_step(workflow, "evaluate", "Calibrate Hybrid confidence from review CSV (optional)")
     assert "scripts/calibrate_hybrid_confidence.py" in calibration_step["run"]
 
@@ -64,8 +67,10 @@ def test_workflow_has_hybrid_superpass_steps_and_artifacts() -> None:
     gate_script = gate_step["run"]
     assert "scripts/ci/check_hybrid_superpass_targets.py" in gate_script
     assert "steps.hybrid_blind_gate.outputs.report_path" in gate_script
+    assert "steps.hybrid_blind_eval.outputs.dataset_source" in gate_script
     assert "steps.hybrid_calibration.outputs.output_json" in gate_script
     assert "--hybrid-blind-gate-report" in gate_script
+    assert "--hybrid-blind-dataset-source" in gate_script
     assert "--hybrid-calibration-json" in gate_script
     assert "--config" in gate_script
     assert "--missing-mode" in gate_script
