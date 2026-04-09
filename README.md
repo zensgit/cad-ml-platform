@@ -797,7 +797,7 @@ curl -s http://localhost:8000/api/v1/vision/analyze \
 ```yaml
 关键工作流：
 - `.github/workflows/ci.yml` 分离 `lint-type` 与测试矩阵 (3.10/3.11)
-- `.github/workflows/security-check.yml` 每周安全审计（基于 `scripts/security_audit.py` 退出码）
+- `.github/workflows/security-check.yml` 每周安全检查 `Security Check`（基于 `scripts/security_audit.py` 退出码）
 - `.github/workflows/badge-review.yml` 每月自动阈值分析与建议 Issue
  - 新增非阻断 `lint-all-report`，上传全仓 flake8 报告工件
 ```

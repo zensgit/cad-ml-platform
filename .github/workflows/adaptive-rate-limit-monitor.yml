@@ -42,10 +42,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version: '3.11'
 
@@ -75,7 +75,7 @@ jobs:
           echo "流量模式: ${{ steps.traffic_analysis.outputs.pattern }}"
 
       - name: Upload traffic analysis
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: traffic-analysis
           path: traffic_analysis.json
@@ -87,10 +87,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version: '3.11'
 
@@ -132,7 +132,7 @@ jobs:
           fi
 
       - name: Upload performance report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: performance-report
           path: |
@@ -149,10 +149,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version: '3.11'
 
@@ -161,7 +161,7 @@ jobs:
           pip install numpy scipy
 
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: traffic-analysis
 
@@ -227,10 +227,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version: '3.11'
 
@@ -254,7 +254,7 @@ jobs:
           echo "- P值: $p_value" >> test_report.md
 
       - name: Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: ab-test-results
           path: |
@@ -269,10 +269,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
 
       - name: Generate dashboard data
         run: |
@@ -343,10 +343,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version: '3.11'
 
@@ -394,7 +394,7 @@ jobs:
 
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
 
       - name: Generate PR comment
         run: |
@@ -439,17 +439,20 @@ jobs:
           echo "- 考虑在低峰期部署" >> pr_comment.md
 
       - name: Comment on PR
-        uses: actions/github-script@v6
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
         with:
           script: |
+            const { upsertBotIssueComment } = require('./scripts/ci/comment_pr_utils.js');
             const fs = require('fs');
             const comment = fs.readFileSync('pr_comment.md', 'utf8');
-
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
+            const marker = '<!-- ci:adaptive-rate-limit-pr-comment -->';
+            await upsertBotIssueComment({
+              github,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: comment
+              issueNumber: context.issue.number,
+              body: `${marker}\n${comment}`,
+              marker
             });
 
   notify-alerts:
@@ -481,11 +484,14 @@ jobs:
             }'
 
       - name: Create GitHub issue
-        uses: actions/github-script@v6
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
         with:
           script: |
+            const { upsertOpenIssue } = require('./scripts/ci/issue_upsert_utils.js');
             const title = '🚨 限流系统性能告警';
+            const marker = '<!-- ci:adaptive-rate-limit-alert -->';
             const body = `
+            ${marker}
             ## 问题描述
             自动监控检测到限流系统性能问题
 
@@ -501,10 +507,13 @@ jobs:
             @${context.repo.owner} 请及时处理
             `;
 
-            await github.rest.issues.create({
+            await upsertOpenIssue({
+              github,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: title,
-              body: body,
-              labels: ['alert', 'performance', 'rate-limiting']
+              title,
+              body,
+              labels: ['alert', 'performance', 'rate-limiting'],
+              marker,
+              listLabels: 'alert,performance,rate-limiting'
             });

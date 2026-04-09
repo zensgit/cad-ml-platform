@@ -1,0 +1,159 @@
+name: Evaluation Soft-Mode Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref for evaluation-report dispatch"
+        required: false
+        default: "main"
+      expected_conclusion:
+        description: "Expected conclusion for dispatched run"
+        required: false
+        default: "success"
+      pr_number:
+        description: "Optional PR number for posting smoke summary comment"
+        required: false
+        default: ""
+      keep_soft:
+        description: "Keep EVALUATION_STRICT_FAIL_MODE=soft after run (true/false)"
+        required: false
+        default: "false"
+      skip_log_check:
+        description: "Skip strict-mode soft marker check in run logs (true/false)"
+        required: false
+        default: "false"
+  schedule:
+    - cron: "20 3 * * *"
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: evaluation-soft-mode-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  soft-mode-smoke:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+      issues: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        with:
+          python-version: "3.11"
+
+      - name: Run evaluation soft-mode smoke dispatcher
+        run: |
+          set -euo pipefail
+          REF_INPUT="${{ github.event.inputs.ref || '' }}"
+          if [[ -z "$REF_INPUT" ]]; then
+            REF_INPUT="main"
+          fi
+          EXPECTED_INPUT="${{ github.event.inputs.expected_conclusion || '' }}"
+          if [[ -z "$EXPECTED_INPUT" ]]; then
+            EXPECTED_INPUT="success"
+          fi
+
+          extra_flags=""
+          keep_soft_token="$(echo "${{ github.event.inputs.keep_soft || 'false' }}" | tr '[:upper:]' '[:lower:]' | xargs)"
+          skip_log_token="$(echo "${{ github.event.inputs.skip_log_check || 'false' }}" | tr '[:upper:]' '[:lower:]' | xargs)"
+          if [[ "$keep_soft_token" == "1" || "$keep_soft_token" == "true" || "$keep_soft_token" == "yes" || "$keep_soft_token" == "on" ]]; then
+            extra_flags="$extra_flags --keep-soft"
+          fi
+          if [[ "$skip_log_token" == "1" || "$skip_log_token" == "true" || "$skip_log_token" == "yes" || "$skip_log_token" == "on" ]]; then
+            extra_flags="$extra_flags --skip-log-check"
+          fi
+
+          mkdir -p reports/ci
+          python3 scripts/ci/dispatch_evaluation_soft_mode_smoke.py \
+            --repo "${GITHUB_REPOSITORY}" \
+            --workflow "evaluation-report.yml" \
+            --ref "$REF_INPUT" \
+            --expected-conclusion "$EXPECTED_INPUT" \
+            --wait-timeout-seconds 1200 \
+            --poll-interval-seconds 3 \
+            --list-limit 30 \
+            --output-json reports/ci/evaluation_soft_mode_smoke_summary.json \
+            $extra_flags
+
+      - name: Render soft-mode smoke summary markdown
+        if: always()
+        run: |
+          if [[ -f reports/ci/evaluation_soft_mode_smoke_summary.json ]]; then
+            python3 scripts/ci/render_soft_mode_smoke_summary.py \
+              --summary-json reports/ci/evaluation_soft_mode_smoke_summary.json \
+              --output-md reports/ci/evaluation_soft_mode_smoke_summary.md \
+              >/dev/null
+          fi
+
+      - name: Upload soft-mode smoke summary
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: evaluation-soft-mode-smoke-${{ github.run_number }}
+          path: |
+            reports/ci/evaluation_soft_mode_smoke_summary.json
+            reports/ci/evaluation_soft_mode_smoke_summary.md
+
+      - name: Append summary
+        if: always()
+        run: |
+          if [[ -f reports/ci/evaluation_soft_mode_smoke_summary.md ]]; then
+            cat reports/ci/evaluation_soft_mode_smoke_summary.md
+          else
+            echo "- summary_md missing: reports/ci/evaluation_soft_mode_smoke_summary.md"
+          fi >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Resolve PR number for comment
+        if: github.event_name == 'workflow_dispatch'
+        id: resolve_pr
+        run: |
+          set -euo pipefail
+          PR_INPUT="$(echo "${{ github.event.inputs.pr_number || '' }}" | xargs)"
+          if [[ -n "$PR_INPUT" ]]; then
+            echo "pr_number=$PR_INPUT" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          REF_INPUT="$(echo "${{ github.event.inputs.ref || '' }}" | xargs)"
+          if [[ -z "$REF_INPUT" ]]; then
+            REF_INPUT="main"
+          fi
+          BRANCH="$REF_INPUT"
+          BRANCH="${BRANCH#refs/heads/}"
+          BRANCH="${BRANCH#origin/}"
+          if [[ -z "$BRANCH" || "$BRANCH" == "main" || "$BRANCH" == "master" ]]; then
+            BRANCH="${GITHUB_REF_NAME}"
+          fi
+
+          RESOLVED_PR="$(gh pr list \
+            --repo "${GITHUB_REPOSITORY}" \
+            --state open \
+            --head "$BRANCH" \
+            --json number \
+            --jq '.[0].number // ""')"
+          echo "pr_number=$RESOLVED_PR" >> "$GITHUB_OUTPUT"
+          echo "head_branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Comment PR with soft-mode smoke result
+        if: github.event_name == 'workflow_dispatch' && steps.resolve_pr.outputs.pr_number != ''
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
+        env:
+          SOFT_SMOKE_SUMMARY_JSON: reports/ci/evaluation_soft_mode_smoke_summary.json
+          SOFT_SMOKE_TRIGGER_PR: ${{ steps.resolve_pr.outputs.pr_number }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { commentSoftModeSmokePR } = require('./scripts/ci/comment_soft_mode_smoke_pr.js');
+            await commentSoftModeSmokePR({ github, context, process });

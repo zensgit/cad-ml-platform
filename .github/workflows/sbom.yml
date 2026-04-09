@@ -32,12 +32,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -74,7 +74,7 @@ jobs:
             --output-file=licenses.md
 
       - name: Scan SBOM for vulnerabilities
-        uses: anchore/scan-action@v3
+        uses: anchore/scan-action@3343887d815d7b07465f6fdcd395bd66508d486a
         with:
           path: "."
           fail-build: false
@@ -83,14 +83,14 @@ jobs:
 
       - name: Upload SBOM to GitHub
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: anchore/sbom-action@v0
+        uses: anchore/sbom-action@57aae528053a48a3f6235f2d9461b05fbcb7366d
         with:
           format: cyclonedx-json
           output-file: sbom-github.json
 
       - name: Install Cosign
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: sigstore/cosign-installer@v3.7.0
+        uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da
 
       - name: Sign SBOM with Cosign
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -140,7 +140,7 @@ jobs:
 
       - name: Upload SBOM artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: sbom-artifacts-${{ github.sha }}
           path: |
@@ -154,7 +154,7 @@ jobs:
 
       - name: Cache SBOM for comparison
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: |
             .sbom-cache/
@@ -169,15 +169,15 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Download SBOM artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: sbom-artifacts-${{ github.sha }}
 
       - name: Run OWASP Dependency Check
-        uses: dependency-check/Dependency-Check_Action@main
+        uses: dependency-check/Dependency-Check_Action@1e54355a8b4c8abaa8cc7d0b70aa655a3bb15a6c
         with:
           project: 'CAD ML Platform'
           path: '.'
@@ -188,7 +188,7 @@ jobs:
 
       - name: Upload Dependency Check results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: dependency-check-report
           path: reports/
@@ -200,15 +200,15 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Download SBOM
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: sbom-artifacts-${{ github.sha }}
 
       - name: Run Trivy SBOM scan
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1
         with:
           scan-type: 'sbom'
           scan-ref: 'sbom-cyclonedx.json'
@@ -224,7 +224,7 @@ jobs:
 
       - name: Upload Trivy results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: trivy-sbom-report
           path: trivy-sbom-report.json
@@ -241,17 +241,17 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           fetch-depth: 0
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version: '3.11'
 
       - name: Download current SBOM
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: sbom-artifacts-${{ github.sha }}
 
@@ -271,42 +271,25 @@ jobs:
             --output sbom-diff.md
 
       - name: Comment PR with diff
-        uses: actions/github-script@v6
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             try {
               const fs = require('fs');
+              const { upsertBotIssueComment } = require('./scripts/ci/comment_pr_utils.js');
               const diffContent = fs.readFileSync('sbom-diff.md', 'utf8');
-
-              const { data: comments } = await github.rest.issues.listComments({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-              });
-
-              const botComment = comments.find(comment =>
-                comment.user.type === 'Bot' &&
-                comment.body.includes('SBOM Dependency Changes')
-              );
 
               const body = `## 📦 SBOM Dependency Changes\n\n${diffContent}`;
 
-              if (botComment) {
-                await github.rest.issues.updateComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  comment_id: botComment.id,
-                  body: body
-                });
-              } else {
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.issue.number,
-                  body: body
-                });
-              }
+              await upsertBotIssueComment({
+                github,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issueNumber: context.issue.number,
+                body,
+                marker: 'SBOM Dependency Changes'
+              });
             } catch (error) {
               console.warn(`PR comment skipped: ${error.message}`);
             }

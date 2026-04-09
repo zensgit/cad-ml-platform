@@ -1,0 +1,61 @@
+# Manufacturing Cost Model Configuration
+# CNY-based pricing for cost estimation engine.
+
+materials:
+  steel:
+    price_per_kg: 6.5
+    density_kg_per_m3: 7850
+    machinability: 0.6
+  stainless_steel:
+    price_per_kg: 22.0
+    density_kg_per_m3: 7930
+    machinability: 0.4
+  aluminum:
+    price_per_kg: 28.0
+    density_kg_per_m3: 2700
+    machinability: 0.85
+  titanium:
+    price_per_kg: 280.0
+    density_kg_per_m3: 4500
+    machinability: 0.25
+  plastic_abs:
+    price_per_kg: 18.0
+    density_kg_per_m3: 1040
+    machinability: 0.95
+
+machines:
+  cnc_3axis:
+    hourly_rate: 80
+    setup_minutes: 30
+  cnc_5axis:
+    hourly_rate: 200
+    setup_minutes: 60
+  cnc_lathe:
+    hourly_rate: 60
+    setup_minutes: 20
+  wire_edm:
+    hourly_rate: 120
+    setup_minutes: 45
+  grinding:
+    hourly_rate: 100
+    setup_minutes: 25
+
+setup_base_cost: 200  # CNY
+
+overhead_rate: 0.15
+
+tolerance_factor:
+  IT6: 2.0
+  IT7: 1.5
+  IT8: 1.0
+  IT9: 0.8
+  IT10: 0.6
+  IT11: 0.5
+  IT12: 0.4
+
+surface_factor:
+  Ra0.8: 2.5
+  Ra1.6: 1.8
+  Ra3.2: 1.0
+  Ra6.3: 0.7
+  Ra12.5: 0.5

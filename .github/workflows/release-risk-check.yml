@@ -28,17 +28,17 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           fetch-depth: 0  # 获取完整历史以进行比较
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version: '3.10'
 
       - name: Cache Python dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
@@ -113,11 +113,12 @@ jobs:
 
       - name: Comment PR with Risk Report
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        uses: actions/github-script@v6
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
+            const { upsertBotIssueComment } = require('./scripts/ci/comment_pr_utils.js');
 
             // 读取报告
             const report = JSON.parse(fs.readFileSync('risk_report.json', 'utf8'));
@@ -142,36 +143,15 @@ jobs:
             // 创建或更新评论
             const commentBody = `## ${emoji} Release Risk Assessment\n\n${markdown}`;
 
-            // 查找现有的风险评估评论
-            const comments = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number
-            });
-
-            const botComment = comments.data.find(comment =>
-              comment.user.type === 'Bot' &&
-              comment.body.includes('Release Risk Assessment')
-            );
-
             try {
-              if (botComment) {
-                // 更新现有评论
-                await github.rest.issues.updateComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  comment_id: botComment.id,
-                  body: commentBody
-                });
-              } else {
-                // 创建新评论
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.issue.number,
-                  body: commentBody
-                });
-              }
+              await upsertBotIssueComment({
+                github,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issueNumber: context.issue.number,
+                body: commentBody,
+                marker: 'Release Risk Assessment'
+              });
             } catch (error) {
               console.log(`Failed to post PR comment: ${error.message}`);
             }
@@ -213,7 +193,7 @@ jobs:
 
       - name: Upload Risk Report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: risk-assessment-report
           path: |
@@ -238,7 +218,7 @@ jobs:
 
       - name: Post status check
         if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
-        uses: actions/github-script@v6
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

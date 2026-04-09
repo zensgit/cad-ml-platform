@@ -1,0 +1,4 @@
+ARG NGINX_BASE_IMAGE=public.ecr.aws/docker/library/nginx:alpine
+FROM ${NGINX_BASE_IMAGE}
+
+RUN apk add --no-cache openssl

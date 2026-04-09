@@ -40,6 +40,14 @@ from src.ml.hybrid.explainer import (
     HybridExplainer,
 )
 
+from src.ml.hybrid.intelligence import (
+    EnsembleUncertainty,
+    DisagreementReport,
+    CrossValidationResult,
+    CalibratedConfidence,
+    HybridIntelligence,
+)
+
 __all__ = [
     # Fusion
     "FusionStrategy",
@@ -68,4 +76,10 @@ __all__ = [
     "Counterfactual",
     "Explanation",
     "HybridExplainer",
+    # Intelligence
+    "EnsembleUncertainty",
+    "DisagreementReport",
+    "CrossValidationResult",
+    "CalibratedConfidence",
+    "HybridIntelligence",
 ]

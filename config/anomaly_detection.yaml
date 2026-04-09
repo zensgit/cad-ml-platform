@@ -1,0 +1,15 @@
+contamination: 0.05
+n_estimators: 100
+random_state: 42
+severity_thresholds:
+  low: 0.3
+  medium: 0.5
+  high: 0.7
+  critical: 0.9
+rate_limit_window_seconds: 3600
+monitored_metrics:
+  - classification_accuracy
+  - cache_hit_rate
+  - p95_latency_seconds
+  - rejection_rate
+  - drift_score
