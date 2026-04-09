@@ -1,0 +1,57 @@
+name: Test New Modules (Q2 2026)
+
+on:
+  push:
+    paths:
+      - 'src/ml/cost/**'
+      - 'src/ml/knowledge/**'
+      - 'src/ml/learning/**'
+      - 'src/ml/hybrid/intelligence.py'
+      - 'src/ml/monitoring/anomaly_detector.py'
+      - 'src/ml/monitoring/auto_remediation.py'
+      - 'src/ml/pointnet/**'
+      - 'src/ml/embeddings/**'
+      - 'src/core/diff/**'
+      - 'src/core/assistant/tools/**'
+      - 'src/core/assistant/function_calling.py'
+      - 'src/core/assistant/report_generator.py'
+      - 'src/api/v1/cost.py'
+      - 'src/api/v1/diff.py'
+      - 'src/api/v1/pointcloud.py'
+      - 'tests/unit/test_cost_estimator.py'
+      - 'tests/unit/test_anomaly_detector.py'
+      - 'tests/unit/test_geometry_diff.py'
+      - 'tests/unit/test_feedback_loop.py'
+      - 'tests/unit/test_hybrid_intelligence.py'
+      - 'tests/unit/test_pointnet.py'
+      - 'tests/unit/test_domain_embeddings.py'
+      - 'tests/unit/test_knowledge_graph.py'
+      - 'tests/unit/test_synthetic_3d.py'
+      - 'tests/unit/test_metric_pair_miner.py'
+      - 'tests/unit/test_training_scripts.py'
+      - 'tests/unit/assistant/test_function_calling.py'
+      - 'tests/integration/test_hybrid_enabled_features.py'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-new-modules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+      - name: Smoke test imports
+        run: make smoke-new-modules
+      - name: Run all new module tests
+        run: make test-new-modules
