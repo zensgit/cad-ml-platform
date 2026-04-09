@@ -15,9 +15,9 @@ jobs:
   lint-type:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -52,7 +52,7 @@ jobs:
             >> "$GITHUB_STEP_SUMMARY"
       - name: Upload pydantic v2 audit log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: pydantic-v2-audit-log
           path: /tmp/pydantic-v2-audit.log
@@ -71,7 +71,7 @@ jobs:
             >> "$GITHUB_STEP_SUMMARY"
       - name: Upload pydantic model style audit log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: pydantic-style-audit-log
           path: /tmp/pydantic-style-audit.log
@@ -80,9 +80,9 @@ jobs:
     needs: [lint-type]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version: "3.11"
           cache: "pip"
@@ -107,9 +107,9 @@ jobs:
     needs: lint-type
     if: always()
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -128,7 +128,7 @@ jobs:
           flake8 | tee flake8-full.txt
       - name: Upload flake8 report artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: flake8-full
           path: flake8-full.txt
@@ -140,9 +140,9 @@ jobs:
       matrix:
         python-version: [ '3.10', '3.11' ]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
@@ -158,7 +158,7 @@ jobs:
       - name: Enable mypy cache reuse
         run: echo "Using mypy cache"
       - name: Restore pytest cache (best-effort)
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: .pytest_cache
           key: pytest-cache-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('requirements*.txt') }}
@@ -166,7 +166,7 @@ jobs:
             pytest-cache-${{ runner.os }}-${{ matrix.python-version }}-
       - name: Restore Graph2D context drift history cache (3.11 only)
         if: matrix.python-version == '3.11'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.json
           key: graph2d-context-drift-history-${{ runner.os }}-${{ github.ref_name }}-${{ matrix.python-version }}-${{ github.run_id }}
@@ -185,7 +185,7 @@ jobs:
 
       - name: Upload core fast gate log (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: core-fast-gate-ci-log-${{ matrix.python-version }}
           path: /tmp/core-fast-gate-ci.log
@@ -218,7 +218,7 @@ jobs:
             2>&1 | tee /tmp/graph2d-seed-gate-baseline-health-strict-ci.log
       - name: Upload Graph2D baseline health logs (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: graph2d-seed-gate-baseline-health-ci-log-${{ matrix.python-version }}
           path: |
@@ -227,7 +227,7 @@ jobs:
           if-no-files-found: ignore
       - name: Upload Graph2D baseline health reports (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: graph2d-seed-gate-baseline-health-ci-${{ matrix.python-version }}
           path: |
@@ -260,7 +260,7 @@ jobs:
             make validate-graph2d-seed-gate 2>&1 | tee /tmp/graph2d-seed-gate-ci.log
       - name: Upload Graph2D seed gate log (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: graph2d-seed-gate-ci-log-${{ matrix.python-version }}
           path: /tmp/graph2d-seed-gate-ci.log
@@ -288,7 +288,7 @@ jobs:
           fi
       - name: Upload Graph2D seed gate trend artifact (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: graph2d-seed-gate-trend-${{ matrix.python-version }}
           path: /tmp/graph2d-seed-gate-ci-trend-${{ matrix.python-version }}.md
@@ -306,14 +306,14 @@ jobs:
             2>&1 | tee /tmp/graph2d-seed-gate-regression-ci.log
       - name: Upload Graph2D seed gate regression log (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: graph2d-seed-gate-regression-ci-log-${{ matrix.python-version }}
           path: /tmp/graph2d-seed-gate-regression-ci.log
           if-no-files-found: ignore
       - name: Upload Graph2D seed gate regression report (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: graph2d-seed-gate-regression-ci-${{ matrix.python-version }}
           path: /tmp/graph2d-seed-gate-regression-ci-${{ matrix.python-version }}.json
@@ -345,7 +345,7 @@ jobs:
             2>&1 | tee /tmp/graph2d-context-drift-warn-ci.log
       - name: Upload Graph2D context drift warn probe artifacts (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: graph2d-context-drift-warn-ci-${{ matrix.python-version }}
           path: |
@@ -377,7 +377,7 @@ jobs:
           fi
       - name: Upload Graph2D context drift key counts artifact (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: graph2d-context-drift-key-counts-ci-${{ matrix.python-version }}
           path: |
@@ -416,7 +416,7 @@ jobs:
           fi
       - name: Upload Graph2D context drift history artifacts (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: graph2d-context-drift-history-ci-${{ matrix.python-version }}
           path: |
@@ -452,7 +452,7 @@ jobs:
           fi
       - name: Upload Graph2D context drift alerts artifacts (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: graph2d-context-drift-alerts-ci-${{ matrix.python-version }}
           path: |
@@ -553,7 +553,7 @@ jobs:
           echo "ARCHIVE_BUCKET=${ARCHIVE_BUCKET}" >> "$GITHUB_ENV"
       - name: Upload Graph2D context drift index artifact (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: graph2d-context-drift-index-ci-${{ matrix.python-version }}
           path: |
@@ -566,7 +566,7 @@ jobs:
           if-no-files-found: ignore
       - name: Upload Graph2D context drift archive artifact (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: graph2d-context-drift-archive-ci-${{ matrix.python-version }}
           path: |
@@ -575,7 +575,7 @@ jobs:
           if-no-files-found: ignore
       - name: Save Graph2D context drift history cache (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.json
           key: graph2d-context-drift-history-${{ runner.os }}-${{ github.ref_name }}-${{ matrix.python-version }}-${{ github.run_id }}
@@ -594,7 +594,7 @@ jobs:
             make validate-graph2d-seed-gate-strict 2>&1 | tee /tmp/graph2d-seed-gate-strict-ci.log
       - name: Upload Graph2D strict seed gate log (3.11 only, optional)
         if: always() && matrix.python-version == '3.11' && vars.GRAPH2D_STRICT_SEED_GATE_ENABLED == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: graph2d-seed-gate-strict-ci-log-${{ matrix.python-version }}
           path: /tmp/graph2d-seed-gate-strict-ci.log
@@ -622,7 +622,7 @@ jobs:
           fi
       - name: Upload Graph2D strict seed gate trend artifact (3.11 only, optional)
         if: always() && matrix.python-version == '3.11' && vars.GRAPH2D_STRICT_SEED_GATE_ENABLED == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: graph2d-seed-gate-strict-trend-${{ matrix.python-version }}
           path: /tmp/graph2d-seed-gate-strict-ci-trend-${{ matrix.python-version }}.md
@@ -640,14 +640,14 @@ jobs:
             2>&1 | tee /tmp/graph2d-seed-gate-strict-regression-ci.log
       - name: Upload Graph2D strict seed gate regression log (3.11 only, optional)
         if: always() && matrix.python-version == '3.11' && vars.GRAPH2D_STRICT_SEED_GATE_ENABLED == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: graph2d-seed-gate-strict-regression-ci-log-${{ matrix.python-version }}
           path: /tmp/graph2d-seed-gate-strict-regression-ci.log
           if-no-files-found: ignore
       - name: Upload Graph2D strict seed gate regression report (3.11 only, optional)
         if: always() && matrix.python-version == '3.11' && vars.GRAPH2D_STRICT_SEED_GATE_ENABLED == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: graph2d-seed-gate-strict-regression-ci-${{ matrix.python-version }}
           path: /tmp/graph2d-seed-gate-strict-regression-ci-${{ matrix.python-version }}.json
@@ -665,10 +665,52 @@ jobs:
         run: make test-knowledge
       - name: Upload knowledge test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: knowledge-test-report-${{ matrix.python-version }}
           path: reports/junit-knowledge.xml
+      - name: Run eval_with_history regression unit tests
+        run: |
+          pytest -q \
+            tests/unit/test_eval_with_history_script_history_sequence.py \
+            tests/unit/test_validate_eval_history_history_sequence.py
+      - name: Run hybrid calibration regression unit tests
+        run: |
+          pytest -q \
+            tests/unit/test_calibrate_hybrid_confidence_script.py \
+            tests/unit/test_hybrid_confidence_calibration_gate_check.py
+      - name: Run Hybrid confidence calibration gate (3.11 only, optional)
+        if: matrix.python-version == '3.11'
+        run: |
+          set -o pipefail
+          python scripts/ci/check_hybrid_confidence_calibration_gate.py \
+            --current-json "${HYBRID_CONFIDENCE_CALIBRATION_GATE_CURRENT_JSON:-reports/calibration/hybrid_confidence_calibration_latest.json}" \
+            --baseline-json "${HYBRID_CONFIDENCE_CALIBRATION_GATE_BASELINE_JSON:-config/hybrid_confidence_calibration_baseline.json}" \
+            --config "${HYBRID_CONFIDENCE_CALIBRATION_GATE_CONFIG:-config/hybrid_confidence_calibration_gate.yaml}" \
+            --missing-mode "${HYBRID_CONFIDENCE_CALIBRATION_GATE_MISSING_MODE:-skip}" \
+            --output-json /tmp/hybrid-confidence-calibration-gate-ci-${{ matrix.python-version }}.json \
+            2>&1 | tee /tmp/hybrid-confidence-calibration-gate-ci.log
+      - name: Upload Hybrid confidence calibration gate log (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: hybrid-confidence-calibration-gate-ci-log-${{ matrix.python-version }}
+          path: /tmp/hybrid-confidence-calibration-gate-ci.log
+          if-no-files-found: ignore
+      - name: Upload Hybrid confidence calibration gate report (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: hybrid-confidence-calibration-gate-ci-${{ matrix.python-version }}
+          path: /tmp/hybrid-confidence-calibration-gate-ci-${{ matrix.python-version }}.json
+          if-no-files-found: ignore
+      - name: Append Hybrid confidence calibration gate summary (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        run: |
+          python scripts/ci/summarize_hybrid_confidence_calibration_gate.py \
+            --report-json /tmp/hybrid-confidence-calibration-gate-ci-${{ matrix.python-version }}.json \
+            --title "Hybrid Confidence Calibration Gate (CI Tests, Python ${{ matrix.python-version }})" \
+            >> "$GITHUB_STEP_SUMMARY"
       - name: Run unit tests
         run: make test
       - name: Golden evaluation gate (3.11 only)
@@ -676,7 +718,7 @@ jobs:
         run: python tests/ocr/golden/run_golden_evaluation.py || echo "Golden eval failed thresholds (allowed for now)"
       - name: Upload evaluation report (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: ocr-evaluation-report
           path: reports/ocr_evaluation.md
@@ -687,9 +729,9 @@ jobs:
     env:
       DEDUPCAD_VISION_IMAGE: ${{ vars.DEDUPCAD_VISION_IMAGE || 'ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version: '3.11'
           cache: 'pip'

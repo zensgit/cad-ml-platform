@@ -734,6 +734,87 @@ groups:
           action: "Check Faiss index health and consider rebuild"
           runbook_url: "docs/runbooks/memory_fallback_active.md"
 
+  - name: hybrid_classifier_alerts
+    interval: 30s
+    rules:
+      # Hybrid Classifier Rejection Rate High
+      - alert: HybridClassifierRejectionRateHigh
+        expr: |
+          (
+            sum(rate(analysis_rejections_total{reason="low_confidence"}[5m]))
+            / sum(rate(analysis_requests_total[5m]))
+          ) > 0.15
+          and sum(rate(analysis_requests_total[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          component: hybrid_classifier
+        annotations:
+          summary: "Hybrid classifier rejection rate above 15%"
+          description: "{{ $value | humanizePercentage }} of predictions rejected due to low confidence"
+          action: "Review rejection threshold and classifier branch weights"
+          runbook_url: "docs/runbooks/hybrid_rejection_rate.md"
+
+      # Distilled Model Accuracy Drop
+      - alert: DistilledModelAccuracyDrop
+        expr: |
+          cad:classification_accuracy:1h < 0.98
+        for: 30m
+        labels:
+          severity: critical
+          component: hybrid_classifier
+        annotations:
+          summary: "Classification accuracy below 98% (possible distillation quality issue)"
+          description: "Accuracy is {{ $value | humanizePercentage }} over last hour"
+          action: "Compare distilled vs teacher model performance, consider rollback to teacher"
+          runbook_url: "docs/runbooks/distilled_accuracy_drop.md"
+
+      # Graph2D Branch Contribution Low
+      - alert: Graph2DBranchContributionLow
+        expr: |
+          (
+            sum(rate(hybrid_classifier_branch_contributions_total{branch="graph2d"}[1h]))
+            / sum(rate(hybrid_classifier_branch_contributions_total[1h]))
+          ) < 0.05
+          and sum(rate(hybrid_classifier_branch_contributions_total[1h])) > 10
+        for: 1h
+        labels:
+          severity: info
+          component: hybrid_classifier
+        annotations:
+          summary: "Graph2D branch contributing less than 5% to classifications"
+          description: "Graph2D contribution ratio is {{ $value | humanizePercentage }}"
+          action: "Review graph2d model weights and min_confidence threshold"
+
+      # History Sequence Branch Error Rate
+      - alert: HistorySequenceBranchErrorRate
+        expr: |
+          rate(hybrid_classifier_branch_errors_total{branch="history_sequence"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: hybrid_classifier
+        annotations:
+          summary: "History sequence classifier branch errors detected"
+          description: "{{ $value }} errors per second in history sequence branch"
+          action: "Check HPSketch data availability and model path configuration"
+
+      # Cost Estimation Latency High
+      - alert: CostEstimationLatencyHigh
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(cost_estimation_latency_seconds_bucket[5m]))
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          component: cost_estimation
+        annotations:
+          summary: "Cost estimation p95 latency above 500ms"
+          description: "Cost estimation p95 is {{ $value }}s"
+          action: "Check feature extraction pipeline and cost model complexity"
+
   - name: vector_migration_alerts
     interval: 30s
     rules:

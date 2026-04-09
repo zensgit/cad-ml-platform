@@ -1,0 +1,118 @@
+name: Hybrid Blind Strict-Real E2E
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref for evaluation-report dispatch"
+        required: false
+        default: "main"
+      expected_conclusion:
+        description: "Expected conclusion for dispatched run"
+        required: false
+        default: "success"
+      hybrid_blind_dxf_dir:
+        description: "Hybrid blind DXF dir passed to evaluation-report"
+        required: false
+        default: ""
+      hybrid_blind_manifest_csv:
+        description: "Optional hybrid blind manifest csv"
+        required: false
+        default: ""
+      hybrid_blind_synth_manifest:
+        description: "Optional hybrid blind synthetic manifest"
+        required: false
+        default: ""
+      strict_fail_on_gate_failed:
+        description: "Fail when strict-real gate fails (true/false)"
+        required: false
+        default: "true"
+      strict_require_real_data:
+        description: "Require real data for strict-real gate (true/false)"
+        required: false
+        default: "true"
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: hybrid-blind-strict-real-e2e-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  hybrid-blind-strict-real-e2e:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        with:
+          python-version: "3.11"
+
+      - name: Run hybrid blind strict-real dispatcher
+        run: |
+          set -euo pipefail
+          REF_INPUT="${{ github.event.inputs.ref || '' }}"
+          if [[ -z "$REF_INPUT" ]]; then
+            REF_INPUT="main"
+          fi
+          EXPECTED_INPUT="${{ github.event.inputs.expected_conclusion || '' }}"
+          if [[ -z "$EXPECTED_INPUT" ]]; then
+            EXPECTED_INPUT="success"
+          fi
+
+          DXF_DIR_INPUT="$(echo "${{ github.event.inputs.hybrid_blind_dxf_dir || '' }}" | xargs)"
+          MANIFEST_INPUT="$(echo "${{ github.event.inputs.hybrid_blind_manifest_csv || '' }}" | xargs)"
+          SYNTH_MANIFEST_INPUT="$(echo "${{ github.event.inputs.hybrid_blind_synth_manifest || '' }}" | xargs)"
+
+          mkdir -p reports/ci
+          python3 scripts/ci/dispatch_hybrid_blind_strict_real_workflow.py \
+            --repo "${GITHUB_REPOSITORY}" \
+            --workflow "evaluation-report.yml" \
+            --ref "$REF_INPUT" \
+            --hybrid-blind-dxf-dir "$DXF_DIR_INPUT" \
+            --strict-fail-on-gate-failed "${{ github.event.inputs.strict_fail_on_gate_failed || 'true' }}" \
+            --strict-require-real-data "${{ github.event.inputs.strict_require_real_data || 'true' }}" \
+            --expected-conclusion "$EXPECTED_INPUT" \
+            --wait-timeout-seconds 1200 \
+            --poll-interval-seconds 3 \
+            --list-limit 30 \
+            --output-json reports/ci/hybrid_blind_strict_real_e2e_summary.json \
+            ${MANIFEST_INPUT:+--hybrid-blind-manifest-csv "$MANIFEST_INPUT"} \
+            ${SYNTH_MANIFEST_INPUT:+--hybrid-blind-synth-manifest "$SYNTH_MANIFEST_INPUT"}
+
+      - name: Render hybrid blind strict-real summary markdown
+        if: always()
+        run: |
+          if [[ -f reports/ci/hybrid_blind_strict_real_e2e_summary.json ]]; then
+            python3 scripts/ci/render_hybrid_blind_strict_real_dispatch_summary.py \
+              --dispatch-json reports/ci/hybrid_blind_strict_real_e2e_summary.json \
+              --output-md reports/ci/hybrid_blind_strict_real_e2e_summary.md \
+              >/dev/null
+          fi
+
+      - name: Upload hybrid blind strict-real summary
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: hybrid-blind-strict-real-e2e-${{ github.run_number }}
+          path: |
+            reports/ci/hybrid_blind_strict_real_e2e_summary.json
+            reports/ci/hybrid_blind_strict_real_e2e_summary.md
+
+      - name: Append summary
+        if: always()
+        run: |
+          if [[ -f reports/ci/hybrid_blind_strict_real_e2e_summary.md ]]; then
+            cat reports/ci/hybrid_blind_strict_real_e2e_summary.md
+          else
+            echo "- summary_md missing: reports/ci/hybrid_blind_strict_real_e2e_summary.md"
+          fi >> "$GITHUB_STEP_SUMMARY"

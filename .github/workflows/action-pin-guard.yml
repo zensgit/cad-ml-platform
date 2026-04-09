@@ -1,0 +1,48 @@
+name: Action Pin Guard
+
+on:
+  push:
+    branches:
+      - main
+      - "feat/**"
+      - "fix/**"
+      - "chore/**"
+      - "refactor/**"
+    paths:
+      - ".github/workflows/**"
+      - "scripts/ci/check_workflow_action_pins.py"
+      - "config/workflow_action_pin_policy.json"
+      - "tests/unit/test_check_workflow_action_pins.py"
+      - "Makefile"
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+      - "scripts/ci/check_workflow_action_pins.py"
+      - "config/workflow_action_pin_policy.json"
+      - "tests/unit/test_check_workflow_action_pins.py"
+      - "Makefile"
+
+permissions:
+  contents: read
+
+jobs:
+  action-pin-guard:
+    name: Action Pin Guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Setup Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        with:
+          python-version: "3.11"
+
+      - name: Validate workflow action pins
+        run: |
+          python -m pip install --upgrade pip
+          python scripts/ci/check_workflow_action_pins.py \
+            --workflows-dir .github/workflows \
+            --policy-json config/workflow_action_pin_policy.json \
+            --require-policy-for-all-external

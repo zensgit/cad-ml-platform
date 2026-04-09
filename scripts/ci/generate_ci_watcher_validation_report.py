@@ -34,6 +34,13 @@ def _read_json_dict(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _read_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise RuntimeError(f"failed to read text file {path}: {exc}") from exc
+
+
 def _extract_summary_token(path: Path) -> str:
     match = SUMMARY_TOKEN_RE.match(path.stem)
     if not match:
@@ -75,6 +82,96 @@ def _resolve_readiness_path(readiness_json: str, summary_path: Path) -> Path | N
 
     token = _extract_summary_token(summary_path)
     inferred = summary_path.parent / f"gh_readiness_watch_{token}.json"
+    if inferred.exists():
+        return inferred
+    return None
+
+
+def _resolve_soft_smoke_path(soft_smoke_json: str, summary_path: Path) -> Path | None:
+    explicit = str(soft_smoke_json or "").strip()
+    if explicit:
+        path = Path(explicit).expanduser()
+        if not path.exists():
+            raise RuntimeError(f"soft smoke summary json does not exist: {path}")
+        return path
+
+    inferred = summary_path.parent / "evaluation_soft_mode_smoke_summary.json"
+    if inferred.exists():
+        return inferred
+    return None
+
+
+def _resolve_soft_smoke_md_path(
+    soft_smoke_md: str,
+    summary_path: Path,
+    soft_smoke_path: Path | None,
+) -> Path | None:
+    explicit = str(soft_smoke_md or "").strip()
+    if explicit:
+        path = Path(explicit).expanduser()
+        if not path.exists():
+            raise RuntimeError(f"soft smoke summary md does not exist: {path}")
+        return path
+
+    if soft_smoke_path is not None:
+        inferred = soft_smoke_path.with_suffix(".md")
+        if inferred.exists():
+            return inferred
+
+    inferred = summary_path.parent / "evaluation_soft_mode_smoke_summary.md"
+    if inferred.exists():
+        return inferred
+    return None
+
+
+def _resolve_workflow_guardrail_summary_path(
+    workflow_guardrail_summary_json: str,
+    summary_path: Path,
+) -> Path | None:
+    explicit = str(workflow_guardrail_summary_json or "").strip()
+    if explicit:
+        path = Path(explicit).expanduser()
+        if not path.exists():
+            raise RuntimeError(f"workflow guardrail summary json does not exist: {path}")
+        return path
+
+    inferred = summary_path.parent / "workflow_guardrail_summary.json"
+    if inferred.exists():
+        return inferred
+    return None
+
+
+def _resolve_ci_workflow_guardrail_overview_path(
+    ci_workflow_guardrail_overview_json: str,
+    summary_path: Path,
+) -> Path | None:
+    explicit = str(ci_workflow_guardrail_overview_json or "").strip()
+    if explicit:
+        path = Path(explicit).expanduser()
+        if not path.exists():
+            raise RuntimeError(f"ci workflow guardrail overview json does not exist: {path}")
+        return path
+
+    inferred = summary_path.parent / "ci_workflow_guardrail_overview.json"
+    if inferred.exists():
+        return inferred
+    return None
+
+
+def _resolve_evaluation_comment_support_manifest_path(
+    evaluation_comment_support_manifest_json: str,
+    summary_path: Path,
+) -> Path | None:
+    explicit = str(evaluation_comment_support_manifest_json or "").strip()
+    if explicit:
+        path = Path(explicit).expanduser()
+        if not path.exists():
+            raise RuntimeError(
+                f"evaluation comment support manifest json does not exist: {path}"
+            )
+        return path
+
+    inferred = summary_path.parent / "evaluation_comment_support_manifest.json"
     if inferred.exists():
         return inferred
     return None
@@ -210,12 +307,326 @@ def _render_workflow_rows(summary: dict[str, Any]) -> list[str]:
     return rows
 
 
+def _render_soft_smoke_section(
+    soft_smoke: dict[str, Any] | None,
+    soft_smoke_path: Path | None,
+    soft_smoke_md_path: Path | None,
+) -> list[str]:
+    if soft_smoke is None or soft_smoke_path is None:
+        return [
+            "## Soft-Mode Smoke Artifact",
+            "",
+            "- Not found (inferred soft-smoke summary json is missing).",
+            "",
+        ]
+
+    dispatch = soft_smoke.get("dispatch")
+    if not isinstance(dispatch, dict):
+        dispatch = {}
+    attempts_raw = soft_smoke.get("attempts")
+    attempts: list[dict[str, Any]] = []
+    if isinstance(attempts_raw, list):
+        for item in attempts_raw:
+            if isinstance(item, dict):
+                attempts.append(item)
+
+    lines = [
+        "## Soft-Mode Smoke Artifact",
+        "",
+        f"- `{soft_smoke_path.as_posix()}`",
+        f"- `overall_exit_code={soft_smoke.get('overall_exit_code', 'n/a')}`",
+        f"- `dispatch_exit_code={soft_smoke.get('dispatch_exit_code', 'n/a')}`",
+        f"- `soft_marker_ok={soft_smoke.get('soft_marker_ok', 'n/a')}`",
+        f"- `restore_ok={soft_smoke.get('restore_ok', 'n/a')}`",
+        f"- `max_dispatch_attempts={soft_smoke.get('max_dispatch_attempts', 'n/a')}`",
+        f"- `retry_sleep_seconds={soft_smoke.get('retry_sleep_seconds', 'n/a')}`",
+        f"- `attempts_total={len(attempts)}`",
+    ]
+    run_id = dispatch.get("run_id")
+    run_url = dispatch.get("run_url")
+    if run_id:
+        lines.append(f"- `run_id={run_id}`")
+    if run_url:
+        lines.append(f"- `run_url={run_url}`")
+    if soft_smoke_md_path is not None:
+        lines.append(f"- `rendered_markdown={soft_smoke_md_path.as_posix()}`")
+    for idx, item in enumerate(attempts, start=1):
+        attempt_no = item.get("attempt", idx)
+        dispatch_exit = item.get("dispatch_exit_code", "n/a")
+        marker_ok = item.get("soft_marker_ok", "n/a")
+        message = item.get("soft_marker_message", item.get("message", "n/a"))
+        lines.append(
+            f"  - attempt#{attempt_no}: dispatch_exit_code={dispatch_exit}, "
+            f"soft_marker_ok={marker_ok}, message={message}"
+        )
+    lines.extend(["", ""])
+    return lines
+
+
+def _render_workflow_guardrail_summary_section(
+    workflow_guardrail_summary: dict[str, Any] | None,
+    workflow_guardrail_summary_path: Path | None,
+) -> list[str]:
+    if workflow_guardrail_summary is None or workflow_guardrail_summary_path is None:
+        return [
+            "## Workflow Guardrail Summary",
+            "",
+            "- Not found (inferred workflow guardrail summary json is missing).",
+            "",
+        ]
+
+    lines = [
+        "## Workflow Guardrail Summary",
+        "",
+        f"- `{workflow_guardrail_summary_path.as_posix()}`",
+        f"- `overall_status={workflow_guardrail_summary.get('overall_status', 'n/a')}`",
+        f"- `overall_light={workflow_guardrail_summary.get('overall_light', 'n/a')}`",
+        f"- `summary={workflow_guardrail_summary.get('summary', 'n/a')}`",
+    ]
+    for key in ("workflow_file_health", "workflow_inventory", "workflow_publish_helper"):
+        payload = workflow_guardrail_summary.get(key)
+        if not isinstance(payload, dict):
+            continue
+        status = payload.get("status", "n/a")
+        summary = payload.get("summary", "n/a")
+        lines.append(f"- `{key}.status={status}`")
+        lines.append(f"- `{key}.summary={summary}`")
+    lines.extend(["", ""])
+    return lines
+
+
+def _render_ci_workflow_guardrail_overview_section(
+    ci_workflow_guardrail_overview: dict[str, Any] | None,
+    ci_workflow_guardrail_overview_path: Path | None,
+) -> list[str]:
+    if ci_workflow_guardrail_overview is None or ci_workflow_guardrail_overview_path is None:
+        return [
+            "## CI Workflow Guardrail Overview",
+            "",
+            "- Not found (inferred ci workflow guardrail overview json is missing).",
+            "",
+        ]
+
+    lines = [
+        "## CI Workflow Guardrail Overview",
+        "",
+        f"- `{ci_workflow_guardrail_overview_path.as_posix()}`",
+        f"- `overall_status={ci_workflow_guardrail_overview.get('overall_status', 'n/a')}`",
+        f"- `overall_light={ci_workflow_guardrail_overview.get('overall_light', 'n/a')}`",
+        f"- `summary={ci_workflow_guardrail_overview.get('summary', 'n/a')}`",
+    ]
+    for key in ("ci_watch", "workflow_guardrail"):
+        payload = ci_workflow_guardrail_overview.get(key)
+        if not isinstance(payload, dict):
+            continue
+        status = payload.get("status", "n/a")
+        summary = payload.get("summary", "n/a")
+        lines.append(f"- `{key}.status={status}`")
+        lines.append(f"- `{key}.summary={summary}`")
+    lines.extend(["", ""])
+    return lines
+
+
+def _render_evaluation_comment_support_manifest_section(
+    evaluation_comment_support_manifest: dict[str, Any] | None,
+    evaluation_comment_support_manifest_path: Path | None,
+) -> list[str]:
+    if (
+        evaluation_comment_support_manifest is None
+        or evaluation_comment_support_manifest_path is None
+    ):
+        return [
+            "## Evaluation Comment Support Manifest",
+            "",
+            "- Not found (inferred evaluation comment support manifest json is missing).",
+            "",
+        ]
+
+    lines = [
+        "## Evaluation Comment Support Manifest",
+        "",
+        f"- `{evaluation_comment_support_manifest_path.as_posix()}`",
+        f"- `overall_status={evaluation_comment_support_manifest.get('overall_status', 'n/a')}`",
+        f"- `overall_light={evaluation_comment_support_manifest.get('overall_light', 'n/a')}`",
+        f"- `summary={evaluation_comment_support_manifest.get('summary', 'n/a')}`",
+    ]
+    entries = evaluation_comment_support_manifest.get("entries")
+    if isinstance(entries, list):
+        for item in entries[:6]:
+            if not isinstance(item, dict):
+                continue
+            lines.append(
+                f"- `{item.get('id', 'n/a')}`: present={item.get('present', 'n/a')}, "
+                f"summary={item.get('summary', 'n/a')}"
+            )
+    lines.extend(["", ""])
+    return lines
+
+
+def _render_failure_details_rows(summary: dict[str, Any]) -> list[str]:
+    payload = summary.get("failure_details")
+    if not isinstance(payload, list):
+        return []
+    rows: list[str] = []
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        workflow_name = str(item.get("workflow_name") or "").strip() or "unknown"
+        run_id = str(item.get("run_id") or "").strip() or "unknown"
+        conclusion = str(item.get("conclusion") or "").strip() or "unknown"
+        rows.append(f"- {workflow_name} (run={run_id}, conclusion={conclusion})")
+        failed_jobs = item.get("failed_jobs")
+        if isinstance(failed_jobs, list) and failed_jobs:
+            rows.append(f"  - failed_jobs: {', '.join(str(v) for v in failed_jobs)}")
+        failed_steps = item.get("failed_steps")
+        if isinstance(failed_steps, list) and failed_steps:
+            rows.append(f"  - failed_steps: {', '.join(str(v) for v in failed_steps)}")
+        detail_unavailable = str(item.get("detail_unavailable") or "").strip()
+        if detail_unavailable:
+            rows.append(f"  - detail_unavailable: {detail_unavailable}")
+        url = str(item.get("url") or "").strip()
+        if url:
+            rows.append(f"  - url: {url}")
+    return rows
+
+
+def _build_summary_payload(
+    *,
+    summary: dict[str, Any],
+    summary_path: Path,
+    readiness: dict[str, Any] | None,
+    readiness_path: Path | None,
+    soft_smoke: dict[str, Any] | None,
+    soft_smoke_path: Path | None,
+    soft_smoke_md_path: Path | None,
+    workflow_guardrail_summary: dict[str, Any] | None,
+    workflow_guardrail_summary_path: Path | None,
+    ci_workflow_guardrail_overview: dict[str, Any] | None,
+    ci_workflow_guardrail_overview_path: Path | None,
+    evaluation_comment_support_manifest: dict[str, Any] | None,
+    evaluation_comment_support_manifest_path: Path | None,
+    sha: str,
+    date_str: str,
+) -> dict[str, Any]:
+    counts = _extract_counts(summary)
+    verdict_success = _is_success_summary(summary)
+    workflow_guardrail_status = "missing"
+    workflow_guardrail_summary_text = ""
+    if isinstance(workflow_guardrail_summary, dict):
+        workflow_guardrail_status = str(
+            workflow_guardrail_summary.get("overall_status") or "unknown"
+        )
+        workflow_guardrail_summary_text = str(
+            workflow_guardrail_summary.get("summary") or ""
+        )
+    ci_workflow_overview_status = "missing"
+    ci_workflow_overview_summary_text = ""
+    if isinstance(ci_workflow_guardrail_overview, dict):
+        ci_workflow_overview_status = str(
+            ci_workflow_guardrail_overview.get("overall_status") or "unknown"
+        )
+        ci_workflow_overview_summary_text = str(
+            ci_workflow_guardrail_overview.get("summary") or ""
+        )
+    evaluation_comment_support_status = "missing"
+    evaluation_comment_support_summary_text = ""
+    if isinstance(evaluation_comment_support_manifest, dict):
+        evaluation_comment_support_status = str(
+            evaluation_comment_support_manifest.get("overall_status") or "unknown"
+        )
+        evaluation_comment_support_summary_text = str(
+            evaluation_comment_support_manifest.get("summary") or ""
+        )
+    report_summary = (
+        f"verdict={'PASS' if verdict_success else 'FAIL'}, "
+        f"reason={summary.get('reason', '')}, "
+        f"failed={counts['failed']}, "
+        f"missing_required={counts['missing_required']}, "
+        f"workflow_guardrail={workflow_guardrail_status}, "
+        f"ci_workflow_overview={ci_workflow_overview_status}, "
+        f"comment_support={evaluation_comment_support_status}"
+    )
+    attempts_total = 0
+    if isinstance(soft_smoke, dict):
+        attempts = soft_smoke.get("attempts")
+        if isinstance(attempts, list):
+            attempts_total = len([item for item in attempts if isinstance(item, dict)])
+    return {
+        "version": 1,
+        "verdict": "PASS" if verdict_success else "FAIL",
+        "verdict_success": verdict_success,
+        "summary": report_summary,
+        "date": date_str,
+        "short_sha": sha[:7] if sha else "",
+        "requested_sha": str(summary.get("requested_sha") or ""),
+        "resolved_sha": str(summary.get("resolved_sha") or ""),
+        "repo": str(summary.get("repo") or ""),
+        "reason": str(summary.get("reason") or ""),
+        "counts": counts,
+        "summary_path": summary_path.as_posix(),
+        "readiness_path": readiness_path.as_posix() if readiness_path is not None else "",
+        "soft_smoke_path": soft_smoke_path.as_posix() if soft_smoke_path is not None else "",
+        "soft_smoke_md_path": soft_smoke_md_path.as_posix()
+        if soft_smoke_md_path is not None
+        else "",
+        "workflow_guardrail_summary_path": workflow_guardrail_summary_path.as_posix()
+        if workflow_guardrail_summary_path is not None
+        else "",
+        "ci_workflow_guardrail_overview_path": ci_workflow_guardrail_overview_path.as_posix()
+        if ci_workflow_guardrail_overview_path is not None
+        else "",
+        "evaluation_comment_support_manifest_path": evaluation_comment_support_manifest_path.as_posix()
+        if evaluation_comment_support_manifest_path is not None
+        else "",
+        "sections": {
+            "readiness": {
+                "present": readiness is not None and readiness_path is not None,
+                "ok": bool(readiness.get("ok")) if isinstance(readiness, dict) else None,
+            },
+            "soft_smoke": {
+                "present": soft_smoke is not None and soft_smoke_path is not None,
+                "overall_exit_code": soft_smoke.get("overall_exit_code")
+                if isinstance(soft_smoke, dict)
+                else None,
+                "attempts_total": attempts_total,
+            },
+            "workflow_guardrail_summary": {
+                "present": workflow_guardrail_summary is not None
+                and workflow_guardrail_summary_path is not None,
+                "overall_status": workflow_guardrail_status,
+                "summary": workflow_guardrail_summary_text,
+            },
+            "ci_workflow_guardrail_overview": {
+                "present": ci_workflow_guardrail_overview is not None
+                and ci_workflow_guardrail_overview_path is not None,
+                "overall_status": ci_workflow_overview_status,
+                "summary": ci_workflow_overview_summary_text,
+            },
+            "evaluation_comment_support_manifest": {
+                "present": evaluation_comment_support_manifest is not None
+                and evaluation_comment_support_manifest_path is not None,
+                "overall_status": evaluation_comment_support_status,
+                "summary": evaluation_comment_support_summary_text,
+            },
+        },
+    }
+
+
 def _render_markdown(
     *,
     summary: dict[str, Any],
     summary_path: Path,
     readiness: dict[str, Any] | None,
     readiness_path: Path | None,
+    soft_smoke: dict[str, Any] | None,
+    soft_smoke_path: Path | None,
+    soft_smoke_md_path: Path | None,
+    workflow_guardrail_summary: dict[str, Any] | None,
+    workflow_guardrail_summary_path: Path | None,
+    ci_workflow_guardrail_overview: dict[str, Any] | None,
+    ci_workflow_guardrail_overview_path: Path | None,
+    evaluation_comment_support_manifest: dict[str, Any] | None,
+    evaluation_comment_support_manifest_path: Path | None,
     sha: str,
     date_str: str,
 ) -> str:
@@ -241,12 +652,34 @@ def _render_markdown(
         "```bash",
         "make watch-commit-workflows-safe-auto \\",
         f"  CI_WATCH_SHA={short_sha} \\",
+        f"  CI_WATCH_REPO='{summary.get('repo', '')}' \\",
         "  CI_WATCH_ARTIFACT_SHA_LEN=12 \\",
+        "  CI_WATCH_PRINT_FAILURE_DETAILS=1 \\",
+        "  CI_WATCH_FAILURE_DETAILS_MAX_RUNS=5 \\",
         f"  CI_WATCH_SUCCESS_CONCLUSIONS='{success_csv}'",
         "```",
         "",
     ]
     lines.extend(_render_readiness_section(readiness, readiness_path))
+    lines.extend(
+        _render_soft_smoke_section(soft_smoke, soft_smoke_path, soft_smoke_md_path)
+    )
+    lines.extend(
+        _render_workflow_guardrail_summary_section(
+            workflow_guardrail_summary, workflow_guardrail_summary_path
+        )
+    )
+    lines.extend(
+        _render_ci_workflow_guardrail_overview_section(
+            ci_workflow_guardrail_overview, ci_workflow_guardrail_overview_path
+        )
+    )
+    lines.extend(
+        _render_evaluation_comment_support_manifest_section(
+            evaluation_comment_support_manifest,
+            evaluation_comment_support_manifest_path,
+        )
+    )
     lines.extend(
         [
             "## Watch Summary Artifact",
@@ -254,6 +687,7 @@ def _render_markdown(
             f"- `{summary_path.as_posix()}`",
             f"- `requested_sha={summary.get('requested_sha', '')}`",
             f"- `resolved_sha={summary.get('resolved_sha', '')}`",
+            f"- `repo={summary.get('repo', '')}`",
             f"- `exit_code={summary.get('exit_code', '')}`",
             f"- `reason={summary.get('reason', '')}`",
             f"- `counts.observed={counts['observed']}`",
@@ -271,6 +705,12 @@ def _render_markdown(
         lines.extend(workflow_rows)
     else:
         lines.append("- No workflow runs found in summary payload.")
+    failure_rows = _render_failure_details_rows(summary)
+    lines.extend(["", "## Failure Details", ""])
+    if failure_rows:
+        lines.extend(failure_rows)
+    else:
+        lines.append("- No structured failure_details in summary payload.")
     lines.extend(
         [
             "",
@@ -309,9 +749,54 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional explicit readiness json path. If empty, inferred from summary token.",
     )
     parser.add_argument(
+        "--soft-smoke-summary-json",
+        default="",
+        help=(
+            "Optional soft-mode smoke summary json path. If empty, "
+            "infer <summary-dir>/evaluation_soft_mode_smoke_summary.json."
+        ),
+    )
+    parser.add_argument(
+        "--soft-smoke-summary-md",
+        default="",
+        help=(
+            "Optional soft-mode smoke summary markdown path. If empty, "
+            "infer sibling .md artifact when available."
+        ),
+    )
+    parser.add_argument(
+        "--workflow-guardrail-summary-json",
+        default="",
+        help=(
+            "Optional workflow guardrail summary json path. If empty, "
+            "infer <summary-dir>/workflow_guardrail_summary.json."
+        ),
+    )
+    parser.add_argument(
+        "--ci-workflow-guardrail-overview-json",
+        default="",
+        help=(
+            "Optional CI workflow guardrail overview json path. If empty, "
+            "infer <summary-dir>/ci_workflow_guardrail_overview.json."
+        ),
+    )
+    parser.add_argument(
+        "--evaluation-comment-support-manifest-json",
+        default="",
+        help=(
+            "Optional evaluation comment support manifest json path. If empty, "
+            "infer <summary-dir>/evaluation_comment_support_manifest.json."
+        ),
+    )
+    parser.add_argument(
         "--output-md",
         default="",
         help="Optional explicit markdown output path.",
+    )
+    parser.add_argument(
+        "--output-json",
+        default="",
+        help="Optional explicit JSON summary output path.",
     )
     parser.add_argument(
         "--report-dir",
@@ -341,6 +826,42 @@ def main(argv: Sequence[str] | None = None) -> int:
     readiness: dict[str, Any] | None = None
     if readiness_path is not None:
         readiness = _read_json_dict(readiness_path)
+    soft_smoke_path = _resolve_soft_smoke_path(
+        str(args.soft_smoke_summary_json), summary_path
+    )
+    soft_smoke: dict[str, Any] | None = None
+    if soft_smoke_path is not None:
+        soft_smoke = _read_json_dict(soft_smoke_path)
+    soft_smoke_md_path = _resolve_soft_smoke_md_path(
+        str(args.soft_smoke_summary_md), summary_path, soft_smoke_path
+    )
+    if soft_smoke_md_path is not None:
+        _read_text(soft_smoke_md_path)
+    workflow_guardrail_summary_path = _resolve_workflow_guardrail_summary_path(
+        str(args.workflow_guardrail_summary_json), summary_path
+    )
+    workflow_guardrail_summary: dict[str, Any] | None = None
+    if workflow_guardrail_summary_path is not None:
+        workflow_guardrail_summary = _read_json_dict(workflow_guardrail_summary_path)
+    ci_workflow_guardrail_overview_path = _resolve_ci_workflow_guardrail_overview_path(
+        str(args.ci_workflow_guardrail_overview_json), summary_path
+    )
+    ci_workflow_guardrail_overview: dict[str, Any] | None = None
+    if ci_workflow_guardrail_overview_path is not None:
+        ci_workflow_guardrail_overview = _read_json_dict(
+            ci_workflow_guardrail_overview_path
+        )
+    evaluation_comment_support_manifest_path = (
+        _resolve_evaluation_comment_support_manifest_path(
+            str(args.evaluation_comment_support_manifest_json),
+            summary_path,
+        )
+    )
+    evaluation_comment_support_manifest: dict[str, Any] | None = None
+    if evaluation_comment_support_manifest_path is not None:
+        evaluation_comment_support_manifest = _read_json_dict(
+            evaluation_comment_support_manifest_path
+        )
 
     sha = _extract_sha(summary)
     date_str = str(args.date or "").strip() or datetime.now().strftime("%Y%m%d")
@@ -361,15 +882,74 @@ def main(argv: Sequence[str] | None = None) -> int:
         summary_path=summary_path,
         readiness=readiness,
         readiness_path=readiness_path,
+        soft_smoke=soft_smoke,
+        soft_smoke_path=soft_smoke_path,
+        soft_smoke_md_path=soft_smoke_md_path,
+        workflow_guardrail_summary=workflow_guardrail_summary,
+        workflow_guardrail_summary_path=workflow_guardrail_summary_path,
+        ci_workflow_guardrail_overview=ci_workflow_guardrail_overview,
+        ci_workflow_guardrail_overview_path=ci_workflow_guardrail_overview_path,
+        evaluation_comment_support_manifest=evaluation_comment_support_manifest,
+        evaluation_comment_support_manifest_path=evaluation_comment_support_manifest_path,
+        sha=sha,
+        date_str=date_str,
+    )
+    summary_payload = _build_summary_payload(
+        summary=summary,
+        summary_path=summary_path,
+        readiness=readiness,
+        readiness_path=readiness_path,
+        soft_smoke=soft_smoke,
+        soft_smoke_path=soft_smoke_path,
+        soft_smoke_md_path=soft_smoke_md_path,
+        workflow_guardrail_summary=workflow_guardrail_summary,
+        workflow_guardrail_summary_path=workflow_guardrail_summary_path,
+        ci_workflow_guardrail_overview=ci_workflow_guardrail_overview,
+        ci_workflow_guardrail_overview_path=ci_workflow_guardrail_overview_path,
+        evaluation_comment_support_manifest=evaluation_comment_support_manifest,
+        evaluation_comment_support_manifest_path=evaluation_comment_support_manifest_path,
         sha=sha,
         date_str=date_str,
     )
     output_path.write_text(markdown, encoding="utf-8")
+    output_json = str(args.output_json or "").strip()
+    if output_json:
+        output_json_path = Path(output_json).expanduser()
+        if output_json_path.parent != Path("."):
+            output_json_path.parent.mkdir(parents=True, exist_ok=True)
+        output_json_path.write_text(
+            json.dumps(summary_payload, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        print(f"output_json={output_json_path.as_posix()}", flush=True)
 
     print(f"summary_json={summary_path.as_posix()}", flush=True)
     print(
         "readiness_json="
         + (readiness_path.as_posix() if readiness_path is not None else "(not found)"),
+        flush=True,
+    )
+    print(
+        "soft_smoke_json="
+        + (soft_smoke_path.as_posix() if soft_smoke_path is not None else "(not found)"),
+        flush=True,
+    )
+    print(
+        "soft_smoke_md="
+        + (
+            soft_smoke_md_path.as_posix()
+            if soft_smoke_md_path is not None
+            else "(not found)"
+        ),
+        flush=True,
+    )
+    print(
+        "evaluation_comment_support_manifest_json="
+        + (
+            evaluation_comment_support_manifest_path.as_posix()
+            if evaluation_comment_support_manifest_path is not None
+            else "(not found)"
+        ),
         flush=True,
     )
     print(f"output_md={output_path.as_posix()}", flush=True)
