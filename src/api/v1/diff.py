@@ -22,7 +22,7 @@ from src.core.diff.report import DiffReportGenerator
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/diff", tags=["diff"])
+router = APIRouter(tags=["diff"])
 
 
 # ------------------------------------------------------------------

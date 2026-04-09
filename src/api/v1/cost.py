@@ -12,7 +12,7 @@ from src.ml.cost.models import CostEstimateRequest, CostEstimateResponse
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/cost", tags=["cost"])
+router = APIRouter(tags=["cost"])
 
 # Singleton estimator (loaded once at import time).
 _estimator: CostEstimator | None = None
