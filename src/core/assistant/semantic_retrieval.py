@@ -603,23 +603,64 @@ def create_semantic_retriever(
     model_name: str = "paraphrase-multilingual-MiniLM-L12-v2",
     storage_path: Optional[str] = None,
     hybrid_weight: float = 0.7,
+    domain_model_path: Optional[str] = None,
 ) -> SemanticRetriever:
     """
     Factory function to create a semantic retriever.
+
+    Provider resolution order:
+
+    1. **DomainEmbeddingProvider** — fine-tuned manufacturing model
+       (tried first when *domain_model_path* is given or by default).
+    2. **SentenceTransformerProvider** — generic multilingual model
+       (used when *use_transformers* is ``True`` or domain model fails).
+    3. **SimpleEmbeddingProvider** — TF-IDF n-gram baseline (always
+       available, no external dependencies).
 
     Args:
         use_transformers: Use sentence-transformers (requires library)
         model_name: Model name if using transformers
         storage_path: Path for vector store persistence
         hybrid_weight: Weight for semantic vs keyword search
+        domain_model_path: Explicit path to a fine-tuned domain model
+            directory.  When ``None``, the default
+            ``models/embeddings/manufacturing_v2`` is tried.
 
     Returns:
         Configured SemanticRetriever
     """
-    if use_transformers:
-        provider = SentenceTransformerProvider(model_name=model_name)
-    else:
+    import logging
+
+    _logger = logging.getLogger(__name__)
+
+    provider: EmbeddingProvider | None = None
+
+    # 1. Try DomainEmbeddingProvider first
+    try:
+        from .domain_embedding_provider import DomainEmbeddingProvider
+
+        kwargs = {}
+        if domain_model_path is not None:
+            kwargs["model_path"] = domain_model_path
+        candidate = DomainEmbeddingProvider(**kwargs)
+        if candidate._available:  # noqa: SLF001 — checking internal flag
+            provider = candidate
+            _logger.info("Using DomainEmbeddingProvider (dim=%d)", provider.dimension)
+    except Exception:
+        _logger.debug("DomainEmbeddingProvider not available", exc_info=True)
+
+    # 2. Fall back to SentenceTransformerProvider
+    if provider is None and use_transformers:
+        try:
+            provider = SentenceTransformerProvider(model_name=model_name)
+            _logger.info("Using SentenceTransformerProvider (model=%s)", model_name)
+        except Exception:
+            _logger.debug("SentenceTransformerProvider not available", exc_info=True)
+
+    # 3. Fall back to SimpleEmbeddingProvider
+    if provider is None:
         provider = SimpleEmbeddingProvider()
+        _logger.info("Using SimpleEmbeddingProvider (TF-IDF baseline)")
 
     return SemanticRetriever(
         embedding_provider=provider,
