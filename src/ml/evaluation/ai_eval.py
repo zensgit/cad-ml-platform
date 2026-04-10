@@ -128,7 +128,23 @@ class AIEvaluationSuite:
                 "expected_contains": ["IT6"],
                 "category": "tolerance",
             },
-            # ---- Knowledge graph queries (4) -----------------------------
+            # ---- Welding queries (3) -------------------------------------
+            {
+                "question": "SUS304焊接用什么焊丝？",
+                "expected_contains": ["焊"],
+                "category": "welding",
+            },
+            {
+                "question": "铝合金能焊接吗？",
+                "expected_contains": ["铝"],
+                "category": "welding",
+            },
+            {
+                "question": "碳钢焊接需要预热吗？",
+                "expected_contains": ["碳钢"],
+                "category": "welding",
+            },
+            # ---- Knowledge graph queries (15) ----------------------------
             {
                 "question": "SUS304适合什么工艺？",
                 "expected_contains": ["CNC", "车削"],
@@ -147,6 +163,77 @@ class AIEvaluationSuite:
             {
                 "question": "齿轮通常用什么材料？",
                 "expected_contains": ["钢"],
+                "category": "knowledge_graph",
+            },
+            {
+                "question": "轴用什么材料做？",
+                "expected_contains": ["45", "钢"],
+                "category": "knowledge_graph",
+            },
+            {
+                "question": "壳体常用什么材料？",
+                "expected_contains": ["铝"],
+                "category": "knowledge_graph",
+            },
+            {
+                "question": "支架一般用什么材料？",
+                "expected_contains": ["钢"],
+                "category": "knowledge_graph",
+            },
+            {
+                "question": "SUS304能做什么零件？",
+                "expected_contains": ["法兰", "轴"],
+                "category": "knowledge_graph",
+            },
+            {
+                "question": "Q235适合什么工艺？",
+                "expected_contains": ["CNC"],
+                "category": "knowledge_graph",
+            },
+            {
+                "question": "铝合金6061适合什么加工？",
+                "expected_contains": ["CNC"],
+                "category": "knowledge_graph",
+            },
+            {
+                "question": "磨削能达到什么粗糙度？",
+                "expected_contains": ["Ra"],
+                "category": "knowledge_graph",
+            },
+            {
+                "question": "5轴加工能达到什么精度？",
+                "expected_contains": ["IT"],
+                "category": "knowledge_graph",
+            },
+            {
+                "question": "法兰盘用SUS304做，推荐什么工艺？",
+                "expected_contains": ["车削"],
+                "category": "knowledge_graph",
+            },
+            {
+                "question": "轴用45号钢做，推荐什么工艺？",
+                "expected_contains": ["车削"],
+                "category": "knowledge_graph",
+            },
+            {
+                "question": "连接件常用什么材料？",
+                "expected_contains": ["钢"],
+                "category": "knowledge_graph",
+            },
+            # ---- Cross-domain queries (5) --------------------------------
+            {
+                "question": "钛合金适合什么工艺？",
+                "expected_contains": ["5轴", "线切割"],
+                "category": "knowledge_graph",
+            },
+            {
+                "question": "Ra0.8需要什么加工方式？",
+                "expected_contains": ["磨削"],
+                "category": "knowledge_graph",
+            },
+            {
+                "question": "IT6需要什么加工方式？",
+                "expected_contains": ["磨削"],
                 "category": "knowledge_graph",
             },
         ]
