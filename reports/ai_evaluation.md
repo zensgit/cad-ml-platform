@@ -2,11 +2,11 @@
 
 **Overall Score: 100.0%** (PASS)
 
-Total test cases: 29
+Total test cases: 37
 
 
 ## Knowledge Graph
-Score: 100.0% (18/18)
+Score: 100.0% (26/26)
 
 - [PASS] SUS304适合什么工艺？
 - [PASS] 法兰盘常用什么材料？
@@ -26,6 +26,14 @@ Score: 100.0% (18/18)
 - [PASS] 钛合金适合什么工艺？
 - [PASS] Ra0.8需要什么加工方式？
 - [PASS] IT6需要什么加工方式？
+- [PASS] 哪种材料最便宜？
+- [PASS] 加工精度最高的工艺是什么？
+- [PASS] SUS304和SUS316有什么区别？
+- [PASS] 3D打印能做法兰盘吗？
+- [PASS] IT7对应什么表面粗糙度？
+- [PASS] 轴的典型公差是多少？
+- [PASS] 哪些工艺可以加工钛合金？
+- [PASS] 铝合金和钛合金哪个更轻？
 
 ## Cost
 Score: 100.0% (6/6)
