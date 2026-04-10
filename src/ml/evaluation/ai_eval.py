@@ -236,6 +236,47 @@ class AIEvaluationSuite:
                 "expected_contains": ["磨削"],
                 "category": "knowledge_graph",
             },
+            # ---- Advanced queries (8) ------------------------------------
+            {
+                "question": "哪种材料最便宜？",
+                "expected_contains": ["Q235"],
+                "category": "knowledge_graph",
+            },
+            {
+                "question": "加工精度最高的工艺是什么？",
+                "expected_contains": ["5轴", "IT6"],
+                "category": "knowledge_graph",
+            },
+            {
+                "question": "SUS304和SUS316有什么区别？",
+                "expected_contains": ["SUS304", "SUS316"],
+                "category": "knowledge_graph",
+            },
+            {
+                "question": "3D打印能做法兰盘吗？",
+                "expected_contains": ["法兰盘"],
+                "category": "knowledge_graph",
+            },
+            {
+                "question": "IT7对应什么表面粗糙度？",
+                "expected_contains": ["Ra"],
+                "category": "knowledge_graph",
+            },
+            {
+                "question": "轴的典型公差是多少？",
+                "expected_contains": ["IT"],
+                "category": "knowledge_graph",
+            },
+            {
+                "question": "哪些工艺可以加工钛合金？",
+                "expected_contains": ["5轴", "线切割"],
+                "category": "knowledge_graph",
+            },
+            {
+                "question": "铝合金和钛合金哪个更轻？",
+                "expected_contains": ["铝", "钛"],
+                "category": "knowledge_graph",
+            },
         ]
 
     # ------------------------------------------------------------------
