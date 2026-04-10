@@ -62,6 +62,8 @@ from .semantic_retrieval import (
     SemanticRetriever as VectorSemanticRetriever,
     create_semantic_retriever,
 )
+from .domain_embedding_provider import DomainEmbeddingProvider
+from .memory import ConversationMemory
 from .quality_evaluation import (
     QualityDimension,
     DimensionScore,
@@ -202,6 +204,10 @@ __all__ = [
     "VectorStore",
     "VectorSemanticRetriever",
     "create_semantic_retriever",
+    # Domain Embedding Provider
+    "DomainEmbeddingProvider",
+    # Conversation Memory
+    "ConversationMemory",
     # Quality Evaluation
     "QualityDimension",
     "DimensionScore",
