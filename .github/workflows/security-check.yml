@@ -1,4 +1,4 @@
-name: Security Audit
+name: Security Check
 
 on:
   schedule:
@@ -10,12 +10,12 @@ on:
       - '.github/workflows/security-check.yml'
 
 jobs:
-  security-audit:
+  security-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -29,7 +29,7 @@ jobs:
           python scripts/security_audit.py --severity medium --json > reports/security_audit.json || exit_code=$?; echo "EXIT_CODE=${exit_code}" >> $GITHUB_ENV
       - name: Upload audit report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: security-audit-report
           path: reports/security_audit.json

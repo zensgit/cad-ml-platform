@@ -43,6 +43,17 @@ from src.ml.monitoring.alerts import (
     get_alert_manager,
 )
 
+from src.ml.monitoring.anomaly_detector import (
+    AnomalyResult,
+    MetricsAnomalyDetector,
+)
+
+from src.ml.monitoring.auto_remediation import (
+    AutoRemediation,
+    RemediationResult,
+    REMEDIATION_RULES,
+)
+
 __all__ = [
     # Metrics
     "MetricType",
@@ -74,4 +85,11 @@ __all__ = [
     "CallbackChannel",
     "AlertManager",
     "get_alert_manager",
+    # Anomaly detection
+    "AnomalyResult",
+    "MetricsAnomalyDetector",
+    # Auto-remediation
+    "AutoRemediation",
+    "RemediationResult",
+    "REMEDIATION_RULES",
 ]

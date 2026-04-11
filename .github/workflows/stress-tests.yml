@@ -7,19 +7,118 @@ on:
       - 'src/**'
       - 'tests/**'
       - 'scripts/stress_*.py'
+      - 'scripts/ci/check_workflow_file_issues.py'
+      - 'scripts/ci/check_workflow_publish_helper_adoption.py'
+      - 'scripts/ci/generate_workflow_guardrail_summary.py'
+      - 'scripts/ci/generate_workflow_inventory_report.py'
       - 'prometheus/rules/**'
       - 'grafana/dashboards/**'
-      - '.github/workflows/stress-tests.yml'
+      - '.github/workflows/*.yml'
 
 jobs:
+  workflow-file-health:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        with:
+          python-version: '3.11'
+      - name: Validate workflow file health via GitHub parser
+        run: |
+          python3 scripts/ci/check_workflow_file_issues.py \
+            --mode gh \
+            --ref "${GITHUB_SHA}" \
+            --summary-json-out reports/ci/workflow_file_health_summary.json
+      - name: Generate workflow inventory audit report
+        run: |
+          python3 scripts/ci/generate_workflow_inventory_report.py \
+            --workflow-root ".github/workflows" \
+            --ci-watch-required-workflows "CI,CI Enhanced,CI Tiered Tests,Code Quality,Multi-Architecture Docker Build,Security Audit,Observability Checks,Self-Check,GHCR Publish,Evaluation Report" \
+            --output-json reports/ci/workflow_inventory_report.json \
+            --output-md reports/ci/workflow_inventory_report.md \
+            >/dev/null
+      - name: Generate workflow publish helper adoption report
+        run: |
+          python3 scripts/ci/check_workflow_publish_helper_adoption.py \
+            --workflow-root ".github/workflows" \
+            --summary-json-out reports/ci/workflow_publish_helper_adoption.json \
+            --output-md reports/ci/workflow_publish_helper_adoption.md \
+            >/dev/null
+      - name: Generate workflow guardrail summary report
+        run: |
+          python3 scripts/ci/generate_workflow_guardrail_summary.py \
+            --workflow-file-health-json reports/ci/workflow_file_health_summary.json \
+            --workflow-inventory-json reports/ci/workflow_inventory_report.json \
+            --workflow-publish-helper-json reports/ci/workflow_publish_helper_adoption.json \
+            --output-json reports/ci/workflow_guardrail_summary.json \
+            --output-md reports/ci/workflow_guardrail_summary.md \
+            >/dev/null
+      - name: Upload workflow health summary
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: workflow-file-health-${{ github.run_number }}
+          path: reports/ci/workflow_file_health_summary.json
+      - name: Upload workflow inventory audit report
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: workflow-inventory-report-${{ github.run_number }}
+          path: |
+            reports/ci/workflow_inventory_report.json
+            reports/ci/workflow_inventory_report.md
+      - name: Upload workflow publish helper adoption report
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: workflow-publish-helper-adoption-${{ github.run_number }}
+          path: |
+            reports/ci/workflow_publish_helper_adoption.json
+            reports/ci/workflow_publish_helper_adoption.md
+      - name: Upload workflow guardrail summary report
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: workflow-guardrail-summary-${{ github.run_number }}
+          path: |
+            reports/ci/workflow_guardrail_summary.json
+            reports/ci/workflow_guardrail_summary.md
+      - name: Append workflow inventory summary
+        if: always()
+        run: |
+          if [[ -f reports/ci/workflow_inventory_report.md ]]; then
+            cat reports/ci/workflow_inventory_report.md
+          else
+            echo "- workflow inventory markdown missing: reports/ci/workflow_inventory_report.md"
+          fi >> "$GITHUB_STEP_SUMMARY"
+      - name: Append workflow publish helper adoption summary
+        if: always()
+        run: |
+          if [[ -f reports/ci/workflow_publish_helper_adoption.md ]]; then
+            cat reports/ci/workflow_publish_helper_adoption.md
+          else
+            echo "- workflow publish helper markdown missing: reports/ci/workflow_publish_helper_adoption.md"
+          fi >> "$GITHUB_STEP_SUMMARY"
+      - name: Append workflow guardrail summary
+        if: always()
+        run: |
+          if [[ -f reports/ci/workflow_guardrail_summary.md ]]; then
+            cat reports/ci/workflow_guardrail_summary.md
+          else
+            echo "- workflow guardrail markdown missing: reports/ci/workflow_guardrail_summary.md"
+          fi >> "$GITHUB_STEP_SUMMARY"
+
   metrics-consistency:
+    needs: workflow-file-health
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.10", "3.11"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install deps
@@ -47,14 +146,15 @@ jobs:
           python scripts/validate_dashboard_metrics.py
 
   stress-unit-tests:
+    needs: workflow-file-health
     runs-on: ubuntu-latest
     env:
       API_BASE_URL: http://127.0.0.1:8000
       API_KEY: test
       ADMIN_TOKEN: test
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version: '3.10'
       - name: Install deps

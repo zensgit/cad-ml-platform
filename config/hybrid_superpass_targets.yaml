@@ -1,7 +1,12 @@
 hybrid_superpass:
   # Benchmark-aligned targets (see docs/BENCHMARK_TARGETS_20260312.md)
+  # Synthetic geometry-only blind runs are advisory; strict blind targets only
+  # apply when the blind gate report comes from a configured real DXF dataset.
   min_hybrid_accuracy: 0.60
   min_hybrid_gain_vs_graph2d: 0.00
   max_calibration_ece: 0.08
   # skip: record warnings for missing inputs; fail: mark gate failed
   missing_mode: skip
+  require_real_blind_dataset: true
+  allowed_blind_dataset_sources:
+    - configured_dxf_dir
