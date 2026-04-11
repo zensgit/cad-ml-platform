@@ -1,0 +1,174 @@
+name: Hybrid Superpass Nightly
+run-name: >-
+  Hybrid Superpass Nightly${{ github.event.inputs.dispatch_trace_id != '' && format(' (trace: {0})', github.event.inputs.dispatch_trace_id) || '' }}
+
+on:
+  schedule:
+    - cron: '15 2 * * *'
+  workflow_dispatch:
+    inputs:
+      target_repo:
+        description: 'Target owner/repo for dispatch. Empty means current repository.'
+        required: false
+        default: ''
+      target_ref:
+        description: 'Target ref/branch for dispatch.'
+        required: false
+        default: 'main'
+      target_workflow:
+        description: 'Target workflow file to dispatch.'
+        required: false
+        default: 'hybrid-superpass-e2e.yml'
+      dispatch_trace_id:
+        description: 'Optional trace id for nightly dispatch lineage.'
+        required: false
+        default: ''
+      dual_wait_timeout_seconds:
+        description: 'Wait timeout seconds for dual dispatch polling.'
+        required: false
+        default: '900'
+      dual_poll_interval_seconds:
+        description: 'Polling interval seconds for dual dispatch polling.'
+        required: false
+        default: '3'
+      dual_list_limit:
+        description: 'Workflow run list limit when locating dispatched runs.'
+        required: false
+        default: '20'
+      strict_require_distinct_run_ids:
+        description: 'When true, require fail/success run ids to be distinct in strict mode.'
+        required: false
+        default: 'true'
+      strict_require_trace_pair:
+        description: 'When true, require fail/success trace pair in strict mode.'
+        required: false
+        default: 'true'
+
+permissions:
+  contents: read
+  actions: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  nightly-superpass:
+    name: Nightly hybrid superpass dual-scenario check
+    runs-on: ubuntu-latest
+    env:
+      TARGET_REPO: ${{ github.event.inputs.target_repo || github.repository }}
+      TARGET_REF: ${{ github.event.inputs.target_ref || 'main' }}
+      TARGET_WORKFLOW: ${{ github.event.inputs.target_workflow || 'hybrid-superpass-e2e.yml' }}
+      NIGHTLY_TRACE_ID: ${{ github.event.inputs.dispatch_trace_id || format('nsp-{0}', github.run_id) }}
+      ARTIFACT_DIR: artifacts/hybrid-superpass-nightly
+      FAIL_JSON: artifacts/hybrid-superpass-nightly/fail-dispatch.json
+      SUCCESS_JSON: artifacts/hybrid-superpass-nightly/success-dispatch.json
+      COMPARE_JSON: artifacts/hybrid-superpass-nightly/compare.json
+      COMPARE_MD: artifacts/hybrid-superpass-nightly/compare.md
+      DUAL_SUMMARY_JSON: artifacts/hybrid-superpass-nightly/dual-summary.json
+      DUAL_SUMMARY_MD: artifacts/hybrid-superpass-nightly/dual-summary.md
+      DUAL_WAIT_TIMEOUT_SECONDS: ${{ github.event.inputs.dual_wait_timeout_seconds || '900' }}
+      DUAL_POLL_INTERVAL_SECONDS: ${{ github.event.inputs.dual_poll_interval_seconds || '3' }}
+      DUAL_LIST_LIMIT: ${{ github.event.inputs.dual_list_limit || '20' }}
+      STRICT_REQUIRE_DISTINCT_RUN_IDS: ${{ github.event.inputs.strict_require_distinct_run_ids || 'true' }}
+      STRICT_REQUIRE_TRACE_PAIR: ${{ github.event.inputs.strict_require_trace_pair || 'true' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run nightly dual dispatch and compare
+        if: always()
+        id: dual_dispatch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p "$ARTIFACT_DIR"
+          strict_flags=()
+          if [[ "${STRICT_REQUIRE_DISTINCT_RUN_IDS,,}" == "true" ]]; then
+            strict_flags+=(--strict-require-distinct-run-ids)
+          fi
+          if [[ "${STRICT_REQUIRE_TRACE_PAIR,,}" == "true" ]]; then
+            strict_flags+=(--strict-require-trace-pair)
+          fi
+          python scripts/ci/run_hybrid_superpass_dual_dispatch.py \
+            --workflow "$TARGET_WORKFLOW" \
+            --repo "$TARGET_REPO" \
+            --ref "$TARGET_REF" \
+            --wait-timeout-seconds "$DUAL_WAIT_TIMEOUT_SECONDS" \
+            --poll-interval-seconds "$DUAL_POLL_INTERVAL_SECONDS" \
+            --list-limit "$DUAL_LIST_LIMIT" \
+            --fail-output-json "$FAIL_JSON" \
+            --success-output-json "$SUCCESS_JSON" \
+            --compare-output-json "$COMPARE_JSON" \
+            --compare-output-md "$COMPARE_MD" \
+            --output-json "$DUAL_SUMMARY_JSON" \
+            --dispatch-trace-prefix "$NIGHTLY_TRACE_ID" \
+            --strict \
+            "${strict_flags[@]}"
+          echo "dual_summary_json=$DUAL_SUMMARY_JSON" >> "$GITHUB_OUTPUT"
+
+      - name: Render nightly dual summary markdown
+        if: always()
+        id: render_summary
+        run: |
+          mkdir -p "$ARTIFACT_DIR"
+          compare_json_args=()
+          if [[ -f "$COMPARE_JSON" ]]; then
+            compare_json_args+=(--compare-json "$COMPARE_JSON")
+          fi
+          compare_md_args=()
+          if [[ -f "$COMPARE_MD" ]]; then
+            compare_md_args+=(--compare-md "$COMPARE_MD")
+          fi
+          python scripts/ci/render_hybrid_superpass_dual_summary.py \
+            --dual-summary-json "$DUAL_SUMMARY_JSON" \
+            "${compare_json_args[@]}" \
+            "${compare_md_args[@]}" \
+            --output-md "$DUAL_SUMMARY_MD"
+          echo "dual_summary_md=$DUAL_SUMMARY_MD" >> "$GITHUB_OUTPUT"
+
+      - name: Upload nightly superpass compare artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hybrid-superpass-nightly-${{ github.run_number }}
+          path: |
+            ${{ env.FAIL_JSON }}
+            ${{ env.SUCCESS_JSON }}
+            ${{ env.COMPARE_JSON }}
+            ${{ env.COMPARE_MD }}
+            ${{ env.DUAL_SUMMARY_JSON }}
+            ${{ env.DUAL_SUMMARY_MD }}
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Write nightly superpass step summary
+        if: always()
+        run: |
+          echo "# Hybrid Superpass Nightly" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Target repo: $TARGET_REPO" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Target ref: $TARGET_REF" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Target workflow: $TARGET_WORKFLOW" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Trace ID: $NIGHTLY_TRACE_ID" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Dual wait timeout seconds: $DUAL_WAIT_TIMEOUT_SECONDS" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Dual poll interval seconds: $DUAL_POLL_INTERVAL_SECONDS" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Dual list limit: $DUAL_LIST_LIMIT" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Strict require distinct run ids: $STRICT_REQUIRE_DISTINCT_RUN_IDS" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Strict require trace pair: $STRICT_REQUIRE_TRACE_PAIR" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Dual dispatch step outcome: ${{ steps.dual_dispatch.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Dual summary JSON: $DUAL_SUMMARY_JSON" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Dual summary Markdown: $DUAL_SUMMARY_MD" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Compare JSON: $COMPARE_JSON" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Compare Markdown: $COMPARE_MD" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -f "$DUAL_SUMMARY_MD" ]]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            cat "$DUAL_SUMMARY_MD" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Dual summary markdown file not generated." >> "$GITHUB_STEP_SUMMARY"
+          fi

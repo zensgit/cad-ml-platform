@@ -28,7 +28,8 @@
 				graph2d-review-pack graph2d-review-pack-gate graph2d-train-sweep \
 				graph2d-review-pack-gate-strict-e2e validate-graph2d-review-pack-gate-strict-e2e \
 				hybrid-superpass-gate hybrid-superpass-e2e-gh hybrid-superpass-apply-gh-vars \
-				validate-hybrid-superpass-workflow
+				hybrid-superpass-e2e-dual-gh hybrid-superpass-e2e-dual-gh-sequential hybrid-superpass-compare hybrid-superpass-nightly-gh \
+				validate-hybrid-superpass-workflow validate-hybrid-superpass-nightly-workflow
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -1006,9 +1007,39 @@ HYBRID_SUPERPASS_E2E_POLL_INTERVAL ?= 3
 HYBRID_SUPERPASS_E2E_LIST_LIMIT ?= 20
 HYBRID_SUPERPASS_E2E_OUTPUT_JSON ?= $(GRAPH2D_REVIEW_OUT_DIR)/hybrid_superpass_e2e.json
 HYBRID_SUPERPASS_E2E_PRINT_ONLY ?= 0
+HYBRID_SUPERPASS_DUAL_FAIL_JSON ?= $(GRAPH2D_REVIEW_OUT_DIR)/hybrid_superpass_dual_fail.json
+HYBRID_SUPERPASS_DUAL_SUCCESS_JSON ?= $(GRAPH2D_REVIEW_OUT_DIR)/hybrid_superpass_dual_success.json
+HYBRID_SUPERPASS_DUAL_PARALLEL_SUMMARY_JSON ?= $(GRAPH2D_REVIEW_OUT_DIR)/hybrid_superpass_dual_parallel_summary.json
+HYBRID_SUPERPASS_DUAL_DISPATCH_TRACE_PREFIX ?=
+HYBRID_SUPERPASS_DUAL_STRICT_REQUIRE_TRACE_PAIR ?= 1
+HYBRID_SUPERPASS_COMPARE_FAIL_JSON ?= $(HYBRID_SUPERPASS_DUAL_FAIL_JSON)
+HYBRID_SUPERPASS_COMPARE_SUCCESS_JSON ?= $(HYBRID_SUPERPASS_DUAL_SUCCESS_JSON)
+HYBRID_SUPERPASS_COMPARE_OUTPUT_JSON ?= $(GRAPH2D_REVIEW_OUT_DIR)/hybrid_superpass_compare.json
+HYBRID_SUPERPASS_COMPARE_OUTPUT_MD ?= $(GRAPH2D_REVIEW_OUT_DIR)/hybrid_superpass_compare.md
+HYBRID_SUPERPASS_COMPARE_STRICT ?= 1
+HYBRID_SUPERPASS_COMPARE_STRICT_REQUIRE_DISTINCT_RUN_IDS ?= 1
+HYBRID_SUPERPASS_COMPARE_STRICT_REQUIRE_TRACE_PAIR ?= 0
 HYBRID_SUPERPASS_APPLY_REPO ?=
 HYBRID_SUPERPASS_APPLY_CONFIG_PATH ?= config/hybrid_superpass_targets.yaml
 HYBRID_SUPERPASS_APPLY_EXECUTE ?= 0
+HYBRID_SUPERPASS_NIGHTLY_WORKFLOW ?= hybrid-superpass-nightly.yml
+HYBRID_SUPERPASS_NIGHTLY_REF ?= main
+HYBRID_SUPERPASS_NIGHTLY_REPO ?=
+HYBRID_SUPERPASS_NIGHTLY_TARGET_REPO ?=
+HYBRID_SUPERPASS_NIGHTLY_TARGET_REF ?= main
+HYBRID_SUPERPASS_NIGHTLY_TARGET_WORKFLOW ?= hybrid-superpass-e2e.yml
+HYBRID_SUPERPASS_NIGHTLY_DISPATCH_TRACE_ID ?=
+HYBRID_SUPERPASS_NIGHTLY_EXPECTED_CONCLUSION ?= success
+HYBRID_SUPERPASS_NIGHTLY_TIMEOUT ?= 900
+HYBRID_SUPERPASS_NIGHTLY_POLL_INTERVAL ?= 3
+HYBRID_SUPERPASS_NIGHTLY_LIST_LIMIT ?= 20
+HYBRID_SUPERPASS_NIGHTLY_DUAL_WAIT_TIMEOUT ?= 900
+HYBRID_SUPERPASS_NIGHTLY_DUAL_POLL_INTERVAL ?= 3
+HYBRID_SUPERPASS_NIGHTLY_DUAL_LIST_LIMIT ?= 20
+HYBRID_SUPERPASS_NIGHTLY_STRICT_REQUIRE_DISTINCT_RUN_IDS ?= true
+HYBRID_SUPERPASS_NIGHTLY_STRICT_REQUIRE_TRACE_PAIR ?= true
+HYBRID_SUPERPASS_NIGHTLY_OUTPUT_JSON ?= $(GRAPH2D_REVIEW_OUT_DIR)/hybrid_superpass_nightly_dispatch.json
+HYBRID_SUPERPASS_NIGHTLY_PRINT_ONLY ?= 0
 
 graph2d-review-summary: ## 汇总 Graph2D soft-override 复核模板（生成 summary + correct-label counts）
 	@echo "$(GREEN)Summarizing Graph2D soft-override review...$(NC)"
@@ -1102,6 +1133,97 @@ hybrid-superpass-e2e-gh: ## 通过 gh workflow_dispatch 触发 superpass E2E 并
 		--output-json "$(HYBRID_SUPERPASS_E2E_OUTPUT_JSON)" \
 		$$extra_flags
 
+hybrid-superpass-compare: ## 对比 superpass fail/success 双场景 dispatch 输出并生成报告
+	@echo "$(GREEN)Comparing hybrid superpass fail/success reports...$(NC)"
+	@extra_flags=""; \
+	if [ "$(HYBRID_SUPERPASS_COMPARE_STRICT)" = "1" ]; then extra_flags="$$extra_flags --strict"; fi; \
+	if [ "$(HYBRID_SUPERPASS_COMPARE_STRICT_REQUIRE_DISTINCT_RUN_IDS)" = "1" ]; then extra_flags="$$extra_flags --strict-require-distinct-run-ids"; fi; \
+	if [ "$(HYBRID_SUPERPASS_COMPARE_STRICT_REQUIRE_TRACE_PAIR)" = "1" ]; then extra_flags="$$extra_flags --strict-require-trace-pair"; fi; \
+	$(PYTHON) scripts/ci/compare_hybrid_superpass_reports.py \
+		--fail-json "$(HYBRID_SUPERPASS_COMPARE_FAIL_JSON)" \
+		--success-json "$(HYBRID_SUPERPASS_COMPARE_SUCCESS_JSON)" \
+		--output-json "$(HYBRID_SUPERPASS_COMPARE_OUTPUT_JSON)" \
+		--output-md "$(HYBRID_SUPERPASS_COMPARE_OUTPUT_MD)" \
+		$$extra_flags
+
+hybrid-superpass-e2e-dual-gh: ## 并发执行 fail+success 两次 superpass E2E，并产出对比报告
+	@echo "$(GREEN)Running hybrid superpass dual e2e in parallel (fail + success)...$(NC)"
+	@extra_flags=""; \
+	if [ "$(HYBRID_SUPERPASS_COMPARE_STRICT)" = "1" ]; then extra_flags="$$extra_flags --strict"; fi; \
+	if [ "$(HYBRID_SUPERPASS_COMPARE_STRICT_REQUIRE_DISTINCT_RUN_IDS)" = "1" ]; then extra_flags="$$extra_flags --strict-require-distinct-run-ids"; fi; \
+	if [ "$(HYBRID_SUPERPASS_DUAL_STRICT_REQUIRE_TRACE_PAIR)" = "1" ]; then extra_flags="$$extra_flags --strict-require-trace-pair"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_E2E_REPO)" ]; then extra_flags="$$extra_flags --repo $(HYBRID_SUPERPASS_E2E_REPO)"; fi; \
+	if [ "$(HYBRID_SUPERPASS_E2E_PRINT_ONLY)" = "1" ]; then extra_flags="$$extra_flags --print-only"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_DUAL_DISPATCH_TRACE_PREFIX)" ]; then extra_flags="$$extra_flags --dispatch-trace-prefix $(HYBRID_SUPERPASS_DUAL_DISPATCH_TRACE_PREFIX)"; fi; \
+	$(PYTHON) scripts/ci/run_hybrid_superpass_dual_dispatch.py \
+		--workflow "$(HYBRID_SUPERPASS_E2E_WORKFLOW)" \
+		--ref "$(HYBRID_SUPERPASS_E2E_REF)" \
+		--wait-timeout-seconds "$(HYBRID_SUPERPASS_E2E_TIMEOUT)" \
+		--poll-interval-seconds "$(HYBRID_SUPERPASS_E2E_POLL_INTERVAL)" \
+		--list-limit "$(HYBRID_SUPERPASS_E2E_LIST_LIMIT)" \
+		--fail-output-json "$(HYBRID_SUPERPASS_DUAL_FAIL_JSON)" \
+		--success-output-json "$(HYBRID_SUPERPASS_DUAL_SUCCESS_JSON)" \
+		--compare-output-json "$(HYBRID_SUPERPASS_COMPARE_OUTPUT_JSON)" \
+		--compare-output-md "$(HYBRID_SUPERPASS_COMPARE_OUTPUT_MD)" \
+		--output-json "$(HYBRID_SUPERPASS_DUAL_PARALLEL_SUMMARY_JSON)" \
+		$$extra_flags
+
+hybrid-superpass-e2e-dual-gh-sequential: ## 顺序执行 fail+success 两次 superpass E2E（回退模式）
+	@echo "$(GREEN)Running hybrid superpass dual e2e sequential fallback...$(NC)"
+	@repo_flag=""; \
+	if [ -n "$(HYBRID_SUPERPASS_E2E_REPO)" ]; then repo_flag="--repo $(HYBRID_SUPERPASS_E2E_REPO)"; fi; \
+	$(PYTHON) scripts/ci/dispatch_hybrid_superpass_workflow.py \
+		--workflow "$(HYBRID_SUPERPASS_E2E_WORKFLOW)" \
+		--ref "$(HYBRID_SUPERPASS_E2E_REF)" \
+		--hybrid-superpass-enable "true" \
+		--hybrid-superpass-missing-mode "fail" \
+		--hybrid-superpass-fail-on-failed "true" \
+		--expected-conclusion "failure" \
+		--wait-timeout-seconds "$(HYBRID_SUPERPASS_E2E_TIMEOUT)" \
+		--poll-interval-seconds "$(HYBRID_SUPERPASS_E2E_POLL_INTERVAL)" \
+		--list-limit "$(HYBRID_SUPERPASS_E2E_LIST_LIMIT)" \
+		--output-json "$(HYBRID_SUPERPASS_DUAL_FAIL_JSON)" \
+		$$repo_flag
+	$(PYTHON) scripts/ci/dispatch_hybrid_superpass_workflow.py \
+		--workflow "$(HYBRID_SUPERPASS_E2E_WORKFLOW)" \
+		--ref "$(HYBRID_SUPERPASS_E2E_REF)" \
+		--hybrid-superpass-enable "true" \
+		--hybrid-superpass-missing-mode "skip" \
+		--hybrid-superpass-fail-on-failed "false" \
+		--expected-conclusion "success" \
+		--wait-timeout-seconds "$(HYBRID_SUPERPASS_E2E_TIMEOUT)" \
+		--poll-interval-seconds "$(HYBRID_SUPERPASS_E2E_POLL_INTERVAL)" \
+		--list-limit "$(HYBRID_SUPERPASS_E2E_LIST_LIMIT)" \
+		--output-json "$(HYBRID_SUPERPASS_DUAL_SUCCESS_JSON)" \
+		$$repo_flag
+	$(MAKE) hybrid-superpass-compare \
+		HYBRID_SUPERPASS_COMPARE_FAIL_JSON="$(HYBRID_SUPERPASS_DUAL_FAIL_JSON)" \
+		HYBRID_SUPERPASS_COMPARE_SUCCESS_JSON="$(HYBRID_SUPERPASS_DUAL_SUCCESS_JSON)"
+
+hybrid-superpass-nightly-gh: ## 触发 nightly superpass 巡检 workflow（可手动）
+	@echo "$(GREEN)Dispatching hybrid superpass nightly workflow...$(NC)"
+	@extra_flags=""; \
+	if [ "$(HYBRID_SUPERPASS_NIGHTLY_PRINT_ONLY)" = "1" ]; then extra_flags="$$extra_flags --print-only"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_NIGHTLY_REPO)" ]; then extra_flags="$$extra_flags --repo $(HYBRID_SUPERPASS_NIGHTLY_REPO)"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_NIGHTLY_TARGET_REPO)" ]; then extra_flags="$$extra_flags --target-repo $(HYBRID_SUPERPASS_NIGHTLY_TARGET_REPO)"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_NIGHTLY_TARGET_REF)" ]; then extra_flags="$$extra_flags --target-ref $(HYBRID_SUPERPASS_NIGHTLY_TARGET_REF)"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_NIGHTLY_TARGET_WORKFLOW)" ]; then extra_flags="$$extra_flags --target-workflow $(HYBRID_SUPERPASS_NIGHTLY_TARGET_WORKFLOW)"; fi; \
+	if [ -n "$(HYBRID_SUPERPASS_NIGHTLY_DISPATCH_TRACE_ID)" ]; then extra_flags="$$extra_flags --dispatch-trace-id $(HYBRID_SUPERPASS_NIGHTLY_DISPATCH_TRACE_ID)"; fi; \
+	$(PYTHON) scripts/ci/dispatch_hybrid_superpass_nightly_workflow.py \
+		--workflow "$(HYBRID_SUPERPASS_NIGHTLY_WORKFLOW)" \
+		--ref "$(HYBRID_SUPERPASS_NIGHTLY_REF)" \
+		--expected-conclusion "$(HYBRID_SUPERPASS_NIGHTLY_EXPECTED_CONCLUSION)" \
+		--wait-timeout-seconds "$(HYBRID_SUPERPASS_NIGHTLY_TIMEOUT)" \
+		--poll-interval-seconds "$(HYBRID_SUPERPASS_NIGHTLY_POLL_INTERVAL)" \
+		--list-limit "$(HYBRID_SUPERPASS_NIGHTLY_LIST_LIMIT)" \
+		--dual-wait-timeout-seconds "$(HYBRID_SUPERPASS_NIGHTLY_DUAL_WAIT_TIMEOUT)" \
+		--dual-poll-interval-seconds "$(HYBRID_SUPERPASS_NIGHTLY_DUAL_POLL_INTERVAL)" \
+		--dual-list-limit "$(HYBRID_SUPERPASS_NIGHTLY_DUAL_LIST_LIMIT)" \
+		--strict-require-distinct-run-ids "$(HYBRID_SUPERPASS_NIGHTLY_STRICT_REQUIRE_DISTINCT_RUN_IDS)" \
+		--strict-require-trace-pair "$(HYBRID_SUPERPASS_NIGHTLY_STRICT_REQUIRE_TRACE_PAIR)" \
+		--output-json "$(HYBRID_SUPERPASS_NIGHTLY_OUTPUT_JSON)" \
+		$$extra_flags
+
 hybrid-superpass-apply-gh-vars: ## 将 superpass 推荐变量同步到 GitHub Variables（默认仅预览）
 	@echo "$(GREEN)Applying hybrid superpass variables to GitHub...$(NC)"
 	@extra_flags=""; \
@@ -1122,13 +1244,23 @@ validate-hybrid-superpass-workflow: ## 校验 superpass gh 自动化与 workflow
 	@echo "$(GREEN)Validating hybrid superpass workflow integration...$(NC)"
 	$(PYTEST) \
 		$(TEST_DIR)/unit/test_dispatch_hybrid_superpass_workflow.py \
+		$(TEST_DIR)/unit/test_run_hybrid_superpass_dual_dispatch.py \
 		$(TEST_DIR)/unit/test_apply_hybrid_superpass_gh_vars.py \
 		$(TEST_DIR)/unit/test_check_hybrid_superpass_targets.py \
+		$(TEST_DIR)/unit/test_compare_hybrid_superpass_reports.py \
 		$(TEST_DIR)/unit/test_hybrid_superpass_e2e_workflow.py \
 		$(TEST_DIR)/unit/test_evaluation_report_workflow_hybrid_superpass_step.py \
 		$(TEST_DIR)/unit/test_hybrid_superpass_workflow_integration.py \
 		$(TEST_DIR)/unit/test_graph2d_parallel_make_targets.py \
 		$(TEST_DIR)/unit/test_evaluation_report_workflow_graph2d_extensions.py -q
+
+validate-hybrid-superpass-nightly-workflow: ## 校验 superpass nightly workflow 编排
+	@echo "$(GREEN)Validating hybrid superpass nightly workflow...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_render_hybrid_superpass_dual_summary.py \
+		$(TEST_DIR)/unit/test_dispatch_hybrid_superpass_nightly_workflow.py \
+		$(TEST_DIR)/unit/test_hybrid_superpass_nightly_workflow.py \
+		$(TEST_DIR)/unit/test_graph2d_parallel_make_targets.py -q
 
 eval-migrate: ## 迁移旧版评测历史到 v1.0.0 schema
 	@echo "$(YELLOW)Migrating legacy evaluation history files...$(NC)"
