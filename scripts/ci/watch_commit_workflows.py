@@ -23,6 +23,15 @@ class WorkflowRun:
     event: str
 
 
+@dataclass(frozen=True)
+class RunFailureDetail:
+    run_id: int
+    workflow_name: str
+    url: str
+    failed_jobs: tuple[str, ...]
+    failed_steps: tuple[str, ...]
+
+
 def _log(message: str) -> None:
     print(message, flush=True)
 
@@ -95,6 +104,7 @@ def _build_summary_payload(
     *,
     requested_sha: str,
     resolved_sha: str,
+    repo: str,
     events: Sequence[str],
     required_workflows: Sequence[str],
     success_conclusions: Sequence[str],
@@ -112,6 +122,7 @@ def _build_summary_payload(
     runs: Sequence[WorkflowRun],
     missing_required: Sequence[str],
     consecutive_list_failures: int,
+    failure_details: Sequence[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     completed_count = sum(1 for run in runs if run.status == "completed")
     normalized_success_conclusions = {item.lower() for item in success_conclusions}
@@ -125,6 +136,7 @@ def _build_summary_payload(
         "version": 1,
         "requested_sha": requested_sha,
         "resolved_sha": resolved_sha,
+        "repo": repo,
         "events": list(events),
         "required_workflows": list(required_workflows),
         "success_conclusions": list(success_conclusions),
@@ -149,6 +161,7 @@ def _build_summary_payload(
         },
         "missing_required": list(missing_required),
         "failed_workflows": [run.workflow_name for run in failed_runs],
+        "failure_details": list(failure_details or []),
         "runs": [_serialize_run(run) for run in runs],
     }
 
@@ -208,8 +221,8 @@ def resolve_head_sha(value: str) -> str:
     return sha
 
 
-def _build_list_runs_command(limit: int) -> list[str]:
-    return [
+def _build_list_runs_command(limit: int, repo: str = "") -> list[str]:
+    command = [
         "gh",
         "run",
         "list",
@@ -218,6 +231,118 @@ def _build_list_runs_command(limit: int) -> list[str]:
         "--limit",
         str(max(1, int(limit))),
     ]
+    if repo.strip():
+        command.extend(["--repo", repo.strip()])
+    return command
+
+
+def _build_run_view_command(run_id: int, repo: str = "") -> list[str]:
+    command = [
+        "gh",
+        "run",
+        "view",
+        str(int(run_id)),
+        "--json",
+        "url,workflowName,jobs",
+    ]
+    if repo.strip():
+        command.extend(["--repo", repo.strip()])
+    return command
+
+
+def _normalize_gh_conclusion(value: object) -> str:
+    return str(value or "").strip().lower()
+
+
+def get_run_failure_detail(run_id: int, repo: str = "") -> RunFailureDetail:
+    command = _build_run_view_command(run_id, repo=repo)
+    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        message = _extract_short_error(result, "failed to view gh run")
+        raise RuntimeError(message)
+
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"failed to decode gh run view json: {exc}") from exc
+
+    if not isinstance(payload, dict):
+        raise RuntimeError("invalid gh run view payload: expected object")
+
+    workflow_name = str(payload.get("workflowName") or "").strip() or str(run_id)
+    url = str(payload.get("url") or "").strip()
+    jobs_raw = payload.get("jobs") if isinstance(payload.get("jobs"), list) else []
+    failed_jobs: list[str] = []
+    failed_steps: list[str] = []
+    success_conclusions = {"success", "skipped", "neutral"}
+    for job in jobs_raw:
+        if not isinstance(job, dict):
+            continue
+        job_conclusion = _normalize_gh_conclusion(job.get("conclusion"))
+        if job_conclusion in success_conclusions:
+            continue
+        job_name = str(job.get("name") or "").strip() or "<unnamed-job>"
+        failed_jobs.append(job_name)
+        steps = job.get("steps")
+        if isinstance(steps, list):
+            for step in steps:
+                if not isinstance(step, dict):
+                    continue
+                step_conclusion = _normalize_gh_conclusion(step.get("conclusion"))
+                if step_conclusion in success_conclusions or not step_conclusion:
+                    continue
+                step_name = str(step.get("name") or "").strip() or "<unnamed-step>"
+                failed_steps.append(f"{job_name} :: {step_name} ({step_conclusion})")
+                break
+    return RunFailureDetail(
+        run_id=int(run_id),
+        workflow_name=workflow_name,
+        url=url,
+        failed_jobs=tuple(failed_jobs),
+        failed_steps=tuple(failed_steps),
+    )
+
+
+def _log_failure_details_for_runs(
+    failed_runs: Sequence[WorkflowRun], *, max_runs: int, repo: str
+) -> list[dict[str, Any]]:
+    if not failed_runs:
+        return []
+    _log("failure details:")
+    details: list[dict[str, Any]] = []
+    for run in list(failed_runs)[: max(1, int(max_runs))]:
+        _log(
+            f" - {run.workflow_name} ({run.database_id}) "
+            f"conclusion={run.conclusion or '-'}"
+        )
+        row: dict[str, Any] = {
+            "run_id": int(run.database_id),
+            "workflow_name": str(run.workflow_name),
+            "conclusion": str(run.conclusion or ""),
+            "url": str(run.url or ""),
+            "failed_jobs": [],
+            "failed_steps": [],
+        }
+        try:
+            detail = get_run_failure_detail(run.database_id, repo=repo)
+        except RuntimeError as exc:
+            _log(f"   detail_unavailable: {exc}")
+            row["detail_unavailable"] = str(exc)
+            details.append(row)
+            continue
+        if detail.failed_jobs:
+            _log(f"   failed_jobs: {', '.join(detail.failed_jobs)}")
+            row["failed_jobs"] = list(detail.failed_jobs)
+        else:
+            _log("   failed_jobs: <none-detected>")
+        if detail.failed_steps:
+            _log(f"   failed_steps: {', '.join(detail.failed_steps)}")
+            row["failed_steps"] = list(detail.failed_steps)
+        if detail.url:
+            _log(f"   url: {detail.url}")
+            row["url"] = detail.url
+        details.append(row)
+    return details
 
 
 def list_runs_for_sha(
@@ -225,8 +350,9 @@ def list_runs_for_sha(
     head_sha: str,
     events: set[str],
     limit: int,
+    repo: str,
 ) -> list[WorkflowRun]:
-    command = _build_list_runs_command(limit)
+    command = _build_list_runs_command(limit, repo=repo)
     result = subprocess.run(command, capture_output=True, text=True, check=False)
     if result.returncode != 0:
         message = _extract_short_error(result, "failed to list gh runs")
@@ -289,6 +415,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--sha",
         default="HEAD",
         help="Commit SHA to watch (default: HEAD).",
+    )
+    parser.add_argument(
+        "--repo",
+        default="",
+        help="Optional GitHub repository slug (owner/repo) for gh run list/view.",
     )
     parser.add_argument(
         "--events-csv",
@@ -384,6 +515,17 @@ def _build_parser() -> argparse.ArgumentParser:
         default="",
         help="Optional output file path for machine-readable final summary JSON.",
     )
+    parser.add_argument(
+        "--print-failure-details",
+        action="store_true",
+        help="When failures are detected, fetch and print failed jobs/steps via gh run view.",
+    )
+    parser.add_argument(
+        "--failure-details-max-runs",
+        type=int,
+        default=3,
+        help="Max failed runs to inspect when --print-failure-details is enabled (default: 3).",
+    )
     return parser
 
 
@@ -421,6 +563,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     heartbeat_interval_seconds = _int_with_default(args.heartbeat_interval_seconds, 120)
     list_limit = _int_with_default(args.list_limit, 100)
     max_list_failures = _int_with_default(args.max_list_failures, 3)
+    failure_details_max_runs = _int_with_default(args.failure_details_max_runs, 3)
 
     if wait_timeout_seconds < 0:
         _log("error: --wait-timeout-seconds must be >= 0")
@@ -436,6 +579,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
     if max_list_failures < 0:
         _log("error: --max-list-failures must be >= 0")
+        return 2
+    if failure_details_max_runs <= 0:
+        _log("error: --failure-details-max-runs must be > 0")
         return 2
 
     events = set(_merge_items(_split_csv_items(str(args.events_csv)), list(args.event)))
@@ -453,16 +599,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         _log("error: --success-conclusions-csv must include at least one conclusion")
         return 2
 
-    command_preview = _build_list_runs_command(list_limit)
+    repo = str(args.repo or "").strip()
+    command_preview = _build_list_runs_command(list_limit, repo=repo)
     missing_required_mode = str(args.missing_required_mode or "fail-fast")
     failure_mode = str(args.failure_mode or "fail-fast")
     summary_json_out = str(args.summary_json_out or "").strip()
+    print_failure_details = bool(args.print_failure_details)
     requested_sha = str(args.sha or "HEAD")
     resolved_sha = requested_sha
     started_at = time.time()
     last_runs: list[WorkflowRun] = []
     last_missing_required: list[str] = []
     consecutive_list_failures = 0
+    last_failure_details: list[dict[str, Any]] = []
 
     def _return_with_summary(exit_code: int, reason: str) -> int:
         if not summary_json_out:
@@ -470,6 +619,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         payload = _build_summary_payload(
             requested_sha=requested_sha,
             resolved_sha=resolved_sha,
+            repo=repo,
             events=sorted(events),
             required_workflows=required_workflows,
             success_conclusions=sorted(success_conclusions),
@@ -487,6 +637,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             runs=last_runs,
             missing_required=last_missing_required,
             consecutive_list_failures=consecutive_list_failures,
+            failure_details=last_failure_details,
         )
         try:
             _write_summary_json(summary_json_out, payload)
@@ -499,6 +650,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if bool(args.print_only):
         _log(shlex.join(command_preview))
         _log(f"# events={sorted(events)}")
+        _log(f"# repo={repo or '<current>'}")
         _log(f"# required_workflows={required_workflows}")
         _log(f"# success_conclusions={sorted(success_conclusions)}")
         _log(f"# missing_required_mode={missing_required_mode}")
@@ -529,6 +681,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 head_sha=head_sha,
                 events=events,
                 limit=list_limit,
+                repo=repo,
             )
             consecutive_list_failures = 0
         except RuntimeError as exc:
@@ -581,8 +734,27 @@ def main(argv: Sequence[str] | None = None) -> int:
             if run.status == "completed"
             and (run.conclusion or "").lower() not in success_conclusions
         ]
+        last_failure_details = [
+            {
+                "run_id": int(run.database_id),
+                "workflow_name": str(run.workflow_name),
+                "conclusion": str(run.conclusion or ""),
+                "url": str(run.url or ""),
+                "failed_jobs": [],
+                "failed_steps": [],
+            }
+            for run in failed
+        ]
         if failed and failure_mode == "fail-fast":
             _log("error: detected non-success workflow conclusions.")
+            if print_failure_details:
+                detail_rows = _log_failure_details_for_runs(
+                    failed,
+                    max_runs=failure_details_max_runs,
+                    repo=repo,
+                )
+                if detail_rows:
+                    last_failure_details = detail_rows
             return _return_with_summary(1, "non_success_conclusion")
 
         if all_completed and missing_required and missing_required_mode == "fail-fast":
@@ -592,6 +764,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         if all_completed and have_required:
             if failed:
                 _log("error: detected non-success workflow conclusions.")
+                if print_failure_details:
+                    detail_rows = _log_failure_details_for_runs(
+                        failed,
+                        max_runs=failure_details_max_runs,
+                        repo=repo,
+                    )
+                    if detail_rows:
+                        last_failure_details = detail_rows
                 return _return_with_summary(1, "non_success_conclusion")
             _log("all observed workflows completed successfully.")
             return _return_with_summary(0, "all_workflows_success")

@@ -125,7 +125,9 @@ def test_list_runs_for_sha_filters_by_sha_and_event(monkeypatch: Any) -> None:
         )
 
     monkeypatch.setattr(mod.subprocess, "run", _fake_run)
-    runs = mod.list_runs_for_sha(head_sha="sha-a", events={"push"}, limit=100)
+    runs = mod.list_runs_for_sha(
+        head_sha="sha-a", events={"push"}, limit=100, repo=""
+    )
     assert len(runs) == 1
     assert runs[0].workflow_name == "CI"
     assert runs[0].database_id == 1
@@ -144,11 +146,103 @@ def test_list_runs_for_sha_raises_on_nonzero(monkeypatch: Any) -> None:
 
     monkeypatch.setattr(mod.subprocess, "run", _fake_run)
     try:
-        mod.list_runs_for_sha(head_sha="sha", events={"push"}, limit=100)
+        mod.list_runs_for_sha(head_sha="sha", events={"push"}, limit=100, repo="")
     except RuntimeError as exc:
         assert "boom" in str(exc)
     else:
         raise AssertionError("expected RuntimeError")
+
+
+def test_get_run_failure_detail_extracts_failed_jobs_and_steps(monkeypatch: Any) -> None:
+    from scripts.ci import watch_commit_workflows as mod
+
+    payload = {
+        "workflowName": "CI",
+        "url": "https://example.com/run/123",
+        "jobs": [
+            {
+                "name": "lint",
+                "conclusion": "success",
+                "steps": [{"name": "flake8", "conclusion": "success"}],
+            },
+            {
+                "name": "tests",
+                "conclusion": "failure",
+                "steps": [
+                    {"name": "setup", "conclusion": "success"},
+                    {"name": "pytest", "conclusion": "failure"},
+                ],
+            },
+        ],
+    }
+
+    def _fake_run(*_args: Any, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=json.dumps(payload),
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", _fake_run)
+    detail = mod.get_run_failure_detail(123)
+    assert detail.run_id == 123
+    assert detail.workflow_name == "CI"
+    assert detail.url == "https://example.com/run/123"
+    assert detail.failed_jobs == ("tests",)
+    assert detail.failed_steps == ("tests :: pytest (failure)",)
+
+
+def test_log_failure_details_for_runs_returns_structured_rows(monkeypatch: Any) -> None:
+    from scripts.ci import watch_commit_workflows as mod
+
+    monkeypatch.setattr(
+        mod,
+        "get_run_failure_detail",
+        lambda _run_id, repo="": mod.RunFailureDetail(
+            run_id=321,
+            workflow_name="CI",
+            url="https://example.com/runs/321",
+            failed_jobs=("tests",),
+            failed_steps=("tests :: pytest (failure)",),
+        ),
+    )
+
+    rows = mod._log_failure_details_for_runs(
+        [
+            mod.WorkflowRun(
+                database_id=321,
+                workflow_name="CI",
+                status="completed",
+                conclusion="failure",
+                url="https://example.com/runs/321",
+                event="push",
+            )
+        ],
+        max_runs=3,
+        repo="zensgit/cad-ml-platform",
+    )
+    assert len(rows) == 1
+    assert rows[0]["run_id"] == 321
+    assert rows[0]["workflow_name"] == "CI"
+    assert rows[0]["failed_jobs"] == ["tests"]
+    assert rows[0]["failed_steps"] == ["tests :: pytest (failure)"]
+
+
+def test_build_list_runs_command_includes_repo_when_provided() -> None:
+    from scripts.ci import watch_commit_workflows as mod
+
+    command = mod._build_list_runs_command(50, repo="zensgit/cad-ml-platform")
+    assert "--repo" in command
+    assert "zensgit/cad-ml-platform" in command
+
+
+def test_build_run_view_command_includes_repo_when_provided() -> None:
+    from scripts.ci import watch_commit_workflows as mod
+
+    command = mod._build_run_view_command(12345, repo="zensgit/cad-ml-platform")
+    assert "--repo" in command
+    assert "zensgit/cad-ml-platform" in command
 
 
 def test_extract_auth_error_details_prefers_actionable_lines() -> None:
@@ -249,6 +343,7 @@ def test_main_print_only_does_not_execute_runtime_checks(monkeypatch: Any) -> No
         monkeypatch,
         _Args(
             sha="HEAD",
+            repo="",
             events_csv="push",
             event=[],
             require_workflows_csv="CI",
@@ -286,6 +381,7 @@ def test_main_success_when_required_workflows_complete(monkeypatch: Any) -> None
         monkeypatch,
         _Args(
             sha="HEAD",
+            repo="",
             events_csv="push",
             event=[],
             require_workflows_csv="CI,Code Quality",
@@ -356,6 +452,7 @@ def test_main_returns_non_zero_when_detecting_failure(monkeypatch: Any) -> None:
         monkeypatch,
         _Args(
             sha="HEAD",
+            repo="",
             events_csv="push",
             event=[],
             require_workflows_csv="CI",
@@ -388,6 +485,67 @@ def test_main_returns_non_zero_when_detecting_failure(monkeypatch: Any) -> None:
     assert rc == 1
 
 
+def test_main_emits_failure_details_when_enabled(monkeypatch: Any) -> None:
+    from scripts.ci import watch_commit_workflows as mod
+
+    _patch_parsed_args(
+        monkeypatch,
+        _Args(
+            sha="HEAD",
+            repo="",
+            events_csv="push",
+            event=[],
+            require_workflows_csv="CI",
+            require_workflow=[],
+            wait_timeout_seconds=20,
+            poll_interval_seconds=1,
+            list_limit=100,
+            print_failure_details=True,
+            failure_details_max_runs=2,
+            print_only=False,
+        ),
+    )
+
+    monkeypatch.setattr(mod, "check_gh_ready", lambda: (True, ""))
+    monkeypatch.setattr(mod, "resolve_head_sha", lambda _value: "sha")
+    monkeypatch.setattr(
+        mod,
+        "list_runs_for_sha",
+        lambda **_kwargs: [
+            mod.WorkflowRun(
+                database_id=200,
+                workflow_name="CI",
+                status="completed",
+                conclusion="failure",
+                url="u1",
+                event="push",
+            )
+        ],
+    )
+    called: dict[str, Any] = {"count": 0, "max_runs": None, "run_count": 0}
+
+    def _fake_log_failure_details_for_runs(
+        runs: list[mod.WorkflowRun], *, max_runs: int, repo: str
+    ) -> None:
+        called["count"] += 1
+        called["max_runs"] = max_runs
+        called["run_count"] = len(runs)
+        called["repo"] = repo
+
+    monkeypatch.setattr(
+        mod,
+        "_log_failure_details_for_runs",
+        _fake_log_failure_details_for_runs,
+    )
+
+    rc = _invoke_main(mod)
+    assert rc == 1
+    assert called["count"] == 1
+    assert called["max_runs"] == 2
+    assert called["run_count"] == 1
+    assert called["repo"] == ""
+
+
 def test_main_failure_fail_fast_before_all_completed(monkeypatch: Any) -> None:
     from scripts.ci import watch_commit_workflows as mod
 
@@ -395,6 +553,7 @@ def test_main_failure_fail_fast_before_all_completed(monkeypatch: Any) -> None:
         monkeypatch,
         _Args(
             sha="HEAD",
+            repo="",
             events_csv="push",
             event=[],
             require_workflows_csv="CI,Code Quality",
@@ -450,6 +609,7 @@ def test_main_failure_wait_all_mode_waits_until_all_completed(monkeypatch: Any) 
         monkeypatch,
         _Args(
             sha="HEAD",
+            repo="",
             events_csv="push",
             event=[],
             require_workflows_csv="CI,Code Quality",
@@ -528,6 +688,7 @@ def test_main_timeout_when_required_workflow_missing(monkeypatch: Any) -> None:
         monkeypatch,
         _Args(
             sha="HEAD",
+            repo="",
             events_csv="push",
             event=[],
             require_workflows_csv="CI,Code Quality",
@@ -577,6 +738,7 @@ def test_main_fail_fast_when_required_workflow_missing(monkeypatch: Any) -> None
         monkeypatch,
         _Args(
             sha="HEAD",
+            repo="",
             events_csv="push",
             event=[],
             require_workflows_csv="CI,Code Quality",
@@ -624,6 +786,7 @@ def test_main_argument_validation_for_poll_interval(monkeypatch: Any) -> None:
         monkeypatch,
         _Args(
             sha="HEAD",
+            repo="",
             events_csv="push",
             event=[],
             require_workflows_csv="",
@@ -646,6 +809,7 @@ def test_main_argument_validation_for_heartbeat_interval(monkeypatch: Any) -> No
         monkeypatch,
         _Args(
             sha="HEAD",
+            repo="",
             events_csv="push",
             event=[],
             require_workflows_csv="",
@@ -669,6 +833,7 @@ def test_main_argument_validation_for_max_list_failures(monkeypatch: Any) -> Non
         monkeypatch,
         _Args(
             sha="HEAD",
+            repo="",
             events_csv="push",
             event=[],
             require_workflows_csv="",
@@ -693,6 +858,7 @@ def test_main_argument_validation_for_success_conclusions_empty(monkeypatch: Any
         monkeypatch,
         _Args(
             sha="HEAD",
+            repo="",
             events_csv="push",
             event=[],
             require_workflows_csv="",
@@ -717,6 +883,7 @@ def test_main_allows_neutral_when_configured(monkeypatch: Any) -> None:
         monkeypatch,
         _Args(
             sha="HEAD",
+            repo="",
             events_csv="push",
             event=[],
             require_workflows_csv="CI",
@@ -758,6 +925,7 @@ def test_main_retries_run_list_failures_then_succeeds(monkeypatch: Any) -> None:
         monkeypatch,
         _Args(
             sha="HEAD",
+            repo="",
             events_csv="push",
             event=[],
             require_workflows_csv="CI",
@@ -814,6 +982,7 @@ def test_main_fails_after_exceeding_max_list_failures(
         monkeypatch,
         _Args(
             sha="HEAD",
+            repo="",
             events_csv="push",
             event=[],
             require_workflows_csv="CI",
@@ -843,6 +1012,7 @@ def test_main_fails_after_exceeding_max_list_failures(
     assert payload["reason"] == "gh_run_list_failed"
     assert payload["consecutive_list_failures"] == 2
     assert payload["max_list_failures"] == 1
+    assert payload["failure_details"] == []
 
 
 def test_main_print_only_writes_summary_json(tmp_path: Any, monkeypatch: Any) -> None:
@@ -853,6 +1023,7 @@ def test_main_print_only_writes_summary_json(tmp_path: Any, monkeypatch: Any) ->
         monkeypatch,
         _Args(
             sha="HEAD",
+            repo="zensgit/cad-ml-platform",
             events_csv="push",
             event=[],
             require_workflows_csv="CI",
@@ -875,6 +1046,75 @@ def test_main_print_only_writes_summary_json(tmp_path: Any, monkeypatch: Any) ->
     assert payload["consecutive_list_failures"] == 0
     assert payload["counts"]["observed"] == 0
     assert payload["events"] == ["push"]
+    assert payload["repo"] == "zensgit/cad-ml-platform"
+    assert payload["failure_details"] == []
+
+
+def test_main_failure_summary_includes_structured_failure_details(
+    tmp_path: Any, monkeypatch: Any
+) -> None:
+    from scripts.ci import watch_commit_workflows as mod
+
+    summary_path = tmp_path / "watch-summary-failure-details.json"
+    _patch_parsed_args(
+        monkeypatch,
+        _Args(
+            sha="HEAD",
+            repo="zensgit/cad-ml-platform",
+            events_csv="push",
+            event=[],
+            require_workflows_csv="CI",
+            require_workflow=[],
+            wait_timeout_seconds=20,
+            poll_interval_seconds=1,
+            list_limit=100,
+            print_failure_details=True,
+            failure_details_max_runs=2,
+            summary_json_out=str(summary_path),
+            print_only=False,
+        ),
+    )
+
+    monkeypatch.setattr(mod, "check_gh_ready", lambda: (True, ""))
+    monkeypatch.setattr(mod, "resolve_head_sha", lambda _value: "sha")
+    monkeypatch.setattr(
+        mod,
+        "list_runs_for_sha",
+        lambda **_kwargs: [
+            mod.WorkflowRun(
+                database_id=991,
+                workflow_name="CI",
+                status="completed",
+                conclusion="failure",
+                url="https://example.com/runs/991",
+                event="push",
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        mod,
+        "_log_failure_details_for_runs",
+        lambda runs, *, max_runs, repo: [
+            {
+                "run_id": runs[0].database_id,
+                "workflow_name": runs[0].workflow_name,
+                "conclusion": runs[0].conclusion,
+                "url": runs[0].url,
+                "failed_jobs": ["tests"],
+                "failed_steps": ["tests :: pytest (failure)"],
+            }
+        ],
+    )
+
+    rc = _invoke_main(mod)
+    assert rc == 1
+    payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert payload["reason"] == "non_success_conclusion"
+    assert len(payload["failure_details"]) == 1
+    detail = payload["failure_details"][0]
+    assert detail["run_id"] == 991
+    assert detail["workflow_name"] == "CI"
+    assert detail["failed_jobs"] == ["tests"]
 
 
 def test_main_returns_non_zero_when_summary_json_write_fails(monkeypatch: Any) -> None:
@@ -884,6 +1124,7 @@ def test_main_returns_non_zero_when_summary_json_write_fails(monkeypatch: Any) -
         monkeypatch,
         _Args(
             sha="HEAD",
+            repo="",
             events_csv="push",
             event=[],
             require_workflows_csv="CI",

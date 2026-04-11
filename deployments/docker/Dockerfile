@@ -1,12 +1,14 @@
 # CAD ML Platform Docker Image
-FROM python:3.10-slim
+ARG PYTHON_BASE_IMAGE=public.ecr.aws/docker/library/python:3.10-slim
+FROM ${PYTHON_BASE_IMAGE}
 
 # 设置工作目录
 WORKDIR /app
 
 # 安装系统依赖
 # L3 Upgrade: Added libgl1, libx11-6, libxrender1, libglib2.0-0 for PythonOCC/OpenCV support
-RUN apt-get update && apt-get install -y \
+RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources && \
+    apt-get update && apt-get install -y \
     gcc \
     g++ \
     libgeos-dev \

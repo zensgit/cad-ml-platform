@@ -1,0 +1,33 @@
+# AI Quality Evaluation Report
+
+**Overall Score: 100.0%** (PASS)
+
+Total test cases: 15
+
+
+## Knowledge Graph
+Score: 100.0% (4/4)
+
+- [PASS] SUS304适合什么工艺？
+- [PASS] 法兰盘常用什么材料？
+- [PASS] CNC车削能达到什么精度？
+- [PASS] 齿轮通常用什么材料？
+
+## Cost
+Score: 100.0% (6/6)
+
+- [PASS] titanium > steel
+- [PASS] batch reduces unit cost
+- [PASS] cost range order
+- [PASS] confidence positive
+- [PASS] more entities -> higher complexity
+- [PASS] all cost components positive
+
+## Intelligence
+Score: 100.0% (5/5)
+
+- [PASS] unanimous -> low uncertainty
+- [PASS] mixed -> disagreement detected
+- [PASS] disagreement lowers confidence
+- [PASS] cross-validation detects inconsistency
+- [PASS] smart explanation non-empty

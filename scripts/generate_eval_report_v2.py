@@ -10,16 +10,56 @@ Features:
 """
 
 import argparse
-import base64
 import json
-import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-import hashlib
+from typing import Dict, List, Optional
+
+try:
+    from scripts.eval_report_data_helpers import (
+        load_plot_base64_assets,
+    )
+    from scripts.eval_signal_reporting_helpers import (
+        build_eval_signal_report_context,
+        eval_signal_report_rows,
+        load_eval_signal_reporting_assets,
+        load_eval_signal_reporting_summary,
+    )
+    from scripts.history_sequence_reporting_helpers import (
+        build_history_sequence_report_context,
+        history_sequence_chart_rows,
+        load_history_sequence_reporting_assets,
+    )
+except ImportError:
+    from eval_report_data_helpers import (  # type: ignore
+        load_plot_base64_assets,
+    )
+    from eval_signal_reporting_helpers import (  # type: ignore
+        build_eval_signal_report_context,
+        eval_signal_report_rows,
+        load_eval_signal_reporting_assets,
+        load_eval_signal_reporting_summary,
+    )
+    from history_sequence_reporting_helpers import (  # type: ignore
+        build_history_sequence_report_context,
+        history_sequence_chart_rows,
+        load_history_sequence_reporting_assets,
+    )
 
 
-def generate_chart_js_config(combined_history: List[Dict], ocr_history: List[Dict]) -> Dict:
+def _format_chart_label(timestamp: str) -> str:
+    try:
+        dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        return dt.strftime("%m/%d %H:%M")
+    except Exception:
+        return "N/A"
+
+
+def generate_chart_js_config(
+    combined_history: List[Dict],
+    ocr_history: List[Dict],
+    history_sequence_rows: Optional[List[Dict]] = None,
+) -> Dict:
     """Generate Chart.js configuration for interactive charts."""
 
     # Prepare combined chart data
@@ -30,12 +70,7 @@ def generate_chart_js_config(combined_history: List[Dict], ocr_history: List[Dic
 
     for entry in combined_history[-20:]:  # Last 20 entries
         timestamp = entry.get("timestamp", "")
-        if timestamp:
-            # Format: MM/DD HH:mm
-            dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-            label = dt.strftime("%m/%d %H:%M")
-        else:
-            label = "N/A"
+        label = _format_chart_label(timestamp) if timestamp else "N/A"
 
         combined_labels.append(label)
 
@@ -52,11 +87,7 @@ def generate_chart_js_config(combined_history: List[Dict], ocr_history: List[Dic
 
     for entry in ocr_history[-20:]:  # Last 20 entries
         timestamp = entry.get("timestamp", "")
-        if timestamp:
-            dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-            label = dt.strftime("%m/%d %H:%M")
-        else:
-            label = "N/A"
+        label = _format_chart_label(timestamp) if timestamp else "N/A"
 
         ocr_labels.append(label)
 
@@ -64,6 +95,19 @@ def generate_chart_js_config(combined_history: List[Dict], ocr_history: List[Dic
         dimension_recalls.append(metrics.get("dimension_recall", 0))
         brier_scores.append(metrics.get("brier_score", 0))
         edge_f1s.append(metrics.get("edge_f1", 0))
+
+    history_labels = []
+    history_accuracy = []
+    history_macro_f1 = []
+    history_named_explainability = []
+    for entry in (history_sequence_rows or [])[-20:]:
+        timestamp = str(entry.get("timestamp") or "")
+        history_labels.append(_format_chart_label(timestamp) if timestamp else "N/A")
+        metrics = entry.get("history_metrics", {})
+        named_summary = entry.get("named_command_summary", {})
+        history_accuracy.append(metrics.get("accuracy_overall", 0))
+        history_macro_f1.append(metrics.get("macro_f1_overall", 0))
+        history_named_explainability.append(named_summary.get("named_command_explainability_rate", 0))
 
     return {
         "combined": {
@@ -176,28 +220,68 @@ def generate_chart_js_config(combined_history: List[Dict], ocr_history: List[Dic
                     }
                 }
             }
+        },
+        "history_sequence": {
+            "type": "line",
+            "data": {
+                "labels": history_labels,
+                "datasets": [
+                    {
+                        "label": "Accuracy Overall",
+                        "data": history_accuracy,
+                        "borderColor": "rgb(16, 185, 129)",
+                        "backgroundColor": "rgba(16, 185, 129, 0.2)",
+                        "tension": 0.1
+                    },
+                    {
+                        "label": "Macro F1",
+                        "data": history_macro_f1,
+                        "borderColor": "rgb(245, 158, 11)",
+                        "backgroundColor": "rgba(245, 158, 11, 0.2)",
+                        "tension": 0.1
+                    },
+                    {
+                        "label": "Named Explainability",
+                        "data": history_named_explainability,
+                        "borderColor": "rgb(99, 102, 241)",
+                        "backgroundColor": "rgba(99, 102, 241, 0.2)",
+                        "tension": 0.1
+                    }
+                ]
+            },
+            "options": {
+                "responsive": True,
+                "plugins": {
+                    "legend": {
+                        "display": True,
+                        "position": "top"
+                    },
+                    "title": {
+                        "display": True,
+                        "text": "History Sequence Trends"
+                    }
+                },
+                "scales": {
+                    "y": {
+                        "beginAtZero": True,
+                        "max": 1.0,
+                        "ticks": {
+                            "callback": "function(value) { return (value * 100).toFixed(0) + '%'; }"
+                        }
+                    }
+                }
+            }
         }
     }
-
-
-def encode_image_base64(image_path: Path) -> Optional[str]:
-    """Encode an image file as base64 data URI."""
-    if not image_path.exists():
-        return None
-
-    try:
-        mime_type = "image/png" if image_path.suffix == ".png" else "image/jpeg"
-        with image_path.open("rb") as f:
-            data = base64.b64encode(f.read()).decode("utf-8")
-        return f"data:{mime_type};base64,{data}"
-    except Exception as e:
-        print(f"Warning: Could not encode image {image_path}: {e}")
-        return None
 
 
 def generate_html_with_charts(
     combined_history: List[Dict],
     ocr_history: List[Dict],
+    eval_signal_context: Dict,
+    history_sequence_bundle: Optional[Dict],
+    history_sequence_summary: Optional[Dict],
+    history_sequence_compare: Optional[Dict],
     chart_configs: Dict,
     png_fallbacks: Dict[str, str],
     use_cdn: bool = True,
@@ -207,7 +291,10 @@ def generate_html_with_charts(
 
     # Get latest combined score if available
     latest_combined = None
-    if combined_history:
+    latest_combined_run = eval_signal_context.get("latest_combined_run")
+    if isinstance(latest_combined_run, dict) and "combined" in latest_combined_run:
+        latest_combined = latest_combined_run["combined"]
+    elif combined_history:
         latest = combined_history[-1]
         if "combined" in latest:
             latest_combined = latest["combined"]
@@ -535,6 +622,96 @@ def generate_html_with_charts(
         </div>
 """
 
+    history_sequence_context = build_history_sequence_report_context(
+        history_sequence_bundle,
+        history_sequence_summary,
+        history_sequence_compare,
+    )
+    if history_sequence_context["available"]:
+        html += f"""
+        <div class="summary-card">
+            <h2>History Sequence Reporting</h2>
+            <div class="score-display">
+                <div class="score-item">
+                    <div class="score-value">
+                        {history_sequence_context["report_count"]}
+                    </div>
+                    <div class="score-label">Reports</div>
+                </div>
+                <div class="score-item">
+                    <div class="score-value">
+                        {history_sequence_context["mean_accuracy_overall"]:.3f}
+                    </div>
+                    <div class="score-label">Mean Accuracy</div>
+                </div>
+                <div class="score-item">
+                    <div class="score-value">
+                        {history_sequence_context["mean_macro_f1_overall"]:.3f}
+                    </div>
+                    <div class="score-label">Mean Macro F1</div>
+                </div>
+                <div class="score-item">
+                    <div class="score-value">
+                        {history_sequence_context["mean_named_command_explainability_rate"]:.3f}
+                    </div>
+                    <div class="score-label">Mean Explainability</div>
+                </div>
+            </div>
+            <p style="margin-top: 18px; color: #6b7280;">
+                Latest Surface:
+                <strong>{history_sequence_context["latest_sequence_surface_kind"]}</strong> |
+                Vocabulary:
+                <strong>{history_sequence_context["latest_named_command_vocabulary_kind"]}</strong> |
+                Best Surface Key:
+                <strong>{history_sequence_context["best_surface_key"]}</strong>
+            </p>
+        </div>
+"""
+    else:
+        html += """
+        <div class="summary-card">
+            <h2>History Sequence Reporting</h2>
+            <p>History-sequence reporting bundle not available. Run <code>make eval-history</code> or <code>make history-sequence-reporting-bundle</code> to materialize the canonical summary root.</p>
+        </div>
+"""
+
+    # Hybrid Blind Reporting block
+    hybrid_blind_report_count = eval_signal_context.get("hybrid_blind_report_count", 0)
+    if hybrid_blind_report_count > 0:
+        _agg = (
+            eval_signal_context.get("aggregate_metrics")
+            if isinstance(eval_signal_context.get("aggregate_metrics"), dict)
+            else {}
+        )
+        html += f"""
+        <div class="summary-card">
+            <h2>Hybrid Blind Reporting</h2>
+            <div class="score-display">
+                <div class="score-item">
+                    <div class="score-value">{hybrid_blind_report_count}</div>
+                    <div class="score-label">Reports</div>
+                </div>
+                <div class="score-item">
+                    <div class="score-value">{_agg.get('hybrid_blind_accuracy_mean', 0.0):.3f}</div>
+                    <div class="score-label">Mean Hybrid Accuracy</div>
+                </div>
+                <div class="score-item">
+                    <div class="score-value">{_agg.get('hybrid_blind_graph2d_accuracy_mean', 0.0):.3f}</div>
+                    <div class="score-label">Mean Graph2D Accuracy</div>
+                </div>
+                <div class="score-item">
+                    <div class="score-value">{_agg.get('hybrid_blind_gain_mean', 0.0):.3f}</div>
+                    <div class="score-label">Mean Gain vs Graph2D</div>
+                </div>
+            </div>
+            <p style="margin-top: 18px; color: #6b7280;">
+                Mean weak-label coverage: <strong>{_agg.get('hybrid_blind_coverage_mean', 0.0):.3f}</strong> |
+                Latest label slice count: <strong>{_agg.get('hybrid_blind_label_slice_count_latest', 0)}</strong> |
+                Latest family slice count: <strong>{_agg.get('hybrid_blind_family_slice_count_latest', 0)}</strong>
+            </p>
+        </div>
+"""
+
     # Add filters section
     html += """
         <div class="filters">
@@ -588,6 +765,66 @@ def generate_html_with_charts(
             <div id="ocrChart-fallback" class="chart-fallback">
                 <img src="{png_fallbacks.get('ocr', '')}" alt="OCR metrics trend chart">
                 <p>Interactive chart unavailable - showing static image</p>
+            </div>
+        </div>
+"""
+
+    if history_sequence_context["available"]:
+        html += f"""
+        <div class="chart-section">
+            <h2>History Sequence Trends</h2>
+            <div class="chart-container">
+                <canvas id="historySequenceChart"></canvas>
+            </div>
+            <div id="historySequenceChart-fallback" class="chart-fallback">
+                <img src="{png_fallbacks.get('history_sequence', '')}" alt="History sequence trend chart">
+                <p>Interactive chart unavailable - showing static image</p>
+            </div>
+        </div>
+"""
+
+        if png_fallbacks.get("history_sequence_surface"):
+            html += f"""
+        <div class="chart-section">
+            <h2>History Sequence Surface Trend</h2>
+            <div class="chart-fallback" style="display: block;">
+                <img src="{png_fallbacks.get('history_sequence_surface', '')}" alt="History sequence surface trend chart">
+            </div>
+        </div>
+"""
+
+        if history_sequence_context["leaderboard_rows"]:
+            html += """
+        <div class="chart-section">
+            <h2>Top History Sequence Surfaces</h2>
+            <div style="overflow-x: auto;">
+                <table id="historySequenceLeaderboard">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Surface Key</th>
+                            <th>Reports</th>
+                            <th>Mean Accuracy</th>
+                            <th>Mean Macro F1</th>
+                            <th>Named Explainability</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+"""
+            for row in history_sequence_context["leaderboard_rows"]:
+                html += f"""
+                        <tr>
+                            <td>{row["rank"]}</td>
+                            <td>{row["surface_key"]}</td>
+                            <td>{row["report_count"]}</td>
+                            <td>{row["mean_accuracy_overall"]:.3f}</td>
+                            <td>{row["mean_macro_f1_overall"]:.3f}</td>
+                            <td>{row["mean_named_explainability_rate"]:.3f}</td>
+                        </tr>
+"""
+            html += """
+                    </tbody>
+                </table>
             </div>
         </div>
 """
@@ -652,10 +889,12 @@ def generate_html_with_charts(
         // Store original data for filtering
         const originalCombinedData = {json.dumps(combined_history)};
         const originalOcrData = {json.dumps(ocr_history)};
+        const originalHistorySequenceRows = {json.dumps(history_sequence_chart_rows(history_sequence_summary))};
 
         // Chart instances
         let combinedChart = null;
         let ocrChart = null;
+        let historySequenceChart = null;
 
         // Initialize charts
         function initCharts() {{
@@ -694,6 +933,21 @@ def generate_html_with_charts(
                 }}
 
                 ocrChart = new Chart(ocrCtx, ocrConfig);
+            }}
+
+            // History sequence chart
+            const historySequenceCtx = document.getElementById('historySequenceChart');
+            if (historySequenceCtx) {{
+                const historySequenceConfig = {json.dumps(chart_configs["history_sequence"])};
+
+                if (historySequenceConfig.options && historySequenceConfig.options.scales &&
+                    historySequenceConfig.options.scales.y) {{
+                    historySequenceConfig.options.scales.y.ticks.callback = function(value) {{
+                        return (value * 100).toFixed(0) + '%';
+                    }};
+                }}
+
+                historySequenceChart = new Chart(historySequenceCtx, historySequenceConfig);
             }}
         }}
 
@@ -783,6 +1037,37 @@ def generate_html_with_charts(
             combinedChart.data.datasets[1].data = visionScores;
             combinedChart.data.datasets[2].data = ocrScores;
             combinedChart.update();
+
+            if (historySequenceChart) {{
+                let filteredHistorySequence = originalHistorySequenceRows;
+                if (dateFrom) {{
+                    filteredHistorySequence = filteredHistorySequence.filter(d => d.timestamp >= dateFrom);
+                }}
+                if (dateTo) {{
+                    filteredHistorySequence = filteredHistorySequence.filter(d => d.timestamp <= dateTo);
+                }}
+
+                const historyLabels = [];
+                const historyAccuracy = [];
+                const historyMacroF1 = [];
+                const historyNamedExplainability = [];
+
+                filteredHistorySequence.slice(-20).forEach(entry => {{
+                    const timestamp = entry.timestamp || 'N/A';
+                    historyLabels.push(timestamp.substring(5, 16));
+                    historyAccuracy.push((entry.history_metrics || {{}}).accuracy_overall || 0);
+                    historyMacroF1.push((entry.history_metrics || {{}}).macro_f1_overall || 0);
+                    historyNamedExplainability.push(
+                        (entry.named_command_summary || {{}}).named_command_explainability_rate || 0
+                    );
+                }});
+
+                historySequenceChart.data.labels = historyLabels;
+                historySequenceChart.data.datasets[0].data = historyAccuracy;
+                historySequenceChart.data.datasets[1].data = historyMacroF1;
+                historySequenceChart.data.datasets[2].data = historyNamedExplainability;
+                historySequenceChart.update();
+            }}
         }}
 
         // Initialize on load
@@ -797,7 +1082,7 @@ def generate_html_with_charts(
     return html
 
 
-def main():
+def main(argv: Optional[List[str]] = None):
     parser = argparse.ArgumentParser(description="Generate enhanced evaluation report with interactive charts")
     parser.add_argument("--dir", default="reports/eval_history",
                         help="Directory containing evaluation history files")
@@ -811,59 +1096,72 @@ def main():
     parser.add_argument("--redact-branch", action="store_true",
                         help="Redact branch names in report")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     history_dir = Path(args.dir)
     output_dir = Path(args.out)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Load history files
-    combined_history = []
-    ocr_history = []
+    eval_signal_bundle, eval_signal_summary = load_eval_signal_reporting_assets(history_dir)
+    if eval_signal_summary is None:
+        eval_signal_summary = load_eval_signal_reporting_summary(history_dir)
+    eval_signal_context = build_eval_signal_report_context(
+        eval_signal_summary,
+        history_dir=history_dir,
+    )
+    combined_history = eval_signal_report_rows(
+        eval_signal_summary,
+        history_dir=history_dir,
+        report_type="combined",
+    )
+    ocr_history = eval_signal_report_rows(
+        eval_signal_summary,
+        history_dir=history_dir,
+        report_type="ocr",
+    )
+    history_sequence_bundle, history_sequence_summary, history_sequence_compare = (
+        load_history_sequence_reporting_assets(history_dir)
+    )
 
-    for json_file in sorted(history_dir.glob("*.json")):
-        if json_file.name.endswith(".json.bak"):
-            continue
-
-        try:
-            with open(json_file, "r") as f:
-                data = json.load(f)
-
-                # Apply redactions if requested
-                if args.redact_commit and "commit" in data:
-                    data["commit"] = "[redacted]"
-                if args.redact_branch and "branch" in data:
-                    data["branch"] = "[redacted]"
-
-                # Categorize by type
-                if "combined" in data or "_combined" in json_file.name:
-                    combined_history.append(data)
-                elif data.get("type") == "ocr" or "metrics" in data:
-                    ocr_history.append(data)
-        except Exception as e:
-            print(f"Warning: Could not load {json_file}: {e}")
+    for data in combined_history + ocr_history:
+        if args.redact_commit and "commit" in data:
+            data["commit"] = "[redacted]"
+        if args.redact_branch and "branch" in data:
+            data["branch"] = "[redacted]"
 
     print(f"Loaded {len(combined_history)} combined and {len(ocr_history)} OCR history entries")
+    print(
+        "Loaded history-sequence reporting summary: "
+        f"{'yes' if history_sequence_summary else 'no'}"
+    )
 
     # Generate Chart.js configurations
-    chart_configs = generate_chart_js_config(combined_history, ocr_history)
+    chart_configs = generate_chart_js_config(
+        combined_history,
+        ocr_history,
+        history_sequence_chart_rows(history_sequence_summary),
+    )
 
     # Try to load PNG fallbacks
-    png_fallbacks = {}
     plots_dir = history_dir / "plots"
-    if plots_dir.exists():
-        combined_png = plots_dir / "combined_trend.png"
-        ocr_png = plots_dir / "ocr_trend.png"
-
-        if combined_png.exists():
-            png_fallbacks["combined"] = encode_image_base64(combined_png) or ""
-        if ocr_png.exists():
-            png_fallbacks["ocr"] = encode_image_base64(ocr_png) or ""
+    png_fallbacks = load_plot_base64_assets(
+        plots_dir,
+        {
+            "combined": "combined_trend.png",
+            "ocr": "ocr_trend.png",
+            "history_sequence": "history_sequence_trend.png",
+            "history_sequence_surface": "history_sequence_surface_trend.png",
+        },
+    )
 
     # Generate HTML
     html = generate_html_with_charts(
         combined_history,
         ocr_history,
+        eval_signal_context,
+        history_sequence_bundle,
+        history_sequence_summary,
+        history_sequence_compare,
         chart_configs,
         png_fallbacks,
         use_cdn=args.use_cdn,
@@ -879,8 +1177,14 @@ def main():
     print(f"  - Interactive charts: {'CDN' if args.use_cdn else 'Local'}")
     print(f"  - Fallback images: {len(png_fallbacks)} available")
     print(f"  - Filtering: Branch and date range enabled")
+    print(
+        "  - History-sequence reporting: "
+        f"{'embedded' if history_sequence_summary else 'missing'}"
+    )
     print(f"\nOpen: file://{output_file.absolute()}")
+
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -31,6 +31,7 @@ def test_make_n_watch_commit_workflows_contains_expected_flags() -> None:
     assert result.returncode == 0, result.stderr
     assert "scripts/ci/watch_commit_workflows.py" in result.stdout
     assert '--sha "HEAD"' in result.stdout
+    assert '--repo ""' in result.stdout
     assert '--events-csv "push"' in result.stdout
     assert '--wait-timeout-seconds "1800"' in result.stdout
     assert '--poll-interval-seconds "20"' in result.stdout
@@ -40,7 +41,9 @@ def test_make_n_watch_commit_workflows_contains_expected_flags() -> None:
     assert '--missing-required-mode "fail-fast"' in result.stdout
     assert '--failure-mode "fail-fast"' in result.stdout
     assert '--success-conclusions-csv "success,skipped"' in result.stdout
+    assert '--failure-details-max-runs "3"' in result.stdout
     assert '--summary-json-out ""' in result.stdout
+    assert "--print-failure-details" in result.stdout
 
 
 def test_make_watch_commit_workflows_print_only_outputs_preview() -> None:
@@ -56,16 +59,40 @@ def test_make_watch_commit_workflows_print_only_outputs_preview() -> None:
         "CI_WATCH_MAX_LIST_FAILURES=5",
         "CI_WATCH_SUCCESS_CONCLUSIONS=success,skipped,neutral",
         "CI_WATCH_SUMMARY_JSON=/tmp/ci-watch-summary.json",
+        "CI_WATCH_REPO=zensgit/cad-ml-platform",
     )
     assert result.returncode == 0, result.stderr
     assert "gh run list --json" in result.stdout
     assert "# events=['push', 'workflow_dispatch']" in result.stdout
+    assert "# repo=zensgit/cad-ml-platform" in result.stdout
     assert "# required_workflows=['CI', 'Code Quality']" in result.stdout
     assert "# success_conclusions=['neutral', 'skipped', 'success']" in result.stdout
     assert "# missing_required_mode=fail-fast" in result.stdout
     assert "# failure_mode=fail-fast" in result.stdout
     assert "# heartbeat_interval_seconds=120" in result.stdout
     assert "# max_list_failures=5" in result.stdout
+
+
+def test_make_n_watch_commit_workflows_print_failure_details_flag() -> None:
+    result = _run_make(
+        "-n",
+        "watch-commit-workflows",
+        "CI_WATCH_PRINT_FAILURE_DETAILS=1",
+        "CI_WATCH_FAILURE_DETAILS_MAX_RUNS=7",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "--print-failure-details" in result.stdout
+    assert '--failure-details-max-runs "7"' in result.stdout
+
+
+def test_make_n_watch_commit_workflows_repo_override() -> None:
+    result = _run_make(
+        "-n",
+        "watch-commit-workflows",
+        "CI_WATCH_REPO=octocat/hello-world",
+    )
+    assert result.returncode == 0, result.stderr
+    assert '--repo "octocat/hello-world"' in result.stdout
 
 
 def test_make_n_clean_ci_watch_summaries_contains_expected_pattern() -> None:
@@ -136,9 +163,26 @@ def test_make_n_generate_ci_watch_validation_report_contains_expected_flags() ->
     assert '--summary-dir "reports/ci"' in result.stdout
     assert '--summary-json ""' in result.stdout
     assert '--readiness-json ""' in result.stdout
+    assert '--soft-smoke-summary-json ""' in result.stdout
+    assert '--soft-smoke-summary-md ""' in result.stdout
+    assert '--workflow-guardrail-summary-json "reports/ci/workflow_guardrail_summary.json"' in result.stdout
+    assert '--ci-workflow-guardrail-overview-json "reports/ci/ci_workflow_guardrail_overview.json"' in result.stdout
+    assert '--evaluation-comment-support-manifest-json ""' in result.stdout
+    assert '--output-json ""' in result.stdout
     assert '--output-md ""' in result.stdout
     assert '--report-dir "reports"' in result.stdout
     assert '--report-sha-len "7"' in result.stdout
+
+
+def test_make_n_generate_ci_workflow_guardrail_overview_contains_expected_flags() -> None:
+    result = _run_make("-n", "generate-ci-workflow-guardrail-overview")
+    assert result.returncode == 0, result.stderr
+    assert "scripts/ci/generate_ci_workflow_guardrail_overview.py" in result.stdout
+    assert '--ci-watch-summary-dir "reports/ci"' in result.stdout
+    assert '--ci-watch-summary-json ""' in result.stdout
+    assert '--workflow-guardrail-json "reports/ci/workflow_guardrail_summary.json"' in result.stdout
+    assert '--output-json "reports/ci/ci_workflow_guardrail_overview.json"' in result.stdout
+    assert '--output-md "reports/ci/ci_workflow_guardrail_overview.md"' in result.stdout
 
 
 def test_make_n_validate_ci_watchers_includes_graph2d_strict_e2e_validation() -> None:
@@ -147,5 +191,6 @@ def test_make_n_validate_ci_watchers_includes_graph2d_strict_e2e_validation() ->
     assert "make validate-check-gh-actions-ready" in result.stdout
     assert "make validate-watch-commit-workflows" in result.stdout
     assert "make validate-generate-ci-watch-validation-report" in result.stdout
+    assert "make validate-generate-ci-workflow-guardrail-overview" in result.stdout
     assert "make validate-archive-workflow-dispatcher" in result.stdout
     assert "make validate-graph2d-review-pack-gate-strict-e2e" in result.stdout
