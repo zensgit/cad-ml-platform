@@ -1,0 +1,252 @@
+{"anchor": "法兰盘", "positive": "法兰", "negative": "同轴度"}
+{"anchor": "法兰盘", "positive": "凸缘盘", "negative": "砂型铸造"}
+{"anchor": "车削加工", "positive": "CNC车削", "negative": "蜗杆"}
+{"anchor": "车削加工", "positive": "数控车削", "negative": "轴"}
+{"anchor": "表面粗糙度Ra3.2", "positive": "粗糙度3.2微米", "negative": "底座"}
+{"anchor": "IT7公差", "positive": "IT7精度等级", "negative": "铣削"}
+{"anchor": "不锈钢SUS304", "positive": "304不锈钢", "negative": "退火"}
+{"anchor": "不锈钢SUS304", "positive": "0Cr18Ni9不锈钢", "negative": "钛合金TC4"}
+{"anchor": "热处理淬火", "positive": "淬火处理", "negative": "钛合金TC4"}
+{"anchor": "热处理淬火", "positive": "淬火硬化", "negative": "H7/p6"}
+{"anchor": "线切割", "positive": "电火花线切割", "negative": "铣削"}
+{"anchor": "线切割", "positive": "WEDM", "negative": "钛合金TC4"}
+{"anchor": "数控铣削", "positive": "CNC铣削加工", "negative": "钛合金TC4"}
+{"anchor": "数控铣削", "positive": "数控铣床加工", "negative": "轴"}
+{"anchor": "电火花加工", "positive": "EDM加工", "negative": "同轴度"}
+{"anchor": "电火花加工", "positive": "放电加工", "negative": "冲压加工"}
+{"anchor": "磨削加工", "positive": "研磨加工", "negative": "底座"}
+{"anchor": "磨削加工", "positive": "grinding", "negative": "钛合金TC4"}
+{"anchor": "钻孔加工", "positive": "钻削", "negative": "球墨铸铁QT500"}
+{"anchor": "钻孔加工", "positive": "drilling", "negative": "合金钢"}
+{"anchor": "镗孔加工", "positive": "镗削", "negative": "铣削"}
+{"anchor": "镗孔加工", "positive": "boring", "negative": "圆柱度"}
+{"anchor": "攻丝", "positive": "攻螺纹", "negative": "球墨铸铁QT500"}
+{"anchor": "攻丝", "positive": "tapping", "negative": "平行度"}
+{"anchor": "铰孔", "positive": "铰削加工", "negative": "蜗杆"}
+{"anchor": "拉削", "positive": "拉刀加工", "negative": "轴"}
+{"anchor": "拉削", "positive": "broaching", "negative": "注塑成型"}
+{"anchor": "抛光", "positive": "精抛加工", "negative": "壳体"}
+{"anchor": "抛光", "positive": "polishing", "negative": "聚甲醛POM"}
+{"anchor": "去毛刺", "positive": "倒角去毛刺", "negative": "平行度"}
+{"anchor": "喷砂处理", "positive": "喷砂", "negative": "球墨铸铁QT500"}
+{"anchor": "喷砂处理", "positive": "sandblasting", "negative": "圆柱度"}
+{"anchor": "阳极氧化", "positive": "阳极处理", "negative": "全跳动"}
+{"anchor": "阳极氧化", "positive": "anodizing", "negative": "形位公差"}
+{"anchor": "电镀", "positive": "电镀处理", "negative": "同轴度"}
+{"anchor": "电镀", "positive": "electroplating", "negative": "全跳动"}
+{"anchor": "发黑处理", "positive": "氧化发黑", "negative": "垫圈"}
+{"anchor": "镀铬", "positive": "硬铬电镀", "negative": "铣削"}
+{"anchor": "镀镍", "positive": "化学镀镍", "negative": "激光焊接"}
+{"anchor": "渗碳处理", "positive": "渗碳淬火", "negative": "球墨铸铁QT500"}
+{"anchor": "渗氮处理", "positive": "氮化处理", "negative": "同轴度"}
+{"anchor": "渗氮处理", "positive": "nitriding", "negative": "底座"}
+{"anchor": "回火处理", "positive": "回火", "negative": "销钉"}
+{"anchor": "回火处理", "positive": "tempering", "negative": "间隙配合"}
+{"anchor": "正火处理", "positive": "正火", "negative": "间隙配合"}
+{"anchor": "正火处理", "positive": "normalizing", "negative": "轴"}
+{"anchor": "退火处理", "positive": "退火", "negative": "间隙配合"}
+{"anchor": "退火处理", "positive": "annealing", "negative": "抛光"}
+{"anchor": "调质处理", "positive": "淬火+回火", "negative": "注塑成型"}
+{"anchor": "三坐标测量", "positive": "CMM测量", "negative": "轴"}
+{"anchor": "三坐标测量", "positive": "三坐标检测", "negative": "同轴度"}
+{"anchor": "投影仪检测", "positive": "光学投影仪", "negative": "渗氮"}
+{"anchor": "粗糙度仪", "positive": "表面粗糙度测量仪", "negative": "合金钢"}
+{"anchor": "硬度计", "positive": "硬度检测仪", "negative": "激光焊接"}
+{"anchor": "卡尺", "positive": "游标卡尺", "negative": "全跳动"}
+{"anchor": "千分尺", "positive": "外径千分尺", "negative": "球墨铸铁QT500"}
+{"anchor": "塞规", "positive": "通止规", "negative": "不锈钢304"}
+{"anchor": "法兰盘", "positive": "法兰连接件", "negative": "间隙配合"}
+{"anchor": "法兰", "positive": "flange", "negative": "Ra6.3"}
+{"anchor": "焊接法兰", "positive": "对焊法兰", "negative": "同轴度"}
+{"anchor": "平焊法兰", "positive": "板式法兰", "negative": "退火"}
+{"anchor": "轴", "positive": "传动轴", "negative": "Ra6.3"}
+{"anchor": "轴", "positive": "shaft", "negative": "Ra6.3"}
+{"anchor": "阶梯轴", "positive": "多级轴", "negative": "齿轮"}
+{"anchor": "花键轴", "positive": "spline shaft", "negative": "聚甲醛POM"}
+{"anchor": "空心轴", "positive": "中空轴", "negative": "蜗杆"}
+{"anchor": "齿轮", "positive": "gear", "negative": "球墨铸铁QT500"}
+{"anchor": "齿轮", "positive": "传动齿轮", "negative": "轴"}
+{"anchor": "直齿轮", "positive": "spur gear", "negative": "抛光"}
+{"anchor": "斜齿轮", "positive": "helical gear", "negative": "退火"}
+{"anchor": "锥齿轮", "positive": "bevel gear", "negative": "钛合金TC4"}
+{"anchor": "蜗轮", "positive": "worm gear", "negative": "退火"}
+{"anchor": "轴承座", "positive": "bearing housing", "negative": "底座"}
+{"anchor": "轴承座", "positive": "轴承支架", "negative": "冲压加工"}
+{"anchor": "轴承盖", "positive": "bearing cap", "negative": "轴"}
+{"anchor": "壳体", "positive": "外壳", "negative": "轴"}
+{"anchor": "壳体", "positive": "housing", "negative": "铣削"}
+{"anchor": "机壳", "positive": "机箱壳体", "negative": "底座"}
+{"anchor": "箱体", "positive": "gear box", "negative": "不锈钢304"}
+{"anchor": "减速箱体", "positive": "减速器壳体", "negative": "表面处理"}
+{"anchor": "支架", "positive": "bracket", "negative": "冲压加工"}
+{"anchor": "支架", "positive": "安装支架", "negative": "同轴度"}
+{"anchor": "L形支架", "positive": "角形支架", "negative": "表面处理"}
+{"anchor": "衬套", "positive": "bushing", "negative": "不锈钢304"}
+{"anchor": "衬套", "positive": "轴套", "negative": "IT12"}
+{"anchor": "导向套", "positive": "guide bushing", "negative": "平行度"}
+{"anchor": "螺栓", "positive": "bolt", "negative": "对称度"}
+{"anchor": "螺母", "positive": "nut", "negative": "不锈钢304"}
+{"anchor": "垫圈", "positive": "washer", "negative": "不锈钢304"}
+{"anchor": "销钉", "positive": "pin", "negative": "圆柱度"}
+{"anchor": "定位销", "positive": "dowel pin", "negative": "表面处理"}
+{"anchor": "弹簧", "positive": "spring", "negative": "轴"}
+{"anchor": "挡圈", "positive": "retaining ring", "negative": "抛光"}
+{"anchor": "键", "positive": "key", "negative": "表面处理"}
+{"anchor": "平键", "positive": "parallel key", "negative": "圆柱度"}
+{"anchor": "碳钢Q235", "positive": "Q235B碳钢", "negative": "渗氮"}
+{"anchor": "碳钢Q235", "positive": "Q235普碳钢", "negative": "注塑成型"}
+{"anchor": "45号钢", "positive": "45#钢", "negative": "圆柱度"}
+{"anchor": "45号钢", "positive": "C45碳钢", "negative": "轴"}
+{"anchor": "45号钢", "positive": "S45C中碳钢", "negative": "表面处理"}
+{"anchor": "40Cr钢", "positive": "40Cr合金钢", "negative": "轴"}
+{"anchor": "40Cr钢", "positive": "SCM440", "negative": "聚甲醛POM"}
+{"anchor": "20CrMnTi", "positive": "渗碳钢20CrMnTi", "negative": "间隙配合"}
+{"anchor": "GCr15", "positive": "轴承钢GCr15", "negative": "合金钢"}
+{"anchor": "GCr15", "positive": "SUJ2轴承钢", "negative": "砂型铸造"}
+{"anchor": "弹簧钢65Mn", "positive": "65Mn弹簧钢", "negative": "渗氮"}
+{"anchor": "不锈钢316L", "positive": "316L奥氏体不锈钢", "negative": "球墨铸铁QT500"}
+{"anchor": "不锈钢316L", "positive": "SUS316L", "negative": "轴"}
+{"anchor": "不锈钢304", "positive": "SUS304不锈钢", "negative": "齿轮"}
+{"anchor": "双相不锈钢2205", "positive": "S31803双相钢", "negative": "齿轮"}
+{"anchor": "马氏体不锈钢", "positive": "420不锈钢", "negative": "间隙配合"}
+{"anchor": "铝合金6061", "positive": "6061-T6铝", "negative": "蜗杆"}
+{"anchor": "铝合金6061", "positive": "6061铝合金", "negative": "聚甲醛POM"}
+{"anchor": "铝合金7075", "positive": "7075-T6铝", "negative": "铣削"}
+{"anchor": "铝合金7075", "positive": "超硬铝7075", "negative": "铣削"}
+{"anchor": "铸铝ADC12", "positive": "ADC12压铸铝", "negative": "圆柱度"}
+{"anchor": "铝合金5052", "positive": "5052防锈铝", "negative": "轴"}
+{"anchor": "铝合金2024", "positive": "2024硬铝", "negative": "全跳动"}
+{"anchor": "钛合金TC4", "positive": "Ti-6Al-4V", "negative": "铣削"}
+{"anchor": "钛合金TC4", "positive": "TC4钛合金", "negative": "冲压加工"}
+{"anchor": "纯钛TA1", "positive": "TA1工业纯钛", "negative": "不锈钢304"}
+{"anchor": "纯钛TA2", "positive": "TA2纯钛", "negative": "球墨铸铁QT500"}
+{"anchor": "黄铜H62", "positive": "H62黄铜", "negative": "IT12"}
+{"anchor": "黄铜H62", "positive": "HPb59-1铅黄铜", "negative": "齿轮"}
+{"anchor": "紫铜T2", "positive": "T2纯铜", "negative": "垫圈"}
+{"anchor": "锡青铜", "positive": "QSn6.5-0.1", "negative": "球墨铸铁QT500"}
+{"anchor": "铍铜", "positive": "C17200铍铜合金", "negative": "垫圈"}
+{"anchor": "灰铸铁HT200", "positive": "HT200灰铁", "negative": "激光焊接"}
+{"anchor": "灰铸铁HT250", "positive": "HT250铸铁", "negative": "H7/p6"}
+{"anchor": "球墨铸铁QT500", "positive": "QT500-7球铁", "negative": "轴"}
+{"anchor": "球墨铸铁", "positive": "ductile iron", "negative": "砂型铸造"}
+{"anchor": "尼龙PA66", "positive": "PA66工程塑料", "negative": "合金钢"}
+{"anchor": "尼龙PA66", "positive": "nylon 66", "negative": "形位公差"}
+{"anchor": "聚甲醛POM", "positive": "POM赛钢", "negative": "IT12"}
+{"anchor": "聚甲醛POM", "positive": "acetal", "negative": "IT12"}
+{"anchor": "聚四氟乙烯", "positive": "PTFE", "negative": "钛合金TC4"}
+{"anchor": "聚四氟乙烯", "positive": "特氟龙", "negative": "抛光"}
+{"anchor": "聚碳酸酯", "positive": "PC塑料", "negative": "全跳动"}
+{"anchor": "PEEK", "positive": "聚醚醚酮", "negative": "砂型铸造"}
+{"anchor": "ABS塑料", "positive": "ABS工程塑料", "negative": "H7/p6"}
+{"anchor": "聚丙烯", "positive": "PP塑料", "negative": "全跳动"}
+{"anchor": "五轴加工", "positive": "五轴联动加工", "negative": "全跳动"}
+{"anchor": "五轴加工", "positive": "5-axis machining", "negative": "铸造"}
+{"anchor": "三轴铣削", "positive": "三轴CNC加工", "negative": "垫圈"}
+{"anchor": "车铣复合", "positive": "车铣复合加工中心", "negative": "冲压加工"}
+{"anchor": "高速铣削", "positive": "HSM加工", "negative": "平行度"}
+{"anchor": "慢走丝", "positive": "慢走丝线切割", "negative": "齿轮"}
+{"anchor": "快走丝", "positive": "快走丝线切割", "negative": "同轴度"}
+{"anchor": "压铸", "positive": "die casting", "negative": "注塑成型"}
+{"anchor": "压铸", "positive": "高压铸造", "negative": "全跳动"}
+{"anchor": "砂型铸造", "positive": "sand casting", "negative": "激光焊接"}
+{"anchor": "精密铸造", "positive": "investment casting", "negative": "垫圈"}
+{"anchor": "精密铸造", "positive": "熔模铸造", "negative": "轴"}
+{"anchor": "失蜡铸造", "positive": "蜡模精铸", "negative": "砂型铸造"}
+{"anchor": "离心铸造", "positive": "centrifugal casting", "negative": "轴"}
+{"anchor": "锻造", "positive": "forging", "negative": "间隙配合"}
+{"anchor": "自由锻", "positive": "open die forging", "negative": "垫圈"}
+{"anchor": "模锻", "positive": "closed die forging", "negative": "IT12"}
+{"anchor": "冷锻", "positive": "cold forging", "negative": "齿轮"}
+{"anchor": "氩弧焊", "positive": "TIG焊接", "negative": "钛合金TC4"}
+{"anchor": "氩弧焊", "positive": "GTAW焊接", "negative": "同轴度"}
+{"anchor": "二氧化碳焊", "positive": "CO2气保焊", "negative": "IT12"}
+{"anchor": "二氧化碳焊", "positive": "MAG焊", "negative": "退火"}
+{"anchor": "激光焊接", "positive": "laser welding", "negative": "轴"}
+{"anchor": "点焊", "positive": "电阻点焊", "negative": "间隙配合"}
+{"anchor": "钣金加工", "positive": "sheet metal", "negative": "聚甲醛POM"}
+{"anchor": "钣金折弯", "positive": "折弯成型", "negative": "铣削"}
+{"anchor": "激光切割", "positive": "laser cutting", "negative": "对称度"}
+{"anchor": "冲压加工", "positive": "stamping", "negative": "IT12"}
+{"anchor": "冲压加工", "positive": "press forming", "negative": "齿轮"}
+{"anchor": "拉伸成型", "positive": "deep drawing", "negative": "不锈钢304"}
+{"anchor": "3D打印", "positive": "增材制造", "negative": "激光焊接"}
+{"anchor": "3D打印", "positive": "additive manufacturing", "negative": "圆柱度"}
+{"anchor": "SLM打印", "positive": "选择性激光熔化", "negative": "紫铜T2"}
+{"anchor": "SLA打印", "positive": "光固化3D打印", "negative": "全跳动"}
+{"anchor": "注塑成型", "positive": "injection molding", "negative": "平行度"}
+{"anchor": "注塑成型", "positive": "注射成型", "negative": "冲压加工"}
+{"anchor": "挤出成型", "positive": "extrusion", "negative": "轴"}
+{"anchor": "粉末冶金", "positive": "powder metallurgy", "negative": "表面处理"}
+{"anchor": "平面度", "positive": "flatness", "negative": "IT12"}
+{"anchor": "平面度", "positive": "平面度公差", "negative": "球墨铸铁QT500"}
+{"anchor": "直线度", "positive": "straightness", "negative": "蜗杆"}
+{"anchor": "直线度", "positive": "直线度公差", "negative": "销钉"}
+{"anchor": "圆度", "positive": "roundness", "negative": "齿轮"}
+{"anchor": "圆度", "positive": "circularity", "negative": "砂型铸造"}
+{"anchor": "圆柱度", "positive": "cylindricity", "negative": "球墨铸铁QT500"}
+{"anchor": "圆柱度", "positive": "圆柱度公差", "negative": "轴"}
+{"anchor": "平行度", "positive": "parallelism", "negative": "铸造"}
+{"anchor": "平行度", "positive": "平行度公差", "negative": "渗氮"}
+{"anchor": "垂直度", "positive": "perpendicularity", "negative": "冲压加工"}
+{"anchor": "垂直度", "positive": "直角度", "negative": "轴"}
+{"anchor": "倾斜度", "positive": "angularity", "negative": "球墨铸铁QT500"}
+{"anchor": "倾斜度", "positive": "倾斜度公差", "negative": "壳体"}
+{"anchor": "位置度", "positive": "position tolerance", "negative": "铣削"}
+{"anchor": "位置度", "positive": "位置度公差", "negative": "冲压加工"}
+{"anchor": "同轴度", "positive": "concentricity", "negative": "平行度"}
+{"anchor": "同轴度", "positive": "同心度", "negative": "合金钢"}
+{"anchor": "对称度", "positive": "symmetry", "negative": "同轴度"}
+{"anchor": "对称度", "positive": "对称度公差", "negative": "冲压加工"}
+{"anchor": "圆跳动", "positive": "circular runout", "negative": "注塑成型"}
+{"anchor": "圆跳动", "positive": "径向跳动", "negative": "退火"}
+{"anchor": "全跳动", "positive": "total runout", "negative": "砂型铸造"}
+{"anchor": "全跳动", "positive": "全跳动公差", "negative": "底座"}
+{"anchor": "线轮廓度", "positive": "profile of a line", "negative": "圆柱度"}
+{"anchor": "线轮廓度", "positive": "线轮廓度公差", "negative": "垫圈"}
+{"anchor": "面轮廓度", "positive": "profile of a surface", "negative": "销钉"}
+{"anchor": "面轮廓度", "positive": "面轮廓度公差", "negative": "紫铜T2"}
+{"anchor": "基准", "positive": "datum", "negative": "平行度"}
+{"anchor": "基准面", "positive": "datum plane", "negative": "销钉"}
+{"anchor": "基准轴", "positive": "datum axis", "negative": "合金钢"}
+{"anchor": "最大实体条件", "positive": "MMC", "negative": "垫圈"}
+{"anchor": "最大实体条件", "positive": "maximum material condition", "negative": "轴"}
+{"anchor": "最小实体条件", "positive": "LMC", "negative": "冲压加工"}
+{"anchor": "最小实体条件", "positive": "least material condition", "negative": "圆柱度"}
+{"anchor": "自由状态", "positive": "free state", "negative": "退火"}
+{"anchor": "包容原则", "positive": "envelope principle", "negative": "IT12"}
+{"anchor": "表面粗糙度", "positive": "surface roughness", "negative": "退火"}
+{"anchor": "Ra0.8", "positive": "粗糙度Ra0.8微米", "negative": "退火"}
+{"anchor": "Ra1.6", "positive": "粗糙度Ra1.6微米", "negative": "同轴度"}
+{"anchor": "Ra3.2", "positive": "粗糙度Ra3.2微米", "negative": "轴"}
+{"anchor": "Ra6.3", "positive": "粗糙度Ra6.3微米", "negative": "退火"}
+{"anchor": "Ra12.5", "positive": "粗糙度Ra12.5微米", "negative": "渗氮"}
+{"anchor": "光洁度", "positive": "表面光洁度", "negative": "轴"}
+{"anchor": "Rz", "positive": "微观不平度十点高度", "negative": "表面处理"}
+{"anchor": "过盈配合", "positive": "interference fit", "negative": "蜗杆"}
+{"anchor": "过盈配合", "positive": "压入配合", "negative": "紫铜T2"}
+{"anchor": "间隙配合", "positive": "clearance fit", "negative": "形位公差"}
+{"anchor": "间隙配合", "positive": "松配合", "negative": "轴"}
+{"anchor": "过渡配合", "positive": "transition fit", "negative": "平行度"}
+{"anchor": "H7/g6配合", "positive": "H7g6间隙配合", "negative": "铣削"}
+{"anchor": "H7/k6配合", "positive": "H7k6过渡配合", "negative": "表面处理"}
+{"anchor": "H7/p6配合", "positive": "H7p6过盈配合", "negative": "铣削"}
+{"anchor": "尺寸公差", "positive": "dimensional tolerance", "negative": "圆柱度"}
+{"anchor": "形位公差", "positive": "geometric tolerance", "negative": "垫圈"}
+{"anchor": "一般公差", "positive": "general tolerance", "negative": "IT12"}
+{"anchor": "配合公差", "positive": "fit tolerance", "negative": "间隙配合"}
+{"anchor": "CNC", "positive": "计算机数控", "negative": "形位公差"}
+{"anchor": "CAD", "positive": "计算机辅助设计", "negative": "球墨铸铁QT500"}
+{"anchor": "CAM", "positive": "计算机辅助制造", "negative": "间隙配合"}
+{"anchor": "CAE", "positive": "计算机辅助工程", "negative": "轴"}
+{"anchor": "EDM", "positive": "电火花加工", "negative": "砂型铸造"}
+{"anchor": "WEDM", "positive": "线切割", "negative": "平行度"}
+{"anchor": "CMM", "positive": "三坐标测量机", "negative": "Ra6.3"}
+{"anchor": "DFM", "positive": "可制造性设计", "negative": "注塑成型"}
+{"anchor": "GD&T", "positive": "几何尺寸和公差", "negative": "渗氮"}
+{"anchor": "BOM", "positive": "物料清单", "negative": "形位公差"}
+{"anchor": "MRR", "positive": "材料去除率", "negative": "对称度"}
+{"anchor": "SPC", "positive": "统计过程控制", "negative": "合金钢"}
+{"anchor": "PPM", "positive": "百万分之缺陷率", "negative": "Ra6.3"}
+{"anchor": "OD", "positive": "外径", "negative": "间隙配合"}
+{"anchor": "ID", "positive": "内径", "negative": "退火"}
+{"anchor": "RPM", "positive": "转速/每分钟转数", "negative": "退火"}
