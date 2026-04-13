@@ -1,0 +1,259 @@
+# Label Taxonomy v2 — 25-class consolidation of 94 original categories
+# Rationale: group semantically similar parts, drop educational/noise labels,
+# separate drawing-type metadata as orthogonal tags.
+#
+# Each class lists: description, source labels from label_synonyms_template.json,
+# and additional synonyms for matching.
+
+version: "2.0"
+created: "2026-04-13"
+
+# ---------------------------------------------------------------------------
+# Drawing-type metadata (orthogonal to part class — applied as secondary tag)
+# ---------------------------------------------------------------------------
+drawing_types:
+  零件图:
+    description: "Individual part drawing"
+    source_labels: ["零件图", "练习零件图", "工件图"]
+    synonyms: ["part drawing", "component drawing", "exercise part drawing"]
+  装配图:
+    description: "Assembly drawing"
+    source_labels: ["装配图", "总装配", "后桥装配"]
+    synonyms: ["assembly drawing", "general assembly", "rear axle assembly"]
+  原理图:
+    description: "Schematic / principle diagram"
+    source_labels: ["原理图", "液压原理图", "液压系统管路图", "油管布置示意图", "电路图"]
+    synonyms: ["schematic", "hydraulic schematic", "piping diagram", "circuit diagram"]
+  机械制图:
+    description: "General mechanical drawing / educational"
+    source_labels: ["机械制图", "平面图", "机件多面视图", "底座视图", "阀视图"]
+    synonyms: ["mechanical drawing", "multiview", "base view", "valve view"]
+
+# ---------------------------------------------------------------------------
+# 25 part-family classes
+# ---------------------------------------------------------------------------
+classes:
+  # --- Pressure Vessel Components ---
+  封头:
+    id: 1
+    description: "Heads / end caps for pressure vessels"
+    source_labels: ["上封头组件", "下封板"]
+    synonyms: ["top head assembly", "upper head assembly", "bottom cover plate", "lower end plate"]
+
+  筒体:
+    id: 2
+    description: "Cylindrical shell sections"
+    source_labels: ["上筒体组件", "下筒体组件", "前筒体（改）", "后筒体（改）"]
+    synonyms: ["upper cylinder shell", "lower shell assembly", "front shell", "rear shell"]
+
+  罐体:
+    id: 3
+    description: "Tank / vessel body and legs"
+    source_labels: ["罐体部分", "罐体支腿", "基质沥青计量罐"]
+    synonyms: ["tank section", "vessel section", "tank support legs", "asphalt metering tank"]
+
+  锥体:
+    id: 4
+    description: "Cone sections"
+    source_labels: ["下锥体组件"]
+    synonyms: ["bottom cone assembly", "lower cone assembly"]
+
+  # --- Fluid / Thermal Equipment ---
+  换热器:
+    id: 5
+    description: "Heat exchangers, reboilers, tube bundles"
+    source_labels: ["再沸器", "管束"]
+    synonyms: ["reboiler", "re-boiler", "tube bundle", "tube bank"]
+
+  分离器:
+    id: 6
+    description: "Separators, collectors, capture devices"
+    source_labels: ["汽水分离器", "捕集器组件", "捕集口"]
+    synonyms: ["steam water separator", "vapor liquid separator", "collector assembly", "capture port"]
+
+  过滤器:
+    id: 7
+    description: "Filters, filter brackets, cartridges"
+    source_labels: ["过滤托架", "过滤芯组件"]
+    synonyms: ["filter bracket", "filter support bracket", "filter cartridge assembly"]
+
+  # --- Rotating / Drive Components ---
+  搅拌器:
+    id: 8
+    description: "Agitators, mixers, impellers"
+    source_labels: ["搅拌器组件", "搅拌桨组件", "搅拌轴组件", "搅拌减速机机罩"]
+    synonyms: ["agitator assembly", "mixer assembly", "mixer paddle", "agitator shaft", "mixer gearbox cover"]
+
+  传动件:
+    id: 9
+    description: "Transmission components: shafts, gears, worms"
+    source_labels: ["传动轴", "蜗轮蜗杆传动出料机构", "蜗轮蜗杆", "蜗杆", "涡轮", "差动机构"]
+    synonyms: ["drive shaft", "worm drive", "worm gear", "worm shaft", "worm wheel", "differential mechanism"]
+
+  轴类:
+    id: 10
+    description: "Shafts, stepped shafts, shaft accessories"
+    source_labels: ["轴类", "轴头组件", "阶梯轴", "零件轴改", "轴的标注"]
+    synonyms: ["shaft", "shaft end assembly", "stepped shaft", "modified shaft part"]
+
+  轴承座:
+    id: 11
+    description: "Bearing housings, bearing seats, bearing plates"
+    source_labels: ["轴承座", "短轴承座(盖)", "下轴承支架组件", "轴向定位轴承", "圆柱滚子轴承", "带座轴承板", "轴承"]
+    synonyms: ["bearing housing", "bearing pedestal", "short bearing housing cover", "axial positioning bearing", "housed bearing plate"]
+
+  # --- Connection / Fastener Components ---
+  法兰:
+    id: 12
+    description: "Flanges of all types"
+    source_labels: ["超声波法兰", "人孔法兰", "对接法兰", "连接法兰(大)", "出料凸缘"]
+    synonyms: ["ultrasonic flange", "manhole flange", "butt weld flange", "large connection flange", "discharge flange", "outlet flange"]
+
+  紧固件:
+    id: 13
+    description: "Bolts, screws, fasteners"
+    source_labels: ["紧固件", "调节螺栓", "压下螺丝", "铰制螺栓"]
+    synonyms: ["adjusting bolt", "hold-down screw", "reamed bolt", "fastener"]
+
+  # --- Structural Components ---
+  支架:
+    id: 14
+    description: "Supports, brackets, frames, legs"
+    source_labels: ["支承座", "支腿", "架类", "机架", "拖车"]
+    synonyms: ["support base", "support seat", "support leg", "frame", "machine frame", "trailer"]
+
+  板类:
+    id: 15
+    description: "Plates, baffles, clamp plates"
+    source_labels: ["板类", "底板", "挡板", "活动齿板", "托轮轴压板", "压紧片", "角钢"]
+    synonyms: ["base plate", "bottom plate", "baffle plate", "movable toothed plate", "roller shaft clamp plate", "clamping plate", "angle steel"]
+
+  箱体:
+    id: 16
+    description: "Housings, cases, boxes"
+    source_labels: ["箱体", "箱座", "电加热箱", "改箱体右盖"]
+    synonyms: ["housing base", "electric heater box", "modified housing right cover"]
+
+  盖罩:
+    id: 17
+    description: "Covers, caps, guards, shrouds"
+    source_labels: ["盖", "罩", "压盖", "齿轮罩", "保护罩组件"]
+    synonyms: ["cover", "cap", "shroud", "guard", "retaining cap", "gear cover", "protective cover assembly"]
+
+  # --- Actuators / Mechanisms ---
+  阀门:
+    id: 18
+    description: "Valves, valve bodies"
+    source_labels: ["阀体"]
+    synonyms: ["valve body"]
+
+  泵:
+    id: 19
+    description: "Pumps and pump covers"
+    source_labels: ["泵", "泵盖图"]
+    synonyms: ["pump", "pump cover"]
+
+  液压组件:
+    id: 20
+    description: "Hydraulic cylinders, openers, isolators"
+    source_labels: ["液压开盖组件", "出料正压隔离器", "小立柱油缸装配图", "汽缸"]
+    synonyms: ["hydraulic cover opening assembly", "discharge positive pressure isolator", "small column hydraulic cylinder assembly", "cylinder"]
+
+  进出料装置:
+    id: 21
+    description: "Feeding and discharge mechanisms"
+    source_labels: ["自动进料装置", "侧推料组件", "直推"]
+    synonyms: ["automatic feeder", "side pusher assembly", "direct push"]
+
+  # --- Rotating Assemblies ---
+  旋转组件:
+    id: 22
+    description: "Rotary assemblies, wheels, forks"
+    source_labels: ["旋转组件", "拖轮组件", "手轮组件", "滑块", "拨叉"]
+    synonyms: ["rotary assembly", "towing wheel assembly", "handwheel assembly", "slider", "shift fork"]
+
+  人孔:
+    id: 23
+    description: "Manholes, inspection ports"
+    source_labels: ["人孔"]
+    synonyms: ["manhole", "inspection port", "人孔盖板"]
+
+  弹簧:
+    id: 24
+    description: "Springs"
+    source_labels: ["扭转弹簧"]
+    synonyms: ["torsion spring"]
+
+  夹具:
+    id: 25
+    description: "Fixtures, jigs, tool holders"
+    source_labels: ["夹具", "夹具主体座", "夹具二维图", "夹具二维图(", "组合刀架装配图"]
+    synonyms: ["fixture", "jig", "fixture 2d drawing", "combined tool holder assembly"]
+
+# ---------------------------------------------------------------------------
+# Noise / educational labels — mapped to null (excluded from training)
+# ---------------------------------------------------------------------------
+excluded_labels:
+  - "零件一"
+  - "零件二"
+  - "零件三"
+  - "零件四"
+  - "零件五"
+  - "零件六"
+  - "零件七"
+  - "零件八"
+  - "零件九"
+  - "金雨薇"
+  - "数据图"
+  - "基准代号"
+  - "简化标题栏表格"
+  - "粗糙度"
+  - "模板"
+  - "副本"
+  - "技术文件"
+  - "其他"
+
+# ---------------------------------------------------------------------------
+# Drawing-type labels — not part classes, used as metadata
+# ---------------------------------------------------------------------------
+drawing_type_labels:
+  - "零件图"
+  - "装配图"
+  - "原理图"
+  - "机械制图"
+  - "练习零件图"
+  - "平面图"
+  - "铸件图"
+  - "机件多面视图"
+  - "底座视图"
+  - "阀视图"
+  - "泵盖图"
+  - "液压原理图"
+  - "液压系统管路图"
+  - "油管布置示意图"
+  - "电路图"
+  - "工件图"
+  - "总装配"
+  - "后桥装配"
+  - "床身装配图"
+  - "小立柱装配图"
+  - "小立柱油缸装配图"
+  - "滑板装配图"
+  - "激光发射仓结构图"
+
+# Special-purpose labels mapped to specific classes
+special_mappings:
+  "防爆视灯组件": "盖罩"          # explosion-proof sight light -> covers
+  "真空组件": "液压组件"            # vacuum assembly -> hydraulic/pneumatic
+  "型风送式喷雾机": "进出料装置"    # air-blast sprayer -> feeding device
+  "喷雾器组件（改）": "进出料装置"
+  "风叶(改)": "旋转组件"           # fan blade -> rotating assembly
+  "上摆臂": "旋转组件"
+  "中摆臂": "旋转组件"
+  "光线调节座": "支架"
+  "底座": "支架"
+  "激光固定座": "支架"
+  "镜头固定座": "支架"
+  "前进离合器": "传动件"
+  "轴承外圈强化研磨上下料系统": "轴承座"
+  "管类": "罐体"
