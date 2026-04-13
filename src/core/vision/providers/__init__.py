@@ -17,6 +17,7 @@ from .doubao import DoubaoVisionProvider, create_doubao_provider
 from .glm4v import GLM4VProvider, create_glm4v_provider
 from .openai import OpenAIVisionProvider, create_openai_provider
 from .qwen_vl import QwenVLProvider, create_qwen_vl_provider
+from .vllm_vision import VLLMVisionProvider, create_vllm_vision_provider
 
 __all__ = [
     # Stub provider
@@ -40,4 +41,7 @@ __all__ = [
     # Doubao Vision provider (China)
     "DoubaoVisionProvider",
     "create_doubao_provider",
+    # vLLM Vision provider (local)
+    "VLLMVisionProvider",
+    "create_vllm_vision_provider",
 ]

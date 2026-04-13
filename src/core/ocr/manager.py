@@ -35,6 +35,7 @@ from .calibration import MultiEvidenceCalibrator
 from .config import DATASET_VERSION, PROMPT_VERSION
 from .exceptions import OcrError
 from .parsing.process_parser import parse_process_requirements
+from .providers.vllm_ocr_enhancer import VLLMOcrEnhancer
 
 # Versions centralized in config.
 
@@ -44,9 +45,12 @@ class OcrManager:
         self,
         providers: Optional[Dict[str, OcrClient]] = None,
         confidence_fallback: float = 0.85,
+        vllm_enhancer: Optional[VLLMOcrEnhancer] = None,
     ):
         self.providers = providers or {}
         self.confidence_fallback = confidence_fallback
+        # vLLM OCR enhancement (optional, feature-flag gated)
+        self._vllm_enhancer = vllm_enhancer or VLLMOcrEnhancer()
         # dynamic threshold state
         try:
             from .rolling_stats import RollingStats
@@ -341,6 +345,9 @@ class OcrManager:
                 ).inc()
                 return ds_result
 
+        # vLLM OCR enhancement: post-process with local LLM for better extraction
+        result = await self._apply_vllm_enhancement(result, trace_id)
+
         result.processing_time_ms = int((time.time() - start) * 1000)
         try:
             import logging
@@ -435,6 +442,52 @@ class OcrManager:
         if token_expect == 0:
             return 1.0
         return min(found / token_expect, 1.0)
+
+    async def _apply_vllm_enhancement(
+        self, result: OcrResult, trace_id: Optional[str] = None
+    ) -> OcrResult:
+        """Apply vLLM-based OCR enhancement if enabled and available.
+
+        Sends raw OCR text to local vLLM for structured title block extraction.
+        Merges extracted fields into the result's title_block without overwriting
+        fields that already have values.
+        """
+        if not result.text:
+            return result
+
+        try:
+            enhanced = await self._vllm_enhancer.enhance(
+                result.text, trace_id=trace_id
+            )
+            if not enhanced:
+                return result
+
+            # Merge into title_block: only fill missing fields
+            tb = result.title_block
+            field_map = {
+                "part_name": "part_name",
+                "material": "material",
+                "drawing_number": "drawing_number",
+                "quantity": "quantity",
+                "scale": "scale",
+                "revision": "revision",
+                "date": "date",
+                "weight": "weight",
+            }
+            for src_key, tb_key in field_map.items():
+                if src_key in enhanced and enhanced[src_key]:
+                    current = getattr(tb, tb_key, None)
+                    if not current:
+                        setattr(tb, tb_key, str(enhanced[src_key]))
+
+            result.extraction_mode = (
+                f"{result.extraction_mode or 'unknown'}+vllm_enhanced"
+            )
+        except Exception:
+            # Enhancement is best-effort; never block the pipeline
+            pass
+
+        return result
 
     def _missing_key_fields(self, result: OcrResult) -> bool:
         text = result.text or ""

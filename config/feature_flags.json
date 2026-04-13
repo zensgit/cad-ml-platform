@@ -83,6 +83,30 @@
         "target_latency_ms": 100,
         "model": "deepseek-coder-6.7b-awq"
       }
+    },
+    {
+      "name": "vllm_vision_enabled",
+      "description": "Enable vLLM-backed vision provider for drawing analysis (requires vllm_enabled)",
+      "enabled": false,
+      "strategy": "percentage",
+      "percentage": 0,
+      "metadata": {
+        "owner": "ml-team",
+        "phase": "C3",
+        "depends_on": "vllm_enabled"
+      }
+    },
+    {
+      "name": "vllm_ocr_enhancement_enabled",
+      "description": "Enable vLLM post-processing of OCR results for structured extraction",
+      "enabled": false,
+      "strategy": "percentage",
+      "percentage": 0,
+      "metadata": {
+        "owner": "ml-team",
+        "phase": "C3",
+        "depends_on": "vllm_enabled"
+      }
     }
   ]
 }
