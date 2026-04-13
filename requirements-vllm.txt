@@ -1,0 +1,18 @@
+# vLLM integration dependencies
+# Install with: pip install -r requirements-vllm.txt
+#
+# NOTE: vLLM itself is NOT a Python dependency — the VLLMProvider connects
+# to a running vLLM server via its OpenAI-compatible HTTP API.
+# These are client-side dependencies only.
+
+# HTTP client (already in requirements.txt, listed here for standalone use)
+requests>=2.31.0
+
+# Async HTTP client for benchmark scripts
+aiohttp>=3.9.0
+
+# Numerical analysis for benchmarking
+numpy>=1.24.0
+
+# Optional: OpenAI client library can also talk to vLLM's API
+# openai>=1.0.0

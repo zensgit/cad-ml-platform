@@ -5,6 +5,10 @@ Main assistant class that orchestrates query analysis, knowledge retrieval,
 context assembly, and response generation.
 """
 
+import json
+import logging
+import os
+import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 from enum import Enum
@@ -16,6 +20,7 @@ from .explainability import AssistantEvidence, build_assistant_evidence
 from .llm_providers import (
     BaseLLMProvider,
     LLMConfig,
+    VLLMProvider,
     get_provider,
     get_best_available_provider,
 )
@@ -27,6 +32,8 @@ from .conversation import (
     get_conversation_manager,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class LLMProvider(str, Enum):
     """Supported LLM providers."""
@@ -34,7 +41,8 @@ class LLMProvider(str, Enum):
     CLAUDE = "claude"
     GPT4 = "gpt4"
     QWEN = "qwen"
-    LOCAL = "local"  # Local/offline mode
+    VLLM = "vllm"  # Local vLLM inference
+    LOCAL = "local"  # Local/offline mode (Ollama)
 
 
 @dataclass
@@ -130,14 +138,44 @@ class CADAssistant:
         if llm_callback is None:
             self._init_llm_provider()
 
+    @staticmethod
+    def _is_vllm_flag_enabled() -> bool:
+        """Check if vllm_enabled feature flag is on."""
+        try:
+            flags_path = os.path.join(
+                os.path.dirname(__file__), "..", "..", "..", "config", "feature_flags.json"
+            )
+            flags_path = os.path.normpath(flags_path)
+            with open(flags_path) as f:
+                data = json.load(f)
+            for flag in data.get("flags", []):
+                if flag.get("name") == "vllm_enabled":
+                    return flag.get("enabled", False)
+        except Exception:
+            pass
+        return False
+
     def _init_llm_provider(self) -> None:
-        """Initialize the LLM provider based on configuration."""
+        """Initialize the LLM provider based on configuration.
+
+        When ``vllm_enabled`` flag is True AND vLLM is healthy, vLLM is used
+        as the primary provider regardless of ``auto_select_provider``.
+        """
         llm_config = LLMConfig(
             api_key=self.config.api_key,
             model_name=self.config.model_name,
             temperature=self.config.temperature,
             max_tokens=self.config.max_tokens,
         )
+
+        # vLLM-first: if flag enabled and server healthy, prefer vLLM
+        if self._is_vllm_flag_enabled():
+            vllm = get_provider("vllm", llm_config)
+            if vllm.is_available():
+                self._llm_provider = vllm
+                if self.config.verbose:
+                    print("[LLM] Using VLLMProvider (flag-enabled, healthy)")
+                return
 
         if self.config.auto_select_provider:
             self._llm_provider = get_best_available_provider(llm_config)
@@ -146,6 +184,7 @@ class CADAssistant:
                 LLMProvider.CLAUDE: "claude",
                 LLMProvider.GPT4: "openai",
                 LLMProvider.QWEN: "qwen",
+                LLMProvider.VLLM: "vllm",
                 LLMProvider.LOCAL: "ollama",
             }
             provider_name = provider_map.get(self.config.llm_provider, "offline")
@@ -410,25 +449,116 @@ class CADAssistant:
 
     def _call_llm(self, system_prompt: str, user_prompt: str) -> str:
         """
-        Call LLM to generate response.
+        Call LLM to generate response with latency tracking and fallback chain.
 
+        Fallback order: vLLM -> Claude -> OpenAI -> Qwen -> Ollama -> Offline
         Uses custom callback if provided, otherwise uses configured provider.
         """
         # Use custom callback if provided
         if self._llm_callback is not None:
             return self._llm_callback(system_prompt, user_prompt)
 
-        # Use configured LLM provider
+        # Use configured LLM provider with latency tracking
         if self._llm_provider is not None and self._llm_provider.is_available():
+            start = time.monotonic()
             try:
-                return self._llm_provider.generate(system_prompt, user_prompt)
-            except Exception as e:
+                result = self._llm_provider.generate(system_prompt, user_prompt)
+                latency_ms = (time.monotonic() - start) * 1000
+                provider_name = type(self._llm_provider).__name__
+                logger.info(
+                    "llm.generate",
+                    extra={
+                        "provider": provider_name,
+                        "latency_ms": f"{latency_ms:.1f}",
+                    },
+                )
                 if self.config.verbose:
-                    print(f"[LLM] Error: {e}, falling back to default")
-                return self._default_llm_callback(system_prompt, user_prompt)
+                    print(f"[LLM] {provider_name} responded in {latency_ms:.1f}ms")
+                return result
+            except Exception as e:
+                latency_ms = (time.monotonic() - start) * 1000
+                provider_name = type(self._llm_provider).__name__
+                logger.warning(
+                    "llm.generate.error",
+                    extra={
+                        "provider": provider_name,
+                        "latency_ms": f"{latency_ms:.1f}",
+                        "error": str(e),
+                    },
+                )
+                if self.config.verbose:
+                    print(f"[LLM] {provider_name} error ({latency_ms:.1f}ms): {e}")
+
+                # Attempt fallback chain
+                return self._fallback_generate(system_prompt, user_prompt)
 
         # Fallback to default
         return self._default_llm_callback(system_prompt, user_prompt)
+
+    def _fallback_generate(self, system_prompt: str, user_prompt: str) -> str:
+        """Try fallback providers in priority order."""
+        fallback_chain = ["claude", "openai", "qwen", "vllm", "ollama"]
+        current_name = type(self._llm_provider).__name__ if self._llm_provider else ""
+
+        llm_config = LLMConfig(
+            api_key=self.config.api_key,
+            model_name=self.config.model_name,
+            temperature=self.config.temperature,
+            max_tokens=self.config.max_tokens,
+        )
+
+        for provider_name in fallback_chain:
+            provider = get_provider(provider_name, llm_config)
+            # Skip the provider that already failed
+            if type(provider).__name__ == current_name:
+                continue
+            if provider.is_available():
+                try:
+                    start = time.monotonic()
+                    result = provider.generate(system_prompt, user_prompt)
+                    latency_ms = (time.monotonic() - start) * 1000
+                    fallback_name = type(provider).__name__
+                    logger.info(
+                        "llm.fallback.success",
+                        extra={
+                            "provider": fallback_name,
+                            "latency_ms": f"{latency_ms:.1f}",
+                        },
+                    )
+                    if self.config.verbose:
+                        print(
+                            f"[LLM] Fallback to {fallback_name} "
+                            f"succeeded ({latency_ms:.1f}ms)"
+                        )
+                    return result
+                except Exception:
+                    continue
+
+        return self._default_llm_callback(system_prompt, user_prompt)
+
+    def llm_health_status(self) -> Dict[str, Any]:
+        """Return health status of the active LLM provider.
+
+        Conceptual ``/health/llm`` endpoint data for checking which provider
+        is active and whether it is reachable.
+        """
+        provider = self._llm_provider
+        if provider is None:
+            return {"active_provider": None, "status": "no_provider"}
+
+        provider_name = type(provider).__name__
+        available = provider.is_available()
+
+        result: Dict[str, Any] = {
+            "active_provider": provider_name,
+            "status": "healthy" if available else "unavailable",
+        }
+
+        # Include vLLM-specific health details
+        if isinstance(provider, VLLMProvider):
+            result["vllm_details"] = provider.health_check()
+
+        return result
 
     def _generate_fallback_response(self, analyzed: AnalyzedQuery) -> str:
         """Generate fallback response when no knowledge is found."""
