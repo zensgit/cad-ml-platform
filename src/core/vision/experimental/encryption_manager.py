@@ -26,7 +26,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from .base import VisionDescription, VisionProvider
+from ..base import VisionDescription, VisionProvider
 
 # ========================
 # Enums

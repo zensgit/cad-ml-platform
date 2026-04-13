@@ -8,6 +8,19 @@ Supported providers:
 - deepseek: DeepSeek VL API
 - openai: OpenAI GPT-4o/GPT-4-Vision
 - anthropic: Claude 3 family (Opus, Sonnet, Haiku)
+
+Experimental modules (moved to experimental/ during Phase A2 audit):
+  - audit_logger        (666 LOC)  duplicate of audit_logging
+  - automl_engine       (893 LOC)  ML experiment framework stub
+  - compliance_checker  (828 LOC)  duplicate of compliance
+  - data_lifecycle     (1280 LOC)  advanced data management stub
+  - encryption_manager  (636 LOC)  duplicate of encryption
+  - experiment_tracker  (945 LOC)  ML experiment tracking stub
+  - feature_store       (873 LOC)  feature store stub (internal only)
+  - intelligent_automation (1534 LOC)  automation framework stub
+  - model_registry      (943 LOC)  model registry stub
+  - pipeline_orchestrator (886 LOC) pipeline orchestrator stub
+  - security_scanner    (731 LOC)  duplicate of security_audit
 """
 
 from .ab_testing import (
@@ -192,31 +205,6 @@ from .audit import (
     create_auditing_provider,
     get_audit_logger,
 )
-from .audit_logger import (
-    AuditAlert,
-    AuditCategory,
-    AuditEvent,
-    AuditEventType,
-    AuditLogger,
-    AuditLoggerVisionProvider,
-    AuditPolicy,
-    AuditQuery,
-    AuditSeverity,
-    AuditSummary,
-    ComplianceAuditLogger,
-    LogDestination,
-    LogIntegrity,
-    MemoryAuditStore,
-    RetentionPeriod,
-    create_audit_alert,
-    create_audit_event,
-    create_audit_logger,
-    create_audit_logger_provider,
-    create_audit_policy,
-    create_audit_query,
-    create_compliance_audit_logger,
-    create_memory_audit_store,
-)
 from .audit_logging import AuditActor, AuditedVisionProvider
 from .audit_logging import AuditEvent as Phase11AuditEvent
 from .audit_logging import AuditEventType as Phase11AuditEventType
@@ -255,46 +243,6 @@ from .auto_scaling import (
     create_scaling_config,
 )
 
-# Phase 18: Advanced ML Pipeline & AutoML
-from .automl_engine import (
-    AutoMLEngine,
-    AutoMLResult,
-    AutoMLVisionProvider,
-    BayesianOptimizer,
-    EarlyStoppingStrategy,
-    EnsembleBuilder,
-    EnsembleConfig,
-)
-from .automl_engine import FeatureSelector as AutoMLFeatureSelector
-from .automl_engine import (
-    HyperparameterOptimizer,
-    HyperparameterSpace,
-    ModelCandidate,
-    ModelSelector,
-)
-from .automl_engine import ModelType as AutoMLModelType
-from .automl_engine import (
-    NeuralArchitectureSearch,
-    OptimizationObjective,
-    RandomSearchOptimizer,
-    SearchConfig,
-    SearchStrategy,
-)
-from .automl_engine import TaskType as AutoMLTaskType
-from .automl_engine import (
-    TrialResult,
-    TrialStatus,
-    create_automl_engine,
-    create_automl_provider,
-    create_ensemble_builder,
-)
-from .automl_engine import create_feature_selector as create_automl_feature_selector
-from .automl_engine import (
-    create_hyperparameter_space,
-    create_model_selector,
-    create_nas,
-    create_search_config,
-)
 from .base import (
     CadFeatureStats,
     OcrResult,
@@ -351,39 +299,6 @@ from .compliance import (
 )
 from .compliance import RetentionPolicy as ComplianceRetentionPolicy
 from .compliance import create_compliant_provider
-from .compliance_checker import (
-    ComplianceChecker,
-    ComplianceCheckerVisionProvider,
-    ComplianceControl,
-    ComplianceFramework,
-    CompliancePolicy,
-    ComplianceReport,
-    ComplianceReporter,
-    ComplianceStatus,
-    ControlAssessment,
-    ControlAssessor,
-    ControlCategory,
-    ControlRegistry,
-    DataClassification,
-    DataInventory,
-    DataInventoryItem,
-    PolicyEngine,
-    PolicyType,
-    PolicyViolation,
-    PrivacyImpactAssessment,
-)
-from .compliance_checker import RiskLevel as ComplianceRiskLevel
-from .compliance_checker import (
-    create_compliance_checker,
-    create_compliance_checker_provider,
-    create_compliance_control,
-    create_compliance_policy,
-    create_control_registry,
-    create_data_inventory,
-    create_data_inventory_item,
-    create_policy_engine,
-    create_privacy_impact_assessment,
-)
 from .config_management import (
     ConfigChange,
     ConfigFormat,
@@ -416,47 +331,6 @@ from .cost_tracker import (
     get_cost_tracker,
 )
 
-# Phase 24: Advanced Data Management & Lifecycle
-from .data_lifecycle import (
-    AccessLevel,
-    CatalogEntry,
-    CatalogEntryType,
-    DataAsset,
-    DataCatalog,
-    DataLifecycleHub,
-    DataState,
-    DataVersion,
-    LifecycleConfig,
-    LineageEdge,
-    LineageNode,
-    LineageRelation,
-    LineageTracker,
-    ManagedVisionProvider,
-    QualityDimension,
-    QualityLevel,
-    QualityManager,
-    QualityReport,
-    QualityResult,
-    QualityRule,
-    RetentionAction,
-    RetentionManager,
-    RetentionPolicy,
-    RetentionResult,
-    TransformationRecord,
-    TransformationTracker,
-)
-from .data_lifecycle import (
-    TransformationType as TransformationTypeP24,  # Main orchestration classes; Component classes; Enums; Dataclasses; Factory functions
-)
-from .data_lifecycle import (
-    VersionManager,
-    VersionType,
-    create_data_lifecycle_hub,
-    create_lifecycle_config,
-    create_managed_provider,
-    create_quality_rule,
-    create_retention_policy,
-)
 from .data_masking import (
     DataMasker,
     DataMaskingVisionProvider,
@@ -718,30 +592,6 @@ from .encryption import (
     create_encrypted_provider,
     create_encryption_service,
 )
-from .encryption_manager import (
-    Certificate,
-    EncryptedData,
-    EncryptionAlgorithm,
-    EncryptionKey,
-    EncryptionManager,
-    EncryptionManagerVisionProvider,
-    Encryptor,
-    HashAlgorithm,
-    KeyGenerator,
-    KeyPolicy,
-    KeyPurpose,
-    KeyRotationEvent,
-    KeyRotationManager,
-    KeyStatus,
-    KeyType,
-    MemoryKeyStore,
-    create_encryption_manager,
-    create_encryption_manager_provider,
-    create_encryptor,
-    create_key_generator,
-    create_key_policy,
-    create_memory_key_store,
-)
 from .event_bus import AnalysisFailedEvent, CommandBus
 from .event_bus import Event as EventBusEvent
 from .event_bus import (
@@ -793,34 +643,6 @@ from .event_sourcing import (
 from .event_sourcing import SnapshotStore  # Alias for compatibility
 from .event_sourcing import SnapshotStore as InMemorySnapshotStore
 from .event_sourcing import VisionRequestAggregate, create_event_sourced_provider
-from .experiment_tracker import Artifact as ExperimentArtifact
-from .experiment_tracker import (
-    ArtifactType,
-    ComparisonMode,
-    ComparisonResult,
-    Experiment,
-    ExperimentStore,
-    ExperimentTracker,
-    ExperimentTrackerVisionProvider,
-    HyperparameterAnalyzer,
-)
-from .experiment_tracker import Metric as ExperimentMetric
-from .experiment_tracker import MetricAggregator, MetricGoal, MetricHistory
-from .experiment_tracker import Parameter as ExperimentParameter
-from .experiment_tracker import Run as ExperimentRun
-from .experiment_tracker import RunContext, RunStatus, SearchQuery, TagType
-from .experiment_tracker import create_artifact as create_experiment_artifact
-from .experiment_tracker import (
-    create_experiment,
-    create_experiment_tracker,
-    create_experiment_tracker_provider,
-    create_hyperparameter_analyzer,
-)
-from .experiment_tracker import create_metric as create_experiment_metric
-from .experiment_tracker import create_metric_aggregator
-from .experiment_tracker import create_parameter as create_experiment_parameter
-from .experiment_tracker import create_run as create_experiment_run
-from .experiment_tracker import create_search_query
 from .factory import create_vision_provider, get_available_providers, get_vision_provider
 from .failover import (
     FailoverConfig,
@@ -849,37 +671,6 @@ from .feature_flags import (
     TargetingOperator,
     TargetingRule,
     create_feature_flag_provider,
-)
-from .feature_store import (
-    AggregationWindow,
-    ComputationMode,
-    DataQualityCheck,
-    FeatureComputer,
-    FeatureDefinition,
-    FeatureGroup,
-    FeatureLineage,
-    FeatureRegistry,
-    FeatureStatistics,
-    FeatureStatisticsComputer,
-    FeatureStatus,
-    FeatureStore,
-    FeatureStoreVisionProvider,
-    FeatureTransformation,
-    FeatureType,
-)
-from .feature_store import FeatureValidator as FeatureStoreValidator
-from .feature_store import FeatureValue
-from .feature_store import QualityReport as FeatureQualityReport
-from .feature_store import (
-    TransformationType,
-    create_feature_computer,
-    create_feature_definition,
-    create_feature_group,
-    create_feature_registry,
-    create_feature_store,
-    create_feature_store_provider,
-    create_feature_transformation,
-    create_feature_validator,
 )
 from .graceful_degradation import (
     CachedFallbackProvider,
@@ -962,48 +753,6 @@ from .integration_hub import create_rest_connector
 from .integration_hub import create_webhook_manager as create_integration_webhook_manager
 from .integration_hub import create_websocket_connector
 
-# Phase 23: Intelligent Automation & Self-Optimization
-from .intelligent_automation import (
-    AutomatedVisionProvider,
-    AutomationConfig,
-    AutoRemediation,
-    Decision,
-    DecisionConfidence,
-    DecisionEngine,
-    DecisionRule,
-    DecisionType,
-    IntelligentAutomationHub,
-    IntelligentScheduler,
-    LearningMode,
-    LearningPattern,
-    LoadLevel,
-    LoadManager,
-    LoadMetrics,
-    PatternLearner,
-    PerformancePredictor,
-    Prediction,
-    PredictionType,
-    Remediation,
-    RemediationAction,
-    ResourcePool,
-    ScheduledTask,
-    SchedulerPriority,
-    SelfTuner,
-)
-from .intelligent_automation import (
-    TaskState as TaskStateP23,  # Main orchestration classes; Component classes; Enums; Dataclasses; Factory functions
-)
-from .intelligent_automation import (
-    TuningParameter,
-    TuningSession,
-    TuningStatus,
-    TuningStrategy,
-    create_automated_provider,
-    create_automation_config,
-    create_decision_rule,
-    create_intelligent_automation_hub,
-    create_load_metrics,
-)
 from .intelligent_routing import (
     AdaptiveRouter,
     CapabilityMatchRule,
@@ -1225,41 +974,6 @@ from .ml_integration import (
     create_model_registry,
     create_simple_classifier,
 )
-from .model_registry import (
-    ABTestConfig,
-    ABTestManager,
-    ABTestResult,
-    ApprovalRequest,
-    ApprovalStatus,
-    ApprovalWorkflow,
-    Deployment,
-    DeploymentConfig,
-    DeploymentStrategy,
-)
-from .model_registry import MetricType as ModelMetricType
-from .model_registry import (
-    ModelDeployer,
-    ModelLineage,
-    ModelMetadata,
-    ModelRegistry,
-    ModelRegistryVisionProvider,
-    ModelStage,
-)
-from .model_registry import ModelStatus as ModelRegistryStatus
-from .model_registry import ModelValidator as ModelRegistryValidator
-from .model_registry import (
-    ModelVersion,
-    ServingFormat,
-    create_ab_test_config,
-    create_ab_test_manager,
-    create_approval_workflow,
-    create_deployment_config,
-    create_model_deployer,
-    create_model_metadata,
-    create_model_registry,
-    create_model_registry_provider,
-    create_model_version,
-)
 from .multi_tenancy import InMemoryTenantStore, IsolationLevel, MultiTenantVisionProvider
 from .multi_tenancy import QuotaManager as TenantQuotaManager
 from .multi_tenancy import (
@@ -1354,38 +1068,6 @@ from .persistence import (
     StorageProvider,
     create_persistent_provider,
     get_persistence,
-)
-from .pipeline_orchestrator import (
-    DAGBuilder,
-    DAGNode,
-    ExecutionMode,
-    PipelineDefinition,
-    PipelineOrchestrator,
-    PipelineOrchestratorVisionProvider,
-    PipelineRun,
-    PipelineScheduler,
-    PipelineStatus,
-    PipelineTemplate,
-    ResourceRequirements,
-    ResourceType,
-    RetryPolicy,
-    ScheduleConfig,
-    TaskDefinition,
-    TaskExecutor,
-    TaskInstance,
-)
-from .pipeline_orchestrator import TaskStatus as PipelineTaskStatus
-from .pipeline_orchestrator import (
-    TriggerType,
-    create_dag_builder,
-    create_pipeline_definition,
-    create_pipeline_orchestrator,
-    create_pipeline_orchestrator_provider,
-    create_pipeline_scheduler,
-    create_pipeline_template,
-    create_schedule_config,
-    create_task_definition,
-    create_task_executor,
 )
 
 # Phase 16: Advanced Integration & Extensibility
@@ -1800,39 +1482,6 @@ from .security_governance import (
 from .security_governance import create_security_policy as create_security_policy_p22
 from .security_governance import create_threat_indicator as create_threat_indicator_p22
 
-# Phase 19: Advanced Security & Compliance
-from .security_scanner import (
-    CodeScanner,
-    DependencyScanner,
-    RemediationPriority,
-    RiskAssessment,
-    RiskAssessor,
-)
-from .security_scanner import RiskLevel as SecurityRiskLevel
-from .security_scanner import (
-    ScanConfig,
-    ScanResult,
-    ScanStatus,
-    ScanType,
-    SecurityPolicy,
-    SecurityScanner,
-    SecurityScannerVisionProvider,
-    ThreatCategory,
-    ThreatDetector,
-    ThreatIndicator,
-    Vulnerability,
-    VulnerabilitySeverity,
-    create_code_scanner,
-    create_dependency_scanner,
-    create_risk_assessor,
-    create_scan_config,
-    create_security_policy,
-    create_security_scanner,
-    create_security_scanner_provider,
-    create_threat_detector,
-    create_threat_indicator,
-    create_vulnerability,
-)
 from .self_healing import (
     HealingEvent,
     HealthCheck,
@@ -3576,182 +3225,6 @@ __all__ = [
     "create_sla_definition",
     "create_uptime_check",
     "create_sla_monitor_provider",
-    # AutoML Engine (Phase 18)
-    "AutoMLEngine",
-    "HyperparameterOptimizer",
-    "RandomSearchOptimizer",
-    "BayesianOptimizer",
-    "ModelSelector",
-    "NeuralArchitectureSearch",
-    "AutoMLFeatureSelector",
-    "EnsembleBuilder",
-    "AutoMLVisionProvider",
-    "SearchStrategy",
-    "OptimizationObjective",
-    "AutoMLModelType",
-    "AutoMLTaskType",
-    "TrialStatus",
-    "EarlyStoppingStrategy",
-    "HyperparameterSpace",
-    "TrialResult",
-    "SearchConfig",
-    "ModelCandidate",
-    "EnsembleConfig",
-    "AutoMLResult",
-    "create_automl_engine",
-    "create_search_config",
-    "create_hyperparameter_space",
-    "create_model_selector",
-    "create_nas",
-    "create_automl_feature_selector",
-    "create_ensemble_builder",
-    "create_automl_provider",
-    # Feature Store (Phase 18)
-    "FeatureRegistry",
-    "FeatureStore",
-    "FeatureComputer",
-    "FeatureStoreValidator",
-    "FeatureStatisticsComputer",
-    "FeatureStoreVisionProvider",
-    "FeatureType",
-    "FeatureStatus",
-    "ComputationMode",
-    "TransformationType",
-    "AggregationWindow",
-    "DataQualityCheck",
-    "FeatureDefinition",
-    "FeatureValue",
-    "FeatureGroup",
-    "FeatureTransformation",
-    "FeatureLineage",
-    "FeatureStatistics",
-    "FeatureQualityReport",
-    "create_feature_registry",
-    "create_feature_store",
-    "create_feature_definition",
-    "create_feature_group",
-    "create_feature_transformation",
-    "create_feature_computer",
-    "create_feature_validator",
-    "create_feature_store_provider",
-    # Model Registry (Phase 18)
-    "ModelRegistry",
-    "ModelDeployer",
-    "ABTestManager",
-    "ApprovalWorkflow",
-    "ModelRegistryValidator",
-    "ModelRegistryVisionProvider",
-    "ModelStage",
-    "ModelRegistryStatus",
-    "DeploymentStrategy",
-    "ServingFormat",
-    "ApprovalStatus",
-    "ModelMetricType",
-    "ModelVersion",
-    "ModelMetadata",
-    "ModelLineage",
-    "DeploymentConfig",
-    "Deployment",
-    "ABTestConfig",
-    "ABTestResult",
-    "ApprovalRequest",
-    "create_model_registry",
-    "create_model_version",
-    "create_model_metadata",
-    "create_deployment_config",
-    "create_ab_test_config",
-    "create_model_deployer",
-    "create_ab_test_manager",
-    "create_approval_workflow",
-    "create_model_registry_provider",
-    # Pipeline Orchestrator (Phase 18)
-    "PipelineOrchestrator",
-    "DAGBuilder",
-    "TaskExecutor",
-    "PipelineScheduler",
-    "PipelineTemplate",
-    "PipelineOrchestratorVisionProvider",
-    "PipelineTaskStatus",
-    "PipelineStatus",
-    "TriggerType",
-    "RetryPolicy",
-    "ExecutionMode",
-    "ResourceType",
-    "TaskDefinition",
-    "TaskInstance",
-    "PipelineDefinition",
-    "PipelineRun",
-    "DAGNode",
-    "ScheduleConfig",
-    "ResourceRequirements",
-    "create_pipeline_orchestrator",
-    "create_pipeline_definition",
-    "create_task_definition",
-    "create_dag_builder",
-    "create_task_executor",
-    "create_pipeline_scheduler",
-    "create_schedule_config",
-    "create_pipeline_template",
-    "create_pipeline_orchestrator_provider",
-    # Experiment Tracker (Phase 18)
-    "ExperimentTracker",
-    "ExperimentStore",
-    "RunContext",
-    "MetricAggregator",
-    "HyperparameterAnalyzer",
-    "ExperimentTrackerVisionProvider",
-    "RunStatus",
-    "MetricGoal",
-    "ArtifactType",
-    "ComparisonMode",
-    "TagType",
-    "Experiment",
-    "ExperimentRun",
-    "ExperimentParameter",
-    "ExperimentMetric",
-    "MetricHistory",
-    "ExperimentArtifact",
-    "ComparisonResult",
-    "SearchQuery",
-    "create_experiment_tracker",
-    "create_experiment",
-    "create_experiment_run",
-    "create_experiment_metric",
-    "create_experiment_parameter",
-    "create_experiment_artifact",
-    "create_search_query",
-    "create_metric_aggregator",
-    "create_hyperparameter_analyzer",
-    "create_experiment_tracker_provider",
-    # Security Scanner (Phase 19)
-    "SecurityScanner",
-    "CodeScanner",
-    "DependencyScanner",
-    "ThreatDetector",
-    "RiskAssessor",
-    "SecurityScannerVisionProvider",
-    "VulnerabilitySeverity",
-    "ScanType",
-    "ThreatCategory",
-    "ScanStatus",
-    "RemediationPriority",
-    "SecurityRiskLevel",
-    "Vulnerability",
-    "ScanConfig",
-    "ScanResult",
-    "ThreatIndicator",
-    "RiskAssessment",
-    "SecurityPolicy",
-    "create_security_scanner",
-    "create_scan_config",
-    "create_vulnerability",
-    "create_threat_indicator",
-    "create_security_policy",
-    "create_code_scanner",
-    "create_dependency_scanner",
-    "create_threat_detector",
-    "create_risk_assessor",
-    "create_security_scanner_provider",
     # Access Control (Phase 19)
     "AccessController",
     "UserManager",
@@ -3783,83 +3256,6 @@ __all__ = [
     "create_session_manager",
     "create_api_key_manager",
     "create_access_control_provider",
-    # Audit Logger (Phase 19)
-    "AuditLogger",
-    "ComplianceAuditLogger",
-    "MemoryAuditStore",
-    "AuditLoggerVisionProvider",
-    "AuditEventType",
-    "AuditSeverity",
-    "AuditCategory",
-    "LogDestination",
-    "RetentionPeriod",
-    "AuditEvent",
-    "AuditQuery",
-    "AuditSummary",
-    "AuditPolicy",
-    "AuditAlert",
-    "LogIntegrity",
-    "create_audit_logger",
-    "create_compliance_audit_logger",
-    "create_audit_event",
-    "create_audit_query",
-    "create_audit_policy",
-    "create_audit_alert",
-    "create_memory_audit_store",
-    "create_audit_logger_provider",
-    # Encryption Manager (Phase 19)
-    "EncryptionManager",
-    "KeyGenerator",
-    "Encryptor",
-    "KeyRotationManager",
-    "MemoryKeyStore",
-    "EncryptionManagerVisionProvider",
-    "EncryptionAlgorithm",
-    "KeyType",
-    "KeyStatus",
-    "KeyPurpose",
-    "HashAlgorithm",
-    "EncryptionKey",
-    "EncryptedData",
-    "KeyPolicy",
-    "Certificate",
-    "KeyRotationEvent",
-    "create_encryption_manager",
-    "create_memory_key_store",
-    "create_key_generator",
-    "create_encryptor",
-    "create_key_policy",
-    "create_encryption_manager_provider",
-    # Compliance Checker (Phase 19)
-    "ComplianceChecker",
-    "ControlRegistry",
-    "ControlAssessor",
-    "PolicyEngine",
-    "ComplianceReporter",
-    "DataInventory",
-    "ComplianceCheckerVisionProvider",
-    "ComplianceFramework",
-    "ComplianceStatus",
-    "ControlCategory",
-    "ComplianceRiskLevel",
-    "DataClassification",
-    "PolicyType",
-    "ComplianceControl",
-    "ControlAssessment",
-    "CompliancePolicy",
-    "PolicyViolation",
-    "ComplianceReport",
-    "DataInventoryItem",
-    "PrivacyImpactAssessment",
-    "create_compliance_checker",
-    "create_compliance_control",
-    "create_compliance_policy",
-    "create_data_inventory_item",
-    "create_privacy_impact_assessment",
-    "create_control_registry",
-    "create_policy_engine",
-    "create_data_inventory",
-    "create_compliance_checker_provider",
     # Webhook Handler (Phase 20)
     "WebhookManagerP20",
     "WebhookRegistryP20",
@@ -3947,75 +3343,358 @@ __all__ = [
     "create_classification_rule",
     "create_threat_indicator_p22",
     "create_secure_provider",
-    # Intelligent Automation Hub (Phase 23)
-    "IntelligentAutomationHub",
-    "AutomatedVisionProvider",
-    "DecisionEngine",
-    "SelfTuner",
-    "IntelligentScheduler",
-    "LoadManager",
-    "PerformancePredictor",
-    "AutoRemediation",
-    "PatternLearner",
-    "DecisionType",
-    "DecisionConfidence",
-    "TuningStrategy",
-    "TuningStatus",
-    "SchedulerPriority",
-    "TaskStateP23",
-    "LoadLevel",
-    "RemediationAction",
-    "PredictionType",
-    "LearningMode",
-    "Decision",
-    "DecisionRule",
-    "TuningParameter",
-    "TuningSession",
-    "ScheduledTask",
-    "ResourcePool",
-    "LoadMetrics",
-    "Remediation",
-    "Prediction",
-    "LearningPattern",
-    "AutomationConfig",
-    "create_automation_config",
-    "create_intelligent_automation_hub",
-    "create_decision_rule",
-    "create_load_metrics",
-    "create_automated_provider",
-    # Data Lifecycle Hub (Phase 24)
-    "DataLifecycleHub",
-    "ManagedVisionProvider",
-    "VersionManager",
-    "LineageTracker",
-    "QualityManager",
-    "RetentionManager",
-    "DataCatalog",
-    "TransformationTracker",
-    "DataState",
-    "VersionType",
-    "LineageRelation",
-    "QualityDimension",
-    "QualityLevel",
-    "RetentionAction",
-    "CatalogEntryType",
-    "TransformationTypeP24",
-    "AccessLevel",
-    "DataVersion",
-    "LineageNode",
-    "LineageEdge",
-    "QualityRule",
-    "QualityResult",
-    "QualityReport",
-    "RetentionPolicy",
-    "RetentionResult",
-    "CatalogEntry",
-    "TransformationRecord",
-    "DataAsset",
-    "LifecycleConfig",
-    "create_lifecycle_config",
-    "create_data_lifecycle_hub",
-    "create_quality_rule",
-    "create_retention_policy",
-    "create_managed_provider",
 ]
+
+# ---------------------------------------------------------------------------
+# Experimental re-exports (Phase A2)
+# These modules have been moved to src/core/vision/experimental/ but are
+# re-exported here for backward compatibility.  They are NOT part of the
+# production API surface and may be removed in a future release.
+# ---------------------------------------------------------------------------
+from .experimental.audit_logger import (  # noqa: F811,E501
+    AuditAlert,
+    AuditCategory,
+    AuditEvent,
+    AuditEventType,
+    AuditLogger,
+    AuditLoggerVisionProvider,
+    AuditPolicy,
+    AuditQuery,
+    AuditSeverity,
+    AuditSummary,
+    ComplianceAuditLogger,
+    LogDestination,
+    LogIntegrity,
+    MemoryAuditStore,
+    RetentionPeriod,
+    create_audit_alert,
+    create_audit_event,
+    create_audit_logger,
+    create_audit_logger_provider,
+    create_audit_policy,
+    create_audit_query,
+    create_compliance_audit_logger,
+    create_memory_audit_store,
+)
+from .experimental.automl_engine import (  # noqa: F811,E501
+    AutoMLEngine,
+    AutoMLResult,
+    AutoMLVisionProvider,
+    BayesianOptimizer,
+    EarlyStoppingStrategy,
+    EnsembleBuilder,
+    EnsembleConfig,
+    HyperparameterOptimizer,
+    HyperparameterSpace,
+    ModelCandidate,
+    ModelSelector,
+    NeuralArchitectureSearch,
+    OptimizationObjective,
+    RandomSearchOptimizer,
+    SearchConfig,
+    SearchStrategy,
+    TrialResult,
+    TrialStatus,
+    create_automl_engine,
+    create_automl_provider,
+    create_ensemble_builder,
+    create_hyperparameter_space,
+    create_model_selector,
+    create_nas,
+    create_search_config,
+)
+from .experimental.automl_engine import FeatureSelector as AutoMLFeatureSelector  # noqa: F811
+from .experimental.automl_engine import ModelType as AutoMLModelType  # noqa: F811
+from .experimental.automl_engine import TaskType as AutoMLTaskType  # noqa: F811
+from .experimental.automl_engine import (  # noqa: F811,E501
+    create_feature_selector as create_automl_feature_selector,
+)
+from .experimental.compliance_checker import (  # noqa: F811,E501
+    ComplianceChecker,
+    ComplianceCheckerVisionProvider,
+    ComplianceControl,
+    ComplianceFramework,
+    CompliancePolicy,
+    ComplianceReport,
+    ComplianceReporter,
+    ComplianceStatus,
+    ControlAssessment,
+    ControlAssessor,
+    ControlCategory,
+    ControlRegistry,
+    DataClassification,
+    DataInventory,
+    DataInventoryItem,
+    PolicyEngine,
+    PolicyType,
+    PolicyViolation,
+    PrivacyImpactAssessment,
+    create_compliance_checker,
+    create_compliance_checker_provider,
+    create_compliance_control,
+    create_compliance_policy,
+    create_control_registry,
+    create_data_inventory,
+    create_data_inventory_item,
+    create_policy_engine,
+    create_privacy_impact_assessment,
+)
+from .experimental.compliance_checker import RiskLevel as ComplianceRiskLevel  # noqa: F811
+from .experimental.data_lifecycle import (  # noqa: F811,E501
+    AccessLevel,
+    CatalogEntry,
+    CatalogEntryType,
+    DataAsset,
+    DataCatalog,
+    DataLifecycleHub,
+    DataState,
+    DataVersion,
+    LifecycleConfig,
+    LineageEdge,
+    LineageNode,
+    LineageRelation,
+    LineageTracker,
+    ManagedVisionProvider,
+    QualityDimension,
+    QualityLevel,
+    QualityManager,
+    QualityReport,
+    QualityResult,
+    QualityRule,
+    RetentionAction,
+    RetentionManager,
+    RetentionPolicy,
+    RetentionResult,
+    TransformationRecord,
+    TransformationTracker,
+    VersionManager,
+    VersionType,
+    create_data_lifecycle_hub,
+    create_lifecycle_config,
+    create_managed_provider,
+    create_quality_rule,
+    create_retention_policy,
+)
+from .experimental.data_lifecycle import (  # noqa: F811,E501
+    TransformationType as TransformationTypeP24,
+)
+from .experimental.encryption_manager import (  # noqa: F811,E501
+    Certificate,
+    EncryptedData,
+    EncryptionAlgorithm,
+    EncryptionKey,
+    EncryptionManager,
+    EncryptionManagerVisionProvider,
+    Encryptor,
+    HashAlgorithm,
+    KeyGenerator,
+    KeyPolicy,
+    KeyPurpose,
+    KeyRotationEvent,
+    KeyRotationManager,
+    KeyStatus,
+    KeyType,
+    MemoryKeyStore,
+    create_encryption_manager,
+    create_encryption_manager_provider,
+    create_encryptor,
+    create_key_generator,
+    create_key_policy,
+    create_memory_key_store,
+)
+from .experimental.experiment_tracker import Artifact as ExperimentArtifact  # noqa: F811
+from .experimental.experiment_tracker import (  # noqa: F811,E501
+    ArtifactType,
+    ComparisonMode,
+    ComparisonResult,
+    Experiment,
+    ExperimentStore,
+    ExperimentTracker,
+    ExperimentTrackerVisionProvider,
+    HyperparameterAnalyzer,
+)
+from .experimental.experiment_tracker import Metric as ExperimentMetric  # noqa: F811
+from .experimental.experiment_tracker import (  # noqa: F811,E501
+    MetricAggregator,
+    MetricGoal,
+    MetricHistory,
+)
+from .experimental.experiment_tracker import Parameter as ExperimentParameter  # noqa: F811
+from .experimental.experiment_tracker import Run as ExperimentRun  # noqa: F811
+from .experimental.experiment_tracker import (  # noqa: F811,E501
+    RunContext,
+    RunStatus,
+    SearchQuery,
+    TagType,
+    create_experiment,
+    create_experiment_tracker,
+    create_experiment_tracker_provider,
+    create_hyperparameter_analyzer,
+    create_metric_aggregator,
+    create_search_query,
+)
+from .experimental.experiment_tracker import create_artifact as create_experiment_artifact  # noqa: F811
+from .experimental.experiment_tracker import create_metric as create_experiment_metric  # noqa: F811
+from .experimental.experiment_tracker import (  # noqa: F811
+    create_parameter as create_experiment_parameter,
+)
+from .experimental.experiment_tracker import create_run as create_experiment_run  # noqa: F811
+from .experimental.feature_store import (  # noqa: F811,E501
+    AggregationWindow,
+    ComputationMode,
+    DataQualityCheck,
+    FeatureComputer,
+    FeatureDefinition,
+    FeatureGroup,
+    FeatureLineage,
+    FeatureRegistry,
+    FeatureStatistics,
+    FeatureStatisticsComputer,
+    FeatureStatus,
+    FeatureStore,
+    FeatureStoreVisionProvider,
+    FeatureTransformation,
+    FeatureType,
+    FeatureValue,
+    TransformationType,
+    create_feature_computer,
+    create_feature_definition,
+    create_feature_group,
+    create_feature_registry,
+    create_feature_store,
+    create_feature_store_provider,
+    create_feature_transformation,
+    create_feature_validator,
+)
+from .experimental.feature_store import FeatureValidator as FeatureStoreValidator  # noqa: F811
+from .experimental.feature_store import QualityReport as FeatureQualityReport  # noqa: F811
+from .experimental.intelligent_automation import (  # noqa: F811,E501
+    AutomatedVisionProvider,
+    AutomationConfig,
+    AutoRemediation,
+    Decision,
+    DecisionConfidence,
+    DecisionEngine,
+    DecisionRule,
+    DecisionType,
+    IntelligentAutomationHub,
+    IntelligentScheduler,
+    LearningMode,
+    LearningPattern,
+    LoadLevel,
+    LoadManager,
+    LoadMetrics,
+    PatternLearner,
+    PerformancePredictor,
+    Prediction,
+    PredictionType,
+    Remediation,
+    RemediationAction,
+    ResourcePool,
+    ScheduledTask,
+    SchedulerPriority,
+    SelfTuner,
+    TuningParameter,
+    TuningSession,
+    TuningStatus,
+    TuningStrategy,
+    create_automated_provider,
+    create_automation_config,
+    create_decision_rule,
+    create_intelligent_automation_hub,
+    create_load_metrics,
+)
+from .experimental.intelligent_automation import (  # noqa: F811,E501
+    TaskState as TaskStateP23,
+)
+from .experimental.model_registry import (  # noqa: F811,E501
+    ABTestConfig,
+    ABTestManager,
+    ABTestResult,
+    ApprovalRequest,
+    ApprovalStatus,
+    ApprovalWorkflow,
+    Deployment,
+    DeploymentConfig,
+    DeploymentStrategy,
+    ModelDeployer,
+    ModelLineage,
+    ModelMetadata,
+    ModelRegistry,
+    ModelRegistryVisionProvider,
+    ModelStage,
+    ServingFormat,
+    create_ab_test_config,
+    create_ab_test_manager,
+    create_approval_workflow,
+    create_deployment_config,
+    create_model_deployer,
+    create_model_metadata,
+    create_model_registry,
+    create_model_registry_provider,
+    create_model_version,
+)
+from .experimental.model_registry import MetricType as ModelMetricType  # noqa: F811
+from .experimental.model_registry import ModelStatus as ModelRegistryStatus  # noqa: F811
+from .experimental.model_registry import ModelValidator as ModelRegistryValidator  # noqa: F811
+from .experimental.model_registry import ModelVersion  # noqa: F811
+from .experimental.pipeline_orchestrator import (  # noqa: F811,E501
+    DAGBuilder,
+    DAGNode,
+    ExecutionMode,
+    PipelineDefinition,
+    PipelineOrchestrator,
+    PipelineOrchestratorVisionProvider,
+    PipelineRun,
+    PipelineScheduler,
+    PipelineStatus,
+    PipelineTemplate,
+    ResourceRequirements,
+    ResourceType,
+    RetryPolicy,
+    ScheduleConfig,
+    TaskDefinition,
+    TaskExecutor,
+    TaskInstance,
+    TriggerType,
+    create_dag_builder,
+    create_pipeline_definition,
+    create_pipeline_orchestrator,
+    create_pipeline_orchestrator_provider,
+    create_pipeline_scheduler,
+    create_pipeline_template,
+    create_schedule_config,
+    create_task_definition,
+    create_task_executor,
+)
+from .experimental.pipeline_orchestrator import TaskStatus as PipelineTaskStatus  # noqa: F811
+from .experimental.security_scanner import (  # noqa: F811,E501
+    CodeScanner,
+    DependencyScanner,
+    RemediationPriority,
+    RiskAssessment,
+    RiskAssessor,
+    ScanConfig,
+    ScanResult,
+    ScanStatus,
+    ScanType,
+    SecurityPolicy,
+    SecurityScanner,
+    SecurityScannerVisionProvider,
+    ThreatCategory,
+    ThreatDetector,
+    ThreatIndicator,
+    Vulnerability,
+    VulnerabilitySeverity,
+    create_code_scanner,
+    create_dependency_scanner,
+    create_risk_assessor,
+    create_scan_config,
+    create_security_policy,
+    create_security_scanner,
+    create_security_scanner_provider,
+    create_threat_detector,
+    create_threat_indicator,
+    create_vulnerability,
+)
+from .experimental.security_scanner import RiskLevel as SecurityRiskLevel  # noqa: F811

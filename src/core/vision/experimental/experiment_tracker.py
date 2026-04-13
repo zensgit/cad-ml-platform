@@ -28,7 +28,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
-from .base import VisionDescription, VisionProvider
+from ..base import VisionDescription, VisionProvider
 
 # ========================
 # Enums
