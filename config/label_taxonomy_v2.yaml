@@ -87,8 +87,8 @@ classes:
   传动件:
     id: 9
     description: "Transmission components: shafts, gears, worms"
-    source_labels: ["传动轴", "蜗轮蜗杆传动出料机构", "蜗轮蜗杆", "蜗杆", "涡轮", "差动机构"]
-    synonyms: ["drive shaft", "worm drive", "worm gear", "worm shaft", "worm wheel", "differential mechanism"]
+    source_labels: ["传动轴", "蜗轮蜗杆传动出料机构", "蜗轮蜗杆", "蜗杆", "涡轮", "差动机构", "蜗轮", "带轮", "连杆", "齿轮", "链轮"]
+    synonyms: ["drive shaft", "worm drive", "worm gear", "worm shaft", "worm wheel", "differential mechanism", "pulley", "connecting rod", "gear", "sprocket"]
 
   轴类:
     id: 10
@@ -106,20 +106,20 @@ classes:
   法兰:
     id: 12
     description: "Flanges of all types"
-    source_labels: ["超声波法兰", "人孔法兰", "对接法兰", "连接法兰(大)", "出料凸缘"]
+    source_labels: ["超声波法兰", "人孔法兰", "对接法兰", "连接法兰(大)", "出料凸缘", "法兰盘", "连接件"]
     synonyms: ["ultrasonic flange", "manhole flange", "butt weld flange", "large connection flange", "discharge flange", "outlet flange"]
 
   紧固件:
     id: 13
     description: "Bolts, screws, fasteners"
-    source_labels: ["紧固件", "调节螺栓", "压下螺丝", "铰制螺栓"]
-    synonyms: ["adjusting bolt", "hold-down screw", "reamed bolt", "fastener"]
+    source_labels: ["紧固件", "调节螺栓", "压下螺丝", "铰制螺栓", "螺钉", "螺母", "垫圈", "螺柱", "螺栓"]
+    synonyms: ["adjusting bolt", "hold-down screw", "reamed bolt", "fastener", "screw", "nut", "washer", "stud bolt", "bolt"]
 
   # --- Structural Components ---
   支架:
     id: 14
     description: "Supports, brackets, frames, legs"
-    source_labels: ["支承座", "支腿", "架类", "机架", "拖车"]
+    source_labels: ["支承座", "支腿", "架类", "机架", "拖车", "摇臂", "托架", "底座"]
     synonyms: ["support base", "support seat", "support leg", "frame", "machine frame", "trailer"]
 
   板类:
@@ -131,27 +131,27 @@ classes:
   箱体:
     id: 16
     description: "Housings, cases, boxes"
-    source_labels: ["箱体", "箱座", "电加热箱", "改箱体右盖"]
+    source_labels: ["箱体", "箱座", "电加热箱", "改箱体右盖", "壳体类"]
     synonyms: ["housing base", "electric heater box", "modified housing right cover"]
 
   盖罩:
     id: 17
     description: "Covers, caps, guards, shrouds"
-    source_labels: ["盖", "罩", "压盖", "齿轮罩", "保护罩组件"]
-    synonyms: ["cover", "cap", "shroud", "guard", "retaining cap", "gear cover", "protective cover assembly"]
+    source_labels: ["盖", "罩", "压盖", "齿轮罩", "保护罩组件", "阀盖", "端盖", "密封盖"]
+    synonyms: ["cover", "cap", "shroud", "guard", "retaining cap", "gear cover", "protective cover assembly", "valve cover", "end cap", "seal cover"]
 
   # --- Actuators / Mechanisms ---
   阀门:
     id: 18
     description: "Valves, valve bodies"
-    source_labels: ["阀体"]
-    synonyms: ["valve body"]
+    source_labels: ["阀体", "四通", "三通", "球阀", "截止阀"]
+    synonyms: ["valve body", "four-way", "three-way", "ball valve", "globe valve"]
 
   泵:
     id: 19
     description: "Pumps and pump covers"
-    source_labels: ["泵", "泵盖图"]
-    synonyms: ["pump", "pump cover"]
+    source_labels: ["泵", "泵盖图", "泵体", "泵盖", "泵壳"]
+    synonyms: ["pump", "pump cover", "pump body", "pump casing"]
 
   液压组件:
     id: 20
@@ -169,7 +169,7 @@ classes:
   旋转组件:
     id: 22
     description: "Rotary assemblies, wheels, forks"
-    source_labels: ["旋转组件", "拖轮组件", "手轮组件", "滑块", "拨叉"]
+    source_labels: ["旋转组件", "拖轮组件", "手轮组件", "滑块", "拨叉", "叶轮"]
     synonyms: ["rotary assembly", "towing wheel assembly", "handwheel assembly", "slider", "shift fork"]
 
   人孔:
@@ -181,7 +181,7 @@ classes:
   弹簧:
     id: 24
     description: "Springs"
-    source_labels: ["扭转弹簧"]
+    source_labels: ["扭转弹簧", "圆柱螺旋压缩弹簧", "圆柱螺旋拉伸弹簧"]
     synonyms: ["torsion spring"]
 
   夹具:
