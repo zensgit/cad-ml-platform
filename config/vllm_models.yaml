@@ -1,0 +1,157 @@
+# vLLM Model Selection Configuration
+# Candidate models for CAD/manufacturing domain LLM inference.
+#
+# Selection criteria:
+#   - Chinese language support (primary)
+#   - Code understanding (for CAD scripts, G-code)
+#   - Structured output (JSON, tables)
+#   - VRAM budget: single 24GB GPU (RTX 4090 / A5000)
+#   - Latency target: P95 < 100ms, throughput > 20 req/s
+#
+# VRAM estimates are approximate; actual usage depends on
+# sequence length, batch size, and vLLM's PagedAttention overhead.
+
+models:
+  - name: deepseek-coder-6.7b
+    hf_id: deepseek-ai/deepseek-coder-6.7b-instruct
+    parameters: 6.7B
+    architecture: decoder-only
+    vram_fp16: 13GB
+    vram_awq: 4GB
+    vram_gptq: 4.5GB
+    max_context: 16384
+    license: deepseek-license
+    strengths:
+      - code_understanding
+      - structured_output
+      - chinese
+    weaknesses:
+      - limited_general_knowledge
+    recommended_quantization: awq
+    benchmark_priority: 1  # test first
+    notes: >
+      Best candidate for code-centric CAD tasks (G-code, script generation).
+      Excellent Chinese support. Small enough for AWQ on modest GPUs.
+
+  - name: qwen2-7b
+    hf_id: Qwen/Qwen2-7B-Instruct
+    parameters: 7B
+    architecture: decoder-only
+    vram_fp16: 14GB
+    vram_awq: 4.5GB
+    vram_gptq: 5GB
+    max_context: 32768
+    license: apache-2.0
+    strengths:
+      - chinese
+      - general_knowledge
+      - long_context
+      - tool_use
+    weaknesses:
+      - slightly_larger_vram
+    recommended_quantization: awq
+    benchmark_priority: 2
+    notes: >
+      Strongest Chinese language model in this size class. Long context
+      window useful for large drawing descriptions. Apache 2.0 license
+      is ideal for commercial deployment.
+
+  - name: llama3-8b
+    hf_id: meta-llama/Meta-Llama-3-8B-Instruct
+    parameters: 8B
+    architecture: decoder-only
+    vram_fp16: 16GB
+    vram_awq: 5GB
+    vram_gptq: 5.5GB
+    max_context: 8192
+    license: llama3
+    strengths:
+      - reasoning
+      - english
+      - tool_use
+    weaknesses:
+      - weaker_chinese
+      - shorter_context
+    recommended_quantization: awq
+    benchmark_priority: 3
+    notes: >
+      Strong reasoning and English capability. Weaker Chinese support
+      compared to DeepSeek/Qwen. Consider for English-primary deployments
+      or as a reasoning backbone.
+
+  - name: deepseek-v2-lite
+    hf_id: deepseek-ai/DeepSeek-V2-Lite
+    parameters: 16B (MoE, ~2.4B active)
+    architecture: mixture-of-experts
+    vram_fp16: 10GB
+    vram_awq: 6GB
+    vram_gptq: 7GB
+    max_context: 32768
+    license: deepseek-license
+    strengths:
+      - efficiency
+      - chinese
+      - code
+      - long_context
+    weaknesses:
+      - moe_scheduling_complexity
+      - less_mature_quantization
+    recommended_quantization: fp16
+    benchmark_priority: 4
+    notes: >
+      MoE architecture gives excellent efficiency (only ~2.4B params active
+      per token despite 16B total). FP16 recommended since MoE quantization
+      is less mature. Good balance of capability and speed.
+
+# Quantization methods supported by vLLM
+quantization_methods:
+  fp16:
+    description: Full precision (float16)
+    vram_multiplier: 1.0
+    quality_impact: none
+    speed_impact: baseline
+    maturity: stable
+
+  awq:
+    description: Activation-aware Weight Quantization (4-bit)
+    vram_multiplier: 0.3
+    quality_impact: minimal (<1% degradation on most benchmarks)
+    speed_impact: 1.5-2x faster inference
+    maturity: stable
+    notes: Recommended default for production deployment
+
+  gptq:
+    description: Post-Training Quantization (4-bit)
+    vram_multiplier: 0.35
+    quality_impact: minimal-moderate
+    speed_impact: 1.3-1.8x faster inference
+    maturity: stable
+    notes: Slightly lower quality than AWQ but widely available
+
+  int8:
+    description: 8-bit integer quantization
+    vram_multiplier: 0.5
+    quality_impact: minimal
+    speed_impact: 1.2-1.5x faster inference
+    maturity: stable
+    notes: Good middle ground between quality and speed
+
+# Hardware reference
+hardware_profiles:
+  rtx_4090:
+    vram: 24GB
+    bandwidth: 1008 GB/s
+    recommended_models: [deepseek-coder-6.7b, qwen2-7b, llama3-8b, deepseek-v2-lite]
+    max_batch_size_awq: 32
+
+  a100_40gb:
+    vram: 40GB
+    bandwidth: 1555 GB/s
+    recommended_models: [deepseek-coder-6.7b, qwen2-7b, llama3-8b, deepseek-v2-lite]
+    max_batch_size_awq: 64
+
+  rtx_3090:
+    vram: 24GB
+    bandwidth: 936 GB/s
+    recommended_models: [deepseek-coder-6.7b, qwen2-7b]
+    max_batch_size_awq: 24

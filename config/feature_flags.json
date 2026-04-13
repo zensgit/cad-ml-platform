@@ -70,6 +70,19 @@
       "metadata": {
         "owner": "platform-team"
       }
+    },
+    {
+      "name": "vllm_enabled",
+      "description": "Enable local vLLM inference provider for low-latency LLM responses",
+      "enabled": false,
+      "strategy": "percentage",
+      "percentage": 0,
+      "metadata": {
+        "owner": "ml-team",
+        "phase": "C1",
+        "target_latency_ms": 100,
+        "model": "deepseek-coder-6.7b-awq"
+      }
     }
   ]
 }

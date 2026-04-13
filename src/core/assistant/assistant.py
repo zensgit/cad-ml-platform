@@ -34,7 +34,8 @@ class LLMProvider(str, Enum):
     CLAUDE = "claude"
     GPT4 = "gpt4"
     QWEN = "qwen"
-    LOCAL = "local"  # Local/offline mode
+    VLLM = "vllm"  # Local vLLM inference
+    LOCAL = "local"  # Local/offline mode (Ollama)
 
 
 @dataclass
@@ -146,6 +147,7 @@ class CADAssistant:
                 LLMProvider.CLAUDE: "claude",
                 LLMProvider.GPT4: "openai",
                 LLMProvider.QWEN: "qwen",
+                LLMProvider.VLLM: "vllm",
                 LLMProvider.LOCAL: "ollama",
             }
             provider_name = provider_map.get(self.config.llm_provider, "offline")
