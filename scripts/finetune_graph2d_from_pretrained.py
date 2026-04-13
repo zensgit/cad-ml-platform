@@ -85,12 +85,19 @@ class FinetuneDataset(Dataset):
         with open(manifest_csv, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                label = (row.get("label_cn") or row.get("label") or "").strip()
+                label = (row.get("taxonomy_v2_class") or row.get("label_cn") or row.get("label") or "").strip()
+                # Support both absolute file_path and relative file_name
+                fp = (row.get("file_path") or "").strip()
                 file_name = (row.get("file_name") or row.get("file") or "").strip()
-                if not label or not file_name:
+                if not label:
                     continue
-                file_path = dxf_path / file_name
-                if not file_path.exists():
+                if fp and Path(fp).exists():
+                    file_path = Path(fp)
+                elif file_name:
+                    file_path = dxf_path / file_name
+                    if not file_path.exists():
+                        continue
+                else:
                     continue
                 if label not in labels_seen:
                     labels_seen[label] = len(labels_seen)
@@ -153,8 +160,11 @@ def collate_finetune(
     """Collate graphs and labels into batched tensors."""
     xs, edge_indices, edge_attrs, batch_ids, labels = [], [], [], [], []
     offset = 0
+    graph_idx = 0
     for i, (g, label) in enumerate(batch):
         n = g["x"].size(0)
+        if n == 0:
+            continue  # skip empty/failed graphs
         xs.append(g["x"])
         if g["edge_index"].numel() > 0:
             edge_indices.append(g["edge_index"] + offset)
@@ -162,9 +172,10 @@ def collate_finetune(
             edge_indices.append(g["edge_index"])
         if "edge_attr" in g and g["edge_attr"] is not None:
             edge_attrs.append(g["edge_attr"])
-        batch_ids.append(torch.full((n,), i, dtype=torch.long))
+        batch_ids.append(torch.full((n,), graph_idx, dtype=torch.long))
         labels.append(label)
         offset += n
+        graph_idx += 1
 
     batched = {
         "x": torch.cat(xs, dim=0) if xs else torch.zeros(0, 1),
