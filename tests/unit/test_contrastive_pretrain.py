@@ -9,16 +9,24 @@ from __future__ import annotations
 import os
 import tempfile
 
-import torch
 import pytest
 
-from src.ml.train.model_2d import (
-    EdgeGraphSageClassifier,
-    GraphEncoder,
-    ProjectionHead,
-    SimpleGraphClassifier,
-    nt_xent_loss,
-)
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+
+pytestmark = pytest.mark.skipif(not TORCH_AVAILABLE, reason="PyTorch not installed")
+
+if TORCH_AVAILABLE:
+    from src.ml.train.model_2d import (
+        EdgeGraphSageClassifier,
+        GraphEncoder,
+        ProjectionHead,
+        SimpleGraphClassifier,
+        nt_xent_loss,
+    )
 
 
 # --------------------------------------------------------------------------- #

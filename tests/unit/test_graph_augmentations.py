@@ -2,16 +2,24 @@
 
 from __future__ import annotations
 
-import torch
 import pytest
 
-from src.ml.graph_augmentations import (
-    edge_dropout,
-    node_dropout,
-    node_feature_masking,
-    random_augmentation,
-    subgraph_sampling,
-)
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+
+pytestmark = pytest.mark.skipif(not TORCH_AVAILABLE, reason="PyTorch not installed")
+
+if TORCH_AVAILABLE:
+    from src.ml.graph_augmentations import (
+        edge_dropout,
+        node_dropout,
+        node_feature_masking,
+        random_augmentation,
+        subgraph_sampling,
+    )
 
 
 # --------------------------------------------------------------------------- #

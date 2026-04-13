@@ -63,6 +63,7 @@ from .access_control import create_access_control_provider as create_acl_provide
 from .access_control import create_access_controller
 from .access_control import create_access_controller as create_access_manager
 from .access_control import create_access_request, create_acl_resource, create_api_key_manager
+from .access_control import create_role
 from .access_control import create_role as create_acl_role
 from .access_control import create_role as create_role_p14
 from .access_control import create_role_manager
@@ -213,10 +214,13 @@ from .audit_logging import AuditResource
 from .audit_logging import AuditSeverity as Phase11AuditSeverity
 from .audit_logging import AuditStore, AuditTrail, ComplianceFramework
 from .audit_logging import ComplianceRequirement as Phase11ComplianceRequirement
+from .audit_logging import ComplianceTracker
 from .audit_logging import ComplianceTracker as Phase11ComplianceTracker
+from .audit_logging import InMemoryAuditStore
 from .audit_logging import InMemoryAuditStore as Phase11InMemoryAuditStore
 from .audit_logging import create_audit_logger as create_phase11_audit_logger
 from .audit_logging import create_audited_provider
+from .audit_logging import create_compliance_tracker
 from .audit_logging import create_compliance_tracker as create_phase11_compliance_tracker
 from .auto_scaling import (
     AutoScaledVisionProvider,
@@ -384,6 +388,7 @@ from .data_pipeline import (
 )
 from .data_pipeline import Transformer as PipelineTransformer
 from .data_pipeline import VisionPipelineProvider
+from .data_pipeline import create_batch_processor
 from .data_pipeline import create_batch_processor as create_pipeline_batch_processor
 from .data_pipeline import create_etl_pipeline, create_pipeline
 from .data_validation import (

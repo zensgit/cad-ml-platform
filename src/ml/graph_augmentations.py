@@ -15,8 +15,11 @@ from __future__ import annotations
 import copy
 from typing import Dict, Optional
 
-import torch
-
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
 
 def _clone_graph(graph: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
     """Return a deep copy of a graph dict, cloning all tensors."""

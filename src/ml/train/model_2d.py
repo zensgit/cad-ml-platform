@@ -5,8 +5,12 @@ from __future__ import annotations
 import os
 from typing import Optional
 
-import torch
-from torch import nn
+try:
+    import torch
+    from torch import nn
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
 
 # Maximum nodes per graph — configurable via DXF_MAX_NODES env var.
 DXF_MAX_NODES_DEFAULT = 500

@@ -479,24 +479,6 @@ MATERIAL_DATABASE: Dict[str, MaterialInfo] = {
         description="中碳钢，强度较高，韧性中等",
     ),
 
-    "65Mn": MaterialInfo(
-        grade="65Mn",
-        name="弹簧钢",
-        aliases=["65锰", "弹簧钢"],
-        category=MaterialCategory.METAL,
-        sub_category=MaterialSubCategory.FERROUS,
-        group=MaterialGroup.CARBON_STEEL,
-        standards=["GB/T 1222-2016"],
-        properties=MaterialProperties(
-            density=7.85,
-            melting_point=1470,
-            thermal_conductivity=44,
-            tensile_strength=980,
-            yield_strength=785,
-            hardness="HRC42-50",
-            machinability="fair",
-            weldability="poor",
-        ),
         process=ProcessRecommendation(
             blank_forms=["带材", "棒材", "线材"],
             blank_hint="冷轧带材/线材",
@@ -574,24 +556,6 @@ MATERIAL_DATABASE: Dict[str, MaterialInfo] = {
         description="高强度调质钢，大截面淬透性好",
     ),
 
-    "GCr15": MaterialInfo(
-        grade="GCr15",
-        name="轴承钢",
-        aliases=["SUJ2", "52100", "100Cr6"],
-        category=MaterialCategory.METAL,
-        sub_category=MaterialSubCategory.FERROUS,
-        group=MaterialGroup.ALLOY_STEEL,
-        standards=["GB/T 18254-2016"],
-        properties=MaterialProperties(
-            density=7.81,
-            melting_point=1450,
-            thermal_conductivity=46.6,
-            tensile_strength=None,
-            yield_strength=None,
-            hardness="HRC60-65",
-            machinability="fair",
-            weldability="poor",
-        ),
         process=ProcessRecommendation(
             blank_forms=["棒材", "管材"],
             blank_hint="球化退火态棒材",
@@ -605,24 +569,6 @@ MATERIAL_DATABASE: Dict[str, MaterialInfo] = {
         description="轴承钢，高硬度高耐磨",
     ),
 
-    "GCr15SiMn": MaterialInfo(
-        grade="GCr15SiMn",
-        name="硅锰轴承钢",
-        aliases=["SUJ3", "52100 Mod", "100CrMnSi6-4"],
-        category=MaterialCategory.METAL,
-        sub_category=MaterialSubCategory.FERROUS,
-        group=MaterialGroup.ALLOY_STEEL,
-        standards=["GB/T 18254-2016"],
-        properties=MaterialProperties(
-            density=7.80,
-            melting_point=1450,
-            thermal_conductivity=40,
-            tensile_strength=None,
-            yield_strength=None,
-            hardness="HRC60-65",
-            machinability="fair",
-            weldability="poor",
-        ),
         process=ProcessRecommendation(
             blank_forms=["棒材", "管材", "锻件"],
             blank_hint="球化退火态棒材",
@@ -667,25 +613,6 @@ MATERIAL_DATABASE: Dict[str, MaterialInfo] = {
         description="航空级轴承钢，高温尺寸稳定性好",
     ),
 
-    "20CrMnTi": MaterialInfo(
-        grade="20CrMnTi",
-        name="渗碳钢",
-        aliases=["20CrMnTiH", "SCM420H"],
-        category=MaterialCategory.METAL,
-        sub_category=MaterialSubCategory.FERROUS,
-        group=MaterialGroup.ALLOY_STEEL,
-        standards=["GB/T 3077-2015"],
-        properties=MaterialProperties(
-            density=7.85,
-            melting_point=1470,
-            thermal_conductivity=37,
-            tensile_strength=1080,
-            yield_strength=835,
-            elongation=10,  # %
-            hardness="HRC58-62",
-            machinability="good",
-            weldability="fair",
-        ),
         process=ProcessRecommendation(
             blank_forms=["棒材", "锻件"],
             blank_hint="锻件/棒材",
@@ -821,25 +748,6 @@ MATERIAL_DATABASE: Dict[str, MaterialInfo] = {
         description="常用弹簧钢，经济实用",
     ),
 
-    "60Si2Mn": MaterialInfo(
-        grade="60Si2Mn",
-        name="硅锰弹簧钢",
-        aliases=["60Si2MnA", "SUP7"],
-        category=MaterialCategory.METAL,
-        sub_category=MaterialSubCategory.FERROUS,
-        group=MaterialGroup.ALLOY_STEEL,
-        standards=["GB/T 1222-2016"],
-        properties=MaterialProperties(
-            density=7.85,
-            melting_point=1470,
-            thermal_conductivity=30,
-            tensile_strength=1470,
-            yield_strength=1275,
-            hardness="HRC48-52",
-            elongation=6,
-            machinability="fair",
-            weldability="poor",
-        ),
         process=ProcessRecommendation(
             blank_forms=["棒材", "扁钢"],
             blank_hint="扁钢/棒材",
@@ -852,25 +760,6 @@ MATERIAL_DATABASE: Dict[str, MaterialInfo] = {
         description="高强度弹簧钢，疲劳性能好",
     ),
 
-    "50CrVA": MaterialInfo(
-        grade="50CrVA",
-        name="铬钒弹簧钢",
-        aliases=["50CrV4", "SUP10"],
-        category=MaterialCategory.METAL,
-        sub_category=MaterialSubCategory.FERROUS,
-        group=MaterialGroup.ALLOY_STEEL,
-        standards=["GB/T 1222-2016"],
-        properties=MaterialProperties(
-            density=7.85,
-            melting_point=1475,
-            thermal_conductivity=34,
-            tensile_strength=1470,
-            yield_strength=1320,
-            hardness="HRC48-52",
-            elongation=7,
-            machinability="fair",
-            weldability="poor",
-        ),
         process=ProcessRecommendation(
             blank_forms=["棒材", "线材"],
             blank_hint="棒材/线材",
@@ -1173,25 +1062,6 @@ MATERIAL_DATABASE: Dict[str, MaterialInfo] = {
         description="耐蚀性优于304，含钼，低碳抗晶间腐蚀",
     ),
 
-    "2Cr13": MaterialInfo(
-        grade="2Cr13",
-        name="马氏体不锈钢",
-        aliases=["420", "SUS420J1", "1.4021"],
-        category=MaterialCategory.METAL,
-        sub_category=MaterialSubCategory.FERROUS,
-        group=MaterialGroup.STAINLESS_STEEL,
-        standards=["GB/T 1220-2007"],
-        properties=MaterialProperties(
-            density=7.75,
-            melting_point=1530,
-            thermal_conductivity=24.9,
-            tensile_strength=640,
-            yield_strength=440,
-            elongation=15,  # %
-            hardness="HRC45-52",
-            machinability="fair",
-            weldability="poor",
-        ),
         process=ProcessRecommendation(
             blank_forms=["棒材", "板材"],
             blank_hint="退火态棒材",
@@ -2897,25 +2767,6 @@ MATERIAL_DATABASE: Dict[str, MaterialInfo] = {
         description="锡青铜，耐磨性好，适合轴瓦",
     ),
 
-    "QAl9-4": MaterialInfo(
-        grade="QAl9-4",
-        name="铝青铜",
-        aliases=["QA19-4", "铝青铜"],
-        category=MaterialCategory.METAL,
-        sub_category=MaterialSubCategory.NON_FERROUS,
-        group=MaterialGroup.COPPER,
-        standards=["GB/T 5231-2012"],
-        properties=MaterialProperties(
-            density=7.6,
-            melting_point=1040,
-            thermal_conductivity=58,
-            tensile_strength=600,
-            yield_strength=250,
-            elongation=10,  # %
-            hardness="HB160-200",
-            machinability="fair",
-            weldability="fair",
-        ),
         process=ProcessRecommendation(
             blank_forms=["棒材", "铸件"],
             blank_hint="棒材/铸件",
@@ -2957,25 +2808,6 @@ MATERIAL_DATABASE: Dict[str, MaterialInfo] = {
         description="纯铜，导电导热性最好",
     ),
 
-    "QBe2": MaterialInfo(
-        grade="QBe2",
-        name="铍青铜",
-        aliases=["铍铜", "C17200", "BeCu", "CuBe2"],
-        category=MaterialCategory.METAL,
-        sub_category=MaterialSubCategory.NON_FERROUS,
-        group=MaterialGroup.COPPER,
-        standards=["GB/T 5231-2012", "ASTM C17200"],
-        properties=MaterialProperties(
-            density=8.3,
-            melting_point=870,
-            thermal_conductivity=115,
-            tensile_strength=1250,
-            yield_strength=1100,
-            elongation=3,  # %
-            hardness="HRC38-45",
-            machinability="fair",
-            weldability="poor",
-        ),
         process=ProcessRecommendation(
             blank_forms=["棒材", "板材", "线材"],
             blank_hint="棒材/板材",
@@ -3781,24 +3613,6 @@ MATERIAL_DATABASE: Dict[str, MaterialInfo] = {
     # -------------------------------------------------------------------------
     # 硬质合金 (Cemented Carbide)
     # -------------------------------------------------------------------------
-    "YG8": MaterialInfo(
-        grade="YG8",
-        name="钨钴硬质合金",
-        aliases=["K30", "WC-8Co", "ISO K30"],
-        category=MaterialCategory.METAL,
-        sub_category=MaterialSubCategory.NON_FERROUS,
-        group=MaterialGroup.CEMENTED_CARBIDE,
-        standards=["GB/T 5242-2006", "ISO 513"],
-        properties=MaterialProperties(
-            density=14.7,
-            melting_point=2870,
-            thermal_conductivity=75,
-            hardness="HRA88-89",
-            tensile_strength=1500,
-            yield_strength=1500,  # 脆性材料，屈服强度≈抗拉强度
-            machinability="very_poor",
-            weldability="poor",
-        ),
         process=ProcessRecommendation(
             blank_forms=["烧结坯料", "棒材"],
             blank_hint="粉末冶金烧结",
@@ -3815,24 +3629,6 @@ MATERIAL_DATABASE: Dict[str, MaterialInfo] = {
         description="通用型硬质合金，适合铸铁和有色金属加工",
     ),
 
-    "YT15": MaterialInfo(
-        grade="YT15",
-        name="钨钛钴硬质合金",
-        aliases=["P15", "WC-TiC-15Co", "ISO P15"],
-        category=MaterialCategory.METAL,
-        sub_category=MaterialSubCategory.NON_FERROUS,
-        group=MaterialGroup.CEMENTED_CARBIDE,
-        standards=["GB/T 5242-2006", "ISO 513"],
-        properties=MaterialProperties(
-            density=11.5,
-            melting_point=2720,
-            thermal_conductivity=42,
-            hardness="HRA91-92",
-            tensile_strength=1100,
-            yield_strength=1100,  # 脆性材料，屈服强度≈抗拉强度
-            machinability="very_poor",
-            weldability="poor",
-        ),
         process=ProcessRecommendation(
             blank_forms=["烧结坯料", "刀片"],
             blank_hint="粉末冶金烧结",
@@ -4589,26 +4385,6 @@ MATERIAL_DATABASE: Dict[str, MaterialInfo] = {
     # -------------------------------------------------------------------------
     # 电触头材料 (Electrical Contact Material)
     # -------------------------------------------------------------------------
-    "AgCdO": MaterialInfo(
-        grade="AgCdO",
-        name="银氧化镉触点",
-        aliases=["Ag/CdO", "银镉触点", "AgCdO-12"],
-        category=MaterialCategory.METAL,
-        sub_category=MaterialSubCategory.NON_FERROUS,
-        group=MaterialGroup.ELECTRICAL_CONTACT,
-        standards=["GB/T 5235", "IEC 60056"],
-        properties=MaterialProperties(
-            density=10.30,
-            melting_point=960,
-            thermal_conductivity=360,
-            tensile_strength=300,
-            yield_strength=200,
-            elongation=0.5,  # %
-            hardness="HB70",
-            machinability="good",
-            weldability="fair",
-            conductivity=85,
-        ),
         process=ProcessRecommendation(
             blank_forms=["铆钉", "片材", "触点"],
             blank_hint="铆钉/触点",
@@ -4621,26 +4397,6 @@ MATERIAL_DATABASE: Dict[str, MaterialInfo] = {
         ),
         description="银氧化镉触点，导电性好抗电弧，低压电器用（含镉有毒）",
     ),
-    "AgSnO2": MaterialInfo(
-        grade="AgSnO2",
-        name="银氧化锡触点",
-        aliases=["Ag/SnO2", "银锡触点", "AgSnO2-12", "无镉触点"],
-        category=MaterialCategory.METAL,
-        sub_category=MaterialSubCategory.NON_FERROUS,
-        group=MaterialGroup.ELECTRICAL_CONTACT,
-        standards=["GB/T 5235", "IEC 60056"],
-        properties=MaterialProperties(
-            density=10.10,
-            melting_point=960,
-            thermal_conductivity=340,
-            tensile_strength=280,
-            yield_strength=180,
-            elongation=0.5,  # %
-            hardness="HB75",
-            machinability="good",
-            weldability="fair",
-            conductivity=80,
-        ),
         process=ProcessRecommendation(
             blank_forms=["铆钉", "片材", "触点"],
             blank_hint="铆钉/触点",
@@ -8270,25 +8026,6 @@ MATERIAL_DATABASE: Dict[str, MaterialInfo] = {
         description="铁镍基沉淀硬化高温合金，成本相对较低",
     ),
 
-    "Waspaloy": MaterialInfo(
-        grade="Waspaloy",
-        name="镍基高温合金",
-        aliases=["Waspaloy®", "N07001", "2.4654", "UNS N07001"],
-        category=MaterialCategory.METAL,
-        sub_category=MaterialSubCategory.NON_FERROUS,
-        group=MaterialGroup.CORROSION_RESISTANT,
-        standards=["AMS 5544", "AMS 5586"],
-        properties=MaterialProperties(
-            density=8.19,
-            melting_point=1355,
-            thermal_conductivity=11,
-            tensile_strength=1275,
-            yield_strength=795,
-            elongation=25,  # %
-            hardness="HRC35-42",
-            machinability="poor",
-            weldability="fair",
-        ),
         process=ProcessRecommendation(
             blank_forms=["锻件", "棒材", "环形件"],
             blank_hint="锻件+热处理态",
@@ -8304,25 +8041,6 @@ MATERIAL_DATABASE: Dict[str, MaterialInfo] = {
         description="时效硬化镍基高温合金，高温强度优异",
     ),
 
-    "Rene41": MaterialInfo(
-        grade="Rene41",
-        name="镍基高温合金",
-        aliases=["Rene 41", "René 41", "N07041", "R-41"],
-        category=MaterialCategory.METAL,
-        sub_category=MaterialSubCategory.NON_FERROUS,
-        group=MaterialGroup.CORROSION_RESISTANT,
-        standards=["AMS 5545", "AMS 5712"],
-        properties=MaterialProperties(
-            density=8.25,
-            melting_point=1350,
-            thermal_conductivity=10,
-            tensile_strength=1310,
-            yield_strength=860,
-            elongation=14,  # %
-            hardness="HRC36-44",
-            machinability="poor",
-            weldability="fair",
-        ),
         process=ProcessRecommendation(
             blank_forms=["锻件", "板材", "棒材"],
             blank_hint="锻件+热处理态",
@@ -11900,19 +11618,7 @@ MATERIAL_EQUIVALENCE: Dict[str, Dict[str, str]] = {
         "DE": "42CrMo4",
         "name": "合金结构钢",
     },
-    "GCr15": {
-        "CN": "GCr15",
-        "US": "52100",
-        "JP": "SUJ2",
-        "DE": "100Cr6",
-        "name": "高碳铬轴承钢",
     },
-    "GCr15SiMn": {
-        "CN": "GCr15SiMn",
-        "US": "52100 Mod",
-        "JP": "SUJ3",
-        "DE": "100CrMnSi6-4",
-        "name": "硅锰轴承钢",
     },
     "GCr18Mo": {
         "CN": "GCr18Mo",
@@ -11921,12 +11627,6 @@ MATERIAL_EQUIVALENCE: Dict[str, Dict[str, str]] = {
         "DE": "100CrMo7-3",
         "name": "铬钼轴承钢",
     },
-    "20CrMnTi": {
-        "CN": "20CrMnTi",
-        "US": "8620",
-        "JP": "SCM420H",
-        "DE": "20MnCr5",
-        "name": "渗碳钢",
     },
     "20Cr": {
         "CN": "20Cr",
@@ -11957,19 +11657,7 @@ MATERIAL_EQUIVALENCE: Dict[str, Dict[str, str]] = {
         "DE": "65Mn4",
         "name": "锰钢弹簧钢",
     },
-    "60Si2Mn": {
-        "CN": "60Si2Mn",
-        "US": "9260",
-        "JP": "SUP7",
-        "DE": "60SiCr7",
-        "name": "硅锰弹簧钢",
     },
-    "50CrVA": {
-        "CN": "50CrVA",
-        "US": "6150",
-        "JP": "SUP10",
-        "DE": "50CrV4",
-        "name": "铬钒弹簧钢",
     },
     # 工具钢
     "Cr12MoV": {
@@ -12339,19 +12027,7 @@ MATERIAL_EQUIVALENCE: Dict[str, Dict[str, str]] = {
         "name": "9%镍钢",
     },
     # 电接触材料
-    "AgCdO": {
-        "CN": "AgCdO10",
-        "US": "AgCdO",
-        "JP": "AgCdO",
-        "DE": "AgCdO10",
-        "name": "银氧化镉触点",
     },
-    "AgSnO2": {
-        "CN": "AgSnO2",
-        "US": "AgSnO2",
-        "JP": "AgSnO2",
-        "DE": "AgSnO2",
-        "name": "银氧化锡触点",
     },
     "CuW70": {
         "CN": "CuW70",
@@ -12750,19 +12426,7 @@ MATERIAL_EQUIVALENCE: Dict[str, Dict[str, str]] = {
         "name": "316L不锈钢粉末冶金",
     },
     # 硬质合金
-    "YG8": {
-        "CN": "YG8",
-        "US": "C2/C3",
-        "JP": "G3",
-        "DE": "K30",
-        "name": "钨钴硬质合金",
     },
-    "YT15": {
-        "CN": "YT15",
-        "US": "C5/C6",
-        "JP": "P15",
-        "DE": "P15",
-        "name": "钨钛钴硬质合金",
     },
     "YW1": {
         "CN": "YW1",
@@ -12823,12 +12487,6 @@ MATERIAL_EQUIVALENCE: Dict[str, Dict[str, str]] = {
         "name": "纯钽",
     },
     # 铝青铜
-    "QAl9-4": {
-        "CN": "QAl9-4",
-        "US": "C62300",
-        "JP": "CAC703",
-        "DE": "CuAl9Fe4",
-        "name": "铝青铜",
     },
     "QAl10-4-4": {
         "CN": "QAl10-4-4",
@@ -12838,12 +12496,6 @@ MATERIAL_EQUIVALENCE: Dict[str, Dict[str, str]] = {
         "name": "镍铝青铜",
     },
     # 铍铜
-    "QBe2": {
-        "CN": "QBe2",
-        "US": "C17200",
-        "JP": "BeCuA",
-        "DE": "CuBe2",
-        "name": "铍青铜",
     },
     "QBe1.9": {
         "CN": "QBe1.9",
