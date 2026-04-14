@@ -64,13 +64,33 @@ Result:
 
 ## Remote Verification
 
-Pending at document creation time.
+### PR Auto Label and Comment
 
-Expected green workflows after push:
-- `PR Auto Label and Comment`
-- `Stress and Observability Checks`
+- Run: `24401290661`
+- URL: `https://github.com/zensgit/cad-ml-platform/actions/runs/24401290661`
+- Result: `success`
+
+Validation point:
+- `label-and-comment` completed successfully after the new checkout step was added
+
+### Stress and Observability Checks
+
+- Run: `24401287666`
+- URL: `https://github.com/zensgit/cad-ml-platform/actions/runs/24401287666`
+- Result: `success`
+
+Validation points:
+- `workflow-file-health` completed successfully
+- `Generate workflow inventory audit report` completed successfully after `Install PyYAML`
+- downstream jobs were unblocked and also completed successfully:
+  - `metrics-consistency (3.10)`
+  - `metrics-consistency (3.11)`
+  - `stress-unit-tests`
+
+## Conclusion
+
+The two remaining isolated remote failures on PR `#398` were fixed and verified end-to-end on GitHub-hosted runners.
 
 ## Residual Scope
 
 `Action Pin Guard` is unchanged in this batch. Its current failure is repo-wide action pin debt, not a regression introduced by these workflow fixes.
-
