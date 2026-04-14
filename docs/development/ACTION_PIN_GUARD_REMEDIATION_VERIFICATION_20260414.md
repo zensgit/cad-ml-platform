@@ -70,8 +70,15 @@ Result:
 
 ## Remote Verification
 
-Pending at document creation time.
+### Action Pin Guard
 
-Target gate:
-- `Action Pin Guard`
+- Run: `24401703056`
+- URL: `https://github.com/zensgit/cad-ml-platform/actions/runs/24401703056`
+- Result: `success`
 
+Validation point:
+- `Validate workflow action pins` completed successfully on GitHub-hosted runners
+
+## Conclusion
+
+The repository-level workflow pin debt that blocked `Action Pin Guard` on PR `#398` was remediated and verified end-to-end.
