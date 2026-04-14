@@ -90,10 +90,11 @@ def test_eval_trend_load_history_recognizes_explicit_ocr_type(
     )
 
     monkeypatch.setattr(eval_trend, "HISTORY_DIR", history_dir)
-    combined, ocr_only = eval_trend.load_history()
+    combined, ocr_only, history_sequence = eval_trend.load_history()
 
     assert len(combined) == 1
     assert len(ocr_only) == 1
+    assert history_sequence == []
 
 
 def test_eval_with_history_script_has_valid_bash_syntax() -> None:

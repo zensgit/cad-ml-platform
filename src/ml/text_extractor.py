@@ -1,4 +1,4 @@
-"""DXF text content extraction for B5.1 text-fusion classifier.
+r"""DXF text content extraction for B5.1 text-fusion classifier.
 
 Extracts all human-readable text from DXF modelspace entities:
 TEXT, MTEXT, ATTRIB, ATTDEF.
@@ -37,7 +37,7 @@ def _decode_m_escapes(text: str) -> str:
 
 
 def _clean_mtext(raw: str) -> str:
-    """Return plain readable text from a raw MTEXT string.
+    r"""Return plain readable text from a raw MTEXT string.
 
     Processing order matters:
       1. Decode \M+5<hex> GBK sequences FIRST (before stripping backslash codes)

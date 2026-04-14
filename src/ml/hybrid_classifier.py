@@ -865,6 +865,7 @@ class HybridClassifier:
         text_content_pred = None
         text_content_label = None
         text_content_conf = 0.0
+        _dxf_text = ""
 
         if self.text_content_enabled and file_bytes:
             try:
@@ -1492,9 +1493,22 @@ class HybridClassifier:
                 }
             result.fusion_metadata["shadow_predictions"] = shadow_predictions
 
+        skip_final_rejection = bool(
+            result.label
+            and result.source == DecisionSource.FILENAME
+            and result.filename_prediction
+            and isinstance(result.graph2d_prediction, dict)
+            and result.graph2d_prediction.get("ignored_for_fusion") is True
+            and result.graph2d_prediction.get("ignored_reason") == "non_matching"
+            and isinstance(result.fusion_metadata, dict)
+            and result.fusion_metadata.get("strategy") == "single_source"
+            and result.fusion_metadata.get("selected_by") == "filename"
+        )
+
         if (
             self.reject_enabled
             and result.label
+            and not skip_final_rejection
             and result.confidence < max(0.0, float(self.reject_min_conf))
         ):
             result.rejection = {

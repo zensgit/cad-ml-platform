@@ -163,6 +163,57 @@ test-knowledge: ## 运行知识库相关测试
 	@echo "$(GREEN)Running knowledge tests...$(NC)"
 	$(PYTEST) $(TEST_DIR)/unit/knowledge -v --junitxml=reports/junit-knowledge.xml
 
+test-cost: ## 运行成本估算相关测试
+	@echo "$(GREEN)Running cost tests...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_cost_estimator.py \
+		$(TEST_DIR)/unit/test_materials_cost.py -q
+
+test-ai-intelligence: ## 运行 AI intelligence 相关测试
+	@echo "$(GREEN)Running AI intelligence tests...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_hybrid_intelligence.py -q
+
+test-diff: ## 运行 diff / 对比相关测试
+	@echo "$(GREEN)Running diff tests...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_features_diff_endpoint.py \
+		$(TEST_DIR)/unit/test_geometry_diff.py -q
+
+test-pointcloud: ## 运行 pointcloud 相关测试（当前仓库无专用用例时跳过）
+	@echo "$(YELLOW)No dedicated pointcloud tests configured.$(NC)"
+
+test-embeddings: ## 运行 embeddings 相关测试
+	@echo "$(GREEN)Running embeddings tests...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_domain_embedding_provider.py \
+		$(TEST_DIR)/unit/test_domain_embeddings.py -q
+
+test-copilot: ## 运行 copilot 相关测试（当前仓库无专用用例时跳过）
+	@echo "$(YELLOW)No dedicated copilot tests configured.$(NC)"
+
+test-training-scripts: ## 运行训练脚本相关测试
+	@echo "$(GREEN)Running training script tests...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_training_scripts.py -q
+
+smoke-new-modules: ## 快速冒烟新模块测试
+	@echo "$(GREEN)Running smoke tests for new modules...$(NC)"
+	$(MAKE) test-cost
+	$(MAKE) test-ai-intelligence
+	$(MAKE) test-diff
+
+test-new-modules: ## 运行新模块测试集合
+	@echo "$(GREEN)Running new module test suite...$(NC)"
+	$(MAKE) test-cost
+	$(MAKE) test-ai-intelligence
+	$(MAKE) test-diff
+	$(MAKE) test-pointcloud
+	$(MAKE) test-knowledge
+	$(MAKE) test-embeddings
+	$(MAKE) test-copilot
+	$(MAKE) test-training-scripts
+
 test-tolerance: ## 运行公差知识相关测试（unit + integration）
 	@echo "$(GREEN)Running tolerance tests...$(NC)"
 	$(PYTEST) \
@@ -355,6 +406,95 @@ generate-ci-workflow-guardrail-overview: ## 聚合 watcher 与 workflow guardrai
 		--output-json "$(CI_WORKFLOW_GUARDRAIL_OVERVIEW_OUTPUT_JSON)" \
 		--output-md "$(CI_WORKFLOW_GUARDRAIL_OVERVIEW_OUTPUT_MD)"
 
+validate-workflow-file-health: ## 校验 workflow 文件健康（gh parser + YAML parser）
+	@echo "$(GREEN)Validating workflow file health...$(NC)"
+	$(PYTHON) scripts/ci/check_workflow_file_issues.py \
+		--glob ".github/workflows/*.yml" \
+		--ref "HEAD" \
+		--mode "auto" \
+		--summary-json-out "reports/ci/workflow_file_health_summary.json"
+
+validate-workflow-file-health-tests: ## 校验 workflow 文件健康相关测试
+	@echo "$(GREEN)Validating workflow file health tests...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_check_workflow_file_issues.py \
+		$(TEST_DIR)/unit/test_stress_workflow_workflow_file_health.py \
+		$(TEST_DIR)/unit/test_workflow_file_health_make_target.py -q
+
+validate-workflow-comment-helper-tests: ## 校验共享 PR comment helper 采用情况相关测试
+	@echo "$(GREEN)Validating workflow comment helper tests...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_additional_workflow_comment_helper_adoption.py \
+		$(TEST_DIR)/unit/test_release_risk_comment_workflow.py \
+		$(TEST_DIR)/unit/test_pr_auto_label_comment_workflow.py \
+		$(TEST_DIR)/unit/test_sbom_comment_workflow.py \
+		$(TEST_DIR)/unit/test_workflow_file_health_make_target.py -q
+
+validate-workflow-issue-helper-tests: ## 校验共享 issue helper 采用情况相关测试
+	@echo "$(GREEN)Validating workflow issue helper tests...$(NC)"
+	node --check scripts/ci/issue_upsert_utils.js
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_issue_upsert_utils_js.py \
+		$(TEST_DIR)/unit/test_workflow_issue_helper_adoption.py \
+		$(TEST_DIR)/unit/test_workflow_file_health_make_target.py -q
+
+validate-workflow-identity: ## 校验 workflow identity invariants
+	@echo "$(GREEN)Validating workflow identity invariants...$(NC)"
+	$(PYTHON) scripts/ci/check_workflow_identity_invariants.py \
+		--workflow-root ".github/workflows" \
+		--ci-watch-required-workflows "$(CI_WATCH_REQUIRED_WORKFLOWS)" \
+		--summary-json-out "reports/ci/workflow_identity_summary.json"
+
+validate-workflow-identity-tests: ## 校验 workflow identity invariants 相关测试
+	@echo "$(GREEN)Validating workflow identity tests...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_check_workflow_identity_invariants.py \
+		$(TEST_DIR)/unit/test_workflow_file_health_make_target.py -q
+
+validate-workflow-publish-helper-adoption: ## 校验 workflow-side publish helper 复用
+	@echo "$(GREEN)Validating workflow publish helper adoption...$(NC)"
+	$(PYTHON) scripts/ci/check_workflow_publish_helper_adoption.py \
+		--workflow-root ".github/workflows" \
+		--summary-json-out "reports/ci/workflow_publish_helper_adoption.json" \
+		--output-md "reports/ci/workflow_publish_helper_adoption.md"
+
+validate-workflow-publish-helper-adoption-tests: ## 校验 workflow-side publish helper 相关测试
+	@echo "$(GREEN)Validating workflow publish helper adoption tests...$(NC)"
+	node --check scripts/ci/comment_pr_utils.js
+	node --check scripts/ci/issue_upsert_utils.js
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_check_workflow_publish_helper_adoption.py \
+		$(TEST_DIR)/unit/test_workflow_file_health_make_target.py -q
+
+workflow-guardrail-summary-report: ## 聚合 workflow health / inventory / publish-helper 报告
+	@echo "$(GREEN)Generating workflow guardrail summary report...$(NC)"
+	$(PYTHON) scripts/ci/generate_workflow_guardrail_summary.py \
+		--workflow-file-health-json "reports/ci/workflow_file_health_summary.json" \
+		--workflow-inventory-json "reports/ci/workflow_inventory_report.json" \
+		--workflow-publish-helper-json "reports/ci/workflow_publish_helper_adoption.json" \
+		--output-json "reports/ci/workflow_guardrail_summary.json" \
+		--output-md "reports/ci/workflow_guardrail_summary.md"
+
+validate-workflow-guardrail-summary-report: ## 校验 workflow guardrail summary 生成器测试
+	@echo "$(GREEN)Validating workflow guardrail summary report tests...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_generate_workflow_guardrail_summary.py \
+		$(TEST_DIR)/unit/test_workflow_file_health_make_target.py -q
+
+workflow-inventory-report: ## 生成 workflow inventory 审计报告
+	@echo "$(GREEN)Generating workflow inventory report...$(NC)"
+	$(PYTHON) scripts/ci/generate_workflow_inventory_report.py \
+		--workflow-root ".github/workflows" \
+		--ci-watch-required-workflows "$(CI_WATCH_REQUIRED_WORKFLOWS)" \
+		--output-json "reports/ci/workflow_inventory_report.json" \
+		--output-md "reports/ci/workflow_inventory_report.md"
+
+validate-workflow-inventory-report: ## 校验 workflow inventory 报告相关测试
+	@echo "$(GREEN)Validating workflow inventory report tests...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_generate_workflow_inventory_report.py \
+		$(TEST_DIR)/unit/test_workflow_file_health_make_target.py -q
+
 validate-watch-commit-workflows: ## 校验 commit workflow watcher（脚本 + Make 参数透传）
 	@echo "$(GREEN)Validating commit workflow watcher...$(NC)"
 	$(PYTEST) \
@@ -392,6 +532,18 @@ validate-generate-ci-workflow-guardrail-overview: ## 校验 CI workflow guardrai
 
 validate-ci-watchers: ## 一键校验 CI watchers（commit + archive + Graph2D strict e2e dispatcher）
 	@echo "$(GREEN)Validating CI watcher stack...$(NC)"
+	$(MAKE) validate-workflow-file-health
+	$(MAKE) validate-workflow-file-health-tests
+	$(MAKE) validate-workflow-comment-helper-tests
+	$(MAKE) validate-workflow-issue-helper-tests
+	$(MAKE) validate-workflow-identity
+	$(MAKE) validate-workflow-identity-tests
+	$(MAKE) validate-workflow-publish-helper-adoption
+	$(MAKE) validate-workflow-publish-helper-adoption-tests
+	$(MAKE) workflow-guardrail-summary-report
+	$(MAKE) validate-workflow-guardrail-summary-report
+	$(MAKE) workflow-inventory-report
+	$(MAKE) validate-workflow-inventory-report
 	$(MAKE) validate-check-gh-actions-ready
 	$(MAKE) validate-watch-commit-workflows
 	$(MAKE) validate-generate-ci-watch-validation-report
@@ -1042,6 +1194,129 @@ GRAPH2D_REVIEW_PACK_GATE_E2E_POLL_INTERVAL ?= 3
 GRAPH2D_REVIEW_PACK_GATE_E2E_LIST_LIMIT ?= 20
 GRAPH2D_REVIEW_PACK_GATE_E2E_OUTPUT_JSON ?= $(GRAPH2D_REVIEW_OUT_DIR)/graph2d_review_pack_gate_strict_e2e.json
 GRAPH2D_REVIEW_PACK_GATE_E2E_PRINT_ONLY ?= 0
+HYBRID_CALIBRATION_INPUT_CSV ?= reports/experiments/graph2d_review_template_filled.csv
+HYBRID_CALIBRATION_OUTPUT_JSON ?= reports/calibration/hybrid_confidence_calibration_latest.json
+HYBRID_CALIBRATION_METHOD ?= temperature_scaling
+HYBRID_CALIBRATION_PER_SOURCE ?= 1
+HYBRID_CALIBRATION_CONFIDENCE_COL ?= confidence
+HYBRID_CALIBRATION_CORRECT_COL ?= is_correct
+HYBRID_CALIBRATION_PRED_LABEL_COL ?= predicted_label
+HYBRID_CALIBRATION_TRUTH_LABEL_COL ?= correct_label
+HYBRID_CALIBRATION_SOURCE_COL ?= source
+HYBRID_CALIBRATION_MIN_SAMPLES ?= 30
+HYBRID_CALIBRATION_MIN_SAMPLES_PER_SOURCE ?= 10
+HYBRID_CALIBRATION_MAX_ROWS ?= 0
+HYBRID_CALIBRATION_INCLUDE_FIT_DATA ?= 0
+HYBRID_CALIBRATION_FAIL_ON_INSUFFICIENT_DATA ?= 0
+HYBRID_CALIBRATION_GATE_CURRENT_JSON ?= $(HYBRID_CALIBRATION_OUTPUT_JSON)
+HYBRID_CALIBRATION_GATE_BASELINE_JSON ?= config/hybrid_confidence_calibration_baseline.json
+HYBRID_CALIBRATION_GATE_CONFIG ?= config/hybrid_confidence_calibration_gate.yaml
+HYBRID_CALIBRATION_GATE_MISSING_MODE ?= skip
+HYBRID_CALIBRATION_GATE_OUTPUT_JSON ?= reports/calibration/hybrid_confidence_calibration_gate.json
+HYBRID_CALIBRATION_BASELINE_SOURCE_JSON ?= $(HYBRID_CALIBRATION_OUTPUT_JSON)
+HYBRID_CALIBRATION_BASELINE_JSON ?= config/hybrid_confidence_calibration_baseline.json
+HYBRID_CALIBRATION_BASELINE_SNAPSHOT_JSON ?=
+HYBRID_CALIBRATION_BASELINE_ALLOW_NON_OK ?= 0
+HYBRID_BLIND_DXF_DIR ?=
+HYBRID_BLIND_MANIFEST_CSV ?=
+HYBRID_BLIND_SYNTH_MANIFEST ?= tests/golden/golden_dxf_hybrid_cases.json
+HYBRID_BLIND_SYNTH_OUTPUT_DIR ?= reports/history_sequence_eval/hybrid_blind_synth
+HYBRID_BLIND_MAX_FILES ?= 200
+HYBRID_BLIND_SEED ?= 22
+HYBRID_BLIND_OUTPUT_DIR ?= reports/history_sequence_eval/hybrid_blind
+HYBRID_BLIND_SUMMARY_JSON ?= $(HYBRID_BLIND_OUTPUT_DIR)/summary.json
+HYBRID_BLIND_GATE_CONFIG ?= config/hybrid_blind_gate.yaml
+HYBRID_BLIND_GATE_OUTPUT_JSON ?= reports/history_sequence_eval/hybrid_blind_gate_report.json
+HYBRID_BLIND_HISTORY_OUTPUT_DIR ?= reports/eval_history
+HYBRID_BLIND_HISTORY_COUNT ?= 3
+HYBRID_BLIND_HISTORY_HOURS_STEP ?= 24
+HYBRID_BLIND_HISTORY_HYBRID_ACCURACY_DELTAS ?= 0,-0.01,-0.02
+HYBRID_BLIND_HISTORY_GRAPH2D_ACCURACY_DELTAS ?= 0,0,0
+HYBRID_BLIND_HISTORY_COVERAGE_DELTAS ?= 0,-0.01,-0.02
+HYBRID_BLIND_LABEL_SLICE_MIN_SUPPORT ?= 3
+HYBRID_BLIND_LABEL_SLICE_MAX_SLICES ?= 20
+HYBRID_BLIND_FAMILY_PREFIX_LEN ?= 2
+HYBRID_BLIND_FAMILY_SLICE_MAX_SLICES ?= 20
+HYBRID_BLIND_DRIFT_OUTPUT_JSON ?= reports/eval_history/hybrid_blind_drift_alerts.json
+HYBRID_BLIND_DRIFT_OUTPUT_MD ?= reports/eval_history/hybrid_blind_drift_alerts.md
+HYBRID_BLIND_DRIFT_MIN_REPORTS ?= 2
+HYBRID_BLIND_DRIFT_MAX_HYBRID_ACCURACY_DROP ?= 0.05
+HYBRID_BLIND_DRIFT_MAX_GAIN_DROP ?= 0.05
+HYBRID_BLIND_DRIFT_MAX_COVERAGE_DROP ?= 0.10
+HYBRID_BLIND_DRIFT_CONSECUTIVE_DROP_WINDOW ?= 1
+HYBRID_BLIND_DRIFT_LABEL_SLICE_ENABLE ?= 1
+HYBRID_BLIND_DRIFT_LABEL_SLICE_MIN_COMMON ?= 3
+HYBRID_BLIND_DRIFT_LABEL_SLICE_AUTO_CAP_MIN_COMMON ?= 1
+HYBRID_BLIND_DRIFT_LABEL_SLICE_MIN_SUPPORT ?= 3
+HYBRID_BLIND_DRIFT_LABEL_SLICE_MAX_HYBRID_ACCURACY_DROP ?= 0.15
+HYBRID_BLIND_DRIFT_LABEL_SLICE_MAX_GAIN_DROP ?= 0.15
+HYBRID_BLIND_DRIFT_FAMILY_SLICE_ENABLE ?= 1
+HYBRID_BLIND_DRIFT_FAMILY_SLICE_MIN_COMMON ?= 2
+HYBRID_BLIND_DRIFT_FAMILY_SLICE_AUTO_CAP_MIN_COMMON ?= 1
+HYBRID_BLIND_DRIFT_FAMILY_SLICE_MIN_SUPPORT ?= 5
+HYBRID_BLIND_DRIFT_FAMILY_SLICE_MAX_HYBRID_ACCURACY_DROP ?= 0.20
+HYBRID_BLIND_DRIFT_FAMILY_SLICE_MAX_GAIN_DROP ?= 0.20
+HYBRID_BLIND_DRIFT_SUGGEST_OUTPUT_JSON ?= reports/eval_history/hybrid_blind_drift_threshold_suggestion.json
+HYBRID_BLIND_DRIFT_SUGGEST_OUTPUT_MD ?= reports/eval_history/hybrid_blind_drift_threshold_suggestion.md
+HYBRID_BLIND_DRIFT_SUGGEST_QUANTILE ?= 0.90
+HYBRID_BLIND_DRIFT_SUGGEST_MIN_REPORTS ?= 4
+HYBRID_BLIND_DRIFT_SUGGEST_SAFETY_MULTIPLIER ?= 1.20
+HYBRID_BLIND_DRIFT_SUGGEST_LABEL_SLICE_MIN_SUPPORT ?= 3
+HYBRID_BLIND_DRIFT_SUGGEST_FAMILY_SLICE_MIN_SUPPORT ?= 5
+HYBRID_BLIND_DRIFT_SUGGEST_MIN_FLOOR_ACC_DROP ?= 0.05
+HYBRID_BLIND_DRIFT_SUGGEST_MIN_FLOOR_GAIN_DROP ?= 0.05
+HYBRID_BLIND_DRIFT_SUGGEST_MIN_FLOOR_COVERAGE_DROP ?= 0.10
+HYBRID_BLIND_DRIFT_SUGGEST_FLOOR_LABEL_ACC_DROP ?= 0.15
+HYBRID_BLIND_DRIFT_SUGGEST_FLOOR_LABEL_GAIN_DROP ?= 0.15
+HYBRID_BLIND_DRIFT_SUGGEST_FLOOR_FAMILY_ACC_DROP ?= 0.20
+HYBRID_BLIND_DRIFT_SUGGEST_FLOOR_FAMILY_GAIN_DROP ?= 0.20
+HYBRID_BLIND_DRIFT_APPLY_REPO ?=
+HYBRID_BLIND_DRIFT_APPLY ?= 0
+HYBRID_BLIND_STRICT_E2E_WORKFLOW ?= evaluation-report.yml
+HYBRID_BLIND_STRICT_E2E_REF ?= main
+HYBRID_BLIND_STRICT_E2E_REPO ?=
+HYBRID_BLIND_STRICT_E2E_EXPECTED_CONCLUSION ?= success
+HYBRID_BLIND_STRICT_E2E_TIMEOUT ?= 600
+HYBRID_BLIND_STRICT_E2E_POLL_INTERVAL ?= 3
+HYBRID_BLIND_STRICT_E2E_LIST_LIMIT ?= 20
+HYBRID_BLIND_STRICT_E2E_OUTPUT_JSON ?= reports/ci/hybrid_blind_strict_real_dispatch.json
+HYBRID_BLIND_STRICT_E2E_OUTPUT_MD ?= reports/ci/hybrid_blind_strict_real_dispatch.md
+HYBRID_BLIND_STRICT_E2E_PRINT_ONLY ?= 0
+HYBRID_BLIND_STRICT_GH_APPLY ?= 0
+SOFT_MODE_SMOKE_REPO ?=
+SOFT_MODE_SMOKE_WORKFLOW ?= evaluation-report.yml
+SOFT_MODE_SMOKE_REF ?= main
+SOFT_MODE_SMOKE_EXPECTED_CONCLUSION ?= success
+SOFT_MODE_SMOKE_WAIT_TIMEOUT ?= 900
+SOFT_MODE_SMOKE_POLL_INTERVAL ?= 3
+SOFT_MODE_SMOKE_LIST_LIMIT ?= 30
+SOFT_MODE_SMOKE_MAX_DISPATCH_ATTEMPTS ?= 1
+SOFT_MODE_SMOKE_RETRY_SLEEP_SECONDS ?= 15
+SOFT_MODE_SMOKE_OUTPUT_JSON ?= reports/ci/evaluation_soft_mode_smoke_summary.json
+SOFT_MODE_SMOKE_SUMMARY_MD ?= reports/ci/evaluation_soft_mode_smoke_summary.md
+SOFT_MODE_SMOKE_COMMENT_REPO ?= $(SOFT_MODE_SMOKE_REPO)
+SOFT_MODE_SMOKE_COMMENT_TITLE ?= CAD ML Platform - Soft Mode Smoke
+SOFT_MODE_SMOKE_COMMENT_COMMIT_SHA ?=
+SOFT_MODE_SMOKE_COMMENT_OUTPUT_JSON ?= reports/ci/evaluation_soft_mode_smoke_comment.json
+SOFT_MODE_SMOKE_COMMENT_PR_NUMBER ?=
+SOFT_MODE_SMOKE_COMMENT_PR_AUTO ?= 0
+SOFT_MODE_SMOKE_COMMENT_DRY_RUN ?= 0
+SOFT_MODE_SMOKE_COMMENT_FAIL_ON_ERROR ?= 0
+SOFT_MODE_SMOKE_SKIP_REMOTE_INPUT_CHECK ?= 0
+SOFT_MODE_SMOKE_SKIP_LOG_CHECK ?= 0
+SOFT_MODE_COMMENT_REPO ?=
+SOFT_MODE_COMMENT_PR_NUMBER ?=
+SOFT_MODE_COMMENT_SUMMARY_JSON ?= $(SOFT_MODE_SMOKE_OUTPUT_JSON)
+SOFT_MODE_COMMENT_COMMIT_SHA ?=
+SOFT_MODE_COMMENT_TITLE ?= CAD ML Platform - Soft Mode Smoke
+SOFT_MODE_COMMENT_OUTPUT_JSON ?= reports/ci/soft_mode_smoke_comment_result.json
+SOFT_MODE_COMMENT_DRY_RUN ?= 0
+HYBRID_SUPERPASS_VALIDATION_JSON ?= reports/history_sequence_eval/hybrid_superpass_validation.json
+HYBRID_SUPERPASS_VALIDATION_MD ?= reports/history_sequence_eval/hybrid_superpass_validation.md
+HYBRID_SUPERPASS_E2E_OUTPUT_MD ?= reports/history_sequence_eval/hybrid_superpass_dispatch.md
+EVAL_WEEKLY_SUMMARY_DIR ?= reports/eval_history
+EVAL_WEEKLY_SUMMARY_OUTPUT_MD ?= reports/ci/eval_weekly_summary.md
+EVAL_WEEKLY_SUMMARY_DAYS ?= 7
 HYBRID_SUPERPASS_GATE_REPORT_JSON ?= reports/history_sequence_eval/hybrid_blind_gate_report.json
 HYBRID_SUPERPASS_CALIBRATION_JSON ?= models/calibration/hybrid_confidence_calibration.json
 HYBRID_SUPERPASS_CONFIG ?= config/hybrid_superpass_targets.yaml
@@ -1155,6 +1430,375 @@ graph2d-review-pack-gate-strict-e2e: ## 触发 strict=false/true 两次 workflow
 		--list-limit "$(GRAPH2D_REVIEW_PACK_GATE_E2E_LIST_LIMIT)" \
 		--output-json "$(GRAPH2D_REVIEW_PACK_GATE_E2E_OUTPUT_JSON)" \
 		$$extra_flags
+
+hybrid-calibrate-confidence: ## 生成 HybridClassifier 置信度校准报告
+	@echo "$(GREEN)Calibrating hybrid confidence...$(NC)"
+	@extra_flags=""; \
+	if [ "$(HYBRID_CALIBRATION_PER_SOURCE)" = "1" ]; then extra_flags="$$extra_flags --per-source"; fi; \
+	if [ "$(HYBRID_CALIBRATION_FAIL_ON_INSUFFICIENT_DATA)" = "1" ]; then extra_flags="$$extra_flags --fail-on-insufficient-data"; fi; \
+	if [ "$(HYBRID_CALIBRATION_INCLUDE_FIT_DATA)" = "1" ]; then extra_flags="$$extra_flags --include-fit-data"; fi; \
+	$(PYTHON) scripts/calibrate_hybrid_confidence.py \
+		--input-csv "$(HYBRID_CALIBRATION_INPUT_CSV)" \
+		--output-json "$(HYBRID_CALIBRATION_OUTPUT_JSON)" \
+		--method "$(HYBRID_CALIBRATION_METHOD)" \
+		--confidence-col "$(HYBRID_CALIBRATION_CONFIDENCE_COL)" \
+		--correct-col "$(HYBRID_CALIBRATION_CORRECT_COL)" \
+		--pred-label-col "$(HYBRID_CALIBRATION_PRED_LABEL_COL)" \
+		--truth-label-col "$(HYBRID_CALIBRATION_TRUTH_LABEL_COL)" \
+		--source-col "$(HYBRID_CALIBRATION_SOURCE_COL)" \
+		--min-samples "$(HYBRID_CALIBRATION_MIN_SAMPLES)" \
+		--min-samples-per-source "$(HYBRID_CALIBRATION_MIN_SAMPLES_PER_SOURCE)" \
+		--max-rows "$(HYBRID_CALIBRATION_MAX_ROWS)" \
+		$$extra_flags
+
+hybrid-calibration-gate: ## 检查 hybrid calibration regression gate
+	@echo "$(GREEN)Checking hybrid calibration gate...$(NC)"
+	$(PYTHON) scripts/ci/check_hybrid_confidence_calibration_gate.py \
+		--current-json "$(HYBRID_CALIBRATION_GATE_CURRENT_JSON)" \
+		--baseline-json "$(HYBRID_CALIBRATION_GATE_BASELINE_JSON)" \
+		--config "$(HYBRID_CALIBRATION_GATE_CONFIG)" \
+		--missing-mode "$(HYBRID_CALIBRATION_GATE_MISSING_MODE)" \
+		--output-json "$(HYBRID_CALIBRATION_GATE_OUTPUT_JSON)"
+
+update-hybrid-calibration-baseline: ## 更新 hybrid calibration baseline
+	@echo "$(GREEN)Updating hybrid calibration baseline...$(NC)"
+	@extra_flags=""; \
+	if [ -n "$(HYBRID_CALIBRATION_BASELINE_SNAPSHOT_JSON)" ]; then extra_flags="$$extra_flags --snapshot-output-json $(HYBRID_CALIBRATION_BASELINE_SNAPSHOT_JSON)"; fi; \
+	if [ "$(HYBRID_CALIBRATION_BASELINE_ALLOW_NON_OK)" = "1" ]; then extra_flags="$$extra_flags --allow-non-ok-status"; fi; \
+	$(PYTHON) scripts/ci/update_hybrid_confidence_calibration_baseline.py \
+		--current-json "$(HYBRID_CALIBRATION_BASELINE_SOURCE_JSON)" \
+		--output-baseline-json "$(HYBRID_CALIBRATION_BASELINE_JSON)" \
+		$$extra_flags
+
+refresh-hybrid-calibration-baseline: ## 重新生成 calibration 并刷新 baseline
+	@echo "$(GREEN)Refreshing hybrid calibration baseline...$(NC)"
+	$(MAKE) hybrid-calibrate-confidence \
+		HYBRID_CALIBRATION_MIN_SAMPLES="$(HYBRID_CALIBRATION_MIN_SAMPLES)" \
+		HYBRID_CALIBRATION_OUTPUT_JSON="$(HYBRID_CALIBRATION_BASELINE_SOURCE_JSON)"
+	$(MAKE) update-hybrid-calibration-baseline \
+		HYBRID_CALIBRATION_BASELINE_SOURCE_JSON="$(HYBRID_CALIBRATION_BASELINE_SOURCE_JSON)"
+
+validate-hybrid-calibration-workflow: ## 校验 hybrid calibration workflow 相关测试
+	@echo "$(GREEN)Validating hybrid calibration workflow tests...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_calibrate_hybrid_confidence_script.py \
+		$(TEST_DIR)/unit/test_hybrid_confidence_calibration_gate_check.py \
+		$(TEST_DIR)/unit/test_hybrid_confidence_calibration_baseline_update.py \
+		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py \
+		$(TEST_DIR)/unit/test_evaluation_report_workflow_graph2d_extensions.py \
+		$(TEST_DIR)/unit/test_ci_workflow_hybrid_calibration_regression_step.py -q
+
+hybrid-blind-build-synth: ## 生成 hybrid blind synthetic DXF 数据集
+	@echo "$(GREEN)Building hybrid blind synthetic DXF dataset...$(NC)"
+	$(PYTHON) scripts/ci/build_hybrid_blind_synthetic_dxf_dataset.py \
+		--manifest "$(HYBRID_BLIND_SYNTH_MANIFEST)" \
+		--output-dir "$(HYBRID_BLIND_SYNTH_OUTPUT_DIR)" \
+		--max-files "$(HYBRID_BLIND_MAX_FILES)"
+
+hybrid-blind-eval: ## 运行 hybrid blind geometry-only 评测（无真实目录时自动生成 synthetic 数据）
+	@echo "$(GREEN)Running hybrid blind evaluation...$(NC)"
+	@dxf_dir="$(HYBRID_BLIND_DXF_DIR)"; \
+	if [ -z "$$dxf_dir" ]; then \
+		$(PYTHON) scripts/ci/build_hybrid_blind_synthetic_dxf_dataset.py \
+			--manifest "$(HYBRID_BLIND_SYNTH_MANIFEST)" \
+			--output-dir "$(HYBRID_BLIND_SYNTH_OUTPUT_DIR)" \
+			--max-files "$(HYBRID_BLIND_MAX_FILES)"; \
+		dxf_dir="$(HYBRID_BLIND_SYNTH_OUTPUT_DIR)"; \
+	fi; \
+	$(PYTHON) scripts/batch_analyze_dxf_local.py \
+		--dxf-dir "$$dxf_dir" \
+		--manifest "$(HYBRID_BLIND_MANIFEST_CSV)" \
+		--output-dir "$(HYBRID_BLIND_OUTPUT_DIR)" \
+		--max-files "$(HYBRID_BLIND_MAX_FILES)" \
+		--seed "$(HYBRID_BLIND_SEED)" \
+		--geometry-only
+
+hybrid-blind-gate: ## 检查 hybrid blind 评测门禁
+	@echo "$(GREEN)Checking hybrid blind gate...$(NC)"
+	$(PYTHON) scripts/ci/check_hybrid_blind_gate.py \
+		--summary-json "$(HYBRID_BLIND_SUMMARY_JSON)" \
+		--config "$(HYBRID_BLIND_GATE_CONFIG)" \
+		--output "$(HYBRID_BLIND_GATE_OUTPUT_JSON)"
+
+hybrid-blind-history-bootstrap: ## 为 hybrid blind 漂移分析生成评测历史样本
+	@echo "$(GREEN)Bootstrapping hybrid blind eval history...$(NC)"
+	@extra_flags=""; \
+	if [ -n "$(HYBRID_BLIND_MANIFEST_CSV)" ]; then extra_flags="$$extra_flags --family-map-json $(HYBRID_BLIND_MANIFEST_CSV)"; fi; \
+	$(PYTHON) scripts/ci/bootstrap_hybrid_blind_eval_history.py \
+		--summary-json "$(HYBRID_BLIND_SUMMARY_JSON)" \
+		--gate-report-json "$(HYBRID_BLIND_GATE_OUTPUT_JSON)" \
+		--output-dir "$(HYBRID_BLIND_HISTORY_OUTPUT_DIR)" \
+		--count "$(HYBRID_BLIND_HISTORY_COUNT)" \
+		--hours-step "$(HYBRID_BLIND_HISTORY_HOURS_STEP)" \
+		--hybrid-accuracy-deltas "$(HYBRID_BLIND_HISTORY_HYBRID_ACCURACY_DELTAS)" \
+		--graph2d-accuracy-deltas "$(HYBRID_BLIND_HISTORY_GRAPH2D_ACCURACY_DELTAS)" \
+		--coverage-deltas "$(HYBRID_BLIND_HISTORY_COVERAGE_DELTAS)" \
+		--label-slice-min-support "$(HYBRID_BLIND_LABEL_SLICE_MIN_SUPPORT)" \
+		--label-slice-max-slices "$(HYBRID_BLIND_LABEL_SLICE_MAX_SLICES)" \
+		--family-prefix-len "$(HYBRID_BLIND_FAMILY_PREFIX_LEN)" \
+		--family-slice-max-slices "$(HYBRID_BLIND_FAMILY_SLICE_MAX_SLICES)" \
+		$$extra_flags
+
+hybrid-blind-drift-alert: ## 检查 hybrid blind 漂移告警
+	@echo "$(GREEN)Checking hybrid blind drift alerts...$(NC)"
+	@extra_flags=""; \
+	if [ "$(HYBRID_BLIND_DRIFT_LABEL_SLICE_ENABLE)" = "1" ]; then extra_flags="$$extra_flags --label-slice-enable"; fi; \
+	if [ "$(HYBRID_BLIND_DRIFT_LABEL_SLICE_AUTO_CAP_MIN_COMMON)" = "1" ]; then extra_flags="$$extra_flags --label-slice-auto-cap-min-common"; else extra_flags="$$extra_flags --no-label-slice-auto-cap-min-common"; fi; \
+	if [ "$(HYBRID_BLIND_DRIFT_FAMILY_SLICE_ENABLE)" = "1" ]; then extra_flags="$$extra_flags --family-slice-enable"; fi; \
+	if [ "$(HYBRID_BLIND_DRIFT_FAMILY_SLICE_AUTO_CAP_MIN_COMMON)" = "1" ]; then extra_flags="$$extra_flags --family-slice-auto-cap-min-common"; else extra_flags="$$extra_flags --no-family-slice-auto-cap-min-common"; fi; \
+	$(PYTHON) scripts/ci/check_hybrid_blind_drift_alerts.py \
+		--eval-history-dir "$(HYBRID_BLIND_HISTORY_OUTPUT_DIR)" \
+		--output-json "$(HYBRID_BLIND_DRIFT_OUTPUT_JSON)" \
+		--output-md "$(HYBRID_BLIND_DRIFT_OUTPUT_MD)" \
+		--min-reports "$(HYBRID_BLIND_DRIFT_MIN_REPORTS)" \
+		--max-hybrid-accuracy-drop "$(HYBRID_BLIND_DRIFT_MAX_HYBRID_ACCURACY_DROP)" \
+		--max-gain-drop "$(HYBRID_BLIND_DRIFT_MAX_GAIN_DROP)" \
+		--max-coverage-drop "$(HYBRID_BLIND_DRIFT_MAX_COVERAGE_DROP)" \
+		--consecutive-drop-window "$(HYBRID_BLIND_DRIFT_CONSECUTIVE_DROP_WINDOW)" \
+		--label-slice-min-common "$(HYBRID_BLIND_DRIFT_LABEL_SLICE_MIN_COMMON)" \
+		--label-slice-min-support "$(HYBRID_BLIND_DRIFT_LABEL_SLICE_MIN_SUPPORT)" \
+		--label-slice-max-hybrid-accuracy-drop "$(HYBRID_BLIND_DRIFT_LABEL_SLICE_MAX_HYBRID_ACCURACY_DROP)" \
+		--label-slice-max-gain-drop "$(HYBRID_BLIND_DRIFT_LABEL_SLICE_MAX_GAIN_DROP)" \
+		--family-slice-min-common "$(HYBRID_BLIND_DRIFT_FAMILY_SLICE_MIN_COMMON)" \
+		--family-slice-min-support "$(HYBRID_BLIND_DRIFT_FAMILY_SLICE_MIN_SUPPORT)" \
+		--family-slice-max-hybrid-accuracy-drop "$(HYBRID_BLIND_DRIFT_FAMILY_SLICE_MAX_HYBRID_ACCURACY_DROP)" \
+		--family-slice-max-gain-drop "$(HYBRID_BLIND_DRIFT_FAMILY_SLICE_MAX_GAIN_DROP)" \
+		$$extra_flags
+
+hybrid-blind-drift-suggest-thresholds: ## 基于历史建议 hybrid blind drift 阈值
+	@echo "$(GREEN)Suggesting hybrid blind drift thresholds...$(NC)"
+	$(PYTHON) scripts/ci/suggest_hybrid_blind_drift_thresholds.py \
+		--eval-history-dir "$(HYBRID_BLIND_HISTORY_OUTPUT_DIR)" \
+		--output-json "$(HYBRID_BLIND_DRIFT_SUGGEST_OUTPUT_JSON)" \
+		--output-md "$(HYBRID_BLIND_DRIFT_SUGGEST_OUTPUT_MD)" \
+		--quantile "$(HYBRID_BLIND_DRIFT_SUGGEST_QUANTILE)" \
+		--min-reports "$(HYBRID_BLIND_DRIFT_SUGGEST_MIN_REPORTS)" \
+		--safety-multiplier "$(HYBRID_BLIND_DRIFT_SUGGEST_SAFETY_MULTIPLIER)" \
+		--label-slice-min-support "$(HYBRID_BLIND_DRIFT_SUGGEST_LABEL_SLICE_MIN_SUPPORT)" \
+		--family-slice-min-support "$(HYBRID_BLIND_DRIFT_SUGGEST_FAMILY_SLICE_MIN_SUPPORT)" \
+		--min-floor-acc-drop "$(HYBRID_BLIND_DRIFT_SUGGEST_MIN_FLOOR_ACC_DROP)" \
+		--min-floor-gain-drop "$(HYBRID_BLIND_DRIFT_SUGGEST_MIN_FLOOR_GAIN_DROP)" \
+		--min-floor-coverage-drop "$(HYBRID_BLIND_DRIFT_SUGGEST_MIN_FLOOR_COVERAGE_DROP)" \
+		--floor-label-acc-drop "$(HYBRID_BLIND_DRIFT_SUGGEST_FLOOR_LABEL_ACC_DROP)" \
+		--floor-label-gain-drop "$(HYBRID_BLIND_DRIFT_SUGGEST_FLOOR_LABEL_GAIN_DROP)" \
+		--floor-family-acc-drop "$(HYBRID_BLIND_DRIFT_SUGGEST_FLOOR_FAMILY_ACC_DROP)" \
+		--floor-family-gain-drop "$(HYBRID_BLIND_DRIFT_SUGGEST_FLOOR_FAMILY_GAIN_DROP)"
+
+hybrid-blind-drift-apply-suggestion-gh: ## 将 drift threshold 建议应用到 GitHub Variables（默认仅预览）
+	@echo "$(GREEN)Applying hybrid blind drift suggestion to GitHub...$(NC)"
+	@extra_flags=""; \
+	if [ "$(HYBRID_BLIND_DRIFT_APPLY)" = "1" ]; then extra_flags="$$extra_flags --apply"; fi; \
+	$(PYTHON) scripts/ci/apply_hybrid_blind_drift_suggestion_to_gh_vars.py \
+		--suggestion-json "$(HYBRID_BLIND_DRIFT_SUGGEST_OUTPUT_JSON)" \
+		--repo "$(HYBRID_BLIND_DRIFT_APPLY_REPO)" \
+		$$extra_flags
+
+hybrid-blind-drift-activate: ## 串联 bootstrap + drift alert
+	@echo "$(GREEN)Activating hybrid blind drift pipeline...$(NC)"
+	$(MAKE) hybrid-blind-history-bootstrap
+	$(MAKE) hybrid-blind-drift-alert
+
+hybrid-blind-strict-real: ## 使用真实 DXF 数据执行 strict hybrid blind flow
+	@echo "Running strict hybrid blind flow with real DXF dataset"
+	$(MAKE) hybrid-blind-eval HYBRID_BLIND_DXF_DIR="$(HYBRID_BLIND_DXF_DIR)"
+	$(MAKE) hybrid-blind-gate
+
+hybrid-blind-strict-real-e2e-gh: ## 通过 gh workflow_dispatch 触发 strict-real hybrid blind workflow
+	@echo "$(GREEN)Dispatching hybrid blind strict-real workflow...$(NC)"
+	@extra_flags=""; \
+	if [ "$(HYBRID_BLIND_STRICT_E2E_PRINT_ONLY)" = "1" ]; then extra_flags="$$extra_flags --print-only"; fi; \
+	$(PYTHON) scripts/ci/dispatch_hybrid_blind_strict_real_workflow.py \
+		--workflow "$(HYBRID_BLIND_STRICT_E2E_WORKFLOW)" \
+		--ref "$(HYBRID_BLIND_STRICT_E2E_REF)" \
+		--repo "$(HYBRID_BLIND_STRICT_E2E_REPO)" \
+		--hybrid-blind-dxf-dir "$(HYBRID_BLIND_DXF_DIR)" \
+		--strict-fail-on-gate-failed true \
+		--strict-require-real-data true \
+		--expected-conclusion "$(HYBRID_BLIND_STRICT_E2E_EXPECTED_CONCLUSION)" \
+		--wait-timeout-seconds "$(HYBRID_BLIND_STRICT_E2E_TIMEOUT)" \
+		--poll-interval-seconds "$(HYBRID_BLIND_STRICT_E2E_POLL_INTERVAL)" \
+		--list-limit "$(HYBRID_BLIND_STRICT_E2E_LIST_LIMIT)" \
+		--output-json "$(HYBRID_BLIND_STRICT_E2E_OUTPUT_JSON)" \
+		$$extra_flags
+
+hybrid-blind-strict-real-template-gh: ## 打印 strict-real hybrid blind workflow_dispatch 命令模板
+	@echo "$(GREEN)Printing hybrid blind strict-real GitHub template...$(NC)"
+	@extra_flags=""; \
+	if [ -n "$(HYBRID_BLIND_STRICT_E2E_REPO)" ]; then extra_flags="$$extra_flags --repo $(HYBRID_BLIND_STRICT_E2E_REPO)"; fi; \
+	$(PYTHON) scripts/ci/print_hybrid_blind_strict_real_gh_template.py \
+		--workflow "$(HYBRID_BLIND_STRICT_E2E_WORKFLOW)" \
+		--ref "$(HYBRID_BLIND_STRICT_E2E_REF)" \
+		--dxf-dir "$(HYBRID_BLIND_DXF_DIR)" \
+		--print-vars --print-watch \
+		$$extra_flags
+
+hybrid-blind-strict-real-apply-gh-vars: ## 将 strict-real hybrid blind 基线变量同步到 GitHub Variables（默认仅预览）
+	@echo "$(GREEN)Applying hybrid blind strict-real GitHub variables...$(NC)"
+	@extra_flags=""; \
+	if [ "$(HYBRID_BLIND_STRICT_GH_APPLY)" = "1" ]; then extra_flags="$$extra_flags --apply"; fi; \
+	$(PYTHON) scripts/ci/apply_hybrid_blind_strict_real_gh_vars.py \
+		--repo "$(HYBRID_BLIND_STRICT_E2E_REPO)" \
+		--dxf-dir "$(HYBRID_BLIND_DXF_DIR)" \
+		$$extra_flags
+
+validate-soft-mode-smoke: ## 触发 evaluation soft-mode smoke dispatcher
+	@echo "$(GREEN)Running evaluation soft-mode smoke...$(NC)"
+	@extra_flags=""; \
+	if [ -n "$(SOFT_MODE_SMOKE_COMMENT_PR_NUMBER)" ]; then extra_flags="$$extra_flags --comment-pr-number $(SOFT_MODE_SMOKE_COMMENT_PR_NUMBER)"; fi; \
+	if [ "$(SOFT_MODE_SMOKE_COMMENT_PR_AUTO)" = "1" ]; then extra_flags="$$extra_flags --comment-pr-auto"; fi; \
+	if [ "$(SOFT_MODE_SMOKE_COMMENT_DRY_RUN)" = "1" ]; then extra_flags="$$extra_flags --comment-dry-run"; fi; \
+	if [ "$(SOFT_MODE_SMOKE_COMMENT_FAIL_ON_ERROR)" = "1" ]; then extra_flags="$$extra_flags --comment-fail-on-error"; fi; \
+	if [ "$(SOFT_MODE_SMOKE_SKIP_REMOTE_INPUT_CHECK)" = "1" ]; then extra_flags="$$extra_flags --skip-remote-input-check"; fi; \
+	if [ "$(SOFT_MODE_SMOKE_SKIP_LOG_CHECK)" = "1" ]; then extra_flags="$$extra_flags --skip-log-check"; fi; \
+	$(PYTHON) scripts/ci/dispatch_evaluation_soft_mode_smoke.py \
+		--repo "$(SOFT_MODE_SMOKE_REPO)" \
+		--workflow "$(SOFT_MODE_SMOKE_WORKFLOW)" \
+		--ref "$(SOFT_MODE_SMOKE_REF)" \
+		--expected-conclusion "$(SOFT_MODE_SMOKE_EXPECTED_CONCLUSION)" \
+		--comment-repo "$(SOFT_MODE_SMOKE_COMMENT_REPO)" \
+		--comment-title "$(SOFT_MODE_SMOKE_COMMENT_TITLE)" \
+		--comment-commit-sha "$(SOFT_MODE_SMOKE_COMMENT_COMMIT_SHA)" \
+		--comment-output-json "$(SOFT_MODE_SMOKE_COMMENT_OUTPUT_JSON)" \
+		--wait-timeout-seconds "$(SOFT_MODE_SMOKE_WAIT_TIMEOUT)" \
+		--poll-interval-seconds "$(SOFT_MODE_SMOKE_POLL_INTERVAL)" \
+		--list-limit "$(SOFT_MODE_SMOKE_LIST_LIMIT)" \
+		--max-dispatch-attempts "$(SOFT_MODE_SMOKE_MAX_DISPATCH_ATTEMPTS)" \
+		--retry-sleep-seconds "$(SOFT_MODE_SMOKE_RETRY_SLEEP_SECONDS)" \
+		--output-json "$(SOFT_MODE_SMOKE_OUTPUT_JSON)" \
+		$$extra_flags
+
+validate-soft-mode-smoke-auto-pr: ## 以 auto-pr 模式触发 soft-mode smoke
+	@echo "$(GREEN)Running evaluation soft-mode smoke with auto PR resolution...$(NC)"
+	$(MAKE) validate-soft-mode-smoke \
+		SOFT_MODE_SMOKE_COMMENT_PR_AUTO=1 \
+		SOFT_MODE_SMOKE_REPO="$(SOFT_MODE_SMOKE_REPO)" \
+		SOFT_MODE_SMOKE_COMMENT_DRY_RUN="$(SOFT_MODE_SMOKE_COMMENT_DRY_RUN)"
+
+render-soft-mode-smoke-summary: ## 渲染 soft-mode smoke summary markdown
+	@echo "$(GREEN)Rendering soft-mode smoke summary...$(NC)"
+	$(PYTHON) scripts/ci/render_soft_mode_smoke_summary.py \
+		--summary-json "$(SOFT_MODE_SMOKE_OUTPUT_JSON)" \
+		--output-md "$(SOFT_MODE_SMOKE_SUMMARY_MD)"
+
+render-hybrid-blind-strict-real-dispatch-summary: ## 渲染 strict-real hybrid blind dispatch summary markdown
+	@echo "$(GREEN)Rendering hybrid blind strict-real dispatch summary...$(NC)"
+	$(PYTHON) scripts/ci/render_hybrid_blind_strict_real_dispatch_summary.py \
+		--dispatch-json "$(HYBRID_BLIND_STRICT_E2E_OUTPUT_JSON)" \
+		--output-md "$(HYBRID_BLIND_STRICT_E2E_OUTPUT_MD)"
+
+render-hybrid-superpass-dispatch-summary: ## 渲染 hybrid superpass dispatch summary markdown
+	@echo "$(GREEN)Rendering hybrid superpass dispatch summary...$(NC)"
+	$(PYTHON) scripts/ci/render_hybrid_superpass_dispatch_summary.py \
+		--dispatch-json "$(HYBRID_SUPERPASS_E2E_OUTPUT_JSON)" \
+		--output-md "$(HYBRID_SUPERPASS_E2E_OUTPUT_MD)"
+
+render-hybrid-superpass-validation-summary: ## 渲染 hybrid superpass validation summary markdown
+	@echo "$(GREEN)Rendering hybrid superpass validation summary...$(NC)"
+	$(PYTHON) scripts/ci/render_hybrid_superpass_validation_summary.py \
+		--validation-json "$(HYBRID_SUPERPASS_VALIDATION_JSON)" \
+		--output-md "$(HYBRID_SUPERPASS_VALIDATION_MD)"
+
+validate-render-soft-mode-smoke-summary: ## 校验 soft-mode smoke summary renderer
+	@echo "$(GREEN)Validating soft-mode smoke summary renderer...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_summary_render_utils.py \
+		$(TEST_DIR)/unit/test_render_soft_mode_smoke_summary.py \
+		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py -q
+
+validate-soft-mode-smoke-workflow: ## 校验 evaluation soft-mode smoke workflow
+	@echo "$(GREEN)Validating evaluation soft-mode smoke workflow...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_dispatch_evaluation_soft_mode_smoke.py \
+		$(TEST_DIR)/unit/test_render_soft_mode_smoke_summary.py \
+		$(TEST_DIR)/unit/test_evaluation_soft_mode_smoke_workflow.py \
+		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py -q
+
+validate-render-hybrid-superpass-validation-summary: ## 校验 hybrid superpass validation summary renderer
+	@echo "$(GREEN)Validating hybrid superpass validation summary renderer...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_summary_render_utils.py \
+		$(TEST_DIR)/unit/test_render_hybrid_superpass_validation_summary.py \
+		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py -q
+
+validate-render-hybrid-blind-strict-real-dispatch-summary: ## 校验 strict-real hybrid blind dispatch summary renderer
+	@echo "$(GREEN)Validating hybrid blind strict-real dispatch summary renderer...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_summary_render_utils.py \
+		$(TEST_DIR)/unit/test_render_hybrid_blind_strict_real_dispatch_summary.py \
+		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py -q
+
+validate-render-hybrid-superpass-dispatch-summary: ## 校验 hybrid superpass dispatch summary renderer
+	@echo "$(GREEN)Validating hybrid superpass dispatch summary renderer...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_summary_render_utils.py \
+		$(TEST_DIR)/unit/test_render_hybrid_superpass_dispatch_summary.py \
+		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py -q
+
+validate-soft-mode-smoke-comment: ## 校验 soft-mode smoke comment helper
+	@echo "$(GREEN)Validating soft-mode smoke comment helper...$(NC)"
+	node --check scripts/ci/comment_markdown_utils.js
+	node --check scripts/ci/comment_pr_utils.js
+	node --check scripts/ci/comment_soft_mode_smoke_pr.js
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_comment_markdown_utils_js.py \
+		$(TEST_DIR)/unit/test_comment_pr_utils_js.py \
+		$(TEST_DIR)/unit/test_soft_mode_comment_body_consistency.py \
+		$(TEST_DIR)/unit/test_comment_soft_mode_smoke_pr_js.py -q
+
+soft-mode-smoke-comment-pr: ## 向 PR 发布 soft-mode smoke summary comment（默认 dry-run）
+	@echo "$(GREEN)Posting soft-mode smoke PR comment...$(NC)"
+	@extra_flags=""; \
+	if [ "$(SOFT_MODE_COMMENT_DRY_RUN)" = "1" ]; then extra_flags="$$extra_flags --dry-run"; fi; \
+	$(PYTHON) scripts/ci/post_soft_mode_smoke_pr_comment.py \
+		--repo "$(SOFT_MODE_COMMENT_REPO)" \
+		--pr-number "$(SOFT_MODE_COMMENT_PR_NUMBER)" \
+		--summary-json "$(SOFT_MODE_COMMENT_SUMMARY_JSON)" \
+		--commit-sha "$(SOFT_MODE_COMMENT_COMMIT_SHA)" \
+		--title "$(SOFT_MODE_COMMENT_TITLE)" \
+		--output-json "$(SOFT_MODE_COMMENT_OUTPUT_JSON)" \
+		$$extra_flags
+
+validate-soft-mode-smoke-comment-pr: ## 校验 soft-mode smoke PR comment publisher
+	@echo "$(GREEN)Validating soft-mode smoke PR comment publisher...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_comment_markdown_utils_py.py \
+		$(TEST_DIR)/unit/test_soft_mode_comment_body_consistency.py \
+		$(TEST_DIR)/unit/test_post_soft_mode_smoke_pr_comment.py \
+		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py -q
+
+validate-hybrid-blind-strict-real-e2e-gh: ## 校验 strict-real hybrid blind dispatcher / template / workflow
+	@echo "$(GREEN)Validating hybrid blind strict-real e2e GitHub flow...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_dispatch_hybrid_blind_strict_real_workflow.py \
+		$(TEST_DIR)/unit/test_hybrid_blind_strict_real_e2e_workflow.py \
+		$(TEST_DIR)/unit/test_print_hybrid_blind_strict_real_gh_template.py \
+		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py -q
+
+eval-weekly-summary: ## 生成 weekly evaluation summary markdown
+	@echo "$(GREEN)Generating weekly evaluation summary...$(NC)"
+	$(PYTHON) scripts/ci/generate_eval_weekly_summary.py \
+		--eval-history-dir "$(EVAL_WEEKLY_SUMMARY_DIR)" \
+		--output-md "$(EVAL_WEEKLY_SUMMARY_OUTPUT_MD)" \
+		--days "$(EVAL_WEEKLY_SUMMARY_DAYS)"
+
+validate-hybrid-blind-workflow: ## 校验 hybrid blind workflow / drift / weekly summary 集成
+	@echo "$(GREEN)Validating hybrid blind workflow integration...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_dispatch_hybrid_blind_strict_real_workflow.py \
+		$(TEST_DIR)/unit/test_print_hybrid_blind_strict_real_gh_template.py \
+		$(TEST_DIR)/unit/test_check_hybrid_blind_drift_alerts.py \
+		$(TEST_DIR)/unit/test_build_hybrid_blind_synthetic_dxf_dataset.py \
+		$(TEST_DIR)/unit/test_hybrid_blind_gate_check.py \
+		$(TEST_DIR)/unit/test_archive_hybrid_blind_eval_history.py \
+		$(TEST_DIR)/unit/test_bootstrap_hybrid_blind_eval_history.py \
+		$(TEST_DIR)/unit/test_apply_hybrid_blind_drift_suggestion_to_gh_vars.py \
+		$(TEST_DIR)/unit/test_suggest_hybrid_blind_drift_thresholds.py \
+		$(TEST_DIR)/unit/test_validate_eval_history_hybrid_blind.py \
+		$(TEST_DIR)/unit/test_generate_eval_weekly_summary.py \
+		$(TEST_DIR)/unit/test_check_hybrid_superpass_targets.py \
+		$(TEST_DIR)/unit/test_evaluation_report_workflow_hybrid_superpass_step.py \
+		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py \
+		$(TEST_DIR)/unit/test_evaluation_report_workflow_graph2d_extensions.py -q
 
 hybrid-superpass-gate: ## 检查 Hybrid 超越目标门禁（盲测精度/增益 + 校准ECE）
 	@echo "$(GREEN)Checking hybrid superpass targets...$(NC)"
@@ -1302,13 +1946,17 @@ validate-hybrid-superpass-workflow: ## 校验 superpass gh 自动化与 workflow
 	@echo "$(GREEN)Validating hybrid superpass workflow integration...$(NC)"
 	$(PYTEST) \
 		$(TEST_DIR)/unit/test_dispatch_hybrid_superpass_workflow.py \
+		$(TEST_DIR)/unit/test_dispatch_evaluation_soft_mode_smoke.py \
 		$(TEST_DIR)/unit/test_run_hybrid_superpass_dual_dispatch.py \
 		$(TEST_DIR)/unit/test_apply_hybrid_superpass_gh_vars.py \
 		$(TEST_DIR)/unit/test_check_hybrid_superpass_targets.py \
 		$(TEST_DIR)/unit/test_compare_hybrid_superpass_reports.py \
+		$(TEST_DIR)/unit/test_validate_hybrid_superpass_reports.py \
 		$(TEST_DIR)/unit/test_hybrid_superpass_e2e_workflow.py \
 		$(TEST_DIR)/unit/test_evaluation_report_workflow_hybrid_superpass_step.py \
+		$(TEST_DIR)/unit/test_evaluation_soft_mode_smoke_workflow.py \
 		$(TEST_DIR)/unit/test_hybrid_superpass_workflow_integration.py \
+		$(TEST_DIR)/unit/test_hybrid_calibration_make_targets.py \
 		$(TEST_DIR)/unit/test_graph2d_parallel_make_targets.py \
 		$(TEST_DIR)/unit/test_evaluation_report_workflow_graph2d_extensions.py -q
 
