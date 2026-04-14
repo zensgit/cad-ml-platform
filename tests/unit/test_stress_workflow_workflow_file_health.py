@@ -36,6 +36,9 @@ def test_stress_workflow_has_workflow_file_health_job() -> None:
     assert job["runs-on"] == "ubuntu-latest"
     assert job["env"]["GH_TOKEN"] == "${{ github.token }}"
 
+    install_pyyaml_step = _get_step(workflow, "workflow-file-health", "Install PyYAML")
+    assert install_pyyaml_step["run"] == "pip install pyyaml"
+
     step = _get_step(workflow, "workflow-file-health", "Validate workflow file health via GitHub parser")
     run_script = step["run"]
     assert "scripts/ci/check_workflow_file_issues.py" in run_script
