@@ -8,6 +8,509 @@ function envStr(name, fallback = "") {
   return String(value);
 }
 
+function safeInt(value) {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+  const parsed = Number.parseInt(String(value), 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function statusToLight(status) {
+  const normalized = String(status || "").trim().toLowerCase();
+  if (["ok", "pass", "passed", "success"].includes(normalized)) {
+    return "🟢";
+  }
+  if (["warning", "warn", "degraded", "missing"].includes(normalized)) {
+    return "🟡";
+  }
+  if (["error", "fail", "failed"].includes(normalized)) {
+    return "🔴";
+  }
+  return "⚪";
+}
+
+function deriveAggregateStatus(statuses) {
+  const normalized = statuses
+    .map((item) => String(item || "").trim().toLowerCase())
+    .filter(Boolean);
+  if (normalized.some((item) => ["error", "fail", "failed"].includes(item))) {
+    return "error";
+  }
+  if (normalized.some((item) => ["warning", "warn", "missing", "degraded"].includes(item))) {
+    return "warning";
+  }
+  if (normalized.some((item) => ["ok", "pass", "passed", "success"].includes(item))) {
+    return "ok";
+  }
+  return "unknown";
+}
+
+function normalizeNames(values) {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+  return values
+    .map((item) => String(item || "").trim())
+    .filter(Boolean);
+}
+
+function loadJsonArtifactSummary(path, summarizePayload, fsApi = require("fs")) {
+  const normalizedPath = String(path || "").trim();
+  if (!normalizedPath) {
+    return {
+      summary: "⏭️ skipped (no summary path)",
+      light: "⚪",
+      status: "skipped",
+      payload: null,
+    };
+  }
+  try {
+    if (!fsApi.existsSync(normalizedPath)) {
+      return {
+        summary: `summary missing at ${normalizedPath}`,
+        light: "🟡",
+        status: "missing",
+        payload: null,
+      };
+    }
+    const payload = JSON.parse(fsApi.readFileSync(normalizedPath, "utf8"));
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      throw new Error("expected object");
+    }
+    const summarized = summarizePayload(payload);
+    return {
+      summary: String(summarized.summary || "n/a"),
+      light: String(summarized.light || "⚪"),
+      status: String(summarized.status || "unknown"),
+      payload,
+    };
+  } catch (error) {
+    const message = error && error.message ? error.message : String(error);
+    return {
+      summary: `parse_error: ${message}`,
+      light: "🔴",
+      status: "error",
+      payload: null,
+    };
+  }
+}
+
+function summarizeEvaluationCommentSupportManifestPayload(payload) {
+  const entries = Array.isArray(payload.entries)
+    ? payload.entries.filter((item) => item && typeof item === "object")
+    : [];
+  let summary = String(payload.summary || "").trim();
+  let presentCount = safeInt(payload.present_count);
+  let missingCount = safeInt(payload.missing_count);
+  let invalidCount = safeInt(payload.invalid_count);
+
+  if (entries.length > 0 && (presentCount === null || missingCount === null || invalidCount === null)) {
+    const derivedPresent = entries.filter((item) => Boolean(item.present)).length;
+    const derivedMissing = entries.length - derivedPresent;
+    const derivedInvalid = entries.filter(
+      (item) => String(item.parse_status || "").trim() === "error"
+    ).length;
+    if (presentCount === null) {
+      presentCount = derivedPresent;
+    }
+    if (missingCount === null) {
+      missingCount = derivedMissing;
+    }
+    if (invalidCount === null) {
+      invalidCount = derivedInvalid;
+    }
+  }
+
+  if (!summary) {
+    let total = 0;
+    if (presentCount !== null && missingCount !== null) {
+      total = presentCount + missingCount;
+    } else if (entries.length > 0) {
+      total = entries.length;
+    }
+    if (presentCount !== null && missingCount !== null && invalidCount !== null) {
+      summary = `present=${presentCount}/${total}, missing=${missingCount}, invalid=${invalidCount}`;
+    } else if (String(payload.verdict || "").trim()) {
+      summary = `verdict=${String(payload.verdict || "").trim()}`;
+    } else if (String(payload.overall_status || "").trim()) {
+      summary = `status=${String(payload.overall_status || "").trim()}`;
+    } else {
+      summary = "n/a";
+    }
+  }
+
+  const missingIds = entries
+    .filter((item) => !Boolean(item.present))
+    .map((item) => String(item.id || "").trim())
+    .filter(Boolean);
+  if (missingIds.length > 0) {
+    summary = `${summary}; missing=${missingIds.join("/")}`;
+  }
+
+  const status =
+    String(payload.overall_status || "").trim() ||
+    (invalidCount && invalidCount > 0
+      ? "error"
+      : (missingCount && missingCount > 0 ? "warning" : "ok"));
+  const light = String(payload.overall_light || "").trim() || statusToLight(status);
+  return { summary, light, status };
+}
+
+function summarizeEvaluationCommentSupportManifest(manifestPath, fsApi = require("fs")) {
+  return loadJsonArtifactSummary(
+    manifestPath,
+    summarizeEvaluationCommentSupportManifestPayload,
+    fsApi
+  );
+}
+
+function summarizeWorkflowInventoryPayload(payload) {
+  let summary = String(payload.summary || "").trim();
+  if (!summary) {
+    const workflowCount = safeInt(payload.workflow_count) || 0;
+    const duplicateCount = safeInt(payload.duplicate_name_count) || 0;
+    const missingRequiredCount = safeInt(payload.missing_required_count) || 0;
+    const nonUniqueRequiredCount = safeInt(payload.non_unique_required_count) || 0;
+    summary =
+      `workflows=${workflowCount}, duplicate=${duplicateCount}, ` +
+      `missing_required=${missingRequiredCount}, non_unique_required=${nonUniqueRequiredCount}`;
+  }
+
+  let duplicateNames = normalizeNames(payload.duplicate_names);
+  if (duplicateNames.length === 0 && Array.isArray(payload.duplicates)) {
+    duplicateNames = payload.duplicates
+      .filter((item) => item && typeof item === "object")
+      .map((item) => String(item.name || "").trim())
+      .filter(Boolean);
+  }
+
+  let missingRequiredNames = normalizeNames(payload.missing_required_names);
+  let nonUniqueRequiredNames = normalizeNames(payload.non_unique_required_names);
+  if (Array.isArray(payload.required_workflow_mapping)) {
+    for (const item of payload.required_workflow_mapping) {
+      if (!item || typeof item !== "object") {
+        continue;
+      }
+      const name = String(item.name || "").trim();
+      const status = String(item.status || "").trim();
+      if (!name) {
+        continue;
+      }
+      if (status === "missing" && !missingRequiredNames.includes(name)) {
+        missingRequiredNames.push(name);
+      }
+      if (status === "non_unique" && !nonUniqueRequiredNames.includes(name)) {
+        nonUniqueRequiredNames.push(name);
+      }
+    }
+  }
+
+  const detailParts = [];
+  if (duplicateNames.length > 0) {
+    detailParts.push(`duplicate_names=${duplicateNames.join("/")}`);
+  }
+  if (missingRequiredNames.length > 0) {
+    detailParts.push(`missing_names=${missingRequiredNames.join("/")}`);
+  }
+  if (nonUniqueRequiredNames.length > 0) {
+    detailParts.push(`non_unique_names=${nonUniqueRequiredNames.join("/")}`);
+  }
+  if (detailParts.length > 0) {
+    summary = `${summary}; ${detailParts.join("; ")}`;
+  }
+
+  const status = String(payload.overall_status || "").trim() || deriveAggregateStatus([
+    (safeInt(payload.duplicate_name_count) || 0) > 0 ? "error" : "ok",
+    (safeInt(payload.missing_required_count) || 0) > 0 ? "warning" : "ok",
+    (safeInt(payload.non_unique_required_count) || 0) > 0 ? "error" : "ok",
+  ]);
+  const light = String(payload.overall_light || "").trim() || statusToLight(status);
+  return { summary, light, status };
+}
+
+function summarizeWorkflowInventory(path, fsApi = require("fs")) {
+  return loadJsonArtifactSummary(path, summarizeWorkflowInventoryPayload, fsApi);
+}
+
+function summarizeWorkflowFileHealth(path, fsApi = require("fs")) {
+  return loadJsonArtifactSummary(path, (payload) => {
+    const count = safeInt(payload.count) || 0;
+    const failedCount = safeInt(payload.failed_count) || 0;
+    const mode = String(payload.mode_used || "n/a").trim();
+    const fallback = String(payload.fallback_reason || "n/a").trim();
+    const summary =
+      String(payload.summary || "").trim() ||
+      `failed=${failedCount}/${count}, mode=${mode}, fallback=${fallback}`;
+    const status =
+      String(payload.overall_status || "").trim() ||
+      (failedCount > 0 ? "warning" : "ok");
+    const light = String(payload.overall_light || "").trim() || statusToLight(status);
+    return { summary, light, status };
+  }, fsApi);
+}
+
+function summarizeWorkflowPublishHelper(path, fsApi = require("fs")) {
+  return loadJsonArtifactSummary(path, (payload) => {
+    let summary = String(payload.summary || "").trim();
+    if (!summary) {
+      summary =
+        `checked=${safeInt(payload.checked_count) || 0}, ` +
+        `failed=${safeInt(payload.failed_count) || 0}, ` +
+        `raw=${safeInt(payload.raw_publish_violation_count) || 0}, ` +
+        `missing_comment_helper=${safeInt(payload.missing_comment_helper_import_count) || 0}, ` +
+        `missing_issue_helper=${safeInt(payload.missing_issue_helper_import_count) || 0}`;
+    }
+
+    let failingNames = normalizeNames(payload.failing_workflow_names);
+    if (failingNames.length === 0 && Array.isArray(payload.results)) {
+      failingNames = payload.results
+        .filter((item) => item && typeof item === "object" && item.ok === false)
+        .map((item) => String(item.filename || "").trim())
+        .filter(Boolean);
+    }
+    if (failingNames.length > 0) {
+      summary = `${summary}; failing=${failingNames.join("/")}`;
+    }
+
+    const status =
+      String(payload.overall_status || "").trim() ||
+      ((safeInt(payload.failed_count) || 0) > 0 ? "warning" : "ok");
+    const light = String(payload.overall_light || "").trim() || statusToLight(status);
+    return { summary, light, status };
+  }, fsApi);
+}
+
+function summarizeWorkflowGuardrail(path, fsApi = require("fs")) {
+  return loadJsonArtifactSummary(path, (payload) => {
+    const workflowFileHealth = payload.workflow_file_health || {};
+    const workflowInventory = payload.workflow_inventory || {};
+    const workflowPublishHelper = payload.workflow_publish_helper || {};
+    const overallStatus =
+      String(payload.overall_status || "").trim() ||
+      deriveAggregateStatus([
+        workflowFileHealth.status,
+        workflowInventory.status,
+        workflowPublishHelper.status,
+      ]);
+    let summary = String(payload.summary || "").trim();
+    if (!summary) {
+      summary =
+        `status=${overallStatus}, ` +
+        `workflow_health=${String(workflowFileHealth.status || "unknown")}, ` +
+        `inventory=${String(workflowInventory.status || "unknown")}, ` +
+        `publish_helper=${String(workflowPublishHelper.status || "unknown")}`;
+    }
+    const detailParts = [];
+    if (workflowFileHealth && workflowFileHealth.summary) {
+      detailParts.push(
+        `workflow_file_health=${String(workflowFileHealth.status || "unknown")}:${String(workflowFileHealth.summary)}`
+      );
+    }
+    if (workflowInventory && workflowInventory.summary) {
+      detailParts.push(
+        `workflow_inventory=${String(workflowInventory.status || "unknown")}:${String(workflowInventory.summary)}`
+      );
+    }
+    if (workflowPublishHelper && workflowPublishHelper.summary) {
+      detailParts.push(
+        `workflow_publish_helper=${String(workflowPublishHelper.status || "unknown")}:${String(workflowPublishHelper.summary)}`
+      );
+    }
+    if (detailParts.length > 0) {
+      summary = `${summary}; ${detailParts.join("; ")}`;
+    }
+    const light = String(payload.overall_light || "").trim() || statusToLight(overallStatus);
+    return { summary, light, status: overallStatus };
+  }, fsApi);
+}
+
+function summarizeCIWorkflowGuardrailOverview(path, fsApi = require("fs")) {
+  return loadJsonArtifactSummary(path, (payload) => {
+    const ciWatch = payload.ci_watch || {};
+    const workflowGuardrail = payload.workflow_guardrail || {};
+    const overallStatus =
+      String(payload.overall_status || "").trim() ||
+      deriveAggregateStatus([ciWatch.status, workflowGuardrail.status]);
+    let summary = String(payload.summary || "").trim();
+    if (!summary) {
+      summary =
+        `status=${overallStatus}, ` +
+        `ci_watch=${String(ciWatch.status || "unknown")}, ` +
+        `workflow_guardrail=${String(workflowGuardrail.status || "unknown")}`;
+    }
+    if (workflowGuardrail && workflowGuardrail.summary) {
+      summary =
+        `${summary}; workflow_guardrail=${String(workflowGuardrail.status || "unknown")}:${String(workflowGuardrail.summary)}`;
+    }
+    const light = String(payload.overall_light || "").trim() || statusToLight(overallStatus);
+    return { summary, light, status: overallStatus };
+  }, fsApi);
+}
+
+function summarizeCIWatchFailureDetails(path, fsApi = require("fs")) {
+  return loadJsonArtifactSummary(path, (payload) => {
+    const failedCount =
+      safeInt(payload.failed_count) ||
+      safeInt(payload.counts && payload.counts.failed) ||
+      (Array.isArray(payload.failed_workflows) ? payload.failed_workflows.length : 0);
+    const reason = String(payload.reason || "unknown").trim();
+    const summary = `failed=${failedCount || 0}, reason=${reason}`;
+    const status =
+      String(payload.overall_status || "").trim() ||
+      ((failedCount || 0) > 0 ? "warning" : "ok");
+    const light = String(payload.overall_light || "").trim() || statusToLight(status);
+    return { summary, light, status };
+  }, fsApi);
+}
+
+function summarizeCIWatchValidationReport(path, fsApi = require("fs")) {
+  return loadJsonArtifactSummary(path, (payload) => {
+    let summary = String(payload.summary || "").trim();
+    const sections = payload.sections && typeof payload.sections === "object"
+      ? payload.sections
+      : {};
+    if (!summary) {
+      summary =
+        `verdict=${String(payload.verdict || "unknown")}, ` +
+        `reason=${String(payload.reason || "unknown")}, ` +
+        `failed=${safeInt(payload.failed_count) || 0}, ` +
+        `missing_required=${safeInt(payload.missing_required_count) || 0}`;
+    }
+    const detailParts = [];
+    if (sections.soft_smoke && sections.soft_smoke.present) {
+      detailParts.push(
+        `soft_smoke=exit=${safeInt(sections.soft_smoke.overall_exit_code) || 0}, attempts=${safeInt(sections.soft_smoke.attempts_total) || 0}`
+      );
+    }
+    if (sections.workflow_guardrail_summary && sections.workflow_guardrail_summary.present) {
+      detailParts.push(
+        `workflow_guardrail_summary=${String(sections.workflow_guardrail_summary.overall_status || "unknown")}:${String(sections.workflow_guardrail_summary.summary || "n/a")}`
+      );
+    }
+    if (sections.ci_workflow_guardrail_overview && sections.ci_workflow_guardrail_overview.present) {
+      detailParts.push(
+        `ci_workflow_guardrail_overview=${String(sections.ci_workflow_guardrail_overview.overall_status || "unknown")}:${String(sections.ci_workflow_guardrail_overview.summary || "n/a")}`
+      );
+    }
+    if (sections.evaluation_comment_support_manifest && sections.evaluation_comment_support_manifest.present) {
+      detailParts.push(
+        `evaluation_comment_support_manifest=${String(sections.evaluation_comment_support_manifest.overall_status || "unknown")}:${String(sections.evaluation_comment_support_manifest.summary || "n/a")}`
+      );
+    }
+    if (detailParts.length > 0) {
+      summary = `${summary}; ${detailParts.join("; ")}`;
+    }
+    const status =
+      String(payload.overall_status || "").trim() ||
+      (payload.verdict_success === false || String(payload.verdict || "").trim() === "FAIL"
+        ? "error"
+        : "ok");
+    const light = String(payload.overall_light || "").trim() || statusToLight(status);
+    return { summary, light, status };
+  }, fsApi);
+}
+
+function formatScore(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return "0.000";
+  }
+  return numeric.toFixed(3);
+}
+
+function buildEvaluationReportCommentBody(viewModel) {
+  const lines = [
+    "## 📊 CAD ML Platform - Evaluation Results",
+    "",
+    String(viewModel.overallStatus || ""),
+    "",
+    "### Scores",
+    "| Module | Score | Threshold | Status |",
+    "|--------|-------|-----------|--------|",
+    `| **Combined** | ${formatScore(viewModel.combined)} | ${viewModel.minCombined} | ${viewModel.combinedStatus} |`,
+    `| **Vision** | ${formatScore(viewModel.vision)} | ${viewModel.minVision} | ${viewModel.visionStatus} |`,
+    `| **OCR** | ${formatScore(viewModel.ocr)} | ${viewModel.minOcr} | ${viewModel.ocrStatus} |`,
+    "",
+    "### Operational Signals",
+    "| Signal | Light | Summary |",
+    "|--------|-------|---------|",
+    `| **Review Pack** | ${viewModel.reviewPackLight || "⚪"} | ${viewModel.reviewPackStatus || "⏭️ skipped"} |`,
+    `| **Review Gate** | ${viewModel.reviewGateLight || "⚪"} | ${viewModel.reviewGateStatus || "⏭️ skipped"} |`,
+    `| **Train Sweep** | ${viewModel.trainSweepLight || "⚪"} | ${viewModel.trainSweepStatus || "⏭️ skipped"} |`,
+    `| **Workflow Guardrails** | ${viewModel.workflowGuardrailLight || "⚪"} | ${viewModel.workflowGuardrailSummary || "⏭️ skipped (no summary path)"} |`,
+    `| **CI+Workflow Overview** | ${viewModel.ciWorkflowGuardrailOverviewLight || "⚪"} | ${viewModel.ciWorkflowGuardrailOverviewSummary || "⏭️ skipped (no summary path)"} |`,
+    `| **CI Watch Validation** | ${viewModel.ciWatchValidationReportLight || "⚪"} | ${viewModel.ciWatchValidationReportSummary || "⏭️ skipped (no summary path)"} |`,
+    `| **Comment Support Bundle** | ${viewModel.evaluationCommentSupportManifestLight || "⚪"} | ${viewModel.evaluationCommentSupportManifestSummary || "⏭️ skipped (no summary path)"} |`,
+    `| **Workflow File Health** | ${viewModel.workflowFileHealthLight || "⚪"} | ${viewModel.workflowFileHealthSummary || "⏭️ skipped (no summary path)"} |`,
+    `| **Workflow Inventory Audit** | ${viewModel.workflowInventoryLight || "⚪"} | ${viewModel.workflowInventorySummary || "⏭️ skipped (no summary path)"} |`,
+    `| **Workflow Publish Helper Adoption** | ${viewModel.workflowPublishHelperLight || "⚪"} | ${viewModel.workflowPublishHelperSummary || "⏭️ skipped (no summary path)"} |`,
+    `| **Eval Reporting Stack** | ${viewModel.evalReportingStackLight || "⚪"} | ${viewModel.evalReportingStackSummary || "eval reporting stack summary not available"} |`,
+    "",
+    "### Strict Gate",
+    `- mode=${viewModel.evaluationStrictMode || "soft"} (raw=${viewModel.evaluationStrictModeRawValue || "soft"}, resolved=${viewModel.evaluationStrictModeResolvedRaw || viewModel.evaluationStrictMode || "soft"})`,
+    `- result=${viewModel.strictDecisionResult || "no_strict_fail_requests"}`,
+    `- strict_requests=${Number(viewModel.strictFailureRequestsCount || 0)}`,
+    `- summary=${viewModel.strictFailureRequestSummary || "none"}`,
+    `- playbook=${viewModel.strictPlaybookSummary || "n/a"}`,
+    viewModel.strictActionChecklist || "- ✅ No strict gate failure request detected.",
+    "",
+    "### CI Watch Failure Details",
+    `- ${viewModel.ciWatchFailureSummary || "⏭️ skipped (no summary path)"}`,
+    "",
+    "### CI Watch Validation Report",
+    `- ${viewModel.ciWatchValidationReportSummary || "⏭️ skipped (no summary path)"}`,
+    "",
+    "### Workflow File Health",
+    `- ${viewModel.workflowFileHealthSummary || "⏭️ skipped (no summary path)"}`,
+    "",
+    "### Workflow Inventory Audit",
+    `- ${viewModel.workflowInventorySummary || "⏭️ skipped (no summary path)"}`,
+    "",
+    "### Workflow Publish Helper Adoption",
+    `- ${viewModel.workflowPublishHelperSummary || "⏭️ skipped (no summary path)"}`,
+    "",
+    "### Workflow Guardrail Summary",
+    `- ${viewModel.workflowGuardrailSummary || "⏭️ skipped (no summary path)"}`,
+    "",
+    "### CI Workflow Guardrail Overview",
+    `- ${viewModel.ciWorkflowGuardrailOverviewSummary || "⏭️ skipped (no summary path)"}`,
+    "",
+    "### Evaluation Comment Support Manifest",
+    `- ${viewModel.evaluationCommentSupportManifestSummary || "⏭️ skipped (no summary path)"}`,
+    "",
+    "### Eval Reporting Stack",
+    `- ${viewModel.evalReportingStackSummary || "eval reporting stack summary not available"}`,
+  ];
+
+  if (viewModel.evalReportingStackLandingPage) {
+    lines.push(`- Landing Page: ${viewModel.evalReportingStackLandingPage}`);
+  }
+  if (viewModel.evalReportingStackStaticReport) {
+    lines.push(`- Static Report: ${viewModel.evalReportingStackStaticReport}`);
+  }
+  if (viewModel.evalReportingStackInteractiveReport) {
+    lines.push(`- Interactive Report: ${viewModel.evalReportingStackInteractiveReport}`);
+  }
+  if (viewModel.runUrl) {
+    lines.push(
+      "",
+      "### Quick Actions",
+      `- 📋 [View Full Report](${viewModel.runUrl})`,
+      `- 📈 [Download Artifacts](${viewModel.runUrl}#artifacts)`,
+      `- 🔍 [Check Logs](${viewModel.runUrl}/jobs)`
+    );
+  }
+
+  lines.push(
+    "",
+    "---",
+    `*Updated: ${viewModel.updatedAt || new Date().toISOString().replace("T", " ").substring(0, 19)} UTC*`,
+    `*Commit: ${String(viewModel.commitSha || "").substring(0, 7)}*`
+  );
+  return lines.join("\n");
+}
+
 function loadContextEnv(processLike) {
   const env = processLike.env || {};
   const inputs = JSON.parse(env.GITHUB_EVENT_INPUTS_JSON || "{}");
@@ -31,13 +534,13 @@ async function commentEvaluationReportPR({ github, context, core, process }) {
   loadContextEnv(process);
   try {
     const fs = require('fs');
-    const combined = parseFloat(envStr("STEP_EVALUATION_COMBINED_SCORE", "") || '0');
-    const vision = parseFloat(envStr("STEP_EVALUATION_VISION_SCORE", "") || '0');
-    const ocr = parseFloat(envStr("STEP_EVALUATION_OCR_SCORE", "") || '0');
+    const combined = parseFloat(envStr("STEP_EVALUATION_COMBINED_SCORE", envStr("EVAL_COMBINED_SCORE", "0")) || '0');
+    const vision = parseFloat(envStr("STEP_EVALUATION_VISION_SCORE", envStr("EVAL_VISION_SCORE", "0")) || '0');
+    const ocr = parseFloat(envStr("STEP_EVALUATION_OCR_SCORE", envStr("EVAL_OCR_SCORE", "0")) || '0');
 
-    const minCombined = parseFloat(envStr("WF_INPUT_MIN_COMBINED", "0.8"));
-    const minVision = parseFloat(envStr("WF_INPUT_MIN_VISION", "0.65"));
-    const minOcr = parseFloat(envStr("WF_INPUT_MIN_OCR", "0.9"));
+    const minCombined = parseFloat(envStr("WF_INPUT_MIN_COMBINED", envStr("EVAL_MIN_COMBINED", "0.8")));
+    const minVision = parseFloat(envStr("WF_INPUT_MIN_VISION", envStr("EVAL_MIN_VISION", "0.65")));
+    const minOcr = parseFloat(envStr("WF_INPUT_MIN_OCR", envStr("EVAL_MIN_OCR", "0.9")));
 
     const combinedStatus = combined >= minCombined ? '✅ Pass' : '❌ Fail';
     const visionStatus = vision >= minVision ? '✅ Pass' : '❌ Fail';
@@ -48,7 +551,7 @@ async function commentEvaluationReportPR({ github, context, core, process }) {
       : '⚠️ **Some checks failed - review required**';
 
     const hasAnomalies = envStr("STEP_INSIGHTS_HAS_ANOMALIES", "") === 'true';
-    const securityStatus = envStr("STEP_SECURITY_SECURITY_STATUS", "");
+    const securityStatus = envStr("STEP_SECURITY_SECURITY_STATUS", envStr("SECURITY_STATUS", ""));
     const reviewPackEnabled = envStr("STEP_GRAPH2D_REVIEW_PACK_ENABLED", "") === 'true';
     const reviewGateEnabled = envStr("STEP_GRAPH2D_REVIEW_GATE_ENABLED", "") === 'true';
     const trainSweepEnabled = envStr("STEP_GRAPH2D_TRAIN_SWEEP_ENABLED", "") === 'true';
@@ -2196,13 +2699,94 @@ async function commentEvaluationReportPR({ github, context, core, process }) {
       evalReportingSection = `\n${stackLines.join('\n')}\n`;
     }
 
+    const ciWatchSummaryPath = process.env.CI_WATCH_SUMMARY_JSON_FOR_COMMENT || '';
+    const workflowFileHealthPath = process.env.WORKFLOW_FILE_HEALTH_SUMMARY_JSON_FOR_COMMENT || '';
+    const workflowInventoryPath = process.env.WORKFLOW_INVENTORY_REPORT_JSON_FOR_COMMENT || '';
+    const workflowPublishHelperPath = process.env.WORKFLOW_PUBLISH_HELPER_SUMMARY_JSON_FOR_COMMENT || '';
+    const workflowGuardrailPath = process.env.WORKFLOW_GUARDRAIL_SUMMARY_JSON_FOR_COMMENT || '';
+    const ciWorkflowGuardrailOverviewPath = process.env.CI_WORKFLOW_GUARDRAIL_OVERVIEW_JSON_FOR_COMMENT || '';
+    const ciWatchValidationReportPath = process.env.CI_WATCH_VALIDATION_REPORT_JSON_FOR_COMMENT || '';
+    const evaluationCommentSupportManifestPath = process.env.EVALUATION_COMMENT_SUPPORT_MANIFEST_JSON_FOR_COMMENT || '';
+
+    const ciWatchFailureSummaryResult = summarizeCIWatchFailureDetails(ciWatchSummaryPath, fs);
+    const workflowFileHealthSummaryResult = summarizeWorkflowFileHealth(workflowFileHealthPath, fs);
+    const workflowInventorySummaryResult = summarizeWorkflowInventory(workflowInventoryPath, fs);
+    const workflowPublishHelperSummaryResult = summarizeWorkflowPublishHelper(workflowPublishHelperPath, fs);
+    const workflowGuardrailSummaryResult = summarizeWorkflowGuardrail(workflowGuardrailPath, fs);
+    const ciWorkflowGuardrailOverviewSummaryResult = summarizeCIWorkflowGuardrailOverview(
+      ciWorkflowGuardrailOverviewPath,
+      fs
+    );
+    const ciWatchValidationReportSummaryResult = summarizeCIWatchValidationReport(
+      ciWatchValidationReportPath,
+      fs
+    );
+    const evaluationCommentSupportManifestSummaryResult = summarizeEvaluationCommentSupportManifest(
+      evaluationCommentSupportManifestPath,
+      fs
+    );
+
+    const evaluationStrictMode = envStr(
+      "EVALUATION_STRICT_FAIL_MODE_RESOLVED",
+      envStr("EVALUATION_STRICT_FAIL_MODE", "soft")
+    );
+    const evaluationStrictModeRawValue = envStr(
+      "EVALUATION_STRICT_FAIL_MODE_RAW",
+      evaluationStrictMode
+    );
+    const strictFailureRequestsCount = safeInt(
+      envStr("EVALUATION_STRICT_FAILURE_REQUESTS_COUNT", "0")
+    ) || 0;
+    const strictFailureRequestSummary = envStr(
+      "EVALUATION_STRICT_FAILURE_REQUEST_SUMMARY",
+      strictFailureRequestsCount > 0 ? "requested" : "none"
+    );
+    const strictDecisionResult = strictFailureRequestsCount > 0
+      ? "downgraded_to_warning"
+      : "no_strict_fail_requests";
+    const strictDecisionLight = strictFailureRequestsCount > 0 ? "🟡" : "🟢";
+    const strictActionItems = strictFailureRequestsCount > 0
+      ? ["- ⚠️ strict gate failure request detected."]
+      : ["- ✅ No strict gate failure request detected."];
+    const strictActionChecklist = strictActionItems.join("\n");
+    const strictPlaybookSummary = `[strict-gate-playbook](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/${context.sha}/docs/STRICT_GATE_PLAYBOOK.md)`;
+    const evalReportingStackSummary = evalReportingStack && typeof evalReportingStack === 'object'
+      ? `status=${String(evalReportingStack.status || 'unknown')}, missing=${Number(evalReportingStack.missing_count || 0)}, stale=${Number(evalReportingStack.stale_count || 0)}, mismatch=${Number(evalReportingStack.mismatch_count || 0)}`
+      : 'eval reporting stack summary not available';
+    const evalReportingStackLight = evalReportingStack && typeof evalReportingStack === 'object'
+      ? statusToLight(String(evalReportingStack.status || 'unknown'))
+      : '⚪';
+    const evalReportingStackLandingPage = evalReportingIndex && typeof evalReportingIndex === 'object'
+      ? String(evalReportingIndex.landing_page_html || '')
+      : '';
+    const evalReportingStackStaticReport = evalReportingStack && typeof evalReportingStack === 'object'
+      ? String(evalReportingStack.static_report_html || '')
+      : '';
+    const evalReportingStackInteractiveReport = evalReportingStack && typeof evalReportingStack === 'object'
+      ? String(evalReportingStack.interactive_report_html || '')
+      : '';
+
+    const hybridBlindEvalStatus = "⏭️ skipped";
+    const hybridBlindGateStatus = "⏭️ skipped";
+    const hybridBlindStrictStatus = "⏭️ skipped";
+    const hybridBlindDriftStatus = "⏭️ skipped";
+    const blindGainSummary = "n/a";
+    const hybridCalibrationStatus = "⏭️ skipped";
+    const hybridCalibrationGateStatus = "⏭️ skipped";
+    const hybridCalibrationStrictStatus = "⏭️ skipped";
+    const hybridSuperpassStrictStatus = "strict=false, should_fail=false, reason=n/a";
+    const hybridSuperpassValidationStrictStatus = "strict=false, exit=0, status=unknown";
+    const hybridCalibrationBaselineStatus = "⏭️ skipped";
+    const hybridBlindLight = "⚪";
+    const hybridCalibrationLight = "⚪";
+
     const repositorySlug = process.env.GITHUB_REPOSITORY || `${context.repo.owner}/${context.repo.repo}`;
-    const runId = process.env.GITHUB_RUN_ID || '';
+    const runId = process.env.GITHUB_RUN_ID || context.runId || '';
     const runBaseUrl = runId
       ? `https://github.com/${repositorySlug}/actions/runs/${runId}`
       : '';
 
-    const body = `## 📊 CAD ML Platform - Evaluation Results
+    let body = `## 📊 CAD ML Platform - Evaluation Results
 
     ${overallStatus}
 
@@ -2502,6 +3086,76 @@ async function commentEvaluationReportPR({ github, context, core, process }) {
     *Updated: ${new Date().toISOString().replace('T', ' ').substring(0, 19)} UTC*
     *Commit: ${context.sha.substring(0, 7)}*`;
 
+    body = buildEvaluationReportCommentBody({
+      overallStatus,
+      combined,
+      minCombined,
+      combinedStatus,
+      vision,
+      minVision,
+      visionStatus,
+      ocr,
+      minOcr,
+      ocrStatus,
+      hasAnomalies,
+      securityStatus,
+      reviewPackStatus,
+      reviewPackInsights,
+      reviewGateStatus,
+      reviewGateStrictStatus,
+      trainSweepStatus,
+      hybridBlindEvalStatus,
+      hybridBlindGateStatus,
+      hybridBlindStrictStatus,
+      hybridBlindDriftStatus,
+      blindGainSummary,
+      hybridCalibrationStatus,
+      hybridCalibrationGateStatus,
+      hybridCalibrationStrictStatus,
+      hybridSuperpassStrictStatus,
+      hybridSuperpassValidationStrictStatus,
+      hybridCalibrationBaselineStatus,
+      evaluationStrictMode,
+      evaluationStrictModeRawValue,
+      strictDecisionResult,
+      strictPlaybookSummary,
+      ciWatchFailureSummary: ciWatchFailureSummaryResult.summary,
+      ciWatchValidationReportSummary: ciWatchValidationReportSummaryResult.summary,
+      workflowFileHealthSummary: workflowFileHealthSummaryResult.summary,
+      workflowInventorySummary: workflowInventorySummaryResult.summary,
+      workflowPublishHelperSummary: workflowPublishHelperSummaryResult.summary,
+      workflowGuardrailSummary: workflowGuardrailSummaryResult.summary,
+      ciWorkflowGuardrailOverviewSummary: ciWorkflowGuardrailOverviewSummaryResult.summary,
+      evaluationCommentSupportManifestSummary: evaluationCommentSupportManifestSummaryResult.summary,
+      reviewPackLight,
+      reviewGateLight,
+      trainSweepLight,
+      hybridBlindLight,
+      hybridCalibrationLight,
+      strictDecisionLight,
+      strictFailureRequestsCount,
+      ciWatchFailureLight: ciWatchFailureSummaryResult.light,
+      ciWatchValidationReportLight: ciWatchValidationReportSummaryResult.light,
+      workflowFileHealthLight: workflowFileHealthSummaryResult.light,
+      workflowInventoryLight: workflowInventorySummaryResult.light,
+      workflowPublishHelperLight: workflowPublishHelperSummaryResult.light,
+      workflowGuardrailLight: workflowGuardrailSummaryResult.light,
+      ciWorkflowGuardrailOverviewLight: ciWorkflowGuardrailOverviewSummaryResult.light,
+      evaluationCommentSupportManifestLight: evaluationCommentSupportManifestSummaryResult.light,
+      evaluationStrictModeResolvedRaw: evaluationStrictMode,
+      strictFailureRequestSummary,
+      strictActionItems,
+      strictActionChecklist,
+      evalReportingStackSummary,
+      evalReportingStackLight,
+      evalReportingStackLandingPage,
+      evalReportingStackStaticReport,
+      evalReportingStackInteractiveReport,
+      runUrl: runBaseUrl,
+      updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      commitSha: context.sha,
+    });
+
     const { data: comments } = await github.rest.issues.listComments({
       owner: context.repo.owner,
       repo: context.repo.repo,
@@ -2533,4 +3187,9 @@ async function commentEvaluationReportPR({ github, context, core, process }) {
   }
 }
 
-module.exports = { commentEvaluationReportPR };
+module.exports = {
+  buildEvaluationReportCommentBody,
+  commentEvaluationReportPR,
+  summarizeEvaluationCommentSupportManifest,
+  summarizeWorkflowInventory,
+};
