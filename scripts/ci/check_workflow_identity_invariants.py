@@ -61,6 +61,12 @@ SPECS: tuple[WorkflowIdentitySpec, ...] = (
         require_ci_watch=True,
     ),
     WorkflowIdentitySpec(
+        key="governance_gates",
+        filename="governance-gates.yml",
+        expected_name="Governance Gates",
+        require_ci_watch=True,
+    ),
+    WorkflowIdentitySpec(
         key="soft_mode_smoke",
         filename="evaluation-soft-mode-smoke.yml",
         expected_name="Evaluation Soft-Mode Smoke",
@@ -282,7 +288,8 @@ def _build_parser() -> argparse.ArgumentParser:
         default=(
             "CI,CI Enhanced,CI Tiered Tests,Code Quality,"
             "Multi-Architecture Docker Build,Security Audit,"
-            "Observability Checks,Self-Check,GHCR Publish,Evaluation Report"
+            "Observability Checks,Self-Check,GHCR Publish,Evaluation Report,"
+            "Governance Gates"
         ),
         help="Comma-separated workflow names expected by CI watcher.",
     )

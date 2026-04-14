@@ -35,7 +35,7 @@ jobs:
         run: |
           python3 scripts/ci/generate_workflow_inventory_report.py \
             --workflow-root ".github/workflows" \
-            --ci-watch-required-workflows "CI,CI Enhanced,CI Tiered Tests,Code Quality,Multi-Architecture Docker Build,Security Audit,Observability Checks,Self-Check,GHCR Publish,Evaluation Report" \
+            --ci-watch-required-workflows "CI,CI Enhanced,CI Tiered Tests,Code Quality,Multi-Architecture Docker Build,Security Audit,Observability Checks,Self-Check,GHCR Publish,Evaluation Report,Governance Gates" \
             --output-json reports/ci/workflow_inventory_report.json \
             --output-md reports/ci/workflow_inventory_report.md \
             >/dev/null
