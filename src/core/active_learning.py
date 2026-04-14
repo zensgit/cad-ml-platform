@@ -377,7 +377,7 @@ class ActiveLearner:
         true_fine_type: Optional[str] = None,
         true_coarse_type: Optional[str] = None,
         reviewer_id: Optional[str] = None,
-        label_source: Optional[str] = None,
+        label_source: Optional[str] = "human_feedback",
         review_source: Optional[str] = None,
         verified_by: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -404,11 +404,11 @@ class ActiveLearner:
             sample.feedback_priority = derived_priority
 
         # Provenance tracking
-        if label_source:
-            sample.label_source = label_source
+        normalized_label_source = str(label_source or "human_feedback").strip() or "human_feedback"
+        sample.label_source = normalized_label_source
         if review_source:
             sample.review_source = review_source
-        if label_source in ("human_feedback", "human_review"):
+        if normalized_label_source in ("human_feedback", "human_review"):
             sample.human_verified = True
             sample.verified_by = verified_by or reviewer_id
             sample.verified_at = datetime.utcnow()

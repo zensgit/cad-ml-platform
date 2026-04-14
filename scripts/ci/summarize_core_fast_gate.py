@@ -13,6 +13,7 @@ MARKERS = {
     "service-mesh suite": re.compile(r"\bmake test-service-mesh\b"),
     "provider-core suite": re.compile(r"\bmake test-provider-core\b"),
     "provider-contract suite": re.compile(r"\bmake test-provider-contract\b"),
+    "training-governance suite": re.compile(r"\bmake validate-training-governance\b"),
 }
 
 

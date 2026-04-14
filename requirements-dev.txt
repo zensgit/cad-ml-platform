@@ -7,7 +7,8 @@ flake8==6.1.0
 
 # Typing
 mypy==1.7.1
-types-requests==2.32.4.20250913
+# Keep aligned with urllib3==1.26.20 pinned in requirements.txt.
+types-requests==2.31.0.0
 
 # Testing
 pytest==7.4.3

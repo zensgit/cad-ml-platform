@@ -113,62 +113,10 @@ if [ "${MISSING_CACHE}" -gt 0 ]; then
         --output-dir data/graph_cache \
         --skip-existing
 
-    # Backfill: merge generated cache_path into NEW_MANIFEST
     echo "  Backfilling cache_path into manifest..."
-    python3 -c "
-import csv, hashlib, os
-from pathlib import Path
-
-manifest = '${NEW_MANIFEST}'
-cache_dir = 'data/graph_cache'
-
-# Read preprocess output manifest (has file_path → cache_path mapping)
-cache_map = {}
-cache_manifest = Path(cache_dir) / 'cache_manifest.csv'
-if cache_manifest.exists():
-    with open(cache_manifest, encoding='utf-8') as f:
-        for row in csv.DictReader(f):
-            fp = row.get('file_path', '').strip()
-            cp = row.get('cache_path', '').strip()
-            if fp and cp:
-                cache_map[fp] = cp
-
-# Also check by file_path hash (preprocess uses md5 of file_path as key)
-def hash_path(fp):
-    return os.path.join(cache_dir, hashlib.md5(fp.encode()).hexdigest() + '.pt')
-
-# Read and update manifest
-rows = []
-filled = 0
-with open(manifest, encoding='utf-8') as f:
-    reader = csv.DictReader(f)
-    fieldnames = reader.fieldnames
-    for row in reader:
-        if not row.get('cache_path', '').strip():
-            fp = row.get('file_path', '').strip()
-            # Try cache_map first, then hash-based lookup
-            cp = cache_map.get(fp, '')
-            if not cp:
-                candidate = hash_path(fp)
-                if os.path.exists(candidate):
-                    cp = candidate
-            if cp:
-                row['cache_path'] = cp
-                filled += 1
-        rows.append(row)
-
-# Write back
-with open(manifest, 'w', newline='', encoding='utf-8') as f:
-    writer = csv.DictWriter(f, fieldnames=fieldnames)
-    writer.writeheader()
-    writer.writerows(rows)
-
-print(f'  Backfilled {filled} cache_path entries')
-remaining = sum(1 for r in rows if not r.get('cache_path', '').strip())
-if remaining > 0:
-    print(f'FATAL: {remaining} rows still missing cache_path after backfill')
-    import sys; sys.exit(1)
-" 2>/dev/null
+    python3 scripts/backfill_manifest_cache_paths.py \
+        --manifest "${NEW_MANIFEST}" \
+        --cache-dir data/graph_cache
     BACKFILL_RC=$?
     if [ "${BACKFILL_RC}" -ne 0 ]; then
         echo "  FATAL: backfill failed — some samples have no cache. Aborting."

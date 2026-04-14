@@ -254,6 +254,6 @@ class TestActiveLearningLoadSamples:
 
         assert status["ready"] is False
         assert status["remaining_samples"] == 5
-        assert status["recommendation"] == "need_5_more_labeled_samples"
+        assert status["recommendation"] == "need_5_more_eligible_samples"
 
         reset_active_learner()

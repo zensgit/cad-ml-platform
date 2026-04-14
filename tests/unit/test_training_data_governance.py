@@ -22,6 +22,18 @@ from pathlib import Path
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def isolate_active_learning_state(tmp_path, monkeypatch):
+    from src.core.active_learning import reset_active_learner
+
+    reset_active_learner()
+    monkeypatch.setenv("ACTIVE_LEARNING_STORE", "memory")
+    monkeypatch.setenv("ACTIVE_LEARNING_DATA_DIR", str(tmp_path / "active_learning"))
+    monkeypatch.setenv("ACTIVE_LEARNING_RETRAIN_THRESHOLD", "10")
+    yield
+    reset_active_learner()
+
+
 # ── ActiveLearningSample Provenance ──────────────────────────────────────────
 
 class TestActiveLearningSampleProvenance:
@@ -125,8 +137,8 @@ class TestTrainingExportGate:
     def test_export_default_only_eligible(self):
         learner = self._make_learner_with_samples()
         result = learner.export_training_data()
-        # Only human-verified should be exported; key is "count"
-        assert result.get("count", 0) <= 3
+        # Only human-verified should be exported.
+        assert result["count"] == 3
 
     def test_check_retrain_uses_eligible(self):
         learner = self._make_learner_with_samples()

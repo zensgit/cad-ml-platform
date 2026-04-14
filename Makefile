@@ -16,6 +16,7 @@
 		update-graph2d-seed-gate-baseline \
 	audit-pydantic-v2 audit-pydantic-v2-regression \
 	audit-pydantic-style audit-pydantic-style-regression \
+	validate-training-governance test-training-governance \
 	openapi-snapshot-update \
 	archive-experiments archive-workflow-dry-run-gh archive-workflow-apply-gh \
 		validate-archive-workflow-dispatcher \
@@ -36,8 +37,9 @@
 .DEFAULT_GOAL := help
 
 # 变量定义
-# Prefer project venv or newer Python when available to match 3.10+ requirement.
-PYTHON ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; \
+# Prefer the repo's compatible local env when available to match 3.10/3.11 expectations.
+PYTHON ?= $(shell if [ -x .venv311/bin/python ]; then echo .venv311/bin/python; \
+	elif [ -x .venv/bin/python ]; then echo .venv/bin/python; \
 	elif command -v python3.11 >/dev/null 2>&1; then command -v python3.11; \
 	elif command -v python3.10 >/dev/null 2>&1; then command -v python3.10; \
 	elif command -v python3 >/dev/null 2>&1; then command -v python3; \
@@ -411,13 +413,30 @@ clean-ci-watch-artifacts: ## 清理 watcher + readiness 全部运行时 JSON
 	@$(MAKE) clean-ci-watch-summaries
 	@$(MAKE) clean-gh-readiness-summaries
 
-validate-core-fast: ## 一键执行当前稳定核心回归（tolerance + openapi + service-mesh + provider-core + provider-contract）
+validate-training-governance: ## 校验训练数据治理门禁（golden split + provenance/fail-closed 关键脚本）
+	@echo "$(GREEN)Validating training data governance...$(NC)"
+	$(PYTHON) scripts/ci/check_training_data_governance.py
+
+test-training-governance: ## 运行训练数据治理相关快速回归测试
+	@echo "$(GREEN)Running training governance regression tests...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_active_learning_loop.py \
+		$(TEST_DIR)/test_active_learning_api.py \
+		$(TEST_DIR)/unit/test_low_conf_queue.py \
+		$(TEST_DIR)/unit/test_finetune_from_feedback.py \
+		$(TEST_DIR)/unit/test_training_scripts.py \
+		$(TEST_DIR)/unit/test_training_data_governance.py \
+		$(TEST_DIR)/unit/test_auto_retrain_governance.py \
+		$(TEST_DIR)/unit/test_check_training_data_governance.py -q
+
+validate-core-fast: ## 一键执行当前稳定核心回归（tolerance + openapi + service-mesh + provider-core + provider-contract + training-governance）
 	@echo "$(GREEN)Running core fast validation...$(NC)"
 	$(MAKE) validate-tolerance
 	$(MAKE) validate-openapi
 	$(MAKE) test-service-mesh
 	$(MAKE) test-provider-core
 	$(MAKE) test-provider-contract
+	$(MAKE) validate-training-governance
 
 validate-graph2d-seed-gate: ## Graph2D 多seed稳定性门禁（可用于 CI）
 	@echo "$(GREEN)Running Graph2D seed stability gate...$(NC)"

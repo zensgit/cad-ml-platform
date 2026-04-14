@@ -1,0 +1,61 @@
+name: Governance Gates
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  training-governance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+
+      - name: Run governance invariant checks
+        run: |
+          set -o pipefail
+          make validate-training-governance 2>&1 | tee /tmp/training-governance-check.log
+
+      - name: Run governance regression tests
+        run: |
+          set -o pipefail
+          make test-training-governance 2>&1 | tee /tmp/training-governance-tests.log
+
+      - name: Upload governance logs
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: governance-gates-logs
+          path: |
+            /tmp/training-governance-check.log
+            /tmp/training-governance-tests.log
+          if-no-files-found: ignore
+
+      - name: Append governance summary
+        if: always()
+        run: |
+          echo "## Governance Gates" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- invariants: \`make validate-training-governance\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- regression: \`make test-training-governance\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- status: ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
