@@ -307,10 +307,29 @@ def finetune(
 
     # Train/val split
     if val_manifest:
-        # Golden validation set: use fixed manifest instead of random_split
+        # Golden validation set: use fixed manifest and exclude val from training
+        import csv as _csv
         val_ds = CachedGraphDataset(val_manifest)
-        train_ds = dataset
-        logger.info("Using golden val manifest: %s (%d samples)", val_manifest, len(val_ds))
+        val_paths = set()
+        with open(val_manifest, "r", encoding="utf-8") as _f:
+            for _row in _csv.DictReader(_f):
+                _p = _row.get("cache_path", "").strip()
+                if _p:
+                    val_paths.add(_p)
+        # Exclude val samples from training to prevent leakage
+        if hasattr(dataset, "samples"):
+            train_indices = [
+                i for i, (cp, _) in enumerate(dataset.samples) if cp not in val_paths
+            ]
+            overlap = len(dataset) - len(train_indices)
+            if overlap > 0:
+                logger.info("Leakage prevention: removed %d val samples from training set", overlap)
+            train_ds = torch.utils.data.Subset(dataset, train_indices)
+        else:
+            train_ds = dataset
+            logger.warning("Cannot check leakage: dataset has no .samples attribute")
+        logger.info("Golden val: %d samples, train (excl val): %d samples",
+                     len(val_ds), len(train_ds))
     else:
         total = len(dataset)
         val_size = max(1, int(total * val_split))

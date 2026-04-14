@@ -93,10 +93,24 @@ def train(args: argparse.Namespace) -> None:
 
     # Train / val split
     if args.val_manifest:
-        # Phase 2: Use fixed golden validation set
+        # Phase 2: Use fixed golden validation set and exclude val from training
+        import csv as _csv
         val_ds = CachedGraphDataset(args.val_manifest)
-        train_ds = ds  # Full manifest used for training (golden val is a separate file)
-        print(f"  Using golden val manifest: {args.val_manifest} ({len(val_ds)} samples)")
+        val_paths = set()
+        with open(args.val_manifest, "r", encoding="utf-8") as _f:
+            for _row in _csv.DictReader(_f):
+                _p = _row.get("cache_path", "").strip()
+                if _p:
+                    val_paths.add(_p)
+        # Exclude val samples from training set to prevent leakage
+        train_indices = [
+            i for i, (cp, _) in enumerate(ds.samples) if cp not in val_paths
+        ]
+        overlap = len(ds) - len(train_indices)
+        if overlap > 0:
+            print(f"  Leakage prevention: removed {overlap} val samples from training set", flush=True)
+        train_ds = torch.utils.data.Subset(ds, train_indices)
+        print(f"  Golden val: {len(val_ds)} samples, train (excl val): {len(train_ds)} samples", flush=True)
     else:
         val_size = int(args.val_split * len(ds))
         train_size = len(ds) - val_size
@@ -106,7 +120,10 @@ def train(args: argparse.Namespace) -> None:
         )
 
     # Weighted sampler for training
-    sampler = build_sampler(ds, list(train_ds.indices))
+    train_indices_for_sampler = (
+        train_ds.indices if hasattr(train_ds, "indices") else list(range(len(train_ds)))
+    )
+    sampler = build_sampler(ds, train_indices_for_sampler)
     train_loader = DataLoader(
         train_ds, batch_size=args.batch_size, sampler=sampler,
         collate_fn=collate_finetune, drop_last=True,
