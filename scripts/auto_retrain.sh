@@ -94,6 +94,29 @@ python3 scripts/append_reviewed_to_manifest.py \
 NEW_COUNT=$(wc -l < "${NEW_MANIFEST}")
 echo "  New manifest: ${NEW_MANIFEST} (${NEW_COUNT} rows)"
 
+# Step 2b: Ensure all manifest rows have cache_path (generate .pt for new DXF files)
+echo "Step 2b: Generating graph cache for new samples..."
+MISSING_CACHE=$(python3 -c "
+import csv
+missing = 0
+with open('${NEW_MANIFEST}', encoding='utf-8') as f:
+    for row in csv.DictReader(f):
+        if not row.get('cache_path', '').strip():
+            missing += 1
+print(missing)
+" 2>/dev/null || echo "0")
+
+if [ "${MISSING_CACHE}" -gt 0 ]; then
+    echo "  ${MISSING_CACHE} rows missing cache_path — running preprocess..."
+    python3 scripts/preprocess_dxf_to_graphs.py \
+        --manifest "${NEW_MANIFEST}" \
+        --output-dir data/graph_cache \
+        --skip-existing
+    echo "  Cache generation complete."
+else
+    echo "  All rows have cache_path — skipping preprocess."
+fi
+
 # Step 3: Fine-tune
 echo "Step 3: Fine-tuning from ${BASE_CHECKPOINT}..."
 GOLDEN_VAL="${GOLDEN_VAL:-data/manifests/golden_val_set.csv}"

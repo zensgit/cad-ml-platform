@@ -287,6 +287,15 @@ def main() -> int:
         new_row = {f: "" for f in fieldnames}
         new_row["file_path"] = file_path
         new_row[label_col] = reviewed_label
+
+        # Try to find existing cache_path for this file (from graph_cache)
+        if "cache_path" in fieldnames:
+            _cache_candidate = Path("data/graph_cache") / f"{hashlib.md5(file_path.encode()).hexdigest()}.pt"
+            if _cache_candidate.exists():
+                new_row["cache_path"] = str(_cache_candidate)
+            else:
+                logger.info("  (no cache_path for %s — will need preprocess)", file_path)
+
         new_rows.append(new_row)
         existing_paths.add(file_path)
 
