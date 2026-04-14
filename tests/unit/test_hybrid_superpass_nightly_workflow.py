@@ -115,7 +115,10 @@ def test_workflow_has_dual_dispatch_compare_artifact_and_summary_steps() -> None
         workflow, job_name, "Upload nightly superpass compare artifacts"
     )
     assert upload_step["if"] == "always()"
-    assert upload_step["uses"] == "actions/upload-artifact@v4"
+    assert (
+        upload_step["uses"]
+        == "actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f"
+    )
     assert "${{ env.FAIL_JSON }}" in upload_step["with"]["path"]
     assert "${{ env.SUCCESS_JSON }}" in upload_step["with"]["path"]
     assert "${{ env.COMPARE_JSON }}" in upload_step["with"]["path"]

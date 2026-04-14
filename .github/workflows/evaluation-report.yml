@@ -495,12 +495,12 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       with:
         fetch-depth: 0  # Fetch full history for git info
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
       with:
         python-version: ${{ env.PYTHON_VERSION }}
         cache: 'pip'
@@ -709,7 +709,7 @@ jobs:
         env.GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_NAME != '') &&
         (env.REVIEW_PACK_INPUT_ARTIFACT_RUN_ID != '' ||
         env.GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_RUN_ID != '')
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
       with:
         name: ${{ env.REVIEW_PACK_INPUT_ARTIFACT_NAME || env.GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_NAME }}
         repository: ${{ env.REVIEW_PACK_INPUT_ARTIFACT_REPOSITORY || env.GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_REPOSITORY || github.repository }}
@@ -5439,7 +5439,7 @@ jobs:
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
     - name: Upload evaluation history
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: evaluation-history-${{ github.run_number }}
         path: reports/eval_history/*.json
@@ -5538,7 +5538,7 @@ jobs:
         exit 1
     - name: Upload history-sequence evaluation
       if: steps.history_eval.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: history-sequence-eval-${{ github.run_number }}
         path: reports/history_sequence_eval
@@ -5546,7 +5546,7 @@ jobs:
 
     - name: Upload Graph2D review pack
       if: steps.graph2d_review_pack.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: graph2d-review-pack-${{ github.run_number }}
         path: |
@@ -5557,7 +5557,7 @@ jobs:
 
     - name: Upload Hybrid blind gate artifact
       if: steps.hybrid_blind_gate.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: hybrid-blind-gate-${{ github.run_number }}
         path: |
@@ -5567,7 +5567,7 @@ jobs:
 
     - name: Upload Hybrid confidence calibration artifact
       if: steps.hybrid_calibration.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: hybrid-confidence-calibration-${{ github.run_number }}
         path: ${{ steps.hybrid_calibration.outputs.output_json }}
@@ -5575,7 +5575,7 @@ jobs:
 
     - name: Upload Hybrid superpass gate artifact
       if: steps.hybrid_superpass_gate.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: hybrid-superpass-gate-${{ github.run_number }}
         path: ${{ steps.hybrid_superpass_gate.outputs.report_path }}
@@ -5583,7 +5583,7 @@ jobs:
 
     - name: Upload Graph2D train sweep
       if: steps.graph2d_train_sweep.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: graph2d-train-sweep-${{ github.run_number }}
         path: ${{ steps.graph2d_train_sweep.outputs.work_root }}
@@ -5591,7 +5591,7 @@ jobs:
 
     - name: Upload benchmark scorecard
       if: steps.benchmark_scorecard.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-scorecard-${{ github.run_number }}
         path: |
@@ -5601,7 +5601,7 @@ jobs:
 
     - name: Upload benchmark engineering signals
       if: steps.benchmark_engineering_signals.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-engineering-signals-${{ github.run_number }}
         path: |
@@ -5611,7 +5611,7 @@ jobs:
 
     - name: Upload benchmark realdata signals
       if: steps.benchmark_realdata_signals.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-realdata-signals-${{ github.run_number }}
         path: |
@@ -5621,7 +5621,7 @@ jobs:
 
     - name: Upload benchmark realdata scorecard
       if: steps.benchmark_realdata_scorecard.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-realdata-scorecard-${{ github.run_number }}
         path: |
@@ -5631,7 +5631,7 @@ jobs:
 
     - name: Upload benchmark knowledge readiness
       if: steps.benchmark_knowledge_readiness.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-knowledge-readiness-${{ github.run_number }}
         path: |
@@ -5641,7 +5641,7 @@ jobs:
 
     - name: Upload benchmark knowledge drift
       if: steps.benchmark_knowledge_drift.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-knowledge-drift-${{ github.run_number }}
         path: |
@@ -5651,7 +5651,7 @@ jobs:
 
     - name: Upload benchmark knowledge application
       if: steps.benchmark_knowledge_application.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-knowledge-application-${{ github.run_number }}
         path: |
@@ -5661,7 +5661,7 @@ jobs:
 
     - name: Upload benchmark knowledge realdata correlation
       if: steps.benchmark_knowledge_realdata_correlation.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-knowledge-realdata-correlation-${{ github.run_number }}
         path: |
@@ -5671,7 +5671,7 @@ jobs:
 
     - name: Upload benchmark knowledge domain matrix
       if: steps.benchmark_knowledge_domain_matrix.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-knowledge-domain-matrix-${{ github.run_number }}
         path: |
@@ -5681,7 +5681,7 @@ jobs:
 
     - name: Upload benchmark knowledge domain capability matrix
       if: steps.benchmark_knowledge_domain_capability_matrix.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-knowledge-domain-capability-matrix-${{ github.run_number }}
         path: |
@@ -5691,7 +5691,7 @@ jobs:
 
     - name: Upload benchmark knowledge domain API surface matrix
       if: steps.benchmark_knowledge_domain_api_surface_matrix.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-knowledge-domain-api-surface-matrix-${{ github.run_number }}
         path: |
@@ -5701,7 +5701,7 @@ jobs:
 
     - name: Upload benchmark knowledge domain capability drift
       if: steps.benchmark_knowledge_domain_capability_drift.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-knowledge-domain-capability-drift-${{ github.run_number }}
         path: |
@@ -5711,7 +5711,7 @@ jobs:
 
     - name: Upload benchmark knowledge domain action plan
       if: steps.benchmark_knowledge_domain_action_plan.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-knowledge-domain-action-plan-${{ github.run_number }}
         path: |
@@ -5720,7 +5720,7 @@ jobs:
 
     - name: Upload benchmark knowledge domain surface action plan
       if: steps.benchmark_knowledge_domain_surface_action_plan.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-knowledge-domain-surface-action-plan-${{ github.run_number }}
         path: |
@@ -5729,7 +5729,7 @@ jobs:
 
     - name: Upload benchmark knowledge domain control plane
       if: steps.benchmark_knowledge_domain_control_plane.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-knowledge-domain-control-plane-${{ github.run_number }}
         path: |
@@ -5739,7 +5739,7 @@ jobs:
 
     - name: Upload benchmark knowledge domain control plane drift
       if: steps.benchmark_knowledge_domain_control_plane_drift.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-knowledge-domain-control-plane-drift-${{ github.run_number }}
         path: |
@@ -5749,7 +5749,7 @@ jobs:
 
     - name: Upload benchmark knowledge domain release gate
       if: steps.benchmark_knowledge_domain_release_gate.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-knowledge-domain-release-gate-${{ github.run_number }}
         path: |
@@ -5757,7 +5757,7 @@ jobs:
           ${{ steps.benchmark_knowledge_domain_release_gate.outputs.output_md }}
     - name: Upload benchmark knowledge domain release readiness action plan
       if: steps.benchmark_knowledge_domain_release_readiness_action_plan.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-knowledge-domain-release-readiness-action-plan-${{ github.run_number }}
         path: |
@@ -5765,7 +5765,7 @@ jobs:
           ${{ steps.benchmark_knowledge_domain_release_readiness_action_plan.outputs.output_md }}
     - name: Upload benchmark knowledge domain release surface alignment
       if: steps.benchmark_knowledge_domain_release_surface_alignment.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-knowledge-domain-release-surface-alignment-${{ github.run_number }}
         path: |
@@ -5775,7 +5775,7 @@ jobs:
 
     - name: Upload benchmark knowledge reference inventory
       if: steps.benchmark_knowledge_reference_inventory.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-knowledge-reference-inventory-${{ github.run_number }}
         path: |
@@ -5785,7 +5785,7 @@ jobs:
 
     - name: Upload benchmark knowledge source coverage
       if: steps.benchmark_knowledge_source_coverage.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-knowledge-source-coverage-${{ github.run_number }}
         path: |
@@ -5795,7 +5795,7 @@ jobs:
 
     - name: Upload benchmark knowledge source action plan
       if: steps.benchmark_knowledge_source_action_plan.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-knowledge-source-action-plan-${{ github.run_number }}
         path: |
@@ -5805,7 +5805,7 @@ jobs:
 
     - name: Upload benchmark knowledge source drift
       if: steps.benchmark_knowledge_source_drift.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-knowledge-source-drift-${{ github.run_number }}
         path: |
@@ -5815,7 +5815,7 @@ jobs:
 
     - name: Upload benchmark knowledge outcome correlation
       if: steps.benchmark_knowledge_outcome_correlation.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-knowledge-outcome-correlation-${{ github.run_number }}
         path: |
@@ -5825,7 +5825,7 @@ jobs:
 
     - name: Upload benchmark knowledge outcome drift
       if: steps.benchmark_knowledge_outcome_drift.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-knowledge-outcome-drift-${{ github.run_number }}
         path: |
@@ -5835,7 +5835,7 @@ jobs:
 
     - name: Upload feedback flywheel benchmark artifact
       if: steps.feedback_flywheel_benchmark.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: feedback-flywheel-benchmark-${{ github.run_number }}
         path: |
@@ -5845,7 +5845,7 @@ jobs:
 
     - name: Upload benchmark operational summary
       if: steps.benchmark_operational_summary.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-operational-summary-${{ github.run_number }}
         path: |
@@ -5855,7 +5855,7 @@ jobs:
 
     - name: Upload benchmark competitive surpass index
       if: steps.benchmark_competitive_surpass_index.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-competitive-surpass-index-${{ github.run_number }}
         path: |
@@ -5865,7 +5865,7 @@ jobs:
 
     - name: Upload benchmark competitive surpass trend
       if: steps.benchmark_competitive_surpass_trend.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-competitive-surpass-trend-${{ github.run_number }}
         path: |
@@ -5875,7 +5875,7 @@ jobs:
 
     - name: Upload benchmark competitive surpass action plan
       if: steps.benchmark_competitive_surpass_action_plan.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-competitive-surpass-action-plan-${{ github.run_number }}
         path: |
@@ -5885,7 +5885,7 @@ jobs:
 
     - name: Upload benchmark artifact bundle
       if: steps.benchmark_artifact_bundle.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-artifact-bundle-${{ github.run_number }}
         path: |
@@ -5895,7 +5895,7 @@ jobs:
 
     - name: Upload benchmark companion summary
       if: steps.benchmark_companion_summary.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-companion-summary-${{ github.run_number }}
         path: |
@@ -5905,7 +5905,7 @@ jobs:
 
     - name: Upload benchmark release decision
       if: steps.benchmark_release_decision.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-release-decision-${{ github.run_number }}
         path: |
@@ -5915,7 +5915,7 @@ jobs:
 
     - name: Upload benchmark release runbook
       if: steps.benchmark_release_runbook.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-release-runbook-${{ github.run_number }}
         path: |
@@ -5925,7 +5925,7 @@ jobs:
 
     - name: Upload benchmark operator adoption
       if: steps.benchmark_operator_adoption.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: benchmark-operator-adoption-${{ github.run_number }}
         path: |
@@ -5935,7 +5935,7 @@ jobs:
 
     - name: Upload assistant evidence report
       if: steps.assistant_evidence_report.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: assistant-evidence-report-${{ github.run_number }}
         path: |
@@ -5945,7 +5945,7 @@ jobs:
 
     - name: Upload active-learning review queue report
       if: steps.active_learning_review_queue_report.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: active-learning-review-queue-report-${{ github.run_number }}
         path: |
@@ -5955,7 +5955,7 @@ jobs:
 
     - name: Upload OCR review pack
       if: steps.ocr_review_pack.outputs.enabled == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
       with:
         name: ocr-review-pack-${{ github.run_number }}
         path: |
@@ -6051,11 +6051,11 @@ jobs:
         path: ./public
 
     - name: Setup Pages
-      uses: actions/configure-pages@v4
+      uses: actions/configure-pages@1f0c5cde4bc74cd7e1254d0cb4de8d49e9068c7d
       continue-on-error: true
 
     - name: Upload to Pages
-      uses: actions/upload-pages-artifact@v3
+      uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa
       with:
         path: ./public
 

@@ -405,7 +405,10 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     download_step = _get_step(
         workflow, "evaluate", "Download review-pack input artifact (optional)"
     )
-    assert download_step["uses"] == "actions/download-artifact@v4"
+    assert (
+        download_step["uses"]
+        == "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"
+    )
     assert "REVIEW_PACK_INPUT_ARTIFACT_NAME" in download_step["if"]
     download_with = download_step["with"]
     assert "run-id" in download_with
