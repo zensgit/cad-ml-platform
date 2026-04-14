@@ -50,6 +50,9 @@ class FeedbackRequest(BaseModel):
     )
     dfm_feedback: Optional[str] = Field(None, description="Comments on DFM accuracy")
     rating: int = Field(..., ge=1, le=5, description="1-5 star rating of the AI result")
+    label_source: Optional[str] = Field(None, description="human_feedback | claude_suggestion")
+    review_source: Optional[str] = Field(None, description="human | claude_assisted")
+    verified_by: Optional[str] = Field(None, description="Identifier of the verifying user")
 
 
 class FeedbackResponse(BaseModel):
@@ -230,6 +233,9 @@ async def submit_feedback(payload: FeedbackRequest, api_key: str = Depends(get_a
         "id": feedback_id,
         "timestamp": datetime.now().isoformat(),
         **_normalize_feedback_entry(payload),
+        "label_source": payload.label_source or "human_feedback",
+        "review_source": payload.review_source,
+        "verified_by": payload.verified_by,
     }
 
     log_path = _feedback_log_path()

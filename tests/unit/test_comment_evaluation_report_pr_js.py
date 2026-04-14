@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -13,6 +14,15 @@ NODE_BIN = shutil.which("node")
 pytestmark = pytest.mark.skipif(NODE_BIN is None, reason="node is not available")
 
 
+def _node_subprocess_env() -> dict[str, str]:
+    env: dict[str, str] = {}
+    for key in ("PATH", "HOME", "TMPDIR", "TMP", "TEMP", "SystemRoot", "COMSPEC"):
+        value = os.environ.get(key)
+        if value:
+            env[key] = value
+    return env
+
+
 def _run_node_inline(script: str, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [NODE_BIN, "-e", script, *args],  # type: ignore[list-item]
@@ -20,6 +30,7 @@ def _run_node_inline(script: str, *args: str) -> subprocess.CompletedProcess[str
         capture_output=True,
         text=True,
         check=False,
+        env=_node_subprocess_env(),
     )
 
 

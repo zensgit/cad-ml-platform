@@ -146,6 +146,11 @@ def run_distillation(args: argparse.Namespace) -> dict[str, Any]:
     print(f"  Alpha        : {args.alpha}")
     print(f"  Epochs       : {args.epochs}")
     print(f"  Learning rate: {args.lr}")
+    if args.demo:
+        print("  Mode         : DEMO (synthetic data, dev/test only)")
+        logger.warning("Running in DEMO mode — synthetic data. Do NOT use in production.")
+    else:
+        print("  Mode         : PRODUCTION (real data required)")
 
     input_dim = 64
     num_classes = 10
@@ -170,12 +175,29 @@ def run_distillation(args: argparse.Namespace) -> dict[str, Any]:
                 teacher_loaded_from_disk = True
                 print("       Teacher loaded successfully.")
             except (RuntimeError, KeyError):
-                print("       State dict mismatch — using teacher with random weights.")
+                if not args.demo:
+                    logger.error(
+                        "Teacher state dict mismatch — cannot continue without real weights. "
+                        "Use --demo to run with random weights in demo mode."
+                    )
+                    sys.exit(1)
+                print("       State dict mismatch — using teacher with random weights (demo mode).")
         except Exception as exc:
-            print(f"       Could not load teacher ({exc}); using random weights.")
+            if not args.demo:
+                logger.error(
+                    "Could not load teacher (%s). Use --demo to run without a real teacher.", exc
+                )
+                sys.exit(1)
+            print(f"       Could not load teacher ({exc}); using random weights (demo mode).")
             teacher = _make_teacher_stub(input_dim, num_classes).to(device)
     else:
-        print("\n[1/7] No teacher model found — using random-weight teacher for demo.")
+        if not args.demo:
+            logger.error(
+                "No teacher model found. Use --demo to run with a random-weight teacher "
+                "for demonstration purposes only."
+            )
+            sys.exit(1)
+        print("\n[1/7] No teacher model found — using random-weight teacher (demo mode).")
         teacher = _make_teacher_stub(input_dim, num_classes).to(device)
 
     teacher.eval()
@@ -195,7 +217,13 @@ def run_distillation(args: argparse.Namespace) -> dict[str, Any]:
     # ------------------------------------------------------------------
     # 3. Training data
     # ------------------------------------------------------------------
-    print(f"[3/7] Generating {num_samples} synthetic training samples ...")
+    if not args.demo:
+        logger.error(
+            "No real training data available. Use --demo for synthetic demo mode. "
+            "In production, provide a real dataset."
+        )
+        sys.exit(1)
+    print(f"[3/7] Generating {num_samples} synthetic training samples (demo mode) ...")
     X, y = _generate_synthetic_data(num_samples, input_dim, num_classes)
     X, y = X.to(device), y.to(device)
 
@@ -350,6 +378,15 @@ def main() -> None:
         type=float,
         default=0.001,
         help="Learning rate for the student optimizer.",
+    )
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help=(
+            "DEV/TEST ONLY: run with synthetic training data and accept a "
+            "random-weight teacher when no real model is available. "
+            "Must NOT be used in production."
+        ),
     )
     args = parser.parse_args()
     run_distillation(args)

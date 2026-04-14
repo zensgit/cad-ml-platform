@@ -66,33 +66,77 @@ def _to_str(value: Any, default: str) -> str:
 
 @dataclass
 class FilenameClassifierConfig:
-    """文件名分类器配置"""
+    """文件名分类器配置
+
+    B4.4 升级说明 (2026-04-14):
+      - fusion_weight: 0.7 → 0.45（Graph2D 提升后，降低文件名过度依赖）
+
+    B5.8 升级说明 (2026-04-14):
+      - fusion_weight: 0.45 → 0.50（v4 权重搜索最优：fn=0.50/g2d=0.40/txt=0.10）
+    """
 
     enabled: bool = True
     min_confidence: float = 0.8
     exact_match_conf: float = 0.95
     partial_match_conf: float = 0.7
     fuzzy_match_conf: float = 0.5
-    fusion_weight: float = 0.7
+    fusion_weight: float = 0.50  # B5.8: v4 三路融合最优（原为 0.45）
     synonyms_path: str = ""
 
 
 @dataclass
 class Graph2DConfig:
-    """Graph2D 分类器配置"""
+    """Graph2D 分类器配置
 
-    enabled: bool = False
-    min_confidence: float = 0.5
+    B4.5 升级说明 (2026-04-14):
+      - enabled: True（B4.4 GraphEncoderV2 模型已达 90.5% acc，正式启用）
+      - fusion_weight: 0.3 → 0.50（模型准确率大幅提升，从旧 ~27% 到 90.5%）
+      - min_confidence: 0.5 → 0.35（24 类分布下置信度分散，适当降低门槛）
+
+    B5.0 升级说明 (2026-04-14):
+      - v3 模型：数据增强后再训练，acc=91.0%，轴承座/阀门 recall 均达 100%
+      - 模型路径通过环境变量 GRAPH2D_MODEL_PATH 配置：
+          export GRAPH2D_MODEL_PATH=models/graph2d_finetuned_24class_v3.pth
+
+    B5.1 升级说明 (2026-04-14):
+      - fusion_weight: 0.50 → 0.35（三路融合权重搜索最优：fn=0.45/g2d=0.35/txt=0.10）
+
+    B5.8 升级说明 (2026-04-14):
+      - v4 模型：定向增强后再训练，acc=91.9%（+0.9pp vs v3）
+      - fusion_weight: 0.35 → 0.40（v4 权重搜索最优：fn=0.50/g2d=0.40/txt=0.10 → avg=94.8%）
+    """
+
+    enabled: bool = True   # B4.4: 正式启用（原为 False）
+    min_confidence: float = 0.35  # B4.4: 24类分布适当降低（原为 0.5）
     # Optional additional guardrail:
     # require a minimum margin between top-1 and top-2 probabilities.
     # This is disabled by default to avoid changing existing behavior.
     min_margin: float = 0.0
-    fusion_weight: float = 0.3
+    fusion_weight: float = 0.40  # B5.8: v4 三路融合最优（原为 0.35）
     exclude_labels: str = "other"
     allow_labels: str = ""
     drawing_type_labels: List[str] = field(
         default_factory=lambda: list(DEFAULT_GRAPH2D_DRAWING_TYPE_LABELS)
     )
+
+
+@dataclass
+class TextContentConfig:
+    """DXF 文字内容分类器配置（B5.1 新增）
+
+    基于关键词匹配的 24 类文字融合分类器。
+    当无关键词命中时，分类器主动放弃（返回空概率），不向融合引入噪声。
+
+    B5.1 权重搜索结果 (2026-04-14):
+      - 最优配置：fn=0.45, g2d=0.35, txt=0.10 → 综合 avg=94.1%
+      - 文字命中覆盖：val set 仅 14.9% 样本有效命中（主类 法兰/轴类/箱体 命中率低）
+      - 受益类别：换热器/罐体/过滤器/弹簧/筒体精度 100%（文字信号精准）
+      - 推荐低权重（0.10）：避免稀疏文字噪声降低主类精度
+    """
+
+    enabled: bool = True
+    fusion_weight: float = 0.10  # B5.1: 网格搜索最优（低权重避免噪声）
+    min_text_len: int = 4        # 最短有效文字长度（字符数）
 
 
 @dataclass
@@ -207,6 +251,7 @@ class HybridClassifierConfig:
 
     filename: FilenameClassifierConfig = field(default_factory=FilenameClassifierConfig)
     graph2d: Graph2DConfig = field(default_factory=Graph2DConfig)
+    text_content: TextContentConfig = field(default_factory=TextContentConfig)
     titleblock: TitleBlockConfig = field(default_factory=TitleBlockConfig)
     process: ProcessConfig = field(default_factory=ProcessConfig)
     history_sequence: HistorySequenceConfig = field(
@@ -242,6 +287,11 @@ class HybridClassifierConfig:
                 "exclude_labels": self.graph2d.exclude_labels,
                 "allow_labels": self.graph2d.allow_labels,
                 "drawing_type_labels": list(self.graph2d.drawing_type_labels),
+            },
+            "text_content": {
+                "enabled": self.text_content.enabled,
+                "fusion_weight": self.text_content.fusion_weight,
+                "min_text_len": self.text_content.min_text_len,
             },
             "titleblock": {
                 "enabled": self.titleblock.enabled,
@@ -365,6 +415,18 @@ class HybridClassifierConfig:
                 self.graph2d.drawing_type_labels = [
                     str(label).strip() for label in labels if str(label).strip()
                 ]
+
+        text_content = payload.get("text_content", {})
+        if isinstance(text_content, dict):
+            self.text_content.enabled = _to_bool(
+                text_content.get("enabled"), self.text_content.enabled
+            )
+            self.text_content.fusion_weight = _to_float(
+                text_content.get("fusion_weight"), self.text_content.fusion_weight
+            )
+            self.text_content.min_text_len = _to_int(
+                text_content.get("min_text_len"), self.text_content.min_text_len
+            )
 
         titleblock = payload.get("titleblock", {})
         if isinstance(titleblock, dict):
@@ -592,6 +654,16 @@ class HybridClassifierConfig:
             self.graph2d.drawing_type_labels = [
                 label.strip() for label in labels_raw.split(",") if label.strip()
             ]
+
+        self.text_content.enabled = _to_bool(
+            os.getenv("TEXT_CONTENT_ENABLED"), self.text_content.enabled
+        )
+        self.text_content.fusion_weight = _to_float(
+            os.getenv("TEXT_CONTENT_FUSION_WEIGHT"), self.text_content.fusion_weight
+        )
+        self.text_content.min_text_len = _to_int(
+            os.getenv("TEXT_CONTENT_MIN_TEXT_LEN"), self.text_content.min_text_len
+        )
 
         self.titleblock.enabled = _to_bool(
             os.getenv("TITLEBLOCK_ENABLED"), self.titleblock.enabled

@@ -249,6 +249,154 @@ class GraphEncoder(nn.Module):
         return self.dropout(pooled)
 
 
+def _attention_pool(
+    x: torch.Tensor,
+    gate: nn.Linear,
+    batch: Optional[torch.Tensor],
+) -> torch.Tensor:
+    """Attention pooling: weighted sum of node embeddings per graph.
+
+    gate: Linear(hidden_dim → 1) that scores each node.
+    Produces [num_graphs, hidden_dim] output.
+    """
+    if x.size(0) == 0:
+        if batch is None:
+            return x.new_zeros((1, x.size(1)))
+        return x.new_zeros((0, x.size(1)))
+
+    scores = gate(x)  # [N, 1]
+
+    if batch is None:
+        attn = torch.softmax(scores, dim=0)  # [N, 1]
+        return (attn * x).sum(dim=0, keepdim=True)  # [1, D]
+
+    num_graphs = int(batch.max().item()) + 1
+    # Per-graph softmax via subtract-max trick for stability
+    max_scores = x.new_zeros((num_graphs, 1))
+    max_scores.index_reduce_(0, batch, scores, reduce="amax", include_self=True)
+    shifted = scores - max_scores[batch]
+    exp_s = torch.exp(shifted)
+    sum_exp = x.new_zeros((num_graphs, 1))
+    sum_exp.index_add_(0, batch, exp_s)
+    attn = exp_s / (sum_exp[batch] + 1e-9)  # [N, 1]
+
+    pooled = x.new_zeros((num_graphs, x.size(1)))
+    pooled.index_add_(0, batch, attn * x)
+    return pooled
+
+
+class GraphEncoderV2(nn.Module):
+    """3-layer EdgeGraphSAGE encoder with residual connections and attention pooling.
+
+    Upgrades over GraphEncoder:
+    - 3 EdgeSageLayer (vs 2)
+    - Residual connections between layers
+    - LayerNorm after each layer
+    - Attention pooling (vs mean pooling)
+    - Larger hidden_dim (default 256)
+    """
+
+    def __init__(
+        self,
+        node_dim: int,
+        hidden_dim: int,
+        edge_dim: int = 0,
+        dropout: float = 0.3,
+    ) -> None:
+        super().__init__()
+        self.hidden_dim = hidden_dim
+
+        # Input projection (node_dim → hidden_dim for residual alignment)
+        self.lin_in = nn.Linear(node_dim, hidden_dim)
+
+        # 3 EdgeSage layers (all operate on hidden_dim)
+        self.sage1 = EdgeSageLayer(hidden_dim, edge_dim, hidden_dim)
+        self.sage2 = EdgeSageLayer(hidden_dim, edge_dim, hidden_dim)
+        self.sage3 = EdgeSageLayer(hidden_dim, edge_dim, hidden_dim)
+
+        # LayerNorm per layer
+        self.norm1 = nn.LayerNorm(hidden_dim)
+        self.norm2 = nn.LayerNorm(hidden_dim)
+        self.norm3 = nn.LayerNorm(hidden_dim)
+
+        # Attention pooling gate
+        self.gate = nn.Linear(hidden_dim, 1)
+
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        edge_index: torch.Tensor,
+        edge_attr: Optional[torch.Tensor] = None,
+        batch: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        if edge_attr is None:
+            raise ValueError("edge_attr required for GraphEncoderV2")
+
+        # Project input to hidden_dim
+        h = torch.relu(self.lin_in(x))  # [N, hidden_dim]
+
+        # Layer 1 + residual
+        h1 = torch.relu(self.norm1(self.sage1(h, edge_index, edge_attr)))
+        h1 = self.dropout(h1) + h  # residual
+
+        # Layer 2 + residual
+        h2 = torch.relu(self.norm2(self.sage2(h1, edge_index, edge_attr)))
+        h2 = self.dropout(h2) + h1  # residual
+
+        # Layer 3 (no residual — final representation)
+        h3 = torch.relu(self.norm3(self.sage3(h2, edge_index, edge_attr)))
+        h3 = self.dropout(h3)
+
+        # Attention pooling → graph-level embedding [num_graphs, hidden_dim]
+        return _attention_pool(h3, self.gate, batch)
+
+
+class GraphEncoderV2WithHead(nn.Module):
+    """GraphEncoderV2 + Linear classifier head — unified module for inference.
+
+    Wraps the separately-trained encoder and classifier into one module so
+    that ``vision_2d.Graph2DClassifier`` can call it with the same interface
+    as ``EdgeGraphSageClassifier``.
+    """
+
+    def __init__(
+        self,
+        node_dim: int,
+        edge_dim: int,
+        hidden_dim: int,
+        num_classes: int,
+        dropout: float = 0.3,
+    ) -> None:
+        super().__init__()
+        self.encoder = GraphEncoderV2(node_dim, hidden_dim, edge_dim, dropout)
+        self.classifier = nn.Linear(hidden_dim, num_classes)
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        edge_index: torch.Tensor,
+        edge_attr: Optional[torch.Tensor] = None,
+        batch: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        emb = self.encoder(x, edge_index, edge_attr=edge_attr, batch=batch)
+        return self.classifier(emb)
+
+    @classmethod
+    def from_checkpoint(cls, checkpoint: dict) -> "GraphEncoderV2WithHead":
+        """Reconstruct from a B4.4-style checkpoint dict."""
+        label_map = checkpoint["label_map"]
+        num_classes = checkpoint.get("num_classes", len(label_map))
+        hidden_dim = checkpoint.get("hidden_dim", 256)
+        node_dim = checkpoint.get("node_dim", 19)
+        edge_dim = checkpoint.get("edge_dim", 7)
+        model = cls(node_dim, edge_dim, hidden_dim, num_classes)
+        model.encoder.load_state_dict(checkpoint["encoder"])
+        model.classifier.load_state_dict(checkpoint["classifier"])
+        return model
+
+
 class ProjectionHead(nn.Module):
     """2-layer MLP projection head for contrastive learning."""
 

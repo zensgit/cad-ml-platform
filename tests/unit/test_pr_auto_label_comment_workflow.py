@@ -22,9 +22,16 @@ def _get_step(workflow: dict, job_name: str, step_name: str) -> dict:
 
 def test_pr_auto_label_comment_workflow_uses_shared_pr_comment_helper() -> None:
     workflow = _load_workflow()
+    steps = workflow["jobs"]["label-and-comment"]["steps"]
     step = _get_step(workflow, "label-and-comment", "Upsert PR context comment")
     script = step["with"]["script"]
 
+    assert any(
+        str(item.get("uses", "")).startswith(
+            "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd"
+        )
+        for item in steps
+    )
     assert "require('./scripts/ci/comment_pr_utils.js')" in script
     assert "upsertBotIssueComment({" in script
     assert "issueNumber: issue_number" in script

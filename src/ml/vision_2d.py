@@ -18,7 +18,11 @@ try:
     import torch
 
     from src.ml.train.dataset_2d import DXFDataset, DXF_EDGE_DIM, DXF_NODE_DIM
-    from src.ml.train.model_2d import EdgeGraphSageClassifier, SimpleGraphClassifier
+    from src.ml.train.model_2d import (
+        EdgeGraphSageClassifier,
+        SimpleGraphClassifier,
+        GraphEncoderV2WithHead,
+    )
 
     HAS_TORCH = True
 except Exception:
@@ -94,10 +98,12 @@ class Graph2DClassifier:
             return {"status": "empty_graph"}
 
         with torch.no_grad():
-            if self.model_type == "edge_sage":
+            if self.model_type in ("edge_sage", "edge_sage_v2"):
                 logits = self.model(x, edge_index, edge_attr)
             else:
                 logits = self.model(x, edge_index)
+            if logits.dim() == 1:
+                logits = logits.unsqueeze(0)
             if self.temperature != 1.0:
                 logits = logits / self.temperature
             probs = torch.softmax(logits, dim=1)[0]
@@ -120,26 +126,90 @@ class Graph2DClassifier:
     def _load_model(self) -> None:
         if not HAS_TORCH or torch is None:
             return
-        checkpoint = torch.load(self.model_path, map_location=self.device)
+        checkpoint = torch.load(self.model_path, map_location=self.device, weights_only=False)
         self.label_map = checkpoint.get("label_map", {})
-        node_dim = int(checkpoint.get("node_dim", DXF_NODE_DIM))
-        self.node_dim = node_dim
+        self.node_dim = int(checkpoint.get("node_dim", DXF_NODE_DIM))
+        self.edge_dim = int(checkpoint.get("edge_dim", DXF_EDGE_DIM))
+
+        # B4.4+ checkpoint: GraphEncoderV2WithHead (arch key present)
+        if checkpoint.get("arch") == "GraphEncoderV2":
+            self.model = GraphEncoderV2WithHead.from_checkpoint(checkpoint)
+            self.model_type = "edge_sage_v2"
+            self.model.eval()
+            self._loaded = True
+            logger.info(
+                "Loaded GraphEncoderV2WithHead from %s (%d classes)",
+                self.model_path, len(self.label_map),
+            )
+            return
+
+        # Legacy checkpoints: EdgeGraphSageClassifier / SimpleGraphClassifier
         hidden_dim = int(checkpoint.get("hidden_dim", 64))
         self.model_type = checkpoint.get("model_type", "gcn")
-        self.edge_dim = int(checkpoint.get("edge_dim", DXF_EDGE_DIM))
         num_classes = max(1, len(self.label_map))
         if self.model_type == "edge_sage":
             self.model = EdgeGraphSageClassifier(
-                node_dim, self.edge_dim, hidden_dim, num_classes
+                self.node_dim, self.edge_dim, hidden_dim, num_classes
             )
         else:
-            self.model = SimpleGraphClassifier(node_dim, hidden_dim, num_classes)
+            self.model = SimpleGraphClassifier(self.node_dim, hidden_dim, num_classes)
         self.model.load_state_dict(checkpoint["model_state_dict"])
         self.model.eval()
         self._loaded = True
 
-    def predict_from_bytes(self, data: bytes, file_name: str) -> Dict[str, Any]:
-        payload = self._predict_probs(data, file_name)
+    def _predict_probs_from_doc(self, doc) -> Dict[str, Any]:
+        """Return full probability vector from a pre-parsed ezdxf Document.
+
+        Avoids re-parsing DXF bytes — callers that already have a doc object
+        (e.g. HybridClassifier sharing a single parse) should use this.
+
+        B5.6a: single-parse optimisation.
+        """
+        if not HAS_TORCH or not self._loaded or self.model is None:
+            return {"status": "model_unavailable"}
+
+        try:
+            msp = doc.modelspace()
+        except Exception as exc:
+            return {"status": "parse_error", "error": str(exc)}
+
+        _needs_edge_attr = self.model_type in ("edge_sage", "edge_sage_v2")
+        dataset = DXFDataset(
+            root_dir=".",
+            node_dim=self.node_dim,
+            return_edge_attr=_needs_edge_attr,
+        )
+        if _needs_edge_attr:
+            x, edge_index, edge_attr = dataset._dxf_to_graph(
+                msp, self.node_dim, return_edge_attr=True
+            )
+        else:
+            x, edge_index = dataset._dxf_to_graph(msp, self.node_dim)
+            edge_attr = None
+        if x.numel() == 0:
+            return {"status": "empty_graph"}
+
+        with torch.no_grad():
+            if _needs_edge_attr:
+                logits = self.model(x, edge_index, edge_attr)
+            else:
+                logits = self.model(x, edge_index)
+            if logits.dim() == 1:
+                logits = logits.unsqueeze(0)
+            if self.temperature != 1.0:
+                logits = logits / self.temperature
+            probs = torch.softmax(logits, dim=1)[0]
+
+        return {
+            "status": "ok",
+            "probs": probs,
+            "label_map_size": len(self.label_map),
+            "temperature": float(self.temperature),
+            "temperature_source": self.temperature_source,
+        }
+
+    def _payload_to_result(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert a _predict_probs payload to the public result dict."""
         if payload.get("status") != "ok":
             return {k: v for k, v in payload.items() if k != "probs"}
 
@@ -167,6 +237,23 @@ class Graph2DClassifier:
             "label_map_size": payload.get("label_map_size", len(self.label_map)),
             "status": "ok",
         }
+
+    def predict_from_doc(self, doc, file_name: str = "") -> Dict[str, Any]:
+        """Predict from a pre-parsed ezdxf Document (B5.6a: single-parse path).
+
+        Args:
+            doc: An ezdxf Document object already parsed from DXF bytes.
+            file_name: Original filename (unused for prediction, kept for API symmetry).
+
+        Returns:
+            Same dict format as predict_from_bytes().
+        """
+        payload = self._predict_probs_from_doc(doc)
+        return self._payload_to_result(payload)
+
+    def predict_from_bytes(self, data: bytes, file_name: str) -> Dict[str, Any]:
+        payload = self._predict_probs(data, file_name)
+        return self._payload_to_result(payload)
 
 
 _graph2d = Graph2DClassifier()

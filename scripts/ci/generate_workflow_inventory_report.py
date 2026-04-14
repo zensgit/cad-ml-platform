@@ -216,7 +216,8 @@ def _build_parser() -> argparse.ArgumentParser:
         default=(
             "CI,CI Enhanced,CI Tiered Tests,Code Quality,"
             "Multi-Architecture Docker Build,Security Audit,"
-            "Observability Checks,Self-Check,GHCR Publish,Evaluation Report"
+            "Observability Checks,Self-Check,GHCR Publish,Evaluation Report,"
+            "Governance Gates"
         ),
         help="Comma-separated workflow names expected by CI watcher.",
     )

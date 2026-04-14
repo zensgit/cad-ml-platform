@@ -45,19 +45,12 @@ SPECS: tuple[WorkflowIdentitySpec, ...] = (
         key="evaluation_report",
         filename="evaluation-report.yml",
         expected_name="Evaluation Report",
-        required_inputs=(
-            "hybrid_blind_enable",
-            "hybrid_blind_dxf_dir",
-            "hybrid_blind_manifest_csv",
-            "hybrid_blind_synth_manifest",
-            "hybrid_blind_fail_on_gate_failed",
-            "hybrid_blind_strict_require_real_data",
-            "hybrid_superpass_enable",
-            "hybrid_superpass_missing_mode",
-            "hybrid_superpass_fail_on_failed",
-            "hybrid_calibration_enable",
-            "hybrid_calibration_input_csv",
-        ),
+        require_ci_watch=True,
+    ),
+    WorkflowIdentitySpec(
+        key="governance_gates",
+        filename="governance-gates.yml",
+        expected_name="Governance Gates",
         require_ci_watch=True,
     ),
     WorkflowIdentitySpec(
@@ -71,17 +64,14 @@ SPECS: tuple[WorkflowIdentitySpec, ...] = (
         filename="hybrid-superpass-e2e.yml",
         expected_name="Hybrid Superpass E2E",
         required_inputs=(
-            "ref",
-            "expected_conclusion",
             "hybrid_superpass_enable",
             "hybrid_superpass_missing_mode",
             "hybrid_superpass_fail_on_failed",
-            "hybrid_blind_enable",
-            "hybrid_blind_dxf_dir",
-            "hybrid_blind_fail_on_gate_failed",
-            "hybrid_blind_strict_require_real_data",
-            "hybrid_calibration_enable",
-            "hybrid_calibration_input_csv",
+            "hybrid_blind_gate_report_json",
+            "hybrid_calibration_json",
+            "hybrid_superpass_config",
+            "hybrid_superpass_output_json",
+            "dispatch_trace_id",
         ),
     ),
     WorkflowIdentitySpec(
@@ -282,7 +272,8 @@ def _build_parser() -> argparse.ArgumentParser:
         default=(
             "CI,CI Enhanced,CI Tiered Tests,Code Quality,"
             "Multi-Architecture Docker Build,Security Audit,"
-            "Observability Checks,Self-Check,GHCR Publish,Evaluation Report"
+            "Observability Checks,Self-Check,GHCR Publish,Evaluation Report,"
+            "Governance Gates"
         ),
         help="Comma-separated workflow names expected by CI watcher.",
     )

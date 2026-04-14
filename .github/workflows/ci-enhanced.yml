@@ -162,7 +162,8 @@ jobs:
         if: matrix.python-version == '3.11' && matrix.shard == 1
         run: |
           pytest -q \
-            tests/unit/test_eval_with_history_script_history_sequence.py \
+            tests/unit/test_graph2d_eval_helpers.py::test_eval_with_history_script_has_valid_bash_syntax \
+            tests/unit/test_graph2d_eval_helpers.py::test_eval_with_history_writes_coarse_history_metrics \
             tests/unit/test_validate_eval_history_history_sequence.py
       - name: Run hybrid calibration regression unit tests
         if: matrix.python-version == '3.11' && matrix.shard == 1

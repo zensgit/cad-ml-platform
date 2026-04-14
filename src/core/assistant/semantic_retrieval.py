@@ -599,7 +599,7 @@ class SemanticRetriever:
 
 
 def create_semantic_retriever(
-    use_transformers: bool = False,
+    use_transformers: Optional[bool] = None,
     model_name: str = "paraphrase-multilingual-MiniLM-L12-v2",
     storage_path: Optional[str] = None,
     hybrid_weight: float = 0.7,
@@ -618,7 +618,10 @@ def create_semantic_retriever(
        available, no external dependencies).
 
     Args:
-        use_transformers: Use sentence-transformers (requires library)
+        use_transformers: Provider selection hint.
+            - ``None``: auto-select (domain model first, then transformers, then simple)
+            - ``True``: allow sentence-transformers fallback
+            - ``False``: force lightweight SimpleEmbeddingProvider and skip domain auto-selection
         model_name: Model name if using transformers
         storage_path: Path for vector store persistence
         hybrid_weight: Weight for semantic vs keyword search
@@ -635,19 +638,23 @@ def create_semantic_retriever(
 
     provider: EmbeddingProvider | None = None
 
-    # 1. Try DomainEmbeddingProvider first
-    try:
-        from .domain_embedding_provider import DomainEmbeddingProvider
+    allow_domain_provider = domain_model_path is not None or use_transformers is not False
 
-        kwargs = {}
-        if domain_model_path is not None:
-            kwargs["model_path"] = domain_model_path
-        candidate = DomainEmbeddingProvider(**kwargs)
-        if candidate._available:  # noqa: SLF001 — checking internal flag
-            provider = candidate
-            _logger.info("Using DomainEmbeddingProvider (dim=%d)", provider.dimension)
-    except Exception:
-        _logger.debug("DomainEmbeddingProvider not available", exc_info=True)
+    # 1. Try DomainEmbeddingProvider first unless caller explicitly opted into the
+    # lightweight baseline path with use_transformers=False.
+    if allow_domain_provider:
+        try:
+            from .domain_embedding_provider import DomainEmbeddingProvider
+
+            kwargs = {}
+            if domain_model_path is not None:
+                kwargs["model_path"] = domain_model_path
+            candidate = DomainEmbeddingProvider(**kwargs)
+            if candidate._available:  # noqa: SLF001 — checking internal flag
+                provider = candidate
+                _logger.info("Using DomainEmbeddingProvider (dim=%d)", provider.dimension)
+        except Exception:
+            _logger.debug("DomainEmbeddingProvider not available", exc_info=True)
 
     # 2. Fall back to SentenceTransformerProvider
     if provider is None and use_transformers:

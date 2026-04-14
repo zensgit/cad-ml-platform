@@ -42,6 +42,65 @@ logger = logging.getLogger(__name__)
 
 
 # --------------------------------------------------------------------------- #
+# Cached graph dataset (fast: loads pre-processed .pt files)
+# --------------------------------------------------------------------------- #
+
+class CachedGraphDataset(Dataset):
+    """Load pre-processed graph tensors from .pt cache files.
+
+    Eliminates per-epoch ezdxf parse cost: each __getitem__ is a single
+    torch.load() instead of a full DXF → graph conversion.
+
+    Cache files are produced by scripts/preprocess_dxf_to_graphs.py.
+    Each .pt file contains keys: x, edge_index, edge_attr, label.
+    """
+
+    def __init__(self, cache_manifest_csv: str) -> None:
+        self.samples: List[Tuple[str, int]] = []
+        self.label_map: Dict[str, int] = {}
+
+        with open(cache_manifest_csv, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                label = (
+                    row.get("taxonomy_v2_class")
+                    or row.get("label_cn")
+                    or row.get("label")
+                    or ""
+                ).strip()
+                cache_path = row.get("cache_path", "").strip()
+                if not label or not cache_path:
+                    continue
+                if label not in self.label_map:
+                    self.label_map[label] = len(self.label_map)
+                self.samples.append((cache_path, self.label_map[label]))
+
+        logger.info(
+            "CachedGraphDataset: %d samples, %d classes", len(self.samples), len(self.label_map)
+        )
+
+    def __len__(self) -> int:
+        return len(self.samples)
+
+    def __getitem__(self, idx: int) -> Tuple[Dict[str, torch.Tensor], int]:
+        cache_path, label_idx = self.samples[idx]
+        try:
+            data = torch.load(cache_path, map_location="cpu", weights_only=True)
+            return {
+                "x": data["x"],
+                "edge_index": data["edge_index"],
+                "edge_attr": data.get("edge_attr"),
+            }, label_idx
+        except Exception as e:
+            logger.warning("Failed to load cache %s: %s", cache_path, e)
+            return {
+                "x": torch.zeros(1, DXF_NODE_DIM),
+                "edge_index": torch.zeros(2, 0, dtype=torch.long),
+                "edge_attr": torch.zeros(0, DXF_EDGE_DIM),
+            }, label_idx
+
+
+# --------------------------------------------------------------------------- #
 # Finetuning dataset
 # --------------------------------------------------------------------------- #
 
@@ -192,7 +251,7 @@ def collate_finetune(
 
 def finetune(
     pretrained_path: Optional[str],
-    dataset: FinetuneDataset,
+    dataset: Dataset,
     *,
     epochs: int = 50,
     encoder_lr: float = 0.0001,
@@ -206,6 +265,8 @@ def finetune(
     hidden_dim: int = 64,
     model_type: str = "edge_sage",
     val_split: float = 0.2,
+    val_manifest: Optional[str] = None,
+    sampler: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """Finetune a pretrained encoder on labeled data."""
 
@@ -245,15 +306,63 @@ def finetune(
     criterion = nn.CrossEntropyLoss()
 
     # Train/val split
-    total = len(dataset)
-    val_size = max(1, int(total * val_split))
-    train_size = total - val_size
-    train_ds, val_ds = random_split(
-        dataset, [train_size, val_size],
-        generator=torch.Generator().manual_seed(42),
-    )
+    if val_manifest:
+        # Golden validation set: use fixed manifest and exclude val from training
+        import csv as _csv
+        val_ds = CachedGraphDataset(val_manifest)
+        val_paths = set()
+        with open(val_manifest, "r", encoding="utf-8") as _f:
+            for _row in _csv.DictReader(_f):
+                _p = _row.get("cache_path", "").strip()
+                if _p:
+                    val_paths.add(_p)
+        # Exclude val samples from training to prevent leakage
+        if hasattr(dataset, "samples"):
+            train_indices = [
+                i for i, (cp, _) in enumerate(dataset.samples) if cp not in val_paths
+            ]
+            overlap = len(dataset) - len(train_indices)
+            if overlap > 0:
+                logger.info("Leakage prevention: removed %d val samples from training set", overlap)
+            train_ds = torch.utils.data.Subset(dataset, train_indices)
+        else:
+            train_ds = dataset
+            logger.warning("Cannot check leakage: dataset has no .samples attribute")
+        logger.info("Golden val: %d samples, train (excl val): %d samples",
+                     len(val_ds), len(train_ds))
+    else:
+        total = len(dataset)
+        val_size = max(1, int(total * val_split))
+        train_size = total - val_size
+        train_ds, val_ds = random_split(
+            dataset, [train_size, val_size],
+            generator=torch.Generator().manual_seed(42),
+        )
 
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, collate_fn=collate_finetune)
+    # If a sampler is provided it applies only to the train split; sampler
+    # indices reference train_ds, not the full dataset, so we remap weights.
+    train_sampler = None
+    if sampler is not None:
+        # sampler was built on the full dataset indices; rebuild for train subset
+        from collections import Counter
+        from torch.utils.data import WeightedRandomSampler
+        if hasattr(dataset, "samples"):
+            train_indices = train_ds.indices  # type: ignore[attr-defined]
+            class_counts: Dict[int, int] = Counter(
+                dataset.samples[i][1] for i in train_indices  # type: ignore[union-attr]
+            )
+            threshold = max(class_counts.values()) // 4  # heuristic
+            w = [
+                max(1.0, threshold / class_counts[dataset.samples[i][1]])  # type: ignore[union-attr]
+                for i in train_indices
+            ]
+            train_sampler = WeightedRandomSampler(w, num_samples=len(w), replacement=True)
+
+    use_shuffle = train_sampler is None
+    train_loader = DataLoader(
+        train_ds, batch_size=batch_size, shuffle=use_shuffle,
+        sampler=train_sampler, collate_fn=collate_finetune,
+    )
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, collate_fn=collate_finetune)
 
     best_val_loss = float("inf")
@@ -397,6 +506,11 @@ def main() -> int:
     parser.add_argument("--pretrained", default=None, help="Path to pretrained contrastive checkpoint.")
     parser.add_argument("--manifest", default=None, help="CSV manifest with labels.")
     parser.add_argument("--dxf-dir", default=None, help="DXF files directory.")
+    parser.add_argument("--use-cache", action="store_true",
+                        help="Load from pre-processed .pt cache (manifest must be cache_manifest.csv).")
+    parser.add_argument("--tail-oversample-threshold", type=int, default=0,
+                        help="Apply WeightedRandomSampler to classes with fewer than N samples. "
+                             "0 = disabled (default). Recommended: 50 for 24-class training.")
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--encoder-lr", type=float, default=0.0001)
@@ -407,6 +521,9 @@ def main() -> int:
     parser.add_argument("--model-type", choices=["gcn", "edge_sage"], default="edge_sage")
     parser.add_argument("--patience", type=int, default=5)
     parser.add_argument("--val-split", type=float, default=0.2)
+    parser.add_argument("--val-manifest", default=None,
+                        help="Fixed validation manifest CSV. Overrides --val-split. "
+                             "Recommended: data/manifests/golden_val_set.csv")
     parser.add_argument("--output", default="models/graph2d_finetuned.pth")
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--dry-run", action="store_true", help="Use synthetic data.")
@@ -414,21 +531,45 @@ def main() -> int:
     parser.add_argument("--dry-run-num-classes", type=int, default=10)
     args = parser.parse_args()
 
-    if not args.dry_run:
+    if not args.dry_run and not args.use_cache:
         if args.manifest is None or args.dxf_dir is None:
-            parser.error("--manifest and --dxf-dir required unless --dry-run is set")
+            parser.error("--manifest and --dxf-dir required unless --dry-run or --use-cache is set")
+
+    if args.use_cache and args.manifest is None:
+        parser.error("--manifest (cache_manifest.csv path) required with --use-cache")
 
     logging.basicConfig(level=logging.INFO)
 
-    dataset = FinetuneDataset(
-        manifest_csv=args.manifest,
-        dxf_dir=args.dxf_dir,
-        node_dim=args.node_dim,
-        edge_dim=args.edge_dim,
-        dry_run=args.dry_run,
-        dry_run_size=args.dry_run_size,
-        dry_run_num_classes=args.dry_run_num_classes,
-    )
+    if args.use_cache:
+        dataset: Dataset = CachedGraphDataset(cache_manifest_csv=args.manifest)
+    else:
+        dataset = FinetuneDataset(
+            manifest_csv=args.manifest,
+            dxf_dir=args.dxf_dir,
+            node_dim=args.node_dim,
+            edge_dim=args.edge_dim,
+            dry_run=args.dry_run,
+            dry_run_size=args.dry_run_size,
+            dry_run_num_classes=args.dry_run_num_classes,
+        )
+
+    # Optional: long-tail over-sampling
+    sampler = None
+    if args.tail_oversample_threshold > 0 and hasattr(dataset, "samples"):
+        from collections import Counter
+        from torch.utils.data import WeightedRandomSampler
+        class_counts: Dict[int, int] = Counter(label for _, label in dataset.samples)
+        threshold = args.tail_oversample_threshold
+        weights = [
+            max(1.0, threshold / class_counts[label])
+            for _, label in dataset.samples
+        ]
+        sampler = WeightedRandomSampler(weights, num_samples=len(weights), replacement=True)
+        logger.info(
+            "Long-tail sampler: threshold=%d, boosted %d classes",
+            threshold,
+            sum(1 for c, n in class_counts.items() if n < threshold),
+        )
 
     result = finetune(
         pretrained_path=args.pretrained,
@@ -445,6 +586,8 @@ def main() -> int:
         hidden_dim=args.hidden_dim,
         model_type=args.model_type,
         val_split=args.val_split,
+        val_manifest=getattr(args, "val_manifest", None),
+        sampler=sampler,
     )
 
     print(f"Done. Best val loss: {result['best_val_loss']:.4f}, classes: {result['num_classes']}")

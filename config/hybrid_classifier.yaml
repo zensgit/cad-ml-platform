@@ -1,5 +1,5 @@
 enabled: true
-version: "1.1.1"
+version: "2.0.0"  # B6.4: 异构集成生产配置
 
 filename:
   enabled: true
@@ -7,14 +7,14 @@ filename:
   exact_match_conf: 0.95
   partial_match_conf: 0.7
   fuzzy_match_conf: 0.5
-  fusion_weight: 0.7
+  fusion_weight: 0.50  # B5.8: v4 三路融合最优（原 0.7）
   synonyms_path: "data/knowledge/label_synonyms_template.json"
 
 graph2d:
   enabled: true
-  min_confidence: 0.5
+  min_confidence: 0.35  # B4.4: 24类分布降低（原 0.5）
   min_margin: 0.0
-  fusion_weight: 0.3
+  fusion_weight: 0.40  # B5.8: v4 三路融合最优（原 0.3）
   exclude_labels: "other"
   allow_labels: ""
   drawing_type_labels:
@@ -24,6 +24,11 @@ graph2d:
     - "练习零件图"
     - "原理图"
     - "模板"
+
+text_content:
+  enabled: true
+  fusion_weight: 0.10  # B5.1: 低权重避免稀疏文字噪声
+  min_text_len: 4
 
 titleblock:
   enabled: true

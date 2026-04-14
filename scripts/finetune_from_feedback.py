@@ -136,20 +136,37 @@ def fetch_vectors_for_samples(
 def load_training_data(
     file_path: str,
     label_field: str = "true_fine_type",
+    allow_mock: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Load training data from JSONL export."""
+    """Load training data from JSONL export.
+
+    Returns real vectors when available.  If no vectors are found and
+    *allow_mock* is False (the production default), logs an ERROR and raises
+    SystemExit(1).  Pass allow_mock=True only in dev/test environments.
+    """
     doc_ids, labels = _load_samples(file_path, label_field=label_field)
     X, y = fetch_vectors_for_samples(doc_ids, labels)
 
     if len(X) > 0:
         return X, y
 
-    logger.warning("No vectors found for training samples.")
-    logger.warning("Using mock data for demonstration.")
+    missing = len(doc_ids)
+    if not allow_mock:
+        logger.error(
+            "No vectors found for %d training sample(s). "
+            "Ensure the vector store is populated before retraining. "
+            "Pass --allow-mock to enable synthetic fallback (dev/test only).",
+            missing,
+        )
+        raise SystemExit(1)
 
+    logger.warning(
+        "No vectors found for %d training sample(s). "
+        "ALLOW-MOCK is enabled — using synthetic mock data (dev/test only).",
+        missing,
+    )
     X = np.random.rand(10, 32)  # 32-dim vectors
     y = np.array(["bolt", "nut", "washer", "bracket", "gear"] * 2)
-
     return X, y
 
 def train_model(
@@ -213,6 +230,14 @@ def main():
         default=None,
         help="Optional JSON path to persist training label summary",
     )
+    parser.add_argument(
+        "--allow-mock",
+        action="store_true",
+        help=(
+            "DEV/TEST ONLY: fall back to synthetic mock vectors when real "
+            "vectors are missing. Must NOT be used in production."
+        ),
+    )
     args = parser.parse_args()
 
     learner = get_active_learner()
@@ -236,7 +261,9 @@ def main():
 
     # 2. Load vectors
     logger.info("Loading training vectors...")
-    X, y = load_training_data(data_file, label_field=args.label_field)
+    if args.allow_mock:
+        logger.warning("--allow-mock is set: synthetic fallback is enabled (dev/test only).")
+    X, y = load_training_data(data_file, label_field=args.label_field, allow_mock=args.allow_mock)
     summary = _build_training_summary(list(y), args.label_field, vector_count=len(X))
     if args.summary_out:
         _write_training_summary(args.summary_out, summary)

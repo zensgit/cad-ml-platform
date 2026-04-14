@@ -52,7 +52,7 @@ def _build_valid_repo(tmp_path: Path) -> Path:
 
 
 def _ci_watch_csv() -> str:
-    return "CI,Code Quality,Security Audit,Evaluation Report"
+    return "CI,Code Quality,Security Audit,Evaluation Report,Governance Gates"
 
 
 def test_identity_check_success_and_summary(tmp_path: Path) -> None:

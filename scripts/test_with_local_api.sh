@@ -49,7 +49,9 @@ default_python_bin() {
     if [[ -n "${PYTHON_BIN}" ]]; then
         return
     fi
-    if [[ -x ".venv/bin/python" ]]; then
+    if [[ -x ".venv311/bin/python" ]]; then
+        PYTHON_BIN=".venv311/bin/python"
+    elif [[ -x ".venv/bin/python" ]]; then
         PYTHON_BIN=".venv/bin/python"
     elif command -v python3 >/dev/null 2>&1; then
         PYTHON_BIN="$(command -v python3)"
@@ -63,7 +65,9 @@ default_pytest_bin() {
         return
     fi
     # Prefer venv pytest so tests run with the same dependency set as the app.
-    if [[ -x ".venv/bin/pytest" ]]; then
+    if [[ -x ".venv311/bin/pytest" ]]; then
+        PYTEST_BIN=".venv311/bin/pytest"
+    elif [[ -x ".venv/bin/pytest" ]]; then
         PYTEST_BIN=".venv/bin/pytest"
     elif command -v pytest >/dev/null 2>&1; then
         PYTEST_BIN="$(command -v pytest)"

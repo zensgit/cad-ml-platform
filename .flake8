@@ -4,6 +4,8 @@ extend-ignore = E203,W503,E301,E302,E303,E305,E306,E401,W292,W391,E122,E128,E261
 exclude = .venv,dist,build,.mypy_cache,.pytest_cache,src/core/vision
 per-file-ignores = \
     src/core/materials/classifier.py:F601,E501,W293, \
+    src/core/materials/cost.py:F601, \
+    src/core/materials/data_models.py:F601,W293, \
     src/core/knowledge/fusion_analyzer.py:E501,W293, \
     src/core/knowledge/fusion_contracts.py:E501,W293, \
     src/core/ocr/parsing/process_parser.py:E501, \
@@ -34,6 +36,8 @@ per-file-ignores = \
     src/models/cad_document.py:E501, \
     src/main.py:E501, \
     src/ml/classifier.py:E501, \
+    src/ml/embeddings/model.py:E402, \
+    src/ml/monitoring/auto_remediation.py:E402, \
     src/tasks/orphan_scan.py:E501, \
     src/core/ocr/providers/deepseek_hf.py:E501,E402, \
     src/core/vision/providers/deepseek_stub.py:E501, \

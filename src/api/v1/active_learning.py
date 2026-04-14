@@ -25,6 +25,9 @@ class FeedbackRequest(BaseModel):
     true_fine_type: Optional[str] = Field(default=None, description="人工标注细粒度类型")
     true_coarse_type: Optional[str] = Field(default=None, description="人工标注粗粒度类型")
     reviewer_id: Optional[str] = Field(default=None, description="审核人ID")
+    label_source: Optional[str] = Field(default="human_feedback", description="human_feedback | human_review | claude_suggestion | model_auto")
+    review_source: Optional[str] = Field(default=None, description="human | claude_assisted | mixed")
+    verified_by: Optional[str] = Field(default=None, description="Identifier of the verifying user")
 
 
 class FeedbackResponse(BaseModel):
@@ -208,6 +211,9 @@ async def submit_feedback(
         true_fine_type=payload.true_fine_type,
         true_coarse_type=payload.true_coarse_type,
         reviewer_id=payload.reviewer_id,
+        label_source=payload.label_source,
+        review_source=payload.review_source,
+        verified_by=payload.verified_by,
     )
     if result.get("status") != "ok":
         err = build_error(

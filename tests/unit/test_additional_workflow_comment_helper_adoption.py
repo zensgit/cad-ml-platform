@@ -60,9 +60,16 @@ def test_security_audit_workflow_uses_shared_helper() -> None:
 
 def test_adaptive_rate_limit_monitor_workflow_uses_shared_helper() -> None:
     workflow = _load_workflow("adaptive-rate-limit-monitor.yml")
+    steps = workflow["jobs"]["post-pr-comment"]["steps"]
     step = _get_step(workflow, "post-pr-comment", "Comment on PR")
     script = step["with"]["script"]
 
+    assert any(
+        str(item.get("uses", "")).startswith(
+            "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd"
+        )
+        for item in steps
+    )
     assert "require('./scripts/ci/comment_pr_utils.js')" in script
     assert "await upsertBotIssueComment({" in script
     assert "marker = '<!-- ci:adaptive-rate-limit-pr-comment -->'" in script

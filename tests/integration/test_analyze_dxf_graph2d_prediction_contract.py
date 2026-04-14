@@ -5,9 +5,11 @@ import os
 from fastapi.testclient import TestClient
 
 from src.main import app
+from src.ml.hybrid_config import get_config
 
 
 client = TestClient(app)
+GRAPH2D_DEFAULT_MIN_CONF = float(get_config().graph2d.min_confidence)
 
 
 def _post_minimal_dxf(file_name: str):
@@ -24,11 +26,15 @@ def _post_minimal_dxf(file_name: str):
 
 
 def test_analyze_dxf_graph2d_prediction_defaults_to_hybrid_config(monkeypatch):
-    """When GRAPH2D_MIN_CONF is absent, it should default to Hybrid config (0.5)."""
+    """When GRAPH2D_MIN_CONF is absent, it should default to Hybrid config."""
 
     class _StubGraph2D:
         def predict_from_bytes(self, data, file_name):  # noqa: ANN001
-            return {"label": "传动件", "confidence": 0.49, "status": "ok"}
+            return {
+                "label": "传动件",
+                "confidence": GRAPH2D_DEFAULT_MIN_CONF - 0.01,
+                "status": "ok",
+            }
 
     monkeypatch.setenv("GRAPH2D_ENABLED", "true")
     monkeypatch.setenv("HYBRID_CLASSIFIER_ENABLED", "false")
@@ -50,7 +56,7 @@ def test_analyze_dxf_graph2d_prediction_defaults_to_hybrid_config(monkeypatch):
     graph2d = cls_payload.get("graph2d_prediction") or {}
 
     assert graph2d.get("label") == "传动件"
-    assert graph2d.get("min_confidence") == 0.5
+    assert graph2d.get("min_confidence") == GRAPH2D_DEFAULT_MIN_CONF
     assert graph2d.get("passed_threshold") is False
     assert graph2d.get("excluded") is False
     assert graph2d.get("allowed") is True
@@ -112,7 +118,7 @@ def test_analyze_dxf_graph2d_excluded_label_flag(monkeypatch):
 
 
 def test_analyze_dxf_graph2d_soft_override_defaults_to_graph2d_min_conf(monkeypatch):
-    """When GRAPH2D_SOFT_OVERRIDE_MIN_CONF is absent, it should default to Graph2D min_conf (0.5)."""
+    """When GRAPH2D_SOFT_OVERRIDE_MIN_CONF is absent, it should default to Graph2D min_conf."""
 
     from src.core.analyzer import CADAnalyzer
 
@@ -127,7 +133,11 @@ def test_analyze_dxf_graph2d_soft_override_defaults_to_graph2d_min_conf(monkeypa
 
     class _StubGraph2D:
         def predict_from_bytes(self, data, file_name):  # noqa: ANN001
-            return {"label": "人孔", "confidence": 0.49, "status": "ok"}
+            return {
+                "label": "人孔",
+                "confidence": GRAPH2D_DEFAULT_MIN_CONF - 0.01,
+                "status": "ok",
+            }
 
     monkeypatch.setattr(CADAnalyzer, "classify_part", _fake_classify_part)
     monkeypatch.setenv("GRAPH2D_ENABLED", "true")
@@ -152,8 +162,8 @@ def test_analyze_dxf_graph2d_soft_override_defaults_to_graph2d_min_conf(monkeypa
     graph2d = cls_payload.get("graph2d_prediction") or {}
     soft = cls_payload.get("soft_override_suggestion") or {}
 
-    assert graph2d.get("min_confidence") == 0.5
-    assert soft.get("threshold") == 0.5
+    assert graph2d.get("min_confidence") == GRAPH2D_DEFAULT_MIN_CONF
+    assert soft.get("threshold") == GRAPH2D_DEFAULT_MIN_CONF
     assert soft.get("eligible") is False
     assert soft.get("reason") == "below_threshold"
 
@@ -197,12 +207,12 @@ def test_analyze_dxf_graph2d_model_unavailable_still_attaches_prediction(monkeyp
     soft = cls_payload.get("soft_override_suggestion") or {}
 
     assert graph2d.get("status") == "model_unavailable"
-    assert graph2d.get("min_confidence") == 0.5
+    assert graph2d.get("min_confidence") == GRAPH2D_DEFAULT_MIN_CONF
     assert graph2d.get("ensemble_enabled") is False
 
     assert soft.get("eligible") is False
     assert soft.get("reason") == "graph2d_unavailable"
-    assert soft.get("threshold") == 0.5
+    assert soft.get("threshold") == GRAPH2D_DEFAULT_MIN_CONF
 
 
 def test_analyze_dxf_graph2d_min_margin_blocks_soft_override(monkeypatch):
