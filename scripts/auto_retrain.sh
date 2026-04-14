@@ -166,8 +166,14 @@ with open(manifest, 'w', newline='', encoding='utf-8') as f:
 print(f'  Backfilled {filled} cache_path entries')
 remaining = sum(1 for r in rows if not r.get('cache_path', '').strip())
 if remaining > 0:
-    print(f'  WARNING: {remaining} rows still missing cache_path (DXF file not found?)')
+    print(f'FATAL: {remaining} rows still missing cache_path after backfill')
+    import sys; sys.exit(1)
 " 2>/dev/null
+    BACKFILL_RC=$?
+    if [ "${BACKFILL_RC}" -ne 0 ]; then
+        echo "  FATAL: backfill failed — some samples have no cache. Aborting."
+        exit 1
+    fi
     echo "  Cache generation + backfill complete."
 else
     echo "  All rows have cache_path — skipping preprocess."
