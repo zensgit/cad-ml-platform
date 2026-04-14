@@ -13,7 +13,7 @@ Title: `feat: submit local training governance and model stack`
 - Base branch: `main`
 - Source head before merge: `636e66073685da8090a05ca3e10a0f1c1b5411de`
 - Merge commit on `main`: `1a38e8c584f9760979df593575cbd04024016499`
-- Merge timestamp (GitHub): `2026-04-14T16:07:29Z`
+- PR `mergedAt` timestamp (GitHub): `2026-04-14T16:07:29Z`
 
 ## Merge Governance Handling
 
@@ -81,7 +81,7 @@ After merge, the feature branch was removed in both places:
 
 ## Local Repository State
 
-Local repository was synced after merge:
+Local repository was synced after merge. Before this closeout record was authored, the synced local `main` state was:
 
 - current branch: `main`
 - local `main` HEAD: `1a38e8c584f9760979df593575cbd04024016499`
