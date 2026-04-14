@@ -18,7 +18,7 @@ Usage::
 
     # inside HybridClassifier.classify():
     queue.maybe_enqueue(
-        file_hash=md5_hex,
+        file_hash=file_hash_hex,
         filename=filename,
         predicted_class=result.label or "unknown",
         confidence=result.confidence,
@@ -208,5 +208,5 @@ class LowConfidenceQueue:
 # ── Convenience helper ────────────────────────────────────────────────────────
 
 def dxf_file_hash(dxf_bytes: bytes, length: int = 12) -> str:
-    """Return a short MD5 hex digest of DXF file bytes (for queue keys)."""
-    return hashlib.md5(dxf_bytes).hexdigest()[:length]
+    """Return a short SHA-256 hex digest of DXF file bytes for queue keys."""
+    return hashlib.sha256(dxf_bytes).hexdigest()[:length]
