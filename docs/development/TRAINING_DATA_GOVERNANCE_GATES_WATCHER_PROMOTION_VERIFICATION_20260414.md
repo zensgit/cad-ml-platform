@@ -47,6 +47,27 @@ job 结果：
 
 - `Governance Gates` 已具备真实 GitHub-hosted 成功运行证据
 
+### 1.3 Promotion 后复跑验证
+
+在将 `Governance Gates` 提升进 watcher-required 默认集合并推送到 PR 分支后，PR 自动触发了新一轮 workflow：
+
+- workflow: `Governance Gates`
+- run id: `24391735151`
+- event: `pull_request`
+- branch: `submit/local-main-20260414`
+- conclusion: `success`
+
+job 结果：
+
+- job: `training-governance`
+- job id: `71239229856`
+- duration: `1m2s`
+
+关键结论：
+
+- promotion 本身没有破坏 workflow 可运行性
+- `Governance Gates` 在 promotion 前后都具备真实 GitHub-hosted 成功运行证据
+
 ---
 
 ## 2. Watcher Promotion 变更
@@ -186,6 +207,7 @@ make validate-training-governance
 |------|------|
 | 仓库公开化后 `Governance Gates` 可真实运行 | ✓ |
 | 首轮 GitHub-hosted 成功 run | ✓ |
+| promotion 后 GitHub-hosted 复跑成功 | ✓ |
 | Makefile 默认 watcher-required 集合包含 `Governance Gates` | ✓ |
 | inventory 默认 required 集合包含 `Governance Gates` | ✓ |
 | stress-tests 显式 required 集合包含 `Governance Gates` | ✓ |
