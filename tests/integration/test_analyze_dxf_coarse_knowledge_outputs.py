@@ -100,6 +100,9 @@ def test_analyze_dxf_exposes_coarse_labels_and_knowledge_outputs(monkeypatch):
     assert classification.get("coarse_hybrid_label") == "开孔件"
     assert classification.get("coarse_filename_label") == "开孔件"
     assert classification.get("coarse_graph2d_label") == "传动件"
+    assert classification.get("decision_source") == "hybrid"
+    assert classification.get("final_decision_source") == "hybrid"
+    assert classification.get("is_coarse_label") is False
     assert classification.get("has_branch_conflict") is True
     assert classification.get("needs_review") is True
     assert classification.get("confidence_band") == "high"
