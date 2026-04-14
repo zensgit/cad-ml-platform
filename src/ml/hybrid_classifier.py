@@ -52,6 +52,7 @@ class DecisionSource(str, Enum):
     TITLEBLOCK = "titleblock"
     PROCESS = "process"
     HISTORY = "history_sequence"
+    TEXT_CONTENT = "text_content"   # B5.4a: DXF 文字关键词分类
     FUSION = "fusion"
     FALLBACK = "fallback"
 
@@ -70,6 +71,7 @@ class ClassificationResult:
     titleblock_prediction: Optional[Dict[str, Any]] = None
     process_prediction: Optional[Dict[str, Any]] = None
     history_prediction: Optional[Dict[str, Any]] = None
+    text_content_prediction: Optional[Dict[str, Any]] = None   # B5.4a
 
     # 融合决策详情
     fusion_weights: Dict[str, float] = field(default_factory=dict)
@@ -90,6 +92,7 @@ class ClassificationResult:
             "titleblock_prediction": self.titleblock_prediction,
             "process_prediction": self.process_prediction,
             "history_prediction": self.history_prediction,
+            "text_content_prediction": self.text_content_prediction,
             "fusion_weights": self.fusion_weights,
             "source_contributions": self.source_contributions,
             "fusion_metadata": self.fusion_metadata,
@@ -156,6 +159,25 @@ class HybridClassifier:
             "HISTORY_SEQUENCE_FUSION_WEIGHT",
             explicit=history_weight,
             default=self._config.history_sequence.fusion_weight,
+        )
+        self.text_content_weight = self._resolve_float(
+            "TEXT_CONTENT_FUSION_WEIGHT",
+            explicit=None,
+            default=getattr(self._config.text_content, "fusion_weight", 0.10),
+        )
+        self.text_content_enabled = self._resolve_bool(
+            "TEXT_CONTENT_ENABLED",
+            getattr(self._config.text_content, "enabled", True),
+        )
+
+        # B6.0: StatMLP + TF-IDF TextMLP ensemble members
+        self.stat_mlp_enabled = self._resolve_bool(
+            "STAT_MLP_ENABLED",
+            os.path.exists(os.getenv("STAT_MLP_MODEL_PATH", "models/stat_mlp_24class.pth")),
+        )
+        self.tfidf_text_enabled = self._resolve_bool(
+            "TFIDF_TEXT_ENABLED",
+            os.path.exists(os.getenv("TFIDF_TEXT_MODEL_PATH", "models/text_classifier_tfidf.pth")),
         )
 
         self.filename_min_conf = self._resolve_float(
@@ -252,8 +274,26 @@ class HybridClassifier:
         self._titleblock_classifier = None
         self._process_classifier = None
         self._history_sequence_classifier = None
+        self._text_content_classifier = None   # B5.4a
+        self._stat_mlp = None                  # B6.0c
+        self._tfidf_text_clf = None            # B6.0b
         self._fusion_manager = None
         self._explainer = None
+
+        # B5.3: 监控 + 低置信度队列
+        from src.ml.monitoring.prediction_monitor import PredictionMonitor
+        from src.ml.low_conf_queue import LowConfidenceQueue
+
+        _monitor_window = int(os.getenv("MONITOR_WINDOW_SIZE", "1000"))
+        self.monitor = PredictionMonitor(window_size=_monitor_window)
+
+        _queue_path = os.getenv(
+            "LOW_CONF_QUEUE_PATH", "data/review_queue/low_conf.csv"
+        )
+        _queue_threshold = float(os.getenv("LOW_CONF_QUEUE_THRESHOLD", "0.50"))
+        self.low_conf_queue = LowConfidenceQueue(
+            queue_path=_queue_path, threshold=_queue_threshold
+        )
 
         logger.info(
             "HybridClassifier initialized",
@@ -382,6 +422,77 @@ class HybridClassifier:
                 logger.warning("History sequence classifier not available: %s", e)
                 self._history_sequence_classifier = None
         return self._history_sequence_classifier
+
+    @property
+    def text_content_classifier(self):
+        """懒加载 TextContentClassifier（B5.4a）"""
+        if self._text_content_classifier is None:
+            try:
+                from src.ml.text_classifier import TextContentClassifier
+
+                self._text_content_classifier = TextContentClassifier()
+            except Exception as e:
+                logger.warning("TextContentClassifier not available: %s", e)
+                self._text_content_classifier = None
+        return self._text_content_classifier
+
+    @property
+    def stat_mlp(self):
+        """懒加载 StatMLP（B6.0c: 统计特征分类器）"""
+        if self._stat_mlp is None and self.stat_mlp_enabled:
+            try:
+                import torch
+                from scripts.train_stat_mlp import StatMLP, extract_stat_features, STAT_FEAT_DIM
+
+                path = os.getenv("STAT_MLP_MODEL_PATH", "models/stat_mlp_24class.pth")
+                ckpt = torch.load(path, map_location="cpu", weights_only=False)
+                model = StatMLP(
+                    input_dim=ckpt.get("input_dim", STAT_FEAT_DIM),
+                    num_classes=ckpt.get("num_classes", 24),
+                )
+                model.load_state_dict(ckpt["model_state"])
+                model.eval()
+                self._stat_mlp = {
+                    "model": model,
+                    "label_map": ckpt["label_map"],
+                    "feat_mean": ckpt.get("feat_mean"),
+                    "feat_std": ckpt.get("feat_std"),
+                }
+                logger.info("StatMLP loaded: val_acc=%.1f%%", ckpt.get("best_val_acc", 0) * 100)
+            except Exception as e:
+                logger.warning("StatMLP not available: %s", e)
+                self._stat_mlp = None
+        return self._stat_mlp
+
+    @property
+    def tfidf_text_classifier(self):
+        """懒加载 TF-IDF TextMLP（B6.0b: 学习型文字分类器）"""
+        if self._tfidf_text_clf is None and self.tfidf_text_enabled:
+            try:
+                import torch
+                from scripts.train_text_classifier_ml import TextMLP, SimpleVectorizer
+
+                path = os.getenv("TFIDF_TEXT_MODEL_PATH", "models/text_classifier_tfidf.pth")
+                ckpt = torch.load(path, map_location="cpu", weights_only=False)
+                model = TextMLP(
+                    input_dim=ckpt.get("input_dim", 500),
+                    num_classes=ckpt.get("num_classes", 24),
+                )
+                model.load_state_dict(ckpt["model_state"])
+                model.eval()
+                vectorizer = SimpleVectorizer(max_features=ckpt.get("max_features", 500))
+                vectorizer.vocab = ckpt["vectorizer_vocab"]
+                vectorizer.idf = ckpt["vectorizer_idf"]
+                self._tfidf_text_clf = {
+                    "model": model,
+                    "vectorizer": vectorizer,
+                    "label_map": ckpt["label_map"],
+                }
+                logger.info("TF-IDF TextMLP loaded: val_acc=%.1f%%", ckpt.get("best_val_acc", 0) * 100)
+            except Exception as e:
+                logger.warning("TF-IDF TextMLP not available: %s", e)
+                self._tfidf_text_clf = None
+        return self._tfidf_text_clf
 
     @property
     def fusion_manager(self):
@@ -532,6 +643,7 @@ class HybridClassifier:
                 "titleblock": self.titleblock_weight,
                 "process": self.process_weight,
                 "history_sequence": self.history_weight,
+                "text_content": self.text_content_weight,  # B5.4a
             }
             predictions = [
                 SourcePrediction(
@@ -637,12 +749,24 @@ class HybridClassifier:
                 result.decision_path.append("filename_error")
 
         # 2. Graph2D 分类
+        # B5.6a: Parse DXF once, share doc with TextContent (saves ~15ms)
+        _shared_doc = None
         graph2d_pred = graph2d_result
         if graph2d_pred is None and self._is_graph2d_enabled() and file_bytes:
             try:
                 classifier = self.graph2d_classifier
                 if classifier:
-                    graph2d_pred = classifier.predict_from_bytes(file_bytes, filename)
+                    # Try single-parse path via predict_from_doc
+                    if hasattr(classifier, "predict_from_doc"):
+                        try:
+                            from src.utils.dxf_io import read_dxf_document_from_bytes
+                            _shared_doc = read_dxf_document_from_bytes(file_bytes)
+                            graph2d_pred = classifier.predict_from_doc(_shared_doc, filename)
+                        except Exception:
+                            # Fallback to bytes path
+                            graph2d_pred = classifier.predict_from_bytes(file_bytes, filename)
+                    else:
+                        graph2d_pred = classifier.predict_from_bytes(file_bytes, filename)
                     result.decision_path.append("graph2d_predicted")
             except Exception as e:
                 logger.error(f"Graph2D classification failed: {e}")
@@ -736,6 +860,121 @@ class HybridClassifier:
 
         if process_pred:
             result.process_prediction = process_pred
+
+        # 4.5 文字内容分类（B5.6a：使用共享 doc 避免重复 ezdxf 解析）
+        text_content_pred = None
+        text_content_label = None
+        text_content_conf = 0.0
+
+        if self.text_content_enabled and file_bytes:
+            try:
+                from src.ml.text_extractor import _extract_from_doc, extract_text_from_bytes
+
+                # B5.6a: Prefer shared doc (zero extra I/O) over re-parsing
+                if _shared_doc is not None:
+                    _dxf_text = _extract_from_doc(_shared_doc)
+                else:
+                    _dxf_text = extract_text_from_bytes(file_bytes)
+
+                if _dxf_text:
+                    clf = self.text_content_classifier
+                    if clf:
+                        _txt_probs = clf.predict_probs(_dxf_text)
+                        if _txt_probs:
+                            _top_cls = max(_txt_probs, key=_txt_probs.get)
+                            _top_conf = _txt_probs[_top_cls]
+                            text_content_pred = {
+                                "label": _top_cls,
+                                "confidence": _top_conf,
+                                "probabilities": _txt_probs,
+                                "text_length": len(_dxf_text),
+                                "status": "ok",
+                            }
+                            text_content_label = _top_cls
+                            text_content_conf = _top_conf
+                            result.decision_path.append("text_content_predicted")
+            except Exception as e:
+                logger.warning("TextContent classification failed: %s", e)
+                result.decision_path.append("text_content_error")
+
+        if text_content_pred:
+            result.text_content_prediction = text_content_pred
+
+        # 4.6 TF-IDF 文字分类器 fallback（B6.0b：关键词无命中时启用）
+        if (
+            text_content_pred is None
+            and self.tfidf_text_enabled
+            and _dxf_text
+            and len(_dxf_text.strip()) >= 4
+        ):
+            try:
+                tfidf_clf = self.tfidf_text_classifier
+                if tfidf_clf:
+                    import torch
+                    import torch.nn.functional as _F
+
+                    _vec = tfidf_clf["vectorizer"].transform(_dxf_text).unsqueeze(0)
+                    _logits = tfidf_clf["model"](_vec)
+                    _probs = _F.softmax(_logits, dim=1)[0]
+                    _tfidf_lm = tfidf_clf["label_map"]
+                    _tfidf_inv = {v: k for k, v in _tfidf_lm.items()}
+                    _top_idx = _probs.argmax().item()
+                    _top_cls = _tfidf_inv.get(_top_idx, "?")
+                    _top_conf = float(_probs[_top_idx])
+
+                    if _top_conf >= 0.3:  # Only use if reasonably confident
+                        text_content_pred = {
+                            "label": _top_cls,
+                            "confidence": _top_conf,
+                            "source": "tfidf_mlp",
+                            "text_length": len(_dxf_text),
+                            "status": "ok",
+                        }
+                        text_content_label = _top_cls
+                        text_content_conf = _top_conf
+                        result.decision_path.append("text_content_tfidf_fallback")
+                        if result.text_content_prediction is None:
+                            result.text_content_prediction = text_content_pred
+            except Exception as e:
+                logger.debug("TF-IDF text fallback failed: %s", e)
+
+        # 4.7 StatMLP 统计特征分类（B6.0c：从缓存图数据提取统计特征）
+        stat_mlp_pred = None
+        if self.stat_mlp_enabled and graph2d_pred and graph2d_pred.get("status") == "ok":
+            try:
+                stat_clf = self.stat_mlp
+                if stat_clf and _shared_doc is not None:
+                    import torch
+                    import torch.nn.functional as _F
+                    from scripts.train_stat_mlp import extract_stat_features
+                    from src.ml.train.dataset_2d import DXFDataset
+
+                    msp = _shared_doc.modelspace()
+                    ds = DXFDataset(root_dir=".", node_dim=19, return_edge_attr=True)
+                    x, ei, ea = ds._dxf_to_graph(msp, 19, return_edge_attr=True)
+                    data = {"x": x, "edge_index": ei, "edge_attr": ea}
+                    feats = extract_stat_features(data).unsqueeze(0)
+
+                    _mean = stat_clf.get("feat_mean")
+                    _std = stat_clf.get("feat_std")
+                    if _mean is not None and _std is not None:
+                        feats = (feats - _mean) / _std.clamp(min=1e-6)
+
+                    _logits = stat_clf["model"](feats)
+                    _probs = _F.softmax(_logits, dim=1)[0]
+                    _stat_lm = stat_clf["label_map"]
+                    _stat_inv = {v: k for k, v in _stat_lm.items()}
+                    _top_idx = _probs.argmax().item()
+                    stat_mlp_pred = {
+                        "label": _stat_inv.get(_top_idx, "?"),
+                        "confidence": float(_probs[_top_idx]),
+                        "probabilities": {_stat_inv.get(j, "?"): float(_probs[j])
+                                          for j in range(len(_stat_inv))},
+                        "status": "ok",
+                    }
+                    result.decision_path.append("stat_mlp_predicted")
+            except Exception as e:
+                logger.debug("StatMLP prediction failed: %s", e)
 
         # 5. History sequence 分类（HPSketch .h5）
         history_pred = history_result
@@ -900,6 +1139,8 @@ class HybridClassifier:
             "titleblock": self.titleblock_weight,
             "process": self.process_weight,
             "history_sequence": self.history_weight,
+            "text_content": self.text_content_weight,   # B5.4a
+            "stat_mlp": 0.25,  # B6.0c
         }
 
         if titleblock_label and filename_label and titleblock_label != filename_label:
@@ -1045,6 +1286,34 @@ class HybridClassifier:
                         DecisionSource.GRAPH2D,
                     )
                 )
+            # B5.4a: 文字内容作为软信号参与融合（仅在有关键词命中时加入）
+            if text_content_label:
+                _tc_label_norm = self._normalize_label(str(text_content_label))
+                if _tc_label_norm:
+                    preds.append(
+                        (
+                            "text_content",
+                            str(text_content_label),
+                            _tc_label_norm,
+                            text_content_conf,
+                            DecisionSource.TEXT_CONTENT,
+                        )
+                    )
+            # B6.0c: StatMLP 统计特征作为辅助融合信号
+            if stat_mlp_pred and stat_mlp_pred.get("status") == "ok":
+                _sm_label = stat_mlp_pred["label"]
+                _sm_norm = self._normalize_label(str(_sm_label))
+                _sm_conf = stat_mlp_pred["confidence"]
+                if _sm_norm and _sm_conf >= 0.3:
+                    preds.append(
+                        (
+                            "stat_mlp",
+                            str(_sm_label),
+                            _sm_norm,
+                            _sm_conf,
+                            DecisionSource.FUSION,  # Reuse FUSION source
+                        )
+                    )
 
             if len(preds) == 1:
                 src_key, label_raw, _, conf, src = preds[0]
@@ -1253,6 +1522,43 @@ class HybridClassifier:
                 "fusion_metadata": result.fusion_metadata,
             },
         )
+
+        # B5.3: Record to monitor + low-confidence queue
+        try:
+            _top1 = float(result.confidence or 0.0)
+            _label = result.label or "unknown"
+            # Derive confidence margin from fusion_metadata if available
+            _margin = 0.0
+            if result.fusion_metadata:
+                _margin = float(
+                    result.fusion_metadata.get("confidence_margin", 0.0) or 0.0
+                )
+            elif graph2d_pred and isinstance(graph2d_pred.get("margin"), (int, float)):
+                _margin = float(graph2d_pred["margin"])
+            _text_hit = "text_content_predicted" in result.decision_path
+            _fn_used = filename_pred is not None
+
+            self.monitor.record(
+                predicted_class=_label,
+                top1_confidence=_top1,
+                confidence_margin=_margin,
+                text_hit=_text_hit,
+                filename_used=_fn_used,
+            )
+
+            # Enqueue for human review if confidence is low
+            if file_bytes:
+                from src.ml.low_conf_queue import dxf_file_hash
+                _hash = dxf_file_hash(file_bytes)
+                self.low_conf_queue.maybe_enqueue(
+                    file_hash=_hash,
+                    filename=filename,
+                    predicted_class=_label,
+                    confidence=_top1,
+                    source=result.source.value,
+                )
+        except Exception as _mon_exc:
+            logger.debug("monitor/queue record failed (non-fatal): %s", _mon_exc)
 
         return result
 

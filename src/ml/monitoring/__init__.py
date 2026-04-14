@@ -54,6 +54,11 @@ from src.ml.monitoring.auto_remediation import (
     REMEDIATION_RULES,
 )
 
+from src.ml.monitoring.prediction_monitor import (
+    PredictionRecord,
+    PredictionMonitor,
+)
+
 __all__ = [
     # Metrics
     "MetricType",
@@ -92,4 +97,7 @@ __all__ = [
     "AutoRemediation",
     "RemediationResult",
     "REMEDIATION_RULES",
+    # B5.3 Prediction monitor
+    "PredictionRecord",
+    "PredictionMonitor",
 ]
