@@ -1,6 +1,15 @@
 """Classification helpers shared across API and core analyzers."""
 
 from src.core.classification.coarse_labels import labels_conflict, normalize_coarse_label
+from src.core.classification.decision_contract import (
+    build_classification_decision_contract,
+    extract_label_decision_contract,
+)
+from src.core.classification.finalization import finalize_classification_payload
+from src.core.classification.override_policy import (
+    apply_fusion_override,
+    apply_hybrid_override,
+)
 from src.core.classification.part_family import normalize_part_family_prediction
 from src.core.classification.review_governance import (
     build_review_governance,
@@ -10,6 +19,11 @@ from src.core.classification.review_governance import (
 __all__ = [
     "labels_conflict",
     "normalize_coarse_label",
+    "extract_label_decision_contract",
+    "build_classification_decision_contract",
+    "finalize_classification_payload",
+    "apply_fusion_override",
+    "apply_hybrid_override",
     "normalize_part_family_prediction",
     "build_review_governance",
     "derive_confidence_band",

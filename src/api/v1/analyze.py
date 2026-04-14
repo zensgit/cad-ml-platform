@@ -19,8 +19,10 @@ from src.adapters.factory import AdapterFactory
 from src.api.dependencies import get_api_key
 from src.core.analyzer import CADAnalyzer
 from src.core.classification import (
-    build_review_governance,
-    labels_conflict,
+    apply_fusion_override,
+    apply_hybrid_override,
+    extract_label_decision_contract,
+    finalize_classification_payload,
     normalize_coarse_label,
 )
 from src.core.errors_extended import (
@@ -29,7 +31,6 @@ from src.core.errors_extended import (
     create_extended_error,
     create_migration_error,
 )
-from src.core.knowledge.analysis_summary import build_knowledge_summary
 from src.core.feature_extractor import FeatureExtractor
 from src.core.ocr.manager import OcrManager
 from src.core.ocr.providers.deepseek_hf import DeepSeekHfProvider
@@ -1721,36 +1722,12 @@ async def analyze_cad_file(
                             "l3": l3_features,
                             "l4": l4_prediction,
                         }
-                        if (
-                            fusion_override
-                            and fusion_decision.confidence >= fusion_override_min_conf
-                        ):
-                            from src.core.knowledge.fusion_contracts import (
-                                DecisionSource,
-                            )
-
-                            is_default_rule = (
-                                fusion_decision.source == DecisionSource.RULE_BASED
-                                and fusion_decision.rule_hits == ["RULE_DEFAULT"]
-                            )
-                            if is_default_rule:
-                                cls_payload["fusion_override_skipped"] = {
-                                    "min_confidence": fusion_override_min_conf,
-                                    "decision_confidence": fusion_decision.confidence,
-                                    "reason": "default_rule_only",
-                                }
-                            else:
-                                cls_payload["part_type"] = fusion_decision.primary_label
-                                cls_payload["confidence"] = fusion_decision.confidence
-                                cls_payload["rule_version"] = (
-                                    f"FusionAnalyzer-{fusion_decision.schema_version}"
-                                )
-                                cls_payload["confidence_source"] = "fusion"
-                        elif fusion_override:
-                            cls_payload["fusion_override_skipped"] = {
-                                "min_confidence": fusion_override_min_conf,
-                                "decision_confidence": fusion_decision.confidence,
-                            }
+                        cls_payload = apply_fusion_override(
+                            cls_payload,
+                            fusion_decision=fusion_decision,
+                            override_enabled=fusion_override,
+                            min_confidence=fusion_override_min_conf,
+                        )
                     except Exception as e:
                         logger.error(f"FusionAnalyzer failed: {e}")
                 # Hybrid override:
@@ -1769,154 +1746,16 @@ async def analyze_cad_file(
                     hybrid_base_max_conf = _safe_float_env(
                         "HYBRID_OVERRIDE_BASE_MAX_CONF", 0.7
                     )
-                    hybrid_label = hybrid_result.get("label")
-                    hybrid_conf = float(hybrid_result.get("confidence", 0.0) or 0.0)
-
-                    placeholder_types = {
-                        "",
-                        "simple_plate",
-                        "moderate_component",
-                        "complex_assembly",
-                        "unknown",
-                        "other",
-                    }
-                    current_part_type = str(cls_payload.get("part_type") or "").strip()
-                    current_is_drawing_type = _graph2d_is_drawing_type(
-                        current_part_type
-                    )
-                    is_placeholder_rule = (
-                        str(cls_payload.get("confidence_source") or "") == "rules"
-                        and str(cls_payload.get("rule_version") or "") == "v1"
-                        and current_part_type in placeholder_types
-                    )
-                    base_conf = float(cls_payload.get("confidence", 0.0) or 0.0)
-                    is_low_conf_base = (
-                        str(cls_payload.get("confidence_source") or "") == "rules"
-                        and base_conf < hybrid_base_max_conf
+                    cls_payload = apply_hybrid_override(
+                        cls_payload,
+                        hybrid_result=hybrid_result,
+                        override_enabled=hybrid_override_env,
+                        auto_override_enabled=hybrid_auto_override,
+                        min_confidence=hybrid_min_conf,
+                        base_max_confidence=hybrid_base_max_conf,
+                        is_drawing_type=_graph2d_is_drawing_type,
                     )
 
-                    mode: Optional[str] = None
-                    should_override = False
-                    if hybrid_override_env:
-                        mode = "env"
-                        should_override = bool(hybrid_label) and (
-                            hybrid_conf >= hybrid_min_conf
-                        )
-                    elif hybrid_auto_override and is_placeholder_rule:
-                        mode = "auto"
-                        should_override = bool(hybrid_label) and (
-                            hybrid_conf >= hybrid_min_conf
-                        )
-                    elif hybrid_auto_override and is_low_conf_base:
-                        mode = "auto_low_conf"
-                        should_override = bool(hybrid_label) and (
-                            hybrid_conf >= hybrid_min_conf
-                        )
-                    elif hybrid_auto_override and current_is_drawing_type:
-                        mode = "auto_drawing_type"
-                        should_override = bool(hybrid_label) and (
-                            hybrid_conf >= hybrid_min_conf
-                        )
-
-                    if should_override:
-                        cls_payload["hybrid_override_applied"] = {
-                            "mode": mode,
-                            "min_confidence": hybrid_min_conf,
-                            "base_max_confidence": hybrid_base_max_conf,
-                            "previous_part_type": cls_payload.get("part_type"),
-                            "previous_confidence": cls_payload.get("confidence"),
-                            "previous_rule_version": cls_payload.get("rule_version"),
-                            "previous_confidence_source": cls_payload.get(
-                                "confidence_source"
-                            ),
-                        }
-                        cls_payload["part_type"] = hybrid_label
-                        cls_payload["confidence"] = hybrid_conf
-                        cls_payload["rule_version"] = "HybridClassifier-v1"
-                        cls_payload["confidence_source"] = "hybrid"
-                    elif hybrid_override_env:
-                        cls_payload["hybrid_override_skipped"] = {
-                            "min_confidence": hybrid_min_conf,
-                            "decision_confidence": hybrid_conf,
-                            "label": hybrid_label,
-                        }
-
-                cls_payload["final_decision_source"] = str(
-                    cls_payload.get("confidence_source") or "rules"
-                )
-                cls_payload["coarse_part_type"] = normalize_coarse_label(
-                    cls_payload.get("part_type")
-                )
-                cls_payload["coarse_fine_part_type"] = normalize_coarse_label(
-                    cls_payload.get("fine_part_type")
-                )
-                cls_payload["coarse_hybrid_label"] = normalize_coarse_label(
-                    ((cls_payload.get("hybrid_decision") or {}).get("label"))
-                )
-                cls_payload["coarse_graph2d_label"] = normalize_coarse_label(
-                    ((cls_payload.get("graph2d_prediction") or {}).get("label"))
-                )
-                cls_payload["coarse_filename_label"] = normalize_coarse_label(
-                    ((cls_payload.get("filename_prediction") or {}).get("label"))
-                )
-                cls_payload["coarse_titleblock_label"] = normalize_coarse_label(
-                    ((cls_payload.get("titleblock_prediction") or {}).get("label"))
-                )
-                cls_payload["coarse_history_label"] = normalize_coarse_label(
-                    ((cls_payload.get("history_prediction") or {}).get("label"))
-                )
-                cls_payload["coarse_process_label"] = normalize_coarse_label(
-                    ((cls_payload.get("process_prediction") or {}).get("label"))
-                )
-                cls_payload["coarse_part_family"] = normalize_coarse_label(
-                    cls_payload.get("part_family")
-                )
-
-                branch_conflicts = {
-                    "hybrid_vs_graph2d": labels_conflict(
-                        cls_payload.get("coarse_hybrid_label"),
-                        cls_payload.get("coarse_graph2d_label"),
-                    ),
-                    "filename_vs_graph2d": labels_conflict(
-                        cls_payload.get("coarse_filename_label"),
-                        cls_payload.get("coarse_graph2d_label"),
-                    ),
-                    "titleblock_vs_graph2d": labels_conflict(
-                        cls_payload.get("coarse_titleblock_label"),
-                        cls_payload.get("coarse_graph2d_label"),
-                    ),
-                    "history_vs_final": labels_conflict(
-                        cls_payload.get("coarse_history_label"),
-                        cls_payload.get("coarse_part_type"),
-                    ),
-                }
-                cls_payload["branch_conflicts"] = {
-                    key: value for key, value in branch_conflicts.items() if value
-                }
-                cls_payload["has_branch_conflict"] = bool(
-                    cls_payload["branch_conflicts"]
-                )
-
-                knowledge_payload = build_knowledge_summary(
-                    text_signals=text_signals,
-                    text_items=doc.metadata.get("text_content")
-                    if isinstance(doc.metadata.get("text_content"), list)
-                    else None,
-                    geometric_features=l2_features,
-                    entity_counts=ent_counts,
-                    fine_part_type=cls_payload.get("fine_part_type"),
-                    coarse_part_type=cls_payload.get("coarse_part_type"),
-                )
-                cls_payload["knowledge_checks"] = knowledge_payload.get(
-                    "knowledge_checks", []
-                )
-                cls_payload["violations"] = knowledge_payload.get("violations", [])
-                cls_payload["standards_candidates"] = knowledge_payload.get(
-                    "standards_candidates", []
-                )
-                cls_payload["knowledge_hints"] = knowledge_payload.get(
-                    "knowledge_hints", []
-                )
                 review_low_conf_threshold = _safe_float_env(
                     "ANALYSIS_REVIEW_LOW_CONFIDENCE_THRESHOLD",
                     _safe_float_env("ACTIVE_LEARNING_CONFIDENCE_THRESHOLD", 0.6),
@@ -1925,15 +1764,14 @@ async def analyze_cad_file(
                     "ANALYSIS_REVIEW_HIGH_CONFIDENCE_THRESHOLD",
                     0.85,
                 )
-                cls_payload.update(
-                    build_review_governance(
-                        confidence=cls_payload.get("confidence", 0.0),
-                        hybrid_rejection=cls_payload.get("hybrid_rejection"),
-                        branch_conflicts=cls_payload.get("branch_conflicts"),
-                        violations=cls_payload.get("violations"),
-                        low_confidence_threshold=review_low_conf_threshold,
-                        high_confidence_threshold=review_high_conf_threshold,
-                    )
+                cls_payload = finalize_classification_payload(
+                    cls_payload,
+                    text_signals=text_signals,
+                    text_items=doc.metadata.get("text_content"),
+                    geometric_features=l2_features,
+                    entity_counts=ent_counts,
+                    low_confidence_threshold=review_low_conf_threshold,
+                    high_confidence_threshold=review_high_conf_threshold,
                 )
                 results["classification"] = cls_payload
                 # Active learning: flag low-confidence samples for review
@@ -2345,22 +2183,20 @@ async def analyze_cad_file(
 
             classification_meta = results.get("classification", {})
             if isinstance(classification_meta, dict):
+                classification_contract = extract_label_decision_contract(
+                    classification_meta
+                )
                 final_part_type = str(
-                    classification_meta.get("part_type") or ""
+                    classification_contract.get("part_type") or ""
                 ).strip()
                 fine_part_type = str(
-                    classification_meta.get("fine_part_type") or final_part_type
+                    classification_contract.get("fine_part_type") or ""
                 ).strip()
                 coarse_part_type = str(
-                    classification_meta.get("coarse_part_type")
-                    or normalize_coarse_label(fine_part_type or final_part_type)
-                    or ""
+                    classification_contract.get("coarse_part_type") or ""
                 ).strip()
                 final_decision_source = str(
-                    classification_meta.get("final_decision_source")
-                    or classification_meta.get("decision_source")
-                    or classification_meta.get("confidence_source")
-                    or ""
+                    classification_contract.get("decision_source") or ""
                 ).strip()
                 if final_part_type:
                     meta["part_type"] = final_part_type
@@ -2368,9 +2204,9 @@ async def analyze_cad_file(
                     meta["fine_part_type"] = fine_part_type
                 if coarse_part_type:
                     meta["coarse_part_type"] = coarse_part_type
-                    meta["is_coarse_label"] = str(
-                        bool(fine_part_type and fine_part_type == coarse_part_type)
-                    ).lower()
+                is_coarse_label = classification_contract.get("is_coarse_label")
+                if is_coarse_label is not None:
+                    meta["is_coarse_label"] = str(bool(is_coarse_label)).lower()
                 if final_decision_source:
                     meta["final_decision_source"] = final_decision_source
 
