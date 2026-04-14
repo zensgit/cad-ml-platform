@@ -265,6 +265,7 @@ def finetune(
     hidden_dim: int = 64,
     model_type: str = "edge_sage",
     val_split: float = 0.2,
+    val_manifest: Optional[str] = None,
     sampler: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """Finetune a pretrained encoder on labeled data."""
@@ -305,13 +306,19 @@ def finetune(
     criterion = nn.CrossEntropyLoss()
 
     # Train/val split
-    total = len(dataset)
-    val_size = max(1, int(total * val_split))
-    train_size = total - val_size
-    train_ds, val_ds = random_split(
-        dataset, [train_size, val_size],
-        generator=torch.Generator().manual_seed(42),
-    )
+    if val_manifest:
+        # Golden validation set: use fixed manifest instead of random_split
+        val_ds = CachedGraphDataset(val_manifest)
+        train_ds = dataset
+        logger.info("Using golden val manifest: %s (%d samples)", val_manifest, len(val_ds))
+    else:
+        total = len(dataset)
+        val_size = max(1, int(total * val_split))
+        train_size = total - val_size
+        train_ds, val_ds = random_split(
+            dataset, [train_size, val_size],
+            generator=torch.Generator().manual_seed(42),
+        )
 
     # If a sampler is provided it applies only to the train split; sampler
     # indices reference train_ds, not the full dataset, so we remap weights.
@@ -495,6 +502,9 @@ def main() -> int:
     parser.add_argument("--model-type", choices=["gcn", "edge_sage"], default="edge_sage")
     parser.add_argument("--patience", type=int, default=5)
     parser.add_argument("--val-split", type=float, default=0.2)
+    parser.add_argument("--val-manifest", default=None,
+                        help="Fixed validation manifest CSV. Overrides --val-split. "
+                             "Recommended: data/manifests/golden_val_set.csv")
     parser.add_argument("--output", default="models/graph2d_finetuned.pth")
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--dry-run", action="store_true", help="Use synthetic data.")
@@ -557,6 +567,7 @@ def main() -> int:
         hidden_dim=args.hidden_dim,
         model_type=args.model_type,
         val_split=args.val_split,
+        val_manifest=getattr(args, "val_manifest", None),
         sampler=sampler,
     )
 

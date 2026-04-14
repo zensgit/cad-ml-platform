@@ -43,8 +43,12 @@ _FIELDNAMES = [
     "confidence",
     "source",
     "timestamp",
-    "reviewed_label",   # left blank; filled by human annotator
-    "notes",            # left blank; filled by human annotator
+    "reviewed_label",        # left blank; filled by human annotator
+    "notes",                 # left blank; filled by human annotator
+    "sample_source",         # legacy_low_conf_queue
+    "label_source",          # filled when reviewed
+    "human_verified",        # filled when reviewed
+    "eligible_for_training", # filled when reviewed
 ]
 
 # Default confidence threshold below which samples are enqueued
@@ -118,6 +122,10 @@ class LowConfidenceQueue:
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
             "reviewed_label": "",
             "notes": "",
+            "sample_source": "legacy_low_conf_queue",
+            "label_source": "",
+            "human_verified": "",
+            "eligible_for_training": "",
         }
         self._append_row(row)
 
@@ -151,13 +159,31 @@ class LowConfidenceQueue:
         return count
 
     def reviewed_entries(self) -> list[dict]:
-        """Return all entries that have a reviewed_label (ready for training)."""
+        """Return all entries that have a reviewed_label (ready for training).
+
+        An entry is considered reviewed when it has a reviewed_label. The
+        human_verified column is also checked when present so that callers can
+        distinguish fully verified samples from those with a label only.
+        """
         if not self.queue_path.exists():
             return []
         result = []
         with open(self.queue_path, "r", encoding="utf-8") as f:
             for row in csv.DictReader(f):
                 if row.get("reviewed_label", "").strip():
+                    result.append(row)
+        return result
+
+    def human_verified_entries(self) -> list[dict]:
+        """Return entries where both reviewed_label and human_verified are set."""
+        if not self.queue_path.exists():
+            return []
+        result = []
+        with open(self.queue_path, "r", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                has_label = row.get("reviewed_label", "").strip()
+                human_verified = str(row.get("human_verified", "")).strip().lower()
+                if has_label and human_verified in ("true", "1", "yes"):
                     result.append(row)
         return result
 

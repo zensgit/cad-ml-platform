@@ -88,15 +88,36 @@ def _read_queue(path: str) -> list[dict]:
     return rows
 
 
-def _reviewed_rows(queue_rows: list[dict], corrections_only: bool = False) -> list[dict]:
+def _is_human_verified(row: dict) -> bool:
+    """Return True if the row's human_verified field is truthy.
+
+    Treats empty string, "false", and "False" as falsy; everything else
+    (including "true", "True", "1", "yes") as truthy.
+    """
+    val = str(row.get("human_verified", "")).strip().lower()
+    return val not in ("", "false", "0", "no")
+
+
+def _reviewed_rows(
+    queue_rows: list[dict],
+    corrections_only: bool = False,
+    include_unverified: bool = False,
+) -> tuple[list[dict], int]:
     """Return queue rows that have a non-empty reviewed_label.
 
     Args:
         queue_rows: All rows from the queue CSV.
         corrections_only: If True, only include rows where reviewed_label
             differs from predicted_class (genuine corrections).
+        include_unverified: If True, skip the human_verified eligibility
+            check (migration / override path only).
+
+    Returns:
+        (eligible_rows, blocked_count) — rows that passed eligibility and
+        the number of rows blocked by the human_verified check.
     """
     result = []
+    blocked = 0
     for row in queue_rows:
         label = row.get("reviewed_label", "").strip()
         if not label:
@@ -105,8 +126,16 @@ def _reviewed_rows(queue_rows: list[dict], corrections_only: bool = False) -> li
             predicted = row.get("predicted_class", "").strip()
             if label == predicted:
                 continue
+        if not include_unverified and not _is_human_verified(row):
+            logger.debug(
+                "Blocked unverified row (human_verified=%r): %s",
+                row.get("human_verified", ""),
+                row.get("filename", row.get("file_hash", "?")),
+            )
+            blocked += 1
+            continue
         result.append(row)
-    return result
+    return result, blocked
 
 
 # ── DXF file discovery ────────────────────────────────────────────────────────
@@ -174,6 +203,14 @@ def main() -> int:
         default="taxonomy_v2_class",
         help="Label column name in the manifest (default: taxonomy_v2_class).",
     )
+    parser.add_argument(
+        "--include-unverified",
+        action="store_true",
+        help=(
+            "Override the human_verified eligibility check and include rows "
+            "that have not been human-verified. Intended for data migration only."
+        ),
+    )
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -201,9 +238,20 @@ def main() -> int:
     queue_rows = _read_queue(args.queue)
     logger.info("Queue: %d total rows  (%s)", len(queue_rows), args.queue)
 
-    reviewed = _reviewed_rows(queue_rows, corrections_only=args.corrections_only)
+    if args.include_unverified:
+        logger.warning(
+            "--include-unverified is set: skipping human_verified eligibility check "
+            "(migration mode only)."
+        )
+    reviewed, blocked_unverified = _reviewed_rows(
+        queue_rows,
+        corrections_only=args.corrections_only,
+        include_unverified=args.include_unverified,
+    )
     logger.info(
-        "Reviewed rows: %d  (corrections_only=%s)", len(reviewed), args.corrections_only
+        "Reviewed rows: %d eligible, %d blocked by human_verified check  "
+        "(corrections_only=%s)",
+        len(reviewed), blocked_unverified, args.corrections_only,
     )
 
     # Build new rows
@@ -247,6 +295,10 @@ def main() -> int:
     logger.info(
         "Summary: +%d new rows  (skipped: %d no-path  %d duplicates)",
         len(new_rows), skipped_no_path, skipped_duplicate,
+    )
+    logger.info(
+        "Export gate: Exported %d verified, blocked %d unverified",
+        len(new_rows), blocked_unverified,
     )
 
     if args.dry_run:

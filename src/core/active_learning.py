@@ -60,6 +60,15 @@ class ActiveLearningSample(BaseModel):
     reviewer_id: Optional[str] = None
     feedback_time: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    # Training data governance (B6.4 Phase 1)
+    sample_source: str = "unknown"  # analysis_review_queue | feedback_api | legacy_low_conf_queue | imported_manifest
+    label_source: str = "unknown"   # human_feedback | human_review | claude_suggestion | model_auto | rule_auto | synthetic_demo
+    review_source: Optional[str] = None  # human | claude_assisted | mixed
+    human_verified: bool = False
+    verified_by: Optional[str] = None
+    verified_at: Optional[datetime] = None
+    eligible_for_training: bool = False
+    training_block_reason: Optional[str] = "missing_provenance"
 
 
 def _normalize_predicted_contract(
@@ -353,6 +362,8 @@ class ActiveLearner:
             alternatives=alternatives,
             score_breakdown=score_breakdown,
             uncertainty_reason=uncertainty_reason,
+            sample_source="analysis_review_queue",
+            label_source="model_auto",
         )
         sample = _normalize_sample(sample)
         self._samples[sample.id] = sample
@@ -366,6 +377,9 @@ class ActiveLearner:
         true_fine_type: Optional[str] = None,
         true_coarse_type: Optional[str] = None,
         reviewer_id: Optional[str] = None,
+        label_source: Optional[str] = None,
+        review_source: Optional[str] = None,
+        verified_by: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Submit feedback for a sample."""
         if sample_id not in self._samples:
@@ -389,6 +403,18 @@ class ActiveLearner:
         if _priority_rank(derived_priority) > _priority_rank(sample.feedback_priority):
             sample.feedback_priority = derived_priority
 
+        # Provenance tracking
+        if label_source:
+            sample.label_source = label_source
+        if review_source:
+            sample.review_source = review_source
+        if label_source in ("human_feedback", "human_review"):
+            sample.human_verified = True
+            sample.verified_by = verified_by or reviewer_id
+            sample.verified_at = datetime.utcnow()
+            sample.eligible_for_training = True
+            sample.training_block_reason = None
+
         self._update_sample_file()
 
         return {
@@ -398,18 +424,28 @@ class ActiveLearner:
         }
 
     def check_retrain_threshold(self) -> Dict[str, Any]:
-        """Check if retrain threshold is reached."""
+        """Check if retrain threshold is reached.
+
+        Uses eligible_for_training (not just labeled status) to align with
+        auto_retrain.sh provenance gate — only human-verified, eligible
+        samples count toward the threshold.
+        """
         labeled_count = sum(1 for s in self._samples.values() if s.status == SampleStatus.LABELED)
-        remaining = max(self._retrain_threshold - labeled_count, 0)
-        if labeled_count >= self._retrain_threshold:
+        eligible_count = sum(
+            1 for s in self._samples.values()
+            if s.status == SampleStatus.LABELED and s.eligible_for_training
+        )
+        remaining = max(self._retrain_threshold - eligible_count, 0)
+        if eligible_count >= self._retrain_threshold:
             recommendation = "threshold_met"
         elif remaining == 1:
-            recommendation = "need_1_more_labeled_sample"
+            recommendation = "need_1_more_eligible_sample"
         else:
-            recommendation = f"need_{remaining}_more_labeled_samples"
+            recommendation = f"need_{remaining}_more_eligible_samples"
         return {
-            "ready": labeled_count >= self._retrain_threshold,
+            "ready": eligible_count >= self._retrain_threshold,
             "labeled_samples": labeled_count,
+            "eligible_samples": eligible_count,
             "threshold": self._retrain_threshold,
             "remaining_samples": remaining,
             "recommendation": recommendation,
@@ -419,12 +455,14 @@ class ActiveLearner:
         self,
         format: str = "jsonl",  # noqa: A002
         only_labeled: bool = True,
+        include_unverified: bool = False,
     ) -> Dict[str, Any]:
         """Export labeled samples for retraining."""
         samples_to_export = [
             s
             for s in self._samples.values()
-            if not only_labeled or s.status == SampleStatus.LABELED
+            if (not only_labeled or s.status == SampleStatus.LABELED)
+            and (include_unverified or s.eligible_for_training)
         ]
 
         if not samples_to_export:

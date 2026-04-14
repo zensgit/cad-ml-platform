@@ -152,15 +152,28 @@ def main():
     parser.add_argument("--model", required=True, help="Path to model checkpoint.")
     parser.add_argument("--baseline", default=None, help="Optional baseline checkpoint for comparison.")
     parser.add_argument("--manifest", required=True, help="Cache manifest CSV.")
+    parser.add_argument("--golden-val-manifest", default=None,
+                        help="Fixed golden validation manifest CSV. When provided, "
+                             "evaluation uses this set instead of random_split. "
+                             "Recommended: data/manifests/golden_val_set.csv")
     parser.add_argument("--val-split", type=float, default=0.2)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
-    ds = CachedGraphDataset(args.manifest)
-    val_size = int(args.val_split * len(ds))
-    train_size = len(ds) - val_size
-    _, val_ds = random_split(ds, [train_size, val_size],
-                             generator=torch.Generator().manual_seed(args.seed))
+    if args.golden_val_manifest:
+        # Phase 2: Use fixed golden validation set (no random_split)
+        val_ds = CachedGraphDataset(args.golden_val_manifest)
+        logger.info("Using golden validation set: %s (%d samples)",
+                     args.golden_val_manifest, len(val_ds))
+    else:
+        ds = CachedGraphDataset(args.manifest)
+        val_size = int(args.val_split * len(ds))
+        train_size = len(ds) - val_size
+        _, val_ds = random_split(ds, [train_size, val_size],
+                                 generator=torch.Generator().manual_seed(args.seed))
+        logger.info("Using random_split val set: %d samples (seed=%d). "
+                     "Consider --golden-val-manifest for stable evaluation.",
+                     len(val_ds), args.seed)
     val_loader = DataLoader(val_ds, batch_size=32, shuffle=False, collate_fn=collate_finetune)
 
     model, label_map = load_model(args.model)

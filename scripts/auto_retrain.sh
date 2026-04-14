@@ -53,6 +53,36 @@ if [ "${REVIEWED}" -lt "${MIN_REVIEWED}" ]; then
     exit 0
 fi
 
+# Step 1b: Provenance check — count human-verified and eligible rows
+HUMAN_VERIFIED=$(python3 -c "
+import csv, sys
+total = verified = eligible = 0
+try:
+    with open('${QUEUE_PATH}', newline='', encoding='utf-8') as f:
+        for row in csv.DictReader(f):
+            if not row.get('reviewed_label', '').strip():
+                continue
+            total += 1
+            hv = str(row.get('human_verified', '')).strip().lower()
+            if hv not in ('', 'false', '0', 'no'):
+                verified += 1
+            eft = str(row.get('eligible_for_training', '')).strip().lower()
+            if eft not in ('', 'false', '0', 'no'):
+                eligible += 1
+    print(f'{total},{verified},{eligible}')
+except Exception as e:
+    print(f'0,0,0')
+" 2>/dev/null || echo "0,0,0")
+
+IFS=',' read -r HV_TOTAL HV_VERIFIED HV_ELIGIBLE <<< "${HUMAN_VERIFIED}"
+echo "Step 1b: Reviewed: ${HV_TOTAL} total, ${HV_VERIFIED} human-verified, ${HV_ELIGIBLE} eligible"
+
+if [ "${HV_VERIFIED}" -lt "${MIN_REVIEWED}" ]; then
+    echo "  Not enough human-verified samples (${HV_VERIFIED} < ${MIN_REVIEWED}). Exiting."
+    echo "  Note: Total reviewed is ${REVIEWED}, but provenance gate requires ${MIN_REVIEWED} human-verified."
+    exit 0
+fi
+
 # Step 2: Append reviewed samples to manifest
 echo "Step 2: Appending reviewed samples to manifest..."
 python3 scripts/append_reviewed_to_manifest.py \
@@ -66,16 +96,19 @@ echo "  New manifest: ${NEW_MANIFEST} (${NEW_COUNT} rows)"
 
 # Step 3: Fine-tune
 echo "Step 3: Fine-tuning from ${BASE_CHECKPOINT}..."
+GOLDEN_VAL="${GOLDEN_VAL:-data/manifests/golden_val_set.csv}"
+
 python3 scripts/finetune_graph2d_v2_augmented.py \
     --checkpoint "${BASE_CHECKPOINT}" \
     --manifest "${NEW_MANIFEST}" \
+    --val-manifest "${GOLDEN_VAL}" \
     --output "${NEW_MODEL}" \
     --epochs 40 --batch-size 32 \
     --encoder-lr 2e-5 --head-lr 2e-4 \
     --focal-gamma 2.0 --patience 12 --device cpu
 
-# Step 4: Evaluate (gate check)
-echo "Step 4: Evaluating..."
+# Step 4: Evaluate on GOLDEN validation set (not training data!)
+echo "Step 4: Evaluating on golden validation set (${GOLDEN_VAL})..."
 ACC=$(python3 -c "
 import sys; sys.path.insert(0, '.')
 from scripts.evaluate_graph2d_v2 import load_model
@@ -85,7 +118,7 @@ import torch
 
 model, label_map = load_model('${NEW_MODEL}')
 model.eval()
-dataset = CachedGraphDataset('data/graph_cache/cache_manifest.csv')
+dataset = CachedGraphDataset('${GOLDEN_VAL}')
 ds_inv = {v:k for k,v in dataset.label_map.items()}
 inv = {v:k for k,v in label_map.items()}
 loader = DataLoader(dataset, batch_size=64, collate_fn=collate_finetune)

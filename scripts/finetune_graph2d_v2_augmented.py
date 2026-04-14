@@ -91,13 +91,19 @@ def train(args: argparse.Namespace) -> None:
     num_classes = len(ds.label_map)
     print(f"  {len(ds)} samples, {num_classes} classes", flush=True)
 
-    # Train / val split (same seed as B4.4 for comparable evaluation)
-    val_size = int(args.val_split * len(ds))
-    train_size = len(ds) - val_size
-    train_ds, val_ds = random_split(
-        ds, [train_size, val_size],
-        generator=torch.Generator().manual_seed(args.seed),
-    )
+    # Train / val split
+    if args.val_manifest:
+        # Phase 2: Use fixed golden validation set
+        val_ds = CachedGraphDataset(args.val_manifest)
+        train_ds = ds  # Full manifest used for training (golden val is a separate file)
+        print(f"  Using golden val manifest: {args.val_manifest} ({len(val_ds)} samples)")
+    else:
+        val_size = int(args.val_split * len(ds))
+        train_size = len(ds) - val_size
+        train_ds, val_ds = random_split(
+            ds, [train_size, val_size],
+            generator=torch.Generator().manual_seed(args.seed),
+        )
 
     # Weighted sampler for training
     sampler = build_sampler(ds, list(train_ds.indices))
@@ -251,6 +257,9 @@ def main() -> None:
     parser.add_argument("--focal-gamma", type=float, default=1.5)
     parser.add_argument("--patience", type=int, default=12)
     parser.add_argument("--val-split", type=float, default=0.2)
+    parser.add_argument("--val-manifest", default=None,
+                        help="Fixed validation manifest CSV. Overrides --val-split. "
+                             "Recommended: data/manifests/golden_val_set.csv")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--device", default="cpu")
     args = parser.parse_args()
