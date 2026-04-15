@@ -22,6 +22,9 @@ from src.core.classification.review_governance import (
     build_review_governance,
     derive_confidence_band,
 )
+from src.core.classification.shadow_pipeline import (
+    build_shadow_classification_context,
+)
 
 __all__ = [
     "flag_classification_for_review",
@@ -37,4 +40,5 @@ __all__ = [
     "normalize_part_family_prediction",
     "build_review_governance",
     "derive_confidence_band",
+    "build_shadow_classification_context",
 ]
