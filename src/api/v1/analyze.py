@@ -23,6 +23,7 @@ from src.core.classification import (
     apply_hybrid_override,
     build_baseline_classification_context,
     extract_label_decision_contract,
+    flag_classification_for_review,
     finalize_classification_payload,
     normalize_coarse_label,
 )
@@ -1662,106 +1663,10 @@ async def analyze_cad_file(
                 results["classification"] = cls_payload
                 # Active learning: flag low-confidence samples for review
                 try:
-                    enabled = (
-                        __import__("os")
-                        .getenv("ACTIVE_LEARNING_ENABLED", "false")
-                        .lower()
-                        == "true"
+                    flag_classification_for_review(
+                        analysis_id=analysis_id,
+                        cls_payload=cls_payload,
                     )
-                    hybrid_rejection_payload = cls_payload.get("hybrid_rejection")
-                    if not isinstance(hybrid_rejection_payload, dict):
-                        hybrid_rejection_payload = None
-                    needs_review = bool(cls_payload.get("needs_review"))
-                    if enabled and needs_review:
-                        review_reasons = [
-                            str(reason).strip()
-                            for reason in (cls_payload.get("review_reasons") or [])
-                            if str(reason).strip()
-                        ]
-                        uncertainty_reason = (
-                            "+".join(review_reasons) or "low_confidence"
-                        )
-                        review_priority = str(
-                            cls_payload.get("review_priority") or "medium"
-                        ).strip() or "medium"
-                        if cls_payload.get("review_has_knowledge_conflict"):
-                            sample_type = "knowledge_conflict"
-                        elif cls_payload.get("review_has_branch_conflict"):
-                            sample_type = "branch_conflict"
-                        elif cls_payload.get("review_has_hybrid_rejection"):
-                            sample_type = "hybrid_rejection"
-                        elif cls_payload.get("review_is_low_confidence"):
-                            sample_type = "low_confidence"
-                        else:
-                            sample_type = "review"
-                        from src.core.active_learning import get_active_learner
-
-                        learner = get_active_learner()
-                        learner.flag_for_review(
-                            doc_id=analysis_id,
-                            predicted_type=str(cls_payload.get("part_type", "unknown")),
-                            confidence=float(cls_payload.get("confidence", 0.0)),
-                            alternatives=cls_payload.get("alternatives", []),
-                            score_breakdown={
-                                "coarse_part_type": cls_payload.get("coarse_part_type"),
-                                "fine_part_type": cls_payload.get("fine_part_type"),
-                                "coarse_hybrid_label": cls_payload.get(
-                                    "coarse_hybrid_label"
-                                ),
-                                "coarse_graph2d_label": cls_payload.get(
-                                    "coarse_graph2d_label"
-                                ),
-                                "rule_version": cls_payload.get("rule_version"),
-                                "model_version": cls_payload.get("model_version"),
-                                "confidence_source": cls_payload.get(
-                                    "confidence_source"
-                                ),
-                                "confidence_breakdown": cls_payload.get(
-                                    "confidence_breakdown"
-                                ),
-                                "hybrid_rejection": hybrid_rejection_payload,
-                                "decision_path": cls_payload.get("decision_path"),
-                                "source_contributions": cls_payload.get(
-                                    "source_contributions"
-                                ),
-                                "history_prediction": cls_payload.get(
-                                    "history_prediction"
-                                ),
-                                "fusion_metadata": cls_payload.get("fusion_metadata"),
-                                "shadow_predictions": (
-                                    (cls_payload.get("fusion_metadata") or {}).get(
-                                        "shadow_predictions"
-                                    )
-                                    if isinstance(
-                                        cls_payload.get("fusion_metadata"), dict
-                                    )
-                                    else None
-                                ),
-                                "hybrid_explanation": cls_payload.get(
-                                    "hybrid_explanation"
-                                ),
-                                "knowledge_checks": cls_payload.get(
-                                    "knowledge_checks"
-                                ),
-                                "violations": cls_payload.get("violations"),
-                                "standards_candidates": cls_payload.get(
-                                    "standards_candidates"
-                                ),
-                                "branch_conflicts": cls_payload.get(
-                                    "branch_conflicts"
-                                ),
-                                "needs_review": cls_payload.get("needs_review"),
-                                "confidence_band": cls_payload.get("confidence_band"),
-                                "review_priority": cls_payload.get("review_priority"),
-                                "review_priority_score": cls_payload.get(
-                                    "review_priority_score"
-                                ),
-                                "review_reasons": cls_payload.get("review_reasons"),
-                            },
-                            uncertainty_reason=uncertainty_reason,
-                            sample_type=sample_type,
-                            feedback_priority=review_priority,
-                        )
                 except Exception as e:
                     logger.warning(f"Active learning flag failed: {e}")
                 dur = time.time() - t0

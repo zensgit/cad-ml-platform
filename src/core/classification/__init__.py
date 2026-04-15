@@ -1,5 +1,8 @@
 """Classification helpers shared across API and core analyzers."""
 
+from src.core.classification.active_learning_policy import (
+    flag_classification_for_review,
+)
 from src.core.classification.baseline_policy import (
     build_baseline_classification_context,
     build_baseline_classification_payload,
@@ -21,6 +24,7 @@ from src.core.classification.review_governance import (
 )
 
 __all__ = [
+    "flag_classification_for_review",
     "build_baseline_classification_context",
     "build_baseline_classification_payload",
     "labels_conflict",
