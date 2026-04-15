@@ -18,6 +18,7 @@ from src.adapters.factory import AdapterFactory
 from src.api.dependencies import get_api_key
 from src.core.analyzer import CADAnalyzer
 from src.core.classification import (
+    build_vector_registration_metadata,
     extract_label_decision_contract,
     normalize_coarse_label,
     run_classification_pipeline,
@@ -1212,47 +1213,16 @@ async def analyze_cad_file(
                 vector_layout = VECTOR_LAYOUT_L3
 
             m_used = material or "unknown"
-            meta = {
-                "material": m_used,
-                "complexity": doc.complexity_bucket(),
-                "format": doc.format,
-                "feature_version": feature_version,
-                "vector_layout": vector_layout,
-                "geometric_dim": str(len(features.get("geometric", []))),
-                "semantic_dim": str(len(features.get("semantic", []))),
-                "total_dim": str(len(feature_vector)),
-            }
-            if l3_dim is not None:
-                meta["l3_3d_dim"] = str(l3_dim)
-
-            classification_meta = results.get("classification", {})
-            if isinstance(classification_meta, dict):
-                classification_contract = extract_label_decision_contract(
-                    classification_meta
-                )
-                final_part_type = str(
-                    classification_contract.get("part_type") or ""
-                ).strip()
-                fine_part_type = str(
-                    classification_contract.get("fine_part_type") or ""
-                ).strip()
-                coarse_part_type = str(
-                    classification_contract.get("coarse_part_type") or ""
-                ).strip()
-                final_decision_source = str(
-                    classification_contract.get("decision_source") or ""
-                ).strip()
-                if final_part_type:
-                    meta["part_type"] = final_part_type
-                if fine_part_type:
-                    meta["fine_part_type"] = fine_part_type
-                if coarse_part_type:
-                    meta["coarse_part_type"] = coarse_part_type
-                is_coarse_label = classification_contract.get("is_coarse_label")
-                if is_coarse_label is not None:
-                    meta["is_coarse_label"] = str(bool(is_coarse_label)).lower()
-                if final_decision_source:
-                    meta["final_decision_source"] = final_decision_source
+            meta = build_vector_registration_metadata(
+                material=m_used,
+                doc=doc,
+                features=features,
+                feature_vector=feature_vector,
+                feature_version=feature_version,
+                vector_layout=vector_layout,
+                classification_meta=results.get("classification", {}),
+                l3_dim=l3_dim,
+            )
 
             qdrant_store = _get_qdrant_store_or_none()
             stored_in_qdrant = False
