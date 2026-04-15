@@ -18,14 +18,9 @@ from src.adapters.factory import AdapterFactory
 from src.api.dependencies import get_api_key
 from src.core.analyzer import CADAnalyzer
 from src.core.classification import (
-    build_baseline_classification_context,
-    build_fusion_classification_context,
-    build_hybrid_override_context,
-    build_shadow_classification_context,
     extract_label_decision_contract,
-    flag_classification_for_review,
-    finalize_classification_payload,
     normalize_coarse_label,
+    run_classification_pipeline,
 )
 from src.core.classification import shadow_pipeline as _shadow_pipeline
 from src.core.errors_extended import (
@@ -77,7 +72,6 @@ _build_graph2d_soft_override_suggestion = (
 _enrich_graph2d_prediction = _shadow_pipeline._enrich_graph2d_prediction
 _graph2d_is_drawing_type = _shadow_pipeline._graph2d_is_drawing_type
 _resolve_history_sequence_file_path = _shadow_pipeline._resolve_history_sequence_file_path
-_safe_float_env = _shadow_pipeline._safe_float_env
 
 
 def _get_qdrant_store_or_none():
@@ -915,76 +909,19 @@ async def analyze_cad_file(
 
             async def _run_classify():
                 t0 = time.time()
-                baseline_context = await build_baseline_classification_context(
+                cls_payload = await run_classification_pipeline(
+                    analysis_id=analysis_id,
                     doc=doc,
                     features=features,
                     features_3d=features_3d,
-                    classify_part=analyzer.classify_part,
-                    logger_instance=logger,
-                )
-                cls_payload = baseline_context["payload"]
-                text_signals = baseline_context["text_signals"]
-                ent_counts = baseline_context["entity_counts"]
-                doc_metadata = baseline_context["doc_metadata"]
-                l2_features = baseline_context["l2_features"]
-                l3_features = baseline_context["l3_features"]
-                shadow_context = await build_shadow_classification_context(
-                    cls_payload,
-                    features=features,
                     file_name=file.filename,
                     file_format=file_format,
                     content=content,
                     analysis_options=analysis_options,
-                )
-                cls_payload = shadow_context["payload"]
-                ml_result = shadow_context["ml_result"]
-                graph2d_fusable = shadow_context["graph2d_fusable"]
-                hybrid_result = shadow_context["hybrid_result"]
-                try:
-                    fusion_context = build_fusion_classification_context(
-                        cls_payload,
-                        doc_metadata=doc_metadata,
-                        l2_features=l2_features,
-                        l3_features=l3_features,
-                        ml_result=ml_result,
-                        graph2d_fusable=graph2d_fusable,
-                    )
-                    cls_payload = fusion_context["payload"]
-                except Exception as e:
-                    logger.error(f"FusionAnalyzer failed: {e}")
-                hybrid_context = build_hybrid_override_context(
-                    cls_payload,
-                    hybrid_result=hybrid_result,
-                    is_drawing_type=_graph2d_is_drawing_type,
-                )
-                cls_payload = hybrid_context["payload"]
-
-                review_low_conf_threshold = _safe_float_env(
-                    "ANALYSIS_REVIEW_LOW_CONFIDENCE_THRESHOLD",
-                    _safe_float_env("ACTIVE_LEARNING_CONFIDENCE_THRESHOLD", 0.6),
-                )
-                review_high_conf_threshold = _safe_float_env(
-                    "ANALYSIS_REVIEW_HIGH_CONFIDENCE_THRESHOLD",
-                    0.85,
-                )
-                cls_payload = finalize_classification_payload(
-                    cls_payload,
-                    text_signals=text_signals,
-                    text_items=doc.metadata.get("text_content"),
-                    geometric_features=l2_features,
-                    entity_counts=ent_counts,
-                    low_confidence_threshold=review_low_conf_threshold,
-                    high_confidence_threshold=review_high_conf_threshold,
+                    classify_part=analyzer.classify_part,
+                    logger_instance=logger,
                 )
                 results["classification"] = cls_payload
-                # Active learning: flag low-confidence samples for review
-                try:
-                    flag_classification_for_review(
-                        analysis_id=analysis_id,
-                        cls_payload=cls_payload,
-                    )
-                except Exception as e:
-                    logger.warning(f"Active learning flag failed: {e}")
                 dur = time.time() - t0
                 classification_latency_seconds.observe(dur)
                 return ("classify", dur)
