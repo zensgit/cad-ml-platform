@@ -11,7 +11,9 @@ import sys
 from math import sqrt
 from typing import Any, Dict, List, Optional, Protocol, Set, Union, runtime_checkable
 
-from src.core.classification import extract_label_decision_contract
+from src.core.classification.vector_metadata import (
+    extract_vector_label_contract as _extract_vector_label_contract,
+)
 from src.core.errors_extended import ErrorCode
 from src.core.vector_layouts import VECTOR_LAYOUT_BASE
 from src.utils.analysis_metrics import (
@@ -65,15 +67,8 @@ _FAISS_RECOVERY_SUPPRESSION_SECONDS = int(
 _FAISS_RECOVERY_STATE_BACKEND = os.getenv("FAISS_RECOVERY_STATE_BACKEND", "file").lower()
 
 def extract_vector_label_contract(meta: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    """Extract stable fine/coarse semantic fields from vector metadata."""
-    contract = extract_label_decision_contract(meta)
-    return {
-        "part_type": contract.get("part_type"),
-        "fine_part_type": contract.get("fine_part_type"),
-        "coarse_part_type": contract.get("coarse_part_type"),
-        "decision_source": contract.get("decision_source"),
-        "is_coarse_label": contract.get("is_coarse_label"),
-    }
+    """Compatibility wrapper for vector label contract extraction."""
+    return _extract_vector_label_contract(meta)
 
 
 def get_client() -> Optional[Any]:
