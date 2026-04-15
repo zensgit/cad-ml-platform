@@ -21,6 +21,7 @@ from src.core.analyzer import CADAnalyzer
 from src.core.classification import (
     apply_fusion_override,
     apply_hybrid_override,
+    build_baseline_classification_context,
     extract_label_decision_contract,
     finalize_classification_payload,
     normalize_coarse_label,
@@ -1217,134 +1218,19 @@ async def analyze_cad_file(
 
             async def _run_classify():
                 t0 = time.time()
-
-                def _build_text_signals(doc: CadDocument) -> str:
-                    parts = []
-                    stem, _ = os.path.splitext(doc.file_name or "")
-                    if stem:
-                        parts.append(stem)
-                    text = doc.metadata.get("text")
-                    if text:
-                        parts.append(str(text))
-                    text_content = doc.metadata.get("text_content")
-                    if isinstance(text_content, list):
-                        parts.extend([str(t) for t in text_content if str(t).strip()])
-                    meta = doc.metadata.get("meta")
-                    if isinstance(meta, dict):
-                        for key in (
-                            "drawing_number",
-                            "drawing_no",
-                            "drawingNo",
-                            "drawingNumber",
-                            "number",
-                        ):
-                            val = meta.get(key)
-                            if val:
-                                parts.append(str(val))
-                    return " ".join(parts).strip()
-
-                # Check if we can use L3 Fusion
-                ent_counts = {}
-                for e in doc.entities:
-                    ent_counts[e.kind] = ent_counts.get(e.kind, 0) + 1
-                text_signals = _build_text_signals(doc)
-                try:
-                    from src.core.knowledge.fusion_analyzer import (
-                        build_doc_metadata,
-                        build_l2_features,
-                    )
-
-                    doc_metadata = build_doc_metadata(doc)
-                    l2_features = build_l2_features(doc)
-                except Exception:
-                    doc_metadata = {}
-                    l2_features = {}
-                l3_features = (
-                    {k: v for k, v in features_3d.items() if k != "embedding_vector"}
-                    if features_3d
-                    else {}
+                baseline_context = await build_baseline_classification_context(
+                    doc=doc,
+                    features=features,
+                    features_3d=features_3d,
+                    classify_part=analyzer.classify_part,
+                    logger_instance=logger,
                 )
-                if features_3d:
-                    try:
-                        from src.core.knowledge.fusion import get_fusion_classifier
-
-                        fusion = get_fusion_classifier()
-
-                        # Perform fused classification
-                        fused_result = fusion.classify(
-                            text_signals=text_signals,
-                            features_2d={
-                                "geometric_features": l2_features,
-                                "entity_counts": ent_counts,
-                            },
-                            features_3d=features_3d,
-                        )
-
-                        classification = {
-                            "type": fused_result["type"],
-                            "confidence": fused_result["confidence"],
-                            "sub_type": None,
-                            "characteristics": [],
-                            "rule_version": "L3-Fusion-v1",
-                            "alternatives": fused_result.get("alternatives", []),
-                            "confidence_breakdown": fused_result.get(
-                                "fusion_breakdown"
-                            ),
-                        }
-                    except Exception as e:
-                        logger.error(f"Fusion failed, falling back to L1: {e}")
-                        classification = await analyzer.classify_part(doc, features)
-                else:
-                    classification = await analyzer.classify_part(doc, features)
-                    if text_signals or ent_counts:
-                        try:
-                            from src.core.knowledge.fusion import get_fusion_classifier
-
-                            fusion = get_fusion_classifier()
-                            fused_result = fusion.classify(
-                                text_signals=text_signals,
-                                features_2d={
-                                    "geometric_features": l2_features,
-                                    "entity_counts": ent_counts,
-                                },
-                                features_3d={},
-                            )
-                            if (
-                                fused_result.get("type") not in {None, "unknown"}
-                                and float(fused_result.get("confidence") or 0.0) > 0.0
-                            ):
-                                classification = {
-                                    "type": fused_result["type"],
-                                    "confidence": fused_result["confidence"],
-                                    "sub_type": None,
-                                    "characteristics": [],
-                                    "rule_version": "L2-Fusion-v1",
-                                    "alternatives": fused_result.get(
-                                        "alternatives", []
-                                    ),
-                                    "confidence_breakdown": fused_result.get(
-                                        "fusion_breakdown"
-                                    ),
-                                }
-                        except Exception as e:
-                            logger.error(f"Fusion failed, falling back to L1: {e}")
-
-                cls_payload = {
-                    "part_type": classification["type"],
-                    "confidence": classification["confidence"],
-                    "sub_type": classification.get("sub_type"),
-                    "characteristics": classification.get("characteristics", []),
-                    "rule_version": classification.get("rule_version"),
-                    "alternatives": classification.get("alternatives", []),
-                    "confidence_breakdown": classification.get("confidence_breakdown"),
-                }
-                rule_version = str(cls_payload.get("rule_version") or "")
-                cls_payload["confidence_source"] = (
-                    "fusion"
-                    if rule_version.startswith("L3-Fusion")
-                    or rule_version.startswith("L2-Fusion")
-                    else "rules"
-                )
+                cls_payload = baseline_context["payload"]
+                text_signals = baseline_context["text_signals"]
+                ent_counts = baseline_context["entity_counts"]
+                doc_metadata = baseline_context["doc_metadata"]
+                l2_features = baseline_context["l2_features"]
+                l3_features = baseline_context["l3_features"]
                 # Attempt ML classification overlay
                 ml_result: Optional[Dict[str, Any]] = None
                 try:
