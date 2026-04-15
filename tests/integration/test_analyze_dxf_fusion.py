@@ -391,6 +391,145 @@ def test_analyze_dxf_fusion_inputs(monkeypatch):
     assert "l2" in fusion_inputs
     assert "l3" in fusion_inputs
 
+
+def test_analyze_dxf_shadow_pipeline_prefers_graph2d_for_fusion_l4(
+    monkeypatch, tmp_path: Path
+):
+    captured: dict[str, object] = {}
+    history_path = tmp_path / "Bolt_M6x20.h5"
+    history_path.write_bytes(b"")
+
+    class _StubGraph2D:
+        def predict_from_bytes(self, data, file_name):  # noqa: ANN001
+            return {
+                "label": "人孔",
+                "confidence": 0.91,
+                "margin": 0.3,
+                "status": "ok",
+            }
+
+    class _StubHybridClassifier:
+        class _Result:
+            def __init__(self, payload):  # noqa: ANN001
+                self._payload = payload
+
+            def to_dict(self):  # noqa: D401
+                return dict(self._payload)
+
+        def classify(  # noqa: ANN201
+            self,
+            filename,
+            file_bytes=None,  # noqa: ANN001
+            graph2d_result=None,  # noqa: ANN001
+            history_result=None,  # noqa: ANN001
+            history_file_path=None,  # noqa: ANN001
+        ):
+            captured["history_file_path"] = str(history_file_path or "")
+            captured["graph2d_result"] = graph2d_result
+            return self._Result(
+                {
+                    "label": "法兰",
+                    "confidence": 0.95,
+                    "source": "filename_exact",
+                    "filename_prediction": {
+                        "label": "法兰",
+                        "confidence": 0.95,
+                        "source": "filename",
+                    },
+                    "titleblock_prediction": None,
+                    "history_prediction": {
+                        "label": "法兰",
+                        "confidence": 0.72,
+                        "file_path": str(history_file_path or ""),
+                    },
+                    "process_prediction": {"label": "laser_cut", "confidence": 0.8},
+                    "decision_path": ["filename_exact"],
+                    "source_contributions": {"filename": 0.95},
+                    "fusion_metadata": {"mode": "unit"},
+                    "explanation": "unit test",
+                }
+            )
+
+    class _StubFusionDecision:
+        primary_label = "bolt"
+        confidence = 0.58
+        schema_version = "v1"
+        source = "ai_model"
+        rule_hits: list[str] = []
+
+        def model_dump(self) -> dict[str, object]:
+            return {
+                "primary_label": self.primary_label,
+                "confidence": self.confidence,
+                "schema_version": self.schema_version,
+                "source": self.source,
+                "rule_hits": self.rule_hits,
+            }
+
+    class _StubFusionAnalyzer:
+        def analyze(self, **kwargs):  # noqa: ANN003, ANN201
+            captured["fusion_kwargs"] = kwargs
+            return _StubFusionDecision()
+
+    monkeypatch.setenv("PROVIDER_REGISTRY_CACHE_ENABLED", "false")
+    monkeypatch.setenv("GRAPH2D_ENABLED", "true")
+    monkeypatch.setenv("GRAPH2D_FUSION_ENABLED", "true")
+    monkeypatch.setenv("HYBRID_CLASSIFIER_ENABLED", "true")
+    monkeypatch.setenv("FUSION_ANALYZER_ENABLED", "true")
+    monkeypatch.setenv("FUSION_ANALYZER_OVERRIDE", "false")
+    monkeypatch.setenv("PART_CLASSIFIER_PROVIDER_ENABLED", "false")
+    monkeypatch.setenv("HISTORY_SEQUENCE_ENABLED", "true")
+    monkeypatch.setenv("HISTORY_SEQUENCE_SIDECAR_DIR", str(tmp_path))
+    monkeypatch.setattr(
+        "src.core.providers.classifier.Graph2DClassifierProviderAdapter._build_default_classifier",
+        lambda self: _StubGraph2D(),
+    )
+    monkeypatch.setattr(
+        "src.core.providers.classifier.HybridClassifierProviderAdapter._build_default_classifier",
+        lambda self: _StubHybridClassifier(),
+    )
+    monkeypatch.setattr(
+        "src.core.knowledge.fusion_analyzer.get_fusion_analyzer",
+        lambda: _StubFusionAnalyzer(),
+    )
+
+    dxf_payload = b"0\nSECTION\n2\nENTITIES\n0\nENDSEC\n0\nEOF\n"
+    options = {"extract_features": True, "classify_parts": True}
+    resp = client.post(
+        "/api/v1/analyze/",
+        files={
+            "file": ("Bolt_M6x20.dxf", io.BytesIO(dxf_payload), "application/dxf"),
+        },
+        data={"options": json.dumps(options)},
+        headers={"x-api-key": os.getenv("API_KEY", "test")},
+    )
+    assert resp.status_code == 200, resp.text
+    classification = resp.json().get("results", {}).get("classification", {})
+    fusion_inputs = classification.get("fusion_inputs") or {}
+    history_input = classification.get("history_sequence_input") or {}
+
+    assert classification.get("graph2d_prediction", {}).get("label") == "人孔"
+    assert classification.get("fine_part_type") == "法兰"
+    assert classification.get("hybrid_rejected") is False
+    assert history_input == {
+        "resolved": True,
+        "source": "sidecar_exact",
+        "file_name": "Bolt_M6x20.h5",
+    }
+    assert fusion_inputs.get("l4") == {
+        "label": "人孔",
+        "confidence": 0.91,
+        "source": "graph2d",
+    }
+    assert captured.get("history_file_path") == str(history_path)
+    assert (captured.get("graph2d_result") or {}).get("label") == "人孔"
+    assert (captured.get("fusion_kwargs") or {}).get("l4_prediction") == {
+        "label": "人孔",
+        "confidence": 0.91,
+        "source": "graph2d",
+    }
+
+
 def test_analyze_dxf_graph2d_override(monkeypatch):
     """Test Graph2D override functionality.
 
