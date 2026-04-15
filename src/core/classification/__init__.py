@@ -16,6 +16,9 @@ from src.core.classification.finalization import finalize_classification_payload
 from src.core.classification.fusion_pipeline import (
     build_fusion_classification_context,
 )
+from src.core.classification.hybrid_override_pipeline import (
+    build_hybrid_override_context,
+)
 from src.core.classification.override_policy import (
     apply_fusion_override,
     apply_hybrid_override,
@@ -39,6 +42,7 @@ __all__ = [
     "build_classification_decision_contract",
     "finalize_classification_payload",
     "build_fusion_classification_context",
+    "build_hybrid_override_context",
     "apply_fusion_override",
     "apply_hybrid_override",
     "normalize_part_family_prediction",

@@ -18,9 +18,9 @@ from src.adapters.factory import AdapterFactory
 from src.api.dependencies import get_api_key
 from src.core.analyzer import CADAnalyzer
 from src.core.classification import (
-    apply_hybrid_override,
     build_baseline_classification_context,
     build_fusion_classification_context,
+    build_hybrid_override_context,
     build_shadow_classification_context,
     extract_label_decision_contract,
     flag_classification_for_review,
@@ -952,31 +952,12 @@ async def analyze_cad_file(
                     cls_payload = fusion_context["payload"]
                 except Exception as e:
                     logger.error(f"FusionAnalyzer failed: {e}")
-                # Hybrid override:
-                # - Default: auto-adopt high-confidence HybridClassifier label when the
-                #   base classifier is a placeholder (rule_version=v1 bucket types).
-                # - Optional: force override via env `HYBRID_CLASSIFIER_OVERRIDE=true`.
-                hybrid_override_env = (
-                    os.getenv("HYBRID_CLASSIFIER_OVERRIDE", "false").lower() == "true"
+                hybrid_context = build_hybrid_override_context(
+                    cls_payload,
+                    hybrid_result=hybrid_result,
+                    is_drawing_type=_graph2d_is_drawing_type,
                 )
-                hybrid_auto_override = (
-                    os.getenv("HYBRID_CLASSIFIER_AUTO_OVERRIDE", "true").lower()
-                    == "true"
-                )
-                if hybrid_result:
-                    hybrid_min_conf = _safe_float_env("HYBRID_OVERRIDE_MIN_CONF", 0.8)
-                    hybrid_base_max_conf = _safe_float_env(
-                        "HYBRID_OVERRIDE_BASE_MAX_CONF", 0.7
-                    )
-                    cls_payload = apply_hybrid_override(
-                        cls_payload,
-                        hybrid_result=hybrid_result,
-                        override_enabled=hybrid_override_env,
-                        auto_override_enabled=hybrid_auto_override,
-                        min_confidence=hybrid_min_conf,
-                        base_max_confidence=hybrid_base_max_conf,
-                        is_drawing_type=_graph2d_is_drawing_type,
-                    )
+                cls_payload = hybrid_context["payload"]
 
                 review_low_conf_threshold = _safe_float_env(
                     "ANALYSIS_REVIEW_LOW_CONFIDENCE_THRESHOLD",
