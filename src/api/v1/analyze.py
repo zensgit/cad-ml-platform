@@ -18,9 +18,9 @@ from src.adapters.factory import AdapterFactory
 from src.api.dependencies import get_api_key
 from src.core.analyzer import CADAnalyzer
 from src.core.classification import (
-    apply_fusion_override,
     apply_hybrid_override,
     build_baseline_classification_context,
+    build_fusion_classification_context,
     build_shadow_classification_context,
     extract_label_decision_contract,
     flag_classification_for_review,
@@ -938,70 +938,20 @@ async def analyze_cad_file(
                 )
                 cls_payload = shadow_context["payload"]
                 ml_result = shadow_context["ml_result"]
-                graph2d_result = shadow_context["graph2d_result"]
                 graph2d_fusable = shadow_context["graph2d_fusable"]
                 hybrid_result = shadow_context["hybrid_result"]
-                # Optional FusionAnalyzer (shadow by default)
-                fusion_enabled = (
-                    os.getenv("FUSION_ANALYZER_ENABLED", "false").lower() == "true"
-                )
-                fusion_override = (
-                    os.getenv("FUSION_ANALYZER_OVERRIDE", "false").lower() == "true"
-                )
-                fusion_override_min_conf = _safe_float_env(
-                    "FUSION_ANALYZER_OVERRIDE_MIN_CONF", 0.5
-                )
-                if fusion_enabled:
-                    try:
-                        from src.core.knowledge.fusion_analyzer import (
-                            get_fusion_analyzer,
-                        )
-
-                        l4_prediction = None
-                        graph2d_fusion = (
-                            os.getenv("GRAPH2D_FUSION_ENABLED", "false").lower()
-                            == "true"
-                        )
-                        if (
-                            graph2d_fusion
-                            and graph2d_fusable
-                            and graph2d_fusable.get("label")
-                        ):
-                            l4_prediction = {
-                                "label": graph2d_fusable["label"],
-                                "confidence": float(
-                                    graph2d_fusable.get("confidence", 0.0)
-                                ),
-                                "source": "graph2d",
-                            }
-                        elif ml_result and ml_result.get("predicted_type"):
-                            l4_prediction = {
-                                "label": ml_result["predicted_type"],
-                                "confidence": float(ml_result.get("confidence", 0.0)),
-                                "source": "ml",
-                            }
-
-                        fusion_decision = get_fusion_analyzer().analyze(
-                            doc_metadata=doc_metadata,
-                            l2_features=l2_features,
-                            l3_features=l3_features,
-                            l4_prediction=l4_prediction,
-                        )
-                        cls_payload["fusion_decision"] = fusion_decision.model_dump()
-                        cls_payload["fusion_inputs"] = {
-                            "l1": doc_metadata,
-                            "l2": l2_features,
-                            "l3": l3_features,
-                            "l4": l4_prediction,
-                        }
-                        cls_payload = apply_fusion_override(
-                            cls_payload,
-                            fusion_decision=fusion_decision,
-                            override_enabled=fusion_override,
-                            min_confidence=fusion_override_min_conf,
-                        )
-                    except Exception as e:
-                        logger.error(f"FusionAnalyzer failed: {e}")
+                try:
+                    fusion_context = build_fusion_classification_context(
+                        cls_payload,
+                        doc_metadata=doc_metadata,
+                        l2_features=l2_features,
+                        l3_features=l3_features,
+                        ml_result=ml_result,
+                        graph2d_fusable=graph2d_fusable,
+                    )
+                    cls_payload = fusion_context["payload"]
+                except Exception as e:
+                    logger.error(f"FusionAnalyzer failed: {e}")
                 # Hybrid override:
                 # - Default: auto-adopt high-confidence HybridClassifier label when the
                 #   base classifier is a placeholder (rule_version=v1 bucket types).
