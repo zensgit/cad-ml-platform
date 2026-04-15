@@ -8,6 +8,9 @@ from src.core.classification.baseline_policy import (
     build_baseline_classification_payload,
 )
 from src.core.classification.coarse_labels import labels_conflict, normalize_coarse_label
+from src.core.classification.classification_pipeline import (
+    run_classification_pipeline,
+)
 from src.core.classification.decision_contract import (
     build_classification_decision_contract,
     extract_label_decision_contract,
@@ -38,6 +41,7 @@ __all__ = [
     "build_baseline_classification_payload",
     "labels_conflict",
     "normalize_coarse_label",
+    "run_classification_pipeline",
     "extract_label_decision_contract",
     "build_classification_decision_contract",
     "finalize_classification_payload",
