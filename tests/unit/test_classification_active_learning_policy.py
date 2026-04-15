@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from unittest.mock import patch
 
 from src.core.classification.active_learning_policy import (
@@ -121,3 +122,101 @@ def test_flag_classification_for_review_prefers_knowledge_conflict_sample_type()
 
     assert captured["sample_type"] == "knowledge_conflict"
     assert captured["uncertainty_reason"] == "knowledge_conflict"
+
+
+def test_flag_classification_for_review_uses_hybrid_rejection_sample_type():
+    captured = {}
+
+    class DummyLearner:
+        def flag_for_review(self, **kwargs):
+            captured.update(kwargs)
+            return kwargs
+
+    with patch(
+        "src.core.active_learning.get_active_learner",
+        return_value=DummyLearner(),
+    ):
+        flag_classification_for_review(
+            analysis_id="doc-44",
+            cls_payload=_payload(
+                review_has_branch_conflict=False,
+                review_has_hybrid_rejection=True,
+                review_is_low_confidence=False,
+                review_reasons=["hybrid_rejection"],
+            ),
+            active_learning_enabled=True,
+        )
+
+    assert captured["sample_type"] == "hybrid_rejection"
+    assert captured["uncertainty_reason"] == "hybrid_rejection"
+
+
+def test_flag_classification_for_review_uses_low_confidence_sample_type():
+    captured = {}
+
+    class DummyLearner:
+        def flag_for_review(self, **kwargs):
+            captured.update(kwargs)
+            return kwargs
+
+    with patch(
+        "src.core.active_learning.get_active_learner",
+        return_value=DummyLearner(),
+    ):
+        flag_classification_for_review(
+            analysis_id="doc-45",
+            cls_payload=_payload(
+                review_has_branch_conflict=False,
+                review_has_hybrid_rejection=False,
+                review_is_low_confidence=True,
+                review_reasons=[],
+            ),
+            active_learning_enabled=True,
+        )
+
+    assert captured["sample_type"] == "low_confidence"
+    assert captured["uncertainty_reason"] == "low_confidence"
+
+
+def test_flag_classification_for_review_uses_env_gate_when_flag_not_passed():
+    captured = {}
+
+    class DummyLearner:
+        def flag_for_review(self, **kwargs):
+            captured.update(kwargs)
+            return kwargs
+
+    with (
+        patch.dict(os.environ, {"ACTIVE_LEARNING_ENABLED": "true"}, clear=False),
+        patch(
+            "src.core.active_learning.get_active_learner",
+            return_value=DummyLearner(),
+        ),
+    ):
+        flag_classification_for_review(
+            analysis_id="doc-46",
+            cls_payload=_payload(),
+        )
+
+    assert captured["doc_id"] == "doc-46"
+
+
+def test_flag_classification_for_review_defaults_priority_to_medium():
+    captured = {}
+
+    class DummyLearner:
+        def flag_for_review(self, **kwargs):
+            captured.update(kwargs)
+            return kwargs
+
+    with patch(
+        "src.core.active_learning.get_active_learner",
+        return_value=DummyLearner(),
+    ):
+        flag_classification_for_review(
+            analysis_id="doc-47",
+            cls_payload=_payload(review_priority=""),
+            active_learning_enabled=True,
+        )
+
+    assert captured["feedback_priority"] == "medium"

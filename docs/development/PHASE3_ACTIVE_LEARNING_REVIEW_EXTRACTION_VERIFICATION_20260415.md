@@ -58,7 +58,14 @@ python3 -m py_compile \
 
 Observed results:
 
-- `19 passed, 7 warnings`
+- `23 passed, 7 warnings`
 - `10 passed, 7 warnings`
 - `flake8` passed
 - `py_compile` passed
+
+Additional hardening after sidecar review:
+
+- added direct coverage for `hybrid_rejection`-only sample typing
+- added direct coverage for `low_confidence`-only sample typing
+- added direct coverage for env-var gating via `ACTIVE_LEARNING_ENABLED`
+- added direct coverage for `review_priority` fallback to `medium`
