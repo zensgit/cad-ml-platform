@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from src.core.classification.baseline_policy import (
+    build_baseline_classification_context,
     build_baseline_classification_payload,
 )
 
@@ -162,3 +163,52 @@ async def test_build_baseline_classification_payload_keeps_l1_when_l2_fusion_is_
     assert result["confidence"] == 0.42
     assert result["rule_version"] == "v1"
     assert result["confidence_source"] == "rules"
+
+
+@pytest.mark.asyncio
+async def test_build_baseline_classification_context_exposes_downstream_signals():
+    doc = SimpleNamespace(
+        file_name="pump_plate.dxf",
+        metadata={
+            "text": "plate tag",
+            "text_content": ["A1", "B2"],
+            "meta": {"drawing_number": "DWG-CTX-01"},
+        },
+        entities=[
+            SimpleNamespace(kind="LINE"),
+            SimpleNamespace(kind=""),
+            SimpleNamespace(kind="ARC"),
+        ],
+    )
+    features = {"geometric": [1.0], "semantic": [2.0]}
+    features_3d = {"faces": 4, "embedding_vector": [0.2, 0.3]}
+
+    async def _classify_part(*_: object) -> dict[str, object]:
+        raise AssertionError("L1 classifier should not run when L3 fusion succeeds")
+
+    class DummyFusion:
+        def classify(self, **_: object) -> dict[str, object]:
+            return {
+                "type": "pump_plate",
+                "confidence": 0.91,
+                "alternatives": ["plate"],
+                "fusion_breakdown": {"3d": 0.7, "2d": 0.21},
+            }
+
+    context = await build_baseline_classification_context(
+        doc=doc,
+        features=features,
+        features_3d=features_3d,
+        classify_part=_classify_part,
+        fusion_classifier_factory=DummyFusion,
+        build_l2_features_fn=lambda _doc: {"holes": 2, "slots": 1},
+        build_doc_metadata_fn=lambda _doc: {"source": "unit-test"},
+    )
+
+    assert context["payload"]["part_type"] == "pump_plate"
+    assert context["payload"]["rule_version"] == "L3-Fusion-v1"
+    assert context["text_signals"] == "pump_plate plate tag A1 B2 DWG-CTX-01"
+    assert context["entity_counts"] == {"LINE": 1, "": 1, "ARC": 1}
+    assert context["doc_metadata"] == {"source": "unit-test"}
+    assert context["l2_features"] == {"holes": 2, "slots": 1}
+    assert context["l3_features"] == {"faces": 4}

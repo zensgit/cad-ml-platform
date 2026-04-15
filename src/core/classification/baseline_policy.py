@@ -48,8 +48,6 @@ def _build_entity_counts(doc: Any) -> Dict[str, int]:
     entity_counts: Dict[str, int] = {}
     for entity in getattr(doc, "entities", []) or []:
         kind = str(getattr(entity, "kind", "") or "").strip()
-        if not kind:
-            continue
         entity_counts[kind] = entity_counts.get(kind, 0) + 1
     return entity_counts
 
