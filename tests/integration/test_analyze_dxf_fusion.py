@@ -591,3 +591,54 @@ def test_analyze_dxf_graph2d_override(monkeypatch):
         fusion.graph2d_override_min_conf = prev_min_conf
         fusion.graph2d_override_low_conf_labels = prev_low_labels
         fusion.graph2d_override_low_conf_min = prev_low_min
+
+
+def test_analyze_dxf_fusion_override_applies_decision_contract(monkeypatch):
+    class _StubFusionDecision:
+        primary_label = "bolt"
+        confidence = 0.88
+        schema_version = "v1.2"
+        source = "ai_model"
+        rule_hits: list[str] = []
+
+        def model_dump(self) -> dict[str, object]:
+            return {
+                "primary_label": self.primary_label,
+                "confidence": self.confidence,
+                "schema_version": self.schema_version,
+                "source": self.source,
+                "rule_hits": self.rule_hits,
+            }
+
+    class _StubFusionAnalyzer:
+        def analyze(self, **kwargs):  # noqa: ANN003, ANN201
+            return _StubFusionDecision()
+
+    monkeypatch.setenv("FUSION_ANALYZER_ENABLED", "true")
+    monkeypatch.setenv("FUSION_ANALYZER_OVERRIDE", "true")
+    monkeypatch.setenv("FUSION_ANALYZER_OVERRIDE_MIN_CONF", "0.5")
+    monkeypatch.setenv("GRAPH2D_ENABLED", "false")
+    monkeypatch.setenv("HYBRID_CLASSIFIER_ENABLED", "false")
+    monkeypatch.setattr(
+        "src.core.knowledge.fusion_analyzer.get_fusion_analyzer",
+        lambda: _StubFusionAnalyzer(),
+    )
+
+    dxf_payload = b"0\nSECTION\n2\nENTITIES\n0\nENDSEC\n0\nEOF\n"
+    options = {"extract_features": True, "classify_parts": True}
+    resp = client.post(
+        "/api/v1/analyze/",
+        files={
+            "file": ("Bolt_M6x20.dxf", io.BytesIO(dxf_payload), "application/dxf"),
+        },
+        data={"options": json.dumps(options)},
+        headers={"x-api-key": os.getenv("API_KEY", "test")},
+    )
+    assert resp.status_code == 200, resp.text
+    classification = resp.json().get("results", {}).get("classification", {})
+
+    assert classification.get("part_type") == "bolt"
+    assert classification.get("confidence") == 0.88
+    assert classification.get("rule_version") == "FusionAnalyzer-v1.2"
+    assert classification.get("confidence_source") == "fusion"
+    assert classification.get("fusion_decision", {}).get("schema_version") == "v1.2"
