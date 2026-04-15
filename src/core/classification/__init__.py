@@ -1,5 +1,9 @@
 """Classification helpers shared across API and core analyzers."""
 
+from src.core.classification.baseline_policy import (
+    build_baseline_classification_context,
+    build_baseline_classification_payload,
+)
 from src.core.classification.coarse_labels import labels_conflict, normalize_coarse_label
 from src.core.classification.decision_contract import (
     build_classification_decision_contract,
@@ -17,6 +21,8 @@ from src.core.classification.review_governance import (
 )
 
 __all__ = [
+    "build_baseline_classification_context",
+    "build_baseline_classification_payload",
     "labels_conflict",
     "normalize_coarse_label",
     "extract_label_decision_contract",
