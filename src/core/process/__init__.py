@@ -11,6 +11,7 @@ from src.core.process.route_generator import (
     generate_process_route,
     get_route_generator,
 )
+from src.core.process.process_pipeline import run_process_pipeline
 
 __all__ = [
     "MATERIAL_PATTERNS",
@@ -22,4 +23,5 @@ __all__ = [
     "classify_material",
     "generate_process_route",
     "get_route_generator",
+    "run_process_pipeline",
 ]

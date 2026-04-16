@@ -35,6 +35,7 @@ from src.core.feature_extractor import FeatureExtractor
 from src.core.ocr.manager import OcrManager
 from src.core.ocr.providers.deepseek_hf import DeepSeekHfProvider
 from src.core.ocr.providers.paddle import PaddleOcrProvider
+from src.core.process import run_process_pipeline
 from src.core.similarity import (
     FaissVectorStore,
     compute_similarity,
@@ -953,64 +954,25 @@ async def analyze_cad_file(
 
             async def _run_process():
                 t0 = time.time()
-                # L4 AI Process Recommendation
-                proc_result = None
-                if "features_3d" in locals() and features_3d:
-                    try:
-                        from src.core.process.ai_recommender import (
-                            get_process_recommender,
-                        )
-
-                        recommender = get_process_recommender()
-                        ptype = results.get("classification", {}).get(
-                            "part_type", "unknown"
-                        )
-                        mat = material or "steel"  # Default
-
-                        proc_result = recommender.recommend(features_3d, ptype, mat)
-                        results["process"] = proc_result
-                    except Exception as e:
-                        logger.error(f"AI Process failed: {e}")
-                        process = await analyzer.recommend_process(doc, features)
-                        results["process"] = process
-                        proc_result = process if isinstance(process, dict) else {}
-                else:
-                    process = await analyzer.recommend_process(doc, features)
-                    if isinstance(process, dict) and process.get("rule_version"):
-                        process_rule_version_total.labels(
-                            version=str(process.get("rule_version"))
-                        ).inc()
-                    results["process"] = process
-                    proc_result = process if isinstance(process, dict) else {}
-
-                # L4 Cost Estimation (Chained after Process)
-                if (
-                    analysis_options.estimate_cost
-                    and "features_3d" in locals()
-                    and features_3d
-                ):
-                    try:
-                        from src.core.cost.estimator import get_cost_estimator
-
-                        estimator = get_cost_estimator()
-                        # Use primary recommendation if available
-                        primary_proc = proc_result.get("primary_recommendation", {})
-                        if not primary_proc and "process" in proc_result:
-                            # Fallback to legacy rule structure
-                            primary_proc = {
-                                "process": proc_result.get("process"),
-                                "method": "standard",
-                            }
-                        cost_start = time.time()
-                        cost_est = estimator.estimate(
-                            features_3d, primary_proc, material=material or "steel"
-                        )
-                        results["cost_estimation"] = cost_est
-                        cost_estimation_latency_seconds.observe(
-                            time.time() - cost_start
-                        )
-                    except Exception as e:
-                        logger.error(f"Cost estimation failed: {e}")
+                process_context = await run_process_pipeline(
+                    doc=doc,
+                    features=features,
+                    features_3d=features_3d,
+                    recommend_process=analyzer.recommend_process,
+                    material=material,
+                    estimate_cost=analysis_options.estimate_cost,
+                    classification_payload_getter=lambda: results.get(
+                        "classification", {}
+                    ),
+                    logger_instance=logger,
+                    process_rule_version_observer=lambda version: process_rule_version_total.labels(
+                        version=str(version)
+                    ).inc(),
+                    cost_latency_observer=cost_estimation_latency_seconds.observe,
+                )
+                results["process"] = process_context["process"]
+                if process_context["cost_estimation"] is not None:
+                    results["cost_estimation"] = process_context["cost_estimation"]
 
                 dur = time.time() - t0
                 process_recommend_latency_seconds.observe(dur)
