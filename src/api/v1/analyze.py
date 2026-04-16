@@ -24,6 +24,7 @@ from src.core.classification import (
     run_classification_pipeline,
 )
 from src.core.classification import shadow_pipeline as _shadow_pipeline
+from src.core.dfm.quality_pipeline import run_quality_pipeline
 from src.core.errors_extended import (
     ErrorCode,
     build_error,
@@ -933,50 +934,17 @@ async def analyze_cad_file(
 
             async def _run_quality():
                 t0 = time.time()
-                # L4 DFM Check
-                if "features_3d" in locals() and features_3d:
-                    try:
-                        dfm_start = time.time()
-                        # Extract extra DFM features if not already done
-                        if "thin_walls_detected" not in features_3d:
-                            from src.core.geometry.engine import get_geometry_engine
-
-                            geo = get_geometry_engine()
-                            # Re-load shape from cache or content not ideal here,
-                            # but for prototype we assume features_3d already has what we need
-                            # OR we enhanced extract_brep_features to include DFM.
-                            # Let's assume we call extract_dfm_features here if shape is available:
-                            # shape = geo.load_step(...)  # Expensive, in prod pass shape around
-                            pass
-
-                        from src.core.dfm.analyzer import get_dfm_analyzer
-
-                        dfm = get_dfm_analyzer()
-                        # Use classified type or unknown
-                        ptype = results.get("classification", {}).get(
-                            "part_type", "unknown"
-                        )
-                        dfm_result = dfm.analyze(features_3d, ptype)
-                        dfm_analysis_latency_seconds.observe(time.time() - dfm_start)
-
-                        results["quality"] = {
-                            "mode": "L4_DFM",
-                            "score": dfm_result["dfm_score"],
-                            "issues": dfm_result["issues"],
-                            "manufacturability": dfm_result["manufacturability"],
-                        }
-                    except Exception as e:
-                        logger.error(f"DFM check failed: {e}")
-                        # Fallback
-                        quality = await analyzer.check_quality(doc, features)
-                        results["quality"] = quality
-                else:
-                    quality = await analyzer.check_quality(doc, features)
-                    results["quality"] = {
-                        "score": quality["score"],
-                        "issues": quality.get("issues", []),
-                        "suggestions": quality.get("suggestions", []),
-                    }
+                results["quality"] = await run_quality_pipeline(
+                    doc=doc,
+                    features=features,
+                    features_3d=features_3d,
+                    check_quality=analyzer.check_quality,
+                    classification_payload_getter=lambda: results.get(
+                        "classification", {}
+                    ),
+                    logger_instance=logger,
+                    dfm_latency_observer=dfm_analysis_latency_seconds.observe,
+                )
                 return ("quality", time.time() - t0)
 
             parallel_tasks.append(_run_quality())
