@@ -11,20 +11,12 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from src.api.dependencies import get_api_key
+from src.api.v1.analyze_aux_models import ProcessRulesAuditResponse
 from src.core.legacy_admin_pipeline import run_process_rules_audit_pipeline
 from src.utils.analysis_metrics import process_rules_audit_requests_total
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-
-class ProcessRulesAuditResponse(BaseModel):
-    version: str = Field(description="规则版本")
-    source: str = Field(description="规则文件来源")
-    hash: Optional[str] = Field(default=None, description="文件内容哈希前16位")
-    materials: List[str]
-    complexities: Dict[str, List[str]]
-    raw: Dict[str, Any]
 
 
 @router.get(
