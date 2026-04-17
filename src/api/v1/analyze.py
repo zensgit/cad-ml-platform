@@ -14,7 +14,6 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.adapters.factory import AdapterFactory
 from src.api.dependencies import get_api_key
 from src.core.analyzer import CADAnalyzer
 from src.core.classification import (
@@ -23,6 +22,7 @@ from src.core.classification import (
     run_classification_pipeline,
 )
 from src.core.classification import shadow_pipeline as _shadow_pipeline
+from src.core.document_pipeline import run_document_pipeline
 from src.core.dfm.quality_pipeline import run_quality_pipeline
 from src.core.errors_extended import (
     ErrorCode,
@@ -528,227 +528,18 @@ async def analyze_cad_file(
             except Exception:
                 pass
 
-        # 读取文件内容
         content = await file.read()
-        # MIME sniff (best-effort); reject if clearly unsupported
-        from src.security.input_validator import (
-            deep_format_validate,
-            is_supported_mime,
-            sniff_mime,
-            verify_signature,
+        document_context = await run_document_pipeline(
+            file_name=file.filename,
+            content=content,
+            started_at=started,
+            material=material,
+            project_id=project_id,
         )
-
-        mime, reliable = sniff_mime(content[:4096])  # peek first 4KB
-        if reliable and not is_supported_mime(mime):
-            analysis_rejections_total.labels(reason="mime_mismatch").inc()
-            # ErrorCode and build_error imported at module level
-            err = build_error(
-                ErrorCode.INPUT_FORMAT_INVALID,
-                stage="input",
-                message=f"Unsupported MIME type: {mime}",
-                mime=mime,
-            )
-            raise HTTPException(status_code=415, detail=err)
-        # Safety: file size limit (10MB default)
-        max_mb = float(__import__("os").getenv("ANALYSIS_MAX_FILE_MB", "10"))
-        size_mb = len(content) / (1024 * 1024)
-        if size_mb > max_mb:
-            analysis_requests_total.labels(status="error").inc()
-            analysis_errors_total.labels(stage="input", code="file_too_large").inc()
-            # ErrorCode and build_error imported at module level
-            err = build_error(
-                ErrorCode.INPUT_SIZE_EXCEEDED,
-                stage="input",
-                message="File too large",
-                size_mb=round(size_mb, 3),
-                max_mb=max_mb,
-            )
-            raise HTTPException(status_code=413, detail=err)
-        if not content:
-            # ErrorCode and build_error imported at module level
-            err = build_error(
-                ErrorCode.INPUT_ERROR,
-                stage="input",
-                message="Empty file",
-            )
-            raise HTTPException(status_code=400, detail=err)
-
-        # 获取文件格式
-        file_format = file.filename.split(".")[-1].lower()
-        if file_format not in [
-            "dxf",
-            "dwg",
-            "json",
-            "step",
-            "stp",
-            "iges",
-            "igs",
-            "stl",
-        ]:
-            analysis_requests_total.labels(status="error").inc()
-            analysis_errors_total.labels(stage="input", code="unsupported_format").inc()
-            # ErrorCode and build_error imported at module level
-            err = build_error(
-                ErrorCode.UNSUPPORTED_FORMAT,
-                stage="input",
-                message=f"Unsupported file format: {file_format}",
-                format=file_format,
-            )
-            raise HTTPException(status_code=400, detail=err)
-
-        # 使用适配器转换格式
-        adapter = AdapterFactory.get_adapter(file_format)
-        # Convert to unified dict (legacy) using adapter; new adapters can also return CadDocument via parse
-        # Adapter may return legacy dict (convert()) or we can call parse if available.
-        # Parse with timeout protection
-        parse_timeout = float(os.getenv("PARSE_TIMEOUT_SECONDS", "10"))
-        import time as _t
-
-        _parse_start = _t.time()
-        try:
-            import asyncio
-
-            doc: CadDocument
-            if hasattr(adapter, "parse"):
-                # adapter.parse may be async; wrap with wait_for
-                doc = await asyncio.wait_for(
-                    adapter.parse(content, file_name=file.filename),  # type: ignore[attr-defined]
-                    timeout=parse_timeout,
-                )
-            else:
-                # legacy convert path (may be async as well)
-                _legacy = await asyncio.wait_for(
-                    adapter.convert(content, file_name=file.filename),
-                    timeout=parse_timeout,
-                )
-                doc = CadDocument(file_name=file.filename, format=file_format)
-                doc.metadata.update({"legacy": True})
-            unified_data = doc.to_unified_dict()
-        except asyncio.TimeoutError:
-            from src.utils.analysis_metrics import parse_timeout_total
-
-            parse_timeout_total.inc()
-            analysis_errors_total.labels(stage="parse", code="timeout").inc()
-            # ErrorCode and build_error imported at module level
-            err = build_error(
-                ErrorCode.TIMEOUT,
-                stage="parse",
-                message="Parse stage timeout",
-                timeout_seconds=parse_timeout,
-                file=file.filename,
-            )
-            raise HTTPException(status_code=504, detail=err)
-        except Exception:
-            doc = CadDocument(file_name=file.filename, format=file_format)
-            unified_data = doc.to_unified_dict()
-        try:
-            from src.utils.analysis_metrics import parse_stage_latency_seconds
-
-            parse_stage_latency_seconds.labels(format=file_format).observe(
-                _t.time() - _parse_start
-            )
-        except Exception:
-            pass
-        # Signature validation (heuristic)
-        valid_sig, expectation = verify_signature(content[:256], file_format)
-        if not valid_sig:
-            from src.utils.analysis_metrics import signature_validation_fail_total
-
-            signature_validation_fail_total.labels(format=file_format).inc()
-            analysis_rejections_total.labels(reason="signature_mismatch").inc()
-            # ErrorCode and build_error imported at module level
-            from src.security.input_validator import signature_hex_prefix
-
-            err = build_error(
-                ErrorCode.INPUT_FORMAT_INVALID,
-                stage="input",
-                message="Signature validation failed",
-                format=file_format,
-                signature_prefix=signature_hex_prefix(content[:32]),
-                expected_signature=expectation,
-            )
-            raise HTTPException(status_code=415, detail=err)
-
-        # Deep format validation (strict mode optional) + matrix validation
-        strict_mode = os.getenv("FORMAT_STRICT_MODE", "0") == "1"
-        from src.utils.analysis_metrics import (
-            format_validation_fail_total,
-            strict_mode_enabled,
-        )
-
-        if strict_mode:
-            strict_mode_enabled.set(1)
-            ok_deep, reason_deep = deep_format_validate(content[:2048], file_format)
-            if not ok_deep:
-                format_validation_fail_total.labels(
-                    format=file_format, reason=reason_deep
-                ).inc()
-                analysis_rejections_total.labels(reason="deep_format_invalid").inc()
-                # ErrorCode imported at module level
-                # ErrorCode and build_error imported at module level
-                err = build_error(
-                    ErrorCode.INPUT_FORMAT_INVALID,
-                    stage="input",
-                    message="Deep format validation failed",
-                    format=file_format,
-                    reason=reason_deep,
-                )
-                raise HTTPException(status_code=415, detail=err)
-            # matrix validation
-            from src.security.input_validator import matrix_validate
-
-            ok_matrix, reason_matrix = matrix_validate(
-                content[:4096], file_format, project_id
-            )
-            if not ok_matrix:
-                format_validation_fail_total.labels(
-                    format=file_format, reason=reason_matrix
-                ).inc()
-                analysis_rejections_total.labels(reason="matrix_format_invalid").inc()
-                # ErrorCode imported at module level
-                # ErrorCode and build_error imported at module level
-                err = build_error(
-                    ErrorCode.INPUT_FORMAT_INVALID,
-                    stage="input",
-                    message="Matrix format validation failed",
-                    format=file_format,
-                    reason=reason_matrix,
-                    project_id=project_id,
-                )
-                raise HTTPException(status_code=415, detail=err)
-        else:
-            strict_mode_enabled.set(0)
-        # attach metadata
-        if material:
-            doc.metadata["material"] = material
-            analysis_material_usage_total.labels(material=material).inc()
-        if project_id:
-            doc.metadata["project_id"] = project_id
-        stage_times["parse"] = time.time() - started
-        analysis_stage_duration_seconds.labels(stage="parse").observe(
-            stage_times["parse"]
-        )
-        # Budget ratio metric (parse latency / target)
-        target_ms = float(
-            __import__("os").getenv("ANALYSIS_PARSE_P95_TARGET_MS", "250")
-        )
-        if target_ms > 0:
-            ratio = (stage_times["parse"] * 1000.0) / target_ms
-            analysis_parse_latency_budget_ratio.observe(ratio)
-
-        # Complexity limits (configurable via env): reject overly large entity counts to protect service
-        max_entities = int(__import__("os").getenv("ANALYSIS_MAX_ENTITIES", "50000"))
-        if doc.entity_count() > max_entities:
-            analysis_rejections_total.labels(reason="entity_count_exceeded").inc()
-            # ErrorCode and build_error imported at module level
-            err = build_error(
-                ErrorCode.VALIDATION_FAILED,
-                stage="input",
-                message="Entity count exceeds limit",
-                entity_count=doc.entity_count(),
-                max_entities=max_entities,
-            )
-            raise HTTPException(status_code=422, detail=err)
+        file_format = document_context["file_format"]
+        doc = document_context["doc"]
+        unified_data = document_context["unified_data"]
+        stage_times["parse"] = document_context["parse_stage_duration"]
 
         # 创建分析器
         analyzer = CADAnalyzer()
