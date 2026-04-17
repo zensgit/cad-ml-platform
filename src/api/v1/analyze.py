@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.api.dependencies import get_api_key
+from src.core.analysis_batch_pipeline import run_batch_analysis
 from src.core.analysis_error_handling import (
     handle_analysis_http_exception,
     handle_analysis_options_json_error,
@@ -766,21 +767,12 @@ async def batch_analyze(
     api_key: str = Depends(get_api_key),
 ):
     """批量分析CAD文件"""
-    results = []
-
-    for file in files:
-        try:
-            result = await analyze_cad_file(file, options, api_key)
-            results.append(result)
-        except Exception as e:
-            results.append({"file_name": file.filename, "error": str(e)})
-
-    return {
-        "total": len(files),
-        "successful": len([r for r in results if "error" not in r]),
-        "failed": len([r for r in results if "error" in r]),
-        "results": results,
-    }
+    return await run_batch_analysis(
+        files=files,
+        options=options,
+        api_key=api_key,
+        analyze_file_fn=analyze_cad_file,
+    )
 
 
 @router.post("/similarity", response_model=SimilarityResult)
