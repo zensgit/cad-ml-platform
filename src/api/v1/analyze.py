@@ -12,9 +12,28 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from src.api.dependencies import get_api_key
+from src.api.v1.analyze_aux_models import (
+    FaissHealthResponse,
+    FeatureCacheStatsResponse,
+    FeaturesDiffResponse,
+    ModelReloadRequest,
+    ModelReloadResponse,
+    OrphanCleanupResponse,
+    ProcessRulesAuditResponse,
+    VectorDeleteRequest,
+    VectorDeleteResponse,
+    VectorDistributionResponse,
+    VectorListResponse,
+    VectorMigrateRequest,
+    VectorMigrateResponse,
+    VectorMigrationStatusResponse,
+    VectorStatsResponse,
+    VectorUpdateRequest,
+    VectorUpdateResponse,
+)
 from src.core.analysis_batch_pipeline import run_batch_analysis
 from src.core.analysis_error_handling import (
     handle_analysis_http_exception,
@@ -277,117 +296,6 @@ class SimilarityTopKResponse(BaseModel):
     results: list[SimilarityTopKItem]
     status: Optional[str] = None
     error: Optional[Dict[str, Any]] = None
-
-
-class VectorDeleteRequest(BaseModel):  # deprecated moved to vectors.py
-    id: str = Field(description="要删除的向量分析ID")
-
-
-class VectorDeleteResponse(BaseModel):  # deprecated moved to vectors.py
-    id: str
-    status: str
-
-
-class VectorListItem(BaseModel):  # deprecated moved to vectors.py
-    id: str
-    dimension: int
-    material: Optional[str] = None
-    complexity: Optional[str] = None
-    format: Optional[str] = None
-
-
-class VectorListResponse(BaseModel):  # deprecated moved to vectors.py
-    total: int
-    vectors: list[VectorListItem]
-
-
-class VectorUpdateRequest(BaseModel):
-    id: str = Field(description="要更新的向量分析ID")
-    replace: Optional[list[float]] = Field(
-        default=None, description="新的向量 (维度需与原向量一致)"
-    )
-    append: Optional[list[float]] = Field(
-        default=None, description="追加的向量片段 (若提供 replace 则忽略)"
-    )
-    material: Optional[str] = Field(default=None, description="更新材料元数据")
-    complexity: Optional[str] = Field(default=None, description="更新复杂度元数据")
-    format: Optional[str] = Field(default=None, description="更新格式元数据")
-
-
-class VectorUpdateResponse(BaseModel):
-    id: str
-    status: str
-    dimension: Optional[int] = None
-    error: Optional[Dict[str, Any]] = None
-    feature_version: Optional[str] = None
-
-
-class VectorStatsResponse(BaseModel):  # deprecated moved to vectors_stats.py
-    backend: str
-    total: int
-    by_material: Dict[str, int]
-    by_complexity: Dict[str, int]
-    by_format: Dict[str, int]
-    versions: Optional[Dict[str, int]] = None
-
-
-class VectorDistributionResponse(BaseModel):  # deprecated moved to vectors_stats.py
-    total: int
-    by_material: Dict[str, int]
-    by_complexity: Dict[str, int]
-    by_format: Dict[str, int]
-    dominant_ratio: float
-    feature_version: str
-    average_dimension: Optional[float] = None
-    versions: Optional[Dict[str, int]] = None
-
-
-class VectorMigrateItem(BaseModel):
-    id: str
-    status: str
-    from_version: Optional[str] = None
-    to_version: Optional[str] = None
-    dimension_before: Optional[int] = None
-    dimension_after: Optional[int] = None
-    error: Optional[str] = None
-
-
-class VectorMigrateRequest(BaseModel):
-    ids: list[str] = Field(description="需要迁移的向量ID列表")
-    to_version: str = Field(description="目标特征版本")
-    dry_run: bool = Field(default=False, description="是否为试运行 (不真正写入)")
-
-
-class VectorMigrateResponse(BaseModel):
-    total: int
-    migrated: int
-    skipped: int
-    items: list[VectorMigrateItem]
-    migration_id: Optional[str] = Field(default=None, description="迁移批次ID")
-    started_at: Optional[datetime] = None
-    finished_at: Optional[datetime] = None
-    dry_run_total: Optional[int] = None
-
-
-class VectorMigrationStatusResponse(BaseModel):
-    last_migration_id: Optional[str] = None
-    last_started_at: Optional[datetime] = None
-    last_finished_at: Optional[datetime] = None
-    last_total: Optional[int] = None
-    last_migrated: Optional[int] = None
-    last_skipped: Optional[int] = None
-    pending_vectors: Optional[int] = None
-    feature_versions: Optional[Dict[str, int]] = None
-    history: Optional[list[Dict[str, Any]]] = None
-
-
-class ProcessRulesAuditResponse(BaseModel):
-    version: str
-    source: str
-    hash: Optional[str] = None
-    materials: list[str]
-    complexities: Dict[str, list[str]]
-    raw: Dict[str, Any]
 
 
 @router.post("/", response_model=AnalysisResult)
@@ -860,15 +768,6 @@ async def vector_migration_status(api_key: str = Depends(get_api_key)):
     return VectorMigrationStatusResponse(**result)
 
 
-class FeaturesDiffResponse(BaseModel):
-    id_a: str
-    id_b: str
-    dimension: Optional[int] = None
-    diffs: list[Dict[str, Any]]
-    status: str
-    error: Optional[Dict[str, Any]] = None
-
-
 @router.get("/features/diff", response_model=FeaturesDiffResponse, deprecated=True)
 async def features_diff_deprecated(
     id_a: str, id_b: str, api_key: str = Depends(get_api_key)
@@ -881,21 +780,6 @@ async def features_diff_deprecated(
     )
 
 
-class ModelReloadRequest(BaseModel):
-    path: str = Field(description="模型文件路径")
-    expected_version: Optional[str] = Field(default=None, description="期望模型版本")
-    force: bool = Field(default=False, description="强制重载忽略版本校验")
-
-
-class ModelReloadResponse(BaseModel):
-    status: str
-    model_version: Optional[str] = None
-    hash: Optional[str] = None
-    error: Optional[Dict[str, Any]] = None
-
-    model_config = ConfigDict(protected_namespaces=())
-
-
 @router.post("/model/reload", response_model=ModelReloadResponse, deprecated=True)
 async def model_reload_deprecated(
     payload: ModelReloadRequest, api_key: str = Depends(get_api_key)
@@ -906,13 +790,6 @@ async def model_reload_deprecated(
         new_path="/api/v1/model/reload",
         method="POST",
     )
-
-
-class OrphanCleanupResponse(BaseModel):
-    status: str
-    cleaned: int
-    total_orphans_detected: Optional[int] = None
-    error: Optional[Dict[str, Any]] = None
 
 
 @router.delete(
@@ -931,32 +808,6 @@ async def cleanup_orphan_vectors_deprecated(
         new_path="/api/v1/maintenance/orphans",
         method="DELETE",
     )
-
-
-class FeatureCacheStatsResponse(BaseModel):
-    """(Deprecated location) Moved to health.py"""
-
-    status: str
-    size: int
-    capacity: int
-    ttl_seconds: int
-    hit_ratio: Optional[float] = None
-    hits: Optional[int] = None
-    misses: Optional[int] = None
-    evictions: Optional[int] = None
-
-
-class FaissHealthResponse(BaseModel):
-    """(Deprecated location) Moved to health.py"""
-
-    available: bool
-    index_size: Optional[int]
-    dim: Optional[int]
-    age_seconds: Optional[int]
-    pending_delete: Optional[int]
-    max_pending_delete: Optional[int]
-    normalize: Optional[bool]
-    status: str
 
 
 @router.get("/features/cache", response_model=FeatureCacheStatsResponse)
