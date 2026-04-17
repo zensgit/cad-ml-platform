@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from src.api.dependencies import get_api_key
 from src.core.analysis_preflight import run_analysis_request_preflight
+from src.core.analysis_result_envelope import finalize_analysis_success
 from src.core.analyzer import CADAnalyzer
 from src.core.classification import (
     extract_label_decision_contract,
@@ -66,8 +67,8 @@ from src.utils.analysis_metrics import (
     vector_query_latency_seconds,
     vector_store_material_total,
 )
-from src.utils.analysis_result_store import load_analysis_result, store_analysis_result
-from src.utils.cache import cache_result, get_cached_result, set_cache
+from src.utils.analysis_result_store import load_analysis_result
+from src.utils.cache import get_cached_result, set_cache
 
 logger = logging.getLogger(__name__)
 
@@ -752,62 +753,21 @@ async def analyze_cad_file(
             else:
                 results["ocr"] = {"status": "no_preview_image"}
 
-        # 添加统计信息
-        results["statistics"] = {
-            "entity_count": doc.entity_count(),
-            "layer_count": len(doc.layers),
-            "bounding_box": doc.bounding_box.model_dump(),
-            "complexity": doc.complexity_bucket(),
-            "stages": stage_times,
-        }
-
-        # 缓存结果 (使用 analysis_cache_key 而非被覆盖的 cache_key)
-        await cache_result(analysis_cache_key, results, ttl=3600)
-        # Persist full result by analysis id for retrieval endpoint
-        await set_cache(f"analysis_result:{analysis_id}", results, ttl_seconds=3600)
-        await store_analysis_result(analysis_id, results)
-
-        # 计算处理时间
-        processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
-
-        logger.info(
-            "analysis.completed",
-            extra={
-                "file": file.filename,
-                "analysis_id": analysis_id,
-                "processing_time_s": round(processing_time, 4),
-                "stages": stage_times,
-                "feature_vector_dim": vector_context.get("feature_vector_dim", 0),
-                "material": material,
-                "complexity": unified_data.get("complexity"),
-            },
-        )
-
-        analysis_requests_total.labels(status="success").inc()
-        feature_version = __import__("os").getenv("FEATURE_VERSION", "v1")
-        return AnalysisResult(
-            id=analysis_id,
-            timestamp=start_time,
+        response_payload = await finalize_analysis_success(
+            analysis_id=analysis_id,
+            start_time=start_time,
             file_name=file.filename,
-            file_format=file_format.upper(),
+            file_format=file_format,
             results=results,
-            processing_time=processing_time,
-            cache_hit=False,
-            cad_document={
-                "file_name": doc.file_name,
-                "format": doc.format,
-                "entity_count": doc.entity_count(),
-                "entities": [
-                    e.model_dump() for e in doc.entities[:200]
-                ],  # limit entities for payload size
-                "layers": doc.layers,
-                "bounding_box": doc.bounding_box.model_dump(),
-                "complexity": doc.complexity_bucket(),
-                "metadata": doc.metadata,
-                "raw_stats": doc.raw_stats,
-            },
-            feature_version=feature_version,
+            doc=doc,
+            stage_times=stage_times,
+            analysis_cache_key=analysis_cache_key,
+            vector_context=vector_context,
+            material=material,
+            unified_data=unified_data,
+            logger_instance=logger,
         )
+        return AnalysisResult(**response_payload)
 
     except json.JSONDecodeError:
         analysis_requests_total.labels(status="error").inc()
