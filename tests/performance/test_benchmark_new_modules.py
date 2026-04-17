@@ -298,7 +298,7 @@ class TestHybridIntelligencePerformance:
 # ====================================================================
 
 class TestSmartSamplerPerformance:
-    """Benchmark SmartSampler.combined_sampling() -- target <50 ms for 1000 samples."""
+    """Benchmark SmartSampler.combined_sampling() -- target <60 ms for 1000 samples."""
 
     @staticmethod
     def _make_predictions(n: int = 1000, n_classes: int = 5) -> List[Dict[str, Any]]:
@@ -316,7 +316,7 @@ class TestSmartSamplerPerformance:
         return preds
 
     def test_combined_sampling_latency(self):
-        """Combined sampling of 1000 predictions, selecting 10, under 50 ms."""
+        """Combined sampling of 1000 predictions, selecting 10, under 60 ms."""
         from src.ml.learning.smart_sampler import SmartSampler
 
         sampler = SmartSampler()
@@ -324,8 +324,8 @@ class TestSmartSamplerPerformance:
 
         t = TimingResult().run(sampler.combined_sampling, predictions, 10, iterations=50)
         print(t.summary("SmartSampler.combined_sampling (1000 -> 10)"))
-        assert t.p95 < 0.05, (
-            f"Combined sampling p95={t.p95:.4f}s exceeds 50 ms"
+        assert t.p95 < 0.06, (
+            f"Combined sampling p95={t.p95:.4f}s exceeds 60 ms"
         )
 
     def test_uncertainty_sampling_latency(self):

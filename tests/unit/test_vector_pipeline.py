@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from types import SimpleNamespace
 
 import pytest
@@ -210,7 +209,9 @@ async def test_run_vector_pipeline_reports_reference_not_found_without_similarit
 
 
 @pytest.mark.asyncio
-async def test_run_vector_pipeline_adds_faiss_entry_when_backend_enabled():
+async def test_run_vector_pipeline_adds_faiss_entry_when_backend_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+):
     added: list[tuple[str, list[float]]] = []
     doc = SimpleNamespace(format="step", complexity_bucket=lambda: "complex")
 
@@ -218,26 +219,19 @@ async def test_run_vector_pipeline_adds_faiss_entry_when_backend_enabled():
         def add(self, vector_id, vector):  # noqa: ANN001, ANN201
             added.append((vector_id, list(vector)))
 
-    old_backend = os.environ.get("VECTOR_STORE_BACKEND")
-    os.environ["VECTOR_STORE_BACKEND"] = "faiss"
-    try:
-        result = await run_vector_pipeline(
-            analysis_id="vec-5",
-            doc=doc,
-            features={"geometric": [1.0], "semantic": [2.0]},
-            features_3d=None,
-            material="steel",
-            get_qdrant_store=lambda: None,
-            feature_extractor_factory=lambda: _StubExtractor([0.2, 0.4]),
-            metadata_builder=lambda **kwargs: {"material": "steel"},  # noqa: ANN003
-            register_local_vector=lambda *args, **kwargs: True,
-            faiss_store_factory=lambda: _DummyFaissStore(),
-        )
-    finally:
-        if old_backend is None:
-            os.environ.pop("VECTOR_STORE_BACKEND", None)
-        else:
-            os.environ["VECTOR_STORE_BACKEND"] = old_backend
+    monkeypatch.setenv("VECTOR_STORE_BACKEND", "faiss")
+    result = await run_vector_pipeline(
+        analysis_id="vec-5",
+        doc=doc,
+        features={"geometric": [1.0], "semantic": [2.0]},
+        features_3d=None,
+        material="steel",
+        get_qdrant_store=lambda: None,
+        feature_extractor_factory=lambda: _StubExtractor([0.2, 0.4]),
+        metadata_builder=lambda **kwargs: {"material": "steel"},  # noqa: ANN003
+        register_local_vector=lambda *args, **kwargs: True,
+        faiss_store_factory=lambda: _DummyFaissStore(),
+    )
 
     assert result["registered"] is True
     assert result["feature_vector_dim"] == 2
