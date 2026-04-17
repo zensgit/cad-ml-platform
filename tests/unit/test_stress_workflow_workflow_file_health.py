@@ -173,3 +173,27 @@ def test_stress_jobs_depend_on_workflow_file_health() -> None:
     workflow = _load_workflow()
     assert workflow["jobs"]["metrics-consistency"]["needs"] == "workflow-file-health"
     assert workflow["jobs"]["stress-unit-tests"]["needs"] == "workflow-file-health"
+
+
+def test_stress_unit_tests_wait_for_api_readiness_and_retry_faiss_health() -> None:
+    workflow = _load_workflow()
+
+    readiness_step = _get_step(workflow, "stress-unit-tests", "Wait for API readiness")
+    readiness_script = readiness_step["run"]
+    assert "curl -fsS ${API_BASE_URL}/health" in readiness_script
+    assert "API did not become ready in time" in readiness_script
+
+    smoke_step = _get_step(workflow, "stress-unit-tests", "Health endpoint smoke check (Faiss)")
+    smoke_script = smoke_step["run"]
+    assert "for attempt in $(seq 1 10)" in smoke_script
+    assert "curl -fsS ${API_BASE_URL}/api/v1/health/faiss/health -o faiss_health.json" in smoke_script
+    assert "Faiss health endpoint never returned valid JSON" in smoke_script
+
+    recover_step = _get_step(
+        workflow,
+        "stress-unit-tests",
+        "Trigger manual recover and validate ETA reset",
+    )
+    recover_script = recover_step["run"]
+    assert "curl -fsS ${API_BASE_URL}/api/v1/health/faiss/health -o faiss_health_after.json" in recover_script
+    assert "Faiss health after recover never returned valid JSON" in recover_script
