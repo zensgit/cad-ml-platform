@@ -50,6 +50,7 @@ from src.core.vector_query_pipeline import (
     run_similarity_topk_pipeline,
 )
 from src.core.vector_pipeline import run_vector_pipeline
+from src.core.vector_update_pipeline import run_vector_update_pipeline
 from src.models.cad_document import CadDocument
 from src.utils.analysis_metrics import (
     analysis_error_code_total,
@@ -874,108 +875,8 @@ async def faiss_rebuild(api_key: str = Depends(get_api_key)):
 async def update_vector(
     payload: VectorUpdateRequest, api_key: str = Depends(get_api_key)
 ):
-    from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
-
-    # create_extended_error and ErrorCode imported at module level
-    from src.utils.analysis_metrics import analysis_error_code_total
-
-    if payload.id not in _VECTOR_STORE:
-        ext = create_extended_error(
-            ErrorCode.DATA_NOT_FOUND,
-            "Vector not found",
-            stage="vector_update",
-            id=payload.id,
-        )
-        analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
-        return VectorUpdateResponse(
-            id=payload.id, status="not_found", error=ext.to_dict()
-        )
-    vec = _VECTOR_STORE[payload.id]
-    original_dim = len(vec)
-    # Optional dimension enforcement via env flag
-    enforce = __import__("os").getenv("ANALYSIS_VECTOR_DIM_CHECK", "0") == "1"
-    try:
-        if payload.replace is not None:
-            if len(payload.replace) != original_dim:
-                if enforce:
-                    # build_error imported at module level
-                    err = build_error(
-                        ErrorCode.DIMENSION_MISMATCH,
-                        stage="vector_update",
-                        message=f"Expected {original_dim}, got {len(payload.replace)}",
-                        id=payload.id,
-                        expected=original_dim,
-                        found=len(payload.replace),
-                    )
-                    analysis_error_code_total.labels(
-                        code=ErrorCode.DIMENSION_MISMATCH.value
-                    ).inc()
-                    from src.utils.analysis_metrics import (
-                        vector_dimension_rejections_total,
-                    )
-
-                    vector_dimension_rejections_total.labels(
-                        reason="dimension_mismatch_replace"
-                    ).inc()
-                    raise HTTPException(status_code=409, detail=err)
-                return VectorUpdateResponse(
-                    id=payload.id,
-                    status="dimension_mismatch",
-                    dimension=original_dim,
-                    error={
-                        "code": ErrorCode.DIMENSION_MISMATCH.value,
-                        "expected": original_dim,
-                        "found": len(payload.replace),
-                        "id": payload.id,
-                    },
-                )
-            _VECTOR_STORE[payload.id] = [float(x) for x in payload.replace]
-        elif payload.append is not None:
-            if enforce and original_dim != 0:
-                new_dim = original_dim + len(payload.append)
-                if new_dim != original_dim:
-                    # build_error imported at module level
-                    err = build_error(
-                        ErrorCode.DIMENSION_MISMATCH,
-                        stage="vector_update",
-                        message=f"Append changes dimension {original_dim}->{new_dim}",
-                        id=payload.id,
-                        expected=original_dim,
-                        found=new_dim,
-                    )
-                    analysis_error_code_total.labels(
-                        code=ErrorCode.DIMENSION_MISMATCH.value
-                    ).inc()
-                    from src.utils.analysis_metrics import (
-                        vector_dimension_rejections_total,
-                    )
-
-                    vector_dimension_rejections_total.labels(
-                        reason="dimension_mismatch_append"
-                    ).inc()
-                    raise HTTPException(status_code=409, detail=err)
-            _VECTOR_STORE[payload.id] = vec + [float(float(x)) for x in payload.append]
-        # update meta
-        meta = _VECTOR_META.get(payload.id, {})
-        if payload.material is not None:
-            meta["material"] = payload.material
-        if payload.complexity is not None:
-            meta["complexity"] = payload.complexity
-        if payload.format is not None:
-            meta["format"] = payload.format
-        _VECTOR_META[payload.id] = meta
-        return VectorUpdateResponse(
-            id=payload.id,
-            status="updated",
-            dimension=len(_VECTOR_STORE[payload.id]),
-            feature_version=_VECTOR_META.get(payload.id, {}).get("feature_version"),
-        )
-    except Exception as e:
-        ext = create_extended_error(
-            ErrorCode.INTERNAL_ERROR, str(e), stage="vector_update"
-        )
-        analysis_error_code_total.labels(code=ErrorCode.INTERNAL_ERROR.value).inc()
-        return VectorUpdateResponse(id=payload.id, status="error", error=ext.to_dict())
+    result = await run_vector_update_pipeline(payload=payload)
+    return VectorUpdateResponse(**result)
 
 
 @router.post("/vectors/migrate", response_model=VectorMigrateResponse)
