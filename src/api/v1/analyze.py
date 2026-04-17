@@ -39,6 +39,10 @@ from src.core.process import (
     run_process_pipeline,
 )
 from src.core.similarity import FaissVectorStore
+from src.core.vector_query_pipeline import (
+    run_similarity_query_pipeline,
+    run_similarity_topk_pipeline,
+)
 from src.core.vector_pipeline import run_vector_pipeline
 from src.models.cad_document import CadDocument
 from src.utils.analysis_metrics import (
@@ -58,6 +62,7 @@ from src.utils.analysis_metrics import (
     material_distribution_drift_score,
     process_recommend_latency_seconds,
     process_rule_version_total,
+    vector_query_latency_seconds,
     vector_store_material_total,
 )
 from src.utils.analysis_result_store import load_analysis_result, store_analysis_result
@@ -297,34 +302,6 @@ class SimilarityTopKResponse(BaseModel):
     results: list[SimilarityTopKItem]
     status: Optional[str] = None
     error: Optional[Dict[str, Any]] = None
-
-
-def _matches_similarity_topk_filters(
-    payload: SimilarityTopKQuery,
-    meta: Dict[str, Any],
-    label_contract: Dict[str, Any],
-) -> bool:
-    if payload.material_filter and meta.get("material") != payload.material_filter:
-        return False
-    if payload.complexity_filter and meta.get("complexity") != payload.complexity_filter:
-        return False
-    if payload.fine_part_type_filter and (
-        label_contract.get("fine_part_type") != payload.fine_part_type_filter
-    ):
-        return False
-    if payload.coarse_part_type_filter and (
-        label_contract.get("coarse_part_type") != payload.coarse_part_type_filter
-    ):
-        return False
-    if payload.decision_source_filter and (
-        label_contract.get("decision_source") != payload.decision_source_filter
-    ):
-        return False
-    if payload.is_coarse_label_filter is not None and (
-        label_contract.get("is_coarse_label") is not payload.is_coarse_label_filter
-    ):
-        return False
-    return True
 
 
 class VectorDeleteRequest(BaseModel):  # deprecated moved to vectors.py
@@ -1286,134 +1263,12 @@ async def similarity_query(
     payload: SimilarityQuery, api_key: str = Depends(get_api_key)
 ):
     """在已存在的向量之间计算相似度。"""
-    from src.core.similarity import extract_vector_label_contract
-
-    qdrant_store = _get_qdrant_store_or_none()
-    if qdrant_store is not None:
-        ref_result = await qdrant_store.get_vector(payload.reference_id)
-        if ref_result is None:
-            err = build_error(
-                ErrorCode.DATA_NOT_FOUND,
-                stage="similarity",
-                message="Reference vector not found",
-                id=payload.reference_id,
-            )
-            analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
-            return SimilarityResult(
-                reference_id=payload.reference_id,
-                target_id=payload.target_id,
-                score=0.0,
-                method="cosine",
-                dimension=0,
-                status="reference_not_found",
-                error=err,
-            )
-        tgt_result = await qdrant_store.get_vector(payload.target_id)
-        if tgt_result is None:
-            err = build_error(
-                ErrorCode.DATA_NOT_FOUND,
-                stage="similarity",
-                message="Target vector not found",
-                id=payload.target_id,
-            )
-            analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
-            return SimilarityResult(
-                reference_id=payload.reference_id,
-                target_id=payload.target_id,
-                score=0.0,
-                method="cosine",
-                dimension=0,
-                status="target_not_found",
-                error=err,
-            )
-        ref = list(ref_result.vector or [])
-        tgt = list(tgt_result.vector or [])
-        reference_contract = extract_vector_label_contract(ref_result.metadata)
-        target_contract = extract_vector_label_contract(tgt_result.metadata)
-    else:
-        from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
-
-        if payload.reference_id not in _VECTOR_STORE:
-            # ErrorCode and build_error imported at module level
-            err = build_error(
-                ErrorCode.DATA_NOT_FOUND,
-                stage="similarity",
-                message="Reference vector not found",
-                id=payload.reference_id,
-            )
-            analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
-            return SimilarityResult(
-                reference_id=payload.reference_id,
-                target_id=payload.target_id,
-                score=0.0,
-                method="cosine",
-                dimension=0,
-                status="reference_not_found",
-                error=err,
-            )
-        if payload.target_id not in _VECTOR_STORE:
-            # ErrorCode and build_error imported at module level
-            err = build_error(
-                ErrorCode.DATA_NOT_FOUND,
-                stage="similarity",
-                message="Target vector not found",
-                id=payload.target_id,
-            )
-            analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
-            return SimilarityResult(
-                reference_id=payload.reference_id,
-                target_id=payload.target_id,
-                score=0.0,
-                method="cosine",
-                dimension=0,
-                status="target_not_found",
-                error=err,
-            )
-        ref = _VECTOR_STORE[payload.reference_id]
-        tgt = _VECTOR_STORE[payload.target_id]
-        reference_contract = extract_vector_label_contract(
-            _VECTOR_META.get(payload.reference_id)
-        )
-        target_contract = extract_vector_label_contract(_VECTOR_META.get(payload.target_id))
-    if len(ref) != len(tgt):
-        # ErrorCode and build_error imported at module level
-        err = build_error(
-            ErrorCode.VALIDATION_FAILED,
-            stage="similarity",
-            message="Vector dimension mismatch",
-            expected=len(ref),
-            found=len(tgt),
-        )
-        analysis_error_code_total.labels(code=ErrorCode.VALIDATION_FAILED.value).inc()
-        return SimilarityResult(
-            reference_id=payload.reference_id,
-            target_id=payload.target_id,
-            score=0.0,
-            method="cosine",
-            dimension=min(len(ref), len(tgt)),
-            status="dimension_mismatch",
-            error=err,
-        )
-    from src.core.similarity import _cosine  # type: ignore
-
-    score = _cosine(ref, tgt)
-    return SimilarityResult(
-        reference_id=payload.reference_id,
-        target_id=payload.target_id,
-        score=round(score, 4),
-        method="cosine",
-        dimension=len(ref),
-        reference_part_type=reference_contract.get("part_type"),
-        reference_fine_part_type=reference_contract.get("fine_part_type"),
-        reference_coarse_part_type=reference_contract.get("coarse_part_type"),
-        reference_decision_source=reference_contract.get("decision_source"),
-        reference_is_coarse_label=reference_contract.get("is_coarse_label"),
-        target_part_type=target_contract.get("part_type"),
-        target_fine_part_type=target_contract.get("fine_part_type"),
-        target_coarse_part_type=target_contract.get("coarse_part_type"),
-        target_decision_source=target_contract.get("decision_source"),
-        target_is_coarse_label=target_contract.get("is_coarse_label"),
+    result = await run_similarity_query_pipeline(
+        payload,
+        get_qdrant_store=_get_qdrant_store_or_none,
+        error_recorder=lambda code: analysis_error_code_total.labels(code=code).inc(),
     )
+    return SimilarityResult(**result)
 
 
 @router.post("/similarity/topk", response_model=SimilarityTopKResponse)
@@ -1421,145 +1276,15 @@ async def similarity_topk(
     payload: SimilarityTopKQuery, api_key: str = Depends(get_api_key)
 ):
     """基于已存储向量的 Top-K 相似检索。"""
-    qdrant_store = _get_qdrant_store_or_none()
-    if qdrant_store is not None:
-        try:
-            from src.core.similarity import extract_vector_label_contract
-            target = await qdrant_store.get_vector(payload.target_id)
-            if target is None:
-                ext = create_extended_error(
-                    ErrorCode.DATA_NOT_FOUND, "Target vector not found", stage="similarity"
-                )
-                analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
-                return SimilarityTopKResponse(
-                    target_id=payload.target_id,
-                    k=payload.k,
-                    results=[],
-                    status="target_not_found",
-                    error=ext.to_dict(),
-                )
-            query_vector = target.vector or []
-            filter_conditions: Dict[str, Any] = {}
-            if payload.material_filter:
-                filter_conditions["material"] = payload.material_filter
-            if payload.complexity_filter:
-                filter_conditions["complexity"] = payload.complexity_filter
-            if payload.fine_part_type_filter:
-                filter_conditions["fine_part_type"] = payload.fine_part_type_filter
-            if payload.coarse_part_type_filter:
-                filter_conditions["coarse_part_type"] = payload.coarse_part_type_filter
-            if payload.decision_source_filter:
-                filter_conditions["decision_source"] = payload.decision_source_filter
-            if payload.is_coarse_label_filter is not None:
-                filter_conditions["is_coarse_label"] = payload.is_coarse_label_filter
-            query_k = max(payload.k + payload.offset + 1, min(payload.k * 5, payload.k + 100))
-            raw = await qdrant_store.search_similar(
-                query_vector,
-                top_k=query_k,
-                filter_conditions=filter_conditions or None,
-            )
-            items: list[SimilarityTopKItem] = []
-            matched = 0
-            for result in raw:
-                if payload.exclude_self and result.id == payload.target_id:
-                    continue
-                if matched < payload.offset:
-                    matched += 1
-                    continue
-                meta = result.metadata or {}
-                label_contract = extract_vector_label_contract(meta)
-                items.append(
-                    SimilarityTopKItem(
-                        id=result.id,
-                        score=round(float(result.score), 4),
-                        material=meta.get("material"),
-                        complexity=meta.get("complexity"),
-                        format=meta.get("format"),
-                        part_type=label_contract.get("part_type"),
-                        fine_part_type=label_contract.get("fine_part_type"),
-                        coarse_part_type=label_contract.get("coarse_part_type"),
-                        decision_source=label_contract.get("decision_source"),
-                        is_coarse_label=label_contract.get("is_coarse_label"),
-                    )
-                )
-                if len(items) >= payload.k:
-                    break
-            return SimilarityTopKResponse(
-                target_id=payload.target_id,
-                k=payload.k,
-                results=items,
-            )
-        except Exception:
-            pass
-
-    backend = os.getenv("VECTOR_STORE_BACKEND", "memory")
-
-    from src.core.similarity import (
-        InMemoryVectorStore,
-        extract_vector_label_contract,
-    )  # type: ignore
-
-    store = InMemoryVectorStore()
-    if not store.exists(payload.target_id):
-        # create_extended_error and ErrorCode imported at module level
-        ext = create_extended_error(
-            ErrorCode.DATA_NOT_FOUND, "Target vector not found", stage="similarity"
-        )
-        analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
-        return SimilarityTopKResponse(
-            target_id=payload.target_id,
-            k=payload.k,
-            results=[],
-            status="target_not_found",
-            error=ext.to_dict(),
-        )
-    base_vec = store.get(payload.target_id)
-    assert base_vec is not None  # for type checker
-    # Choose backend dynamically
-    import time as _time
-
-    t0 = _time.time()
-    if backend == "faiss":
-        fstore = FaissVectorStore()
-        raw = fstore.query(base_vec, top_k=max(1, payload.k + payload.offset))
-        if not raw:  # fallback to memory if faiss unavailable
-            store = InMemoryVectorStore()
-            raw = store.query(base_vec, top_k=max(1, payload.k + payload.offset))
-            backend = "memory_fallback"
-    else:
-        raw = store.query(base_vec, top_k=max(1, payload.k + payload.offset))
-    from src.utils.analysis_metrics import vector_query_latency_seconds
-
-    vector_query_latency_seconds.labels(backend=backend).observe(_time.time() - t0)
-    items: list[SimilarityTopKItem] = []
-    sliced = raw[payload.offset : payload.offset + payload.k]
-    meta_store = InMemoryVectorStore()
-    for vid, score in sliced:
-        if payload.exclude_self and vid == payload.target_id:
-            continue
-        meta = meta_store.meta(vid) or {}
-        label_contract = extract_vector_label_contract(meta)
-        if not _matches_similarity_topk_filters(payload, meta, label_contract):
-            continue
-        items.append(
-            SimilarityTopKItem(
-                id=vid,
-                score=round(score, 4),
-                material=meta.get("material"),
-                complexity=meta.get("complexity"),
-                format=meta.get("format"),
-                part_type=label_contract.get("part_type"),
-                fine_part_type=label_contract.get("fine_part_type"),
-                coarse_part_type=label_contract.get("coarse_part_type"),
-                decision_source=label_contract.get("decision_source"),
-                is_coarse_label=label_contract.get("is_coarse_label"),
-            )
-        )
-    return SimilarityTopKResponse(
-        target_id=payload.target_id,
-        k=payload.k,
-        results=items,
+    result = await run_similarity_topk_pipeline(
+        payload,
+        get_qdrant_store=_get_qdrant_store_or_none,
+        error_recorder=lambda code: analysis_error_code_total.labels(code=code).inc(),
+        latency_observer=lambda backend, duration: vector_query_latency_seconds.labels(
+            backend=backend
+        ).observe(duration),
     )
+    return SimilarityTopKResponse(**result)
 
 
 @router.get("/vectors/distribution", response_model=VectorDistributionResponse)
