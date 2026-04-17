@@ -7,6 +7,10 @@ from src.core.classification.baseline_policy import (
     build_baseline_classification_context,
     build_baseline_classification_payload,
 )
+from src.core.classification.batch_classify_pipeline import (
+    build_batch_classify_item,
+    run_batch_classify_pipeline,
+)
 from src.core.classification.coarse_labels import labels_conflict, normalize_coarse_label
 from src.core.classification.classification_pipeline import (
     run_classification_pipeline,
@@ -43,6 +47,8 @@ __all__ = [
     "flag_classification_for_review",
     "build_baseline_classification_context",
     "build_baseline_classification_payload",
+    "build_batch_classify_item",
+    "run_batch_classify_pipeline",
     "labels_conflict",
     "normalize_coarse_label",
     "run_classification_pipeline",
