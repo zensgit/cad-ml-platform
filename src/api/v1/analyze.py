@@ -30,7 +30,7 @@ from src.core.errors_extended import (
     create_extended_error,
     create_migration_error,
 )
-from src.core.feature_extractor import FeatureExtractor
+from src.core.feature_pipeline import run_feature_pipeline
 from src.core.ocr.manager import OcrManager
 from src.core.ocr.providers.deepseek_hf import DeepSeekHfProvider
 from src.core.ocr.providers.paddle import PaddleOcrProvider
@@ -759,122 +759,23 @@ async def analyze_cad_file(
         }  # ensure defined even if skipped
         features_3d: Dict[str, Any] = {}
 
-        # L3: 3D Feature Extraction (run before 2D feature extraction)
-        if analysis_options.extract_features and file_format in [
-            "step",
-            "stp",
-            "iges",
-            "igs",
-        ]:
-            try:
-                # Lazy import to avoid startup overhead if not used
-                from src.core.geometry.cache import get_feature_cache
-                from src.core.geometry.engine import get_geometry_engine
-                from src.ml.vision_3d import get_3d_encoder
-
-                _geo_start = time.time()
-
-                # Check Cache
-                f_cache = get_feature_cache()
-                # Use feature version from env or default
-                f_ver = "l4_v1"
-                cache_key = f_cache.generate_key(content, f_ver)
-                cached_3d = f_cache.get(cache_key)
-
-                if cached_3d:
-                    features_3d = cached_3d
-                    logger.info(f"3D Feature Cache HIT for {file.filename}")
-                else:
-                    geo_engine = get_geometry_engine()
-                    # Parse 3D content
-                    shape = geo_engine.load_step(content, file_name=file.filename)
-                    if shape:
-                        features_3d = geo_engine.extract_brep_features(shape)
-                        # L4: Extract DFM features (Wall thickness, etc.)
-                        dfm_feats = geo_engine.extract_dfm_features(shape)
-                        features_3d.update(dfm_feats)
-
-                        # Deep Learning Embedding
-                        encoder = get_3d_encoder()
-                        embedding_3d = encoder.encode(features_3d)
-                        features_3d["embedding_vector"] = embedding_3d
-
-                        # Save to Cache
-                        f_cache.set(cache_key, features_3d)
-
-                # Add to result payload for debugging/inspection
-                if "embedding_vector" in features_3d:
-                    results["features_3d"] = {
-                        k: v for k, v in features_3d.items() if k != "embedding_vector"
-                    }
-                    results["features_3d"]["embedding_dim"] = len(
-                        features_3d["embedding_vector"]
-                    )
-
-                stage_times["features_3d"] = time.time() - _geo_start
-            except Exception as e:
-                logger.error(f"L3 Analysis failed: {e}")
-
-        # 执行分析 (带特征缓存)
-        if analysis_options.extract_features:
-            import hashlib as _hl
-
-            from src.core.feature_cache import get_feature_cache
-
-            feature_version = __import__("os").getenv("FEATURE_VERSION", "v1")
-            # Use full content bytes for cache key
-            content_hash_full = _hl.sha256(content).hexdigest()
-            cache_key = f"{content_hash_full}:{feature_version}:layout_v2"
-            from src.utils.analysis_metrics import (
-                feature_cache_hits_total,
-                feature_cache_miss_total,
-                feature_cache_size,
-            )
-
-            feature_cache = get_feature_cache()
-            # Measure lookup latency
-            import time as _t
-
-            _lk_start = _t.time()
-            cached_vector = feature_cache.get(cache_key)
-            try:
-                from src.utils.analysis_metrics import feature_cache_lookup_seconds
-
-                feature_cache_lookup_seconds.observe(_t.time() - _lk_start)
-            except Exception:
-                pass
-            extractor = FeatureExtractor()
-            combined_vec: Optional[List[float]] = None
-            if cached_vector is not None:
-                feature_cache_hits_total.inc()
-                # rehydrate cached vector into geometric/semantic split
-                features = extractor.rehydrate(cached_vector, version=feature_version)
-                combined_vec = cached_vector
-            else:
-                feature_cache_miss_total.inc()
-                features = await extractor.extract(doc, brep_features=features_3d)
-                try:
-                    combined_vec = extractor.flatten(features)
-                    feature_cache.set(cache_key, combined_vec)
-                    feature_cache_size.set(feature_cache.size())
-                except Exception:
-                    pass
-            if combined_vec is None:
-                try:
-                    combined_vec = extractor.flatten(features)
-                except Exception:
-                    combined_vec = []
-            feature_slots = extractor.slots(feature_version)
-            results["features"] = {
-                "geometric": [float(x) for x in features["geometric"]],
-                "semantic": [float(x) for x in features["semantic"]],
-                "combined": [float(x) for x in combined_vec],
-                "dimension": len(features["geometric"]) + len(features["semantic"]),
-                "feature_version": feature_version,
-                "feature_slots": feature_slots,
-                "cache_hit": cached_vector is not None,
-            }
-            stage_times["features"] = time.time() - started - sum(stage_times.values())
+        feature_context = await run_feature_pipeline(
+            extract_features=analysis_options.extract_features,
+            file_format=file_format,
+            file_name=file.filename,
+            content=content,
+            doc=doc,
+            started_at=started,
+            stage_times=stage_times,
+            logger_instance=logger,
+        )
+        features = feature_context["features"]
+        features_3d = feature_context["features_3d"]
+        results.update(feature_context["results_patch"])
+        if feature_context["features_3d_stage_duration"] is not None:
+            stage_times["features_3d"] = feature_context["features_3d_stage_duration"]
+        if feature_context["features_stage_duration"] is not None:
+            stage_times["features"] = feature_context["features_stage_duration"]
             analysis_stage_duration_seconds.labels(stage="features").observe(
                 stage_times["features"]
             )
