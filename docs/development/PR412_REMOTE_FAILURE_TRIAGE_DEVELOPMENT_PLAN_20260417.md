@@ -17,11 +17,11 @@ The vector pipeline slice itself was functionally sound in local targeted verifi
 
 ### 1. FAISS unit test isolation
 
-The failing FAISS test relied on direct `os.environ` mutation and manual restoration. The helper reads `VECTOR_STORE_BACKEND` at runtime, so the functional path is correct, but the test should use pytest-managed environment isolation to avoid cross-test state bleed.
+The failing FAISS test cannot depend on process-global environment alone. `unit-tier` runs a very large shared test process, and broad `os.getenv` usage elsewhere makes env-driven assertions a poor fit for this specific branch check.
 
 Planned change:
 
-- switch to `monkeypatch.setenv("VECTOR_STORE_BACKEND", "faiss")`
+- patch `src.core.vector_pipeline.os.getenv` directly for `VECTOR_STORE_BACKEND`
 - keep the production helper unchanged
 
 ### 2. SmartSampler benchmark threshold
@@ -49,4 +49,3 @@ Supporting verification/documentation:
 - no change to `src/core/vector_pipeline.py`
 - no change to `src/api/v1/analyze.py`
 - no production optimization work in `SmartSampler` for this batch
-

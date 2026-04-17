@@ -219,7 +219,12 @@ async def test_run_vector_pipeline_adds_faiss_entry_when_backend_enabled(
         def add(self, vector_id, vector):  # noqa: ANN001, ANN201
             added.append((vector_id, list(vector)))
 
-    monkeypatch.setenv("VECTOR_STORE_BACKEND", "faiss")
+    def _stub_getenv(name: str, default: str | None = None) -> str | None:
+        if name == "VECTOR_STORE_BACKEND":
+            return "faiss"
+        return default
+
+    monkeypatch.setattr("src.core.vector_pipeline.os.getenv", _stub_getenv)
     result = await run_vector_pipeline(
         analysis_id="vec-5",
         doc=doc,

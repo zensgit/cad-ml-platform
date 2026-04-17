@@ -20,7 +20,8 @@ assert [] == [('vec-5', [0.2, 0.4])]
 
 Resolution:
 
-- converted the test to pytest-managed env injection with `monkeypatch.setenv("VECTOR_STORE_BACKEND", "faiss")`
+- converted the test to a direct patch of `src.core.vector_pipeline.os.getenv`
+- this removes dependence on shared process-global env state during `unit-tier`
 
 ### tests (3.10)
 
@@ -81,4 +82,3 @@ Result:
 ## Outcome
 
 This batch hardens `PR #412` against one deterministic CI isolation failure and one CI performance-budget flake without changing the production vector pipeline behavior.
-
