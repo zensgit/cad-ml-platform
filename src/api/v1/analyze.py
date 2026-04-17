@@ -39,6 +39,10 @@ from src.core.errors_extended import (
     create_migration_error,
 )
 from src.core.feature_pipeline import run_feature_pipeline
+from src.core.legacy_admin_pipeline import (
+    run_faiss_rebuild_pipeline,
+    run_process_rules_audit_pipeline,
+)
 from src.core.legacy_vector_migration_pipeline import (
     run_legacy_vector_migrate_pipeline,
     run_legacy_vector_migration_status_pipeline,
@@ -827,52 +831,26 @@ async def vector_stats(api_key: str = Depends(get_api_key)):
 
 
 async def process_rules_audit(raw: bool = True, api_key: str = Depends(get_api_key)):
-    import hashlib
-    import os
-
     from src.core.process_rules import load_rules
 
     path = os.getenv("PROCESS_RULES_FILE", "config/process_rules.yaml")
-    rules = load_rules(force_reload=True)
-    version = rules.get("__meta__", {}).get("version", "v1")
-    materials = sorted([m for m in rules.keys() if not m.startswith("__")])
-    complexities: Dict[str, list[str]] = {}
-    for m in materials:
-        cm = rules.get(m, {})
-        if isinstance(cm, dict):
-            complexities[m] = sorted(
-                [c for c in cm.keys() if isinstance(cm.get(c), list)]
-            )
-    file_hash: Optional[str] = None
-    try:
-        if os.path.exists(path):
-            with open(path, "rb") as f:
-                file_hash = hashlib.sha256(f.read()).hexdigest()[:16]
-    except Exception:
-        file_hash = None
-    return ProcessRulesAuditResponse(
-        version=version,
-        source=path if os.path.exists(path) else "embedded-defaults",
-        hash=file_hash,
-        materials=materials,
-        complexities=complexities,
-        raw=rules if raw else {},
+    result = run_process_rules_audit_pipeline(
+        raw=raw,
+        load_rules_fn=load_rules,
+        rules_path=path,
+        path_exists=os.path.exists,
+        file_opener=open,
     )
+    return ProcessRulesAuditResponse(**result)
 
 
 @router.post("/vectors/faiss/rebuild")
 async def faiss_rebuild(api_key: str = Depends(get_api_key)):
     """手动触发 Faiss 索引重建 (延迟删除生效)."""
-    if os.getenv("VECTOR_STORE_BACKEND", "memory") != "faiss":
-        return {"rebuilt": False, "reason": "backend_not_faiss"}
-    from src.core.similarity import FaissVectorStore  # type: ignore
-
-    store = FaissVectorStore()
-    ok = store.rebuild()  # type: ignore[attr-defined]
-    return {
-        "rebuilt": ok,
-        "message": "Index rebuilt successfully" if ok else "Rebuild failed",
-    }
+    return run_faiss_rebuild_pipeline(
+        vector_store_backend=os.getenv("VECTOR_STORE_BACKEND", "memory"),
+        store_factory=FaissVectorStore,
+    )
 
 
 @router.post("/vectors/update", response_model=VectorUpdateResponse)
