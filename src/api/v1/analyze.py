@@ -33,9 +33,7 @@ from src.core.errors_extended import (
     create_migration_error,
 )
 from src.core.feature_pipeline import run_feature_pipeline
-from src.core.ocr.manager import OcrManager
-from src.core.ocr.providers.deepseek_hf import DeepSeekHfProvider
-from src.core.ocr.providers.paddle import PaddleOcrProvider
+from src.core.ocr.analysis_ocr_pipeline import run_analysis_ocr_pipeline
 from src.core.process import (
     build_manufacturing_decision_summary,
     run_process_pipeline,
@@ -720,38 +718,13 @@ async def analyze_cad_file(
                 stage_times["similarity"]
             )
 
-        # 可选 OCR 集成 (向后兼容: 默认不启用)
-        if analysis_options.enable_ocr:
-            from src.core.providers import (
-                ProviderRegistry,
-                bootstrap_core_provider_registry,
-            )
-
-            bootstrap_core_provider_registry()
-            ocr_manager = OcrManager(confidence_fallback=0.85)
-            ocr_manager.register_provider(
-                "paddle", ProviderRegistry.get("ocr", "paddle")
-            )
-            ocr_manager.register_provider(
-                "deepseek_hf", ProviderRegistry.get("ocr", "deepseek_hf")
-            )
-            # 简单处理: 如果是图像/含预览可抽取, 此处示例假设 unified_data 带有 preview_image_bytes
-            img_bytes = unified_data.get("preview_image_bytes")
-            if img_bytes:
-                ocr_result = await ocr_manager.extract(
-                    img_bytes, strategy=analysis_options.ocr_provider
-                )
-                results["ocr"] = {
-                    "provider": ocr_result.provider,
-                    "confidence": ocr_result.calibrated_confidence
-                    or ocr_result.confidence,
-                    "fallback_level": ocr_result.fallback_level,
-                    "dimensions": [d.model_dump() for d in ocr_result.dimensions],
-                    "symbols": [s.model_dump() for s in ocr_result.symbols],
-                    "completeness": ocr_result.completeness,
-                }
-            else:
-                results["ocr"] = {"status": "no_preview_image"}
+        ocr_payload = await run_analysis_ocr_pipeline(
+            enable_ocr=analysis_options.enable_ocr,
+            ocr_provider_strategy=analysis_options.ocr_provider,
+            unified_data=unified_data,
+        )
+        if ocr_payload is not None:
+            results["ocr"] = ocr_payload
 
         response_payload = await finalize_analysis_success(
             analysis_id=analysis_id,
