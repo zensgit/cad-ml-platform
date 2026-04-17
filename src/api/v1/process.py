@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from src.api.dependencies import get_api_key
+from src.core.legacy_admin_pipeline import run_process_rules_audit_pipeline
 from src.utils.analysis_metrics import process_rules_audit_requests_total
 
 logger = logging.getLogger(__name__)
@@ -35,29 +36,15 @@ async def process_rules_audit(raw: bool = True, api_key: str = Depends(get_api_k
     from src.core.process_rules import load_rules
 
     path = os.getenv("PROCESS_RULES_FILE", "config/process_rules.yaml")
-    rules = load_rules(force_reload=True)
-    version = rules.get("__meta__", {}).get("version", "v1")
-    materials = sorted([m for m in rules.keys() if not m.startswith("__")])
-    complexities: Dict[str, list[str]] = {}
-    for m in materials:
-        cm = rules.get(m, {})
-        if isinstance(cm, dict):
-            complexities[m] = sorted([c for c in cm.keys() if isinstance(cm.get(c), list)])
-    file_hash: Optional[str] = None
-    try:
-        if os.path.exists(path):
-            with open(path, "rb") as f:
-                file_hash = hashlib.sha256(f.read()).hexdigest()[:16]
-    except Exception:
-        file_hash = None
     try:
         resp = ProcessRulesAuditResponse(
-            version=version,
-            source=path if os.path.exists(path) else "embedded-defaults",
-            hash=file_hash,
-            materials=materials,
-            complexities=complexities,
-            raw=rules if raw else {},
+            **run_process_rules_audit_pipeline(
+                raw=raw,
+                load_rules_fn=load_rules,
+                rules_path=path,
+                path_exists=os.path.exists,
+                file_opener=open,
+            )
         )
         process_rules_audit_requests_total.labels(status="ok").inc()
         return resp
