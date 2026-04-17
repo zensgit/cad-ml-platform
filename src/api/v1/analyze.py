@@ -15,6 +15,11 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.api.dependencies import get_api_key
+from src.core.analysis_error_handling import (
+    handle_analysis_http_exception,
+    handle_analysis_options_json_error,
+    handle_analysis_unexpected_exception,
+)
 from src.core.analysis_preflight import run_analysis_request_preflight
 from src.core.analysis_result_envelope import finalize_analysis_success
 from src.core.analyzer import CADAnalyzer
@@ -743,49 +748,15 @@ async def analyze_cad_file(
         return AnalysisResult(**response_payload)
 
     except json.JSONDecodeError:
-        analysis_requests_total.labels(status="error").inc()
-        analysis_errors_total.labels(stage="options", code="json_decode").inc()
-        analysis_error_code_total.labels(code=ErrorCode.JSON_PARSE_ERROR.value).inc()
-        # ErrorCode and build_error imported at module level
-        err = build_error(
-            ErrorCode.JSON_PARSE_ERROR,
-            stage="options",
-            message="Invalid options JSON format",
-        )
-        raise HTTPException(status_code=400, detail=err)
+        handle_analysis_options_json_error()
     except HTTPException as he:
-        # If detail is already structured keep it, otherwise wrap
-        analysis_requests_total.labels(status="error").inc()
-        code = ErrorCode.INTERNAL_ERROR
-        if he.status_code == 400:
-            code = ErrorCode.INPUT_ERROR
-        elif he.status_code == 404:
-            code = ErrorCode.DATA_NOT_FOUND
-        elif he.status_code == 413:
-            code = ErrorCode.INPUT_SIZE_EXCEEDED
-        elif he.status_code == 422:
-            code = ErrorCode.BUSINESS_RULE_VIOLATION
-        analysis_errors_total.labels(stage="general", code=str(he.status_code)).inc()
-        if isinstance(he.detail, dict):  # already structured
-            raise
-        analysis_error_code_total.labels(code=code.value).inc()
-        # build_error imported at module level
-        err = build_error(code, stage="analysis", message=str(he.detail))
-        raise HTTPException(status_code=he.status_code, detail=err)
+        handle_analysis_http_exception(he)
     except Exception as e:
-        analysis_requests_total.labels(status="error").inc()
-        analysis_errors_total.labels(
-            stage="general", code=ErrorCode.INTERNAL_ERROR.value
-        ).inc()
-        analysis_error_code_total.labels(code=ErrorCode.INTERNAL_ERROR.value).inc()
-        logger.error(f"Analysis failed for {file.filename}: {str(e)}")
-        # ErrorCode and build_error imported at module level
-        err = build_error(
-            ErrorCode.INTERNAL_ERROR,
-            stage="analysis",
-            message=f"Analysis failed: {str(e)}",
+        handle_analysis_unexpected_exception(
+            file_name=file.filename,
+            exc=e,
+            logger_instance=logger,
         )
-        raise HTTPException(status_code=500, detail=err)
 
 
 @router.post("/batch")
