@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.api.dependencies import get_api_key
+from src.core.analysis_preflight import run_analysis_request_preflight
 from src.core.analyzer import CADAnalyzer
 from src.core.classification import (
     extract_label_decision_contract,
@@ -441,94 +442,22 @@ async def analyze_cad_file(
 
     started = time.time()
     try:
-        # 解析选项
-        analysis_options = AnalysisOptions(**json.loads(options))
-
-        # 计算内容哈希用于更精确缓存键 (避免同名不同内容误命中)
-        import hashlib
-
-        content_peek = await file.read()  # read for hash then reset below
-        file.file.seek(0)
-        content_hash = hashlib.sha256(content_peek).hexdigest()[:16]
-        analysis_cache_key = f"analysis:{file.filename}:{content_hash}:{options}"
-        # Include optional PartClassifier shadow settings in cache key to avoid
-        # cross-hitting cached payloads with/without shadow-only fields.
-        include_part_shadow = os.getenv(
-            "PART_CLASSIFIER_PROVIDER_INCLUDE_IN_CACHE_KEY", "true"
-        ).strip().lower() not in {"0", "false", "no", "off"}
-        if include_part_shadow:
-            suffix = str(file.filename or "").rsplit(".", 1)[-1].lower()
-            shadow_formats_raw = os.getenv(
-                "PART_CLASSIFIER_PROVIDER_SHADOW_FORMATS", "dxf,dwg"
-            )
-            shadow_formats = {
-                t.strip().lower() for t in shadow_formats_raw.split(",") if t.strip()
-            }
-            if suffix in shadow_formats:
-                shadow_enabled = (
-                    os.getenv("PART_CLASSIFIER_PROVIDER_ENABLED", "false")
-                    .strip()
-                    .lower()
-                    == "true"
-                )
-                shadow_provider = (
-                    os.getenv("PART_CLASSIFIER_PROVIDER_NAME", "v16").strip() or "v16"
-                )
-                analysis_cache_key = f"{analysis_cache_key}:part_shadow={int(shadow_enabled)}:{shadow_provider}"
-        cached = await get_cached_result(analysis_cache_key)
-        if cached:
-            logger.info(f"Cache hit for {file.filename}")
-            from src.utils.analysis_metrics import analysis_cache_hits_total
-
-            analysis_cache_hits_total.inc()
-            # sliding window update (best-effort)
-            try:
-                from collections import deque
-                from time import time as _t_now
-
-                from src.utils.analysis_metrics import feature_cache_hits_last_hour
-
-                _CACHE_HIT_EVENTS = globals().setdefault("_CACHE_HIT_EVENTS", deque())
-                now = _t_now()
-                _CACHE_HIT_EVENTS.append(now)
-                # prune older than 3600s
-                while _CACHE_HIT_EVENTS and now - _CACHE_HIT_EVENTS[0] > 3600:
-                    _CACHE_HIT_EVENTS.popleft()
-                feature_cache_hits_last_hour.set(len(_CACHE_HIT_EVENTS))
-            except Exception:
-                pass
-            feature_version = __import__("os").getenv("FEATURE_VERSION", "v1")
-            return AnalysisResult(
-                id=analysis_id,
-                timestamp=start_time,
-                file_name=file.filename,
-                file_format=file.filename.split(".")[-1].upper(),
-                results=cached,
-                processing_time=0.1,
-                cache_hit=True,
-                cad_document=None,
-                feature_version=feature_version,
-            )
-        else:
-            from src.utils.analysis_metrics import analysis_cache_miss_total
-
-            analysis_cache_miss_total.inc()
-            try:
-                from collections import deque
-                from time import time as _t_now
-
-                from src.utils.analysis_metrics import feature_cache_miss_last_hour
-
-                _CACHE_MISS_EVENTS = globals().setdefault("_CACHE_MISS_EVENTS", deque())
-                now = _t_now()
-                _CACHE_MISS_EVENTS.append(now)
-                while _CACHE_MISS_EVENTS and now - _CACHE_MISS_EVENTS[0] > 3600:
-                    _CACHE_MISS_EVENTS.popleft()
-                feature_cache_miss_last_hour.set(len(_CACHE_MISS_EVENTS))
-            except Exception:
-                pass
-
         content = await file.read()
+        preflight = await run_analysis_request_preflight(
+            file_name=file.filename,
+            options_raw=options,
+            content=content,
+            analysis_id=analysis_id,
+            timestamp=start_time,
+            options_model_cls=AnalysisOptions,
+        )
+        analysis_options = preflight["analysis_options"]
+        analysis_cache_key = preflight["analysis_cache_key"]
+        cached_response = preflight["cached_response"]
+        if cached_response is not None:
+            logger.info("Cache hit for %s", file.filename)
+            return AnalysisResult(**cached_response)
+
         document_context = await run_document_pipeline(
             file_name=file.filename,
             content=content,
