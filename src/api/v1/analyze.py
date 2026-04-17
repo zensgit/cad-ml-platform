@@ -32,17 +32,12 @@ from src.core.classification import (
 from src.core.classification import shadow_pipeline as _shadow_pipeline
 from src.core.document_pipeline import run_document_pipeline
 from src.core.dfm.quality_pipeline import run_quality_pipeline
-from src.core.errors_extended import (
-    ErrorCode,
-    build_error,
-    create_extended_error,
-    create_migration_error,
-)
 from src.core.feature_pipeline import run_feature_pipeline
 from src.core.legacy_admin_pipeline import (
     run_faiss_rebuild_pipeline,
     run_process_rules_audit_pipeline,
 )
+from src.core.legacy_redirect_pipeline import raise_legacy_redirect
 from src.core.legacy_vector_migration_pipeline import (
     run_legacy_vector_migrate_pipeline,
     run_legacy_vector_migration_status_pipeline,
@@ -781,13 +776,10 @@ async def similarity_topk(
 @router.get("/vectors/distribution", response_model=VectorDistributionResponse)
 async def vector_distribution_deprecated(api_key: str = Depends(get_api_key)):
     """Deprecated: moved to /api/v1/vectors_stats/distribution"""
-    raise HTTPException(
-        status_code=410,
-        detail=create_migration_error(
-            old_path="/api/v1/analyze/vectors/distribution",
-            new_path="/api/v1/vectors_stats/distribution",
-            method="GET",
-        ),
+    raise_legacy_redirect(
+        old_path="/api/v1/analyze/vectors/distribution",
+        new_path="/api/v1/vectors_stats/distribution",
+        method="GET",
     )
 
 
@@ -796,37 +788,30 @@ async def delete_vector(
     payload: VectorDeleteRequest, api_key: str = Depends(get_api_key)
 ):
     """Deprecated: moved to /api/v1/vectors/delete"""
-    raise HTTPException(
-        status_code=410,
-        detail=create_migration_error(
-            old_path="/api/v1/analyze/vectors/delete",
-            new_path="/api/v1/vectors/delete",
-            method="POST",
-        ),
+    raise_legacy_redirect(
+        old_path="/api/v1/analyze/vectors/delete",
+        new_path="/api/v1/vectors/delete",
+        method="POST",
     )
 
 
 @router.get("/vectors", response_model=VectorListResponse)
 async def list_vectors(api_key: str = Depends(get_api_key)):
     """Deprecated: moved to /api/v1/vectors"""
-    raise HTTPException(
-        status_code=410,
-        detail=create_migration_error(
-            old_path="/api/v1/analyze/vectors", new_path="/api/v1/vectors", method="GET"
-        ),
+    raise_legacy_redirect(
+        old_path="/api/v1/analyze/vectors",
+        new_path="/api/v1/vectors",
+        method="GET",
     )
 
 
 @router.get("/vectors/stats", response_model=VectorStatsResponse)
 async def vector_stats(api_key: str = Depends(get_api_key)):
     """Deprecated: moved to /api/v1/vectors_stats/stats"""
-    raise HTTPException(
-        status_code=410,
-        detail=create_migration_error(
-            old_path="/api/v1/analyze/vectors/stats",
-            new_path="/api/v1/vectors_stats/stats",
-            method="GET",
-        ),
+    raise_legacy_redirect(
+        old_path="/api/v1/analyze/vectors/stats",
+        new_path="/api/v1/vectors_stats/stats",
+        method="GET",
     )
 
 
@@ -889,13 +874,10 @@ async def features_diff_deprecated(
     id_a: str, id_b: str, api_key: str = Depends(get_api_key)
 ):
     """Deprecated: moved to /api/v1/features/diff"""
-    raise HTTPException(
-        status_code=410,
-        detail=create_migration_error(
-            old_path="/api/v1/analyze/features/diff",
-            new_path="/api/v1/features/diff",
-            method="GET",
-        ),
+    raise_legacy_redirect(
+        old_path="/api/v1/analyze/features/diff",
+        new_path="/api/v1/features/diff",
+        method="GET",
     )
 
 
@@ -919,13 +901,10 @@ async def model_reload_deprecated(
     payload: ModelReloadRequest, api_key: str = Depends(get_api_key)
 ):
     """Deprecated: moved to /api/v1/model/reload"""
-    raise HTTPException(
-        status_code=410,
-        detail=create_migration_error(
-            old_path="/api/v1/analyze/model/reload",
-            new_path="/api/v1/model/reload",
-            method="POST",
-        ),
+    raise_legacy_redirect(
+        old_path="/api/v1/analyze/model/reload",
+        new_path="/api/v1/model/reload",
+        method="POST",
     )
 
 
@@ -947,13 +926,10 @@ async def cleanup_orphan_vectors_deprecated(
     api_key: str = Depends(get_api_key),
 ):
     """Deprecated: moved to /api/v1/maintenance/orphans"""
-    raise HTTPException(
-        status_code=410,
-        detail=create_migration_error(
-            old_path="/api/v1/analyze/vectors/orphans",
-            new_path="/api/v1/maintenance/orphans",
-            method="DELETE",
-        ),
+    raise_legacy_redirect(
+        old_path="/api/v1/analyze/vectors/orphans",
+        new_path="/api/v1/maintenance/orphans",
+        method="DELETE",
     )
 
 
@@ -986,24 +962,20 @@ class FaissHealthResponse(BaseModel):
 @router.get("/features/cache", response_model=FeatureCacheStatsResponse)
 async def feature_cache_stats(api_key: str = Depends(get_api_key)):
     """Backward-compatible redirect stub. Prefer /api/v1/health/features/cache."""
-    raise HTTPException(
-        status_code=410,
-        detail=create_migration_error(
-            old_path="/api/v1/analyze/features/cache",
-            new_path="/api/v1/health/features/cache",
-            method="GET",
-        ),
+    raise_legacy_redirect(
+        old_path="/api/v1/analyze/features/cache",
+        new_path="/api/v1/health/features/cache",
+        method="GET",
     )
+
+
 @router.get("/faiss/health", response_model=FaissHealthResponse)
 async def faiss_health(api_key: str = Depends(get_api_key)):
     """Deprecated: moved to /api/v1/health/faiss"""
-    raise HTTPException(
-        status_code=410,
-        detail=create_migration_error(
-            old_path="/api/v1/analyze/faiss/health",
-            new_path="/api/v1/health/faiss",
-            method="GET",
-        ),
+    raise_legacy_redirect(
+        old_path="/api/v1/analyze/faiss/health",
+        new_path="/api/v1/health/faiss",
+        method="GET",
     )
 
 
