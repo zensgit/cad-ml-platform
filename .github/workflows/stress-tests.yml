@@ -169,10 +169,22 @@ jobs:
           export PYTHONPATH=$GITHUB_WORKSPACE
           nohup uvicorn src.main:app --host 0.0.0.0 --port 8000 &
           sleep 3
+      - name: Wait for API readiness
+        run: |
+          for attempt in $(seq 1 20); do
+            if curl -fsS ${API_BASE_URL}/health >/dev/null; then
+              echo "API ready on attempt ${attempt}"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "API did not become ready in time" >&2
+          exit 1
       - name: Health endpoint smoke check (Faiss)
         run: |
-          curl -s ${API_BASE_URL}/api/v1/health/faiss/health | tee faiss_health.json
-          python - <<'PY'
+          for attempt in $(seq 1 10); do
+            if curl -fsS ${API_BASE_URL}/api/v1/health/faiss/health -o faiss_health.json; then
+              if python - <<'PY'
           import json
           with open('faiss_health.json') as f:
               data = json.load(f)
@@ -182,6 +194,16 @@ jobs:
               raise SystemExit(f"Missing keys in Faiss health: {missing}")
           print('Faiss health keys present:', ', '.join(required))
           PY
+              then
+                break
+              fi
+            fi
+            if [[ "${attempt}" == "10" ]]; then
+              echo "Faiss health endpoint never returned valid JSON" >&2
+              exit 1
+            fi
+            sleep 2
+          done
       - name: Trigger manual recover and validate ETA reset
         env:
           ADMIN_TOKEN: ${{ env.ADMIN_TOKEN }}
@@ -190,8 +212,9 @@ jobs:
             -H "X-Admin-Token: ${ADMIN_TOKEN}" \
             -H "X-API-Key: ${API_KEY}" || true
           sleep 2
-          curl -s ${API_BASE_URL}/api/v1/health/faiss/health | tee faiss_health_after.json
-          python - <<'PY'
+          for attempt in $(seq 1 10); do
+            if curl -fsS ${API_BASE_URL}/api/v1/health/faiss/health -o faiss_health_after.json; then
+              if python - <<'PY'
           import json
           with open('faiss_health_after.json') as f:
               data = json.load(f)
@@ -208,6 +231,16 @@ jobs:
           else:
               print('Manual recover validated: ETA reset to 0')
           PY
+              then
+                break
+              fi
+            fi
+            if [[ "${attempt}" == "10" ]]; then
+              echo "Faiss health after recover never returned valid JSON" >&2
+              exit 1
+            fi
+            sleep 2
+          done
       - name: Cache apply/rollback smoke check
         env:
           ADMIN_TOKEN: ${{ env.ADMIN_TOKEN }}
