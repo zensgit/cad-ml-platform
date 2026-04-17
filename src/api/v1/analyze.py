@@ -35,7 +35,10 @@ from src.core.feature_extractor import FeatureExtractor
 from src.core.ocr.manager import OcrManager
 from src.core.ocr.providers.deepseek_hf import DeepSeekHfProvider
 from src.core.ocr.providers.paddle import PaddleOcrProvider
-from src.core.process import run_process_pipeline
+from src.core.process import (
+    build_manufacturing_decision_summary,
+    run_process_pipeline,
+)
 from src.core.similarity import (
     FaissVectorStore,
     compute_similarity,
@@ -1007,49 +1010,21 @@ async def analyze_cad_file(
 
         # Manufacturing decision summary (quality + process + cost)
         try:
-            quality = results.get("quality", {}) if isinstance(results, dict) else {}
-            process = results.get("process", {}) if isinstance(results, dict) else {}
-            cost = (
-                results.get("cost_estimation", {}) if isinstance(results, dict) else {}
+            manufacturing_decision = build_manufacturing_decision_summary(
+                quality_payload=(
+                    results.get("quality") if isinstance(results, dict) else None
+                ),
+                process_payload=(
+                    results.get("process") if isinstance(results, dict) else None
+                ),
+                cost_payload=(
+                    results.get("cost_estimation")
+                    if isinstance(results, dict)
+                    else None
+                ),
             )
-
-            primary_proc = {}
-            if isinstance(process, dict):
-                primary_proc = process.get("primary_recommendation", {})
-                if not primary_proc and "process" in process:
-                    primary_proc = {
-                        "process": process.get("process"),
-                        "method": process.get("method"),
-                    }
-
-            total_cost = None
-            if isinstance(cost, dict):
-                total_cost = cost.get("total_unit_cost")
-
-            cost_range = None
-            if isinstance(total_cost, (int, float)):
-                cost_range = {
-                    "low": round(total_cost * 0.9, 2),
-                    "high": round(total_cost * 1.1, 2),
-                }
-
-            if quality or process or cost:
-                results["manufacturing_decision"] = {
-                    "feasibility": (
-                        quality.get("manufacturability")
-                        if isinstance(quality, dict)
-                        else None
-                    ),
-                    "risks": (
-                        quality.get("issues", []) if isinstance(quality, dict) else []
-                    ),
-                    "process": primary_proc or None,
-                    "cost_estimate": cost if isinstance(cost, dict) else None,
-                    "cost_range": cost_range,
-                    "currency": (
-                        cost.get("currency") if isinstance(cost, dict) else None
-                    ),
-                }
+            if manufacturing_decision is not None:
+                results["manufacturing_decision"] = manufacturing_decision
         except Exception as e:
             logger.warning(f"Manufacturing decision summary failed: {e}")
 
