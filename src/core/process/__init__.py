@@ -1,5 +1,6 @@
 """Process module for manufacturing route generation."""
 
+from src.core.process.manufacturing_summary import build_manufacturing_decision_summary
 from src.core.process.route_generator import (
     MATERIAL_PATTERNS,
     MATERIAL_PROCESS_HINTS,
@@ -20,6 +21,7 @@ __all__ = [
     "ProcessRouteGenerator",
     "ProcessStage",
     "ProcessStep",
+    "build_manufacturing_decision_summary",
     "classify_material",
     "generate_process_route",
     "get_route_generator",
