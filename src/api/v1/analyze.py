@@ -18,7 +18,6 @@ from src.adapters.factory import AdapterFactory
 from src.api.dependencies import get_api_key
 from src.core.analyzer import CADAnalyzer
 from src.core.classification import (
-    build_vector_registration_metadata,
     extract_label_decision_contract,
     normalize_coarse_label,
     run_classification_pipeline,
@@ -39,12 +38,8 @@ from src.core.process import (
     build_manufacturing_decision_summary,
     run_process_pipeline,
 )
-from src.core.similarity import (
-    FaissVectorStore,
-    compute_similarity,
-    has_vector,
-    register_vector,
-)
+from src.core.similarity import FaissVectorStore
+from src.core.vector_pipeline import run_vector_pipeline
 from src.models.cad_document import CadDocument
 from src.utils.analysis_metrics import (
     analysis_error_code_total,
@@ -1100,98 +1095,24 @@ async def analyze_cad_file(
         except Exception:
             pass
 
-        # Register vector for later similarity queries (use geometric+semantic concatenation + L3 embedding)
-        try:
-            from src.core.vector_layouts import VECTOR_LAYOUT_BASE, VECTOR_LAYOUT_L3
-
-            feature_version = __import__("os").getenv("FEATURE_VERSION", "v1")
-            feature_vector: list[float] = FeatureExtractor().flatten(features)
-            vector_layout = VECTOR_LAYOUT_BASE
-            l3_dim: Optional[int] = None
-
-            # L3 Integration: Append 3D embedding if available
-            if "features_3d" in locals() and "embedding_vector" in features_3d:
-                l3_dim = len(features_3d["embedding_vector"])
-                feature_vector.extend(
-                    [float(x) for x in features_3d["embedding_vector"]]
-                )
-                vector_layout = VECTOR_LAYOUT_L3
-
-            m_used = material or "unknown"
-            meta = build_vector_registration_metadata(
-                material=m_used,
-                doc=doc,
-                features=features,
-                feature_vector=feature_vector,
-                feature_version=feature_version,
-                vector_layout=vector_layout,
-                classification_meta=results.get("classification", {}),
-                l3_dim=l3_dim,
-            )
-
-            qdrant_store = _get_qdrant_store_or_none()
-            stored_in_qdrant = False
-            if qdrant_store is not None:
-                await qdrant_store.register_vector(
-                    analysis_id,
-                    feature_vector,
-                    metadata=meta,
-                )
-                accepted = True
-                stored_in_qdrant = True
-            else:
-                accepted = register_vector(
-                    analysis_id,
-                    feature_vector,
-                    meta=meta,
-                )
-            if accepted:
-                vector_store_material_total.labels(material=m_used).inc()
-                # Optional FAISS backend add if enabled
-                if os.getenv("VECTOR_STORE_BACKEND", "memory") == "faiss":
-                    try:
-                        fstore = FaissVectorStore()
-                        fstore.add(analysis_id, feature_vector)
-                    except Exception:
-                        pass
-                analysis_feature_vector_dimension.observe(len(feature_vector))
-                # enrich meta with dimension breakdown for future migrations
-                if not stored_in_qdrant:
-                    try:
-                        _VECTOR_META = __import__(
-                            "src.core.similarity", fromlist=["_VECTOR_META"]
-                        )._VECTOR_META  # type: ignore
-                        _VECTOR_META[analysis_id].update(meta)
-                    except Exception:
-                        pass
-        except Exception:
-            pass
-
-        if analysis_options.calculate_similarity and analysis_options.reference_id:
-            qdrant_store = _get_qdrant_store_or_none()
-            if qdrant_store is not None:
-                sim = await _compute_similarity_qdrant(
-                    qdrant_store,
-                    analysis_options.reference_id,
-                    feature_vector,
-                )
-            else:
-                sim = compute_similarity(analysis_options.reference_id, feature_vector)
-            results["similarity"] = sim
-        elif analysis_options.reference_id:
-            qdrant_store = _get_qdrant_store_or_none()
-            if qdrant_store is not None:
-                reference = await qdrant_store.get_vector(analysis_options.reference_id)
-                if reference is None:
-                    results["similarity"] = {
-                        "reference_id": analysis_options.reference_id,
-                        "status": "reference_not_found",
-                    }
-            elif not has_vector(analysis_options.reference_id):
-                results["similarity"] = {
-                    "reference_id": analysis_options.reference_id,
-                    "status": "reference_not_found",
-                }
+        vector_context = await run_vector_pipeline(
+            analysis_id=analysis_id,
+            doc=doc,
+            features=features,
+            features_3d=features_3d,
+            material=material,
+            classification_meta=results.get("classification", {}),
+            calculate_similarity=analysis_options.calculate_similarity,
+            reference_id=analysis_options.reference_id,
+            get_qdrant_store=_get_qdrant_store_or_none,
+            compute_qdrant_similarity=_compute_similarity_qdrant,
+            vector_material_observer=lambda m_used: vector_store_material_total.labels(
+                material=m_used
+            ).inc(),
+            feature_dimension_observer=analysis_feature_vector_dimension.observe,
+        )
+        if vector_context["similarity"] is not None:
+            results["similarity"] = vector_context["similarity"]
         if "similarity" in results:
             stage_times["similarity"] = (
                 time.time() - started - sum(stage_times.values())
@@ -1258,9 +1179,7 @@ async def analyze_cad_file(
                 "analysis_id": analysis_id,
                 "processing_time_s": round(processing_time, 4),
                 "stages": stage_times,
-                "feature_vector_dim": (
-                    len(feature_vector) if "feature_vector" in locals() else 0
-                ),
+                "feature_vector_dim": vector_context.get("feature_vector_dim", 0),
                 "material": material,
                 "complexity": unified_data.get("complexity"),
             },
