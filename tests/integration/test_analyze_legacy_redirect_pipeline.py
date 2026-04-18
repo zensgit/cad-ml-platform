@@ -15,7 +15,10 @@ def test_analyze_legacy_redirect_get_route_delegates(monkeypatch):
         captured["method"] = method
         raise HTTPException(status_code=410, detail={"code": "RESOURCE_GONE"})
 
-    monkeypatch.setattr("src.api.v1.analyze.raise_legacy_redirect", fake_raise_legacy_redirect)
+    monkeypatch.setattr(
+        "src.api.v1.analyze_legacy_redirects.raise_legacy_redirect",
+        fake_raise_legacy_redirect,
+    )
 
     client = TestClient(app)
     response = client.get("/api/v1/analyze/faiss/health", headers={"api-key": "test"})
@@ -37,7 +40,10 @@ def test_analyze_legacy_redirect_post_route_delegates(monkeypatch):
         captured["method"] = method
         raise HTTPException(status_code=410, detail={"code": "RESOURCE_GONE"})
 
-    monkeypatch.setattr("src.api.v1.analyze.raise_legacy_redirect", fake_raise_legacy_redirect)
+    monkeypatch.setattr(
+        "src.api.v1.analyze_legacy_redirects.raise_legacy_redirect",
+        fake_raise_legacy_redirect,
+    )
 
     client = TestClient(app)
     response = client.post(
@@ -63,7 +69,10 @@ def test_analyze_legacy_redirect_delete_route_delegates(monkeypatch):
         captured["method"] = method
         raise HTTPException(status_code=410, detail={"code": "RESOURCE_GONE"})
 
-    monkeypatch.setattr("src.api.v1.analyze.raise_legacy_redirect", fake_raise_legacy_redirect)
+    monkeypatch.setattr(
+        "src.api.v1.analyze_legacy_redirects.raise_legacy_redirect",
+        fake_raise_legacy_redirect,
+    )
 
     client = TestClient(app)
     response = client.delete(
