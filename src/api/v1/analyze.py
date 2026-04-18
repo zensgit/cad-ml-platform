@@ -45,6 +45,7 @@ from src.api.v1.analyze_live_models import (
     SimilarityTopKResponse,
 )
 from src.core.analysis_batch_pipeline import run_batch_analysis
+from src.core.analysis_drift_pipeline import run_analysis_drift_pipeline
 from src.core.analysis_error_handling import (
     handle_analysis_http_exception,
     handle_analysis_options_json_error,
@@ -79,6 +80,7 @@ from src.core.process import (
 from src.core.qdrant_store_helper import (
     get_qdrant_store_or_none as _get_qdrant_store_or_none,
 )
+from src.core.qdrant_similarity_helper import compute_qdrant_cosine_similarity
 from src.core.similarity import FaissVectorStore
 from src.core.vector_query_pipeline import (
     run_similarity_query_pipeline,
@@ -120,36 +122,6 @@ _build_graph2d_soft_override_suggestion = (
 _enrich_graph2d_prediction = _shadow_pipeline._enrich_graph2d_prediction
 _graph2d_is_drawing_type = _shadow_pipeline._graph2d_is_drawing_type
 _resolve_history_sequence_file_path = _shadow_pipeline._resolve_history_sequence_file_path
-async def _compute_similarity_qdrant(
-    qdrant_store,
-    reference_id: str,
-    candidate_vector: list[float],
-) -> Dict[str, Any]:
-    from src.core.similarity import _cosine
-
-    reference = await qdrant_store.get_vector(reference_id)
-    if reference is None:
-        return {
-            "reference_id": reference_id,
-            "status": "reference_not_found",
-            "score": 0.0,
-        }
-    ref_vector = list(reference.vector or [])
-    if len(ref_vector) != len(candidate_vector):
-        return {
-            "reference_id": reference_id,
-            "status": "dimension_mismatch",
-            "score": 0.0,
-            "method": "cosine",
-            "dimension": min(len(ref_vector), len(candidate_vector)),
-        }
-    score = _cosine(ref_vector, candidate_vector)
-    return {
-        "reference_id": reference_id,
-        "score": round(score, 4),
-        "method": "cosine",
-        "dimension": len(candidate_vector),
-    }
 
 
 # Drift state (in-memory); keys: materials, predictions, baseline_materials, baseline_predictions
@@ -368,75 +340,17 @@ async def analyze_cad_file(
         except Exception as e:
             logger.warning(f"Manufacturing decision summary failed: {e}")
 
-        # Drift metrics (executed once per analysis after classification if present)
         try:
-            from src.utils.drift import compute_drift
+            from src.utils.cache import get_client
 
-            # Material drift: compare current material tag vs baseline (simple ring buffer)
-            _DRIFT_STATE = __import__("src.api.v1.analyze", fromlist=["_DRIFT_STATE"])
-        except Exception:
-            _DRIFT_STATE = None  # type: ignore
-        try:
-            if _DRIFT_STATE is not None:
-                st = getattr(
-                    _DRIFT_STATE,
-                    "_DRIFT_STATE",
-                    {
-                        "materials": [],
-                        "predictions": [],
-                        "baseline_materials": [],
-                        "baseline_predictions": [],
-                    },
-                )
-                m_used = material or "unknown"
-                st["materials"].append(m_used)
-                pred_label = results.get("classification", {}).get(
-                    "type"
-                ) or results.get("classification", {}).get("ml_predicted_type")
-                if pred_label:
-                    st["predictions"].append(str(pred_label))
-                # establish baselines once minimum count reached
-                min_count = int(
-                    __import__("os").getenv("DRIFT_BASELINE_MIN_COUNT", "100")
-                )
-                if (
-                    len(st["baseline_materials"]) == 0
-                    and len(st["materials"]) >= min_count
-                ):
-                    st["baseline_materials"] = list(st["materials"])
-                    # persist baseline to redis if available
-                    try:
-                        client = __import__(
-                            "src.utils.cache", fromlist=["get_client"]
-                        ).get_client()
-                        if client is not None:
-                            await client.set("baseline:material", json.dumps(st["baseline_materials"]))  # type: ignore[attr-defined]
-                            await client.set("baseline:material:ts", str(int(__import__("time").time())))  # type: ignore[attr-defined]
-                    except Exception:
-                        pass
-                if (
-                    len(st["baseline_predictions"]) == 0
-                    and len(st["predictions"]) >= min_count
-                ):
-                    st["baseline_predictions"] = list(st["predictions"])
-                    try:
-                        client = __import__(
-                            "src.utils.cache", fromlist=["get_client"]
-                        ).get_client()
-                        if client is not None:
-                            await client.set("baseline:class", json.dumps(st["baseline_predictions"]))  # type: ignore[attr-defined]
-                            await client.set("baseline:class:ts", str(int(__import__("time").time())))  # type: ignore[attr-defined]
-                    except Exception:
-                        pass
-                if st["baseline_materials"]:
-                    mat_score = compute_drift(st["materials"], st["baseline_materials"])
-                    material_distribution_drift_score.observe(mat_score)
-                if st["baseline_predictions"]:
-                    cls_score = compute_drift(
-                        st["predictions"], st["baseline_predictions"]
-                    )
-                    classification_prediction_drift_score.observe(cls_score)
-                setattr(_DRIFT_STATE, "_DRIFT_STATE", st)
+            await run_analysis_drift_pipeline(
+                drift_state=_DRIFT_STATE,
+                material=material,
+                classification_payload=results.get("classification", {}),
+                material_drift_observer=material_distribution_drift_score.observe,
+                prediction_drift_observer=classification_prediction_drift_score.observe,
+                cache_client_factory=get_client,
+            )
         except Exception:
             pass
 
@@ -450,7 +364,7 @@ async def analyze_cad_file(
             calculate_similarity=analysis_options.calculate_similarity,
             reference_id=analysis_options.reference_id,
             get_qdrant_store=_get_qdrant_store_or_none,
-            compute_qdrant_similarity=_compute_similarity_qdrant,
+            compute_qdrant_similarity=compute_qdrant_cosine_similarity,
             vector_material_observer=lambda m_used: vector_store_material_total.labels(
                 material=m_used
             ).inc(),
