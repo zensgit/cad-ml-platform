@@ -220,9 +220,20 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt || true
-          pip install coverage pytest-cov
+          retry_pip() {
+            local attempt=1
+            local max_attempts=3
+            until "$@"; do
+              if [ "$attempt" -ge "$max_attempts" ]; then
+                return 1
+              fi
+              sleep $((attempt * 5))
+              attempt=$((attempt + 1))
+            done
+          }
+          retry_pip pip install -r requirements.txt
+          retry_pip pip install -r requirements-dev.txt || true
+          retry_pip pip install coverage pytest-cov
       - name: Run tests with coverage
         run: |
           pytest tests/unit/ \
