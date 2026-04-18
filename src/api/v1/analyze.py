@@ -44,6 +44,12 @@ from src.api.v1.analyze_live_models import (
     SimilarityTopKQuery,
     SimilarityTopKResponse,
 )
+from src.api.v1.analyze_shadow_compat import (
+    _build_graph2d_soft_override_suggestion,
+    _enrich_graph2d_prediction,
+    _graph2d_is_drawing_type,
+    _resolve_history_sequence_file_path,
+)
 from src.core.analysis_batch_pipeline import run_batch_analysis
 from src.core.analysis_drift_pipeline import run_analysis_drift_pipeline
 from src.core.analysis_error_handling import (
@@ -59,7 +65,6 @@ from src.core.classification import (
     run_batch_classify_pipeline,
     run_classification_pipeline,
 )
-from src.core.classification import shadow_pipeline as _shadow_pipeline
 from src.core.document_pipeline import run_document_pipeline
 from src.core.dfm.quality_pipeline import run_quality_pipeline
 from src.core.feature_pipeline import run_feature_pipeline
@@ -115,13 +120,6 @@ from src.utils.cache import get_cached_result, set_cache
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-_build_graph2d_soft_override_suggestion = (
-    _shadow_pipeline._build_graph2d_soft_override_suggestion
-)
-_enrich_graph2d_prediction = _shadow_pipeline._enrich_graph2d_prediction
-_graph2d_is_drawing_type = _shadow_pipeline._graph2d_is_drawing_type
-_resolve_history_sequence_file_path = _shadow_pipeline._resolve_history_sequence_file_path
 
 
 # Drift state (in-memory); keys: materials, predictions, baseline_materials, baseline_predictions
