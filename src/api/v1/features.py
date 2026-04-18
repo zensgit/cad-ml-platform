@@ -14,6 +14,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from src.api.dependencies import get_api_key
 from src.core.errors_extended import ErrorCode, build_error, create_extended_error
+from src.core.qdrant_store_helper import (
+    get_qdrant_store_or_none as _get_qdrant_store_or_none,
+)
 from src.utils.analysis_metrics import (
     feature_cache_tuning_recommended_capacity,
     feature_cache_tuning_recommended_ttl_seconds,
@@ -23,19 +26,6 @@ from src.utils.analysis_metrics import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-
-def _get_qdrant_store_or_none():
-    if os.getenv("VECTOR_STORE_BACKEND", "memory") != "qdrant":
-        return None
-    try:
-        from src.core.vector_stores import get_vector_store as get_managed_vector_store
-
-        return get_managed_vector_store("qdrant")
-    except Exception:
-        return None
-
-
 class FeatureSlotDiff(BaseModel):
     """特征槽位差异"""
 

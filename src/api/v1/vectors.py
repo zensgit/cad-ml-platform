@@ -27,6 +27,9 @@ from src.api.v1.vector_migration_models import (
     VectorMigrationTrendsResponse,
 )
 from src.core.errors_extended import ErrorCode, build_error
+from src.core.qdrant_store_helper import (
+    get_qdrant_store_or_none as _get_qdrant_store_or_none,
+)
 from src.core.vector_update_pipeline import run_vector_update_pipeline
 from src.core.vector_layouts import (
     VECTOR_LAYOUT_BASE,
@@ -178,19 +181,6 @@ def _vector_item_payload(
         "decision_source": label_contract.get("decision_source"),
         "is_coarse_label": label_contract.get("is_coarse_label"),
     }
-
-
-def _get_qdrant_store_or_none():
-    if os.getenv("VECTOR_STORE_BACKEND", "memory") != "qdrant":
-        return None
-    try:
-        from src.core.vector_stores import get_vector_store as get_managed_vector_store
-
-        return get_managed_vector_store("qdrant")
-    except Exception:
-        return None
-
-
 def _resolve_vector_migration_scan_limit(default: int = 5000) -> int:
     try:
         resolved = int(os.getenv("VECTOR_MIGRATION_SCAN_LIMIT", str(default)))

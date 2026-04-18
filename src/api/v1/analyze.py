@@ -76,6 +76,9 @@ from src.core.process import (
     build_manufacturing_decision_summary,
     run_process_pipeline,
 )
+from src.core.qdrant_store_helper import (
+    get_qdrant_store_or_none as _get_qdrant_store_or_none,
+)
 from src.core.similarity import FaissVectorStore
 from src.core.vector_query_pipeline import (
     run_similarity_query_pipeline,
@@ -117,19 +120,6 @@ _build_graph2d_soft_override_suggestion = (
 _enrich_graph2d_prediction = _shadow_pipeline._enrich_graph2d_prediction
 _graph2d_is_drawing_type = _shadow_pipeline._graph2d_is_drawing_type
 _resolve_history_sequence_file_path = _shadow_pipeline._resolve_history_sequence_file_path
-
-
-def _get_qdrant_store_or_none():
-    if os.getenv("VECTOR_STORE_BACKEND", "memory") != "qdrant":
-        return None
-    try:
-        from src.core.vector_stores import get_vector_store as get_managed_vector_store
-
-        return get_managed_vector_store("qdrant")
-    except Exception:
-        return None
-
-
 async def _compute_similarity_qdrant(
     qdrant_store,
     reference_id: str,

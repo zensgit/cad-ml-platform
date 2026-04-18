@@ -10,20 +10,12 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from src.api.dependencies import get_api_key
+from src.core.qdrant_store_helper import (
+    get_qdrant_store_or_none as _get_qdrant_store_or_none,
+)
 from src.utils.cache import get_client
 
 router = APIRouter()
-
-
-def _get_qdrant_store_or_none():
-    if os.getenv("VECTOR_STORE_BACKEND", "memory") != "qdrant":
-        return None
-    try:
-        from src.core.vector_stores import get_vector_store as get_managed_vector_store
-
-        return get_managed_vector_store("qdrant")
-    except Exception:
-        return None
 
 
 class VectorStatsResponse(BaseModel):
