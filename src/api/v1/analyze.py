@@ -52,6 +52,7 @@ from src.api.v1.analyze_shadow_compat import (
 )
 from src.core.analysis_batch_pipeline import run_batch_analysis
 from src.core.analysis_drift_pipeline import run_analysis_drift_pipeline
+from src.core.analysis_drift_state import ANALYSIS_DRIFT_STATE as _DRIFT_STATE
 from src.core.analysis_error_handling import (
     handle_analysis_http_exception,
     handle_analysis_options_json_error,
@@ -120,17 +121,6 @@ from src.utils.cache import get_cached_result, set_cache
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-# Drift state (in-memory); keys: materials, predictions, baseline_materials, baseline_predictions
-_DRIFT_STATE: Dict[str, Any] = {
-    "materials": [],
-    "predictions": [],
-    "baseline_materials": [],
-    "baseline_predictions": [],
-    "baseline_materials_ts": None,
-    "baseline_predictions_ts": None,
-}
 
 
 @router.post("/", response_model=AnalysisResult)
