@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-import os
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from src.api.dependencies import get_api_key
 from src.core.errors_extended import ErrorCode, build_error
+from src.core.qdrant_store_helper import (
+    get_qdrant_store_or_none as _get_qdrant_store_or_none,
+)
 from src.core.similarity import (
     InMemoryVectorStore,
     _VECTOR_META,
@@ -18,19 +19,6 @@ from src.core.similarity import (
 from src.utils.analysis_metrics import compare_requests_total
 
 router = APIRouter()
-
-
-def _get_qdrant_store_or_none():
-    if os.getenv("VECTOR_STORE_BACKEND", "memory") != "qdrant":
-        return None
-    try:
-        from src.core.vector_stores import get_vector_store as get_managed_vector_store
-
-        return get_managed_vector_store("qdrant")
-    except Exception:
-        return None
-
-
 class CompareRequest(BaseModel):
     query_features: list[float] = Field(description="Query feature vector")
     candidate_hash: str = Field(description="Candidate vector id")
