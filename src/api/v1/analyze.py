@@ -21,7 +21,6 @@ from src.api.v1.analyze_aux_models import (
     ModelReloadRequest,
     ModelReloadResponse,
     OrphanCleanupResponse,
-    ProcessRulesAuditResponse,
     VectorDeleteRequest,
     VectorDeleteResponse,
     VectorDistributionResponse,
@@ -44,6 +43,7 @@ from src.api.v1.analyze_live_models import (
     SimilarityTopKQuery,
     SimilarityTopKResponse,
 )
+from src.api.v1.process import process_rules_audit
 from src.api.v1.analyze_shadow_compat import (
     _build_graph2d_soft_override_suggestion,
     _enrich_graph2d_prediction,
@@ -71,7 +71,6 @@ from src.core.dfm.quality_pipeline import run_quality_pipeline
 from src.core.feature_pipeline import run_feature_pipeline
 from src.core.legacy_admin_pipeline import (
     run_faiss_rebuild_pipeline,
-    run_process_rules_audit_pipeline,
 )
 from src.core.legacy_redirect_pipeline import raise_legacy_redirect
 from src.core.legacy_vector_migration_pipeline import (
@@ -488,20 +487,6 @@ async def vector_stats(api_key: str = Depends(get_api_key)):
         new_path="/api/v1/vectors_stats/stats",
         method="GET",
     )
-
-
-async def process_rules_audit(raw: bool = True, api_key: str = Depends(get_api_key)):
-    from src.core.process_rules import load_rules
-
-    path = os.getenv("PROCESS_RULES_FILE", "config/process_rules.yaml")
-    result = run_process_rules_audit_pipeline(
-        raw=raw,
-        load_rules_fn=load_rules,
-        rules_path=path,
-        path_exists=os.path.exists,
-        file_opener=open,
-    )
-    return ProcessRulesAuditResponse(**result)
 
 
 @router.post("/vectors/faiss/rebuild")
