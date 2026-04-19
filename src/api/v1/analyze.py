@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -14,13 +13,6 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from src.api.dependencies import get_api_key
-from src.api.v1.analyze_aux_models import (
-    VectorMigrateRequest,
-    VectorMigrateResponse,
-    VectorMigrationStatusResponse,
-    VectorUpdateRequest,
-    VectorUpdateResponse,
-)
 from src.api.v1.analyze_legacy_redirects import router as legacy_redirect_router
 from src.api.v1.analyze_live_models import (
     AnalysisOptions,
@@ -33,6 +25,7 @@ from src.api.v1.analyze_live_models import (
     SimilarityTopKQuery,
     SimilarityTopKResponse,
 )
+from src.api.v1.analyze_vector_compat import router as vector_compat_router
 from src.api.v1.process import process_rules_audit
 from src.api.v1.analyze_shadow_compat import (
     _build_graph2d_soft_override_suggestion,
@@ -59,13 +52,6 @@ from src.core.classification import (
 from src.core.document_pipeline import run_document_pipeline
 from src.core.dfm.quality_pipeline import run_quality_pipeline
 from src.core.feature_pipeline import run_feature_pipeline
-from src.core.legacy_admin_pipeline import (
-    run_faiss_rebuild_pipeline,
-)
-from src.core.legacy_vector_migration_pipeline import (
-    run_legacy_vector_migrate_pipeline,
-    run_legacy_vector_migration_status_pipeline,
-)
 from src.core.ocr.analysis_ocr_pipeline import run_analysis_ocr_pipeline
 from src.core.process import (
     build_manufacturing_decision_summary,
@@ -75,13 +61,11 @@ from src.core.qdrant_store_helper import (
     get_qdrant_store_or_none as _get_qdrant_store_or_none,
 )
 from src.core.qdrant_similarity_helper import compute_qdrant_cosine_similarity
-from src.core.similarity import FaissVectorStore
 from src.core.vector_query_pipeline import (
     run_similarity_query_pipeline,
     run_similarity_topk_pipeline,
 )
 from src.core.vector_pipeline import run_vector_pipeline
-from src.core.vector_update_pipeline import run_vector_update_pipeline
 from src.models.cad_document import CadDocument
 from src.utils.analysis_metrics import (
     analysis_error_code_total,
@@ -110,6 +94,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 router.include_router(legacy_redirect_router)
+router.include_router(vector_compat_router)
 
 
 @router.post("/", response_model=AnalysisResult)
@@ -435,37 +420,6 @@ async def similarity_topk(
         ).observe(duration),
     )
     return SimilarityTopKResponse(**result)
-
-
-@router.post("/vectors/faiss/rebuild")
-async def faiss_rebuild(api_key: str = Depends(get_api_key)):
-    """手动触发 Faiss 索引重建 (延迟删除生效)."""
-    return run_faiss_rebuild_pipeline(
-        vector_store_backend=os.getenv("VECTOR_STORE_BACKEND", "memory"),
-        store_factory=FaissVectorStore,
-    )
-
-
-@router.post("/vectors/update", response_model=VectorUpdateResponse)
-async def update_vector(
-    payload: VectorUpdateRequest, api_key: str = Depends(get_api_key)
-):
-    result = await run_vector_update_pipeline(payload=payload)
-    return VectorUpdateResponse(**result)
-
-
-@router.post("/vectors/migrate", response_model=VectorMigrateResponse)
-async def migrate_vectors(
-    payload: VectorMigrateRequest, api_key: str = Depends(get_api_key)
-):
-    result = await run_legacy_vector_migrate_pipeline(payload=payload)
-    return VectorMigrateResponse(**result)
-
-
-@router.get("/vectors/migrate/status", response_model=VectorMigrationStatusResponse)
-async def vector_migration_status(api_key: str = Depends(get_api_key)):
-    result = run_legacy_vector_migration_status_pipeline()
-    return VectorMigrationStatusResponse(**result)
 
 
 @router.post("/batch-classify", response_model=BatchClassifyResponse)
