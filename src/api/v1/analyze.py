@@ -48,6 +48,7 @@ from src.core.analysis_manufacturing_summary import (
 from src.core.analysis_ocr_attachment import attach_analysis_ocr_payload
 from src.core.analysis_parallel_pipeline import run_analysis_parallel_pipeline
 from src.core.analysis_preflight import run_analysis_request_preflight
+from src.core.analysis_response_builder import build_analysis_response
 from src.core.analysis_result_envelope import finalize_analysis_success
 from src.core.analysis_vector_attachment import attach_analysis_vector_context
 from src.core.analyzer import CADAnalyzer
@@ -271,7 +272,9 @@ async def analyze_cad_file(
             ocr_pipeline=run_analysis_ocr_pipeline,
         )
 
-        response_payload = await finalize_analysis_success(
+        return await build_analysis_response(
+            result_model_cls=AnalysisResult,
+            finalize_analysis_success_fn=finalize_analysis_success,
             analysis_id=analysis_id,
             start_time=start_time,
             file_name=file.filename,
@@ -285,7 +288,6 @@ async def analyze_cad_file(
             unified_data=unified_data,
             logger_instance=logger,
         )
-        return AnalysisResult(**response_payload)
 
     except json.JSONDecodeError:
         handle_analysis_options_json_error()
