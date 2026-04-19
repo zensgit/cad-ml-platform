@@ -48,6 +48,7 @@ from src.core.analysis_manufacturing_summary import (
 from src.core.analysis_parallel_pipeline import run_analysis_parallel_pipeline
 from src.core.analysis_preflight import run_analysis_request_preflight
 from src.core.analysis_result_envelope import finalize_analysis_success
+from src.core.analysis_vector_attachment import attach_analysis_vector_context
 from src.core.analyzer import CADAnalyzer
 from src.core.classification import (
     extract_label_decision_contract,
@@ -237,7 +238,7 @@ async def analyze_cad_file(
             prediction_drift_observer=classification_prediction_drift_score.observe,
         )
 
-        vector_context = await run_vector_pipeline(
+        vector_context = await attach_analysis_vector_context(
             analysis_id=analysis_id,
             doc=doc,
             features=features,
@@ -246,22 +247,20 @@ async def analyze_cad_file(
             classification_meta=results.get("classification", {}),
             calculate_similarity=analysis_options.calculate_similarity,
             reference_id=analysis_options.reference_id,
+            results=results,
+            stage_times=stage_times,
+            started_at=started,
+            vector_pipeline=run_vector_pipeline,
             get_qdrant_store=_get_qdrant_store_or_none,
             compute_qdrant_similarity=compute_qdrant_cosine_similarity,
             vector_material_observer=lambda m_used: vector_store_material_total.labels(
                 material=m_used
             ).inc(),
             feature_dimension_observer=analysis_feature_vector_dimension.observe,
+            similarity_stage_observer=lambda duration: analysis_stage_duration_seconds.labels(
+                stage="similarity"
+            ).observe(duration),
         )
-        if vector_context["similarity"] is not None:
-            results["similarity"] = vector_context["similarity"]
-        if "similarity" in results:
-            stage_times["similarity"] = (
-                time.time() - started - sum(stage_times.values())
-            )
-            analysis_stage_duration_seconds.labels(stage="similarity").observe(
-                stage_times["similarity"]
-            )
 
         ocr_payload = await run_analysis_ocr_pipeline(
             enable_ocr=analysis_options.enable_ocr,
