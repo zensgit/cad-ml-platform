@@ -48,6 +48,7 @@ from src.core.analysis_manufacturing_summary import (
 from src.core.analysis_ocr_attachment import attach_analysis_ocr_payload
 from src.core.analysis_parallel_pipeline import run_analysis_parallel_pipeline
 from src.core.analysis_preflight import run_analysis_request_preflight
+from src.core.analysis_result_lookup import load_analysis_result_with_cache
 from src.core.analysis_response_builder import build_analysis_response
 from src.core.analysis_result_envelope import finalize_analysis_success
 from src.core.analysis_vector_attachment import attach_analysis_vector_context
@@ -370,14 +371,13 @@ async def batch_classify(
 @router.get("/{analysis_id}")
 async def get_analysis_result(analysis_id: str, api_key: str = Depends(get_api_key)):
     """获取分析结果"""
-    # 从缓存或落盘存储获取历史分析结果
-    cache_key = f"analysis_result:{analysis_id}"
-    result = await get_cached_result(cache_key)
-
-    if not result:
-        result = await load_analysis_result(analysis_id)
-        if result:
-            await set_cache(cache_key, result, ttl_seconds=3600)
+    result = await load_analysis_result_with_cache(
+        analysis_id=analysis_id,
+        get_cached_result_fn=get_cached_result,
+        load_analysis_result_fn=load_analysis_result,
+        set_cache_fn=set_cache,
+        ttl_seconds=3600,
+    )
 
     if not result:
         raise HTTPException(status_code=404, detail="Analysis not found")
