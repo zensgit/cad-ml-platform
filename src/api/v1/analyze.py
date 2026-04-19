@@ -34,6 +34,7 @@ from src.api.v1.analyze_shadow_compat import (
     _resolve_history_sequence_file_path,
 )
 from src.core.analysis_batch_pipeline import run_batch_analysis
+from src.core.analysis_drift_attachment import attach_analysis_drift
 from src.core.analysis_drift_pipeline import run_analysis_drift_pipeline
 from src.core.analysis_drift_state import ANALYSIS_DRIFT_STATE as _DRIFT_STATE
 from src.core.analysis_error_handling import (
@@ -227,19 +228,14 @@ async def analyze_cad_file(
             logger_instance=logger,
         )
 
-        try:
-            from src.utils.cache import get_client
-
-            await run_analysis_drift_pipeline(
-                drift_state=_DRIFT_STATE,
-                material=material,
-                classification_payload=results.get("classification", {}),
-                material_drift_observer=material_distribution_drift_score.observe,
-                prediction_drift_observer=classification_prediction_drift_score.observe,
-                cache_client_factory=get_client,
-            )
-        except Exception:
-            pass
+        await attach_analysis_drift(
+            drift_state=_DRIFT_STATE,
+            material=material,
+            classification_payload=results.get("classification", {}),
+            drift_pipeline=run_analysis_drift_pipeline,
+            material_drift_observer=material_distribution_drift_score.observe,
+            prediction_drift_observer=classification_prediction_drift_score.observe,
+        )
 
         vector_context = await run_vector_pipeline(
             analysis_id=analysis_id,
