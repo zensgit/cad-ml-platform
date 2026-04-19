@@ -14,7 +14,7 @@ def test_analyze_faiss_rebuild_route_delegates_to_shared_pipeline(monkeypatch) -
         return {"rebuilt": True, "message": "Index rebuilt successfully"}
 
     monkeypatch.setattr(
-        "src.api.v1.analyze.run_faiss_rebuild_pipeline",
+        "src.api.v1.analyze_vector_compat.run_faiss_rebuild_pipeline",
         _stub_run_faiss_rebuild_pipeline,
     )
 
