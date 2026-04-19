@@ -45,6 +45,7 @@ from src.core.analysis_error_handling import (
 from src.core.analysis_manufacturing_summary import (
     attach_manufacturing_decision_summary,
 )
+from src.core.analysis_ocr_attachment import attach_analysis_ocr_payload
 from src.core.analysis_parallel_pipeline import run_analysis_parallel_pipeline
 from src.core.analysis_preflight import run_analysis_request_preflight
 from src.core.analysis_result_envelope import finalize_analysis_success
@@ -262,13 +263,13 @@ async def analyze_cad_file(
             ).observe(duration),
         )
 
-        ocr_payload = await run_analysis_ocr_pipeline(
+        await attach_analysis_ocr_payload(
             enable_ocr=analysis_options.enable_ocr,
             ocr_provider_strategy=analysis_options.ocr_provider,
             unified_data=unified_data,
+            results=results,
+            ocr_pipeline=run_analysis_ocr_pipeline,
         )
-        if ocr_payload is not None:
-            results["ocr"] = ocr_payload
 
         response_payload = await finalize_analysis_success(
             analysis_id=analysis_id,
