@@ -41,6 +41,9 @@ from src.core.analysis_error_handling import (
     handle_analysis_options_json_error,
     handle_analysis_unexpected_exception,
 )
+from src.core.analysis_manufacturing_summary import (
+    attach_manufacturing_decision_summary,
+)
 from src.core.analysis_parallel_pipeline import run_analysis_parallel_pipeline
 from src.core.analysis_preflight import run_analysis_request_preflight
 from src.core.analysis_result_envelope import finalize_analysis_success
@@ -218,25 +221,11 @@ async def analyze_cad_file(
             )
         )
 
-        # Manufacturing decision summary (quality + process + cost)
-        try:
-            manufacturing_decision = build_manufacturing_decision_summary(
-                quality_payload=(
-                    results.get("quality") if isinstance(results, dict) else None
-                ),
-                process_payload=(
-                    results.get("process") if isinstance(results, dict) else None
-                ),
-                cost_payload=(
-                    results.get("cost_estimation")
-                    if isinstance(results, dict)
-                    else None
-                ),
-            )
-            if manufacturing_decision is not None:
-                results["manufacturing_decision"] = manufacturing_decision
-        except Exception as e:
-            logger.warning(f"Manufacturing decision summary failed: {e}")
+        attach_manufacturing_decision_summary(
+            results=results,
+            summary_builder=build_manufacturing_decision_summary,
+            logger_instance=logger,
+        )
 
         try:
             from src.utils.cache import get_client
