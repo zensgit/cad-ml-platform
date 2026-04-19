@@ -41,6 +41,7 @@ from src.core.analysis_error_handling import (
     handle_analysis_options_json_error,
     handle_analysis_unexpected_exception,
 )
+from src.core.analysis_parallel_pipeline import run_analysis_parallel_pipeline
 from src.core.analysis_preflight import run_analysis_request_preflight
 from src.core.analysis_result_envelope import finalize_analysis_success
 from src.core.analyzer import CADAnalyzer
@@ -181,106 +182,41 @@ async def analyze_cad_file(
                 stage_times["features"]
             )
 
-        # Parallelize classification / quality / process recommendation if multiple enabled
-        import asyncio
+        from src.utils.analysis_metrics import analysis_parallel_savings_seconds
 
-        parallel_tasks = []
-        if analysis_options.classify_parts:
-
-            async def _run_classify():
-                t0 = time.time()
-                cls_payload = await run_classification_pipeline(
-                    analysis_id=analysis_id,
-                    doc=doc,
-                    features=features,
-                    features_3d=features_3d,
-                    file_name=file.filename,
-                    file_format=file_format,
-                    content=content,
-                    analysis_options=analysis_options,
-                    classify_part=analyzer.classify_part,
-                    logger_instance=logger,
-                )
-                results["classification"] = cls_payload
-                dur = time.time() - t0
-                classification_latency_seconds.observe(dur)
-                return ("classify", dur)
-
-            parallel_tasks.append(_run_classify())
-
-        if analysis_options.quality_check:
-
-            async def _run_quality():
-                t0 = time.time()
-                results["quality"] = await run_quality_pipeline(
-                    doc=doc,
-                    features=features,
-                    features_3d=features_3d,
-                    check_quality=analyzer.check_quality,
-                    classification_payload_getter=lambda: results.get(
-                        "classification", {}
-                    ),
-                    logger_instance=logger,
-                    dfm_latency_observer=dfm_analysis_latency_seconds.observe,
-                )
-                return ("quality", time.time() - t0)
-
-            parallel_tasks.append(_run_quality())
-
-        if analysis_options.process_recommendation:
-
-            async def _run_process():
-                t0 = time.time()
-                process_context = await run_process_pipeline(
-                    doc=doc,
-                    features=features,
-                    features_3d=features_3d,
-                    recommend_process=analyzer.recommend_process,
-                    material=material,
-                    estimate_cost=analysis_options.estimate_cost,
-                    classification_payload_getter=lambda: results.get(
-                        "classification", {}
-                    ),
-                    logger_instance=logger,
-                    process_rule_version_observer=lambda version: process_rule_version_total.labels(
-                        version=str(version)
-                    ).inc(),
-                    cost_latency_observer=cost_estimation_latency_seconds.observe,
-                )
-                results["process"] = process_context["process"]
-                if process_context["cost_estimation"] is not None:
-                    results["cost_estimation"] = process_context["cost_estimation"]
-
-                dur = time.time() - t0
-                process_recommend_latency_seconds.observe(dur)
-                return ("process", dur)
-
-            parallel_tasks.append(_run_process())
-
-        if parallel_tasks:
-            analysis_parallel_enabled.set(1)
-            # gather returns (stage_name, duration)
-            import time as _t_parallel
-
-            _wall_start = _t_parallel.time()
-            stage_results = await asyncio.gather(*parallel_tasks)
-            _wall_total = _t_parallel.time() - _wall_start
-            serial_sum = 0.0
-            for stage_name, indiv_dur in stage_results:
-                stage_times[stage_name] = indiv_dur
-                serial_sum += indiv_dur
-                analysis_stage_duration_seconds.labels(stage=stage_name).observe(
-                    indiv_dur
-                )
-            # Savings = sum of individual durations - wall time (non-negative)
-            from src.utils.analysis_metrics import analysis_parallel_savings_seconds
-
-            savings = serial_sum - _wall_total
-            if savings < 0:
-                savings = 0.0
-            analysis_parallel_savings_seconds.observe(savings)
-        else:
-            analysis_parallel_enabled.set(0)
+        stage_times.update(
+            await run_analysis_parallel_pipeline(
+                analysis_id=analysis_id,
+                analysis_options=analysis_options,
+                doc=doc,
+                features=features,
+                features_3d=features_3d,
+                file_name=file.filename,
+                file_format=file_format,
+                content=content,
+                material=material,
+                results=results,
+                classify_pipeline=run_classification_pipeline,
+                classify_part=analyzer.classify_part,
+                quality_pipeline=run_quality_pipeline,
+                check_quality=analyzer.check_quality,
+                process_pipeline=run_process_pipeline,
+                recommend_process=analyzer.recommend_process,
+                logger_instance=logger,
+                classification_latency_observer=classification_latency_seconds.observe,
+                dfm_latency_observer=dfm_analysis_latency_seconds.observe,
+                process_latency_observer=process_recommend_latency_seconds.observe,
+                process_rule_version_observer=lambda version: process_rule_version_total.labels(
+                    version=str(version)
+                ).inc(),
+                cost_latency_observer=cost_estimation_latency_seconds.observe,
+                stage_duration_observer=lambda stage_name, indiv_dur: analysis_stage_duration_seconds.labels(
+                    stage=stage_name
+                ).observe(indiv_dur),
+                parallel_enabled_setter=analysis_parallel_enabled.set,
+                parallel_savings_observer=analysis_parallel_savings_seconds.observe,
+            )
+        )
 
         # Manufacturing decision summary (quality + process + cost)
         try:
