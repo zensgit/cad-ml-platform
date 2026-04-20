@@ -37,6 +37,7 @@ from src.core.analysis_error_handling import (
     handle_analysis_options_json_error,
     handle_analysis_unexpected_exception,
 )
+from src.core.analysis_live_pipeline import run_analysis_live_pipeline
 from src.core.analysis_manufacturing_summary import (
     attach_manufacturing_decision_summary,
 )
@@ -65,24 +66,6 @@ from src.core.qdrant_store_helper import (
 from src.core.qdrant_similarity_helper import compute_qdrant_cosine_similarity
 from src.core.vector_pipeline import run_vector_pipeline
 from src.models.cad_document import CadDocument
-from src.utils.analysis_metrics import (
-    analysis_errors_total,
-    analysis_feature_vector_dimension,
-    analysis_material_usage_total,
-    analysis_parallel_enabled,
-    analysis_parse_latency_budget_ratio,
-    analysis_rejections_total,
-    analysis_requests_total,
-    analysis_stage_duration_seconds,
-    classification_latency_seconds,
-    classification_prediction_drift_score,
-    cost_estimation_latency_seconds,
-    dfm_analysis_latency_seconds,
-    material_distribution_drift_score,
-    process_recommend_latency_seconds,
-    process_rule_version_total,
-    vector_store_material_total,
-)
 from src.utils.analysis_result_store import load_analysis_result
 from src.utils.cache import get_cached_result, set_cache
 
@@ -114,167 +97,39 @@ async def analyze_cad_file(
     """
     start_time = datetime.now(timezone.utc)
     analysis_id = str(uuid.uuid4())
-
-    stage_times: Dict[str, float] = {}
-    import time
-
-    started = time.time()
     try:
         content = await file.read()
-        preflight = await run_analysis_request_preflight(
+        return await run_analysis_live_pipeline(
             file_name=file.filename,
+            content=content,
             options_raw=options,
-            content=content,
-            analysis_id=analysis_id,
-            timestamp=start_time,
-            options_model_cls=AnalysisOptions,
-        )
-        analysis_options = preflight["analysis_options"]
-        analysis_cache_key = preflight["analysis_cache_key"]
-        cached_response = preflight["cached_response"]
-        if cached_response is not None:
-            logger.info("Cache hit for %s", file.filename)
-            return AnalysisResult(**cached_response)
-
-        document_context = await run_document_pipeline(
-            file_name=file.filename,
-            content=content,
-            started_at=started,
             material=material,
             project_id=project_id,
-        )
-        file_format = document_context["file_format"]
-        doc = document_context["doc"]
-        unified_data = document_context["unified_data"]
-        stage_times["parse"] = document_context["parse_stage_duration"]
-
-        # 创建分析器
-        analyzer = CADAnalyzer()
-        results: Dict[str, Any] = {}
-        features: Dict[str, Any] = {
-            "geometric": [],
-            "semantic": [],
-        }  # ensure defined even if skipped
-        features_3d: Dict[str, Any] = {}
-
-        feature_context = await run_feature_pipeline(
-            extract_features=analysis_options.extract_features,
-            file_format=file_format,
-            file_name=file.filename,
-            content=content,
-            doc=doc,
-            started_at=started,
-            stage_times=stage_times,
-            logger_instance=logger,
-        )
-        features = feature_context["features"]
-        features_3d = feature_context["features_3d"]
-        results.update(feature_context["results_patch"])
-        if feature_context["features_3d_stage_duration"] is not None:
-            stage_times["features_3d"] = feature_context["features_3d_stage_duration"]
-        if feature_context["features_stage_duration"] is not None:
-            stage_times["features"] = feature_context["features_stage_duration"]
-            analysis_stage_duration_seconds.labels(stage="features").observe(
-                stage_times["features"]
-            )
-
-        from src.utils.analysis_metrics import analysis_parallel_savings_seconds
-
-        stage_times.update(
-            await run_analysis_parallel_pipeline(
-                analysis_id=analysis_id,
-                analysis_options=analysis_options,
-                doc=doc,
-                features=features,
-                features_3d=features_3d,
-                file_name=file.filename,
-                file_format=file_format,
-                content=content,
-                material=material,
-                results=results,
-                classify_pipeline=run_classification_pipeline,
-                classify_part=analyzer.classify_part,
-                quality_pipeline=run_quality_pipeline,
-                check_quality=analyzer.check_quality,
-                process_pipeline=run_process_pipeline,
-                recommend_process=analyzer.recommend_process,
-                logger_instance=logger,
-                classification_latency_observer=classification_latency_seconds.observe,
-                dfm_latency_observer=dfm_analysis_latency_seconds.observe,
-                process_latency_observer=process_recommend_latency_seconds.observe,
-                process_rule_version_observer=lambda version: process_rule_version_total.labels(
-                    version=str(version)
-                ).inc(),
-                cost_latency_observer=cost_estimation_latency_seconds.observe,
-                stage_duration_observer=lambda stage_name, indiv_dur: analysis_stage_duration_seconds.labels(
-                    stage=stage_name
-                ).observe(indiv_dur),
-                parallel_enabled_setter=analysis_parallel_enabled.set,
-                parallel_savings_observer=analysis_parallel_savings_seconds.observe,
-            )
-        )
-
-        attach_manufacturing_decision_summary(
-            results=results,
-            summary_builder=build_manufacturing_decision_summary,
-            logger_instance=logger,
-        )
-
-        await attach_analysis_drift(
-            drift_state=_DRIFT_STATE,
-            material=material,
-            classification_payload=results.get("classification", {}),
-            drift_pipeline=run_analysis_drift_pipeline,
-            material_drift_observer=material_distribution_drift_score.observe,
-            prediction_drift_observer=classification_prediction_drift_score.observe,
-        )
-
-        vector_context = await attach_analysis_vector_context(
-            analysis_id=analysis_id,
-            doc=doc,
-            features=features,
-            features_3d=features_3d,
-            material=material,
-            classification_meta=results.get("classification", {}),
-            calculate_similarity=analysis_options.calculate_similarity,
-            reference_id=analysis_options.reference_id,
-            results=results,
-            stage_times=stage_times,
-            started_at=started,
-            vector_pipeline=run_vector_pipeline,
-            get_qdrant_store=_get_qdrant_store_or_none,
-            compute_qdrant_similarity=compute_qdrant_cosine_similarity,
-            vector_material_observer=lambda m_used: vector_store_material_total.labels(
-                material=m_used
-            ).inc(),
-            feature_dimension_observer=analysis_feature_vector_dimension.observe,
-            similarity_stage_observer=lambda duration: analysis_stage_duration_seconds.labels(
-                stage="similarity"
-            ).observe(duration),
-        )
-
-        await attach_analysis_ocr_payload(
-            enable_ocr=analysis_options.enable_ocr,
-            ocr_provider_strategy=analysis_options.ocr_provider,
-            unified_data=unified_data,
-            results=results,
-            ocr_pipeline=run_analysis_ocr_pipeline,
-        )
-
-        return await build_analysis_response(
-            result_model_cls=AnalysisResult,
-            finalize_analysis_success_fn=finalize_analysis_success,
             analysis_id=analysis_id,
             start_time=start_time,
-            file_name=file.filename,
-            file_format=file_format,
-            results=results,
-            doc=doc,
-            stage_times=stage_times,
-            analysis_cache_key=analysis_cache_key,
-            vector_context=vector_context,
-            material=material,
-            unified_data=unified_data,
+            options_model_cls=AnalysisOptions,
+            result_model_cls=AnalysisResult,
+            analyzer_factory=CADAnalyzer,
+            run_preflight_fn=run_analysis_request_preflight,
+            run_document_pipeline_fn=run_document_pipeline,
+            run_feature_pipeline_fn=run_feature_pipeline,
+            run_parallel_pipeline_fn=run_analysis_parallel_pipeline,
+            attach_manufacturing_summary_fn=attach_manufacturing_decision_summary,
+            build_manufacturing_summary_fn=build_manufacturing_decision_summary,
+            attach_drift_fn=attach_analysis_drift,
+            drift_state=_DRIFT_STATE,
+            run_drift_pipeline_fn=run_analysis_drift_pipeline,
+            attach_vector_context_fn=attach_analysis_vector_context,
+            run_vector_pipeline_fn=run_vector_pipeline,
+            get_qdrant_store_fn=_get_qdrant_store_or_none,
+            compute_qdrant_similarity_fn=compute_qdrant_cosine_similarity,
+            attach_ocr_payload_fn=attach_analysis_ocr_payload,
+            run_ocr_pipeline_fn=run_analysis_ocr_pipeline,
+            build_response_fn=build_analysis_response,
+            finalize_analysis_success_fn=finalize_analysis_success,
+            classification_pipeline_fn=run_classification_pipeline,
+            quality_pipeline_fn=run_quality_pipeline,
+            process_pipeline_fn=run_process_pipeline,
             logger_instance=logger,
         )
 
