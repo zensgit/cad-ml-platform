@@ -19,6 +19,7 @@ from src.api.v1.analyze_live_models import (
     AnalysisOptions,
     AnalysisResult,
 )
+from src.api.v1.analyze_result_router import build_result_router
 from src.api.v1.analyze_similarity_router import router as similarity_router
 from src.api.v1.analyze_vector_compat import router as vector_compat_router
 from src.api.v1.process import process_rules_audit
@@ -42,7 +43,6 @@ from src.core.analysis_manufacturing_summary import (
 from src.core.analysis_ocr_attachment import attach_analysis_ocr_payload
 from src.core.analysis_parallel_pipeline import run_analysis_parallel_pipeline
 from src.core.analysis_preflight import run_analysis_request_preflight
-from src.core.analysis_result_lookup import load_analysis_result_with_cache
 from src.core.analysis_response_builder import build_analysis_response
 from src.core.analysis_result_envelope import finalize_analysis_success
 from src.core.analysis_vector_attachment import attach_analysis_vector_context
@@ -292,22 +292,10 @@ async def analyze_cad_file(
 router.include_router(
     build_batch_router(analyze_file_fn=analyze_cad_file, logger_instance=logger)
 )
-
-
-# IMPORTANT: This catch-all route MUST be at the end of the file
-# to prevent it from matching specific paths like /drift, /vectors, etc.
-@router.get("/{analysis_id}")
-async def get_analysis_result(analysis_id: str, api_key: str = Depends(get_api_key)):
-    """获取分析结果"""
-    result = await load_analysis_result_with_cache(
-        analysis_id=analysis_id,
+router.include_router(
+    build_result_router(
         get_cached_result_fn=get_cached_result,
         load_analysis_result_fn=load_analysis_result,
         set_cache_fn=set_cache,
-        ttl_seconds=3600,
     )
-
-    if not result:
-        raise HTTPException(status_code=404, detail="Analysis not found")
-
-    return result
+)

@@ -29,14 +29,12 @@ DEPRECATED_ENDPOINTS = [
         "new_path": "/api/v1/vectors/delete",
         "payload": {"id": "test-id"},
     },
-    # Note: /api/v1/analyze/vectors is intercepted by /{analysis_id} route
-    # and returns 404 instead of 410. This is a known routing order issue.
-    # {
-    #     "method": "GET",
-    #     "path": "/api/v1/analyze/vectors",
-    #     "old_path": "/api/v1/analyze/vectors",
-    #     "new_path": "/api/v1/vectors",
-    # },
+    {
+        "method": "GET",
+        "path": "/api/v1/analyze/vectors",
+        "old_path": "/api/v1/analyze/vectors",
+        "new_path": "/api/v1/vectors",
+    },
     {
         "method": "GET",
         "path": "/api/v1/analyze/vectors/stats",
@@ -155,10 +153,9 @@ def test_all_deprecated_endpoints_covered():
     """Ensure we have test coverage for all deprecated endpoints."""
     # This is a meta-test to ensure we don't miss any deprecated endpoints
     # If a new 410 endpoint is added, this test should be updated
-    # Note: One endpoint (/analyze/vectors) is excluded due to routing order issue
     assert (
-        len(DEPRECATED_ENDPOINTS) >= 7
-    ), f"Expected at least 7 deprecated endpoints, got {len(DEPRECATED_ENDPOINTS)}"
+        len(DEPRECATED_ENDPOINTS) >= 8
+    ), f"Expected at least 8 deprecated endpoints, got {len(DEPRECATED_ENDPOINTS)}"
 
 
 def test_deprecated_vector_delete_POST_migration():
