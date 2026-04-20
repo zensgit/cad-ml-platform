@@ -27,7 +27,7 @@ def test_analyze_batch_uses_shared_batch_pipeline(monkeypatch):
         }
 
     monkeypatch.setattr(
-        "src.api.v1.analyze.run_batch_analysis",
+        "src.api.v1.analyze_batch_router.run_batch_analysis",
         _stub_run_batch_analysis,
     )
 
