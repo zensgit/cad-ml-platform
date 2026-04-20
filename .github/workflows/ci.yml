@@ -52,7 +52,7 @@ jobs:
             >> "$GITHUB_STEP_SUMMARY"
       - name: Upload pydantic v2 audit log
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: pydantic-v2-audit-log
           path: /tmp/pydantic-v2-audit.log
@@ -71,7 +71,7 @@ jobs:
             >> "$GITHUB_STEP_SUMMARY"
       - name: Upload pydantic model style audit log
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: pydantic-style-audit-log
           path: /tmp/pydantic-style-audit.log
@@ -128,7 +128,7 @@ jobs:
           flake8 | tee flake8-full.txt
       - name: Upload flake8 report artifact
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: flake8-full
           path: flake8-full.txt
@@ -185,7 +185,7 @@ jobs:
 
       - name: Upload core fast gate log (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: core-fast-gate-ci-log-${{ matrix.python-version }}
           path: /tmp/core-fast-gate-ci.log
@@ -218,7 +218,7 @@ jobs:
             2>&1 | tee /tmp/graph2d-seed-gate-baseline-health-strict-ci.log
       - name: Upload Graph2D baseline health logs (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: graph2d-seed-gate-baseline-health-ci-log-${{ matrix.python-version }}
           path: |
@@ -227,7 +227,7 @@ jobs:
           if-no-files-found: ignore
       - name: Upload Graph2D baseline health reports (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: graph2d-seed-gate-baseline-health-ci-${{ matrix.python-version }}
           path: |
@@ -260,7 +260,7 @@ jobs:
             make validate-graph2d-seed-gate 2>&1 | tee /tmp/graph2d-seed-gate-ci.log
       - name: Upload Graph2D seed gate log (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: graph2d-seed-gate-ci-log-${{ matrix.python-version }}
           path: /tmp/graph2d-seed-gate-ci.log
@@ -288,7 +288,7 @@ jobs:
           fi
       - name: Upload Graph2D seed gate trend artifact (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: graph2d-seed-gate-trend-${{ matrix.python-version }}
           path: /tmp/graph2d-seed-gate-ci-trend-${{ matrix.python-version }}.md
@@ -306,14 +306,14 @@ jobs:
             2>&1 | tee /tmp/graph2d-seed-gate-regression-ci.log
       - name: Upload Graph2D seed gate regression log (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: graph2d-seed-gate-regression-ci-log-${{ matrix.python-version }}
           path: /tmp/graph2d-seed-gate-regression-ci.log
           if-no-files-found: ignore
       - name: Upload Graph2D seed gate regression report (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: graph2d-seed-gate-regression-ci-${{ matrix.python-version }}
           path: /tmp/graph2d-seed-gate-regression-ci-${{ matrix.python-version }}.json
@@ -345,7 +345,7 @@ jobs:
             2>&1 | tee /tmp/graph2d-context-drift-warn-ci.log
       - name: Upload Graph2D context drift warn probe artifacts (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: graph2d-context-drift-warn-ci-${{ matrix.python-version }}
           path: |
@@ -377,7 +377,7 @@ jobs:
           fi
       - name: Upload Graph2D context drift key counts artifact (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: graph2d-context-drift-key-counts-ci-${{ matrix.python-version }}
           path: |
@@ -416,7 +416,7 @@ jobs:
           fi
       - name: Upload Graph2D context drift history artifacts (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: graph2d-context-drift-history-ci-${{ matrix.python-version }}
           path: |
@@ -452,7 +452,7 @@ jobs:
           fi
       - name: Upload Graph2D context drift alerts artifacts (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: graph2d-context-drift-alerts-ci-${{ matrix.python-version }}
           path: |
@@ -553,7 +553,7 @@ jobs:
           echo "ARCHIVE_BUCKET=${ARCHIVE_BUCKET}" >> "$GITHUB_ENV"
       - name: Upload Graph2D context drift index artifact (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: graph2d-context-drift-index-ci-${{ matrix.python-version }}
           path: |
@@ -566,7 +566,7 @@ jobs:
           if-no-files-found: ignore
       - name: Upload Graph2D context drift archive artifact (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: graph2d-context-drift-archive-ci-${{ matrix.python-version }}
           path: |
@@ -594,7 +594,7 @@ jobs:
             make validate-graph2d-seed-gate-strict 2>&1 | tee /tmp/graph2d-seed-gate-strict-ci.log
       - name: Upload Graph2D strict seed gate log (3.11 only, optional)
         if: always() && matrix.python-version == '3.11' && vars.GRAPH2D_STRICT_SEED_GATE_ENABLED == 'true'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: graph2d-seed-gate-strict-ci-log-${{ matrix.python-version }}
           path: /tmp/graph2d-seed-gate-strict-ci.log
@@ -622,7 +622,7 @@ jobs:
           fi
       - name: Upload Graph2D strict seed gate trend artifact (3.11 only, optional)
         if: always() && matrix.python-version == '3.11' && vars.GRAPH2D_STRICT_SEED_GATE_ENABLED == 'true'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: graph2d-seed-gate-strict-trend-${{ matrix.python-version }}
           path: /tmp/graph2d-seed-gate-strict-ci-trend-${{ matrix.python-version }}.md
@@ -640,14 +640,14 @@ jobs:
             2>&1 | tee /tmp/graph2d-seed-gate-strict-regression-ci.log
       - name: Upload Graph2D strict seed gate regression log (3.11 only, optional)
         if: always() && matrix.python-version == '3.11' && vars.GRAPH2D_STRICT_SEED_GATE_ENABLED == 'true'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: graph2d-seed-gate-strict-regression-ci-log-${{ matrix.python-version }}
           path: /tmp/graph2d-seed-gate-strict-regression-ci.log
           if-no-files-found: ignore
       - name: Upload Graph2D strict seed gate regression report (3.11 only, optional)
         if: always() && matrix.python-version == '3.11' && vars.GRAPH2D_STRICT_SEED_GATE_ENABLED == 'true'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: graph2d-seed-gate-strict-regression-ci-${{ matrix.python-version }}
           path: /tmp/graph2d-seed-gate-strict-regression-ci-${{ matrix.python-version }}.json
@@ -665,7 +665,7 @@ jobs:
         run: make test-knowledge
       - name: Upload knowledge test report
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: knowledge-test-report-${{ matrix.python-version }}
           path: reports/junit-knowledge.xml
@@ -693,14 +693,14 @@ jobs:
             2>&1 | tee /tmp/hybrid-confidence-calibration-gate-ci.log
       - name: Upload Hybrid confidence calibration gate log (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: hybrid-confidence-calibration-gate-ci-log-${{ matrix.python-version }}
           path: /tmp/hybrid-confidence-calibration-gate-ci.log
           if-no-files-found: ignore
       - name: Upload Hybrid confidence calibration gate report (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: hybrid-confidence-calibration-gate-ci-${{ matrix.python-version }}
           path: /tmp/hybrid-confidence-calibration-gate-ci-${{ matrix.python-version }}.json
@@ -719,7 +719,7 @@ jobs:
         run: python tests/ocr/golden/run_golden_evaluation.py || echo "Golden eval failed thresholds (allowed for now)"
       - name: Upload evaluation report (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: ocr-evaluation-report
           path: reports/ocr_evaluation.md
