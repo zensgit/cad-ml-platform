@@ -42,6 +42,7 @@ def test_critical_analyze_paths_are_owned_by_split_routers() -> None:
         ("POST", "/api/v1/analyze/drift/reset"): "src.api.v1.drift",
         ("GET", "/api/v1/analyze/drift/baseline/status"): "src.api.v1.drift",
         ("GET", "/api/v1/analyze/process/rules/audit"): "src.api.v1.process",
+        ("GET", "/api/v1/analyze/{analysis_id}"): "src.api.v1.analyze_result_router",
     }
 
     for (method, path), module in expected.items():
