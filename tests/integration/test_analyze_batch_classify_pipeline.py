@@ -31,7 +31,7 @@ def test_batch_classify_route_delegates_to_shared_pipeline(monkeypatch) -> None:
         }
 
     monkeypatch.setattr(
-        "src.api.v1.analyze.run_batch_classify_pipeline",
+        "src.api.v1.analyze_batch_router.run_batch_classify_pipeline",
         _stub_run_batch_classify_pipeline,
     )
 

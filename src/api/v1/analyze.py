@@ -13,12 +13,11 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from src.api.dependencies import get_api_key
+from src.api.v1.analyze_batch_router import build_batch_router
 from src.api.v1.analyze_legacy_redirects import router as legacy_redirect_router
 from src.api.v1.analyze_live_models import (
     AnalysisOptions,
     AnalysisResult,
-    BatchClassifyResponse,
-    BatchClassifyResultItem,
 )
 from src.api.v1.analyze_similarity_router import router as similarity_router
 from src.api.v1.analyze_vector_compat import router as vector_compat_router
@@ -29,7 +28,6 @@ from src.api.v1.analyze_shadow_compat import (
     _graph2d_is_drawing_type,
     _resolve_history_sequence_file_path,
 )
-from src.core.analysis_batch_pipeline import run_batch_analysis
 from src.core.analysis_drift_attachment import attach_analysis_drift
 from src.core.analysis_drift_pipeline import run_analysis_drift_pipeline
 from src.core.analysis_drift_state import ANALYSIS_DRIFT_STATE as _DRIFT_STATE
@@ -51,7 +49,6 @@ from src.core.analysis_vector_attachment import attach_analysis_vector_context
 from src.core.analyzer import CADAnalyzer
 from src.core.classification import (
     extract_label_decision_contract,
-    run_batch_classify_pipeline,
     run_classification_pipeline,
 )
 from src.core.document_pipeline import run_document_pipeline
@@ -292,40 +289,9 @@ async def analyze_cad_file(
             logger_instance=logger,
         )
 
-
-@router.post("/batch")
-async def batch_analyze(
-    files: list[UploadFile] = File(..., description="多个CAD文件"),
-    options: str = Form(default='{"extract_features": true}'),
-    api_key: str = Depends(get_api_key),
-):
-    """批量分析CAD文件"""
-    return await run_batch_analysis(
-        files=files,
-        options=options,
-        api_key=api_key,
-        analyze_file_fn=analyze_cad_file,
-    )
-
-
-@router.post("/batch-classify", response_model=BatchClassifyResponse)
-async def batch_classify(
-    files: List[UploadFile] = File(..., description="CAD文件列表(DXF/DWG)"),
-    max_workers: Optional[int] = Form(default=None, description="并行工作线程数"),
-    api_key: str = Depends(get_api_key),
-):
-    """
-    批量分类CAD文件
-
-    使用V16超级集成分类器并行处理多个文件，支持DXF和DWG格式。
-    相比逐个调用，批量处理可获得约3倍性能提升。
-    """
-    result = await run_batch_classify_pipeline(
-        files=files,
-        max_workers=max_workers,
-        logger=logger,
-    )
-    return BatchClassifyResponse(**result)
+router.include_router(
+    build_batch_router(analyze_file_fn=analyze_cad_file, logger_instance=logger)
+)
 
 
 # IMPORTANT: This catch-all route MUST be at the end of the file
