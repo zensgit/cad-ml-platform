@@ -19,12 +19,8 @@ from src.api.v1.analyze_live_models import (
     AnalysisResult,
     BatchClassifyResponse,
     BatchClassifyResultItem,
-    SimilarityQuery,
-    SimilarityResult,
-    SimilarityTopKItem,
-    SimilarityTopKQuery,
-    SimilarityTopKResponse,
 )
+from src.api.v1.analyze_similarity_router import router as similarity_router
 from src.api.v1.analyze_vector_compat import router as vector_compat_router
 from src.api.v1.process import process_rules_audit
 from src.api.v1.analyze_shadow_compat import (
@@ -70,14 +66,9 @@ from src.core.qdrant_store_helper import (
     get_qdrant_store_or_none as _get_qdrant_store_or_none,
 )
 from src.core.qdrant_similarity_helper import compute_qdrant_cosine_similarity
-from src.core.vector_query_pipeline import (
-    run_similarity_query_pipeline,
-    run_similarity_topk_pipeline,
-)
 from src.core.vector_pipeline import run_vector_pipeline
 from src.models.cad_document import CadDocument
 from src.utils.analysis_metrics import (
-    analysis_error_code_total,
     analysis_errors_total,
     analysis_feature_vector_dimension,
     analysis_material_usage_total,
@@ -93,7 +84,6 @@ from src.utils.analysis_metrics import (
     material_distribution_drift_score,
     process_recommend_latency_seconds,
     process_rule_version_total,
-    vector_query_latency_seconds,
     vector_store_material_total,
 )
 from src.utils.analysis_result_store import load_analysis_result
@@ -103,6 +93,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 router.include_router(legacy_redirect_router)
+router.include_router(similarity_router)
 router.include_router(vector_compat_router)
 
 
@@ -315,35 +306,6 @@ async def batch_analyze(
         api_key=api_key,
         analyze_file_fn=analyze_cad_file,
     )
-
-
-@router.post("/similarity", response_model=SimilarityResult)
-async def similarity_query(
-    payload: SimilarityQuery, api_key: str = Depends(get_api_key)
-):
-    """在已存在的向量之间计算相似度。"""
-    result = await run_similarity_query_pipeline(
-        payload,
-        get_qdrant_store=_get_qdrant_store_or_none,
-        error_recorder=lambda code: analysis_error_code_total.labels(code=code).inc(),
-    )
-    return SimilarityResult(**result)
-
-
-@router.post("/similarity/topk", response_model=SimilarityTopKResponse)
-async def similarity_topk(
-    payload: SimilarityTopKQuery, api_key: str = Depends(get_api_key)
-):
-    """基于已存储向量的 Top-K 相似检索。"""
-    result = await run_similarity_topk_pipeline(
-        payload,
-        get_qdrant_store=_get_qdrant_store_or_none,
-        error_recorder=lambda code: analysis_error_code_total.labels(code=code).inc(),
-        latency_observer=lambda backend, duration: vector_query_latency_seconds.labels(
-            backend=backend
-        ).observe(duration),
-    )
-    return SimilarityTopKResponse(**result)
 
 
 @router.post("/batch-classify", response_model=BatchClassifyResponse)
