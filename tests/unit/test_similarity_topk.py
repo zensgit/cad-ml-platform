@@ -185,7 +185,7 @@ def test_similarity_topk_uses_qdrant_native_filters_when_enabled():
             ]
 
     with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
-        "src.api.v1.analyze._get_qdrant_store_or_none",
+        "src.api.v1.analyze_similarity_router._get_qdrant_store_or_none",
         return_value=DummyQdrantStore(),
     ):
         resp = client.post(

@@ -56,7 +56,7 @@ def test_similarity_reference_not_found_qdrant():
             return None
 
     with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
-        "src.api.v1.analyze._get_qdrant_store_or_none",
+        "src.api.v1.analyze_similarity_router._get_qdrant_store_or_none",
         return_value=DummyQdrantStore(),
     ):
         r = client.post(
@@ -86,7 +86,7 @@ def test_similarity_dimension_mismatch_qdrant():
             return None
 
     with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
-        "src.api.v1.analyze._get_qdrant_store_or_none",
+        "src.api.v1.analyze_similarity_router._get_qdrant_store_or_none",
         return_value=DummyQdrantStore(),
     ):
         rq = client.post(
