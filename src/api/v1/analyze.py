@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from src.api.dependencies import get_api_key
 from src.api.v1.analyze_batch_router import build_batch_router
+from src.api.v1.analyze_faiss_admin_router import router as faiss_admin_router
 from src.api.v1.analyze_legacy_redirects import router as legacy_redirect_router
 from src.api.v1.analyze_live_models import (
     AnalysisOptions,
@@ -74,6 +75,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 router.include_router(legacy_redirect_router)
 router.include_router(similarity_router)
+router.include_router(faiss_admin_router)
 router.include_router(vector_compat_router)
 
 
