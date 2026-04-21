@@ -30,6 +30,7 @@ from src.core.errors_extended import ErrorCode, build_error
 from src.core.qdrant_store_helper import (
     get_qdrant_store_or_none as _get_qdrant_store_or_none,
 )
+from src.core.vector_list_pipeline import run_vector_list_pipeline
 from src.core.vector_register_pipeline import run_vector_register_pipeline
 from src.core.vector_search_pipeline import run_vector_search_pipeline
 from src.core.vector_batch_similarity import run_vector_batch_similarity
@@ -434,82 +435,26 @@ async def list_vectors(
     ),
     api_key: str = Depends(get_api_key),
 ):
-    from src.core.similarity import _BACKEND, _VECTOR_META, _VECTOR_STORE  # type: ignore
-
-    allowed_sources = {"auto", "memory", "redis", "qdrant"}
-    if source not in allowed_sources:
-        err = build_error(
-            ErrorCode.INPUT_VALIDATION_FAILED,
-            stage="vector_list",
-            message="Invalid source",
-            source=source,
-            allowed=list(sorted(allowed_sources)),
-        )
-        raise HTTPException(status_code=400, detail=err)
-
-    max_limit = int(os.getenv("VECTOR_LIST_LIMIT", "200"))
-    limit = min(limit, max_limit)
-    scan_limit = int(os.getenv("VECTOR_LIST_SCAN_LIMIT", "5000"))
-    resolved = _resolve_list_source(source, _BACKEND)
-    if resolved == "qdrant":
-        qdrant_store = _get_qdrant_store_or_none()
-        if qdrant_store is not None:
-            from src.core.similarity import extract_vector_label_contract
-
-            results, total = await qdrant_store.list_vectors(
-                offset=offset,
-                limit=limit,
-                filter_conditions=_build_vector_filter_conditions(
-                    material_filter=material_filter,
-                    complexity_filter=complexity_filter,
-                    fine_part_type_filter=fine_part_type_filter,
-                    coarse_part_type_filter=coarse_part_type_filter,
-                    decision_source_filter=decision_source_filter,
-                    is_coarse_label_filter=is_coarse_label_filter,
-                ),
-                with_vectors=True,
-            )
-            items = []
-            for result in results:
-                meta = result.metadata or {}
-                label_contract = extract_vector_label_contract(meta)
-                items.append(
-                    VectorListItem(
-                        **_vector_item_payload(
-                            result.id,
-                            len(result.vector or []),
-                            meta,
-                            label_contract,
-                        )
-                    )
-                )
-            return VectorListResponse(total=total, vectors=items)
-    if resolved == "redis":
-        client = get_client()
-        if client is not None:
-            return await _list_vectors_redis(
-                client,
-                offset,
-                limit,
-                scan_limit,
-                material_filter,
-                complexity_filter,
-                fine_part_type_filter,
-                coarse_part_type_filter,
-                decision_source_filter,
-                is_coarse_label_filter,
-            )
-    return _list_vectors_memory(
-        _VECTOR_STORE,
-        _VECTOR_META,
-        offset,
-        limit,
-        material_filter,
-        complexity_filter,
-        fine_part_type_filter,
-        coarse_part_type_filter,
-        decision_source_filter,
-        is_coarse_label_filter,
+    return await run_vector_list_pipeline(
+        source=source,
+        offset=offset,
+        limit=limit,
+        material_filter=material_filter,
+        complexity_filter=complexity_filter,
+        fine_part_type_filter=fine_part_type_filter,
+        coarse_part_type_filter=coarse_part_type_filter,
+        decision_source_filter=decision_source_filter,
+        is_coarse_label_filter=is_coarse_label_filter,
+        response_cls=VectorListResponse,
+        item_cls=VectorListItem,
+        error_code_cls=ErrorCode,
+        build_error_fn=build_error,
+        get_qdrant_store_fn=_get_qdrant_store_or_none,
+        resolve_list_source_fn=_resolve_list_source,
+        build_filter_conditions_fn=_build_vector_filter_conditions,
+        list_vectors_redis_fn=_list_vectors_redis,
+        list_vectors_memory_fn=_list_vectors_memory,
+        get_client_fn=get_client,
     )
 
 
