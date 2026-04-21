@@ -43,6 +43,7 @@ from src.core.vector_migration_plan_pipeline import (
     build_vector_migration_pending_summary_payload,
     build_vector_migration_plan_payload,
 )
+from src.core.vector_migration_preview_pipeline import run_vector_migration_preview_pipeline
 from src.core.vector_batch_similarity import run_vector_batch_similarity
 from src.core.vector_update_pipeline import run_vector_update_pipeline
 from src.core.vector_layouts import (
@@ -647,171 +648,18 @@ async def update_vector(payload: VectorUpdateRequest, api_key: str = Depends(get
 
 @router.get("/migrate/preview", response_model=VectorMigrationPreviewResponse)
 async def preview_migration(to_version: str, limit: int = 10, api_key: str = Depends(get_api_key)):
-    """
-    预览向量特征迁移 - 不执行写入操作
-
-    Args:
-        to_version: 目标特征版本 (v1/v2/v3/v4)
-        limit: 预览样本数量 (默认10, 最大100)
-        api_key: API密钥
-
-    Returns:
-        迁移预览信息，包含版本分布、样本预览、维度变化预估等
-    """
     from src.core.feature_extractor import FeatureExtractor
-    from src.core.similarity import _VECTOR_META, _VECTOR_STORE
 
-    # Validate target version
-    allowed_versions = {"v1", "v2", "v3", "v4"}
-    if to_version not in allowed_versions:
-        err = build_error(
-            ErrorCode.INPUT_VALIDATION_FAILED,
-            stage="migration_preview",
-            message="Unsupported target feature version",
-            to_version=to_version,
-            allowed=list(allowed_versions),
-        )
-        from src.utils.analysis_metrics import analysis_error_code_total
-
-        analysis_error_code_total.labels(code=ErrorCode.INPUT_VALIDATION_FAILED.value).inc()
-        raise HTTPException(status_code=422, detail=err)
-
-    # Enforce limit cap
-    limit = min(limit, 100)
-
-    # Get extractor for target version
-    extractor = FeatureExtractor(feature_version=to_version)
-
-    qdrant_store = _get_qdrant_store_or_none()
-    if qdrant_store is not None:
-        preview_source, total_vectors, by_version = await _collect_qdrant_preview_samples(
-            qdrant_store,
-            limit=limit,
-        )
-    else:
-        # Collect version distribution
-        by_version = {}
-        total_vectors = len(_VECTOR_STORE)
-        preview_source = []
-
-        for vid in _VECTOR_STORE.keys():
-            meta = _VECTOR_META.get(vid, {})
-            current_version = meta.get("feature_version", "v1")
-            by_version[current_version] = by_version.get(current_version, 0) + 1
-
-        for vid in list(_VECTOR_STORE.keys())[:limit]:
-            preview_source.append((vid, _VECTOR_STORE[vid], _VECTOR_META.get(vid, {})))
-
-    # Preview sample vectors
-    preview_items: list[VectorMigrateItem] = []
-    dimension_changes = {"positive": 0, "negative": 0, "zero": 0}
-    deltas: list[int] = []
-    warnings: list[str] = []
-    sampled = 0
-
-    for vid, vec, meta in preview_source:
-        from_version = meta.get("feature_version", "v1")
-        dimension_before = len(vec)
-
-        if from_version == to_version:
-            preview_items.append(
-                VectorMigrateItem(
-                    id=vid,
-                    status="skipped",
-                    from_version=from_version,
-                    to_version=to_version,
-                    dimension_before=dimension_before,
-                    dimension_after=dimension_before,
-                )
-            )
-            dimension_changes["zero"] += 1
-            sampled += 1
-            continue
-
-        try:
-            base_vector, l3_tail, _ = _prepare_vector_for_upgrade(
-                extractor,
-                vec,
-                meta,
-                from_version,
-            )
-            new_features = extractor.upgrade_vector(base_vector, current_version=from_version)
-            if l3_tail:
-                new_features = new_features + l3_tail
-            dimension_after = len(new_features)
-            dimension_delta = dimension_after - dimension_before
-            deltas.append(dimension_delta)
-
-            if dimension_delta > 0:
-                dimension_changes["positive"] += 1
-            elif dimension_delta < 0:
-                dimension_changes["negative"] += 1
-            else:
-                dimension_changes["zero"] += 1
-
-            # Detect downgrade
-            is_downgrade = (from_version, to_version) in {
-                ("v4", "v3"),
-                ("v4", "v2"),
-                ("v4", "v1"),
-                ("v3", "v2"),
-                ("v3", "v1"),
-                ("v2", "v1"),
-            }
-
-            preview_items.append(
-                VectorMigrateItem(
-                    id=vid,
-                    status="downgrade_preview" if is_downgrade else "upgrade_preview",
-                    from_version=from_version,
-                    to_version=to_version,
-                    dimension_before=dimension_before,
-                    dimension_after=dimension_after,
-                )
-            )
-            sampled += 1
-
-        except Exception as e:
-            preview_items.append(VectorMigrateItem(id=vid, status="error_preview", error=str(e)))
-            warnings.append(f"Vector {vid} migration would fail: {str(e)}")
-            sampled += 1
-
-    # Check migration feasibility
-    migration_feasible = True
-    total_sampled = max(sampled, 1)
-    if dimension_changes["negative"] > total_sampled * 0.5:
-        migration_feasible = False
-        warnings.append("More than 50% of sampled vectors would lose dimensions")
-
-    # Compute stats
-    avg_delta: Optional[float] = None
-    median_delta: Optional[float] = None
-    if deltas:
-        avg_delta = float(sum(deltas) / len(deltas))
-        try:
-            import statistics
-
-            median_delta = float(statistics.median(deltas))
-        except Exception:
-            median_delta = float(deltas[len(deltas) // 2])
-    # Warning heuristics
-    if median_delta is not None and median_delta < -5:
-        warnings.append("large_negative_skew")
-    if avg_delta is not None and abs(avg_delta) > 10:
-        warnings.append("growth_spike")
-
-    if len(warnings) > limit * 0.3:
-        warnings.append(f"High error rate in preview: {len(warnings)}/{limit}")
-
-    return VectorMigrationPreviewResponse(
-        total_vectors=total_vectors,
-        by_version=by_version,
-        preview_items=preview_items,
-        estimated_dimension_changes=dimension_changes,
-        migration_feasible=migration_feasible,
-        warnings=warnings,
-        avg_delta=avg_delta,
-        median_delta=median_delta,
+    return await run_vector_migration_preview_pipeline(
+        to_version=to_version,
+        limit=limit,
+        response_cls=VectorMigrationPreviewResponse,
+        error_code_cls=ErrorCode,
+        build_error_fn=build_error,
+        get_qdrant_store_fn=_get_qdrant_store_or_none,
+        collect_qdrant_preview_samples_fn=_collect_qdrant_preview_samples,
+        prepare_vector_for_upgrade_fn=_prepare_vector_for_upgrade,
+        feature_extractor_cls=FeatureExtractor,
     )
 
 
