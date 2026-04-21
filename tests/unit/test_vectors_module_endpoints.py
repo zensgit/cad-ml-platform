@@ -530,6 +530,32 @@ def test_vectors_delete_uses_qdrant_when_enabled():
     assert resp.json()["status"] == "deleted"
 
 
+def test_vectors_delete_qdrant_failure_returns_internal_error():
+    client = TestClient(app)
+
+    class DummyQdrantStore:
+        async def get_vector(self, vector_id):
+            return DummyQdrantResult(vector_id, 1.0, {}, vector=[0.1] * 7)
+
+        async def delete_vector(self, vector_id):
+            return False
+
+    with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
+        "src.api.v1.vectors._get_qdrant_store_or_none",
+        return_value=DummyQdrantStore(),
+    ):
+        resp = client.post(
+            "/api/v1/vectors/delete",
+            json={"id": "qdrant-del-fail"},
+            headers={"X-API-Key": "test"},
+        )
+
+    assert resp.status_code == 500
+    detail = resp.json()["detail"]
+    assert detail["code"] == ErrorCode.INTERNAL_ERROR.value
+    assert detail["stage"] == "vector_delete"
+
+
 def test_vectors_update_uses_qdrant_when_enabled():
     client = TestClient(app)
 
