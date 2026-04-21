@@ -44,6 +44,9 @@ from src.core.vector_migration_plan_pipeline import (
     build_vector_migration_plan_payload,
 )
 from src.core.vector_migration_preview_pipeline import run_vector_migration_preview_pipeline
+from src.core.vector_migration_pending_run_pipeline import (
+    run_vector_migration_pending_run_pipeline,
+)
 from src.core.vector_migration_trends_pipeline import run_vector_migration_trends_pipeline
 from src.core.vector_batch_similarity import run_vector_batch_similarity
 from src.core.vector_update_pipeline import run_vector_update_pipeline
@@ -1051,35 +1054,15 @@ async def migrate_pending_run(
     payload: VectorMigrationPendingRunRequest,
     api_key: str = Depends(get_api_key),
 ):
-    target_version = _resolve_vector_migration_target_version()
-    pending = await _collect_vector_migration_pending_candidates(
-        limit=payload.limit,
-        target_version=target_version,
-        from_version_filter=payload.from_version_filter,
-    )
-    if pending["backend"] == "qdrant" and not pending["distribution_complete"]:
-        if not payload.allow_partial_scan:
-            raise HTTPException(
-                status_code=409,
-                detail=build_error(
-                    ErrorCode.CONSTRAINT_VIOLATION,
-                    stage="vector_migrate_pending_run",
-                    message=(
-                        "Qdrant distribution scan is partial; raise VECTOR_MIGRATION_SCAN_LIMIT "
-                        "or set allow_partial_scan=true"
-                    ),
-                    target_version=target_version,
-                    scanned_vectors=pending["scanned_vectors"],
-                    scan_limit=pending["scan_limit"],
-                ),
-            )
-    return await migrate_vectors(
-        VectorMigrateRequest(
-            ids=pending["pending_ids"],
-            to_version=target_version,
-            dry_run=payload.dry_run,
-        ),
+    return await run_vector_migration_pending_run_pipeline(
+        payload=payload,
         api_key=api_key,
+        resolve_target_version_fn=_resolve_vector_migration_target_version,
+        collect_pending_candidates_fn=_collect_vector_migration_pending_candidates,
+        migrate_vectors_fn=migrate_vectors,
+        request_cls=VectorMigrateRequest,
+        error_code_cls=ErrorCode,
+        build_error_fn=build_error,
     )
 
 
