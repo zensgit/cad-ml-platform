@@ -30,6 +30,7 @@ from src.core.errors_extended import ErrorCode, build_error
 from src.core.qdrant_store_helper import (
     get_qdrant_store_or_none as _get_qdrant_store_or_none,
 )
+from src.core.vector_register_pipeline import run_vector_register_pipeline
 from src.core.vector_search_pipeline import run_vector_search_pipeline
 from src.core.vector_batch_similarity import run_vector_batch_similarity
 from src.core.vector_update_pipeline import run_vector_update_pipeline
@@ -517,47 +518,12 @@ async def register_vector_endpoint(
     payload: VectorRegisterRequest,
     api_key: str = Depends(get_api_key),
 ):
-    qdrant_store = _get_qdrant_store_or_none()
-    if qdrant_store is not None:
-        meta = dict(payload.meta or {})
-        meta.setdefault("total_dim", str(len(payload.vector)))
-        await qdrant_store.register_vector(payload.id, payload.vector, metadata=meta)
-        return VectorRegisterResponse(
-            id=payload.id,
-            status="accepted",
-            dimension=len(payload.vector),
-        )
-
-    from src.core.similarity import FaissVectorStore, last_vector_error, register_vector
-
-    meta = dict(payload.meta or {})
-    meta.setdefault("total_dim", str(len(payload.vector)))
-    accepted = register_vector(payload.id, payload.vector, meta=meta)
-    if accepted:
-        if os.getenv("VECTOR_STORE_BACKEND", "memory") == "faiss":
-            try:
-                fstore = FaissVectorStore()
-                fstore.add(payload.id, payload.vector)
-            except Exception:
-                pass
-        return VectorRegisterResponse(
-            id=payload.id,
-            status="accepted",
-            dimension=len(payload.vector),
-        )
-
-    err = last_vector_error()
-    if err is None:
-        err = build_error(
-            ErrorCode.DIMENSION_MISMATCH,
-            stage="vector_register",
-            message="Vector rejected",
-            id=payload.id,
-        )
-    return VectorRegisterResponse(
-        id=payload.id,
-        status="rejected",
-        error=err,
+    return await run_vector_register_pipeline(
+        payload=payload,
+        response_cls=VectorRegisterResponse,
+        error_code_cls=ErrorCode,
+        build_error_fn=build_error,
+        get_qdrant_store_fn=_get_qdrant_store_or_none,
     )
 
 
