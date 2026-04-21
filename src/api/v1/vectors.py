@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -42,6 +43,7 @@ from src.core.vector_migration_reporting_pipeline import (
 from src.core.vector_migration_pending_candidates import (
     collect_vector_migration_pending_candidates,
 )
+from src.core.vector_migrate_pipeline import run_vector_migrate_pipeline
 from src.core.vector_migration_plan_pipeline import (
     build_vector_migration_pending_summary_payload,
     build_vector_migration_plan_payload,
@@ -672,181 +674,33 @@ async def preview_migration(to_version: str, limit: int = 10, api_key: str = Dep
 
 @router.post("/migrate", response_model=VectorMigrateResponse)
 async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(get_api_key)):
-    import uuid
-
     from src.core.feature_extractor import FeatureExtractor
     from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
-
-    # Validate target version early
-    allowed_versions = {"v1", "v2", "v3", "v4"}
-    if payload.to_version not in allowed_versions:
-        from src.utils.analysis_metrics import analysis_error_code_total
-
-        err = build_error(
-            ErrorCode.INPUT_VALIDATION_FAILED,
-            stage="vector_migrate",
-            message="Unsupported target feature version",
-            to_version=payload.to_version,
-            allowed=list(sorted(allowed_versions)),
-        )
-        analysis_error_code_total.labels(code=ErrorCode.INPUT_VALIDATION_FAILED.value).inc()
-        raise HTTPException(status_code=422, detail=err)
-    migration_id = str(uuid.uuid4())
-    started_at = datetime.utcnow()
-    target_version = payload.to_version
-    items: List[VectorMigrateItem] = []
-    migrated = 0
-    skipped = 0
-    dry_run_total = 0
-    # FeatureExtractor expects 'feature_version' parameter; pass target_version explicitly.
-    extractor = FeatureExtractor(feature_version=target_version)
-    from src.utils.analysis_metrics import vector_migrate_dimension_delta, vector_migrate_total
-    qdrant_store = _get_qdrant_store_or_none()
-
-    for vid in payload.ids:
-        if qdrant_store is not None:
-            target = await qdrant_store.get_vector(vid)
-            if target is None:
-                items.append(VectorMigrateItem(id=vid, status="not_found", error="not_found"))
-                skipped += 1
-                vector_migrate_total.labels(status="not_found").inc()
-                continue
-            meta = dict(target.metadata or {})
-            vec = list(target.vector or [])
-        else:
-            if vid not in _VECTOR_STORE:
-                items.append(VectorMigrateItem(id=vid, status="not_found", error="not_found"))
-                skipped += 1
-                vector_migrate_total.labels(status="not_found").inc()
-                continue
-            meta = _VECTOR_META.get(vid, {})
-            vec = _VECTOR_STORE[vid]
-
-        from_version = meta.get("feature_version", "v1")
-        if from_version == target_version:
-            items.append(
-                VectorMigrateItem(
-                    id=vid, status="skipped", from_version=from_version, to_version=target_version
-                )
-            )
-            skipped += 1
-            vector_migrate_total.labels(status="skipped").inc()
-            continue
-        dimension_before = len(vec)
-        try:
-            base_vector, l3_tail, _ = _prepare_vector_for_upgrade(
-                extractor,
-                vec,
-                meta,
-                from_version,
-            )
-            new_features = extractor.upgrade_vector(base_vector, current_version=from_version)
-            if l3_tail:
-                new_features = new_features + l3_tail
-            dimension_after = len(new_features)
-            dimension_delta = dimension_after - dimension_before
-            # Record dimension delta for observability
-            vector_migrate_dimension_delta.observe(dimension_delta)
-            if payload.dry_run:
-                items.append(
-                    VectorMigrateItem(
-                        id=vid,
-                        status="dry_run",
-                        from_version=from_version,
-                        to_version=target_version,
-                        dimension_before=dimension_before,
-                        dimension_after=dimension_after,
-                    )
-                )
-                dry_run_total += 1
-                vector_migrate_total.labels(status="dry_run").inc()
-            else:
-                _VECTOR_STORE[vid] = new_features
-                meta["feature_version"] = target_version
-                expected_2d_dim = extractor.expected_dim(target_version)
-                meta["geometric_dim"] = str(expected_2d_dim - 2)
-                meta["semantic_dim"] = "2"
-                meta["total_dim"] = str(len(new_features))
-                meta["vector_layout"] = VECTOR_LAYOUT_L3 if l3_tail else VECTOR_LAYOUT_BASE
-                if l3_tail:
-                    meta["l3_3d_dim"] = str(len(l3_tail))
-                else:
-                    meta.pop("l3_3d_dim", None)
-                if qdrant_store is not None:
-                    await qdrant_store.register_vector(vid, new_features, metadata=meta)
-                else:
-                    _VECTOR_STORE[vid] = new_features
-                    _VECTOR_META[vid] = meta
-                # Track downgrade separately if target lower than source
-                if (from_version, target_version) in {
-                    ("v4", "v3"),
-                    ("v4", "v2"),
-                    ("v4", "v1"),
-                    ("v3", "v2"),
-                    ("v3", "v1"),
-                    ("v2", "v1"),
-                }:
-                    items.append(
-                        VectorMigrateItem(
-                            id=vid,
-                            status="downgraded",
-                            from_version=from_version,
-                            to_version=target_version,
-                            dimension_before=dimension_before,
-                            dimension_after=dimension_after,
-                        )
-                    )
-                    vector_migrate_total.labels(status="downgraded").inc()
-                else:
-                    migrated += 1
-                    items.append(
-                        VectorMigrateItem(
-                            id=vid,
-                            status="migrated",
-                            from_version=from_version,
-                            to_version=target_version,
-                            dimension_before=dimension_before,
-                            dimension_after=dimension_after,
-                        )
-                    )
-                    vector_migrate_total.labels(status="migrated").inc()
-        except Exception as e:
-            items.append(VectorMigrateItem(id=vid, status="error", error=str(e)))
-            skipped += 1
-            vector_migrate_total.labels(status="error").inc()
-    finished_at = datetime.utcnow()
-    # store simple history (ring buffer)
-    history = globals().setdefault("_VECTOR_MIGRATION_HISTORY", [])
-    history.append(
-        {
-            "migration_id": migration_id,
-            "started_at": started_at.isoformat(),
-            "finished_at": finished_at.isoformat(),
-            "total": len(payload.ids),
-            "migrated": migrated,
-            "skipped": skipped,
-            "dry_run_total": dry_run_total,
-            "counts": {
-                "migrated": migrated,
-                "skipped": skipped,
-                "dry_run": dry_run_total,
-                "downgraded": sum(1 for x in items if x.status == "downgraded"),
-                "error": sum(1 for x in items if x.status == "error"),
-                "not_found": sum(1 for x in items if x.status == "not_found"),
-            },
-        }
+    from src.utils.analysis_metrics import (
+        analysis_error_code_total,
+        vector_migrate_dimension_delta,
+        vector_migrate_total,
     )
-    if len(history) > 10:
-        history.pop(0)
-    return VectorMigrateResponse(
-        total=len(payload.ids),
-        migrated=migrated,
-        skipped=skipped,
-        items=items,
-        migration_id=migration_id,
-        started_at=started_at,
-        finished_at=finished_at,
-        dry_run_total=dry_run_total if payload.dry_run else None,
+
+    return await run_vector_migrate_pipeline(
+        payload=payload,
+        vector_store=_VECTOR_STORE,
+        vector_meta=_VECTOR_META,
+        qdrant_store=_get_qdrant_store_or_none(),
+        feature_extractor_cls=FeatureExtractor,
+        prepare_vector_for_upgrade_fn=_prepare_vector_for_upgrade,
+        vector_layout_base=VECTOR_LAYOUT_BASE,
+        vector_layout_l3=VECTOR_LAYOUT_L3,
+        dimension_delta_metric=vector_migrate_dimension_delta,
+        migrate_total_metric=vector_migrate_total,
+        analysis_error_code_total_metric=analysis_error_code_total,
+        error_code_cls=ErrorCode,
+        build_error_fn=build_error,
+        item_cls=VectorMigrateItem,
+        response_cls=VectorMigrateResponse,
+        history=globals().setdefault("_VECTOR_MIGRATION_HISTORY", []),
+        uuid4_fn=uuid.uuid4,
+        utcnow_fn=datetime.utcnow,
     )
 
 
