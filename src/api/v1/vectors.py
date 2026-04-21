@@ -54,6 +54,7 @@ from src.core.vector_migration_pending_run_pipeline import (
 )
 from src.core.vector_migration_trends_pipeline import run_vector_migration_trends_pipeline
 from src.core.vector_batch_similarity import run_vector_batch_similarity
+from src.core.vector_backend_reload_pipeline import run_vector_backend_reload_pipeline
 from src.core.vector_update_pipeline import run_vector_update_pipeline
 from src.core.vector_layouts import (
     VECTOR_LAYOUT_BASE,
@@ -914,49 +915,14 @@ async def reload_vector_backend(
     admin_token: str = Depends(_vector_reload_admin_token),
 ):
     """Reload vector store backend (admin token required)."""
-    import os
-
     from src.core.similarity import reload_vector_store_backend
     from src.utils.analysis_metrics import vector_store_reload_total
 
-    allowed = {"memory", "faiss", "redis"}
-    if backend is not None:
-        backend = backend.strip().lower()
-        if backend not in allowed:
-            vector_store_reload_total.labels(status="error", reason="invalid_backend").inc()
-            err = build_error(
-                ErrorCode.INPUT_VALIDATION_FAILED,
-                stage="backend_reload",
-                message="Unsupported vector backend",
-                backend=backend,
-                supported=sorted(allowed),
-            )
-            raise HTTPException(status_code=400, detail=err)
-        os.environ["VECTOR_STORE_BACKEND"] = backend
-
-    effective_backend = backend or os.getenv("VECTOR_STORE_BACKEND", "memory")
-    try:
-        ok = reload_vector_store_backend()
-    except Exception as e:
-        vector_store_reload_total.labels(status="error", reason="init_error").inc()
-        err = build_error(
-            ErrorCode.INTERNAL_ERROR,
-            stage="backend_reload",
-            message="Exception during backend reload",
-            backend=effective_backend,
-            detail=str(e),
-        )
-        raise HTTPException(status_code=500, detail=err)
-    vector_store_reload_total.labels(
-        status="success" if ok else "error",
-        reason="ok" if ok else "init_error",
-    ).inc()
-    if not ok:
-        err = build_error(
-            ErrorCode.INTERNAL_ERROR,
-            stage="backend_reload",
-            message="Vector store backend reload failed",
-            backend=effective_backend,
-        )
-        raise HTTPException(status_code=500, detail=err)
-    return VectorBackendReloadResponse(status="ok", backend=effective_backend)
+    return await run_vector_backend_reload_pipeline(
+        backend=backend,
+        reload_backend_fn=reload_vector_store_backend,
+        reload_metric=vector_store_reload_total,
+        error_code_cls=ErrorCode,
+        build_error_fn=build_error,
+        response_cls=VectorBackendReloadResponse,
+    )
