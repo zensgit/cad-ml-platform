@@ -30,6 +30,7 @@ from src.core.errors_extended import ErrorCode, build_error
 from src.core.qdrant_store_helper import (
     get_qdrant_store_or_none as _get_qdrant_store_or_none,
 )
+from src.core.vector_search_pipeline import run_vector_search_pipeline
 from src.core.vector_batch_similarity import run_vector_batch_similarity
 from src.core.vector_update_pipeline import run_vector_update_pipeline
 from src.core.vector_layouts import (
@@ -565,76 +566,14 @@ async def search_vectors(
     payload: VectorSearchRequest,
     api_key: str = Depends(get_api_key),
 ):
-    from src.core.similarity import (
-        _VECTOR_META,
-        _VECTOR_STORE,
-        extract_vector_label_contract,
-        get_vector_store,
+    return await run_vector_search_pipeline(
+        payload=payload,
+        response_cls=VectorSearchResponse,
+        get_qdrant_store_fn=_get_qdrant_store_or_none,
+        build_filter_conditions_fn=_build_vector_search_filter_conditions,
+        matches_filters_fn=_matches_vector_search_filters,
+        vector_item_payload_fn=_vector_item_payload,
     )
-
-    qdrant_store = _get_qdrant_store_or_none()
-    if qdrant_store is not None:
-        results = await qdrant_store.search_similar(
-            payload.vector,
-            top_k=payload.k,
-            filter_conditions=_build_vector_search_filter_conditions(payload),
-            with_vectors=True,
-        )
-        items = []
-        for result in results:
-            meta = result.metadata or {}
-            label_contract = extract_vector_label_contract(meta)
-            items.append(
-                {
-                    "id": result.id,
-                    "score": round(float(result.score), 4),
-                    **_vector_item_payload(
-                        result.id,
-                        len(result.vector or []),
-                        meta,
-                        label_contract,
-                    ),
-                }
-            )
-        return VectorSearchResponse(results=items, total=len(items))
-
-    store = get_vector_store()
-    query_k = payload.k
-    if any(
-        [
-            payload.material_filter,
-            payload.complexity_filter,
-            payload.fine_part_type_filter,
-            payload.coarse_part_type_filter,
-            payload.decision_source_filter,
-            payload.is_coarse_label_filter is not None,
-        ]
-    ):
-        query_k = min(payload.k * 5, payload.k + 100)
-    results = store.query(payload.vector, top_k=query_k)
-    seen: set[str] = set()
-    items: list[Dict[str, Any]] = []
-    for vid, score in results:
-        if vid in seen:
-            continue
-        seen.add(vid)
-        meta = _VECTOR_META.get(vid) or store.meta(vid) or {}
-        label_contract = extract_vector_label_contract(meta)
-        if not _matches_vector_search_filters(payload, meta, label_contract):
-            continue
-        items.append(
-            {"id": vid, "score": round(float(score), 4)}
-            | _vector_item_payload(
-                vid,
-                len(_VECTOR_STORE.get(vid, [])),
-                meta,
-                label_contract,
-            )
-        )
-        if len(items) >= payload.k:
-            break
-
-    return VectorSearchResponse(results=items, total=len(items))
 
 
 def _resolve_list_source(source: str, backend: str) -> str:
