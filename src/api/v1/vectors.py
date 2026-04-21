@@ -44,6 +44,7 @@ from src.core.vector_migration_plan_pipeline import (
     build_vector_migration_plan_payload,
 )
 from src.core.vector_migration_preview_pipeline import run_vector_migration_preview_pipeline
+from src.core.vector_migration_trends_pipeline import run_vector_migration_trends_pipeline
 from src.core.vector_batch_similarity import run_vector_batch_similarity
 from src.core.vector_update_pipeline import run_vector_update_pipeline
 from src.core.vector_layouts import (
@@ -1084,122 +1085,14 @@ async def migrate_pending_run(
 
 @router.get("/migrate/trends", response_model=VectorMigrationTrendsResponse)
 async def migrate_trends(window_hours: int = 24, api_key: str = Depends(get_api_key)):
-    """
-    获取迁移趋势统计
-
-    Args:
-        window_hours: 统计窗口小时数 (默认24小时)
-        api_key: API密钥
-
-    Returns:
-        迁移趋势统计，包含成功率、v4采用率、维度变化等
-    """
-    history = globals().get("_VECTOR_MIGRATION_HISTORY", [])
-
-    # Filter history by time window
-    from datetime import datetime, timedelta
-
-    cutoff = datetime.utcnow() - timedelta(hours=window_hours)
-    filtered_history = []
-    for entry in history:
-        try:
-            entry_time = datetime.fromisoformat(entry.get("started_at", ""))
-            if entry_time >= cutoff:
-                filtered_history.append(entry)
-        except (ValueError, TypeError):
-            # Include entries without valid timestamp
-            filtered_history.append(entry)
-
-    # Calculate aggregated stats
-    total_migrations = 0
-    total_migrated = 0
-    total_skipped = 0
-    total_downgraded = 0
-    total_errors = 0
-
-    for entry in filtered_history:
-        counts = entry.get("counts", {})
-        total_migrations += entry.get("total", 0)
-        total_migrated += counts.get("migrated", 0)
-        total_skipped += counts.get("skipped", 0)
-        total_downgraded += counts.get("downgraded", 0)
-        total_errors += counts.get("error", 0) + counts.get("not_found", 0)
-
-    # Calculate rates
-    attempted = total_migrated + total_downgraded + total_errors
-    success_rate = (total_migrated + total_downgraded) / max(attempted, 1)
-    downgrade_rate = total_downgraded / max(attempted, 1)
-    error_rate = total_errors / max(attempted, 1)
-
-    # Calculate v4 adoption rate from current vectors
-    qdrant_store = _get_qdrant_store_or_none()
-    scan_limit = _resolve_vector_migration_scan_limit()
-    if qdrant_store is not None:
-        version_distribution, total_vectors, scanned_vectors = (
-            await _collect_qdrant_feature_versions(qdrant_store)
-        )
-        distribution_complete = scanned_vectors >= total_vectors
-    else:
-        from src.core.similarity import _VECTOR_META, _VECTOR_STORE
-
-        version_distribution = {}
-        total_vectors = 0
-        for vid in _VECTOR_STORE.keys():
-            meta = _VECTOR_META.get(vid, {})
-            version = meta.get("feature_version", "v1")
-            version_distribution[version] = version_distribution.get(version, 0) + 1
-            total_vectors += 1
-        scanned_vectors = total_vectors
-        distribution_complete = True
-
-    v4_count = version_distribution.get("v4", 0)
-    v4_adoption_rate = v4_count / max(total_vectors, 1)
-
-    # Calculate average dimension delta (estimate from history)
-    avg_dimension_delta = 0.0
-    # For now, estimate based on version changes (v3->v4 adds 2 dimensions)
-    if total_migrated > 0:
-        # Rough estimate: upgrade to v4 adds 2, downgrade removes dimensions
-        avg_dimension_delta = (total_migrated * 2 - total_downgraded * 2) / max(
-            total_migrated + total_downgraded, 1
-        )
-
-    # Migration velocity (per hour)
-    migration_velocity = total_migrations / max(window_hours, 1)
-
-    # Time range
-    time_range = {
-        "start": (datetime.utcnow() - timedelta(hours=window_hours)).isoformat()
-        if window_hours > 0
-        else None,
-        "end": datetime.utcnow().isoformat(),
-    }
-    readiness = _build_vector_migration_readiness(
-        version_distribution,
-        total_vectors=total_vectors,
-        distribution_complete=distribution_complete,
-    )
-
-    return VectorMigrationTrendsResponse(
-        total_migrations=total_migrations,
-        success_rate=round(success_rate, 4),
-        v4_adoption_rate=round(v4_adoption_rate, 4),
-        avg_dimension_delta=round(avg_dimension_delta, 2),
+    return await run_vector_migration_trends_pipeline(
         window_hours=window_hours,
-        version_distribution=version_distribution,
-        migration_velocity=round(migration_velocity, 2),
-        downgrade_rate=round(downgrade_rate, 4),
-        error_rate=round(error_rate, 4),
-        time_range=time_range,
-        current_total_vectors=total_vectors,
-        scanned_vectors=scanned_vectors,
-        scan_limit=scan_limit,
-        distribution_complete=distribution_complete,
-        target_version=readiness["target_version"],
-        target_version_vectors=readiness["target_version_vectors"],
-        target_version_ratio=readiness["target_version_ratio"],
-        pending_vectors=readiness["pending_vectors"],
-        migration_ready=readiness["migration_ready"],
+        history=list(globals().get("_VECTOR_MIGRATION_HISTORY", [])),
+        response_cls=VectorMigrationTrendsResponse,
+        get_qdrant_store_fn=_get_qdrant_store_or_none,
+        resolve_scan_limit_fn=_resolve_vector_migration_scan_limit,
+        collect_qdrant_feature_versions_fn=_collect_qdrant_feature_versions,
+        build_readiness_fn=_build_vector_migration_readiness,
     )
 
 
