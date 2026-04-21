@@ -34,6 +34,11 @@ from src.core.vector_delete_pipeline import run_vector_delete_pipeline
 from src.core.vector_list_pipeline import run_vector_list_pipeline
 from src.core.vector_register_pipeline import run_vector_register_pipeline
 from src.core.vector_search_pipeline import run_vector_search_pipeline
+from src.core.vector_migration_reporting_pipeline import (
+    build_vector_migration_status_payload,
+    build_vector_migration_summary_payload,
+    collect_vector_migration_distribution_snapshot,
+)
 from src.core.vector_batch_similarity import run_vector_batch_similarity
 from src.core.vector_update_pipeline import run_vector_update_pipeline
 from src.core.vector_layouts import (
@@ -988,112 +993,29 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
 
 @router.get("/migrate/status", response_model=VectorMigrationStatusResponse)
 async def migrate_status(api_key: str = Depends(get_api_key)):
-    qdrant_store = _get_qdrant_store_or_none()
-    scan_limit = _resolve_vector_migration_scan_limit()
-    if qdrant_store is not None:
-        versions, total_available, scanned = await _collect_qdrant_feature_versions(qdrant_store)
-        backend = "qdrant"
-        distribution_complete = scanned >= total_available
-    else:
-        from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
-
-        versions = {}
-        total_available = 0
-        for vid, meta in _VECTOR_META.items():
-            if vid not in _VECTOR_STORE:
-                continue
-            total_available += 1
-            ver = meta.get("feature_version", "unknown")
-            versions[ver] = versions.get(ver, 0) + 1
-        scanned = total_available
-        backend = "memory"
-        distribution_complete = True
-    readiness = _build_vector_migration_readiness(
-        versions,
-        total_vectors=total_available,
-        distribution_complete=distribution_complete,
+    history = list(globals().get("_VECTOR_MIGRATION_HISTORY", []))
+    snapshot = await collect_vector_migration_distribution_snapshot(
+        qdrant_store=_get_qdrant_store_or_none(),
+        scan_limit=_resolve_vector_migration_scan_limit(),
+        collect_qdrant_feature_versions_fn=_collect_qdrant_feature_versions,
+        build_readiness_fn=_build_vector_migration_readiness,
     )
-    history = globals().get("_VECTOR_MIGRATION_HISTORY", [])
-    last = history[-1] if history else None
     return VectorMigrationStatusResponse(
-        last_migration_id=last.get("migration_id") if last else None,
-        last_started_at=datetime.fromisoformat(last.get("started_at")) if last else None,
-        last_finished_at=datetime.fromisoformat(last.get("finished_at")) if last else None,
-        last_total=last.get("total") if last else None,
-        last_migrated=last.get("migrated") if last else None,
-        last_skipped=last.get("skipped") if last else None,
-        pending_vectors=readiness["pending_vectors"],
-        feature_versions=versions,
-        history=history,
-        backend=backend,
-        current_total_vectors=total_available,
-        scanned_vectors=scanned,
-        scan_limit=scan_limit,
-        distribution_complete=distribution_complete,
-        target_version=readiness["target_version"],
-        target_version_vectors=readiness["target_version_vectors"],
-        target_version_ratio=readiness["target_version_ratio"],
-        migration_ready=readiness["migration_ready"],
+        **build_vector_migration_status_payload(history=history, snapshot=snapshot)
     )
 
 
 @router.get("/migrate/summary", response_model=VectorMigrationSummaryResponse)
 async def migrate_summary(api_key: str = Depends(get_api_key)):
-    history = globals().get("_VECTOR_MIGRATION_HISTORY", [])
-    aggregate: Dict[str, int] = {}
-    for entry in history:
-        counts = entry.get("counts", {})
-        for k, v in counts.items():
-            aggregate[k] = aggregate.get(k, 0) + int(v)
-    total_migrations = sum(aggregate.values())
-    statuses = sorted(aggregate.keys())
-    qdrant_store = _get_qdrant_store_or_none()
-    scan_limit = _resolve_vector_migration_scan_limit()
-    if qdrant_store is not None:
-        (
-            current_version_distribution,
-            current_total_vectors,
-            scanned_vectors,
-        ) = await _collect_qdrant_feature_versions(qdrant_store)
-        backend = "qdrant"
-        distribution_complete = scanned_vectors >= current_total_vectors
-    else:
-        from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
-
-        current_version_distribution = {}
-        current_total_vectors = 0
-        for vid, meta in _VECTOR_META.items():
-            if vid not in _VECTOR_STORE:
-                continue
-            current_total_vectors += 1
-            version = meta.get("feature_version", "unknown")
-            current_version_distribution[version] = (
-                current_version_distribution.get(version, 0) + 1
-            )
-        backend = "memory"
-        scanned_vectors = current_total_vectors
-        distribution_complete = True
-    readiness = _build_vector_migration_readiness(
-        current_version_distribution,
-        total_vectors=current_total_vectors,
-        distribution_complete=distribution_complete,
+    history = list(globals().get("_VECTOR_MIGRATION_HISTORY", []))
+    snapshot = await collect_vector_migration_distribution_snapshot(
+        qdrant_store=_get_qdrant_store_or_none(),
+        scan_limit=_resolve_vector_migration_scan_limit(),
+        collect_qdrant_feature_versions_fn=_collect_qdrant_feature_versions,
+        build_readiness_fn=_build_vector_migration_readiness,
     )
     return VectorMigrationSummaryResponse(
-        counts=aggregate,
-        total_migrations=total_migrations,
-        history_size=len(history),
-        statuses=statuses,
-        backend=backend,
-        current_version_distribution=current_version_distribution,
-        current_total_vectors=current_total_vectors,
-        scanned_vectors=scanned_vectors,
-        scan_limit=scan_limit,
-        distribution_complete=distribution_complete,
-        target_version=readiness["target_version"],
-        target_version_vectors=readiness["target_version_vectors"],
-        target_version_ratio=readiness["target_version_ratio"],
-        pending_vectors=readiness["pending_vectors"],
-        migration_ready=readiness["migration_ready"],
+        **build_vector_migration_summary_payload(history=history, snapshot=snapshot)
     )
 
 
