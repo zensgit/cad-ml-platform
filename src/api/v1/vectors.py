@@ -30,6 +30,7 @@ from src.core.errors_extended import ErrorCode, build_error
 from src.core.qdrant_store_helper import (
     get_qdrant_store_or_none as _get_qdrant_store_or_none,
 )
+from src.core.vector_delete_pipeline import run_vector_delete_pipeline
 from src.core.vector_list_pipeline import run_vector_list_pipeline
 from src.core.vector_register_pipeline import run_vector_register_pipeline
 from src.core.vector_search_pipeline import run_vector_search_pipeline
@@ -350,70 +351,14 @@ def _matches_vector_search_filters(
 
 @router.post("/delete", response_model=VectorDeleteResponse)
 async def delete_vector(payload: VectorDeleteRequest, api_key: str = Depends(get_api_key)):
-    qdrant_store = _get_qdrant_store_or_none()
-    if qdrant_store is not None:
-        existing = await qdrant_store.get_vector(payload.id)
-        if existing is None:
-            err = build_error(
-                ErrorCode.DATA_NOT_FOUND,
-                stage="vector_delete",
-                message="Vector not found",
-                id=payload.id,
-            )
-            raise HTTPException(status_code=404, detail=err)
-        deleted = await qdrant_store.delete_vector(payload.id)
-        if deleted:
-            return VectorDeleteResponse(id=payload.id, status="deleted")
-        err = build_error(
-            ErrorCode.INTERNAL_ERROR,
-            stage="vector_delete",
-            message="Delete failed",
-            id=payload.id,
-        )
-        raise HTTPException(status_code=500, detail=err)
-
-    from src.core.similarity import (  # type: ignore
-        _BACKEND,
-        _VECTOR_META,
-        _VECTOR_STORE,
-        FaissVectorStore,
+    return await run_vector_delete_pipeline(
+        payload=payload,
+        response_cls=VectorDeleteResponse,
+        error_code_cls=ErrorCode,
+        build_error_fn=build_error,
+        get_qdrant_store_fn=_get_qdrant_store_or_none,
+        get_client_fn=get_client,
     )
-    from src.utils.cache import get_client
-
-    if payload.id not in _VECTOR_STORE:
-        err = build_error(
-            ErrorCode.DATA_NOT_FOUND,
-            stage="vector_delete",
-            message="Vector not found",
-            id=payload.id,
-        )
-        raise HTTPException(status_code=404, detail=err)
-    try:
-        if __import__("os").getenv("VECTOR_STORE_BACKEND", "memory") == "faiss":
-            try:
-                f = FaissVectorStore()
-                f.mark_delete(payload.id)  # type: ignore[attr-defined]
-            except Exception:
-                pass
-        del _VECTOR_STORE[payload.id]
-        _VECTOR_META.pop(payload.id, None)
-        if _BACKEND == "redis":
-            client = get_client()
-            if client is not None:
-                try:
-                    await client.delete(f"vector:{payload.id}")
-                except Exception:
-                    pass
-        return VectorDeleteResponse(id=payload.id, status="deleted")
-    except Exception as e:
-        err = build_error(
-            ErrorCode.INTERNAL_ERROR,
-            stage="vector_delete",
-            message="Delete failed",
-            id=payload.id,
-            detail=str(e),
-        )
-        raise HTTPException(status_code=500, detail=err)
 
 
 @router.get("/", response_model=VectorListResponse)
