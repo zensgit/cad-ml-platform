@@ -10,6 +10,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from pydantic import BaseModel, Field
 
 from src.api.dependencies import get_admin_token, get_api_key
+from src.api.v1.vector_crud_models import (
+    VectorDeleteRequest,
+    VectorDeleteResponse,
+    VectorRegisterRequest,
+    VectorRegisterResponse,
+    VectorSearchRequest,
+    VectorSearchResponse,
+)
+from src.api.v1.vectors_crud_router import router as crud_router
 from src.api.v1.vector_migration_models import (
     VectorMigrateItem,
     VectorMigrateRequest,
@@ -58,8 +67,6 @@ from src.core.vector_layouts import (
 from src.utils.cache import get_client
 
 router = APIRouter()
-router.include_router(migration_read_router)
-router.include_router(write_router)
 
 
 async def _vector_reload_admin_token(
@@ -79,16 +86,6 @@ async def _vector_reload_admin_token(
 
 if TYPE_CHECKING:
     from src.core.feature_extractor import FeatureExtractor
-
-
-class VectorDeleteRequest(BaseModel):
-    id: str = Field(description="要删除的向量分析ID")
-
-
-class VectorDeleteResponse(BaseModel):
-    id: str
-    status: str
-    error: Optional[Dict[str, Any]] = None
 
 
 class VectorListItem(BaseModel):
@@ -115,36 +112,9 @@ class VectorBackendReloadResponse(BaseModel):
     error: Optional[Dict[str, Any]] = None
 
 
-class VectorRegisterRequest(BaseModel):
-    id: str = Field(description="向量 ID")
-    vector: list[float] = Field(description="向量数据")
-    meta: Optional[Dict[str, str]] = Field(default=None, description="向量元数据")
-
-
-class VectorRegisterResponse(BaseModel):
-    id: str
-    status: str
-    dimension: Optional[int] = None
-    error: Optional[Dict[str, Any]] = None
-
-
-class VectorSearchRequest(BaseModel):
-    vector: list[float] = Field(description="查询向量")
-    k: int = Field(default=10, ge=1, le=100, description="返回数量")
-    material_filter: Optional[str] = Field(default=None, description="材料过滤")
-    complexity_filter: Optional[str] = Field(default=None, description="复杂度过滤")
-    fine_part_type_filter: Optional[str] = Field(default=None, description="细分类过滤")
-    coarse_part_type_filter: Optional[str] = Field(default=None, description="粗分类过滤")
-    decision_source_filter: Optional[str] = Field(default=None, description="决策来源过滤")
-    is_coarse_label_filter: Optional[bool] = Field(
-        default=None,
-        description="是否仅返回 coarse label 样本",
-    )
-
-
-class VectorSearchResponse(BaseModel):
-    results: list[Dict[str, Any]]
-    total: int
+router.include_router(crud_router)
+router.include_router(migration_read_router)
+router.include_router(write_router)
 
 
 def _build_vector_filter_conditions(
@@ -364,18 +334,6 @@ def _matches_vector_search_filters(
     )
 
 
-@router.post("/delete", response_model=VectorDeleteResponse)
-async def delete_vector(payload: VectorDeleteRequest, api_key: str = Depends(get_api_key)):
-    return await run_vector_delete_pipeline(
-        payload=payload,
-        response_cls=VectorDeleteResponse,
-        error_code_cls=ErrorCode,
-        build_error_fn=build_error,
-        get_qdrant_store_fn=_get_qdrant_store_or_none,
-        get_client_fn=get_client,
-    )
-
-
 @router.get("/", response_model=VectorListResponse)
 async def list_vectors(
     source: str = Query(
@@ -415,35 +373,6 @@ async def list_vectors(
         list_vectors_redis_fn=_list_vectors_redis,
         list_vectors_memory_fn=_list_vectors_memory,
         get_client_fn=get_client,
-    )
-
-
-@router.post("/register", response_model=VectorRegisterResponse)
-async def register_vector_endpoint(
-    payload: VectorRegisterRequest,
-    api_key: str = Depends(get_api_key),
-):
-    return await run_vector_register_pipeline(
-        payload=payload,
-        response_cls=VectorRegisterResponse,
-        error_code_cls=ErrorCode,
-        build_error_fn=build_error,
-        get_qdrant_store_fn=_get_qdrant_store_or_none,
-    )
-
-
-@router.post("/search", response_model=VectorSearchResponse)
-async def search_vectors(
-    payload: VectorSearchRequest,
-    api_key: str = Depends(get_api_key),
-):
-    return await run_vector_search_pipeline(
-        payload=payload,
-        response_cls=VectorSearchResponse,
-        get_qdrant_store_fn=_get_qdrant_store_or_none,
-        build_filter_conditions_fn=_build_vector_search_filter_conditions,
-        matches_filters_fn=_matches_vector_search_filters,
-        vector_item_payload_fn=_vector_item_payload,
     )
 
 
