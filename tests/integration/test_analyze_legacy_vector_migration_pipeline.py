@@ -23,7 +23,7 @@ def test_analyze_legacy_vector_migrate_route_delegates_to_shared_pipeline(monkey
         }
 
     monkeypatch.setattr(
-        "src.api.v1.analyze_vector_compat.run_legacy_vector_migrate_pipeline",
+        "src.api.v1.analyze_vector_migration_router.run_legacy_vector_migrate_pipeline",
         _stub_run_legacy_vector_migrate_pipeline,
     )
 
@@ -46,7 +46,7 @@ def test_analyze_legacy_vector_migration_status_route_delegates_to_shared_pipeli
     client = TestClient(app)
 
     monkeypatch.setattr(
-        "src.api.v1.analyze_vector_compat.run_legacy_vector_migration_status_pipeline",
+        "src.api.v1.analyze_vector_migration_router.run_legacy_vector_migration_status_pipeline",
         lambda: {
             "last_migration_id": "mig-1",
             "last_total": 2,
