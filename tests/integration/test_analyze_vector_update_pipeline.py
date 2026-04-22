@@ -19,7 +19,7 @@ def test_analyze_vector_update_route_delegates_to_shared_pipeline(monkeypatch) -
         }
 
     monkeypatch.setattr(
-        "src.api.v1.analyze_vector_compat.run_vector_update_pipeline",
+        "src.api.v1.analyze_vector_update_router.run_vector_update_pipeline",
         _stub_run_vector_update_pipeline,
     )
 

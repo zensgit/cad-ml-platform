@@ -14,10 +14,8 @@ def _find_route_module(method: str, path: str) -> str | None:
     return None
 
 
-def test_analyze_vector_compat_routes_are_owned_by_split_router() -> None:
-    expected = {
-        ("POST", "/api/v1/analyze/vectors/update"): "src.api.v1.analyze_vector_compat",
-    }
-
-    for (method, path), module in expected.items():
-        assert _find_route_module(method, path) == module
+def test_analyze_vector_update_route_is_owned_by_split_router() -> None:
+    assert (
+        _find_route_module("POST", "/api/v1/analyze/vectors/update")
+        == "src.api.v1.analyze_vector_update_router"
+    )
