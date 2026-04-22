@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import uuid
-from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Header
@@ -21,6 +19,7 @@ from src.api.v1.vector_migration_models import (
     VectorMigrationPlanBatch,
 )
 from src.api.v1.vectors_migration_read_router import router as migration_read_router
+from src.api.v1.vectors_write_router import router as write_router
 from src.core.errors_extended import ErrorCode, build_error
 from src.core.qdrant_store_helper import (
     get_qdrant_store_or_none as _get_qdrant_store_or_none,
@@ -60,6 +59,7 @@ from src.utils.cache import get_client
 
 router = APIRouter()
 router.include_router(migration_read_router)
+router.include_router(write_router)
 
 
 async def _vector_reload_admin_token(
@@ -625,64 +625,6 @@ def _prepare_vector_for_upgrade(
 __all__ = ["router"]
 
 
-class VectorUpdateRequest(BaseModel):
-    id: str = Field(description="要更新的向量分析ID")
-    replace: Optional[list[float]] = Field(default=None, description="新的向量 (维度需与原向量一致)")
-    append: Optional[list[float]] = Field(default=None, description="追加的向量片段 (若提供 replace 则忽略)")
-    material: Optional[str] = Field(default=None, description="更新材料元数据")
-    complexity: Optional[str] = Field(default=None, description="更新复杂度元数据")
-    format: Optional[str] = Field(default=None, description="更新格式元数据")
-
-
-class VectorUpdateResponse(BaseModel):
-    id: str
-    status: str
-    dimension: Optional[int] = None
-    error: Optional[Dict[str, Any]] = None
-    feature_version: Optional[str] = None
-
-
-@router.post("/update", response_model=VectorUpdateResponse)
-async def update_vector(payload: VectorUpdateRequest, api_key: str = Depends(get_api_key)):
-    result = await run_vector_update_pipeline(
-        payload=payload,
-        qdrant_store=_get_qdrant_store_or_none(),
-    )
-    return VectorUpdateResponse(**result)
-
-
-@router.post("/migrate", response_model=VectorMigrateResponse)
-async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(get_api_key)):
-    from src.core.feature_extractor import FeatureExtractor
-    from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
-    from src.utils.analysis_metrics import (
-        analysis_error_code_total,
-        vector_migrate_dimension_delta,
-        vector_migrate_total,
-    )
-
-    return await run_vector_migrate_pipeline(
-        payload=payload,
-        vector_store=_VECTOR_STORE,
-        vector_meta=_VECTOR_META,
-        qdrant_store=_get_qdrant_store_or_none(),
-        feature_extractor_cls=FeatureExtractor,
-        prepare_vector_for_upgrade_fn=_prepare_vector_for_upgrade,
-        vector_layout_base=VECTOR_LAYOUT_BASE,
-        vector_layout_l3=VECTOR_LAYOUT_L3,
-        dimension_delta_metric=vector_migrate_dimension_delta,
-        migrate_total_metric=vector_migrate_total,
-        analysis_error_code_total_metric=analysis_error_code_total,
-        error_code_cls=ErrorCode,
-        build_error_fn=build_error,
-        item_cls=VectorMigrateItem,
-        response_cls=VectorMigrateResponse,
-        history=globals().setdefault("_VECTOR_MIGRATION_HISTORY", []),
-        uuid4_fn=uuid.uuid4,
-        utcnow_fn=datetime.utcnow,
-    )
-
-
 async def _collect_vector_migration_pending_candidates(
     *,
     limit: int,
@@ -701,24 +643,6 @@ async def _collect_vector_migration_pending_candidates(
         vector_meta=_VECTOR_META,
         vector_store=_VECTOR_STORE,
     )
-
-
-@router.post("/migrate/pending/run", response_model=VectorMigrateResponse)
-async def migrate_pending_run(
-    payload: VectorMigrationPendingRunRequest,
-    api_key: str = Depends(get_api_key),
-):
-    return await run_vector_migration_pending_run_pipeline(
-        payload=payload,
-        api_key=api_key,
-        resolve_target_version_fn=_resolve_vector_migration_target_version,
-        collect_pending_candidates_fn=_collect_vector_migration_pending_candidates,
-        migrate_vectors_fn=migrate_vectors,
-        request_cls=VectorMigrateRequest,
-        error_code_cls=ErrorCode,
-        build_error_fn=build_error,
-    )
-
 
 class BatchSimilarityRequest(BaseModel):
     """批量相似度查询请求"""
