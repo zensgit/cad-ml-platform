@@ -20,12 +20,14 @@ from src.api.v1.analyze_live_models import (
     AnalysisOptions,
     AnalysisResult,
 )
+from src.api.v1.analyze_vector_update_router import (
+    router as vector_update_router,
+)
 from src.api.v1.analyze_vector_migration_router import (
     router as vector_migration_router,
 )
 from src.api.v1.analyze_result_router import build_result_router
 from src.api.v1.analyze_similarity_router import router as similarity_router
-from src.api.v1.analyze_vector_compat import router as vector_compat_router
 from src.api.v1.process import process_rules_audit
 from src.api.v1.analyze_shadow_compat import (
     _build_graph2d_soft_override_suggestion,
@@ -80,7 +82,7 @@ router.include_router(legacy_redirect_router)
 router.include_router(similarity_router)
 router.include_router(faiss_admin_router)
 router.include_router(vector_migration_router)
-router.include_router(vector_compat_router)
+router.include_router(vector_update_router)
 
 
 @router.post("/", response_model=AnalysisResult)
