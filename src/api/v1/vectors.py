@@ -17,16 +17,10 @@ from src.api.v1.vector_migration_models import (
     VectorMigrateRequest,
     VectorMigrateResponse,
     VectorMigrationPendingItem,
-    VectorMigrationPendingResponse,
     VectorMigrationPendingRunRequest,
-    VectorMigrationPendingSummaryResponse,
     VectorMigrationPlanBatch,
-    VectorMigrationPlanResponse,
-    VectorMigrationPreviewResponse,
-    VectorMigrationStatusResponse,
-    VectorMigrationSummaryResponse,
-    VectorMigrationTrendsResponse,
 )
+from src.api.v1.vectors_migration_read_router import router as migration_read_router
 from src.core.errors_extended import ErrorCode, build_error
 from src.core.qdrant_store_helper import (
     get_qdrant_store_or_none as _get_qdrant_store_or_none,
@@ -65,6 +59,7 @@ from src.core.vector_layouts import (
 from src.utils.cache import get_client
 
 router = APIRouter()
+router.include_router(migration_read_router)
 
 
 async def _vector_reload_admin_token(
@@ -656,23 +651,6 @@ async def update_vector(payload: VectorUpdateRequest, api_key: str = Depends(get
     return VectorUpdateResponse(**result)
 
 
-@router.get("/migrate/preview", response_model=VectorMigrationPreviewResponse)
-async def preview_migration(to_version: str, limit: int = 10, api_key: str = Depends(get_api_key)):
-    from src.core.feature_extractor import FeatureExtractor
-
-    return await run_vector_migration_preview_pipeline(
-        to_version=to_version,
-        limit=limit,
-        response_cls=VectorMigrationPreviewResponse,
-        error_code_cls=ErrorCode,
-        build_error_fn=build_error,
-        get_qdrant_store_fn=_get_qdrant_store_or_none,
-        collect_qdrant_preview_samples_fn=_collect_qdrant_preview_samples,
-        prepare_vector_for_upgrade_fn=_prepare_vector_for_upgrade,
-        feature_extractor_cls=FeatureExtractor,
-    )
-
-
 @router.post("/migrate", response_model=VectorMigrateResponse)
 async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(get_api_key)):
     from src.core.feature_extractor import FeatureExtractor
@@ -705,34 +683,6 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
     )
 
 
-@router.get("/migrate/status", response_model=VectorMigrationStatusResponse)
-async def migrate_status(api_key: str = Depends(get_api_key)):
-    history = list(globals().get("_VECTOR_MIGRATION_HISTORY", []))
-    snapshot = await collect_vector_migration_distribution_snapshot(
-        qdrant_store=_get_qdrant_store_or_none(),
-        scan_limit=_resolve_vector_migration_scan_limit(),
-        collect_qdrant_feature_versions_fn=_collect_qdrant_feature_versions,
-        build_readiness_fn=_build_vector_migration_readiness,
-    )
-    return VectorMigrationStatusResponse(
-        **build_vector_migration_status_payload(history=history, snapshot=snapshot)
-    )
-
-
-@router.get("/migrate/summary", response_model=VectorMigrationSummaryResponse)
-async def migrate_summary(api_key: str = Depends(get_api_key)):
-    history = list(globals().get("_VECTOR_MIGRATION_HISTORY", []))
-    snapshot = await collect_vector_migration_distribution_snapshot(
-        qdrant_store=_get_qdrant_store_or_none(),
-        scan_limit=_resolve_vector_migration_scan_limit(),
-        collect_qdrant_feature_versions_fn=_collect_qdrant_feature_versions,
-        build_readiness_fn=_build_vector_migration_readiness,
-    )
-    return VectorMigrationSummaryResponse(
-        **build_vector_migration_summary_payload(history=history, snapshot=snapshot)
-    )
-
-
 async def _collect_vector_migration_pending_candidates(
     *,
     limit: int,
@@ -753,70 +703,6 @@ async def _collect_vector_migration_pending_candidates(
     )
 
 
-@router.get("/migrate/pending", response_model=VectorMigrationPendingResponse)
-async def migrate_pending(
-    limit: int = 50,
-    from_version_filter: Optional[str] = Query(default=None),
-    api_key: str = Depends(get_api_key),
-):
-    limit = max(min(int(limit or 0), 200), 1)
-    target_version = _resolve_vector_migration_target_version()
-    pending = await _collect_vector_migration_pending_candidates(
-        limit=limit,
-        target_version=target_version,
-        from_version_filter=from_version_filter,
-    )
-    return VectorMigrationPendingResponse(
-        target_version=pending["target_version"],
-        from_version_filter=pending["from_version_filter"],
-        items=pending["items"],
-        listed_count=pending["listed_count"],
-        total_pending=pending["total_pending"],
-        backend=pending["backend"],
-        scanned_vectors=pending["scanned_vectors"],
-        scan_limit=pending["scan_limit"],
-        distribution_complete=pending["distribution_complete"],
-    )
-
-
-@router.get("/migrate/pending/summary", response_model=VectorMigrationPendingSummaryResponse)
-async def migrate_pending_summary(
-    from_version_filter: Optional[str] = Query(default=None),
-    api_key: str = Depends(get_api_key),
-):
-    target_version = _resolve_vector_migration_target_version()
-    pending = await _collect_vector_migration_pending_candidates(
-        limit=1,
-        target_version=target_version,
-        from_version_filter=from_version_filter,
-    )
-    return VectorMigrationPendingSummaryResponse(
-        **build_vector_migration_pending_summary_payload(pending=pending)
-    )
-
-
-@router.get("/migrate/plan", response_model=VectorMigrationPlanResponse)
-async def migrate_plan(
-    from_version_filter: Optional[str] = Query(default=None),
-    max_batches: int = Query(default=3, ge=1, le=10),
-    default_run_limit: int = Query(default=50, ge=1, le=200),
-    api_key: str = Depends(get_api_key),
-):
-    target_version = _resolve_vector_migration_target_version()
-    pending = await _collect_vector_migration_pending_candidates(
-        limit=1,
-        target_version=target_version,
-        from_version_filter=from_version_filter,
-    )
-    return VectorMigrationPlanResponse(
-        **build_vector_migration_plan_payload(
-            pending=pending,
-            max_batches=max_batches,
-            default_run_limit=default_run_limit,
-        )
-    )
-
-
 @router.post("/migrate/pending/run", response_model=VectorMigrateResponse)
 async def migrate_pending_run(
     payload: VectorMigrationPendingRunRequest,
@@ -831,19 +717,6 @@ async def migrate_pending_run(
         request_cls=VectorMigrateRequest,
         error_code_cls=ErrorCode,
         build_error_fn=build_error,
-    )
-
-
-@router.get("/migrate/trends", response_model=VectorMigrationTrendsResponse)
-async def migrate_trends(window_hours: int = 24, api_key: str = Depends(get_api_key)):
-    return await run_vector_migration_trends_pipeline(
-        window_hours=window_hours,
-        history=list(globals().get("_VECTOR_MIGRATION_HISTORY", [])),
-        response_cls=VectorMigrationTrendsResponse,
-        get_qdrant_store_fn=_get_qdrant_store_or_none,
-        resolve_scan_limit_fn=_resolve_vector_migration_scan_limit,
-        collect_qdrant_feature_versions_fn=_collect_qdrant_feature_versions,
-        build_readiness_fn=_build_vector_migration_readiness,
     )
 
 
