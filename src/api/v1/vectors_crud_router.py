@@ -30,7 +30,7 @@ async def delete_vector(payload: VectorDeleteRequest, api_key: str = Depends(get
 
 
 @router.post("/register", response_model=VectorRegisterResponse)
-async def register_vector(
+async def register_vector_endpoint(
     payload: VectorRegisterRequest,
     api_key: str = Depends(get_api_key),
 ):
