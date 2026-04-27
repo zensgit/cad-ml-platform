@@ -59,13 +59,13 @@ jobs:
             >/dev/null
       - name: Upload workflow health summary
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: workflow-file-health-${{ github.run_number }}
           path: reports/ci/workflow_file_health_summary.json
       - name: Upload workflow inventory audit report
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: workflow-inventory-report-${{ github.run_number }}
           path: |
@@ -73,7 +73,7 @@ jobs:
             reports/ci/workflow_inventory_report.md
       - name: Upload workflow publish helper adoption report
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: workflow-publish-helper-adoption-${{ github.run_number }}
           path: |
@@ -81,7 +81,7 @@ jobs:
             reports/ci/workflow_publish_helper_adoption.md
       - name: Upload workflow guardrail summary report
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: workflow-guardrail-summary-${{ github.run_number }}
           path: |
