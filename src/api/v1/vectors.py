@@ -7,7 +7,7 @@ import os
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Header
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from src.api.dependencies import get_admin_token, get_api_key
 from src.api.v1.vector_crud_models import (
@@ -19,6 +19,11 @@ from src.api.v1.vector_crud_models import (
     VectorSearchResponse,
 )
 from src.api.v1.vector_list_models import VectorListItem, VectorListResponse
+from src.api.v1.vector_similarity_models import (
+    BatchSimilarityItem,
+    BatchSimilarityRequest,
+    BatchSimilarityResponse,
+)
 from src.api.v1.vectors_crud_router import router as crud_router
 from src.api.v1.vectors_list_router import list_vectors, router as list_router
 from src.api.v1.vector_migration_models import (
@@ -45,6 +50,10 @@ from src.api.v1.vectors_migration_read_router import (
     migrate_trends,
     preview_migration,
     router as migration_read_router,
+)
+from src.api.v1.vectors_similarity_router import (
+    batch_similarity,
+    router as similarity_router,
 )
 from src.api.v1.vectors_write_router import (
     migrate_pending_run,
@@ -121,6 +130,7 @@ router.include_router(crud_router)
 router.include_router(migration_read_router)
 router.include_router(write_router)
 router.include_router(list_router)
+router.include_router(similarity_router)
 
 
 def _build_vector_filter_conditions(
@@ -518,6 +528,7 @@ def _prepare_vector_for_upgrade(
 __all__ = [
     "router",
     "list_vectors",
+    "batch_similarity",
     "update_vector",
     "migrate_vectors",
     "migrate_pending_run",
@@ -543,6 +554,9 @@ __all__ = [
     "VectorMigrationTrendsResponse",
     "VectorListItem",
     "VectorListResponse",
+    "BatchSimilarityItem",
+    "BatchSimilarityRequest",
+    "BatchSimilarityResponse",
 ]
 
 
@@ -564,67 +578,6 @@ async def _collect_vector_migration_pending_candidates(
         vector_meta=_VECTOR_META,
         vector_store=_VECTOR_STORE,
     )
-
-class BatchSimilarityRequest(BaseModel):
-    """批量相似度查询请求"""
-
-    ids: list[str] = Field(description="需要查询的向量ID列表")
-    top_k: int = Field(default=5, ge=1, le=50, description="每个向量返回的最相似结果数量")
-    material: Optional[str] = Field(default=None, description="过滤材料类型")
-    complexity: Optional[str] = Field(default=None, description="过滤复杂度")
-    format: Optional[str] = Field(default=None, description="过滤CAD格式")
-    min_score: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="最小相似度分数阈值")
-
-
-class BatchSimilarityItem(BaseModel):
-    """单个向量的相似度查询结果"""
-
-    id: str
-    status: str  # success|not_found|error
-    similar: list[Dict[str, Any]] = Field(default_factory=list)
-    error: Optional[Dict[str, Any]] = None
-
-
-class BatchSimilarityResponse(BaseModel):
-    """批量相似度查询响应"""
-
-    total: int
-    successful: int
-    failed: int
-    items: list[BatchSimilarityItem]
-    batch_id: Optional[str] = None
-    duration_ms: Optional[float] = None
-    fallback: Optional[bool] = Field(default=None, description="是否使用了内存降级 (Faiss不可用时)")
-    degraded: bool = Field(default=False, description="向量存储是否处于降级模式")
-
-
-@router.post("/similarity/batch", response_model=BatchSimilarityResponse)
-async def batch_similarity(payload: BatchSimilarityRequest, api_key: str = Depends(get_api_key)):
-    """批量相似度查询 - 支持多个向量ID并行查询相似向量
-
-    功能特性:
-    - 支持批量查询多个向量的相似度
-    - 可选过滤条件: material, complexity, format
-    - 可设置最小相似度分数阈值
-    - 自动记录批量查询延迟指标
-
-    Args:
-        payload: 批量查询请求
-        api_key: API密钥
-
-    Returns:
-        批量查询结果，包含每个向量的相似度列表
-    """
-    return await run_vector_batch_similarity(
-        payload=payload,
-        batch_item_cls=BatchSimilarityItem,
-        batch_response_cls=BatchSimilarityResponse,
-        error_code_cls=ErrorCode,
-        build_error_fn=build_error,
-        get_qdrant_store_fn=_get_qdrant_store_or_none,
-        build_filter_conditions_fn=_build_vector_filter_conditions,
-    )
-
 
 @router.post("/backend/reload", response_model=VectorBackendReloadResponse)
 async def reload_vector_backend(
