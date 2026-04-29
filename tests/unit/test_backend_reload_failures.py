@@ -278,7 +278,7 @@ def test_backend_reload_structured_error_format(client):
 # ============================================================================
 
 
-def test_backend_reload_concurrent_conflict(client):
+def test_backend_reload_concurrent_conflict(client, monkeypatch):
     """Test concurrent reload requests are handled safely.
 
     Simulates two concurrent reload requests to ensure proper handling
@@ -289,6 +289,7 @@ def test_backend_reload_concurrent_conflict(client):
 
     results = []
     errors = []
+    monkeypatch.setenv("VECTOR_STORE_BACKEND", "memory")
 
     def do_reload(idx: int):
         try:
@@ -300,13 +301,10 @@ def test_backend_reload_concurrent_conflict(client):
 
                 mock_reload.side_effect = slow_reload
 
-                with patch("os.getenv") as mock_getenv:
-                    mock_getenv.side_effect = make_getenv_side_effect("memory")
-
-                    response = client.post(
-                        "/api/v1/maintenance/vectors/backend/reload", headers={"X-API-Key": "test"}
-                    )
-                    results.append((idx, response.status_code))
+                response = client.post(
+                    "/api/v1/maintenance/vectors/backend/reload", headers={"X-API-Key": "test"}
+                )
+                results.append((idx, response.status_code))
         except Exception as e:
             errors.append((idx, str(e)))
 
