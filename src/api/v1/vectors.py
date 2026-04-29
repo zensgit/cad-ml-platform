@@ -24,11 +24,32 @@ from src.api.v1.vector_migration_models import (
     VectorMigrateRequest,
     VectorMigrateResponse,
     VectorMigrationPendingItem,
+    VectorMigrationPendingResponse,
     VectorMigrationPendingRunRequest,
+    VectorMigrationPendingSummaryResponse,
     VectorMigrationPlanBatch,
+    VectorMigrationPlanResponse,
+    VectorMigrationPreviewResponse,
+    VectorMigrationStatusResponse,
+    VectorMigrationSummaryResponse,
+    VectorMigrationTrendsResponse,
 )
-from src.api.v1.vectors_migration_read_router import router as migration_read_router
-from src.api.v1.vectors_write_router import router as write_router
+from src.api.v1.vectors_migration_read_router import (
+    migrate_pending,
+    migrate_pending_summary,
+    migrate_plan,
+    migrate_status,
+    migrate_summary,
+    migrate_trends,
+    preview_migration,
+    router as migration_read_router,
+)
+from src.api.v1.vectors_write_router import (
+    migrate_pending_run,
+    migrate_vectors,
+    router as write_router,
+    update_vector,
+)
 from src.core.errors_extended import ErrorCode, build_error
 from src.core.qdrant_store_helper import (
     get_qdrant_store_or_none as _get_qdrant_store_or_none,
@@ -551,7 +572,32 @@ def _prepare_vector_for_upgrade(
     return base_vector, l3_tail, layout
 
 
-__all__ = ["router"]
+__all__ = [
+    "router",
+    "update_vector",
+    "migrate_vectors",
+    "migrate_pending_run",
+    "preview_migration",
+    "migrate_status",
+    "migrate_summary",
+    "migrate_pending",
+    "migrate_pending_summary",
+    "migrate_plan",
+    "migrate_trends",
+    "VectorMigrateItem",
+    "VectorMigrateRequest",
+    "VectorMigrateResponse",
+    "VectorMigrationStatusResponse",
+    "VectorMigrationSummaryResponse",
+    "VectorMigrationPendingItem",
+    "VectorMigrationPendingResponse",
+    "VectorMigrationPendingSummaryResponse",
+    "VectorMigrationPlanBatch",
+    "VectorMigrationPlanResponse",
+    "VectorMigrationPendingRunRequest",
+    "VectorMigrationPreviewResponse",
+    "VectorMigrationTrendsResponse",
+]
 
 
 async def _collect_vector_migration_pending_candidates(
