@@ -5518,7 +5518,7 @@ jobs:
 
     - name: Post Eval Reporting status check
       if: always()
-      uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
       continue-on-error: true
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -6001,7 +6001,7 @@ jobs:
 
     - name: Comment PR with results
       if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-      uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
       env:
         GITHUB_EVENT_INPUTS_JSON: ${{ toJson(github.event.inputs) }}
         GITHUB_STEPS_JSON: ${{ toJson(steps) }}
@@ -6131,7 +6131,7 @@ jobs:
 
     - name: Generate eval reporting webhook delivery result
       if: always()
-      uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
       continue-on-error: true
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -6147,7 +6147,7 @@ jobs:
 
     - name: Generate eval reporting release draft publish result
       if: always()
-      uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
       continue-on-error: true
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
