@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from src.core.process.manufacturing_summary import build_manufacturing_decision_summary
+from src.core.process.manufacturing_summary import (
+    build_manufacturing_decision_summary,
+    build_manufacturing_evidence,
+)
 
 
 def test_build_manufacturing_decision_summary_returns_none_when_inputs_empty():
@@ -109,3 +112,53 @@ def test_build_manufacturing_decision_summary_ignores_non_mapping_payloads():
         "cost_range": None,
         "currency": None,
     }
+
+
+def test_build_manufacturing_evidence_uses_decision_contract_shape():
+    evidence = build_manufacturing_evidence(
+        quality_payload={
+            "mode": "L4_DFM",
+            "score": 72.0,
+            "manufacturability": "medium",
+            "issues": [{"code": "THIN_WALL"}],
+        },
+        process_payload={
+            "primary_recommendation": {
+                "process": "cnc_milling",
+                "method": "3_axis",
+                "confidence": 0.9,
+            },
+            "alternatives": [{"process": "turning"}],
+            "analysis_mode": "L4_AI_Heuristic",
+        },
+        cost_payload={
+            "total_unit_cost": 18.0,
+            "currency": "USD",
+        },
+        manufacturing_decision={
+            "feasibility": "medium",
+            "risks": [{"code": "THIN_WALL"}],
+            "process": {"process": "cnc_milling"},
+            "cost_range": {"low": 16.2, "high": 19.8},
+            "currency": "USD",
+            "cost_estimate": {"total_unit_cost": 18.0},
+        },
+    )
+
+    by_source = {row["source"]: row for row in evidence}
+    assert set(by_source) == {
+        "dfm",
+        "manufacturing_process",
+        "manufacturing_cost",
+        "manufacturing_decision",
+    }
+    assert by_source["dfm"]["kind"] == "manufacturability_check"
+    assert by_source["dfm"]["confidence"] == 0.72
+    assert by_source["manufacturing_process"]["label"] == "cnc_milling"
+    assert by_source["manufacturing_process"]["confidence"] == 0.9
+    assert by_source["manufacturing_process"]["details"]["alternatives_count"] == 1
+    assert by_source["manufacturing_cost"]["details"]["cost_range"] == {
+        "low": 16.2,
+        "high": 19.8,
+    }
+    assert by_source["manufacturing_decision"]["status"] == "medium"

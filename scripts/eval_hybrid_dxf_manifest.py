@@ -8,16 +8,79 @@ import csv
 import json
 import os
 import random
+import re
 import sys
 import time
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+
+MANUFACTURING_EVIDENCE_REQUIRED_SOURCES = (
+    "dfm",
+    "manufacturing_process",
+    "manufacturing_cost",
+    "manufacturing_decision",
+)
+
+MANUFACTURING_EVIDENCE_SOURCE_FLAGS = {
+    "dfm": "manufacturing_evidence_has_dfm",
+    "manufacturing_process": "manufacturing_evidence_has_process",
+    "manufacturing_cost": "manufacturing_evidence_has_cost",
+    "manufacturing_decision": "manufacturing_evidence_has_decision",
+}
+
+MANUFACTURING_EXPECTED_SOURCE_COLUMNS = (
+    "expected_manufacturing_evidence_sources",
+    "expected_manufacturing_sources",
+    "reviewed_manufacturing_evidence_sources",
+    "reviewed_manufacturing_sources",
+)
+
+MANUFACTURING_SOURCE_ALIASES = {
+    "dfm": "dfm",
+    "manufacturability": "dfm",
+    "manufacturability_check": "dfm",
+    "process": "manufacturing_process",
+    "manufacturing_process": "manufacturing_process",
+    "process_recommendation": "manufacturing_process",
+    "cost": "manufacturing_cost",
+    "manufacturing_cost": "manufacturing_cost",
+    "cost_estimate": "manufacturing_cost",
+    "decision": "manufacturing_decision",
+    "manufacturing_decision": "manufacturing_decision",
+    "manufacturing_summary": "manufacturing_decision",
+}
+
+MANUFACTURING_SOURCE_NONE_TOKENS = {
+    "none",
+    "no_evidence",
+    "no_manufacturing_evidence",
+    "empty",
+    "n/a",
+    "na",
+}
+
+MANUFACTURING_PAYLOAD_FIELDS = ("kind", "label", "status")
+MANUFACTURING_PAYLOAD_DETAIL_PREFIX = "details."
+
+MANUFACTURING_PAYLOAD_JSON_COLUMNS = (
+    "expected_manufacturing_evidence_payload_json",
+    "expected_manufacturing_payload_json",
+    "reviewed_manufacturing_evidence_payload_json",
+    "reviewed_manufacturing_payload_json",
+)
+
+MANUFACTURING_PAYLOAD_SOURCE_COLUMN_ALIASES = {
+    "dfm": ("dfm", "manufacturing_dfm"),
+    "manufacturing_process": ("process", "manufacturing_process"),
+    "manufacturing_cost": ("cost", "manufacturing_cost"),
+    "manufacturing_decision": ("decision", "manufacturing_decision"),
+}
 
 
 def _ensure_local_cache() -> None:
@@ -79,6 +142,180 @@ class EvalCase:
     true_label: str
     source_dir: str = ""
     relative_path: str = ""
+    expected_manufacturing_evidence_sources: Tuple[str, ...] = ()
+    expected_manufacturing_evidence_payloads: Dict[str, Dict[str, str]] = field(
+        default_factory=dict
+    )
+    manufacturing_evidence_reviewed: bool = False
+    manufacturing_payload_reviewed: bool = False
+
+
+def _normalize_manufacturing_source_token(value: Any) -> str:
+    cleaned = str(value or "").strip()
+    if not cleaned:
+        return ""
+    normalized = cleaned.lower().replace("-", "_").replace(" ", "_")
+    return MANUFACTURING_SOURCE_ALIASES.get(normalized, normalized)
+
+
+def _parse_manufacturing_source_tokens(value: Any) -> Tuple[Tuple[str, ...], bool]:
+    if value is None:
+        return (), False
+    if isinstance(value, list):
+        raw_tokens = [str(item or "").strip() for item in value]
+    else:
+        text = str(value or "").strip()
+        if not text:
+            return (), False
+        try:
+            decoded = json.loads(text)
+        except json.JSONDecodeError:
+            decoded = None
+        if isinstance(decoded, list):
+            raw_tokens = [str(item or "").strip() for item in decoded]
+        else:
+            raw_tokens = [
+                token.strip()
+                for token in re.split(r"[;,|]", text)
+                if token.strip()
+            ]
+
+    reviewed = bool(raw_tokens)
+    sources: List[str] = []
+    for token in raw_tokens:
+        normalized = _normalize_manufacturing_source_token(token)
+        if not normalized or normalized in MANUFACTURING_SOURCE_NONE_TOKENS:
+            continue
+        sources.append(normalized)
+    return tuple(dict.fromkeys(sources)), reviewed
+
+
+def _extract_expected_manufacturing_sources(
+    row: Dict[str, str]
+) -> Tuple[Tuple[str, ...], bool]:
+    for column in MANUFACTURING_EXPECTED_SOURCE_COLUMNS:
+        if column not in row:
+            continue
+        sources, reviewed = _parse_manufacturing_source_tokens(row.get(column))
+        if reviewed:
+            return sources, True
+    return (), False
+
+
+def _clean_expected_payload_value(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, ensure_ascii=False, sort_keys=True)
+    text = str(value).strip()
+    if not text:
+        return ""
+    if text.lower() in MANUFACTURING_SOURCE_NONE_TOKENS:
+        return ""
+    return text
+
+
+def _flatten_expected_detail_fields(
+    value: Any,
+    *,
+    prefix: str = MANUFACTURING_PAYLOAD_DETAIL_PREFIX,
+) -> Dict[str, str]:
+    if not isinstance(value, dict):
+        return {}
+    flattened: Dict[str, str] = {}
+    for key, raw_value in value.items():
+        cleaned_key = str(key or "").strip()
+        if not cleaned_key:
+            continue
+        field_name = f"{prefix}{cleaned_key}"
+        if isinstance(raw_value, dict):
+            flattened.update(
+                _flatten_expected_detail_fields(
+                    raw_value,
+                    prefix=f"{field_name}.",
+                )
+            )
+            continue
+        cleaned_value = _clean_expected_payload_value(raw_value)
+        if cleaned_value:
+            flattened[field_name] = cleaned_value
+    return flattened
+
+
+def _normalize_expected_payload_fields(value: Any) -> Dict[str, str]:
+    if not isinstance(value, dict):
+        return {}
+    normalized: Dict[str, str] = {}
+    for field_name in MANUFACTURING_PAYLOAD_FIELDS:
+        cleaned = _clean_expected_payload_value(value.get(field_name))
+        if cleaned:
+            normalized[field_name] = cleaned
+    normalized.update(_flatten_expected_detail_fields(value.get("details")))
+    for field_name, raw_value in value.items():
+        cleaned_field = str(field_name or "").strip()
+        if not cleaned_field.startswith(MANUFACTURING_PAYLOAD_DETAIL_PREFIX):
+            continue
+        cleaned_value = _clean_expected_payload_value(raw_value)
+        if cleaned_value:
+            normalized[cleaned_field] = cleaned_value
+    return normalized
+
+
+def _merge_expected_payload(
+    payloads: Dict[str, Dict[str, str]],
+    *,
+    source: Any,
+    value: Any,
+) -> None:
+    normalized_source = _normalize_manufacturing_source_token(source)
+    if not normalized_source:
+        return
+    normalized_fields = _normalize_expected_payload_fields(value)
+    if not normalized_fields:
+        return
+    payloads.setdefault(normalized_source, {}).update(normalized_fields)
+
+
+def _extract_expected_manufacturing_payloads(
+    row: Dict[str, str]
+) -> Tuple[Dict[str, Dict[str, str]], bool]:
+    payloads: Dict[str, Dict[str, str]] = {}
+
+    for column in MANUFACTURING_PAYLOAD_JSON_COLUMNS:
+        raw_value = str(row.get(column) or "").strip()
+        if not raw_value:
+            continue
+        try:
+            decoded = json.loads(raw_value)
+        except json.JSONDecodeError:
+            decoded = {}
+        if not isinstance(decoded, dict):
+            continue
+        for source, value in decoded.items():
+            _merge_expected_payload(payloads, source=source, value=value)
+
+    for source, aliases in MANUFACTURING_PAYLOAD_SOURCE_COLUMN_ALIASES.items():
+        for field_name in MANUFACTURING_PAYLOAD_FIELDS:
+            for alias in aliases:
+                column = f"expected_{alias}_{field_name}"
+                cleaned = _clean_expected_payload_value(row.get(column))
+                if cleaned:
+                    payloads.setdefault(source, {})[field_name] = cleaned
+        for alias in aliases:
+            detail_prefix = f"expected_{alias}_detail_"
+            for column, raw_value in row.items():
+                if not column.startswith(detail_prefix):
+                    continue
+                detail_path = column[len(detail_prefix) :].strip().replace("__", ".")
+                if not detail_path:
+                    continue
+                cleaned = _clean_expected_payload_value(raw_value)
+                if cleaned:
+                    payloads.setdefault(source, {})[
+                        f"{MANUFACTURING_PAYLOAD_DETAIL_PREFIX}{detail_path}"
+                    ] = cleaned
+
+    return payloads, bool(payloads)
 
 
 def _load_manifest_cases(manifest_path: Path, dxf_dir: Path) -> List[EvalCase]:
@@ -95,6 +332,12 @@ def _load_manifest_cases(manifest_path: Path, dxf_dir: Path) -> List[EvalCase]:
                 continue
             relative_path = str(row.get("relative_path") or "").strip()
             source_dir = str(row.get("source_dir") or "").strip()
+            expected_sources, evidence_reviewed = _extract_expected_manufacturing_sources(
+                row
+            )
+            expected_payloads, payload_reviewed = _extract_expected_manufacturing_payloads(
+                row
+            )
 
             candidates: List[Path] = []
             if relative_path:
@@ -118,6 +361,10 @@ def _load_manifest_cases(manifest_path: Path, dxf_dir: Path) -> List[EvalCase]:
                     true_label=true_label,
                     source_dir=source_dir,
                     relative_path=relative_path,
+                    expected_manufacturing_evidence_sources=expected_sources,
+                    expected_manufacturing_evidence_payloads=expected_payloads,
+                    manufacturing_evidence_reviewed=evidence_reviewed,
+                    manufacturing_payload_reviewed=payload_reviewed,
                 )
             )
     return cases
@@ -187,6 +434,353 @@ def _json_list_cell(value: Any) -> str:
     if not isinstance(value, list) or not value:
         return ""
     return json.dumps(value, ensure_ascii=False, sort_keys=True)
+
+
+def _string_tokens(value: Any) -> List[str]:
+    if not isinstance(value, list):
+        return []
+    tokens: List[str] = []
+    for item in value:
+        token = str(item or "").strip()
+        if token:
+            tokens.append(token)
+    return tokens
+
+
+def _evidence_sources(evidence: Any) -> List[str]:
+    if not isinstance(evidence, list):
+        return []
+    sources: List[str] = []
+    for item in evidence:
+        if not isinstance(item, dict):
+            continue
+        source = str(item.get("source") or "").strip()
+        if source:
+            sources.append(source)
+    return list(dict.fromkeys(sources))
+
+
+def _evidence_items(value: Any, *, required_sources_only: bool) -> List[Dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    evidence: List[Dict[str, Any]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        source = str(item.get("source") or "").strip()
+        if required_sources_only and source not in MANUFACTURING_EVIDENCE_REQUIRED_SOURCES:
+            continue
+        evidence.append(dict(item))
+    return evidence
+
+
+def _manufacturing_evidence_items_from_results(
+    results_payload: Dict[str, Any]
+) -> List[Dict[str, Any]]:
+    classification = results_payload.get("classification", {}) or {}
+    if not isinstance(classification, dict):
+        classification = {}
+    decision_contract = classification.get("decision_contract")
+    if not isinstance(decision_contract, dict):
+        decision_contract = {}
+
+    evidence: List[Dict[str, Any]] = []
+    candidates = [
+        (results_payload.get("manufacturing_evidence"), False),
+        (classification.get("manufacturing_evidence"), False),
+        (classification.get("evidence"), True),
+        (decision_contract.get("evidence"), True),
+    ]
+    for candidate, required_sources_only in candidates:
+        evidence = _evidence_items(
+            candidate,
+            required_sources_only=required_sources_only,
+        )
+        if evidence:
+            break
+
+    return evidence
+
+
+def _collect_manufacturing_evidence_fields(
+    results_payload: Dict[str, Any]
+) -> Dict[str, Any]:
+    evidence = _manufacturing_evidence_items_from_results(results_payload)
+    sources = _evidence_sources(evidence)
+    source_set = set(sources)
+    payload: Dict[str, Any] = {
+        "manufacturing_evidence": _json_list_cell(evidence),
+        "manufacturing_evidence_count": len(evidence),
+        "manufacturing_evidence_sources": ";".join(sources),
+        "manufacturing_evidence_required_sources_present": all(
+            source in source_set for source in MANUFACTURING_EVIDENCE_REQUIRED_SOURCES
+        ),
+    }
+    for source, field_name in MANUFACTURING_EVIDENCE_SOURCE_FLAGS.items():
+        payload[field_name] = source in source_set
+    return payload
+
+
+def _source_tokens_from_text(value: Any) -> Tuple[str, ...]:
+    return _parse_manufacturing_source_tokens(value)[0]
+
+
+def _manufacturing_correctness_fields(
+    predicted_sources: Iterable[str],
+    expected_sources: Iterable[str],
+    *,
+    reviewed: bool,
+) -> Dict[str, Any]:
+    predicted_set = set(predicted_sources)
+    expected_set = set(expected_sources)
+    true_positive = sorted(predicted_set & expected_set)
+    false_positive = sorted(predicted_set - expected_set)
+    false_negative = sorted(expected_set - predicted_set)
+    precision_denominator = len(true_positive) + len(false_positive)
+    recall_denominator = len(true_positive) + len(false_negative)
+    precision = (
+        len(true_positive) / precision_denominator
+        if precision_denominator
+        else 0.0
+    )
+    recall = len(true_positive) / recall_denominator if recall_denominator else 0.0
+    f1 = (
+        (2.0 * precision * recall / (precision + recall))
+        if precision + recall
+        else 0.0
+    )
+    return {
+        "manufacturing_evidence_reviewed": bool(reviewed),
+        "expected_manufacturing_evidence_sources": ";".join(sorted(expected_set)),
+        "manufacturing_evidence_true_positive_sources": ";".join(true_positive),
+        "manufacturing_evidence_false_positive_sources": ";".join(false_positive),
+        "manufacturing_evidence_false_negative_sources": ";".join(false_negative),
+        "manufacturing_evidence_source_exact_match": (
+            bool(reviewed) and predicted_set == expected_set
+        ),
+        "manufacturing_evidence_source_precision": round(precision, 6),
+        "manufacturing_evidence_source_recall": round(recall, 6),
+        "manufacturing_evidence_source_f1": round(f1, 6),
+    }
+
+
+def _normalize_payload_compare_value(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value).strip().casefold()
+
+
+def _payload_value_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, ensure_ascii=False, sort_keys=True)
+    return str(value).strip()
+
+
+def _get_payload_field_value(item: Dict[str, Any], field_name: str) -> str:
+    if field_name in MANUFACTURING_PAYLOAD_FIELDS:
+        return _payload_value_text(item.get(field_name))
+    if not field_name.startswith(MANUFACTURING_PAYLOAD_DETAIL_PREFIX):
+        return ""
+    current: Any = item.get("details") if isinstance(item, dict) else {}
+    for part in field_name[len(MANUFACTURING_PAYLOAD_DETAIL_PREFIX) :].split("."):
+        if not isinstance(current, dict):
+            return ""
+        current = current.get(part)
+    return _payload_value_text(current)
+
+
+def _is_payload_detail_field(field_name: str) -> bool:
+    return str(field_name or "").startswith(MANUFACTURING_PAYLOAD_DETAIL_PREFIX)
+
+
+def _manufacturing_evidence_by_source(
+    evidence: Iterable[Dict[str, Any]]
+) -> Dict[str, Dict[str, Any]]:
+    by_source: Dict[str, Dict[str, Any]] = {}
+    for item in evidence:
+        if not isinstance(item, dict):
+            continue
+        source = _normalize_manufacturing_source_token(item.get("source"))
+        if source and source not in by_source:
+            by_source[source] = item
+    return by_source
+
+
+def _manufacturing_payload_quality_fields(
+    evidence: Iterable[Dict[str, Any]],
+    expected_payloads: Dict[str, Dict[str, str]],
+    *,
+    reviewed: bool,
+) -> Dict[str, Any]:
+    evidence_by_source = _manufacturing_evidence_by_source(evidence)
+    expected_field_count = 0
+    matched_field_count = 0
+    mismatched_field_count = 0
+    missing_field_count = 0
+    detail_expected_field_count = 0
+    detail_matched_field_count = 0
+    detail_mismatched_field_count = 0
+    detail_missing_field_count = 0
+    per_source: Dict[str, Dict[str, Any]] = {}
+
+    for source, expected_fields in sorted(expected_payloads.items()):
+        actual_item = evidence_by_source.get(source) or {}
+        source_expected_count = 0
+        source_matched_count = 0
+        source_detail_expected_count = 0
+        source_detail_matched_count = 0
+        source_mismatches: List[Dict[str, str]] = []
+        source_missing_fields: List[str] = []
+        actual_values: Dict[str, str] = {}
+
+        for field_name in sorted(expected_fields.keys()):
+            expected_value = _clean_expected_payload_value(expected_fields.get(field_name))
+            if not expected_value:
+                continue
+            is_detail_field = _is_payload_detail_field(field_name)
+            source_expected_count += 1
+            expected_field_count += 1
+            if is_detail_field:
+                detail_expected_field_count += 1
+                source_detail_expected_count += 1
+            actual_value = _get_payload_field_value(actual_item, field_name)
+            actual_values[field_name] = actual_value
+            if not actual_value:
+                missing_field_count += 1
+                if is_detail_field:
+                    detail_missing_field_count += 1
+                source_missing_fields.append(field_name)
+                continue
+            if _normalize_payload_compare_value(actual_value) == (
+                _normalize_payload_compare_value(expected_value)
+            ):
+                matched_field_count += 1
+                source_matched_count += 1
+                if is_detail_field:
+                    detail_matched_field_count += 1
+                    source_detail_matched_count += 1
+            else:
+                mismatched_field_count += 1
+                if is_detail_field:
+                    detail_mismatched_field_count += 1
+                source_mismatches.append(
+                    {
+                        "field": field_name,
+                        "expected": expected_value,
+                        "actual": actual_value,
+                    }
+                )
+
+        if source_expected_count:
+            per_source[source] = {
+                "expected": {
+                    key: value
+                    for key, value in expected_fields.items()
+                    if (
+                        key in MANUFACTURING_PAYLOAD_FIELDS
+                        or _is_payload_detail_field(key)
+                    )
+                    and _clean_expected_payload_value(value)
+                },
+                "actual": actual_values,
+                "expected_field_count": source_expected_count,
+                "matched_field_count": source_matched_count,
+                "detail_expected_field_count": source_detail_expected_count,
+                "detail_matched_field_count": source_detail_matched_count,
+                "mismatched_fields": source_mismatches,
+                "missing_fields": source_missing_fields,
+                "accuracy": round(source_matched_count / source_expected_count, 6),
+                "detail_accuracy": (
+                    round(source_detail_matched_count / source_detail_expected_count, 6)
+                    if source_detail_expected_count
+                    else 0.0
+                ),
+            }
+
+    reviewed = bool(reviewed and expected_field_count > 0)
+    detail_reviewed = bool(reviewed and detail_expected_field_count > 0)
+    return {
+        "manufacturing_evidence_payload_quality_reviewed": reviewed,
+        "manufacturing_evidence_payload_detail_quality_reviewed": detail_reviewed,
+        "expected_manufacturing_evidence_payloads": _json_cell(expected_payloads),
+        "manufacturing_evidence_payload_quality": _json_cell(per_source),
+        "manufacturing_evidence_payload_expected_fields": expected_field_count,
+        "manufacturing_evidence_payload_matched_fields": matched_field_count,
+        "manufacturing_evidence_payload_mismatched_fields": mismatched_field_count,
+        "manufacturing_evidence_payload_missing_fields": missing_field_count,
+        "manufacturing_evidence_payload_detail_expected_fields": detail_expected_field_count,
+        "manufacturing_evidence_payload_detail_matched_fields": detail_matched_field_count,
+        "manufacturing_evidence_payload_detail_mismatched_fields": (
+            detail_mismatched_field_count
+        ),
+        "manufacturing_evidence_payload_detail_missing_fields": (
+            detail_missing_field_count
+        ),
+        "manufacturing_evidence_payload_quality_accuracy": (
+            round(matched_field_count / expected_field_count, 6)
+            if expected_field_count
+            else 0.0
+        ),
+        "manufacturing_evidence_payload_detail_quality_accuracy": (
+            round(detail_matched_field_count / detail_expected_field_count, 6)
+            if detail_expected_field_count
+            else 0.0
+        ),
+    }
+
+
+def _collect_decision_contract_fields(results_payload: Dict[str, Any]) -> Dict[str, Any]:
+    classification = results_payload.get("classification", {}) or {}
+    decision_contract = classification.get("decision_contract")
+    if not isinstance(decision_contract, dict):
+        decision_contract = {}
+
+    evidence = classification.get("evidence")
+    if not isinstance(evidence, list):
+        evidence = decision_contract.get("evidence")
+    if not isinstance(evidence, list):
+        evidence = []
+
+    fallback_flags = _string_tokens(classification.get("fallback_flags"))
+    if not fallback_flags:
+        fallback_flags = _string_tokens(decision_contract.get("fallback_flags"))
+
+    review_reasons = _string_tokens(classification.get("review_reasons"))
+    if not review_reasons:
+        review_reasons = _string_tokens(decision_contract.get("review_reasons"))
+
+    branch_conflicts = classification.get("branch_conflicts")
+    if not isinstance(branch_conflicts, dict):
+        branch_conflicts = decision_contract.get("branch_conflicts")
+    if not isinstance(branch_conflicts, dict):
+        branch_conflicts = {}
+
+    contract_version = (
+        classification.get("contract_version")
+        or classification.get("decision_contract_version")
+        or decision_contract.get("contract_version")
+    )
+    decision_source = (
+        classification.get("decision_source")
+        or decision_contract.get("decision_source")
+        or classification.get("confidence_source")
+    )
+    source_tokens = _evidence_sources(evidence)
+
+    return {
+        "decision_contract_present": bool(decision_contract),
+        "decision_contract_version": contract_version,
+        "decision_source": decision_source,
+        "decision_contract": _json_cell(decision_contract),
+        "decision_evidence": _json_list_cell(evidence),
+        "decision_evidence_count": len(evidence),
+        "decision_evidence_sources": ";".join(source_tokens),
+        "decision_fallback_flags": ";".join(fallback_flags),
+        "decision_review_reasons": ";".join(review_reasons),
+        "decision_branch_conflicts": _json_cell(branch_conflicts),
+    }
 
 
 def _collect_knowledge_fields(results_payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -335,6 +929,26 @@ def _build_ok_row(case: EvalCase, results_payload: Dict[str, Any]) -> Dict[str, 
     }
     row.update(_collect_knowledge_fields(results_payload))
     row.update(_collect_review_fields(results_payload))
+    row.update(_collect_decision_contract_fields(results_payload))
+    manufacturing_evidence = _manufacturing_evidence_items_from_results(results_payload)
+    row.update(_collect_manufacturing_evidence_fields(results_payload))
+    predicted_sources = _source_tokens_from_text(
+        row.get("manufacturing_evidence_sources")
+    )
+    row.update(
+        _manufacturing_correctness_fields(
+            predicted_sources,
+            case.expected_manufacturing_evidence_sources,
+            reviewed=case.manufacturing_evidence_reviewed,
+        )
+    )
+    row.update(
+        _manufacturing_payload_quality_fields(
+            manufacturing_evidence,
+            case.expected_manufacturing_evidence_payloads,
+            reviewed=case.manufacturing_payload_reviewed,
+        )
+    )
     row.update(_collect_prep_fields(results_payload))
     return row
 
@@ -478,6 +1092,420 @@ def _summarize_prep_signals(rows: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
         "brep_valid_3d_count": brep_valid_3d_count,
         "brep_feature_hints_count": brep_feature_hints_count,
         "brep_top_hint_counts": dict(brep_top_hint_counts.most_common(10)),
+    }
+
+
+def _summarize_decision_contract_signals(rows: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
+    version_counts: Counter[str] = Counter()
+    evidence_source_counts: Counter[str] = Counter()
+    fallback_flag_counts: Counter[str] = Counter()
+    review_reason_counts: Counter[str] = Counter()
+    row_count = 0
+    decision_contract_count = 0
+    evidence_row_count = 0
+    evidence_total_count = 0
+    branch_conflict_count = 0
+
+    for row in rows:
+        row_count += 1
+        version = str(row.get("decision_contract_version") or "").strip()
+        if version:
+            decision_contract_count += 1
+            version_counts[version] += 1
+
+        try:
+            evidence_count = int(row.get("decision_evidence_count") or 0)
+        except (TypeError, ValueError):
+            evidence_count = 0
+        if evidence_count > 0:
+            evidence_row_count += 1
+            evidence_total_count += evidence_count
+
+        evidence_sources = [
+            token
+            for token in str(row.get("decision_evidence_sources") or "").split(";")
+            if token
+        ]
+        evidence_source_counts.update(evidence_sources)
+
+        fallback_flags = [
+            token
+            for token in str(row.get("decision_fallback_flags") or "").split(";")
+            if token
+        ]
+        fallback_flag_counts.update(fallback_flags)
+
+        review_reasons = [
+            token
+            for token in str(row.get("decision_review_reasons") or "").split(";")
+            if token
+        ]
+        review_reason_counts.update(review_reasons)
+
+        raw_conflicts = row.get("decision_branch_conflicts") or ""
+        try:
+            branch_conflicts = json.loads(raw_conflicts) if raw_conflicts else {}
+        except (TypeError, json.JSONDecodeError):
+            branch_conflicts = {}
+        if isinstance(branch_conflicts, dict) and any(branch_conflicts.values()):
+            branch_conflict_count += 1
+
+    def _top(counter: Counter[str]) -> Dict[str, int]:
+        return {name: int(count) for name, count in counter.most_common(10)}
+
+    return {
+        "row_count": row_count,
+        "decision_contract_count": decision_contract_count,
+        "decision_contract_coverage_rate": round(
+            decision_contract_count / row_count, 6
+        )
+        if row_count
+        else 0.0,
+        "decision_evidence_row_count": evidence_row_count,
+        "decision_evidence_total_count": evidence_total_count,
+        "decision_evidence_coverage_rate": round(evidence_row_count / row_count, 6)
+        if row_count
+        else 0.0,
+        "branch_conflict_count": branch_conflict_count,
+        "contract_version_counts": _top(version_counts),
+        "evidence_source_counts": _top(evidence_source_counts),
+        "fallback_flag_counts": _top(fallback_flag_counts),
+        "review_reason_counts": _top(review_reason_counts),
+    }
+
+
+def _ordered_manufacturing_sources(counter: Counter[str]) -> List[str]:
+    ordered = [
+        source
+        for source in MANUFACTURING_EVIDENCE_REQUIRED_SOURCES
+        if counter.get(source, 0) > 0
+    ]
+    ordered.extend(
+        sorted(source for source in counter.keys() if source not in set(ordered))
+    )
+    return ordered
+
+
+def _summarize_manufacturing_evidence(
+    rows: Iterable[Dict[str, Any]]
+) -> Dict[str, Any]:
+    row_count = 0
+    records_with_evidence = 0
+    evidence_total_count = 0
+    reviewed_sample_count = 0
+    exact_match_count = 0
+    true_positive_total = 0
+    false_positive_total = 0
+    false_negative_total = 0
+    payload_quality_reviewed_sample_count = 0
+    payload_expected_field_total = 0
+    payload_matched_field_total = 0
+    payload_mismatched_field_total = 0
+    payload_missing_field_total = 0
+    payload_detail_quality_reviewed_sample_count = 0
+    payload_detail_expected_field_total = 0
+    payload_detail_matched_field_total = 0
+    payload_detail_mismatched_field_total = 0
+    payload_detail_missing_field_total = 0
+    source_counts: Counter[str] = Counter()
+    expected_source_counts: Counter[str] = Counter()
+    true_positive_counts: Counter[str] = Counter()
+    false_positive_counts: Counter[str] = Counter()
+    false_negative_counts: Counter[str] = Counter()
+    payload_expected_field_counts: Counter[str] = Counter()
+    payload_matched_field_counts: Counter[str] = Counter()
+    payload_mismatched_field_counts: Counter[str] = Counter()
+    payload_missing_field_counts: Counter[str] = Counter()
+    payload_detail_expected_field_counts: Counter[str] = Counter()
+    payload_detail_matched_field_counts: Counter[str] = Counter()
+    payload_detail_mismatched_field_counts: Counter[str] = Counter()
+    payload_detail_missing_field_counts: Counter[str] = Counter()
+
+    for row in rows:
+        row_count += 1
+        try:
+            evidence_count = int(row.get("manufacturing_evidence_count") or 0)
+        except (TypeError, ValueError):
+            evidence_count = 0
+        if evidence_count > 0:
+            records_with_evidence += 1
+            evidence_total_count += evidence_count
+
+        row_sources = [
+            token
+            for token in str(row.get("manufacturing_evidence_sources") or "").split(";")
+            if token
+        ]
+        source_counts.update(dict.fromkeys(row_sources, 1))
+
+        if row.get("manufacturing_evidence_reviewed") is True:
+            reviewed_sample_count += 1
+            expected_sources = _source_tokens_from_text(
+                row.get("expected_manufacturing_evidence_sources")
+            )
+            true_positive_sources = _source_tokens_from_text(
+                row.get("manufacturing_evidence_true_positive_sources")
+            )
+            false_positive_sources = _source_tokens_from_text(
+                row.get("manufacturing_evidence_false_positive_sources")
+            )
+            false_negative_sources = _source_tokens_from_text(
+                row.get("manufacturing_evidence_false_negative_sources")
+            )
+            expected_source_counts.update(dict.fromkeys(expected_sources, 1))
+            true_positive_counts.update(dict.fromkeys(true_positive_sources, 1))
+            false_positive_counts.update(dict.fromkeys(false_positive_sources, 1))
+            false_negative_counts.update(dict.fromkeys(false_negative_sources, 1))
+            true_positive_total += len(true_positive_sources)
+            false_positive_total += len(false_positive_sources)
+            false_negative_total += len(false_negative_sources)
+            if row.get("manufacturing_evidence_source_exact_match") is True:
+                exact_match_count += 1
+
+        if row.get("manufacturing_evidence_payload_quality_reviewed") is True:
+            payload_quality_reviewed_sample_count += 1
+            try:
+                expected_fields = int(
+                    row.get("manufacturing_evidence_payload_expected_fields") or 0
+                )
+            except (TypeError, ValueError):
+                expected_fields = 0
+            try:
+                matched_fields = int(
+                    row.get("manufacturing_evidence_payload_matched_fields") or 0
+                )
+            except (TypeError, ValueError):
+                matched_fields = 0
+            try:
+                mismatched_fields = int(
+                    row.get("manufacturing_evidence_payload_mismatched_fields") or 0
+                )
+            except (TypeError, ValueError):
+                mismatched_fields = 0
+            try:
+                missing_fields = int(
+                    row.get("manufacturing_evidence_payload_missing_fields") or 0
+                )
+            except (TypeError, ValueError):
+                missing_fields = 0
+            payload_expected_field_total += expected_fields
+            payload_matched_field_total += matched_fields
+            payload_mismatched_field_total += mismatched_fields
+            payload_missing_field_total += missing_fields
+            try:
+                detail_expected_fields = int(
+                    row.get("manufacturing_evidence_payload_detail_expected_fields")
+                    or 0
+                )
+            except (TypeError, ValueError):
+                detail_expected_fields = 0
+            try:
+                detail_matched_fields = int(
+                    row.get("manufacturing_evidence_payload_detail_matched_fields")
+                    or 0
+                )
+            except (TypeError, ValueError):
+                detail_matched_fields = 0
+            try:
+                detail_mismatched_fields = int(
+                    row.get("manufacturing_evidence_payload_detail_mismatched_fields")
+                    or 0
+                )
+            except (TypeError, ValueError):
+                detail_mismatched_fields = 0
+            try:
+                detail_missing_fields = int(
+                    row.get("manufacturing_evidence_payload_detail_missing_fields")
+                    or 0
+                )
+            except (TypeError, ValueError):
+                detail_missing_fields = 0
+            if row.get("manufacturing_evidence_payload_detail_quality_reviewed") is True:
+                payload_detail_quality_reviewed_sample_count += 1
+                payload_detail_expected_field_total += detail_expected_fields
+                payload_detail_matched_field_total += detail_matched_fields
+                payload_detail_mismatched_field_total += detail_mismatched_fields
+                payload_detail_missing_field_total += detail_missing_fields
+
+            try:
+                quality = json.loads(
+                    row.get("manufacturing_evidence_payload_quality") or "{}"
+                )
+            except (TypeError, json.JSONDecodeError):
+                quality = {}
+            if isinstance(quality, dict):
+                for source, metric in quality.items():
+                    normalized_source = _normalize_manufacturing_source_token(source)
+                    if not normalized_source or not isinstance(metric, dict):
+                        continue
+                    payload_expected_field_counts[normalized_source] += int(
+                        metric.get("expected_field_count") or 0
+                    )
+                    payload_matched_field_counts[normalized_source] += int(
+                        metric.get("matched_field_count") or 0
+                    )
+                    payload_mismatched_field_counts[normalized_source] += len(
+                        metric.get("mismatched_fields") or []
+                    )
+                    payload_missing_field_counts[normalized_source] += len(
+                        metric.get("missing_fields") or []
+                    )
+                    payload_detail_expected_field_counts[normalized_source] += int(
+                        metric.get("detail_expected_field_count") or 0
+                    )
+                    payload_detail_matched_field_counts[normalized_source] += int(
+                        metric.get("detail_matched_field_count") or 0
+                    )
+                    payload_detail_mismatched_field_counts[normalized_source] += sum(
+                        1
+                        for item in metric.get("mismatched_fields") or []
+                        if isinstance(item, dict)
+                        and _is_payload_detail_field(str(item.get("field") or ""))
+                    )
+                    payload_detail_missing_field_counts[normalized_source] += sum(
+                        1
+                        for field_name in metric.get("missing_fields") or []
+                        if _is_payload_detail_field(str(field_name or ""))
+                    )
+
+    ordered_source_counts: Dict[str, int] = {
+        source: int(source_counts.get(source, 0))
+        for source in MANUFACTURING_EVIDENCE_REQUIRED_SOURCES
+    }
+    for source in sorted(
+        source for source in source_counts if source not in ordered_source_counts
+    ):
+        ordered_source_counts[source] = int(source_counts[source])
+
+    def _rate(numerator: int, denominator: int) -> float:
+        return round(numerator / denominator, 6) if denominator else 0.0
+
+    source_precision = _rate(
+        true_positive_total,
+        true_positive_total + false_positive_total,
+    )
+    source_recall = _rate(
+        true_positive_total,
+        true_positive_total + false_negative_total,
+    )
+    source_f1 = (
+        round(2.0 * source_precision * source_recall / (source_precision + source_recall), 6)
+        if source_precision + source_recall
+        else 0.0
+    )
+
+    def _source_metric(source: str) -> Dict[str, Any]:
+        tp = int(true_positive_counts.get(source, 0))
+        fp = int(false_positive_counts.get(source, 0))
+        fn = int(false_negative_counts.get(source, 0))
+        precision = _rate(tp, tp + fp)
+        recall = _rate(tp, tp + fn)
+        f1 = (
+            round(2.0 * precision * recall / (precision + recall), 6)
+            if precision + recall
+            else 0.0
+        )
+        return {
+            "expected_count": int(expected_source_counts.get(source, 0)),
+            "true_positive": tp,
+            "false_positive": fp,
+            "false_negative": fn,
+            "precision": precision,
+            "recall": recall,
+            "f1": f1,
+        }
+
+    payload_quality_accuracy = _rate(
+        payload_matched_field_total,
+        payload_expected_field_total,
+    )
+    payload_detail_quality_accuracy = _rate(
+        payload_detail_matched_field_total,
+        payload_detail_expected_field_total,
+    )
+
+    def _payload_quality_metric(source: str) -> Dict[str, Any]:
+        expected = int(payload_expected_field_counts.get(source, 0))
+        matched = int(payload_matched_field_counts.get(source, 0))
+        mismatched = int(payload_mismatched_field_counts.get(source, 0))
+        missing = int(payload_missing_field_counts.get(source, 0))
+        detail_expected = int(payload_detail_expected_field_counts.get(source, 0))
+        detail_matched = int(payload_detail_matched_field_counts.get(source, 0))
+        detail_mismatched = int(payload_detail_mismatched_field_counts.get(source, 0))
+        detail_missing = int(payload_detail_missing_field_counts.get(source, 0))
+        return {
+            "expected_field_count": expected,
+            "matched_field_count": matched,
+            "mismatched_field_count": mismatched,
+            "missing_field_count": missing,
+            "accuracy": _rate(matched, expected),
+            "detail_expected_field_count": detail_expected,
+            "detail_matched_field_count": detail_matched,
+            "detail_mismatched_field_count": detail_mismatched,
+            "detail_missing_field_count": detail_missing,
+            "detail_accuracy": _rate(detail_matched, detail_expected),
+        }
+
+    return {
+        "sample_size": row_count,
+        "records_with_manufacturing_evidence": records_with_evidence,
+        "manufacturing_evidence_coverage_rate": round(
+            records_with_evidence / row_count, 6
+        )
+        if row_count
+        else 0.0,
+        "manufacturing_evidence_total_count": evidence_total_count,
+        "source_counts": ordered_source_counts,
+        "source_coverage_rates": {
+            source: round(count / row_count, 6) if row_count else 0.0
+            for source, count in ordered_source_counts.items()
+        },
+        "sources": _ordered_manufacturing_sources(source_counts),
+        "required_sources": list(MANUFACTURING_EVIDENCE_REQUIRED_SOURCES),
+        "source_correctness_available": reviewed_sample_count > 0,
+        "reviewed_sample_count": reviewed_sample_count,
+        "source_exact_match_count": exact_match_count,
+        "source_exact_match_rate": _rate(exact_match_count, reviewed_sample_count),
+        "source_true_positive_total": true_positive_total,
+        "source_false_positive_total": false_positive_total,
+        "source_false_negative_total": false_negative_total,
+        "source_precision": source_precision,
+        "source_recall": source_recall,
+        "source_f1": source_f1,
+        "expected_source_counts": {
+            source: int(expected_source_counts.get(source, 0))
+            for source in MANUFACTURING_EVIDENCE_REQUIRED_SOURCES
+        },
+        "source_correctness": {
+            source: _source_metric(source)
+            for source in MANUFACTURING_EVIDENCE_REQUIRED_SOURCES
+        },
+        "payload_quality_available": payload_quality_reviewed_sample_count > 0,
+        "payload_quality_reviewed_sample_count": payload_quality_reviewed_sample_count,
+        "payload_quality_expected_field_total": payload_expected_field_total,
+        "payload_quality_matched_field_total": payload_matched_field_total,
+        "payload_quality_mismatched_field_total": payload_mismatched_field_total,
+        "payload_quality_missing_field_total": payload_missing_field_total,
+        "payload_quality_accuracy": payload_quality_accuracy,
+        "payload_detail_quality_available": (
+            payload_detail_quality_reviewed_sample_count > 0
+        ),
+        "payload_detail_quality_reviewed_sample_count": (
+            payload_detail_quality_reviewed_sample_count
+        ),
+        "payload_detail_quality_expected_field_total": (
+            payload_detail_expected_field_total
+        ),
+        "payload_detail_quality_matched_field_total": payload_detail_matched_field_total,
+        "payload_detail_quality_mismatched_field_total": (
+            payload_detail_mismatched_field_total
+        ),
+        "payload_detail_quality_missing_field_total": payload_detail_missing_field_total,
+        "payload_detail_quality_accuracy": payload_detail_quality_accuracy,
+        "payload_quality": {
+            source: _payload_quality_metric(source)
+            for source in MANUFACTURING_EVIDENCE_REQUIRED_SOURCES
+        },
     }
 
 
@@ -663,6 +1691,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         },
         "knowledge_signals": _summarize_knowledge_signals(ok_rows),
         "review_signals": _summarize_review_signals(ok_rows),
+        "decision_signals": _summarize_decision_contract_signals(ok_rows),
+        "manufacturing_evidence": _summarize_manufacturing_evidence(ok_rows),
         "prep_signals": _summarize_prep_signals(ok_rows),
     }
     (out_dir / "summary.json").write_text(

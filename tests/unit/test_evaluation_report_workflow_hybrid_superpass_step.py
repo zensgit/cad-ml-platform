@@ -21,6 +21,10 @@ def _get_step(workflow: dict, job_name: str, step_name: str) -> dict:
     raise AssertionError(f"Missing step {step_name!r} in job {job_name!r}")
 
 
+def _step_names(workflow: dict, job_name: str) -> list[str]:
+    return [step.get("name", "") for step in workflow["jobs"][job_name]["steps"]]
+
+
 def _assert_empty_workflow_dispatch(workflow: dict) -> None:
     assert workflow["on"]["workflow_dispatch"] == {}
 
@@ -40,6 +44,7 @@ def test_workflow_has_hybrid_superpass_inputs_and_env() -> None:
 
     assert "HYBRID_BLIND_ENABLE" in env
     assert "HYBRID_BLIND_GATE_CONFIG" in env
+    assert "HYBRID_BLIND_REQUIRE_REVIEWED_MANIFEST" in env
     assert "HYBRID_CONFIDENCE_CALIBRATION_ENABLE" in env
     assert "HYBRID_CONFIDENCE_CALIBRATION_OUTPUT_JSON" in env
     assert "HYBRID_SUPERPASS_ENABLE" in env
@@ -54,12 +59,25 @@ def test_workflow_has_hybrid_superpass_steps_and_artifacts() -> None:
     workflow = _load_workflow()
 
     blind_step = _get_step(workflow, "evaluate", "Run Hybrid blind benchmark (optional)")
-    assert "scripts/ci/build_hybrid_blind_synthetic_dxf_dataset.py" in blind_step["run"]
+    blind_script = blind_step["run"]
+    assert "scripts/ci/build_hybrid_blind_synthetic_dxf_dataset.py" in blind_script
+    assert "steps.forward_scorecard.outputs.manufacturing_review_manifest_merge_available" in (
+        blind_script
+    )
+    assert "steps.forward_scorecard.outputs.manufacturing_review_manifest_merged_csv" in (
+        blind_script
+    )
+    assert "MANIFEST_SOURCE=\"reviewed_benchmark_manifest\"" in blind_script
+    assert "manifest_source=$MANIFEST_SOURCE" in blind_script
     blind_gate_step = _get_step(workflow, "evaluate", "Check Hybrid blind gate (optional)")
     blind_gate_script = blind_gate_step["run"]
     assert "scripts/ci/check_hybrid_blind_gate.py" in blind_gate_script
     assert "--dataset-source" in blind_gate_script
     assert "steps.hybrid_blind_eval.outputs.dataset_source" in blind_gate_script
+    assert "--manifest-source" in blind_gate_script
+    assert "steps.hybrid_blind_eval.outputs.manifest_source" in blind_gate_script
+    assert "HYBRID_BLIND_REQUIRE_REVIEWED_MANIFEST" in blind_gate_script
+    assert "--require-manifest-source reviewed_benchmark_manifest" in blind_gate_script
     calibration_step = _get_step(workflow, "evaluate", "Calibrate Hybrid confidence from review CSV (optional)")
     assert "scripts/calibrate_hybrid_confidence.py" in calibration_step["run"]
 
@@ -101,3 +119,13 @@ def test_workflow_has_hybrid_superpass_steps_and_artifacts() -> None:
     summary_script = _load_bash_helper_from_step(summary_step)
     assert "Hybrid superpass gate status" in summary_script
     assert "Hybrid superpass gate strict_should_fail" in summary_script
+
+
+def test_forward_scorecard_runs_before_hybrid_blind_eval_for_reviewed_manifest() -> None:
+    workflow = _load_workflow()
+    names = _step_names(workflow, "evaluate")
+
+    forward_scorecard_idx = names.index("Build forward scorecard release gate (optional)")
+    hybrid_blind_idx = names.index("Run Hybrid blind benchmark (optional)")
+
+    assert forward_scorecard_idx < hybrid_blind_idx

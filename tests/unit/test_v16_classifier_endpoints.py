@@ -297,6 +297,10 @@ class TestBatchClassifyEndpoint:
         assert payload["results"][0]["category"] == "轴类"
         assert payload["results"][0]["fine_category"] == "轴类"
         assert payload["results"][0]["coarse_category"] == "轴类"
+        assert payload["results"][0]["fine_part_type"] == "轴类"
+        assert payload["results"][0]["coarse_part_type"] == "轴类"
+        assert payload["results"][0]["contract_version"] == "classification_decision.v1"
+        assert payload["results"][0]["decision_contract"]["fine_part_type"] == "轴类"
         assert payload["results"][0]["is_coarse_label"] is True
         assert payload["results"][0]["confidence"] == 0.95
         assert payload["results"][0]["top2_category"] == "连接件"
@@ -372,6 +376,10 @@ class TestBatchClassifyEndpoint:
         assert payload["results"][0]["category"] == "人孔"
         assert payload["results"][0]["fine_category"] == "人孔"
         assert payload["results"][0]["coarse_category"] == "开孔件"
+        assert payload["results"][0]["fine_part_type"] == "人孔"
+        assert payload["results"][0]["coarse_part_type"] == "开孔件"
+        assert payload["results"][0]["decision_source"] == "ml_v6"
+        assert payload["results"][0]["decision_contract"]["coarse_part_type"] == "开孔件"
         assert payload["results"][0]["is_coarse_label"] is False
         assert payload["results"][0]["needs_review"] is True
         assert payload["results"][0]["review_reason"] == "edge_case"

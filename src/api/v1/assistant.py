@@ -51,6 +51,16 @@ class QueryAlternative(BaseModel):
     confidence: float = Field(..., description="候选置信度 (0-1)")
 
 
+class QueryKnowledgeCitation(BaseModel):
+    """Rule-level citation extracted from shared decision evidence."""
+
+    evidence_source: str = Field(..., description="证据来源")
+    rule_source: str = Field(..., description="规则来源")
+    rule_version: str = Field(..., description="规则版本")
+    categories: List[str] = Field(default_factory=list, description="知识检查类别")
+    standards: List[str] = Field(default_factory=list, description="标准候选类别")
+
+
 class QueryUncertainty(BaseModel):
     """Uncertainty description for assistant explainability."""
 
@@ -72,6 +82,23 @@ class QueryExplainability(BaseModel):
         description="其他候选来源或标签",
     )
     uncertainty: QueryUncertainty = Field(..., description="不确定性摘要")
+    contract_version: Optional[str] = Field(default=None, description="决策合同版本")
+    decision_contract: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="共享最终决策合同",
+    )
+    decision_evidence: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="来自 DecisionService 的结构化决策证据",
+    )
+    knowledge_citations: List[QueryKnowledgeCitation] = Field(
+        default_factory=list,
+        description="来自 analyze 决策证据的知识规则引用",
+    )
+    rule_sources: List[str] = Field(default_factory=list, description="规则来源列表")
+    rule_versions: List[str] = Field(default_factory=list, description="规则版本列表")
+    fallback_flags: List[str] = Field(default_factory=list, description="降级/回退标记")
+    review_reasons: List[str] = Field(default_factory=list, description="复核原因列表")
 
 
 class QueryResponse(BaseModel):
@@ -139,10 +166,163 @@ def get_assistant():
     return _assistant_instance
 
 
+def _safe_float(value: Any, default: Optional[float] = 0.0) -> Optional[float]:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _list_text(value: Any) -> List[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        values = [value]
+    elif isinstance(value, list):
+        values = value
+    else:
+        values = [value]
+    return [str(item).strip() for item in values if str(item).strip()]
+
+
+def _decision_contract_from_metadata(metadata: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    contract = metadata.get("decision_contract")
+    return dict(contract) if isinstance(contract, dict) else None
+
+
+def _decision_evidence_from_metadata(
+    metadata: Dict[str, Any],
+    decision_contract: Optional[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    raw_evidence = metadata.get("decision_evidence")
+    if raw_evidence is None and isinstance(decision_contract, dict):
+        raw_evidence = decision_contract.get("evidence")
+    if not isinstance(raw_evidence, list):
+        return []
+    rows: List[Dict[str, Any]] = []
+    for item in raw_evidence:
+        if not isinstance(item, dict):
+            continue
+        source = str(item.get("source") or "").strip()
+        if not source:
+            continue
+        rows.append(dict(item))
+    return rows
+
+
+def _source_contributions_from_decision_evidence(
+    evidence_rows: List[Dict[str, Any]],
+) -> Dict[str, float]:
+    totals: Dict[str, float] = {}
+    for row in evidence_rows:
+        source = str(row.get("source") or "").strip()
+        if not source:
+            continue
+        score = _safe_float(row.get("contribution"), default=None)
+        if score is None:
+            score = _safe_float(row.get("confidence"), default=None)
+        if score is None or score <= 0:
+            continue
+        totals[source] = totals.get(source, 0.0) + score
+    total = sum(totals.values())
+    if total <= 0:
+        return {}
+    return {
+        key: round(value / total, 6)
+        for key, value in sorted(totals.items(), key=lambda pair: -pair[1])
+    }
+
+
+def _decision_alternatives(
+    evidence_rows: List[Dict[str, Any]],
+    source_contributions: Dict[str, float],
+) -> List[QueryAlternative]:
+    alternatives: List[QueryAlternative] = []
+    seen = set()
+    for row in evidence_rows:
+        source = str(row.get("source") or "").strip()
+        if not source or source in seen:
+            continue
+        seen.add(source)
+        label = str(row.get("label") or source).strip()
+        confidence = source_contributions.get(source)
+        if confidence is None:
+            confidence = _safe_float(row.get("confidence"), default=0.0) or 0.0
+        alternatives.append(QueryAlternative(label=label, confidence=confidence))
+    return alternatives[:4]
+
+
+def _knowledge_citations_from_decision_evidence(
+    evidence_rows: List[Dict[str, Any]],
+) -> List[QueryKnowledgeCitation]:
+    citations: List[QueryKnowledgeCitation] = []
+    seen: set[tuple[str, str, str]] = set()
+    for row in evidence_rows:
+        source = str(row.get("source") or "").strip()
+        details = row.get("details") if isinstance(row.get("details"), dict) else {}
+        rule_sources = _list_text(
+            row.get("rule_source")
+            or details.get("rule_sources")
+            or details.get("rule_source")
+        )
+        rule_versions = _list_text(
+            row.get("rule_version")
+            or details.get("rule_versions")
+            or details.get("rule_version")
+        )
+        if not rule_sources:
+            continue
+        categories = _list_text(
+            row.get("category")
+            or details.get("check_categories")
+            or details.get("categories")
+        )
+        standards = _list_text(
+            row.get("type")
+            or details.get("standards_candidate_types")
+            or details.get("standards")
+        )
+        rule_version = rule_versions[0] if rule_versions else "unknown"
+        for rule_source in rule_sources:
+            key = (source, rule_source, rule_version)
+            if key in seen:
+                continue
+            seen.add(key)
+            citations.append(
+                QueryKnowledgeCitation(
+                    evidence_source=source or "knowledge",
+                    rule_source=rule_source,
+                    rule_version=rule_version,
+                    categories=categories,
+                    standards=standards,
+                )
+            )
+    return citations
+
+
+def _append_knowledge_citation_note(
+    answer: str,
+    explainability: QueryExplainability,
+) -> str:
+    citations = explainability.knowledge_citations
+    if not citations:
+        return answer
+    citation_tokens = [
+        f"{item.rule_source}@{item.rule_version}"
+        for item in citations[:5]
+    ]
+    note = "知识规则引用: " + "; ".join(citation_tokens)
+    if note in answer:
+        return answer
+    return f"{answer.rstrip()}\n\n{note}"
+
+
 def _build_query_explainability(response: Any) -> QueryExplainability:
     """Build a stable explainability payload from assistant evidence and metadata."""
     metadata = dict(getattr(response, "metadata", {}) or {})
     evidence_items = list(getattr(response, "evidence", []) or [])
+    decision_contract = _decision_contract_from_metadata(metadata)
+    decision_evidence = _decision_evidence_from_metadata(metadata, decision_contract)
     retrieval_count = int(metadata.get("retrieval_count") or len(evidence_items) or 0)
     source_totals: Dict[str, float] = {}
     for item in evidence_items:
@@ -159,10 +339,22 @@ def _build_query_explainability(response: Any) -> QueryExplainability:
     else:
         source_contributions = {}
 
-    alternative_labels = [
-        QueryAlternative(label=key, confidence=value)
-        for key, value in list(source_contributions.items())[1:4]
-    ]
+    decision_source_contributions = _source_contributions_from_decision_evidence(
+        decision_evidence
+    )
+    if decision_source_contributions:
+        source_contributions = decision_source_contributions
+
+    if decision_evidence:
+        alternative_labels = _decision_alternatives(
+            decision_evidence,
+            source_contributions,
+        )
+    else:
+        alternative_labels = [
+            QueryAlternative(label=key, confidence=value)
+            for key, value in list(source_contributions.items())[1:4]
+        ]
 
     uncertainty_reasons: List[str] = []
     uncertainty_score = max(0.0, min(1.0, 1.0 - float(getattr(response, "confidence", 0.0))))
@@ -175,6 +367,36 @@ def _build_query_explainability(response: Any) -> QueryExplainability:
     if len(source_contributions) <= 1:
         uncertainty_reasons.append("single_source_grounding")
         uncertainty_score = max(uncertainty_score, 0.35)
+    fallback_flags = _list_text(
+        (decision_contract or {}).get("fallback_flags") or metadata.get("fallback_flags")
+    )
+    review_reasons = _list_text(
+        (decision_contract or {}).get("review_reasons") or metadata.get("review_reasons")
+    )
+    branch_conflicts = (
+        (decision_contract or {}).get("branch_conflicts")
+        if isinstance((decision_contract or {}).get("branch_conflicts"), dict)
+        else {}
+    )
+    if review_reasons:
+        uncertainty_reasons.extend(
+            reason for reason in review_reasons if reason not in uncertainty_reasons
+        )
+        uncertainty_score = max(uncertainty_score, 0.45)
+    if branch_conflicts:
+        uncertainty_reasons.append("branch_conflict")
+        uncertainty_score = max(uncertainty_score, 0.6)
+    if fallback_flags:
+        uncertainty_reasons.append("fallback_flags_present")
+        uncertainty_score = max(uncertainty_score, 0.5)
+
+    knowledge_citations = _knowledge_citations_from_decision_evidence(decision_evidence)
+    rule_sources = list(
+        dict.fromkeys(item.rule_source for item in knowledge_citations)
+    )
+    rule_versions = list(
+        dict.fromkeys(item.rule_version for item in knowledge_citations)
+    )
 
     decision_path = [
         "query_analyzed",
@@ -182,17 +404,34 @@ def _build_query_explainability(response: Any) -> QueryExplainability:
         "context_assembled",
         "response_generated",
     ]
+    if decision_contract:
+        decision_path.append("decision_contract_loaded")
+    if decision_evidence:
+        decision_path.append("decision_evidence_grounded")
     if source_contributions:
         decision_path.append("structured_evidence_grounded")
+    if knowledge_citations:
+        decision_path.append("knowledge_rule_citations_grounded")
 
     summary_parts = [
         f"intent={metadata.get('intent') or 'unknown'}",
         f"retrieval={retrieval_count}",
         f"evidence={len(evidence_items)}",
     ]
+    if decision_contract:
+        summary_parts.append(
+            f"contract={decision_contract.get('contract_version') or 'unknown'}"
+        )
+        summary_parts.append(
+            f"decision_source={decision_contract.get('decision_source') or 'unknown'}"
+        )
+        if decision_contract.get("fine_part_type"):
+            summary_parts.append(f"fine={decision_contract.get('fine_part_type')}")
     if source_contributions:
         primary_source = next(iter(source_contributions))
         summary_parts.append(f"primary_source={primary_source}")
+    if rule_versions:
+        summary_parts.append(f"rule_version={rule_versions[0]}")
     if uncertainty_reasons:
         summary_parts.append(f"uncertainty={','.join(uncertainty_reasons[:2])}")
 
@@ -205,6 +444,14 @@ def _build_query_explainability(response: Any) -> QueryExplainability:
             score=round(uncertainty_score, 6),
             reasons=uncertainty_reasons,
         ),
+        contract_version=(decision_contract or {}).get("contract_version"),
+        decision_contract=decision_contract,
+        decision_evidence=decision_evidence,
+        knowledge_citations=knowledge_citations,
+        rule_sources=rule_sources,
+        rule_versions=rule_versions,
+        fallback_flags=fallback_flags,
+        review_reasons=review_reasons,
     )
 
 
@@ -252,13 +499,15 @@ async def query_assistant(request: QueryRequest) -> QueryResponse:
             },
         )
 
+        explainability = _build_query_explainability(response)
+
         return QueryResponse(
             success=True,
-            answer=response.answer,
+            answer=_append_knowledge_citation_note(response.answer, explainability),
             confidence=response.confidence,
             sources=response.sources,
             evidence=[QueryEvidence(**item.to_dict()) for item in response.evidence],
-            explainability=_build_query_explainability(response),
+            explainability=explainability,
             intent=response.metadata.get("intent") if request.verbose else None,
             entities=response.metadata.get("entities") if request.verbose else None,
         )

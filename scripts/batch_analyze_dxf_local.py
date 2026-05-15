@@ -40,6 +40,20 @@ try:
 except Exception as exc:  # pragma: no cover
     raise SystemExit(f"Failed to import app: {exc}")
 
+MANUFACTURING_EVIDENCE_REQUIRED_SOURCES = (
+    "dfm",
+    "manufacturing_process",
+    "manufacturing_cost",
+    "manufacturing_decision",
+)
+
+MANUFACTURING_EVIDENCE_SOURCE_FLAGS = {
+    "dfm": "manufacturing_evidence_has_dfm",
+    "manufacturing_process": "manufacturing_evidence_has_process",
+    "manufacturing_cost": "manufacturing_evidence_has_cost",
+    "manufacturing_decision": "manufacturing_evidence_has_decision",
+}
+
 
 def _collect_files(root: Path) -> List[Path]:
     return [p for p in root.rglob("*.dxf") if p.is_file()]
@@ -141,6 +155,268 @@ def _extract_knowledge_context(classification: Dict[str, Any]) -> Dict[str, Any]
         "knowledge_violation_categories": _token_join(violations, "category"),
         "knowledge_standard_types": _token_join(standards_candidates, "type"),
         "knowledge_hint_labels": _token_join(knowledge_hints, "label"),
+    }
+
+
+def _string_tokens(value: Any) -> List[str]:
+    if not isinstance(value, list):
+        return []
+    tokens: List[str] = []
+    for item in value:
+        token = str(item or "").strip()
+        if token:
+            tokens.append(token)
+    return tokens
+
+
+def _evidence_sources(evidence: Any) -> List[str]:
+    if not isinstance(evidence, list):
+        return []
+    sources: List[str] = []
+    for item in evidence:
+        if not isinstance(item, dict):
+            continue
+        source = str(item.get("source") or "").strip()
+        if source:
+            sources.append(source)
+    return list(dict.fromkeys(sources))
+
+
+def _evidence_items(value: Any, *, required_sources_only: bool) -> List[Dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    evidence: List[Dict[str, Any]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        source = str(item.get("source") or "").strip()
+        if required_sources_only and source not in MANUFACTURING_EVIDENCE_REQUIRED_SOURCES:
+            continue
+        evidence.append(dict(item))
+    return evidence
+
+
+def _extract_manufacturing_evidence(results_payload: Dict[str, Any]) -> Dict[str, Any]:
+    classification = results_payload.get("classification", {}) or {}
+    if not isinstance(classification, dict):
+        classification = {}
+    decision_contract = classification.get("decision_contract")
+    if not isinstance(decision_contract, dict):
+        decision_contract = {}
+
+    evidence: List[Dict[str, Any]] = []
+    candidates = [
+        (results_payload.get("manufacturing_evidence"), False),
+        (classification.get("manufacturing_evidence"), False),
+        (classification.get("evidence"), True),
+        (decision_contract.get("evidence"), True),
+    ]
+    for candidate, required_sources_only in candidates:
+        evidence = _evidence_items(
+            candidate,
+            required_sources_only=required_sources_only,
+        )
+        if evidence:
+            break
+
+    sources = _evidence_sources(evidence)
+    source_set = set(sources)
+    payload: Dict[str, Any] = {
+        "manufacturing_evidence": _json_cell(evidence),
+        "manufacturing_evidence_count": len(evidence),
+        "manufacturing_evidence_sources": ";".join(sources),
+        "manufacturing_evidence_required_sources_present": all(
+            source in source_set for source in MANUFACTURING_EVIDENCE_REQUIRED_SOURCES
+        ),
+    }
+    for source, field_name in MANUFACTURING_EVIDENCE_SOURCE_FLAGS.items():
+        payload[field_name] = source in source_set
+    return payload
+
+
+def _ordered_manufacturing_sources(counter: Counter[str]) -> List[str]:
+    ordered = [
+        source
+        for source in MANUFACTURING_EVIDENCE_REQUIRED_SOURCES
+        if counter.get(source, 0) > 0
+    ]
+    ordered.extend(
+        sorted(source for source in counter.keys() if source not in set(ordered))
+    )
+    return ordered
+
+
+def _summarize_manufacturing_evidence(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    row_count = len(rows)
+    records_with_evidence = 0
+    evidence_total_count = 0
+    source_counts: Counter[str] = Counter()
+
+    for row in rows:
+        try:
+            evidence_count = int(row.get("manufacturing_evidence_count") or 0)
+        except (TypeError, ValueError):
+            evidence_count = 0
+        if evidence_count > 0:
+            records_with_evidence += 1
+            evidence_total_count += evidence_count
+
+        row_sources = [
+            token
+            for token in str(row.get("manufacturing_evidence_sources") or "").split(";")
+            if token
+        ]
+        source_counts.update(dict.fromkeys(row_sources, 1))
+
+    ordered_source_counts: Dict[str, int] = {
+        source: int(source_counts.get(source, 0))
+        for source in MANUFACTURING_EVIDENCE_REQUIRED_SOURCES
+    }
+    for source in sorted(
+        source for source in source_counts if source not in ordered_source_counts
+    ):
+        ordered_source_counts[source] = int(source_counts[source])
+
+    return {
+        "sample_size": row_count,
+        "records_with_manufacturing_evidence": records_with_evidence,
+        "manufacturing_evidence_coverage_rate": round(
+            records_with_evidence / row_count, 6
+        )
+        if row_count
+        else 0.0,
+        "manufacturing_evidence_total_count": evidence_total_count,
+        "source_counts": ordered_source_counts,
+        "source_coverage_rates": {
+            source: round(count / row_count, 6) if row_count else 0.0
+            for source, count in ordered_source_counts.items()
+        },
+        "sources": _ordered_manufacturing_sources(source_counts),
+        "required_sources": list(MANUFACTURING_EVIDENCE_REQUIRED_SOURCES),
+    }
+
+
+def _extract_decision_context(classification: Dict[str, Any]) -> Dict[str, Any]:
+    decision_contract = classification.get("decision_contract")
+    if not isinstance(decision_contract, dict):
+        decision_contract = {}
+
+    evidence = classification.get("evidence")
+    if not isinstance(evidence, list):
+        evidence = decision_contract.get("evidence")
+    if not isinstance(evidence, list):
+        evidence = []
+
+    fallback_flags = _string_tokens(classification.get("fallback_flags"))
+    if not fallback_flags:
+        fallback_flags = _string_tokens(decision_contract.get("fallback_flags"))
+
+    review_reasons = _string_tokens(classification.get("review_reasons"))
+    if not review_reasons:
+        review_reasons = _string_tokens(decision_contract.get("review_reasons"))
+
+    branch_conflicts = classification.get("branch_conflicts")
+    if not isinstance(branch_conflicts, dict):
+        branch_conflicts = decision_contract.get("branch_conflicts")
+    if not isinstance(branch_conflicts, dict):
+        branch_conflicts = {}
+
+    contract_version = (
+        classification.get("contract_version")
+        or classification.get("decision_contract_version")
+        or decision_contract.get("contract_version")
+    )
+    decision_source = (
+        classification.get("decision_source")
+        or decision_contract.get("decision_source")
+        or classification.get("confidence_source")
+    )
+
+    return {
+        "decision_contract_present": bool(decision_contract),
+        "decision_contract_version": contract_version,
+        "decision_source": decision_source,
+        "decision_contract": _json_cell(decision_contract),
+        "decision_evidence": _json_cell(evidence),
+        "decision_evidence_count": len(evidence),
+        "decision_evidence_sources": ";".join(_evidence_sources(evidence)),
+        "decision_fallback_flags": ";".join(fallback_flags),
+        "decision_review_reasons": ";".join(review_reasons),
+        "decision_branch_conflicts": _json_cell(branch_conflicts),
+    }
+
+
+def _summarize_decision_context(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    version_counts: Counter[str] = Counter()
+    evidence_source_counts: Counter[str] = Counter()
+    fallback_flag_counts: Counter[str] = Counter()
+    review_reason_counts: Counter[str] = Counter()
+    decision_contract_count = 0
+    evidence_row_count = 0
+    evidence_total_count = 0
+    branch_conflict_count = 0
+
+    for row in rows:
+        version = str(row.get("decision_contract_version") or "").strip()
+        if version:
+            decision_contract_count += 1
+            version_counts[version] += 1
+
+        try:
+            evidence_count = int(row.get("decision_evidence_count") or 0)
+        except (TypeError, ValueError):
+            evidence_count = 0
+        if evidence_count > 0:
+            evidence_row_count += 1
+            evidence_total_count += evidence_count
+
+        evidence_source_counts.update(
+            token
+            for token in str(row.get("decision_evidence_sources") or "").split(";")
+            if token
+        )
+        fallback_flag_counts.update(
+            token
+            for token in str(row.get("decision_fallback_flags") or "").split(";")
+            if token
+        )
+        review_reason_counts.update(
+            token
+            for token in str(row.get("decision_review_reasons") or "").split(";")
+            if token
+        )
+
+        raw_conflicts = row.get("decision_branch_conflicts") or ""
+        try:
+            branch_conflicts = json.loads(raw_conflicts) if raw_conflicts else {}
+        except (TypeError, json.JSONDecodeError):
+            branch_conflicts = {}
+        if isinstance(branch_conflicts, dict) and any(branch_conflicts.values()):
+            branch_conflict_count += 1
+
+    row_count = len(rows)
+
+    def _top(counter: Counter[str]) -> Dict[str, int]:
+        return {name: int(count) for name, count in counter.most_common(10)}
+
+    return {
+        "row_count": row_count,
+        "decision_contract_count": decision_contract_count,
+        "decision_contract_coverage_rate": round(
+            decision_contract_count / row_count, 6
+        )
+        if row_count
+        else 0.0,
+        "decision_evidence_row_count": evidence_row_count,
+        "decision_evidence_total_count": evidence_total_count,
+        "decision_evidence_coverage_rate": round(evidence_row_count / row_count, 6)
+        if row_count
+        else 0.0,
+        "branch_conflict_count": branch_conflict_count,
+        "contract_version_counts": _top(version_counts),
+        "evidence_source_counts": _top(evidence_source_counts),
+        "fallback_flag_counts": _top(fallback_flag_counts),
+        "review_reason_counts": _top(review_reason_counts),
     }
 
 
@@ -376,7 +652,8 @@ def main() -> None:
             continue
 
         data = resp.json()
-        classification = data.get("results", {}).get("classification", {})
+        results_payload = data.get("results", {}) or {}
+        classification = results_payload.get("classification", {})
         graph2d = classification.get("graph2d_prediction", {}) or {}
         filename_pred = classification.get("filename_prediction", {}) or {}
         hybrid_decision = classification.get("hybrid_decision", {}) or {}
@@ -578,6 +855,8 @@ def main() -> None:
             "review_reasons": ";".join(classification.get("review_reasons") or []),
         }
         row.update(_extract_knowledge_context(classification))
+        row.update(_extract_decision_context(classification))
+        row.update(_extract_manufacturing_evidence(results_payload))
         rows.append(row)
         stats["success"] += 1
         if soft_override.get("eligible"):
@@ -942,6 +1221,8 @@ def main() -> None:
             ),
             "top_hint_labels": dict(knowledge_hint_label_counts.most_common(10)),
         },
+        "decision_signals": _summarize_decision_context(ok_rows),
+        "manufacturing_evidence": _summarize_manufacturing_evidence(ok_rows),
         "fine": {
             "label_present_count": fine_label_present,
             "label_present_rate": (fine_label_present / max(1, len(ok_rows))),
