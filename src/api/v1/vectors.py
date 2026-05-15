@@ -7,6 +7,13 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from fastapi import APIRouter
 
+# Compatibility facade re-export: pre-split vectors.py imported these from
+# src.api.dependencies, and tests monkeypatch `src.api.v1.vectors.get_api_key`
+# (tests/unit/test_migration_preview_trends.py). Dropping this import in the
+# facade refactor (commit 17a28676) broke that surface. get_admin_token is
+# restored for symmetry with the pre-split facade; no current test exercises it.
+from src.api.dependencies import get_admin_token, get_api_key
+
 from src.api.v1.vector_crud_models import (
     VectorDeleteRequest,
     VectorDeleteResponse,
@@ -266,6 +273,8 @@ __all__ = [
     "VectorBackendReloadResponse",
     "_vector_reload_admin_token",
     "reload_vector_backend",
+    "get_api_key",
+    "get_admin_token",
 ]
 
 
