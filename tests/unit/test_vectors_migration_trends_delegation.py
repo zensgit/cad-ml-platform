@@ -14,8 +14,16 @@ def _auth_headers() -> dict[str, str]:
 
 
 def test_migrate_trends_delegates_to_trends_pipeline():
+    def _readiness(*_args, **_kwargs):  # noqa: ANN002, ANN003, ANN202
+        return {}
+
+    async def _collect_feature_versions(*_args, **_kwargs):  # noqa: ANN002, ANN003, ANN202
+        return {}, 0, 0
+
     async def _run_trends(**kwargs):  # noqa: ANN003, ANN202
         assert kwargs["window_hours"] == 12
+        assert kwargs["collect_qdrant_feature_versions_fn"] is _collect_feature_versions
+        assert kwargs["build_readiness_fn"] is _readiness
         return kwargs["response_cls"](
             total_migrations=1,
             success_rate=1.0,
@@ -38,7 +46,13 @@ def test_migrate_trends_delegates_to_trends_pipeline():
             migration_ready=False,
         )
 
-    with patch("src.api.v1.vectors.run_vector_migration_trends_pipeline", _run_trends):
+    with patch(
+        "src.api.v1.vectors._collect_qdrant_feature_versions",
+        _collect_feature_versions,
+    ), patch(
+        "src.api.v1.vectors._build_vector_migration_readiness",
+        _readiness,
+    ), patch("src.api.v1.vectors.run_vector_migration_trends_pipeline", _run_trends):
         response = client.get(
             "/api/v1/vectors/migrate/trends",
             params={"window_hours": 12},

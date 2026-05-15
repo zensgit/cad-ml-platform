@@ -14,8 +14,16 @@ def _auth_headers() -> dict[str, str]:
 
 
 def test_migrate_status_delegates_to_reporting_pipeline():
+    def _readiness(*_args, **_kwargs):  # noqa: ANN002, ANN003, ANN202
+        return {}
+
+    async def _collect_feature_versions(*_args, **_kwargs):  # noqa: ANN002, ANN003, ANN202
+        return {}, 0, 0
+
     async def _snapshot(**kwargs):  # noqa: ANN003, ANN202
         assert kwargs["qdrant_store"] == "store"
+        assert kwargs["collect_qdrant_feature_versions_fn"] is _collect_feature_versions
+        assert kwargs["build_readiness_fn"] is _readiness
         return {
             "backend": "qdrant",
             "versions": {"v4": 2},
@@ -56,6 +64,12 @@ def test_migrate_status_delegates_to_reporting_pipeline():
         }
 
     with patch("src.api.v1.vectors._get_qdrant_store_or_none", return_value="store"), patch(
+        "src.api.v1.vectors._collect_qdrant_feature_versions",
+        _collect_feature_versions,
+    ), patch(
+        "src.api.v1.vectors._build_vector_migration_readiness",
+        _readiness,
+    ), patch(
         "src.api.v1.vectors.collect_vector_migration_distribution_snapshot",
         _snapshot,
     ), patch(
