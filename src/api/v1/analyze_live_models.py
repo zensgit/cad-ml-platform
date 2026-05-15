@@ -57,6 +57,22 @@ class BatchClassifyResultItem(BaseModel):
     is_coarse_label: Optional[bool] = Field(
         default=None, description="分类类别是否已经是粗粒度标签"
     )
+    part_type: Optional[str] = Field(default=None, description="最终零件类别")
+    fine_part_type: Optional[str] = Field(default=None, description="最终细粒度零件类别")
+    coarse_part_type: Optional[str] = Field(default=None, description="最终粗粒度零件类别")
+    decision_source: Optional[str] = Field(default=None, description="最终决策来源")
+    branch_conflicts: Optional[Dict[str, Any]] = Field(
+        default=None, description="多分支分类冲突"
+    )
+    evidence: Optional[list[Dict[str, Any]]] = Field(
+        default=None, description="结构化决策证据"
+    )
+    review_reasons: Optional[list[str]] = Field(default=None, description="复核原因列表")
+    fallback_flags: Optional[list[str]] = Field(default=None, description="降级/回退标记")
+    contract_version: Optional[str] = Field(default=None, description="决策合同版本")
+    decision_contract: Optional[Dict[str, Any]] = Field(
+        default=None, description="稳定最终决策合同"
+    )
     confidence: Optional[float] = Field(default=None, description="置信度")
     probabilities: Optional[Dict[str, float]] = Field(
         default=None, description="各类别概率"
