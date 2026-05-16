@@ -232,6 +232,7 @@ def _v16_item() -> ModelReadinessItem:
     v14_path = os.getenv("V16_V14_MODEL_PATH", "models/cad_classifier_v14_ensemble.pt")
     classifier = _module_object("src.core.analyzer", "_v16_classifier")
     loaded = bool(classifier is not None and getattr(classifier, "loaded", False))
+    error = _module_object("src.core.analyzer", "_v16_classifier_load_error")
     paths = _path_list([v6_path, v14_path])
     fallback = "v6_or_rule_based_classifier" if enabled and not _all_paths_exist(paths) else None
     return _item(
@@ -239,6 +240,7 @@ def _v16_item() -> ModelReadinessItem:
         enabled=enabled,
         paths=paths,
         loaded=loaded,
+        error=error,
         checkpoint_required=True,
         fallback_mode=fallback,
         version=os.getenv("V16_MODEL_VERSION", "v16"),
@@ -328,6 +330,7 @@ def _ocr_item() -> ModelReadinessItem:
     path = os.getenv("OCR_MODEL_PATH", "").strip()
     manager = _module_object("src.api.v1.ocr", "_manager")
     loaded = bool(manager is not None and getattr(manager, "providers", None))
+    error = _module_object("src.api.v1.ocr", "_manager_load_error")
     paths = _path_list([path])
     provider = os.getenv("OCR_PROVIDER_DEFAULT", "paddle")
     fallback = "provider_managed" if enabled and not paths else None
@@ -336,6 +339,7 @@ def _ocr_item() -> ModelReadinessItem:
         enabled=enabled,
         paths=paths,
         loaded=loaded,
+        error=error,
         checkpoint_required=bool(paths),
         fallback_mode=fallback,
         version=provider,

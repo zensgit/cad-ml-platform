@@ -199,3 +199,33 @@ def test_registry_distinguishes_error_from_cold(monkeypatch, tmp_path) -> None:
     assert graph2d["error"] is None
     assert graph2d["status"] != "error"
     assert graph2d["status"] == "fallback"
+
+
+def test_registry_surfaces_v16_load_error(monkeypatch) -> None:
+    """V16 load failure is swallowed in analyzer._get_v16_classifier; the
+    recorded module-level error must surface as readiness status 'error'."""
+    monkeypatch.delenv("MODEL_READINESS_REQUIRED_MODELS", raising=False)
+    monkeypatch.delenv("MODEL_READINESS_STRICT", raising=False)
+    monkeypatch.setattr("src.core.analyzer._v16_classifier", None)
+    monkeypatch.setattr(
+        "src.core.analyzer._v16_classifier_load_error", "v16 boom"
+    )
+
+    item = _item(build_model_readiness_snapshot(), "v16_classifier")
+
+    assert item["status"] == "error"
+    assert item["error"] == "v16 boom"
+
+
+def test_registry_surfaces_ocr_load_error(monkeypatch) -> None:
+    """OCR provider bootstrap failure is recorded (and re-raised) in
+    get_manager; the recorded error must surface as status 'error'."""
+    monkeypatch.delenv("MODEL_READINESS_REQUIRED_MODELS", raising=False)
+    monkeypatch.delenv("MODEL_READINESS_STRICT", raising=False)
+    monkeypatch.setattr("src.api.v1.ocr._manager", None)
+    monkeypatch.setattr("src.api.v1.ocr._manager_load_error", "ocr boom")
+
+    item = _item(build_model_readiness_snapshot(), "ocr_provider")
+
+    assert item["status"] == "error"
+    assert item["error"] == "ocr boom"
