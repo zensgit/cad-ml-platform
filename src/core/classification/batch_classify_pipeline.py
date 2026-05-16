@@ -8,8 +8,88 @@ from typing import Any, Callable, Optional, Sequence
 from fastapi import UploadFile
 
 from src.core.classification.coarse_labels import normalize_coarse_label
+from src.core.classification.decision_service import DecisionService
+from src.core.classification.finalization import finalize_classification_payload
 
 ClassifierGetter = Callable[[], Any]
+
+
+def _merge_review_reasons(*reason_groups: Any) -> list[str]:
+    merged: list[str] = []
+    for group in reason_groups:
+        if group is None:
+            continue
+        if isinstance(group, str):
+            values = [group]
+        elif isinstance(group, (list, tuple, set)):
+            values = list(group)
+        else:
+            values = [group]
+        for value in values:
+            text = str(value).strip()
+            if text and text not in merged:
+                merged.append(text)
+    return merged
+
+
+def _finalize_batch_payload(payload: Optional[dict[str, Any]], **kwargs: Any) -> dict[str, Any]:
+    source_payload = dict(payload or {})
+    result = finalize_classification_payload(source_payload, **kwargs)
+    classifier_reasons = _merge_review_reasons(
+        source_payload.get("review_reasons"),
+        source_payload.get("review_reason"),
+    )
+    if source_payload.get("needs_review") and not classifier_reasons:
+        classifier_reasons.append("classifier_review")
+    if source_payload.get("needs_review") or classifier_reasons:
+        result["needs_review"] = True
+        result["review_reasons"] = _merge_review_reasons(
+            result.get("review_reasons"),
+            classifier_reasons,
+        )
+        result["review_reason_text"] = ";".join(result["review_reasons"])
+        if not str(result.get("review_priority") or "").strip() or (
+            result.get("review_priority") == "none"
+        ):
+            result["review_priority"] = "medium"
+    return result
+
+
+def _build_batch_decision_payload(
+    *,
+    category: Optional[str],
+    confidence: Optional[float],
+    probabilities: Optional[dict[str, float]],
+    classifier: Optional[str],
+    needs_review: bool,
+    review_reason: Optional[str],
+    top2_category: Optional[str],
+    top2_confidence: Optional[float],
+) -> dict[str, Any]:
+    fine_category = str(category or "").strip() or None
+    classifier_name = str(classifier or "batch_classifier").strip() or "batch_classifier"
+    return {
+        "part_type": fine_category,
+        "fine_part_type": fine_category,
+        "confidence": confidence,
+        "confidence_source": classifier_name,
+        "rule_version": classifier_name,
+        "probabilities": probabilities,
+        "needs_review": bool(needs_review),
+        "review_reason": review_reason,
+        "review_reasons": [review_reason] if review_reason else [],
+        "alternatives": (
+            [{"label": top2_category, "confidence": top2_confidence}]
+            if top2_category
+            else []
+        ),
+        "part_classifier_prediction": {
+            "label": fine_category,
+            "confidence": confidence,
+            "status": "ok" if fine_category else "no_prediction",
+            "model_version": classifier_name,
+        },
+    }
 
 
 def build_batch_classify_item(
@@ -30,15 +110,38 @@ def build_batch_classify_item(
     is_coarse_label = None
     if fine_category:
         is_coarse_label = fine_category == coarse_category
+    decision_payload = _build_batch_decision_payload(
+        category=fine_category,
+        confidence=confidence,
+        probabilities=probabilities,
+        classifier=classifier,
+        needs_review=needs_review,
+        review_reason=review_reason,
+        top2_category=top2_category,
+        top2_confidence=top2_confidence,
+    )
+    decided = DecisionService(finalize_fn=_finalize_batch_payload).decide(
+        decision_payload,
+    )
     return {
         "file_name": file_name,
         "category": fine_category,
         "fine_category": fine_category,
         "coarse_category": coarse_category,
         "is_coarse_label": is_coarse_label,
+        "part_type": decided.get("part_type"),
+        "fine_part_type": decided.get("fine_part_type"),
+        "coarse_part_type": decided.get("coarse_part_type"),
+        "decision_source": decided.get("decision_source"),
+        "branch_conflicts": decided.get("branch_conflicts"),
+        "evidence": decided.get("evidence"),
+        "review_reasons": decided.get("review_reasons"),
+        "fallback_flags": decided.get("fallback_flags"),
+        "contract_version": decided.get("contract_version"),
+        "decision_contract": decided.get("decision_contract"),
         "confidence": confidence,
         "probabilities": probabilities,
-        "needs_review": needs_review,
+        "needs_review": bool(decided.get("needs_review")),
         "review_reason": review_reason,
         "top2_category": top2_category,
         "top2_confidence": top2_confidence,

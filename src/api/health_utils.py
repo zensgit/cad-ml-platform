@@ -207,6 +207,33 @@ def build_health_payload(
                 f"v16_models_missing:v6={v6_model_path},v14={v14_model_path}"
             )
 
+        model_readiness_snapshot = None
+        try:
+            from src.models.readiness_registry import build_model_readiness_snapshot
+
+            model_readiness_snapshot = build_model_readiness_snapshot()
+            degraded_reasons.extend(model_readiness_snapshot.degraded_reasons)
+        except Exception:
+            model_readiness_snapshot = None
+
+        # Preserve the legacy readiness keys while adding the registry snapshot
+        # that reports model-by-model checkpoint, load and fallback state.
+        readiness_payload: Dict[str, Any] = {
+            "torch_available": torch_available,
+            "graph2d_model_path": graph2d_model_path,
+            "graph2d_model_present": graph2d_model_present,
+            "v16_disabled": v16_disabled,
+            "v6_model_path": v6_model_path,
+            "v14_model_path": v14_model_path,
+            "v16_models_present": v16_models_present,
+            "degraded_reasons": sorted(set(degraded_reasons)),
+            "required_providers": os.getenv("READINESS_REQUIRED_PROVIDERS", ""),
+            "optional_providers": os.getenv("READINESS_OPTIONAL_PROVIDERS", ""),
+        }
+        if model_readiness_snapshot is not None:
+            readiness_payload["model_registry"] = model_readiness_snapshot.to_dict()
+            readiness_payload["model_registry_status"] = model_readiness_snapshot.status
+
         base["config"]["ml"] = {
             "classification": {
                 "hybrid_enabled": bool(hybrid_cfg.enabled),
@@ -244,18 +271,7 @@ def build_health_payload(
                 "seed": int(hybrid_cfg.sampling.seed),
                 "text_priority_ratio": float(hybrid_cfg.sampling.text_priority_ratio),
             },
-            "readiness": {
-                "torch_available": torch_available,
-                "graph2d_model_path": graph2d_model_path,
-                "graph2d_model_present": graph2d_model_present,
-                "v16_disabled": v16_disabled,
-                "v6_model_path": v6_model_path,
-                "v14_model_path": v14_model_path,
-                "v16_models_present": v16_models_present,
-                "degraded_reasons": degraded_reasons,
-                "required_providers": os.getenv("READINESS_REQUIRED_PROVIDERS", ""),
-                "optional_providers": os.getenv("READINESS_OPTIONAL_PROVIDERS", ""),
-            },
+            "readiness": readiness_payload,
         }
     except Exception:
         # Hybrid config visibility is optional and should not fail health checks.

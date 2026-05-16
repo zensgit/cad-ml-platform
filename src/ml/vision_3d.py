@@ -166,6 +166,9 @@ class UVNetEncoder:
         self.model = None
         self.device = "cpu"
         self._loaded = False
+        # Set when the checkpoint exists but load raised, so the readiness
+        # registry can distinguish load-failure from cold/missing state.
+        self._load_error: Optional[str] = None
 
         if HAS_TORCH:
             if torch.cuda.is_available():
@@ -222,6 +225,7 @@ class UVNetEncoder:
             logger.info(f"UV-Net GNN model loaded from {self.model_path}")
         except Exception as e:
             logger.error(f"Failed to load UV-Net model: {e}")
+            self._load_error = f"Failed to load UV-Net model: {e}"
 
     def encode(
         self,

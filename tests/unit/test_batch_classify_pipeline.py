@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import UploadFile
 
+from src.core.classification.decision_service import DECISION_CONTRACT_VERSION
 from src.core.classification.batch_classify_pipeline import (
     build_batch_classify_item,
     run_batch_classify_pipeline,
@@ -30,6 +31,14 @@ def test_build_batch_classify_item_exposes_fine_coarse_contract() -> None:
     assert item["fine_category"] == "人孔"
     assert item["coarse_category"] == "开孔件"
     assert item["is_coarse_label"] is False
+    assert item["fine_part_type"] == "人孔"
+    assert item["coarse_part_type"] == "开孔件"
+    assert item["decision_source"] == "ml_v6"
+    assert item["contract_version"] == DECISION_CONTRACT_VERSION
+    assert item["decision_contract"]["contract_version"] == DECISION_CONTRACT_VERSION
+    assert item["decision_contract"]["fine_part_type"] == "人孔"
+    assert item["evidence"][0]["source"] == "baseline"
+    assert item["evidence"][1]["source"] == "part_classifier"
 
 
 @pytest.mark.asyncio
@@ -61,6 +70,7 @@ async def test_run_batch_classify_pipeline_keeps_invalid_prefix_aligned_in_v6_fa
     assert result["results"][1]["file_name"] == "good.dxf"
     assert result["results"][1]["coarse_category"] == "开孔件"
     assert result["results"][1]["is_coarse_label"] is False
+    assert result["results"][1]["decision_contract"]["coarse_part_type"] == "开孔件"
 
 
 @pytest.mark.asyncio
@@ -92,4 +102,5 @@ async def test_run_batch_classify_pipeline_keeps_invalid_prefix_aligned_in_v16_b
     assert "unsupported" in result["results"][0]["error"].lower()
     assert result["results"][1]["file_name"] == "good.dxf"
     assert result["results"][1]["fine_category"] == "壳体类"
+    assert result["results"][1]["contract_version"] == DECISION_CONTRACT_VERSION
     classifier.predict_batch.assert_called_once()

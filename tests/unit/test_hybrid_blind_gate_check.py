@@ -37,6 +37,7 @@ def test_hybrid_blind_gate_passes_with_gain_and_coverage() -> None:
     assert report["failures"] == []
     assert report["metrics"]["hybrid_gain_vs_graph2d"] > 0
     assert report["input_summary"]["dataset_source"] == "configured_dxf_dir"
+    assert report["input_summary"]["manifest_source"] == "unknown"
 
 
 def test_hybrid_blind_gate_fails_on_drop_and_bad_flags() -> None:
@@ -82,3 +83,63 @@ def test_hybrid_blind_gate_fails_on_drop_and_bad_flags() -> None:
     assert "hybrid_gain_vs_graph2d" in joined
     assert "hybrid_missing_pred_rate" in joined
     assert report["input_summary"]["dataset_source"] == "synthetic_manifest"
+
+
+def test_hybrid_blind_gate_can_require_reviewed_manifest_source() -> None:
+    from scripts.ci.check_hybrid_blind_gate import evaluate_hybrid_blind_gate
+
+    summary = {
+        "geometry_only": True,
+        "mask_filename": True,
+        "strip_text": True,
+        "sample_size": 120,
+        "weak_labels": {
+            "covered_count": 108,
+            "covered_rate": 0.9,
+            "accuracy": {
+                "hybrid_label": {
+                    "evaluated": 108,
+                    "correct": 49,
+                    "missing_pred": 10,
+                    "accuracy": 0.4537,
+                },
+                "graph2d_label": {
+                    "evaluated": 108,
+                    "correct": 42,
+                    "missing_pred": 11,
+                    "accuracy": 0.3889,
+                },
+            },
+        },
+    }
+    thresholds = {
+        "min_sample_size": 20,
+        "min_weak_label_coverage": 0.7,
+        "min_hybrid_accuracy": 0.30,
+        "min_gain_vs_graph2d": 0.0,
+        "max_hybrid_missing_pred_rate": 0.30,
+        "require_geometry_only": True,
+        "require_mask_filename": True,
+        "require_strip_text": True,
+    }
+
+    configured = evaluate_hybrid_blind_gate(
+        summary,
+        thresholds,
+        manifest_source="configured",
+        required_manifest_source="reviewed_benchmark_manifest",
+    )
+    reviewed = evaluate_hybrid_blind_gate(
+        summary,
+        thresholds,
+        manifest_source="reviewed_benchmark_manifest",
+        required_manifest_source="reviewed_benchmark_manifest",
+    )
+
+    assert configured["status"] == "failed"
+    assert "manifest_source" in "\n".join(configured["failures"])
+    assert configured["input_summary"]["required_manifest_source"] == (
+        "reviewed_benchmark_manifest"
+    )
+    assert reviewed["status"] == "passed"
+    assert reviewed["input_summary"]["manifest_source"] == "reviewed_benchmark_manifest"

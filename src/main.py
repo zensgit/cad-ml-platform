@@ -552,7 +552,7 @@ async def _run_readiness_check(
 async def readiness_check(response: Response):
     """就绪检查"""
     start = time.perf_counter()
-    from src.models.loader import models_loaded
+    from src.models.loader import models_readiness_check
     from src.utils.cache import redis_healthy
     from src.core.providers.readiness import (
         check_provider_readiness,
@@ -595,7 +595,7 @@ async def readiness_check(response: Response):
 
     checks = {
         "models_loaded": await _run_readiness_check(
-            models_loaded,
+            models_readiness_check,
             True,
             READINESS_CHECK_TIMEOUT_SECONDS,
         ),

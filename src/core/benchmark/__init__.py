@@ -150,3 +150,8 @@ from .competitive_surpass_action_plan import (  # noqa: F401
     competitive_surpass_action_plan_recommendations,
     render_competitive_surpass_action_plan_markdown,
 )
+from .forward_scorecard import (  # noqa: F401
+    FORWARD_STATUSES,
+    build_forward_scorecard,
+    render_forward_scorecard_markdown,
+)

@@ -40,6 +40,7 @@ def test_workflow_dispatch_and_env_expose_hybrid_superpass_controls() -> None:
     assert "HYBRID_BLIND_ENABLE" in env
     assert "HYBRID_BLIND_DXF_DIR" in env
     assert "HYBRID_BLIND_GATE_CONFIG" in env
+    assert "HYBRID_BLIND_REQUIRE_REVIEWED_MANIFEST" in env
     assert "HYBRID_CONFIDENCE_CALIBRATION_ENABLE" in env
     assert "HYBRID_CONFIDENCE_CALIBRATION_INPUT_CSV" in env
     assert "HYBRID_CONFIDENCE_CALIBRATION_OUTPUT_JSON" in env
@@ -61,6 +62,11 @@ def test_workflow_materializes_hybrid_superpass_prerequisites() -> None:
     assert "scripts/ci/build_hybrid_blind_synthetic_dxf_dataset.py" in blind_script
     assert "scripts/batch_analyze_dxf_local.py" in blind_script
     assert "HYBRID_BLIND_ENABLE" in blind_script
+    assert "steps.forward_scorecard.outputs.manufacturing_review_manifest_merged_csv" in (
+        blind_script
+    )
+    assert "reviewed_benchmark_manifest" in blind_script
+    assert "manifest_source=$MANIFEST_SOURCE" in blind_script
 
     blind_gate_step = _get_step(workflow, "evaluate", "Check Hybrid blind gate (optional)")
     blind_gate_script = blind_gate_step["run"]
@@ -68,6 +74,9 @@ def test_workflow_materializes_hybrid_superpass_prerequisites() -> None:
     assert "--summary-json" in blind_gate_script
     assert "--dataset-source" in blind_gate_script
     assert "steps.hybrid_blind_eval.outputs.dataset_source" in blind_gate_script
+    assert "--manifest-source" in blind_gate_script
+    assert "steps.hybrid_blind_eval.outputs.manifest_source" in blind_gate_script
+    assert "--require-manifest-source reviewed_benchmark_manifest" in blind_gate_script
     assert "--config" in blind_gate_script
     assert "--output" in blind_gate_script
 

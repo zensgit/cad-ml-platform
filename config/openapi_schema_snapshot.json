@@ -1,5 +1,5 @@
 {
-  "components_schema_count": 252,
+  "components_schema_count": 254,
   "components_schema_names": [
     "ActiveLearningSample",
     "AlternativeItem",
@@ -145,6 +145,7 @@
     "MaterialSearchItem",
     "MaterialSearchResponse",
     "ModelHealthResponse",
+    "ModelReadinessResponse",
     "ModelReloadRequest",
     "ModelReloadResponse",
     "ORingByIdItem",
@@ -179,6 +180,7 @@
     "QueryAlternative",
     "QueryEvidence",
     "QueryExplainability",
+    "QueryKnowledgeCitation",
     "QueryRequest",
     "QueryResponse",
     "QueryUncertainty",
@@ -255,8 +257,8 @@
     "WeldingType"
   ],
   "openapi": "3.1.0",
-  "operation_count": 197,
-  "path_count": 192,
+  "operation_count": 198,
+  "path_count": 193,
   "paths": {
     "/": {
       "get": {
@@ -1285,6 +1287,16 @@
       "get": {
         "deprecated": false,
         "operationId": "model_health_api_v1_health_model_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/health/model-readiness": {
+      "get": {
+        "deprecated": false,
+        "operationId": "model_readiness_health_api_v1_health_model_readiness_get",
         "responses": [
           "200",
           "422"

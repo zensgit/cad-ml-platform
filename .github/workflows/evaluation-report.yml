@@ -107,6 +107,7 @@ env:
   HYBRID_BLIND_SEED: ${{ vars.HYBRID_BLIND_SEED || '22' }}
   HYBRID_BLIND_OUTPUT_DIR: ${{ vars.HYBRID_BLIND_OUTPUT_DIR || 'reports/history_sequence_eval/hybrid_blind' }}
   HYBRID_BLIND_GATE_CONFIG: ${{ vars.HYBRID_BLIND_GATE_CONFIG || 'config/hybrid_blind_gate.yaml' }}
+  HYBRID_BLIND_REQUIRE_REVIEWED_MANIFEST: ${{ vars.HYBRID_BLIND_REQUIRE_REVIEWED_MANIFEST || 'false' }}
   HYBRID_SUPERPASS_ENABLE: ${{ vars.HYBRID_SUPERPASS_ENABLE || 'false' }}
   HYBRID_SUPERPASS_CONFIG: ${{ vars.HYBRID_SUPERPASS_CONFIG || 'config/hybrid_superpass_targets.yaml' }}
   HYBRID_SUPERPASS_OUTPUT_JSON: ${{ vars.HYBRID_SUPERPASS_OUTPUT_JSON || 'reports/history_sequence_eval/hybrid_superpass_report.json' }}
@@ -143,9 +144,64 @@ env:
   BENCHMARK_SCORECARD_QDRANT_READINESS_JSON: ${{ vars.BENCHMARK_SCORECARD_QDRANT_READINESS_JSON }}
   BENCHMARK_SCORECARD_ENGINEERING_SIGNALS_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_ENGINEERING_SIGNALS_SUMMARY_JSON }}
   BENCHMARK_SCORECARD_KNOWLEDGE_READINESS_JSON: ${{ vars.BENCHMARK_SCORECARD_KNOWLEDGE_READINESS_JSON }}
+  BENCHMARK_SCORECARD_MANUFACTURING_EVIDENCE_JSON: ${{ vars.BENCHMARK_SCORECARD_MANUFACTURING_EVIDENCE_JSON }}
   BENCHMARK_SCORECARD_OPERATOR_ADOPTION_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_OPERATOR_ADOPTION_SUMMARY_JSON }}
   BENCHMARK_SCORECARD_OUTPUT_JSON: ${{ vars.BENCHMARK_SCORECARD_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_scorecard.json' }}
   BENCHMARK_SCORECARD_OUTPUT_MD: ${{ vars.BENCHMARK_SCORECARD_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_scorecard.md' }}
+  FORWARD_SCORECARD_ENABLE: ${{ vars.FORWARD_SCORECARD_ENABLE || 'false' }}
+  FORWARD_SCORECARD_TITLE: ${{ vars.FORWARD_SCORECARD_TITLE || 'CAD ML Forward Scorecard' }}
+  FORWARD_SCORECARD_MODEL_READINESS_JSON: ${{ vars.FORWARD_SCORECARD_MODEL_READINESS_JSON }}
+  FORWARD_SCORECARD_HYBRID_SUMMARY_JSON: ${{ vars.FORWARD_SCORECARD_HYBRID_SUMMARY_JSON }}
+  FORWARD_SCORECARD_GRAPH2D_SUMMARY_JSON: ${{ vars.FORWARD_SCORECARD_GRAPH2D_SUMMARY_JSON }}
+  FORWARD_SCORECARD_HISTORY_SUMMARY_JSON: ${{ vars.FORWARD_SCORECARD_HISTORY_SUMMARY_JSON }}
+  FORWARD_SCORECARD_BREP_SUMMARY_JSON: ${{ vars.FORWARD_SCORECARD_BREP_SUMMARY_JSON }}
+  FORWARD_SCORECARD_QDRANT_SUMMARY_JSON: ${{ vars.FORWARD_SCORECARD_QDRANT_SUMMARY_JSON }}
+  FORWARD_SCORECARD_REVIEW_QUEUE_SUMMARY_JSON: ${{ vars.FORWARD_SCORECARD_REVIEW_QUEUE_SUMMARY_JSON }}
+  FORWARD_SCORECARD_KNOWLEDGE_SUMMARY_JSON: ${{ vars.FORWARD_SCORECARD_KNOWLEDGE_SUMMARY_JSON }}
+  FORWARD_SCORECARD_MANUFACTURING_EVIDENCE_SUMMARY_JSON: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_EVIDENCE_SUMMARY_JSON }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEW_MANIFEST_CSV: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEW_MANIFEST_CSV }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEW_MANIFEST_SUMMARY_JSON: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEW_MANIFEST_SUMMARY_JSON || 'reports/benchmark/forward_scorecard/manufacturing_review_manifest_validation.json' }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEW_MANIFEST_PROGRESS_MD: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEW_MANIFEST_PROGRESS_MD || 'reports/benchmark/forward_scorecard/manufacturing_review_manifest_progress.md' }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEW_MANIFEST_GAP_CSV: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEW_MANIFEST_GAP_CSV || 'reports/benchmark/forward_scorecard/manufacturing_review_manifest_gaps.csv' }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEW_CONTEXT_CSV: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEW_CONTEXT_CSV || 'reports/benchmark/forward_scorecard/manufacturing_review_context.csv' }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEW_BATCH_CSV: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEW_BATCH_CSV || 'reports/benchmark/forward_scorecard/manufacturing_review_batch.csv' }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEW_BATCH_TEMPLATE_CSV: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEW_BATCH_TEMPLATE_CSV || 'reports/benchmark/forward_scorecard/manufacturing_review_batch_template.csv' }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEW_ASSIGNMENT_MD: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEW_ASSIGNMENT_MD || 'reports/benchmark/forward_scorecard/manufacturing_review_assignment.md' }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEWER_TEMPLATE_CSV: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEWER_TEMPLATE_CSV || 'reports/benchmark/forward_scorecard/manufacturing_reviewer_template.csv' }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEW_HANDOFF_MD: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEW_HANDOFF_MD || 'reports/benchmark/forward_scorecard/manufacturing_review_handoff.md' }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEWER_TEMPLATE_APPLY_CSV: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEWER_TEMPLATE_APPLY_CSV }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEWER_TEMPLATE_PREFLIGHT_SUMMARY_JSON: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEWER_TEMPLATE_PREFLIGHT_SUMMARY_JSON || 'reports/benchmark/forward_scorecard/manufacturing_reviewer_template_preflight.json' }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEWER_TEMPLATE_PREFLIGHT_MD: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEWER_TEMPLATE_PREFLIGHT_MD || 'reports/benchmark/forward_scorecard/manufacturing_reviewer_template_preflight.md' }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEWER_TEMPLATE_PREFLIGHT_GAP_CSV: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEWER_TEMPLATE_PREFLIGHT_GAP_CSV || 'reports/benchmark/forward_scorecard/manufacturing_reviewer_template_preflight_gaps.csv' }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEWER_TEMPLATE_PREFLIGHT_MIN_READY_ROWS: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEWER_TEMPLATE_PREFLIGHT_MIN_READY_ROWS }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEWER_TEMPLATE_PREFLIGHT_FAIL_ON_BLOCKED: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEWER_TEMPLATE_PREFLIGHT_FAIL_ON_BLOCKED || 'false' }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEWER_TEMPLATE_APPLIED_MANIFEST_CSV: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEWER_TEMPLATE_APPLIED_MANIFEST_CSV || 'reports/benchmark/forward_scorecard/manufacturing_review_manifest.applied.csv' }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEWER_TEMPLATE_APPLY_SUMMARY_JSON: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEWER_TEMPLATE_APPLY_SUMMARY_JSON || 'reports/benchmark/forward_scorecard/manufacturing_reviewer_template_apply.json' }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEWER_TEMPLATE_APPLY_AUDIT_CSV: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEWER_TEMPLATE_APPLY_AUDIT_CSV || 'reports/benchmark/forward_scorecard/manufacturing_reviewer_template_apply_audit.csv' }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEW_MANIFEST_MIN_REVIEWED_SAMPLES: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEW_MANIFEST_MIN_REVIEWED_SAMPLES || '30' }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEW_MANIFEST_REQUIRE_REVIEWER_METADATA: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEW_MANIFEST_REQUIRE_REVIEWER_METADATA || 'false' }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEW_MANIFEST_FAIL_ON_BLOCKED: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEW_MANIFEST_FAIL_ON_BLOCKED || 'false' }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEW_BASE_MANIFEST_CSV: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEW_BASE_MANIFEST_CSV }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEW_MERGED_MANIFEST_CSV: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEW_MERGED_MANIFEST_CSV || 'reports/benchmark/forward_scorecard/manufacturing_review_manifest_merged.csv' }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEW_MANIFEST_MERGE_SUMMARY_JSON: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEW_MANIFEST_MERGE_SUMMARY_JSON || 'reports/benchmark/forward_scorecard/manufacturing_review_manifest_merge.json' }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEW_MANIFEST_MERGE_AUDIT_CSV: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEW_MANIFEST_MERGE_AUDIT_CSV || 'reports/benchmark/forward_scorecard/manufacturing_review_manifest_merge_audit.csv' }}
+  FORWARD_SCORECARD_MANUFACTURING_REVIEW_MANIFEST_MERGE_FAIL_ON_BLOCKED: ${{ vars.FORWARD_SCORECARD_MANUFACTURING_REVIEW_MANIFEST_MERGE_FAIL_ON_BLOCKED || 'false' }}
+  FORWARD_SCORECARD_OUTPUT_JSON: ${{ vars.FORWARD_SCORECARD_OUTPUT_JSON || 'reports/benchmark/forward_scorecard/latest.json' }}
+  FORWARD_SCORECARD_OUTPUT_MD: ${{ vars.FORWARD_SCORECARD_OUTPUT_MD || 'reports/benchmark/forward_scorecard/latest.md' }}
+  FORWARD_SCORECARD_RELEASE_GATE_ENABLE: ${{ vars.FORWARD_SCORECARD_RELEASE_GATE_ENABLE || 'false' }}
+  FORWARD_SCORECARD_RELEASE_GATE_REQUIRE_RELEASE: ${{ vars.FORWARD_SCORECARD_RELEASE_GATE_REQUIRE_RELEASE || 'false' }}
+  FORWARD_SCORECARD_RELEASE_LABELS: ${{ vars.FORWARD_SCORECARD_RELEASE_LABELS || '' }}
+  FORWARD_SCORECARD_RELEASE_LABEL_PREFIXES: ${{ vars.FORWARD_SCORECARD_RELEASE_LABEL_PREFIXES || '' }}
+  FORWARD_SCORECARD_RELEASE_GATE_OUTPUT_JSON: ${{ vars.FORWARD_SCORECARD_RELEASE_GATE_OUTPUT_JSON || 'reports/benchmark/forward_scorecard/release_gate.json' }}
+  BREP_GOLDEN_MANIFEST_ENABLE: ${{ vars.BREP_GOLDEN_MANIFEST_ENABLE || 'false' }}
+  BREP_GOLDEN_MANIFEST_JSON: ${{ vars.BREP_GOLDEN_MANIFEST_JSON || 'config/brep_golden_manifest.example.json' }}
+  BREP_GOLDEN_MANIFEST_OUTPUT_JSON: ${{ vars.BREP_GOLDEN_MANIFEST_OUTPUT_JSON || 'reports/benchmark/brep_golden_manifest/latest_validation.json' }}
+  BREP_GOLDEN_MANIFEST_MIN_RELEASE_SAMPLES: ${{ vars.BREP_GOLDEN_MANIFEST_MIN_RELEASE_SAMPLES || '50' }}
+  BREP_GOLDEN_MANIFEST_FAIL_ON_NOT_RELEASE_READY: ${{ vars.BREP_GOLDEN_MANIFEST_FAIL_ON_NOT_RELEASE_READY || 'false' }}
+  BREP_GOLDEN_EVAL_ENABLE: ${{ vars.BREP_GOLDEN_EVAL_ENABLE || 'false' }}
+  BREP_GOLDEN_EVAL_OUTPUT_DIR: ${{ vars.BREP_GOLDEN_EVAL_OUTPUT_DIR || 'reports/benchmark/brep_step_iges_golden/latest' }}
+  BREP_GOLDEN_EVAL_STRICT: ${{ vars.BREP_GOLDEN_EVAL_STRICT || 'true' }}
+  BREP_GOLDEN_EVAL_ALLOW_DEMO_GEOMETRY: ${{ vars.BREP_GOLDEN_EVAL_ALLOW_DEMO_GEOMETRY || 'false' }}
   BENCHMARK_ENGINEERING_SIGNALS_ENABLE: ${{ vars.BENCHMARK_ENGINEERING_SIGNALS_ENABLE || 'false' }}
   BENCHMARK_ENGINEERING_SIGNALS_TITLE: ${{ vars.BENCHMARK_ENGINEERING_SIGNALS_TITLE || 'Benchmark Engineering Signals' }}
   BENCHMARK_ENGINEERING_SIGNALS_HYBRID_SUMMARY_JSON: ${{ vars.BENCHMARK_ENGINEERING_SIGNALS_HYBRID_SUMMARY_JSON }}
@@ -3982,6 +4038,21 @@ jobs:
       run: |
         bash scripts/ci/build_benchmark_release_runbook_optional.sh
 
+    - name: Build B-Rep golden manifest gate (optional)
+      id: brep_golden_manifest
+      env:
+        GITHUB_EVENT_INPUTS_JSON: ${{ toJson(github.event.inputs) }}
+      run: |
+        bash scripts/ci/build_brep_golden_manifest_optional.sh
+
+    - name: Build forward scorecard release gate (optional)
+      id: forward_scorecard
+      env:
+        GITHUB_EVENT_INPUTS_JSON: ${{ toJson(github.event.inputs) }}
+        GITHUB_STEPS_JSON: ${{ toJson(steps) }}
+      run: |
+        bash scripts/ci/build_forward_scorecard_optional.sh
+
     - name: Build benchmark knowledge domain release surface alignment (optional)
       id: benchmark_knowledge_domain_release_surface_alignment
       continue-on-error: true
@@ -4844,6 +4915,17 @@ jobs:
         fi
 
         MANIFEST_CSV="${HYBRID_BLIND_MANIFEST_CSV:-}"
+        MANIFEST_SOURCE="configured"
+        REVIEWED_MANIFEST_AVAILABLE="${{ steps.forward_scorecard.outputs.manufacturing_review_manifest_merge_available }}"
+        REVIEWED_MANIFEST_CSV="${{ steps.forward_scorecard.outputs.manufacturing_review_manifest_merged_csv }}"
+        if [[ "$REVIEWED_MANIFEST_AVAILABLE" == "true" && -n "$REVIEWED_MANIFEST_CSV" ]]; then
+          if [[ -f "$REVIEWED_MANIFEST_CSV" ]]; then
+            MANIFEST_CSV="$REVIEWED_MANIFEST_CSV"
+            MANIFEST_SOURCE="reviewed_benchmark_manifest"
+          else
+            echo "Reviewed benchmark manifest output not found: $REVIEWED_MANIFEST_CSV"
+          fi
+        fi
         OUT_DIR="${HYBRID_BLIND_OUTPUT_DIR:-reports/history_sequence_eval/hybrid_blind}"
         mkdir -p "$OUT_DIR"
         CMD=(
@@ -4875,6 +4957,8 @@ jobs:
           echo "summary_json=$SUMMARY_JSON" >> $GITHUB_OUTPUT
           echo "dataset_source=$DATASET_SOURCE" >> $GITHUB_OUTPUT
           echo "dxf_dir=$DXF_DIR" >> $GITHUB_OUTPUT
+          echo "manifest_csv=$MANIFEST_CSV" >> $GITHUB_OUTPUT
+          echo "manifest_source=$MANIFEST_SOURCE" >> $GITHUB_OUTPUT
           exit 0
         fi
 
@@ -4885,6 +4969,7 @@ jobs:
         echo "dataset_source=$DATASET_SOURCE" >> $GITHUB_OUTPUT
         echo "dxf_dir=$DXF_DIR" >> $GITHUB_OUTPUT
         echo "manifest_csv=$MANIFEST_CSV" >> $GITHUB_OUTPUT
+        echo "manifest_source=$MANIFEST_SOURCE" >> $GITHUB_OUTPUT
         export HYBRID_BLIND_SUMMARY_JSON="$SUMMARY_JSON"
         python3 - <<'PY'
         import json
@@ -4920,12 +5005,25 @@ jobs:
         REPORT_PATH="reports/history_sequence_eval/hybrid_blind_gate_report.json"
         mkdir -p "$(dirname "$REPORT_PATH")"
 
-        set +e
-        python3 scripts/ci/check_hybrid_blind_gate.py \
+        GATE_CMD=(
+          python3 scripts/ci/check_hybrid_blind_gate.py
           --summary-json "$SUMMARY_JSON" \
           --dataset-source "${{ steps.hybrid_blind_eval.outputs.dataset_source }}" \
+          --manifest-source "${{ steps.hybrid_blind_eval.outputs.manifest_source }}" \
           --config "${HYBRID_BLIND_GATE_CONFIG:-config/hybrid_blind_gate.yaml}" \
           --output "$REPORT_PATH"
+        )
+        REQUIRE_REVIEWED_MANIFEST="$(
+          echo "${HYBRID_BLIND_REQUIRE_REVIEWED_MANIFEST:-false}" \
+            | tr '[:upper:]' '[:lower:]' \
+            | xargs
+        )"
+        if [[ "$REQUIRE_REVIEWED_MANIFEST" == "1" || "$REQUIRE_REVIEWED_MANIFEST" == "true" || "$REQUIRE_REVIEWED_MANIFEST" == "yes" || "$REQUIRE_REVIEWED_MANIFEST" == "on" ]]; then
+          GATE_CMD+=(--require-manifest-source reviewed_benchmark_manifest)
+        fi
+
+        set +e
+        "${GATE_CMD[@]}"
         GATE_EXIT_CODE=$?
         set -e
 
@@ -5921,6 +6019,96 @@ jobs:
         path: |
           ${{ steps.benchmark_release_runbook.outputs.output_json }}
           ${{ steps.benchmark_release_runbook.outputs.output_md }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Upload B-Rep golden manifest validation
+      if: ${{ always() && steps.brep_golden_manifest.outputs.enabled == 'true' }}
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+      with:
+        name: brep-golden-manifest-validation-${{ github.run_number }}
+        path: |
+          ${{ steps.brep_golden_manifest.outputs.validation_json }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Upload B-Rep golden evaluation
+      if: ${{ always() && steps.brep_golden_manifest.outputs.eval_enabled == 'true' }}
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+      with:
+        name: brep-golden-evaluation-${{ github.run_number }}
+        path: |
+          ${{ steps.brep_golden_manifest.outputs.eval_summary_json }}
+          ${{ steps.brep_golden_manifest.outputs.eval_results_csv }}
+          ${{ steps.brep_golden_manifest.outputs.eval_graph_qa_json }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Upload forward scorecard
+      if: steps.forward_scorecard.outputs.enabled == 'true'
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+      with:
+        name: forward-scorecard-${{ github.run_number }}
+        path: |
+          ${{ steps.forward_scorecard.outputs.output_json }}
+          ${{ steps.forward_scorecard.outputs.output_md }}
+          ${{ steps.forward_scorecard.outputs.gate_output_json }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Upload manufacturing evidence benchmark summary
+      if: steps.forward_scorecard.outputs.manufacturing_evidence_summary_available == 'true'
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+      with:
+        name: manufacturing-evidence-benchmark-summary-${{ github.run_number }}
+        path: |
+          ${{ steps.forward_scorecard.outputs.manufacturing_evidence_summary_json }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Upload manufacturing evidence review manifest validation
+      if: steps.forward_scorecard.outputs.manufacturing_review_manifest_available == 'true'
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+      with:
+        name: manufacturing-evidence-review-manifest-validation-${{ github.run_number }}
+        path: |
+          ${{ steps.forward_scorecard.outputs.manufacturing_review_manifest_summary_json }}
+          ${{ steps.forward_scorecard.outputs.manufacturing_review_manifest_progress_md }}
+          ${{ steps.forward_scorecard.outputs.manufacturing_review_manifest_gap_csv }}
+          ${{ steps.forward_scorecard.outputs.manufacturing_review_context_csv }}
+          ${{ steps.forward_scorecard.outputs.manufacturing_review_batch_csv }}
+          ${{ steps.forward_scorecard.outputs.manufacturing_review_batch_template_csv }}
+          ${{ steps.forward_scorecard.outputs.manufacturing_review_assignment_md }}
+          ${{ steps.forward_scorecard.outputs.manufacturing_reviewer_template_csv }}
+          ${{ steps.forward_scorecard.outputs.manufacturing_review_handoff_md }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Upload manufacturing reviewer template preflight
+      if: steps.forward_scorecard.outputs.manufacturing_reviewer_template_preflight_available == 'true'
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+      with:
+        name: manufacturing-reviewer-template-preflight-${{ github.run_number }}
+        path: |
+          ${{ steps.forward_scorecard.outputs.manufacturing_reviewer_template_preflight_summary_json }}
+          ${{ steps.forward_scorecard.outputs.manufacturing_reviewer_template_preflight_md }}
+          ${{ steps.forward_scorecard.outputs.manufacturing_reviewer_template_preflight_gap_csv }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Upload manufacturing reviewer template apply artifacts
+      if: steps.forward_scorecard.outputs.manufacturing_reviewer_template_apply_available == 'true'
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+      with:
+        name: manufacturing-reviewer-template-apply-${{ github.run_number }}
+        path: |
+          ${{ steps.forward_scorecard.outputs.manufacturing_reviewer_template_applied_manifest_csv }}
+          ${{ steps.forward_scorecard.outputs.manufacturing_reviewer_template_apply_summary_json }}
+          ${{ steps.forward_scorecard.outputs.manufacturing_reviewer_template_apply_audit_csv }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Upload manufacturing evidence reviewed benchmark manifest
+      if: steps.forward_scorecard.outputs.manufacturing_review_manifest_merge_available == 'true'
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+      with:
+        name: manufacturing-evidence-reviewed-benchmark-manifest-${{ github.run_number }}
+        path: |
+          ${{ steps.forward_scorecard.outputs.manufacturing_review_manifest_merged_csv }}
+          ${{ steps.forward_scorecard.outputs.manufacturing_review_manifest_merge_summary_json }}
+          ${{ steps.forward_scorecard.outputs.manufacturing_review_manifest_merge_audit_csv }}
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
     - name: Upload benchmark operator adoption

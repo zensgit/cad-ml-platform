@@ -33,18 +33,27 @@ router = APIRouter(tags=["ocr"])
 
 # Initialize manager (simple singleton for now)
 _manager: Optional[OcrManager] = None
+# Set when provider bootstrap/registration was attempted and raised, so the
+# model readiness registry can distinguish load-failure from cold/missing.
+# Behaviour is preserved: the error is recorded and then re-raised.
+_manager_load_error: Optional[str] = None
 _calibrator = ConfidenceCalibrationSystem(method="isotonic")
 
 
 def get_manager() -> OcrManager:
-    global _manager
+    global _manager, _manager_load_error
     if _manager is None:
-        bootstrap_core_provider_registry()
-        _manager = OcrManager(confidence_fallback=0.85)
-        _manager.register_provider("paddle", ProviderRegistry.get("ocr", "paddle"))
-        _manager.register_provider(
-            "deepseek_hf", ProviderRegistry.get("ocr", "deepseek_hf")
-        )
+        try:
+            bootstrap_core_provider_registry()
+            manager = OcrManager(confidence_fallback=0.85)
+            manager.register_provider("paddle", ProviderRegistry.get("ocr", "paddle"))
+            manager.register_provider(
+                "deepseek_hf", ProviderRegistry.get("ocr", "deepseek_hf")
+            )
+        except Exception as exc:
+            _manager_load_error = str(exc)
+            raise
+        _manager = manager
     return _manager
 
 

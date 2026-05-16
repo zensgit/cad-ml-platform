@@ -16,6 +16,15 @@ def test_build_realdata_signals_status_summarizes_hybrid_h5_and_step() -> None:
             "coarse_scores": {"hybrid_label": {"accuracy": 0.8727}},
             "exact_scores": {"hybrid_label": {"accuracy": 0.5545}},
             "confidence_stats": {"hybrid_label": {"low_conf_rate": 0.1}},
+            "decision_signals": {
+                "decision_contract_count": 108,
+                "decision_contract_coverage_rate": 0.9818,
+                "decision_evidence_row_count": 107,
+                "decision_evidence_total_count": 428,
+                "decision_evidence_coverage_rate": 0.9727,
+                "evidence_source_counts": {"hybrid": 107, "graph2d": 104},
+                "fallback_flag_counts": {"rules_baseline": 3},
+            },
         },
         online_example_report={
             "h5_validation": {
@@ -54,6 +63,13 @@ def test_build_realdata_signals_status_summarizes_hybrid_h5_and_step() -> None:
 
     assert payload["status"] == "realdata_foundation_ready"
     assert payload["component_statuses"]["hybrid_dxf"] == "ready"
+    assert payload["components"]["hybrid_dxf"]["decision_contract_coverage_rate"] == (
+        0.9818
+    )
+    assert payload["components"]["hybrid_dxf"]["decision_evidence_sources"] == {
+        "hybrid": 107,
+        "graph2d": 104,
+    }
     assert payload["components"]["history_h5"]["status"] == "ready"
     assert payload["components"]["step_dir"]["status"] == "ready"
 
@@ -88,6 +104,15 @@ def test_export_benchmark_realdata_signals_outputs_files(tmp_path: Path, monkeyp
                 "sample_size": 10,
                 "coarse_scores": {"hybrid_label": {"accuracy": 0.8}},
                 "confidence_stats": {"hybrid_label": {"low_conf_rate": 0.2}},
+                "decision_signals": {
+                    "decision_contract_count": 10,
+                    "decision_contract_coverage_rate": 1.0,
+                    "decision_evidence_row_count": 9,
+                    "decision_evidence_total_count": 30,
+                    "decision_evidence_coverage_rate": 0.9,
+                    "evidence_source_counts": {"hybrid": 9},
+                    "fallback_flag_counts": {},
+                },
             },
             ensure_ascii=False,
         ),
@@ -142,6 +167,9 @@ def test_export_benchmark_realdata_signals_outputs_files(tmp_path: Path, monkeyp
 
     payload = json.loads(output_json.read_text(encoding="utf-8"))
     assert payload["realdata_signals"]["components"]["hybrid_dxf"]["sample_size"] == 10
+    assert payload["realdata_signals"]["components"]["hybrid_dxf"][
+        "decision_evidence_coverage_rate"
+    ] == 0.9
     assert payload["realdata_signals"]["components"]["step_dir"]["graph_schema_versions"] == {
         "v2": 3
     }

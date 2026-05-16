@@ -834,6 +834,18 @@ class ModelHealthResponse(BaseModel):
     load_seq: int = 0  # Monotonic load sequence for disambiguation
 
 
+class ModelReadinessResponse(BaseModel):
+    status: str
+    ok: bool
+    degraded: bool
+    strict: bool
+    required: List[str] = Field(default_factory=list)
+    generated_at: float
+    degraded_reasons: List[str] = Field(default_factory=list)
+    blocking_reasons: List[str] = Field(default_factory=list)
+    items: Dict[str, Any] = Field(default_factory=dict)
+
+
 @router.get("/health/model", response_model=ModelHealthResponse)
 async def model_health(api_key: str = Depends(get_api_key)):
     import time
@@ -893,6 +905,15 @@ async def model_health(api_key: str = Depends(get_api_key)):
         rollback_reason=info.get("rollback_reason"),
         load_seq=info.get("load_seq", 0),
     )
+
+
+@router.get("/health/model-readiness", response_model=ModelReadinessResponse)
+async def model_readiness_health(api_key: str = Depends(get_api_key)):
+    """Report model-by-model checkpoint, load and fallback readiness."""
+    from src.models.readiness_registry import build_model_readiness_snapshot
+
+    snapshot = build_model_readiness_snapshot()
+    return ModelReadinessResponse(**snapshot.to_dict())
 
 
 class V16ClassifierHealthResponse(BaseModel):
