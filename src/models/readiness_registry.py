@@ -257,6 +257,7 @@ def _graph2d_item() -> ModelReadinessItem:
     )
     classifier = _module_object("src.ml.vision_2d", "_graph2d")
     loaded = bool(classifier is not None and getattr(classifier, "_loaded", False))
+    error = getattr(classifier, "_load_error", None) if classifier is not None else None
     paths = _path_list([path])
     fallback = (
         "filename_titleblock_process_rules"
@@ -268,6 +269,7 @@ def _graph2d_item() -> ModelReadinessItem:
         enabled=enabled,
         paths=paths,
         loaded=loaded,
+        error=error,
         checkpoint_required=True,
         fallback_mode=fallback,
         version=os.getenv("GRAPH2D_MODEL_VERSION"),
@@ -280,6 +282,7 @@ def _uvnet_item() -> ModelReadinessItem:
     path = os.getenv("UVNET_MODEL_PATH", "models/uvnet_v1.pth")
     encoder = _module_object("src.ml.vision_3d", "_encoder")
     loaded = bool(encoder is not None and getattr(encoder, "_loaded", False))
+    error = getattr(encoder, "_load_error", None) if encoder is not None else None
     paths = _path_list([path])
     fallback = "mock_brep_embedding" if enabled and not _all_paths_exist(paths) else None
     return _item(
@@ -287,6 +290,7 @@ def _uvnet_item() -> ModelReadinessItem:
         enabled=enabled,
         paths=paths,
         loaded=loaded,
+        error=error,
         checkpoint_required=True,
         fallback_mode=fallback,
         version=os.getenv("UVNET_MODEL_VERSION"),
@@ -299,6 +303,7 @@ def _pointnet_item() -> ModelReadinessItem:
     path = os.getenv("POINTNET_MODEL_PATH", "").strip()
     analyzer = _module_object("src.api.v1.pointcloud", "_analyzer")
     loaded = bool(analyzer is not None and getattr(analyzer, "_model_loaded", False))
+    error = getattr(analyzer, "_load_error", None) if analyzer is not None else None
     paths = _path_list([path])
     fallback = (
         "statistical_pointcloud_features"
@@ -310,6 +315,7 @@ def _pointnet_item() -> ModelReadinessItem:
         enabled=enabled,
         paths=paths,
         loaded=loaded,
+        error=error,
         checkpoint_required=True,
         fallback_mode=fallback,
         version=os.getenv("POINTNET_MODEL_VERSION"),

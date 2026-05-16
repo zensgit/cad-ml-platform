@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import types
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 from src.main import app
@@ -100,3 +102,100 @@ def test_model_readiness_health_endpoint(monkeypatch, tmp_path) -> None:
     data = response.json()
     assert data["degraded"] is True
     assert data["items"]["graph2d"]["status"] == "fallback"
+
+
+# --- Phase 2 residual: load-error contract (graph2d / uvnet / pointnet) -----
+#
+# Two patterns per model, deliberately:
+#  (1) source-capture: a fresh instance built against a corrupt checkpoint
+#      must populate `_load_error` (validates the `except` capture in 1a).
+#  (2) registry-surface: a stub singleton carrying `_load_error` must make
+#      the readiness item report status="error" (validates the registry
+#      threading in 1b). The import-time module singletons are NOT reloaded
+#      per test, so a corrupt env path alone cannot exercise (2).
+
+
+def _corrupt_ckpt(tmp_path: Path, name: str) -> Path:
+    p = tmp_path / name
+    p.write_bytes(b"not-a-torch-checkpoint")
+    return p
+
+
+def test_graph2d_load_error_captured_on_corrupt_checkpoint(tmp_path) -> None:
+    pytest.importorskip("torch")
+    from src.ml.vision_2d import Graph2DClassifier
+
+    clf = Graph2DClassifier(model_path=str(_corrupt_ckpt(tmp_path, "g2d.pth")))
+
+    assert clf._loaded is False
+    assert clf._load_error is not None  # cold state would be None
+
+
+def test_uvnet_load_error_captured_on_corrupt_checkpoint(tmp_path) -> None:
+    pytest.importorskip("torch")
+    from src.ml.vision_3d import UVNetEncoder
+
+    enc = UVNetEncoder(model_path=str(_corrupt_ckpt(tmp_path, "uvnet.pth")))
+
+    assert enc._loaded is False
+    assert enc._load_error is not None
+
+
+def test_pointnet_load_error_captured_on_corrupt_checkpoint(tmp_path) -> None:
+    pytest.importorskip("torch")
+    from src.ml.pointnet.inference import PointNet3DAnalyzer
+
+    analyzer = PointNet3DAnalyzer(
+        model_path=str(_corrupt_ckpt(tmp_path, "pointnet.pth"))
+    )
+
+    assert analyzer._model_loaded is False
+    assert analyzer._load_error is not None
+
+
+def test_registry_surfaces_load_error_status(monkeypatch) -> None:
+    """A stub singleton carrying _load_error -> readiness status == 'error'."""
+    monkeypatch.delenv("MODEL_READINESS_REQUIRED_MODELS", raising=False)
+    monkeypatch.delenv("MODEL_READINESS_STRICT", raising=False)
+    monkeypatch.setattr(
+        "src.ml.vision_2d._graph2d",
+        types.SimpleNamespace(_loaded=False, _load_error="g2d boom"),
+    )
+    monkeypatch.setattr(
+        "src.ml.vision_3d._encoder",
+        types.SimpleNamespace(_loaded=False, _load_error="uvnet boom"),
+    )
+    monkeypatch.setattr(
+        "src.api.v1.pointcloud._analyzer",
+        types.SimpleNamespace(_model_loaded=False, _load_error="pointnet boom"),
+    )
+
+    snapshot = build_model_readiness_snapshot()
+
+    for name, msg in (
+        ("graph2d", "g2d boom"),
+        ("uvnet", "uvnet boom"),
+        ("pointnet", "pointnet boom"),
+    ):
+        item = _item(snapshot, name)
+        assert item["status"] == "error", name
+        assert item["error"] == msg, name
+        assert item["loaded"] is False, name
+
+
+def test_registry_distinguishes_error_from_cold(monkeypatch, tmp_path) -> None:
+    """Cold (no _load_error) must NOT be reported as 'error'."""
+    monkeypatch.delenv("MODEL_READINESS_REQUIRED_MODELS", raising=False)
+    monkeypatch.delenv("MODEL_READINESS_STRICT", raising=False)
+    monkeypatch.setenv("GRAPH2D_ENABLED", "true")
+    monkeypatch.setenv("GRAPH2D_MODEL_PATH", str(tmp_path / "missing.pth"))
+    monkeypatch.setattr(
+        "src.ml.vision_2d._graph2d",
+        types.SimpleNamespace(_loaded=False, _load_error=None),
+    )
+
+    graph2d = _item(build_model_readiness_snapshot(), "graph2d")
+
+    assert graph2d["error"] is None
+    assert graph2d["status"] != "error"
+    assert graph2d["status"] == "fallback"
