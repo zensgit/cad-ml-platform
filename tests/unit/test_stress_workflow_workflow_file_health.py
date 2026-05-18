@@ -42,7 +42,11 @@ def test_stress_workflow_has_workflow_file_health_job() -> None:
     step = _get_step(workflow, "workflow-file-health", "Validate workflow file health via GitHub parser")
     run_script = step["run"]
     assert "scripts/ci/check_workflow_file_issues.py" in run_script
-    assert "--mode gh" in run_script
+    # `--mode auto` lets the script fall back to the local YAML parser when
+    # gh-CLI cannot resolve a workflow on the requested ref (covers stacked
+    # branches whose new workflow files are not yet registered on the
+    # default branch). See commit 9a63e006 for the full rationale.
+    assert "--mode auto" in run_script
     assert '--ref "${GITHUB_SHA}"' in run_script
     assert "--summary-json-out reports/ci/workflow_file_health_summary.json" in run_script
 

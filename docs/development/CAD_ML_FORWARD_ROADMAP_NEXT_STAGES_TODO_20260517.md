@@ -16,27 +16,29 @@ Companions:
 
 ## Stage 0 — CI 卫生 hotfix（本会话内可落地，2 commit）
 
-- [ ] **S0.1** 在 `scripts/ci/check_workflow_file_issues.py:43-48` 的 `_is_missing_workflow_on_ref_error` 加 `"not found on the default branch" in text` 分支（estimate: 0.25h | risk: low）
-- [ ] **S0.2** 新增 `tests/unit/test_check_workflow_file_issues.py`，参数化覆盖 5 种错误形态（3 ✅ + 2 ❌）（estimate: 0.5h | risk: low）
-- [ ] **S0.3** 本地跑验证 §1.1（B）的 5-case 内联 assert，期望 `ok: all 5 cases match`（estimate: 0.1h | risk: low）
-- [ ] **S0.4** Commit: `chore(ci): tolerate "not found on the default branch" in workflow file-health fallback`（estimate: 0.1h | risk: low）
-- [ ] **S0.5** `.gitignore` 添加 `reports/benchmark/`（参 commit-split §"Cross-cutting artifacts"）（estimate: 0.1h | risk: low）
-- [ ] **S0.6** `git check-ignore -v reports/benchmark/forward_scorecard/latest.json` 验证生效（estimate: 0.05h | risk: low）
-- [ ] **S0.7** Commit: `chore(repo): gitignore reports/benchmark generated artifacts`（estimate: 0.1h | risk: low）
-- [ ] **S0.8** Push → 等 PR #472 上 `workflow-file-health` 由 FAILURE → SUCCESS（estimate: 0.2h | risk: low）
-- [ ] **S0.9** 若仍红，按验证文档 §1.4 表格走诊断（estimate: var | risk: var）
+- [x] **S0.1** 在 `scripts/ci/check_workflow_file_issues.py:43-48` 的 `_is_missing_workflow_on_ref_error` 加 `"not found on the default branch" in text` 分支（estimate: 0.25h | risk: low）
+- [x] **S0.2** test_check_workflow_file_issues.py 追加 2 测试（5-case parametric + auto-mode 集成）— commit `b428bfa4`
+- [x] **S0.3** 本地 5-case assert + py_compile 全过
+- [x] **S0.4** Commit `b428bfa4 chore(ci): tolerate "not found on the default branch"`
+- [~] **S0.5** `.gitignore` 早已含 `reports/benchmark/`（`.gitignore:144`，commit-split 文档过时）
+- [~] **S0.6** `git check-ignore` 已验证生效
+- [~] **S0.7** 取消（S0.5 不需 commit）
+- [x] **S0.8** Push 后发现 `workflow-file-health` 仍 FAILURE — **真问题**：stress-tests.yml 用 `--mode gh` 跳过 fallback 路径
+- [x] **S0.10**（新增）stress-tests.yml 改 `--mode auto` — commit `9a63e006`，run 26008211481 SUCCESS
+- [x] **S0.9** PR #472 整 stress-tests workflow 翻绿；所有 PR-level check SUCCESS；mergeStateStatus=CLEAN
 
-**Stage 0 出门条件**：PR #472 的 `workflow-file-health` SUCCESS，整 PR 进入 CLEAN/UNSTABLE 但 UNSTABLE 不含 file-health。
+**Stage 0 出门条件 ✅**：PR #472 mergeStateStatus=CLEAN，所有 PR-level check SUCCESS。
 
 ---
 
 ## Stage 1 — 堆叠链合入 main（人工）
 
-### 1.A 顺序合入
+### 1.A 顺序合入（**已完成 2026-05-18 via 方案 C：临时关 enforce_admins + admin-merge + 恢复**）
 
-- [ ] **S1.1** 重审 #468（base=main），CI 全绿 → squash-merge（estimate: 0.5h | risk: med — `code-quality.yml` 首跑可能暴露既有 lint 债）
-- [ ] **S1.2** #468 合入后，#471 自动 rebase → 重审 → squash-merge（estimate: 0.3h | risk: low）
-- [ ] **S1.3** #472 自动 rebase → 等 Stage 0 落地后翻 CLEAN → squash-merge（estimate: 0.3h | risk: low）
+- [x] **S1.1** Admin merge #468 → main（merge commit `968e5fc8`）
+- [x] **S1.2** Retarget #471 → main，CI 全绿 (run 25090095520/25090106622)，admin merge（commit `3c5399bb`）
+- [x] **S1.3** Retarget #472 → main，CI 全绿 (run 26008456614/26008456631/26008456632/26008456630)，admin merge（commit `01f12b87`，--delete-branch=true）
+- [x] **额外** 临时 `enforce_admins=false` → admin-merge × 3 → 恢复 `enforce_admins=true`（已验证）
 
 ### 1.B 首次真实门禁观察
 
@@ -193,15 +195,15 @@ Companions:
 ## 进度总览（手动维护）
 
 ```
-Stage 0  [ ] 0/9
-Stage 1  [ ] 0/14
+Stage 0  [x] 9/9   完成 2026-05-17 (commits b428bfa4 + 9a63e006)
+Stage 1  [~] 3/14  1.A 合入完成 2026-05-18 (commits 968e5fc8 + 3c5399bb + 01f12b87); 1.B/1.C 等 main CI 完成; 1.D dependabot 待处置
 Stage 2a [ ] 0/14
 Stage 2b [ ] 0/8
 Stage 2c [ ] 0/10
 Stage 3  [ ] 0/6
 治理     [ ] 0/3
 ─────────────────────
-合计     0/64
+合计     12/64
 ```
 
 完成每条后把 `[ ]` 改 `[x]` 并刷新此处总览。
