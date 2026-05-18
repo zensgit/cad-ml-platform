@@ -13,9 +13,9 @@ from src.api.v1.analyze_aux_models import (
     VectorDeleteRequest,
     VectorDeleteResponse,
     VectorDistributionResponse,
-    VectorListResponse,
     VectorStatsResponse,
 )
+from src.api.v1.vector_list_models import VectorListResponse
 from src.core.legacy_redirect_pipeline import raise_legacy_redirect
 
 router = APIRouter()

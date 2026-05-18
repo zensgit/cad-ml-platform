@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import json
 import os
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Header
+from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel, Field
 
 from src.api.dependencies import get_admin_token, get_api_key
@@ -18,7 +18,9 @@ from src.api.v1.vector_crud_models import (
     VectorSearchRequest,
     VectorSearchResponse,
 )
+from src.api.v1.vector_list_models import VectorListItem, VectorListResponse
 from src.api.v1.vectors_crud_router import router as crud_router
+from src.api.v1.vectors_list_router import list_vectors, router as list_router
 from src.api.v1.vector_migration_models import (
     VectorMigrateItem,
     VectorMigrateRequest,
@@ -109,24 +111,6 @@ if TYPE_CHECKING:
     from src.core.feature_extractor import FeatureExtractor
 
 
-class VectorListItem(BaseModel):
-    id: str
-    dimension: int
-    material: Optional[str] = None
-    complexity: Optional[str] = None
-    format: Optional[str] = None
-    part_type: Optional[str] = None
-    fine_part_type: Optional[str] = None
-    coarse_part_type: Optional[str] = None
-    decision_source: Optional[str] = None
-    is_coarse_label: Optional[bool] = None
-
-
-class VectorListResponse(BaseModel):
-    total: int
-    vectors: list[VectorListItem]
-
-
 class VectorBackendReloadResponse(BaseModel):
     status: str
     backend: Optional[str] = None
@@ -136,6 +120,7 @@ class VectorBackendReloadResponse(BaseModel):
 router.include_router(crud_router)
 router.include_router(migration_read_router)
 router.include_router(write_router)
+router.include_router(list_router)
 
 
 def _build_vector_filter_conditions(
@@ -355,48 +340,6 @@ def _matches_vector_search_filters(
     )
 
 
-@router.get("/", response_model=VectorListResponse)
-async def list_vectors(
-    source: str = Query(
-        default="auto",
-        description="Vector source: auto|memory|redis",
-    ),
-    offset: int = Query(default=0, ge=0, description="结果偏移用于分页"),
-    limit: int = Query(default=50, ge=1, description="返回数量上限"),
-    material_filter: Optional[str] = Query(default=None, description="材料过滤"),
-    complexity_filter: Optional[str] = Query(default=None, description="复杂度过滤"),
-    fine_part_type_filter: Optional[str] = Query(default=None, description="细分类过滤"),
-    coarse_part_type_filter: Optional[str] = Query(default=None, description="粗分类过滤"),
-    decision_source_filter: Optional[str] = Query(default=None, description="决策来源过滤"),
-    is_coarse_label_filter: Optional[bool] = Query(
-        default=None,
-        description="是否仅返回 coarse label 样本",
-    ),
-    api_key: str = Depends(get_api_key),
-):
-    return await run_vector_list_pipeline(
-        source=source,
-        offset=offset,
-        limit=limit,
-        material_filter=material_filter,
-        complexity_filter=complexity_filter,
-        fine_part_type_filter=fine_part_type_filter,
-        coarse_part_type_filter=coarse_part_type_filter,
-        decision_source_filter=decision_source_filter,
-        is_coarse_label_filter=is_coarse_label_filter,
-        response_cls=VectorListResponse,
-        item_cls=VectorListItem,
-        error_code_cls=ErrorCode,
-        build_error_fn=build_error,
-        get_qdrant_store_fn=_get_qdrant_store_or_none,
-        resolve_list_source_fn=_resolve_list_source,
-        build_filter_conditions_fn=_build_vector_filter_conditions,
-        list_vectors_redis_fn=_list_vectors_redis,
-        list_vectors_memory_fn=_list_vectors_memory,
-        get_client_fn=get_client,
-    )
-
-
 def _resolve_list_source(source: str, backend: str) -> str:
     if source == "auto":
         if backend == "redis":
@@ -574,6 +517,7 @@ def _prepare_vector_for_upgrade(
 
 __all__ = [
     "router",
+    "list_vectors",
     "update_vector",
     "migrate_vectors",
     "migrate_pending_run",
@@ -597,6 +541,8 @@ __all__ = [
     "VectorMigrationPendingRunRequest",
     "VectorMigrationPreviewResponse",
     "VectorMigrationTrendsResponse",
+    "VectorListItem",
+    "VectorListResponse",
 ]
 
 
