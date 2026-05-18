@@ -1,6 +1,7 @@
 """Tests for LLM providers and assistant API."""
 
 import pytest
+from types import SimpleNamespace
 from unittest.mock import Mock, patch, MagicMock
 
 
@@ -264,6 +265,94 @@ class TestAssistantAPI:
         assert explainability["summary"]
         assert isinstance(explainability["source_contributions"], dict)
         assert 0.0 <= explainability["uncertainty"]["score"] <= 1.0
+
+    def test_explainability_uses_decision_contract_metadata(self):
+        """Assistant explainability consumes the shared DecisionService contract."""
+        from src.api.v1.assistant import (
+            _append_knowledge_citation_note,
+            _build_query_explainability,
+        )
+
+        response = SimpleNamespace(
+            confidence=0.72,
+            evidence=[],
+            metadata={
+                "intent": "classification",
+                "retrieval_count": 0,
+                "decision_contract": {
+                    "fine_part_type": "人孔",
+                    "coarse_part_type": "开孔件",
+                    "confidence": 0.91,
+                    "decision_source": "hybrid",
+                    "branch_conflicts": {"hybrid_vs_graph2d": True},
+                    "review_reasons": ["branch_conflict"],
+                    "fallback_flags": ["rules_baseline"],
+                    "evidence": [
+                        {
+                            "source": "hybrid",
+                            "kind": "prediction",
+                            "label": "人孔",
+                            "confidence": 0.91,
+                            "contribution": 0.7,
+                        },
+                        {
+                            "source": "graph2d",
+                            "kind": "prediction",
+                            "label": "传动件",
+                            "confidence": 0.81,
+                            "contribution": 0.3,
+                        },
+                        {
+                            "source": "knowledge",
+                            "kind": "checks",
+                            "status": "checked",
+                            "details": {
+                                "check_categories": ["material", "surface_finish"],
+                                "standards_candidate_types": [
+                                    "material",
+                                    "surface_finish",
+                                ],
+                                "rule_sources": [
+                                    "materials_catalog",
+                                    "iso1302_surface_finish_catalog",
+                                ],
+                                "rule_versions": ["knowledge_grounding.v1"],
+                            },
+                        },
+                    ],
+                    "contract_version": "classification_decision.v1",
+                },
+            },
+        )
+
+        explainability = _build_query_explainability(response)
+
+        assert explainability.contract_version == "classification_decision.v1"
+        assert explainability.decision_contract["fine_part_type"] == "人孔"
+        assert explainability.decision_evidence[0]["source"] == "hybrid"
+        assert explainability.source_contributions == {
+            "hybrid": pytest.approx(0.7),
+            "graph2d": pytest.approx(0.3),
+        }
+        assert "decision_contract_loaded" in explainability.decision_path
+        assert "decision_evidence_grounded" in explainability.decision_path
+        assert "knowledge_rule_citations_grounded" in explainability.decision_path
+        assert explainability.rule_sources == [
+            "materials_catalog",
+            "iso1302_surface_finish_catalog",
+        ]
+        assert explainability.rule_versions == ["knowledge_grounding.v1"]
+        assert explainability.knowledge_citations[0].rule_source == "materials_catalog"
+        assert explainability.knowledge_citations[0].categories == [
+            "material",
+            "surface_finish",
+        ]
+        cited_answer = _append_knowledge_citation_note("回答", explainability)
+        assert "materials_catalog@knowledge_grounding.v1" in cited_answer
+        assert "branch_conflict" in explainability.uncertainty.reasons
+        assert "fallback_flags_present" in explainability.uncertainty.reasons
+        assert explainability.fallback_flags == ["rules_baseline"]
+        assert explainability.review_reasons == ["branch_conflict"]
 
     def test_suggest_endpoint(self, client):
         """Test suggestion endpoint."""

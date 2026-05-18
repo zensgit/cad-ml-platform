@@ -1,0 +1,26 @@
+{
+  "schema_version": "brep_golden_manifest.v1",
+  "name": "B-Rep STEP/IGES Golden Manifest Example",
+  "description": "Example contract for strict STEP/IGES B-Rep validation. This fixture is not release eligible.",
+  "root": "..",
+  "cases": [
+    {
+      "id": "fixture_mock_cube_step",
+      "path": "tests/fixtures/mock_cube.step",
+      "format": "step",
+      "source_type": "fixture",
+      "release_eligible": false,
+      "part_family": "block",
+      "license": "repo-test-fixture",
+      "expected_behavior": "parse_success",
+      "expected_topology": {
+        "faces_min": 1,
+        "edges_min": 0,
+        "solids_min": 0,
+        "graph_nodes_min": 1,
+        "surface_types": ["plane"]
+      },
+      "tags": ["fixture", "contract-example"]
+    }
+  ]
+}

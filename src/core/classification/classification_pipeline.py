@@ -11,6 +11,7 @@ from src.core.classification.active_learning_policy import (
 from src.core.classification.baseline_policy import (
     build_baseline_classification_context,
 )
+from src.core.classification.decision_service import DecisionService
 from src.core.classification.finalization import finalize_classification_payload
 from src.core.classification.fusion_pipeline import (
     build_fusion_classification_context,
@@ -100,12 +101,14 @@ async def run_classification_pipeline(
         "ANALYSIS_REVIEW_HIGH_CONFIDENCE_THRESHOLD",
         0.85,
     )
-    cls_payload = finalize_classification_payload(
+    decision_service = DecisionService(finalize_fn=finalize_classification_payload)
+    cls_payload = decision_service.decide(
         cls_payload,
         text_signals=text_signals,
         text_items=doc.metadata.get("text_content"),
         geometric_features=l2_features,
         entity_counts=ent_counts,
+        features_3d=l3_features,
         low_confidence_threshold=review_low_conf_threshold,
         high_confidence_threshold=review_high_conf_threshold,
     )

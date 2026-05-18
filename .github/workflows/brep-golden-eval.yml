@@ -1,0 +1,101 @@
+name: B-Rep Golden Eval (OCC)
+
+# Stage 2a scaffold: dedicated OpenCASCADE-provisioned runner for the
+# B-Rep STEP/IGES golden set. It does NOT add new eval logic — it provisions
+# pythonocc-core (the only thing evaluation-report.yml's runner lacks) and
+# calls the existing wrapper scripts/ci/build_brep_golden_manifest_optional.sh,
+# which validates the manifest and runs scripts/eval_brep_step_dir.py --strict.
+#
+# Gated by design: the wrapper self-skips unless enabled, and this workflow is
+# manual/scheduled only. Until the 50–100 real release-eligible STEP/IGES files
+# are curated into a real manifest, runs operate on
+# config/brep_golden_manifest.example.json and are INFORMATIONAL
+# (fail_on_not_release_ready defaults false, so the 1-sample example never
+# reds a scheduled run). The emitted summary.json is the --brep-summary
+# artifact the forward scorecard (Stage 2c) will consume once real data lands.
+
+on:
+  workflow_dispatch:
+    inputs:
+      brep_golden_manifest_json:
+        description: "Path to the B-Rep golden manifest JSON"
+        required: false
+        default: "config/brep_golden_manifest.example.json"
+      brep_golden_manifest_min_release_samples:
+        description: "Minimum release-eligible samples required"
+        required: false
+        default: "50"
+      brep_golden_manifest_fail_on_not_release_ready:
+        description: "Fail the run if the manifest is not release-ready"
+        required: false
+        default: "false"
+      brep_golden_eval_strict:
+        description: "Run eval_brep_step_dir.py in strict mode"
+        required: false
+        default: "true"
+      brep_golden_eval_allow_demo_geometry:
+        description: "Allow demo/synthetic geometry rows in strict mode"
+        required: false
+        default: "false"
+  schedule:
+    # Weekly, informational (does not fail on the example manifest).
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  brep-golden-eval:
+    runs-on: ubuntu-latest
+    env:
+      MAMBA_DEFAULT_REPODATA_FN: repodata.json
+      MAMBA_FETCH_THREADS: 1
+      MAMBA_DOWNLOAD_THREADS: 1
+      # Dispatching this dedicated OCC runner IS the opt-in, so enable both
+      # manifest validation and B-Rep eval. workflow_dispatch inputs (passed
+      # below as GITHUB_EVENT_INPUTS_JSON) override these defaults.
+      BREP_GOLDEN_MANIFEST_ENABLE: "true"
+      BREP_GOLDEN_EVAL_ENABLE: "true"
+      BREP_GOLDEN_EVAL_STRICT: "true"
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - name: Set up micromamba (pythonocc-core)
+        uses: mamba-org/setup-micromamba@4b9113af4fba0e9e1124b252dd6497a419e7396d
+        with:
+          micromamba-version: "1.5.8-0"
+          environment-name: brep
+          init-shell: bash
+          cache-environment: true
+          create-args: >-
+            python=3.11
+            pythonocc-core
+            -c conda-forge
+      - name: Install repo dependencies
+        run: |
+          micromamba run -n brep python -m pip install --upgrade pip
+          micromamba run -n brep pip install -r requirements.txt
+      - name: Run B-Rep golden manifest validation + strict eval
+        id: brep
+        env:
+          GITHUB_EVENT_INPUTS_JSON: ${{ toJSON(github.event.inputs) }}
+        run: micromamba run -n brep bash scripts/ci/build_brep_golden_manifest_optional.sh
+      - name: Summarize
+        if: always()
+        run: |
+          echo "validation_status=${{ steps.brep.outputs.validation_status }}"
+          echo "ready_for_release=${{ steps.brep.outputs.ready_for_release }}"
+          echo "release_eligible_count=${{ steps.brep.outputs.release_eligible_count }}"
+          echo "eval_enabled=${{ steps.brep.outputs.eval_enabled }}"
+          echo "eval_sample_size=${{ steps.brep.outputs.eval_sample_size }}"
+          echo "eval_parse_success_count=${{ steps.brep.outputs.eval_parse_success_count }}"
+          echo "eval_graph_valid_count=${{ steps.brep.outputs.eval_graph_valid_count }}"
+          echo "eval_summary_json=${{ steps.brep.outputs.eval_summary_json }}"
+      - name: Upload B-Rep golden artifacts
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: brep-golden-eval
+          path: |
+            reports/benchmark/brep_golden_manifest/
+            reports/benchmark/brep_step_iges_golden/
+          if-no-files-found: warn

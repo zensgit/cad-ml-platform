@@ -24,6 +24,15 @@ def _realdata_scorecard_input() -> dict:
             },
             "exact_scores": {"hybrid_label": {"accuracy": 0.5545}},
             "confidence_stats": {"hybrid_label": {"low_conf_rate": 0.1}},
+            "decision_signals": {
+                "decision_contract_count": 109,
+                "decision_contract_coverage_rate": 0.9909,
+                "decision_evidence_row_count": 108,
+                "decision_evidence_total_count": 432,
+                "decision_evidence_coverage_rate": 0.9818,
+                "evidence_source_counts": {"hybrid": 108, "graph2d": 106},
+                "fallback_flag_counts": {"rules_baseline": 2},
+            },
         },
         "history_summary": {
             "total": 12,
@@ -71,6 +80,13 @@ def test_build_realdata_scorecard_status_summarizes_cross_surface_outcomes() -> 
     assert payload["best_surface"] == "history_h5"
     assert payload["component_statuses"]["hybrid_dxf"] == "ready"
     assert payload["components"]["hybrid_dxf"]["hybrid_minus_graph2d"] > 0.7
+    assert payload["components"]["hybrid_dxf"]["decision_contract_coverage_rate"] == (
+        0.9909
+    )
+    assert payload["components"]["hybrid_dxf"]["decision_evidence_sources"] == {
+        "hybrid": 108,
+        "graph2d": 106,
+    }
     assert payload["components"]["history_h5"]["coarse_accuracy"] == 0.9167
     assert payload["components"]["step_dir"]["coverage_ratio"] == 1.0
 

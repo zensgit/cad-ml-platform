@@ -5,9 +5,15 @@ from scripts.eval_hybrid_dxf_manifest import (
     _coarse_eval_label,
     EvalCase,
     _build_ok_row,
+    _collect_manufacturing_evidence_fields,
     _exact_eval_label,
     _load_manifest_cases,
+    _manufacturing_correctness_fields,
+    _manufacturing_payload_quality_fields,
+    _parse_manufacturing_source_tokens,
+    _summarize_decision_contract_signals,
     _summarize_knowledge_signals,
+    _summarize_manufacturing_evidence,
     _summarize_review_signals,
     _score_rows,
     _summarize_prep_signals,
@@ -26,9 +32,17 @@ def test_load_manifest_cases_prefers_relative_path(tmp_path: Path) -> None:
     manifest.write_text(
         "\n".join(
             [
-                "file_name,label_cn,relative_path,source_dir",
-                "part1.dxf,过滤组件,nested/part1.dxf,",
-                "part2.dxf,轴承件,,",
+                (
+                    "file_name,label_cn,relative_path,source_dir,"
+                    "expected_manufacturing_evidence_sources,"
+                    "expected_dfm_status,expected_dfm_detail_mode,"
+                    "expected_process_label"
+                ),
+                (
+                    "part1.dxf,过滤组件,nested/part1.dxf,,dfm;process,"
+                    "manufacturable,rule,milling"
+                ),
+                "part2.dxf,轴承件,,,none,,,",
             ]
         ),
         encoding="utf-8",
@@ -38,7 +52,37 @@ def test_load_manifest_cases_prefers_relative_path(tmp_path: Path) -> None:
 
     assert len(cases) == 2
     assert cases[0].file_path == nested / "part1.dxf"
+    assert cases[0].expected_manufacturing_evidence_sources == (
+        "dfm",
+        "manufacturing_process",
+    )
+    assert cases[0].expected_manufacturing_evidence_payloads == {
+        "dfm": {"status": "manufacturable", "details.mode": "rule"},
+        "manufacturing_process": {"label": "milling"},
+    }
+    assert cases[0].manufacturing_evidence_reviewed is True
+    assert cases[0].manufacturing_payload_reviewed is True
     assert cases[1].file_path == dxf_dir / "part2.dxf"
+    assert cases[1].expected_manufacturing_evidence_sources == ()
+    assert cases[1].manufacturing_evidence_reviewed is True
+
+
+def test_parse_manufacturing_source_tokens_supports_aliases_and_json() -> None:
+    sources, reviewed = _parse_manufacturing_source_tokens(
+        '["dfm", "process", "cost", "decision"]'
+    )
+
+    assert reviewed is True
+    assert sources == (
+        "dfm",
+        "manufacturing_process",
+        "manufacturing_cost",
+        "manufacturing_decision",
+    )
+
+    empty_sources, empty_reviewed = _parse_manufacturing_source_tokens("none")
+    assert empty_reviewed is True
+    assert empty_sources == ()
 
 
 def test_score_rows_supports_exact_and_coarse_evaluation() -> None:
@@ -100,6 +144,35 @@ def test_build_ok_row_includes_history_and_brep_prep_fields(tmp_path: Path) -> N
         true_label="轴承件",
         source_dir="nested",
         relative_path="nested/sample.dxf",
+        expected_manufacturing_evidence_sources=(
+            "dfm",
+            "manufacturing_process",
+            "manufacturing_cost",
+            "manufacturing_decision",
+        ),
+        expected_manufacturing_evidence_payloads={
+            "dfm": {
+                "status": "manufacturable",
+                "kind": "manufacturability_check",
+                "details.mode": "rule",
+            },
+            "manufacturing_process": {
+                "label": "milling",
+                "kind": "process_recommendation",
+                "details.rule_version": "process.v1",
+            },
+            "manufacturing_cost": {
+                "label": "CNY",
+                "status": "estimated",
+                "details.cost_range.low": "90.0",
+            },
+            "manufacturing_decision": {
+                "status": "manufacturable",
+                "details.risks_count": "0",
+            },
+        },
+        manufacturing_evidence_reviewed=True,
+        manufacturing_payload_reviewed=True,
     )
     results_payload = {
         "classification": {
@@ -110,6 +183,10 @@ def test_build_ok_row_includes_history_and_brep_prep_fields(tmp_path: Path) -> N
             "review_priority": "high",
             "review_priority_score": 2.4,
             "review_reasons": ["branch_conflict", "low_confidence"],
+            "branch_conflicts": {"hybrid_vs_graph2d": True},
+            "contract_version": "classification_decision.v1",
+            "decision_source": "hybrid",
+            "fallback_flags": ["rules_baseline"],
             "coarse_part_type": "轴承件",
             "fine_part_type": "深沟球轴承",
             "fine_confidence": 0.73,
@@ -128,6 +205,24 @@ def test_build_ok_row_includes_history_and_brep_prep_fields(tmp_path: Path) -> N
             },
             "coarse_hybrid_label": "轴承件",
             "source_contributions": {"history_sequence": 0.2, "graph2d": 0.8},
+            "evidence": [
+                {"source": "hybrid", "kind": "prediction", "label": "深沟球轴承"},
+                {"source": "graph2d", "kind": "prediction", "label": "轴承件"},
+            ],
+            "decision_contract": {
+                "fine_part_type": "深沟球轴承",
+                "coarse_part_type": "轴承件",
+                "confidence": 0.81,
+                "decision_source": "hybrid",
+                "branch_conflicts": {"hybrid_vs_graph2d": True},
+                "evidence": [
+                    {"source": "hybrid", "kind": "prediction", "label": "深沟球轴承"},
+                    {"source": "graph2d", "kind": "prediction", "label": "轴承件"},
+                ],
+                "review_reasons": ["branch_conflict", "low_confidence"],
+                "fallback_flags": ["rules_baseline"],
+                "contract_version": "classification_decision.v1",
+            },
             "hybrid_explanation": {"summary": "graph2d dominated"},
             "history_prediction": {
                 "label": "轴承件",
@@ -157,6 +252,33 @@ def test_build_ok_row_includes_history_and_brep_prep_fields(tmp_path: Path) -> N
                 {"label": "传动件", "score": 0.3},
             ],
         },
+        "manufacturing_evidence": [
+            {
+                "source": "dfm",
+                "kind": "manufacturability_check",
+                "status": "manufacturable",
+                "details": {"mode": "rule"},
+            },
+            {
+                "source": "manufacturing_process",
+                "kind": "process_recommendation",
+                "label": "milling",
+                "details": {"rule_version": "process.v1"},
+            },
+            {
+                "source": "manufacturing_cost",
+                "kind": "cost_estimate",
+                "label": "CNY",
+                "status": "estimated",
+                "details": {"cost_range": {"low": 90.0}},
+            },
+            {
+                "source": "manufacturing_decision",
+                "kind": "manufacturing_summary",
+                "status": "manufacturable",
+                "details": {"risks_count": 0},
+            },
+        ],
         "features_3d": {
             "valid_3d": True,
             "faces": 20,
@@ -180,6 +302,38 @@ def test_build_ok_row_includes_history_and_brep_prep_fields(tmp_path: Path) -> N
     assert row["review_priority"] == "high"
     assert row["review_priority_score"] == 2.4
     assert row["review_reasons"] == "branch_conflict;low_confidence"
+    assert row["decision_contract_present"] is True
+    assert row["decision_contract_version"] == "classification_decision.v1"
+    assert row["decision_source"] == "hybrid"
+    assert row["decision_evidence_count"] == 2
+    assert row["decision_evidence_sources"] == "hybrid;graph2d"
+    assert row["decision_fallback_flags"] == "rules_baseline"
+    assert row["decision_review_reasons"] == "branch_conflict;low_confidence"
+    assert json.loads(row["decision_contract"])["fine_part_type"] == "深沟球轴承"
+    assert json.loads(row["decision_evidence"])[0]["source"] == "hybrid"
+    assert json.loads(row["decision_branch_conflicts"]) == {"hybrid_vs_graph2d": True}
+    assert row["manufacturing_evidence_count"] == 4
+    assert row["manufacturing_evidence_sources"] == (
+        "dfm;manufacturing_process;manufacturing_cost;manufacturing_decision"
+    )
+    assert row["manufacturing_evidence_required_sources_present"] is True
+    assert json.loads(row["manufacturing_evidence"])[0]["source"] == "dfm"
+    assert row["expected_manufacturing_evidence_sources"] == (
+        "dfm;manufacturing_cost;manufacturing_decision;manufacturing_process"
+    )
+    assert row["manufacturing_evidence_reviewed"] is True
+    assert row["manufacturing_evidence_source_exact_match"] is True
+    assert row["manufacturing_evidence_source_precision"] == 1.0
+    assert row["manufacturing_evidence_source_recall"] == 1.0
+    assert row["manufacturing_evidence_source_f1"] == 1.0
+    assert row["manufacturing_evidence_payload_quality_reviewed"] is True
+    assert row["manufacturing_evidence_payload_expected_fields"] == 11
+    assert row["manufacturing_evidence_payload_matched_fields"] == 11
+    assert row["manufacturing_evidence_payload_quality_accuracy"] == 1.0
+    assert row["manufacturing_evidence_payload_detail_quality_reviewed"] is True
+    assert row["manufacturing_evidence_payload_detail_expected_fields"] == 4
+    assert row["manufacturing_evidence_payload_detail_matched_fields"] == 4
+    assert row["manufacturing_evidence_payload_detail_quality_accuracy"] == 1.0
     assert row["history_label"] == "轴承件"
     assert row["history_used_for_fusion"] is False
     assert row["history_input_resolved"] is True
@@ -197,6 +351,262 @@ def test_build_ok_row_includes_history_and_brep_prep_fields(tmp_path: Path) -> N
     assert row["brep_feature_hint_top_score"] == 0.6
     assert row["brep_embedding_dim"] == 128
     assert json.loads(row["brep_feature_hints"]) == {"bolt": 0.4, "shaft": 0.6}
+
+
+def test_summarize_decision_contract_signals_counts_coverage_and_sources() -> None:
+    summary = _summarize_decision_contract_signals(
+        [
+            {
+                "decision_contract_version": "classification_decision.v1",
+                "decision_evidence_count": 2,
+                "decision_evidence_sources": "hybrid;graph2d",
+                "decision_fallback_flags": "rules_baseline",
+                "decision_review_reasons": "branch_conflict",
+                "decision_branch_conflicts": json.dumps(
+                    {"hybrid_vs_graph2d": True}, ensure_ascii=False
+                ),
+            },
+            {
+                "decision_contract_version": "classification_decision.v1",
+                "decision_evidence_count": 1,
+                "decision_evidence_sources": "baseline",
+                "decision_fallback_flags": "",
+                "decision_review_reasons": "low_confidence",
+                "decision_branch_conflicts": "",
+            },
+            {
+                "decision_contract_version": "",
+                "decision_evidence_count": 0,
+                "decision_evidence_sources": "",
+                "decision_fallback_flags": "",
+                "decision_review_reasons": "",
+                "decision_branch_conflicts": "",
+            },
+        ]
+    )
+
+    assert summary["row_count"] == 3
+    assert summary["decision_contract_count"] == 2
+    assert summary["decision_contract_coverage_rate"] == 0.666667
+    assert summary["decision_evidence_row_count"] == 2
+    assert summary["decision_evidence_total_count"] == 3
+    assert summary["decision_evidence_coverage_rate"] == 0.666667
+    assert summary["branch_conflict_count"] == 1
+    assert summary["contract_version_counts"] == {"classification_decision.v1": 2}
+    assert summary["evidence_source_counts"] == {
+        "hybrid": 1,
+        "graph2d": 1,
+        "baseline": 1,
+    }
+    assert summary["fallback_flag_counts"] == {"rules_baseline": 1}
+    assert summary["review_reason_counts"] == {
+        "branch_conflict": 1,
+        "low_confidence": 1,
+    }
+
+
+def test_collect_manufacturing_evidence_fields_filters_decision_fallback() -> None:
+    fields = _collect_manufacturing_evidence_fields(
+        {
+            "classification": {
+                "decision_contract": {
+                    "evidence": [
+                        {"source": "dfm", "kind": "manufacturability_check"},
+                        {"source": "hybrid", "kind": "prediction"},
+                    ],
+                },
+            },
+        }
+    )
+
+    assert fields["manufacturing_evidence_count"] == 1
+    assert fields["manufacturing_evidence_sources"] == "dfm"
+    assert fields["manufacturing_evidence_has_dfm"] is True
+    assert fields["manufacturing_evidence_has_process"] is False
+    assert json.loads(fields["manufacturing_evidence"])[0]["source"] == "dfm"
+
+
+def test_summarize_manufacturing_evidence_matches_scorecard_input_contract() -> None:
+    rows = [
+        _collect_manufacturing_evidence_fields(
+            {
+                "manufacturing_evidence": [
+                    {"source": "dfm", "kind": "manufacturability_check"},
+                    {
+                        "source": "manufacturing_process",
+                        "kind": "process_recommendation",
+                    },
+                    {"source": "manufacturing_cost", "kind": "cost_estimate"},
+                    {
+                        "source": "manufacturing_decision",
+                        "kind": "manufacturing_summary",
+                    },
+                ],
+            }
+        ),
+        _collect_manufacturing_evidence_fields(
+            {
+                "manufacturing_evidence": [
+                    {"source": "dfm", "kind": "manufacturability_check"},
+                ],
+            }
+        ),
+        _collect_manufacturing_evidence_fields({}),
+    ]
+
+    summary = _summarize_manufacturing_evidence(rows)
+
+    assert summary["sample_size"] == 3
+    assert summary["records_with_manufacturing_evidence"] == 2
+    assert summary["manufacturing_evidence_coverage_rate"] == 0.666667
+    assert summary["manufacturing_evidence_total_count"] == 5
+    assert summary["source_counts"]["dfm"] == 2
+    assert summary["source_counts"]["manufacturing_process"] == 1
+    assert summary["source_coverage_rates"]["manufacturing_decision"] == 0.333333
+    assert summary["sources"] == [
+        "dfm",
+        "manufacturing_process",
+        "manufacturing_cost",
+        "manufacturing_decision",
+    ]
+    assert summary["source_correctness_available"] is False
+    assert summary["reviewed_sample_count"] == 0
+
+
+def test_manufacturing_source_correctness_counts_reviewed_precision_recall() -> None:
+    rows = [
+        {
+            "manufacturing_evidence_count": 3,
+            "manufacturing_evidence_sources": "dfm;manufacturing_process;manufacturing_cost",
+            **_manufacturing_correctness_fields(
+                ["dfm", "manufacturing_process", "manufacturing_cost"],
+                ["dfm", "manufacturing_process"],
+                reviewed=True,
+            ),
+        },
+        {
+            "manufacturing_evidence_count": 1,
+            "manufacturing_evidence_sources": "dfm",
+            **_manufacturing_correctness_fields(
+                ["dfm"],
+                ["dfm", "manufacturing_cost", "manufacturing_decision"],
+                reviewed=True,
+            ),
+        },
+        {
+            "manufacturing_evidence_count": 1,
+            "manufacturing_evidence_sources": "manufacturing_decision",
+            **_manufacturing_correctness_fields(
+                ["manufacturing_decision"],
+                [],
+                reviewed=False,
+            ),
+        },
+    ]
+
+    summary = _summarize_manufacturing_evidence(rows)
+
+    assert summary["source_correctness_available"] is True
+    assert summary["reviewed_sample_count"] == 2
+    assert summary["source_true_positive_total"] == 3
+    assert summary["source_false_positive_total"] == 1
+    assert summary["source_false_negative_total"] == 2
+    assert summary["source_precision"] == 0.75
+    assert summary["source_recall"] == 0.6
+    assert summary["source_f1"] == 0.666667
+    assert summary["source_correctness"]["dfm"] == {
+        "expected_count": 2,
+        "true_positive": 2,
+        "false_positive": 0,
+        "false_negative": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+    }
+    assert summary["source_correctness"]["manufacturing_cost"]["false_positive"] == 1
+    assert summary["source_correctness"]["manufacturing_cost"]["false_negative"] == 1
+    assert summary["payload_quality_available"] is False
+    assert summary["payload_quality_reviewed_sample_count"] == 0
+
+
+def test_manufacturing_payload_quality_counts_reviewed_fields() -> None:
+    rows = [
+        {
+            "manufacturing_evidence_count": 2,
+            "manufacturing_evidence_sources": "dfm;manufacturing_process",
+            **_manufacturing_payload_quality_fields(
+                [
+                    {
+                        "source": "dfm",
+                        "kind": "manufacturability_check",
+                        "status": "manufacturable",
+                        "details": {"mode": "rule"},
+                    },
+                    {
+                        "source": "manufacturing_process",
+                        "kind": "process_recommendation",
+                        "label": "milling",
+                        "details": {"rule_version": "process.v1"},
+                    },
+                ],
+                {
+                    "dfm": {
+                        "kind": "manufacturability_check",
+                        "status": "manufacturable",
+                        "details.mode": "rule",
+                    },
+                    "manufacturing_process": {
+                        "label": "milling",
+                        "details.rule_version": "process.v2",
+                    },
+                },
+                reviewed=True,
+            ),
+        },
+        {
+            "manufacturing_evidence_count": 1,
+            "manufacturing_evidence_sources": "manufacturing_cost",
+            **_manufacturing_payload_quality_fields(
+                [
+                    {
+                        "source": "manufacturing_cost",
+                        "kind": "cost_estimate",
+                        "label": "USD",
+                        "details": {"cost_range": {"low": 90.0}},
+                    },
+                ],
+                {
+                    "manufacturing_cost": {
+                        "label": "CNY",
+                        "status": "estimated",
+                        "details.cost_range.low": "90.0",
+                        "details.cost_range.high": "110.0",
+                    }
+                },
+                reviewed=True,
+            ),
+        },
+    ]
+
+    summary = _summarize_manufacturing_evidence(rows)
+
+    assert summary["payload_quality_available"] is True
+    assert summary["payload_quality_reviewed_sample_count"] == 2
+    assert summary["payload_quality_expected_field_total"] == 9
+    assert summary["payload_quality_matched_field_total"] == 5
+    assert summary["payload_quality_mismatched_field_total"] == 2
+    assert summary["payload_quality_missing_field_total"] == 2
+    assert summary["payload_quality_accuracy"] == 0.555556
+    assert summary["payload_detail_quality_available"] is True
+    assert summary["payload_detail_quality_reviewed_sample_count"] == 2
+    assert summary["payload_detail_quality_expected_field_total"] == 4
+    assert summary["payload_detail_quality_matched_field_total"] == 2
+    assert summary["payload_detail_quality_mismatched_field_total"] == 1
+    assert summary["payload_detail_quality_missing_field_total"] == 1
+    assert summary["payload_detail_quality_accuracy"] == 0.5
+    assert summary["payload_quality"]["dfm"]["accuracy"] == 1.0
+    assert summary["payload_quality"]["manufacturing_process"]["detail_accuracy"] == 0.0
+    assert summary["payload_quality"]["manufacturing_cost"]["accuracy"] == 0.25
 
 
 def test_summarize_prep_signals_counts_history_and_brep_rows() -> None:

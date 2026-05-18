@@ -101,3 +101,74 @@ def test_collect_vector_migration_pending_candidates_qdrant_partial_hides_total(
     assert result["distribution_complete"] is False
     assert result["total_pending"] is None
     assert [item.id for item in result["items"]] == ["vec2"]
+
+
+def test_collect_vector_migration_pending_candidates_delegates_qdrant_branch(monkeypatch):
+    captured: dict[str, object] = {}
+
+    async def _collect_qdrant(**kwargs):  # noqa: ANN003, ANN202
+        captured.update(kwargs)
+        return {"backend": "qdrant"}
+
+    monkeypatch.setattr(
+        "src.core.vector_migration_pending_candidates."
+        "collect_qdrant_migration_pending_candidates",
+        _collect_qdrant,
+    )
+
+    result = __import__("asyncio").run(
+        collect_vector_migration_pending_candidates(
+            limit=5,
+            target_version="v4",
+            from_version_filter=" v3 ",
+            qdrant_store="store",
+            scan_limit=123,
+            item_cls=VectorMigrationPendingItem,
+            vector_meta={},
+            vector_store={},
+        )
+    )
+
+    assert result == {"backend": "qdrant"}
+    assert captured["qdrant_store"] == "store"
+    assert captured["limit"] == 5
+    assert captured["target_version"] == "v4"
+    assert captured["normalized_filter"] == "v3"
+    assert captured["scan_limit"] == 123
+    assert captured["item_cls"] is VectorMigrationPendingItem
+
+
+def test_collect_vector_migration_pending_candidates_delegates_memory_branch(monkeypatch):
+    captured: dict[str, object] = {}
+
+    def _collect_memory(**kwargs):  # noqa: ANN003, ANN202
+        captured.update(kwargs)
+        return {"backend": "memory"}
+
+    monkeypatch.setattr(
+        "src.core.vector_migration_pending_candidates."
+        "collect_memory_migration_pending_candidates",
+        _collect_memory,
+    )
+
+    result = __import__("asyncio").run(
+        collect_vector_migration_pending_candidates(
+            limit=7,
+            target_version="v4",
+            from_version_filter=" v2 ",
+            qdrant_store=None,
+            scan_limit=456,
+            item_cls=VectorMigrationPendingItem,
+            vector_meta={"vec2": {"feature_version": "v2"}},
+            vector_store={"vec2": [2.0]},
+        )
+    )
+
+    assert result == {"backend": "memory"}
+    assert captured["limit"] == 7
+    assert captured["target_version"] == "v4"
+    assert captured["normalized_filter"] == "v2"
+    assert captured["scan_limit"] == 456
+    assert captured["item_cls"] is VectorMigrationPendingItem
+    assert captured["vector_meta"] == {"vec2": {"feature_version": "v2"}}
+    assert captured["vector_store"] == {"vec2": [2.0]}

@@ -54,8 +54,12 @@ def test_analyze_dxf_uses_shared_manufacturing_summary_builder(monkeypatch):
         captured.update(kwargs)
         return summary_payload
 
-    monkeypatch.setattr("src.api.v1.analyze.run_quality_pipeline", _stub_run_quality_pipeline)
-    monkeypatch.setattr("src.api.v1.analyze.run_process_pipeline", _stub_run_process_pipeline)
+    monkeypatch.setattr(
+        "src.api.v1.analyze.run_quality_pipeline", _stub_run_quality_pipeline
+    )
+    monkeypatch.setattr(
+        "src.api.v1.analyze.run_process_pipeline", _stub_run_process_pipeline
+    )
     monkeypatch.setattr(
         "src.api.v1.analyze.build_manufacturing_decision_summary",
         _stub_build_manufacturing_decision_summary,
@@ -72,7 +76,11 @@ def test_analyze_dxf_uses_shared_manufacturing_summary_builder(monkeypatch):
     resp = client.post(
         "/api/v1/analyze/",
         files={
-            "file": ("ManufacturingSummaryProbe.dxf", io.BytesIO(dxf_payload), "application/dxf"),
+            "file": (
+                "ManufacturingSummaryProbe.dxf",
+                io.BytesIO(dxf_payload),
+                "application/dxf",
+            ),
         },
         data={"options": json.dumps(options)},
         headers={"x-api-key": os.getenv("API_KEY", "test")},
@@ -108,8 +116,12 @@ def test_analyze_dxf_manufacturing_summary_uses_real_builder_wiring(monkeypatch)
             },
         }
 
-    monkeypatch.setattr("src.api.v1.analyze.run_quality_pipeline", _stub_run_quality_pipeline)
-    monkeypatch.setattr("src.api.v1.analyze.run_process_pipeline", _stub_run_process_pipeline)
+    monkeypatch.setattr(
+        "src.api.v1.analyze.run_quality_pipeline", _stub_run_quality_pipeline
+    )
+    monkeypatch.setattr(
+        "src.api.v1.analyze.run_process_pipeline", _stub_run_process_pipeline
+    )
 
     dxf_payload = b"0\nSECTION\n2\nENTITIES\n0\nENDSEC\n0\nEOF\n"
     options = {
@@ -122,7 +134,11 @@ def test_analyze_dxf_manufacturing_summary_uses_real_builder_wiring(monkeypatch)
     resp = client.post(
         "/api/v1/analyze/",
         files={
-            "file": ("ManufacturingDecisionRealBuilder.dxf", io.BytesIO(dxf_payload), "application/dxf"),
+            "file": (
+                "ManufacturingDecisionRealBuilder.dxf",
+                io.BytesIO(dxf_payload),
+                "application/dxf",
+            ),
         },
         data={"options": json.dumps(options)},
         headers={"x-api-key": os.getenv("API_KEY", "test")},
@@ -146,3 +162,78 @@ def test_analyze_dxf_manufacturing_summary_uses_real_builder_wiring(monkeypatch)
         },
         "currency": "USD",
     }
+
+
+def test_analyze_dxf_attaches_manufacturing_evidence_to_classification(monkeypatch):
+    async def _stub_run_quality_pipeline(**kwargs):  # noqa: ANN003, ANN201
+        return {
+            "mode": "L4_DFM",
+            "score": 64.0,
+            "manufacturability": "medium",
+            "issues": [{"code": "THIN_WALL"}],
+        }
+
+    async def _stub_run_process_pipeline(**kwargs):  # noqa: ANN003, ANN201
+        return {
+            "process": {
+                "primary_recommendation": {
+                    "process": "cnc_milling",
+                    "method": "3_axis",
+                    "confidence": 0.88,
+                },
+                "analysis_mode": "L4_AI_Heuristic",
+            },
+            "cost_estimation": {
+                "total_unit_cost": 18.0,
+                "currency": "USD",
+            },
+        }
+
+    monkeypatch.setattr(
+        "src.api.v1.analyze.run_quality_pipeline", _stub_run_quality_pipeline
+    )
+    monkeypatch.setattr(
+        "src.api.v1.analyze.run_process_pipeline", _stub_run_process_pipeline
+    )
+
+    dxf_payload = b"0\nSECTION\n2\nENTITIES\n0\nENDSEC\n0\nEOF\n"
+    options = {
+        "extract_features": True,
+        "classify_parts": True,
+        "quality_check": True,
+        "process_recommendation": True,
+        "estimate_cost": True,
+    }
+    resp = client.post(
+        "/api/v1/analyze/",
+        files={
+            "file": (
+                "ManufacturingEvidenceProbe.dxf",
+                io.BytesIO(dxf_payload),
+                "application/dxf",
+            ),
+        },
+        data={"options": json.dumps(options)},
+        headers={"x-api-key": os.getenv("API_KEY", "test")},
+    )
+
+    assert resp.status_code == 200, resp.text
+    results = resp.json().get("results", {})
+    manufacturing_evidence = results.get("manufacturing_evidence") or []
+    assert [row.get("source") for row in manufacturing_evidence] == [
+        "dfm",
+        "manufacturing_process",
+        "manufacturing_cost",
+        "manufacturing_decision",
+    ]
+
+    classification = results.get("classification") or {}
+    evidence_sources = [row.get("source") for row in classification.get("evidence", [])]
+    assert "dfm" in evidence_sources
+    assert "manufacturing_process" in evidence_sources
+    assert "manufacturing_cost" in evidence_sources
+    assert "manufacturing_decision" in evidence_sources
+    assert classification.get("manufacturing_evidence") == manufacturing_evidence
+    assert (classification.get("decision_contract") or {}).get("evidence") == (
+        classification.get("evidence") or []
+    )

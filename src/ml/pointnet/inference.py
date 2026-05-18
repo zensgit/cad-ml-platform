@@ -69,6 +69,9 @@ class PointNet3DAnalyzer:
         self._feature_extractor = None
         self._device = "cpu"
         self._model_loaded = False
+        # Set when the checkpoint exists but load raised, so the readiness
+        # registry can distinguish load-failure from cold/missing state.
+        self._load_error: Optional[str] = None
 
         self._try_load_model()
 
@@ -130,11 +133,12 @@ class PointNet3DAnalyzer:
 
             self._model_loaded = True
             logger.info("PointNet model loaded from %s on %s.", self.model_path, device)
-        except Exception:
+        except Exception as exc:
             logger.exception("Failed to load PointNet model -- using fallback mode.")
             self._classifier = None
             self._feature_extractor = None
             self._model_loaded = False
+            self._load_error = str(exc)
 
     # ------------------------------------------------------------------
     # Public API

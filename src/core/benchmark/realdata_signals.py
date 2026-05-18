@@ -31,6 +31,7 @@ def _hybrid_component(summary: Dict[str, Any]) -> Dict[str, Any]:
     sample_size = _to_int(summary.get("sample_size"))
     coarse_scores = summary.get("coarse_scores") or {}
     exact_scores = summary.get("exact_scores") or {}
+    decision_signals = summary.get("decision_signals") or {}
     hybrid_coarse = _to_float(
         ((coarse_scores.get("hybrid_label") or {}).get("accuracy"))
         or summary.get("coarse_accuracy_overall")
@@ -57,6 +58,27 @@ def _hybrid_component(summary: Dict[str, Any]) -> Dict[str, Any]:
         "hybrid_exact_accuracy": round(hybrid_exact, 6),
         "graph2d_coarse_accuracy": round(graph2d_coarse, 6),
         "low_conf_rate": round(low_conf_rate, 6),
+        "decision_contract_count": _to_int(
+            decision_signals.get("decision_contract_count")
+        ),
+        "decision_contract_coverage_rate": round(
+            _to_float(decision_signals.get("decision_contract_coverage_rate")), 6
+        ),
+        "decision_evidence_row_count": _to_int(
+            decision_signals.get("decision_evidence_row_count")
+        ),
+        "decision_evidence_total_count": _to_int(
+            decision_signals.get("decision_evidence_total_count")
+        ),
+        "decision_evidence_coverage_rate": round(
+            _to_float(decision_signals.get("decision_evidence_coverage_rate")), 6
+        ),
+        "decision_evidence_sources": dict(
+            decision_signals.get("evidence_source_counts") or {}
+        ),
+        "decision_fallback_flags": dict(
+            decision_signals.get("fallback_flag_counts") or {}
+        ),
     }
 
 

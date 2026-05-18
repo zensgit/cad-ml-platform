@@ -118,6 +118,8 @@ def test_analyze_dxf_exposes_coarse_labels_and_knowledge_outputs(monkeypatch):
     assert "gdt" in categories
     assert "material" in categories
     assert "surface_finish" in categories
+    assert all(item.get("rule_source") for item in knowledge_checks)
+    assert all(item.get("rule_version") == "knowledge_grounding.v1" for item in knowledge_checks)
 
     standards = classification.get("standards_candidates") or []
     assert any(item.get("designation") == "GB/T 1804-M" for item in standards)
@@ -129,7 +131,20 @@ def test_analyze_dxf_exposes_coarse_labels_and_knowledge_outputs(monkeypatch):
         item.get("type") == "surface_finish" and item.get("grade") == "N8"
         for item in standards
     )
+    assert all(item.get("rule_source") for item in standards)
+    assert all(item.get("rule_version") == "knowledge_grounding.v1" for item in standards)
     assert classification.get("violations")
+    assert all(
+        item.get("rule_version") == "knowledge_grounding.v1"
+        for item in classification.get("violations")
+    )
+    knowledge_evidence = {
+        item.get("source"): item for item in classification.get("evidence", [])
+    }.get("knowledge")
+    assert knowledge_evidence
+    assert "knowledge_grounding.v1" in (
+        knowledge_evidence.get("details", {}).get("rule_versions") or []
+    )
 
 
 def test_analyze_dxf_registers_similarity_meta_with_coarse_contract(monkeypatch):

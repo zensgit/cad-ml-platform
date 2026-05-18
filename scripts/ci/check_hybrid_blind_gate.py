@@ -135,9 +135,23 @@ def evaluate_hybrid_blind_gate(
     thresholds: Dict[str, Any],
     *,
     dataset_source: str = "",
+    manifest_source: str = "",
+    required_manifest_source: str = "",
 ) -> Dict[str, Any]:
     failures: List[str] = []
     warnings: List[str] = []
+    normalized_manifest_source = str(manifest_source or "").strip() or "unknown"
+    normalized_required_manifest_source = str(required_manifest_source or "").strip()
+
+    if (
+        normalized_required_manifest_source
+        and normalized_manifest_source != normalized_required_manifest_source
+    ):
+        failures.append(
+            "manifest_source "
+            f"{normalized_manifest_source!r} != required_manifest_source "
+            f"{normalized_required_manifest_source!r}"
+        )
 
     geometry_only = _safe_bool(summary.get("geometry_only"), False)
     mask_filename = _safe_bool(summary.get("mask_filename"), False)
@@ -201,6 +215,8 @@ def evaluate_hybrid_blind_gate(
         "warnings": warnings,
         "input_summary": {
             "dataset_source": str(dataset_source or "").strip() or "unknown",
+            "manifest_source": normalized_manifest_source,
+            "required_manifest_source": normalized_required_manifest_source,
             "geometry_only": geometry_only,
             "mask_filename": mask_filename,
             "strip_text": strip_text,
@@ -245,6 +261,16 @@ def main(argv: List[str] | None = None) -> int:
         default="",
         help="Optional dataset source identifier, e.g. configured_dxf_dir or synthetic_manifest.",
     )
+    parser.add_argument(
+        "--manifest-source",
+        default="",
+        help="Optional manifest source identifier, e.g. configured or reviewed_benchmark_manifest.",
+    )
+    parser.add_argument(
+        "--require-manifest-source",
+        default="",
+        help="Fail unless --manifest-source matches this value.",
+    )
     args = parser.parse_args(argv)
 
     summary_path = Path(args.summary_json)
@@ -270,6 +296,8 @@ def main(argv: List[str] | None = None) -> int:
         summary=summary,
         thresholds=thresholds,
         dataset_source=str(args.dataset_source or ""),
+        manifest_source=str(args.manifest_source or ""),
+        required_manifest_source=str(args.require_manifest_source or ""),
     )
     if args.output:
         out = Path(args.output)

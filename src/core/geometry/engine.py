@@ -31,6 +31,10 @@ try:
         GeomAbs_Torus,
     )
     from OCC.Core.GProp import GProp_GProps
+    try:
+        from OCC.Core.IGESControl import IGESControl_Reader
+    except ImportError:  # pragma: no cover - depends on pythonocc build
+        IGESControl_Reader = None  # type: ignore[assignment]
     from OCC.Core.IFSelect import IFSelect_RetDone
     from OCC.Core.STEPControl import STEPControl_Reader
     from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_SHELL, TopAbs_SOLID, TopAbs_VERTEX
@@ -124,6 +128,40 @@ class GeometryEngine:
             return shape
         except Exception as e:
             logger.error(f"Exception loading STEP file: {e}")
+            return None
+        finally:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+
+    def load_iges(self, content: bytes, file_name: str = "temp.iges") -> Optional[Any]:
+        """
+        Load an IGES file from bytes.
+        Returns a TopoDS_Shape or None on failure.
+        """
+        if not HAS_OCC or IGESControl_Reader is None:
+            return None
+
+        suffix = os.path.splitext(file_name)[1]
+        if not suffix:
+            suffix = ".iges"
+
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(content)
+            tmp_path = tmp.name
+
+        try:
+            reader = IGESControl_Reader()
+            status = reader.ReadFile(tmp_path)
+
+            if status != IFSelect_RetDone:
+                logger.error(f"Error reading IGES file {file_name}: status {status}")
+                return None
+
+            reader.TransferRoots()
+            shape = reader.OneShape()
+            return shape
+        except Exception as e:
+            logger.error(f"Exception loading IGES file: {e}")
             return None
         finally:
             if os.path.exists(tmp_path):

@@ -42,10 +42,22 @@ def _is_auth_or_token_error(message: str) -> bool:
 
 def _is_missing_workflow_on_ref_error(message: str) -> bool:
     text = str(message or "").lower()
-    return (
+    if (
         "could not find workflow file" in text
         and "try specifying a different ref" in text
-    ) or ("workflow was not found" in text and "ref" in text)
+    ):
+        return True
+    if "workflow was not found" in text and "ref" in text:
+        return True
+    # GitHub Actions registers `workflow_dispatch` and the gh-CLI workflow
+    # registry from the DEFAULT branch's copy. A workflow file that exists
+    # only on a stacked / feature branch yields "HTTP 404: workflow ... not
+    # found on the default branch" — same class of "workflow file is missing
+    # from the ref the API resolves to" and equally safe to fall back to the
+    # local YAML parser.
+    if "not found on the default branch" in text:
+        return True
+    return False
 
 
 def _check_yaml_parse(path: Path) -> WorkflowCheckResult:

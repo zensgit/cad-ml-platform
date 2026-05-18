@@ -14,9 +14,17 @@ def _auth_headers() -> dict[str, str]:
 
 
 def test_migration_preview_delegates_to_preview_pipeline():
+    async def _collect_samples(*_args, **_kwargs):  # noqa: ANN002, ANN003, ANN202
+        return [], 0, {}
+
+    def _sentinel_prepare(*_args):  # noqa: ANN002, ANN202
+        return [], [], "sentinel"
+
     async def _run_preview(**kwargs):  # noqa: ANN003, ANN202
         assert kwargs["to_version"] == "v4"
         assert kwargs["limit"] == 3
+        assert kwargs["collect_qdrant_preview_samples_fn"] is _collect_samples
+        assert kwargs["prepare_vector_for_upgrade_fn"] is _sentinel_prepare
         return kwargs["response_cls"](
             total_vectors=1,
             by_version={"v4": 1},
@@ -28,7 +36,13 @@ def test_migration_preview_delegates_to_preview_pipeline():
             median_delta=0.0,
         )
 
-    with patch("src.api.v1.vectors.run_vector_migration_preview_pipeline", _run_preview):
+    with patch(
+        "src.api.v1.vectors._collect_qdrant_preview_samples",
+        _collect_samples,
+    ), patch(
+        "src.api.v1.vectors._prepare_vector_for_upgrade",
+        _sentinel_prepare,
+    ), patch("src.api.v1.vectors.run_vector_migration_preview_pipeline", _run_preview):
         response = client.get(
             "/api/v1/vectors/migrate/preview",
             params={"to_version": "v4", "limit": 3},

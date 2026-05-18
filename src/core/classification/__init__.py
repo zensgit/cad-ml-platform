@@ -19,6 +19,10 @@ from src.core.classification.decision_contract import (
     build_classification_decision_contract,
     extract_label_decision_contract,
 )
+from src.core.classification.decision_service import (
+    DECISION_CONTRACT_VERSION,
+    DecisionService,
+)
 from src.core.classification.finalization import finalize_classification_payload
 from src.core.classification.fusion_pipeline import (
     build_fusion_classification_context,
@@ -54,6 +58,8 @@ __all__ = [
     "run_classification_pipeline",
     "extract_label_decision_contract",
     "build_classification_decision_contract",
+    "DECISION_CONTRACT_VERSION",
+    "DecisionService",
     "finalize_classification_payload",
     "build_fusion_classification_context",
     "build_hybrid_override_context",

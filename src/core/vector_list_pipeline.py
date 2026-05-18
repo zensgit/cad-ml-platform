@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-import os
 from typing import Any, Callable, Optional
 
 from fastapi import HTTPException
+
+from src.core.vector_list_limits import resolve_vector_list_limits
+from src.core.vector_list_qdrant import list_vectors_qdrant
 
 
 async def run_vector_list_pipeline(
@@ -41,47 +43,28 @@ async def run_vector_list_pipeline(
         )
         raise HTTPException(status_code=400, detail=err)
 
-    max_limit = int(os.getenv("VECTOR_LIST_LIMIT", "200"))
-    limit = min(limit, max_limit)
-    scan_limit = int(os.getenv("VECTOR_LIST_SCAN_LIMIT", "5000"))
+    limit, scan_limit = resolve_vector_list_limits(limit)
     resolved = resolve_list_source_fn(source, _BACKEND)
     if resolved == "qdrant":
         qdrant_store = get_qdrant_store_fn()
         if qdrant_store is not None:
             from src.core.similarity import extract_vector_label_contract
 
-            results, total = await qdrant_store.list_vectors(
-                offset=offset,
-                limit=limit,
-                filter_conditions=build_filter_conditions_fn(
-                    material_filter=material_filter,
-                    complexity_filter=complexity_filter,
-                    fine_part_type_filter=fine_part_type_filter,
-                    coarse_part_type_filter=coarse_part_type_filter,
-                    decision_source_filter=decision_source_filter,
-                    is_coarse_label_filter=is_coarse_label_filter,
-                ),
-                with_vectors=True,
+            return await list_vectors_qdrant(
+                qdrant_store,
+                offset,
+                limit,
+                material_filter,
+                complexity_filter,
+                fine_part_type_filter,
+                coarse_part_type_filter,
+                decision_source_filter,
+                is_coarse_label_filter,
+                item_cls=item_cls,
+                response_cls=response_cls,
+                build_filter_conditions_fn=build_filter_conditions_fn,
+                extract_label_contract_fn=extract_vector_label_contract,
             )
-            items = []
-            for result in results:
-                meta = result.metadata or {}
-                label_contract = extract_vector_label_contract(meta)
-                items.append(
-                    item_cls(
-                        id=result.id,
-                        dimension=len(result.vector or []),
-                        material=meta.get("material"),
-                        complexity=meta.get("complexity"),
-                        format=meta.get("format"),
-                        part_type=label_contract.get("part_type"),
-                        fine_part_type=label_contract.get("fine_part_type"),
-                        coarse_part_type=label_contract.get("coarse_part_type"),
-                        decision_source=label_contract.get("decision_source"),
-                        is_coarse_label=label_contract.get("is_coarse_label"),
-                    )
-                )
-            return response_cls(total=total, vectors=items)
     if resolved == "redis":
         client = get_client_fn()
         if client is not None:

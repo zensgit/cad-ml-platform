@@ -24,6 +24,9 @@ _ml_classifier_loaded: bool = False
 # V16分类器延迟加载
 _v16_classifier: Optional[Any] = None
 _v16_classifier_loaded: bool = False
+# Set when V16 construction was attempted and raised, so the model
+# readiness registry can distinguish load-failure from cold/missing.
+_v16_classifier_load_error: Optional[str] = None
 
 
 def _augment_classification_contract(
@@ -50,7 +53,7 @@ def _augment_classification_contract(
 
 def _get_v16_classifier(speed_mode: str = "fast") -> Optional[Any]:
     """延迟加载V16分类器（默认使用fast模式平衡速度和精度）"""
-    global _v16_classifier, _v16_classifier_loaded
+    global _v16_classifier, _v16_classifier_loaded, _v16_classifier_load_error
 
     # 检查环境变量是否禁用V16
     if os.getenv("DISABLE_V16_CLASSIFIER", "").lower() in ("1", "true", "yes"):
@@ -79,6 +82,7 @@ def _get_v16_classifier(speed_mode: str = "fast") -> Optional[Any]:
             logger.info("V16模型文件不完整，将回退到V6分类器")
     except Exception as e:
         logger.warning(f"V16分类器加载失败: {e}，将回退到V6分类器")
+        _v16_classifier_load_error = str(e)
 
     return _v16_classifier
 

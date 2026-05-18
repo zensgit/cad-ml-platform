@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from src.api.v1 import vectors as vectors_module
+from src.api.v1.vector_similarity_models import (
+    BatchSimilarityItem,
+    BatchSimilarityResponse,
+)
 from src.main import app
 
 client = TestClient(app)
@@ -23,9 +28,16 @@ def test_vectors_batch_similarity_route_delegates_to_shared_helper(monkeypatch):
             "degraded": False,
         }
 
+    def _sentinel_build_filter_conditions(**kwargs):  # noqa: ANN003, ANN201
+        return {"sentinel": kwargs}
+
     monkeypatch.setattr(
         "src.api.v1.vectors.run_vector_batch_similarity",
         _stub_run_vector_batch_similarity,
+    )
+    monkeypatch.setattr(
+        "src.api.v1.vectors._build_vector_filter_conditions",
+        _sentinel_build_filter_conditions,
     )
 
     response = client.post(
@@ -37,5 +49,11 @@ def test_vectors_batch_similarity_route_delegates_to_shared_helper(monkeypatch):
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["total"] == 1
+    assert body["batch_id"] == "batch-1"
+    assert body["items"][0]["status"] == "success"
     assert captured["payload"].ids == ["vec1"]
-    assert captured["batch_response_cls"].__name__ == "BatchSimilarityResponse"
+    assert captured["payload"].top_k == 3
+    assert captured["batch_item_cls"] is BatchSimilarityItem
+    assert captured["batch_response_cls"] is BatchSimilarityResponse
+    assert captured["get_qdrant_store_fn"] is vectors_module._get_qdrant_store_or_none
+    assert captured["build_filter_conditions_fn"] is _sentinel_build_filter_conditions

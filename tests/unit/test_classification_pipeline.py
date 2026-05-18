@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
+from src.core.classification.decision_service import DECISION_CONTRACT_VERSION
 from src.core.classification.classification_pipeline import run_classification_pipeline
 
 
@@ -97,6 +98,8 @@ async def test_run_classification_pipeline_happy_path(monkeypatch):
 
     assert calls == ["baseline", "shadow", "fusion", "hybrid", "finalize", "flag"]
     assert result["part_type"] == "人孔"
+    assert result["contract_version"] == DECISION_CONTRACT_VERSION
+    assert result["decision_contract"]["contract_version"] == DECISION_CONTRACT_VERSION
     assert captured["finalize_kwargs"]["low_confidence_threshold"] == 0.55
     assert captured["finalize_kwargs"]["high_confidence_threshold"] == 0.91
     assert captured["flag_kwargs"] == {

@@ -50,6 +50,12 @@ class Graph2DClassifier:
         self.temperature: float = 1.0
         self.temperature_source: Optional[str] = None
         self._loaded = False
+        # Distinguishes "load was attempted and failed" from "cold / never
+        # attempted" for the model readiness registry. Stays None unless the
+        # checkpoint exists and load raised. NOTE: this outer except wraps the
+        # whole _load_model() incl. architecture init, so its scope is slightly
+        # broader than UV-Net/PointNet's inner-except capture sites.
+        self._load_error: Optional[str] = None
 
         self._load_temperature()
 
@@ -62,6 +68,7 @@ class Graph2DClassifier:
                 logger.warning("Failed to load Graph2D model %s: %s", self.model_path, exc)
                 self.model = None
                 self._loaded = False
+                self._load_error = str(exc)
 
     def _predict_probs(self, data: bytes, file_name: str) -> Dict[str, Any]:
         """Return the full probability vector for internal consumers (e.g. ensembles).

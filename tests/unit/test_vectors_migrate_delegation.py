@@ -10,9 +10,13 @@ client = TestClient(app)
 
 
 def test_vectors_migrate_delegates_to_shared_pipeline():
+    def _sentinel_prepare(*_args):  # noqa: ANN002, ANN202
+        return [], [], "sentinel"
+
     async def _run(**kwargs):  # noqa: ANN003, ANN202
         assert kwargs["payload"].to_version == "v2"
         assert kwargs["qdrant_store"] == "qdrant-store"
+        assert kwargs["prepare_vector_for_upgrade_fn"] is _sentinel_prepare
         return {
             "total": 1,
             "migrated": 0,
@@ -25,6 +29,9 @@ def test_vectors_migrate_delegates_to_shared_pipeline():
         }
 
     with patch(
+        "src.api.v1.vectors._prepare_vector_for_upgrade",
+        _sentinel_prepare,
+    ), patch(
         "src.api.v1.vectors.run_vector_migrate_pipeline",
         _run,
     ), patch(
