@@ -173,6 +173,82 @@ def test_auto_mode_fallbacks_to_yaml_on_missing_workflow_for_ref(
     assert payload["fallback_reason"] == "gh_ref_unresolvable_for_local_head"
 
 
+def test_auto_mode_fallbacks_to_yaml_on_default_branch_404(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    """A workflow that exists only on a stacked branch yields a GitHub
+    "HTTP 404: ... not found on the default branch" error. The fallback
+    must still kick in so the file-health check does not red the whole
+    stress-tests workflow on stacked PRs.
+    """
+    from scripts.ci import check_workflow_file_issues as mod
+
+    _write_workflow(
+        tmp_path / ".github" / "workflows" / "ci.yml",
+        "name: CI\non:\n  push:\n    branches: [main]\n",
+    )
+    summary = tmp_path / "summary.json"
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(mod, "_is_gh_available", lambda: True)
+    monkeypatch.setattr(
+        mod,
+        "_check_with_gh",
+        lambda path, ref: mod.WorkflowCheckResult(
+            path=str(path),
+            mode="gh",
+            ok=False,
+            message=(
+                "HTTP 404: workflow .github/workflows/brep-golden-eval.yml "
+                "not found on the default branch "
+                "(https://api.github.com/repos/owner/repo/actions/workflows/"
+                ".github%2Fworkflows%2Fbrep-golden-eval.yml)"
+            ),
+        ),
+    )
+
+    rc = _invoke_main(
+        mod,
+        [
+            "--mode",
+            "auto",
+            "--glob",
+            ".github/workflows/*.yml",
+            "--summary-json-out",
+            str(summary),
+        ],
+    )
+    assert rc == 0
+    payload = json.loads(summary.read_text(encoding="utf-8"))
+    assert payload["requested_mode"] == "auto"
+    assert payload["mode_used"] == "yaml"
+    assert payload["fallback_reason"] == "gh_ref_unresolvable_for_local_head"
+    assert payload["failed_count"] == 0
+
+
+def test_is_missing_workflow_on_ref_error_recognizes_all_variants() -> None:
+    from scripts.ci.check_workflow_file_issues import (
+        _is_missing_workflow_on_ref_error,
+    )
+
+    matches = [
+        # Original gh-CLI message on stale ref.
+        "could not find workflow file ci.yml on HEAD, try specifying a different ref",
+        # Alternate phrasing seen on some gh versions.
+        "workflow was not found on the requested ref",
+        # NEW: workflow file present only on a stacked branch -> 404 on
+        # the default branch (GitHub Actions workflow registry behavior).
+        "HTTP 404: workflow .github/workflows/brep-golden-eval.yml not found on the default branch",
+    ]
+    non_matches = [
+        "Failed to log in: HTTP 401 Unauthorized",
+        "invalid workflow file: yaml parse error",
+    ]
+    for msg in matches:
+        assert _is_missing_workflow_on_ref_error(msg) is True, msg
+    for msg in non_matches:
+        assert _is_missing_workflow_on_ref_error(msg) is False, msg
+
+
 def test_gh_mode_does_not_require_yaml_dependency(tmp_path: Path, monkeypatch: Any) -> None:
     from scripts.ci import check_workflow_file_issues as mod
 
