@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
 import pytest
 
 from src.api.v1.vectors import VectorMigrationTrendsResponse
@@ -27,12 +29,13 @@ def _build_readiness(versions, *, total_vectors, distribution_complete):  # noqa
 
 @pytest.mark.asyncio
 async def test_run_vector_migration_trends_pipeline_partial_qdrant_snapshot():
+    recent_started_at = (datetime.utcnow() - timedelta(minutes=5)).isoformat()
     response = await run_vector_migration_trends_pipeline(
         window_hours=24,
         history=[
             {
                 "migration_id": "test",
-                "started_at": "2026-04-21T10:00:00",
+                "started_at": recent_started_at,
                 "total": 10,
                 "counts": {"migrated": 6, "downgraded": 2, "error": 1, "not_found": 1},
             }
