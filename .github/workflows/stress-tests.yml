@@ -28,9 +28,16 @@ jobs:
       - name: Install PyYAML
         run: pip install pyyaml
       - name: Validate workflow file health via GitHub parser
+        # `--mode auto` lets the script fall back to the local YAML parser
+        # when gh-CLI raises an auth/token error OR cannot resolve the
+        # workflow on the requested ref (covers stacked-branch workflows
+        # not yet registered on the default branch — see
+        # check_workflow_file_issues._is_missing_workflow_on_ref_error).
+        # The YAML fallback still enforces `name`/`on` presence, so a
+        # genuinely broken workflow file does not silently pass.
         run: |
           python3 scripts/ci/check_workflow_file_issues.py \
-            --mode gh \
+            --mode auto \
             --ref "${GITHUB_SHA}" \
             --summary-json-out reports/ci/workflow_file_health_summary.json
       - name: Generate workflow inventory audit report
