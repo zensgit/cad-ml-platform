@@ -55,6 +55,47 @@ def test_unknown_bucket_defaults_internal_but_flagged(tmp_path: Path) -> None:
     assert case["format"] == "iges"
 
 
+def test_known_bucket_only_recognised_in_first_segment(tmp_path: Path) -> None:
+    """A known bucket name appearing BELOW the first path segment must
+    NOT be picked up — only rel_parts[0] is authoritative (DESIGN §2.2).
+    Guards against silent mis-classification: mystery/public_nc/x.step
+    must default to internal+flagged, never become public_nc.
+    """
+    _touch_step(tmp_path, "mystery/public_nc/x.step")
+    _touch_step(tmp_path, "mystery/internal/y.step")
+
+    by_id = {c["id"]: c for c in build_skeleton(tmp_path)["cases"]}
+
+    nc_nested = by_id["mystery_public_nc_x"]
+    # Deep `public_nc` segment ignored -> defaults to internal AND flagged.
+    assert nc_nested["source_type"] == "internal"
+    assert "TODO-source-type" in nc_nested["tags"]
+    # Critically: it is release_eligible=True (internal default) but the
+    # TODO-source-type tag forces a human to confirm before it counts —
+    # the tag is the only thing standing between this and a silent
+    # mis-classification, so assert it explicitly.
+    assert nc_nested["release_eligible"] is True
+
+    internal_nested = by_id["mystery_internal_y"]
+    # Even though the deep segment is `internal` and the default is also
+    # `internal`, it must STILL be flagged: the result is a DEFAULT, not
+    # a clean inference. Not flagging here would let a future relayout
+    # (mystery/ -> public_nc/) silently flip release-eligibility.
+    assert internal_nested["source_type"] == "internal"
+    assert "TODO-source-type" in internal_nested["tags"]
+
+
+def test_root_level_file_defaults_internal_and_flagged(tmp_path: Path) -> None:
+    """A file directly under root (no subdir, empty rel_parts) cannot be
+    cleanly inferred — must default internal AND be flagged."""
+    _touch_step(tmp_path, "loose.step")
+
+    case = build_skeleton(tmp_path)["cases"][0]
+
+    assert case["source_type"] == "internal"
+    assert "TODO-source-type" in case["tags"]
+
+
 def test_todo_fields_are_explicit_placeholders(tmp_path: Path) -> None:
     _touch_step(tmp_path, "internal/p1.step")
 
