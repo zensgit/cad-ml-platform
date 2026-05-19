@@ -100,6 +100,44 @@ python3 scripts/validate_brep_golden_manifest.py \
 
 期望 `OK example self-consistent`。（已本地 ✅）
 
+## 5b. Blocking finding 复现 + 修复验证（已本地 ✅）
+
+```bash
+python3 -c "
+import sys, tempfile, os; sys.path.insert(0,'.')
+from scripts.build_brep_golden_manifest_skeleton import build_skeleton
+from scripts.validate_brep_golden_manifest import validate_manifest
+d=tempfile.mkdtemp()
+for i in range(50):
+    p=os.path.join(d,f'mystery/public_nc/p{i}.step'); os.makedirs(os.path.dirname(p),exist_ok=True); open(p,'w').write('x')
+m=build_skeleton(d, manifest_root=d)
+for c in m['cases']:
+    c['part_family']='block'; c['license']='internal'
+assert all(c['release_eligible'] is False for c in m['cases'])
+r=validate_manifest(m, min_release_samples=50)
+assert r['status']!='release_ready' and r['release_eligible_count']==0
+print('OK: 50 mystery/public_nc -> 0 eligible, NOT release_ready (was 50/release_ready)')
+"
+```
+
+纵深（validator 独立拒绝 release_eligible+TODO）：
+
+```bash
+python3 -c "
+import sys, tempfile, os; sys.path.insert(0,'.')
+from scripts.validate_brep_golden_manifest import validate_manifest
+d=tempfile.mkdtemp(); open(os.path.join(d,'p.step'),'w').write('x')
+base=dict(id='c',path='p.step',format='step',source_type='internal',release_eligible=True,part_family='block',license='internal',expected_behavior='parse_success',expected_topology=dict(faces_min=1,edges_min=0,solids_min=0,graph_nodes_min=1,surface_types=['plane']))
+for mut in ({'tags':['TODO-source-type']},{'license':'TODO'}):
+    r=validate_manifest({'schema_version':'brep_golden_manifest.v1','name':'t','root':d,'cases':[{**base,**mut}]}, min_release_samples=1)
+    assert r['status']=='invalid' and any('unfilled skeleton placeholders' in e for e in r['errors'])
+print('OK: validator rejects release_eligible+TODO (tag & field)')
+"
+```
+
+人工 signoff 契约（仅填字段不够，须清 tag）：见
+`test_skeleton_requires_full_human_signoff_to_pass_validator`。
+
 ## 6. CI（合入后权威）
 
 ```bash

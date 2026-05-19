@@ -107,7 +107,14 @@ def build_skeleton(
             seen_ids[base_id] = 0
             case_id = base_id
         fmt = path.suffix.lower().lstrip(".")
-        release_eligible = source_type not in RELEASE_EXCLUDED_SOURCE_TYPES
+        # A skeleton case is release_eligible ONLY if its source_type was
+        # cleanly inferred from the first path segment AND that bucket is
+        # not release-excluded. An un-cleanly-inferred case (unknown /
+        # deep / root-level bucket) defaults to source_type=internal but
+        # MUST NOT enter the release floor on a guess — it stays
+        # release_eligible=False until a human reclassifies it. This makes
+        # the TODO-source-type tag a hard gate, not advisory.
+        release_eligible = clean and source_type not in RELEASE_EXCLUDED_SOURCE_TYPES
         tags = ["TODO-part-family", "TODO-license", "TODO-topology"]
         if not clean:
             tags.append("TODO-source-type")

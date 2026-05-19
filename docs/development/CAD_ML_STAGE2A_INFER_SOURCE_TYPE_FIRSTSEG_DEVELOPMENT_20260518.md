@@ -83,11 +83,52 @@ return "internal", False
 skeleton→fill→validator release_ready 往返不变；validator example
 自洽（`insufficient_release_samples`, `errors=[]`）。
 
+## 4b. Blocking finding 修正（review 复现后追加）
+
+**Reviewer 复现**：PR head 上 50 个 `mystery/public_nc/*.step` → 生成
+50 个带 `TODO-source-type` 的 case，validator 仍 `release_ready,
+release_eligible_count=50, errors=[]`。`TODO-source-type` tag 是**建议性**
+的——validator 只读 `release_eligible`，不看 tags——与测试注释"tag
+forces human confirm before it counts"矛盾。**该 finding 阻塞合并。**
+
+**两层修（纵深防御）**：
+
+1. **scaffolder 默认收紧**（`build_brep_golden_manifest_skeleton.py:~115`）：
+   `release_eligible = clean and source_type not in RELEASE_EXCLUDED_SOURCE_TYPES`。
+   un-clean 推断（unknown/deep/root-level）→ `release_eligible=False`，
+   不再凭猜进 release floor。tag 成为硬 gate。
+
+2. **validator 独立拒绝**（`validate_brep_golden_manifest.py:~201`）：
+   `release_eligible` 的 case 若仍带 `TODO-*` tag **或** `part_family`/
+   `license` 字段值为 `TODO` → `errors` → manifest `invalid`。与
+   scaffolder 解耦，scaffolder 回归或手写 manifest 都无法绕过。
+
+**人工 signoff 契约**（修正后明确）：补字段值 **且** 清 `TODO-*` tag，
+二者缺一不可——validator 强制。`test_skeleton_requires_full_human_signoff_to_pass_validator`
+钉死此契约（仅填字段 → invalid；再清 tag → release_ready）。
+
+**行为对照（修正后）**：
+
+| 路径 | source_type | release_eligible | 备注 |
+| --- | --- | --- | --- |
+| `internal/p.step` | internal, clean | True | 不变 |
+| `public_nc/abc.step` | public_nc, clean | False | release-excluded |
+| `vendor/acme/shaft.stp` | vendor, clean | True | 首段命中 |
+| `mystery/public_nc/x.step` | internal, FLAGGED | **False** | 修正：原 True（blocking） |
+| `mystery/internal/y.step` | internal, FLAGGED | **False** | 修正：原 True |
+| `loose.step`（root 级） | internal, FLAGGED | **False** | 修正：原 True |
+
+**回归 guard**：`test_scaffolder_blocking_finding_regression_50_mystery_public_nc`
+钉死 reviewer 的精确复现（50 mystery/public_nc → 0 eligible，非
+release_ready）。validator 侧 +3 测试（TODO-tag 拒绝 / TODO-field 拒绝 /
+非 release case 可保留 TODO）。
+
 ## 5. 范围
 
-仅一个纯函数 + 测试 + 本对 MD。validator / wrapper / eval /
-example manifest **未触碰**。无生产路径行为依赖此函数的代码改动
-（scaffolder 是离线脚手架，非运行时）。
+`_infer_source_type`（纯函数）+ scaffolder `release_eligible` 默认 +
+validator TODO 硬 gate + 测试 + 本对 MD。example manifest 无 TODO
+字段/tag，不受新 gate 影响（已验证自洽）。所有改动在离线脚手架 /
+校验器，非运行时生产路径。
 
 ## 6. 验证
 

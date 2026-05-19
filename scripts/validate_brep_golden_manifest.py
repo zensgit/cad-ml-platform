@@ -199,6 +199,30 @@ def validate_manifest(
         if release_eligible and expected_behavior != "parse_success":
             errors.append(f"{case_label}: release_eligible requires parse_success")
         if release_eligible:
+            # Defense-in-depth: a release_eligible case carrying unfilled
+            # skeleton placeholders (TODO field values or TODO-* tags) has
+            # not been human-reviewed and must not pass the release gate,
+            # even if the scaffolder or a hand-edit left it eligible. This
+            # is independent of the scaffolder so a regression there (or a
+            # hand-written manifest) cannot bypass it.
+            todo_tags = [
+                str(tag)
+                for tag in (case.get("tags") or [])
+                if str(tag).startswith("TODO-")
+            ]
+            todo_fields = [
+                field
+                for field in ("part_family", "license")
+                if str(case.get(field) or "").strip().upper() == "TODO"
+            ]
+            if todo_tags or todo_fields:
+                errors.append(
+                    f"{case_label}: release_eligible case still has unfilled "
+                    f"skeleton placeholders "
+                    f"(tags={todo_tags or '[]'}, fields={todo_fields or '[]'}); "
+                    f"a human must fill them and clear the TODO markers "
+                    f"before it can count toward the release floor"
+                )
             release_eligible_count += 1
 
     if release_eligible_count < min_release_samples:
