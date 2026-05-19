@@ -50,12 +50,15 @@ t('mystery/public_nc/x.step'); t('mystery/internal/y.step'); t('loose.step'); t(
 b={c['id']:c for c in build_skeleton(d)['cases']}
 assert b['mystery_public_nc_x']['source_type']=='internal'
 assert 'TODO-source-type' in b['mystery_public_nc_x']['tags']
-assert b['mystery_public_nc_x']['release_eligible'] is True
+assert b['mystery_public_nc_x']['release_eligible'] is False  # hard gate
 assert b['mystery_internal_y']['source_type']=='internal'
 assert 'TODO-source-type' in b['mystery_internal_y']['tags']
+assert b['mystery_internal_y']['release_eligible'] is False   # default != clean
 assert b['loose']['source_type']=='internal' and 'TODO-source-type' in b['loose']['tags']
+assert b['loose']['release_eligible'] is False                # root-level not clean
 assert b['internal_ok']['source_type']=='internal' and 'TODO-source-type' not in b['internal_ok']['tags']
-print('OK nested-bucket ignored; root flagged; clean inference unflagged')
+assert b['internal_ok']['release_eligible'] is True            # clean inference
+print('OK nested/root NOT release_eligible; clean inference eligible')
 "
 ```
 
@@ -82,9 +85,10 @@ t3('public_nc/abc_0.step')
 m=build_skeleton(d3, manifest_root=d3)
 for c in m['cases']:
     c['part_family']='block'; c['license']='internal' if c['source_type']!='public_nc' else 'CC-BY-NC-SA-4.0'
+    c['tags']=[t for t in c['tags'] if not t.startswith('TODO-')]  # full human signoff
 r=validate_manifest(m, min_release_samples=50)
 assert r['status']=='release_ready' and r['release_eligible_count']==50 and r['case_count']==51
-print('OK no regression: vendor first-seg, skeleton->validator round-trip')
+print('OK no regression: vendor first-seg, skeleton->fill+signoff->validator round-trip')
 "
 ```
 

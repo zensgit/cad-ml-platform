@@ -52,13 +52,17 @@ s=summarize(m)
 assert s['case_count']==52
 assert s['source_type_counts']['public_nc']==1
 assert s['needs_source_type_review']==1          # mystery flagged
+# Full human signoff: fill field values AND clear TODO-* tags.
 for c in m['cases']:
     c['part_family']='block'
     c['license']='CC-BY-NC-SA-4.0' if c['source_type']=='public_nc' else 'internal'
+    c['tags']=[x for x in c['tags'] if not x.startswith('TODO-')]
 r=validate_manifest(m, min_release_samples=50)
 assert r['status']=='release_ready', r['errors'][:2]
-assert r['release_eligible_count']==51           # 50 internal + mystery(default internal); public_nc excluded
-print('OK scaffolder->fill->validator release_ready; public_nc excluded; unknown flagged')
+# 50 cleanly-inferred internal; public_nc excluded; mystery is an
+# un-clean default so NOT release_eligible (hard gate).
+assert r['release_eligible_count']==50
+print('OK scaffolder->fill+signoff->validator release_ready; public_nc & mystery excluded')
 "
 ```
 

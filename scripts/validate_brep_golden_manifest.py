@@ -155,6 +155,16 @@ def validate_manifest(
         _require_string(case, "part_family", errors, case_label=case_label)
         _require_string(case, "license", errors, case_label=case_label)
 
+        raw_tags = case.get("tags")
+        if raw_tags is not None and not isinstance(raw_tags, list):
+            # A string `tags` value iterates per-character, which would let
+            # `tags: "TODO-source-type"` slip past the TODO release gate.
+            # Reject the schema violation outright.
+            errors.append(
+                f"{case_label}: `tags` must be a list of strings, got "
+                f"{type(raw_tags).__name__}"
+            )
+
         file_format = _case_format(path_text, str(case.get("format") or ""))
         format_counts[file_format] += 1
         source_type_counts[source_type] += 1
@@ -205,10 +215,19 @@ def validate_manifest(
             # even if the scaffolder or a hand-edit left it eligible. This
             # is independent of the scaffolder so a regression there (or a
             # hand-written manifest) cannot bypass it.
+            # Normalize defensively: a str `tags` (already a schema error
+            # above) would iterate per-character and bypass this gate, so
+            # treat a bare string as a single tag here too — the gate must
+            # hold even if the schema check is ever relaxed.
+            raw_tags_value = case.get("tags")
+            if isinstance(raw_tags_value, list):
+                tag_iter = raw_tags_value
+            elif isinstance(raw_tags_value, str):
+                tag_iter = [raw_tags_value]
+            else:
+                tag_iter = []
             todo_tags = [
-                str(tag)
-                for tag in (case.get("tags") or [])
-                if str(tag).startswith("TODO-")
+                str(tag) for tag in tag_iter if str(tag).startswith("TODO-")
             ]
             todo_fields = [
                 field

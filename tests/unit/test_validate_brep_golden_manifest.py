@@ -300,3 +300,40 @@ def test_non_release_case_may_keep_todo_placeholders(tmp_path: Path) -> None:
     # case is allowed.
     assert report["status"] == "insufficient_release_samples"
     assert report["errors"] == []
+
+
+def test_release_eligible_with_string_tags_is_rejected(tmp_path: Path) -> None:
+    """A hand-written manifest using a STRING tags value
+    (`tags: "TODO-source-type"`) must not bypass the TODO gate by
+    per-character iteration. It is both a schema violation (tags must
+    be a list) and, defensively, still caught by the TODO gate."""
+    _write_case_file(tmp_path)
+    manifest = {
+        "schema_version": "brep_golden_manifest.v1",
+        "name": "string-tags manifest",
+        "root": str(tmp_path),
+        "cases": [{**_case("todo_part"), "tags": "TODO-source-type"}],
+    }
+
+    report = validate_manifest(manifest, min_release_samples=1)
+
+    assert report["status"] == "invalid"
+    assert any("`tags` must be a list" in e for e in report["errors"])
+    assert any("unfilled skeleton placeholders" in e for e in report["errors"])
+
+
+def test_non_todo_string_tags_still_rejected_as_schema_violation(tmp_path: Path) -> None:
+    """Even a benign string tags value is a schema violation (would
+    iterate per-character elsewhere); reject it regardless of TODO."""
+    _write_case_file(tmp_path)
+    manifest = {
+        "schema_version": "brep_golden_manifest.v1",
+        "name": "benign string-tags manifest",
+        "root": str(tmp_path),
+        "cases": [{**_case("p"), "tags": "release"}],
+    }
+
+    report = validate_manifest(manifest, min_release_samples=1)
+
+    assert report["status"] == "invalid"
+    assert any("`tags` must be a list" in e for e in report["errors"])
