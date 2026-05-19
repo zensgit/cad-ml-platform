@@ -136,9 +136,18 @@ config/
 
 ### 4.4 文件落地路径
 
-- 数据文件：`data/brep_golden/{part_family}/<case_id>.{step,iges}`（**新增目录，需进 `.gitattributes` 走 Git LFS**——单个 STEP 常常 5–50 MB，50 个文件可能 1–2 GB）。
-- 若仓库不接受 LFS：放外部对象存储（S3/GCS），manifest 走相对路径 + `scripts/ci/build_brep_golden_manifest_optional.sh` 增加 fetch-on-demand 逻辑（Stage 2a 的子工作）。
-- **决策点**：在执行前需要先评估"仓库 LFS 配额" vs "外部存储 + CI fetch"两种方案，选其一。
+> **决策已定 2026-05-18**（实测数据推翻原估算）：
+> - **存储 = 不用 LFS，STEP/IGES 直接进 git**。实测真实零件级 STEP
+>   体积 64KB–433KB（`tests/fixtures/as1_oc_214.stp`=433KB），50–100 个
+>   ≈ 5–150MB，低于 LFS 必要阈值；LFS 反给每个 CI workflow 加 `lfs pull`
+>   摩擦 + 配额管理。例外：若日后引入装配体级（>5MB）文件再单独评估。
+> - **数据源 = 纯内部历史交付件作 release-eligible（≥50，用户确认可凑够）**。
+> - **ABC Dataset 仅作 coverage**：标 `source_type=public_nc`（新增，已进
+>   `RELEASE_EXCLUDED_SOURCE_TYPES`），不计入 50-sample release floor，规避
+>   CC-BY-NC-SA NonCommercial 合规风险。
+
+- 数据文件：`data/brep_golden/{part_family}/<case_id>.{step,iges}`（直接进 git，无需 `.gitattributes` LFS）。
+- `public_nc` 文件可与内部文件同目录共存，validator 自动按 `source_type` 区分 release / coverage。
 
 ### 4.5 流水线
 

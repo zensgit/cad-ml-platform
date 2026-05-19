@@ -97,6 +97,66 @@ def test_validate_manifest_rejects_fixture_marked_release_eligible(tmp_path: Pat
     assert any("cannot be release_eligible" in error for error in report["errors"])
 
 
+def test_public_nc_excluded_from_release_count(tmp_path: Path) -> None:
+    """ABC-style NonCommercial public CAD: allowed for coverage, never
+    counted toward the release floor (Stage 2a decision 2026-05-18)."""
+    cases = []
+    # 50 internal release-eligible parts.
+    for index in range(50):
+        rel = f"internal/part_{index}.step"
+        _write_case_file(tmp_path, rel)
+        cases.append(_case(f"internal_{index}", rel))
+    # 10 public_nc coverage parts (must NOT lift release count beyond 50).
+    for index in range(10):
+        rel = f"abc/abc_{index}.step"
+        _write_case_file(tmp_path, rel)
+        cases.append(
+            {
+                **_case(f"abc_{index}", rel),
+                "source_type": "public_nc",
+                "release_eligible": False,
+                "license": "CC-BY-NC-SA-4.0",
+            }
+        )
+    manifest = {
+        "schema_version": "brep_golden_manifest.v1",
+        "name": "internal + public_nc coverage manifest",
+        "root": str(tmp_path),
+        "cases": cases,
+    }
+
+    report = validate_manifest(manifest, min_release_samples=50)
+
+    assert report["status"] == "release_ready"
+    # public_nc parts present but excluded — count stays at the 50 internal.
+    assert report["release_eligible_count"] == 50
+    assert report["case_count"] == 60
+    assert report["source_type_counts"].get("public_nc") == 10
+    assert report["errors"] == []
+
+
+def test_public_nc_marked_release_eligible_is_rejected(tmp_path: Path) -> None:
+    _write_case_file(tmp_path)
+    manifest = {
+        "schema_version": "brep_golden_manifest.v1",
+        "name": "bad public_nc manifest",
+        "root": str(tmp_path),
+        "cases": [
+            {
+                **_case("abc_part"),
+                "source_type": "public_nc",
+                "release_eligible": True,
+                "license": "CC-BY-NC-SA-4.0",
+            }
+        ],
+    }
+
+    report = validate_manifest(manifest, min_release_samples=1)
+
+    assert report["status"] == "invalid"
+    assert any("cannot be release_eligible" in error for error in report["errors"])
+
+
 def test_validate_manifest_rejects_duplicate_ids_and_missing_files(tmp_path: Path) -> None:
     manifest = {
         "schema_version": "brep_golden_manifest.v1",
