@@ -17,11 +17,21 @@ ALLOWED_SOURCE_TYPES = {
     "vendor",
     "public_cad",
     "internal",
+    "public_nc",
     "fixture",
     "synthetic_demo",
     "generated_mock",
 }
-RELEASE_EXCLUDED_SOURCE_TYPES = {"fixture", "synthetic_demo", "generated_mock"}
+# `public_nc`: real public CAD whose license carries a NonCommercial clause
+# (e.g. ABC Dataset, CC-BY-NC-SA 4.0). Usable for parser/topology coverage
+# but MUST NOT count toward the release floor — shipping NC data as a
+# release-gating benchmark in a commercial product is a licensing risk.
+RELEASE_EXCLUDED_SOURCE_TYPES = {
+    "fixture",
+    "synthetic_demo",
+    "generated_mock",
+    "public_nc",
+}
 ALLOWED_EXPECTED_BEHAVIORS = {"parse_success", "parse_failure", "graph_failure"}
 DEFAULT_MIN_RELEASE_SAMPLES = 50
 
