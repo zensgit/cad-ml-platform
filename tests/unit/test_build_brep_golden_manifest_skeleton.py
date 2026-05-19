@@ -55,6 +55,52 @@ def test_unknown_bucket_defaults_internal_but_flagged(tmp_path: Path) -> None:
     assert case["format"] == "iges"
 
 
+def test_known_bucket_only_recognised_in_first_segment(tmp_path: Path) -> None:
+    """A known bucket name appearing BELOW the first path segment must
+    NOT be picked up — only rel_parts[0] is authoritative (DESIGN §2.2).
+    Guards against silent mis-classification: mystery/public_nc/x.step
+    must default to internal+flagged, never become public_nc.
+    """
+    _touch_step(tmp_path, "mystery/public_nc/x.step")
+    _touch_step(tmp_path, "mystery/internal/y.step")
+
+    by_id = {c["id"]: c for c in build_skeleton(tmp_path)["cases"]}
+
+    nc_nested = by_id["mystery_public_nc_x"]
+    # Deep `public_nc` segment ignored -> defaults to internal AND flagged.
+    assert nc_nested["source_type"] == "internal"
+    assert "TODO-source-type" in nc_nested["tags"]
+    # HARD GATE (not advisory): an un-cleanly-inferred case must NOT be
+    # release_eligible. The tag alone was insufficient — the validator
+    # only reads release_eligible — so the scaffolder itself must refuse
+    # to mark a guessed source as eligible. release_eligible_count for
+    # 50 such files must be 0, not 50.
+    assert nc_nested["release_eligible"] is False
+
+    internal_nested = by_id["mystery_internal_y"]
+    # Even though the deep segment is `internal` and the default is also
+    # `internal`, it is a DEFAULT not a clean inference: flagged AND
+    # release_eligible=False. Not enforcing this would let a future
+    # relayout (mystery/ -> public_nc/) silently flip release-eligibility.
+    assert internal_nested["source_type"] == "internal"
+    assert "TODO-source-type" in internal_nested["tags"]
+    assert internal_nested["release_eligible"] is False
+
+
+def test_root_level_file_defaults_internal_and_flagged(tmp_path: Path) -> None:
+    """A file directly under root (no subdir, empty rel_parts) cannot be
+    cleanly inferred — must default internal AND be flagged."""
+    _touch_step(tmp_path, "loose.step")
+
+    case = build_skeleton(tmp_path)["cases"][0]
+
+    assert case["source_type"] == "internal"
+    assert "TODO-source-type" in case["tags"]
+    # Root-level (empty rel_parts) is never a clean inference -> must not
+    # be release_eligible on a guess.
+    assert case["release_eligible"] is False
+
+
 def test_todo_fields_are_explicit_placeholders(tmp_path: Path) -> None:
     _touch_step(tmp_path, "internal/p1.step")
 
@@ -94,34 +140,73 @@ def test_summary_counts_release_eligible_and_todo_source(tmp_path: Path) -> None
     summary = summarize(build_skeleton(tmp_path))
 
     assert summary["case_count"] == 5
-    # 3 internal eligible + mystery(defaults internal, eligible) = 4;
-    # public_nc excluded.
-    assert summary["release_eligible_count"] == 4
+    # Only the 3 cleanly-inferred internal cases are eligible. public_nc
+    # is release-excluded; mystery/ is an un-clean default so it is NOT
+    # eligible (hard gate, not advisory tag).
+    assert summary["release_eligible_count"] == 3
     assert summary["source_type_counts"]["public_nc"] == 1
     assert summary["needs_source_type_review"] == 1
 
 
-def test_skeleton_is_structurally_valid_against_real_validator(tmp_path: Path) -> None:
-    """A skeleton with TODO fields filled in must pass the real validator.
-
-    We simulate the human filling step minimally: set part_family /
-    license, keep paths real. This proves the scaffolder emits a
-    schema-correct shell, not just plausible-looking JSON.
+def test_skeleton_requires_full_human_signoff_to_pass_validator(tmp_path: Path) -> None:
+    """The full human-signoff contract: filling field VALUES alone is
+    NOT enough — the validator's defense-in-depth rejects any
+    release_eligible case that still carries TODO-* tags. A human must
+    both fill part_family/license AND clear the TODO markers. This is
+    the behavioural contract behind the 'tag forces human confirm
+    before it counts' claim (previously false: tags were advisory).
     """
     for i in range(50):
         _touch_step(tmp_path, f"internal/part_{i}.step")
     _touch_step(tmp_path, "public_nc/abc_0.step")
 
     manifest = build_skeleton(tmp_path, manifest_root=str(tmp_path))
+
+    # Step 1: fill field values only, leave TODO-* tags -> must STILL fail.
     for case in manifest["cases"]:
         case["part_family"] = "block"
         case["license"] = (
             "CC-BY-NC-SA-4.0" if case["source_type"] == "public_nc" else "internal"
         )
+    half_filled = validate_manifest(manifest, min_release_samples=50)
+    assert half_filled["status"] == "invalid", (
+        "fields filled but TODO-* tags retained must NOT pass — the gate "
+        "is not advisory"
+    )
+    assert any(
+        "unfilled skeleton placeholders" in e for e in half_filled["errors"]
+    )
+
+    # Step 2: full signoff = also clear the TODO-* tags -> now release_ready.
+    for case in manifest["cases"]:
+        case["tags"] = [t for t in case["tags"] if not t.startswith("TODO-")]
 
     report = validate_manifest(manifest, min_release_samples=50)
 
     assert report["status"] == "release_ready", report["errors"]
-    # 50 internal eligible; public_nc excluded.
+    # 50 cleanly-inferred internal eligible; public_nc excluded.
     assert report["release_eligible_count"] == 50
     assert report["case_count"] == 51
+
+
+def test_scaffolder_blocking_finding_regression_50_mystery_public_nc(
+    tmp_path: Path,
+) -> None:
+    """Regression guard for the PR #480 blocking finding: 50
+    `mystery/public_nc/*.step` files previously produced 50
+    release_eligible cases (release_ready, count=50). They must now
+    produce 0 release-eligible cases and the validator must NOT report
+    release_ready.
+    """
+    for i in range(50):
+        _touch_step(tmp_path, f"mystery/public_nc/p{i}.step")
+
+    manifest = build_skeleton(tmp_path, manifest_root=str(tmp_path))
+    for case in manifest["cases"]:
+        case["part_family"] = "block"
+        case["license"] = "internal"
+
+    assert all(c["release_eligible"] is False for c in manifest["cases"])
+    report = validate_manifest(manifest, min_release_samples=50)
+    assert report["status"] != "release_ready"
+    assert report["release_eligible_count"] == 0

@@ -64,9 +64,21 @@ def _iter_brep_files(root: Path) -> List[Path]:
 
 
 def _infer_source_type(rel_parts: Sequence[str]) -> tuple[str, bool]:
-    """Return (source_type, inferred_cleanly)."""
-    for part in rel_parts:
-        bucket = KNOWN_SOURCE_BUCKETS.get(part.strip().lower())
+    """Return (source_type, inferred_cleanly).
+
+    ONLY the first path segment under ``root`` is authoritative — this
+    matches the DESIGN §2.2 contract ("source_type inferred from first
+    path segment"). Deeper segments are deliberately ignored: a nested
+    layout like ``mystery/public_nc/x.step`` must NOT be silently
+    classified as ``public_nc`` just because a known bucket name appears
+    further down. Such a file defaults to ``internal`` AND is reported
+    as not-cleanly-inferred so the caller tags it ``TODO-source-type``.
+    This prevents silent mis-classification in either direction —
+    pulling a non-release file into the release floor, or dropping a
+    release-eligible file out of it — which a deep-scan would allow.
+    """
+    if rel_parts:
+        bucket = KNOWN_SOURCE_BUCKETS.get(rel_parts[0].strip().lower())
         if bucket:
             return bucket, True
     return "internal", False
@@ -95,7 +107,14 @@ def build_skeleton(
             seen_ids[base_id] = 0
             case_id = base_id
         fmt = path.suffix.lower().lstrip(".")
-        release_eligible = source_type not in RELEASE_EXCLUDED_SOURCE_TYPES
+        # A skeleton case is release_eligible ONLY if its source_type was
+        # cleanly inferred from the first path segment AND that bucket is
+        # not release-excluded. An un-cleanly-inferred case (unknown /
+        # deep / root-level bucket) defaults to source_type=internal but
+        # MUST NOT enter the release floor on a guess — it stays
+        # release_eligible=False until a human reclassifies it. This makes
+        # the TODO-source-type tag a hard gate, not advisory.
+        release_eligible = clean and source_type not in RELEASE_EXCLUDED_SOURCE_TYPES
         tags = ["TODO-part-family", "TODO-license", "TODO-topology"]
         if not clean:
             tags.append("TODO-source-type")

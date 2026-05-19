@@ -238,3 +238,102 @@ def test_validate_manifest_cli_can_fail_when_not_release_ready(tmp_path: Path) -
 
     assert result.returncode == 1
     assert json.loads(output_json.read_text(encoding="utf-8"))["ready_for_release"] is False
+
+
+def test_release_eligible_with_todo_tag_is_rejected(tmp_path: Path) -> None:
+    """Defense-in-depth: a release_eligible case still carrying a TODO-*
+    tag has not been human-reviewed and must invalidate the manifest,
+    independent of how it got marked eligible (scaffolder regression or
+    hand-edit). Guards the PR #480 blocking finding at the validator."""
+    _write_case_file(tmp_path)
+    manifest = {
+        "schema_version": "brep_golden_manifest.v1",
+        "name": "todo-tag manifest",
+        "root": str(tmp_path),
+        "cases": [{**_case("todo_part"), "tags": ["TODO-source-type"]}],
+    }
+
+    report = validate_manifest(manifest, min_release_samples=1)
+
+    assert report["status"] == "invalid"
+    assert any("unfilled skeleton placeholders" in e for e in report["errors"])
+
+
+def test_release_eligible_with_todo_field_value_is_rejected(tmp_path: Path) -> None:
+    _write_case_file(tmp_path)
+    manifest = {
+        "schema_version": "brep_golden_manifest.v1",
+        "name": "todo-field manifest",
+        "root": str(tmp_path),
+        "cases": [{**_case("todo_part"), "license": "TODO"}],
+    }
+
+    report = validate_manifest(manifest, min_release_samples=1)
+
+    assert report["status"] == "invalid"
+    assert any("unfilled skeleton placeholders" in e for e in report["errors"])
+
+
+def test_non_release_case_may_keep_todo_placeholders(tmp_path: Path) -> None:
+    """The TODO gate only applies to release_eligible cases. A fixture /
+    public_nc case (release-excluded) may legitimately retain TODO tags
+    without invalidating the manifest."""
+    _write_case_file(tmp_path)
+    manifest = {
+        "schema_version": "brep_golden_manifest.v1",
+        "name": "non-release todo manifest",
+        "root": str(tmp_path),
+        "cases": [
+            {
+                **_case("fixture_part"),
+                "source_type": "fixture",
+                "release_eligible": False,
+                "license": "TODO",
+                "tags": ["TODO-license", "TODO-topology"],
+            }
+        ],
+    }
+
+    report = validate_manifest(manifest, min_release_samples=1)
+
+    # Below floor (0 eligible) but NOT invalid — TODO on a non-release
+    # case is allowed.
+    assert report["status"] == "insufficient_release_samples"
+    assert report["errors"] == []
+
+
+def test_release_eligible_with_string_tags_is_rejected(tmp_path: Path) -> None:
+    """A hand-written manifest using a STRING tags value
+    (`tags: "TODO-source-type"`) must not bypass the TODO gate by
+    per-character iteration. It is both a schema violation (tags must
+    be a list) and, defensively, still caught by the TODO gate."""
+    _write_case_file(tmp_path)
+    manifest = {
+        "schema_version": "brep_golden_manifest.v1",
+        "name": "string-tags manifest",
+        "root": str(tmp_path),
+        "cases": [{**_case("todo_part"), "tags": "TODO-source-type"}],
+    }
+
+    report = validate_manifest(manifest, min_release_samples=1)
+
+    assert report["status"] == "invalid"
+    assert any("`tags` must be a list" in e for e in report["errors"])
+    assert any("unfilled skeleton placeholders" in e for e in report["errors"])
+
+
+def test_non_todo_string_tags_still_rejected_as_schema_violation(tmp_path: Path) -> None:
+    """Even a benign string tags value is a schema violation (would
+    iterate per-character elsewhere); reject it regardless of TODO."""
+    _write_case_file(tmp_path)
+    manifest = {
+        "schema_version": "brep_golden_manifest.v1",
+        "name": "benign string-tags manifest",
+        "root": str(tmp_path),
+        "cases": [{**_case("p"), "tags": "release"}],
+    }
+
+    report = validate_manifest(manifest, min_release_samples=1)
+
+    assert report["status"] == "invalid"
+    assert any("`tags` must be a list" in e for e in report["errors"])
