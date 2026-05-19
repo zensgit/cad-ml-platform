@@ -1,0 +1,62 @@
+{
+  "schema_version": "brep_golden_manifest.v1",
+  "name": "B-Rep STEP/IGES Golden Manifest — Real-Data Field Reference",
+  "description": "FIELD-FORMAT REFERENCE ONLY. Shows how internal / public_nc / fixture cases differ (release_eligible, license, source_type). Paths reuse repo fixtures purely so this file is validator-runnable; for real use, place files under data/brep_golden/<bucket>/ and run scripts/build_brep_golden_manifest_skeleton.py, then fill part_family/license/expected_topology. With only 1 release-eligible case here, the validator correctly reports status=insufficient_release_samples with errors=[] — that is the expected 'structurally correct but below the 50-sample floor' intermediate state.",
+  "root": "..",
+  "cases": [
+    {
+      "id": "internal_assembly_part_example",
+      "path": "tests/fixtures/as1_oc_214.stp",
+      "format": "step",
+      "source_type": "internal",
+      "release_eligible": true,
+      "part_family": "housing",
+      "license": "internal",
+      "expected_behavior": "parse_success",
+      "expected_topology": {
+        "faces_min": 1,
+        "edges_min": 1,
+        "solids_min": 1,
+        "graph_nodes_min": 1,
+        "surface_types": ["plane", "cylinder"]
+      },
+      "tags": ["release", "internal-deliverable"]
+    },
+    {
+      "id": "public_nc_coverage_example",
+      "path": "tests/fixtures/eight_cyl.stp",
+      "format": "step",
+      "source_type": "public_nc",
+      "release_eligible": false,
+      "part_family": "cylinder_array",
+      "license": "CC-BY-NC-SA-4.0",
+      "expected_behavior": "parse_success",
+      "expected_topology": {
+        "faces_min": 1,
+        "edges_min": 1,
+        "solids_min": 0,
+        "graph_nodes_min": 1,
+        "surface_types": ["cylinder"]
+      },
+      "tags": ["coverage-only", "abc-dataset-style", "non-release"]
+    },
+    {
+      "id": "fixture_smoke_example",
+      "path": "tests/fixtures/mock_cube.step",
+      "format": "step",
+      "source_type": "fixture",
+      "release_eligible": false,
+      "part_family": "block",
+      "license": "repo-test-fixture",
+      "expected_behavior": "parse_success",
+      "expected_topology": {
+        "faces_min": 1,
+        "edges_min": 0,
+        "solids_min": 0,
+        "graph_nodes_min": 1,
+        "surface_types": ["plane"]
+      },
+      "tags": ["fixture", "smoke"]
+    }
+  ]
+}
