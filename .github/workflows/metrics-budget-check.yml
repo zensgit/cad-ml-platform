@@ -166,7 +166,7 @@ jobs:
 
       - name: Upload analysis results
         if: steps.detect.outputs.has_changes == 'true'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: metrics-analysis
           path: metrics_analysis.json
@@ -329,7 +329,7 @@ jobs:
           python generate_suggestions.py > suggestions.md
 
       - name: Save suggestions
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: optimization-suggestions
           path: suggestions.md
