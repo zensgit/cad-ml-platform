@@ -58,7 +58,7 @@ jobs:
       BREP_GOLDEN_EVAL_ENABLE: "true"
       BREP_GOLDEN_EVAL_STRICT: "true"
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
       - name: Set up micromamba (pythonocc-core)
         uses: mamba-org/setup-micromamba@4b9113af4fba0e9e1124b252dd6497a419e7396d
         with:
@@ -92,7 +92,7 @@ jobs:
           echo "eval_summary_json=${{ steps.brep.outputs.eval_summary_json }}"
       - name: Upload B-Rep golden artifacts
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: brep-golden-eval
           path: |
