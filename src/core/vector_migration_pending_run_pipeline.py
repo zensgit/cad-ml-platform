@@ -2,7 +2,15 @@ from __future__ import annotations
 
 from typing import Any, Awaitable, Callable
 
-from fastapi import HTTPException
+from src.core.vector_migration_pending_run_candidates import (
+    collect_pending_run_candidates,
+)
+from src.core.vector_migration_pending_run_guard import (
+    ensure_pending_run_scan_is_allowed,
+)
+from src.core.vector_migration_pending_run_request import (
+    build_pending_run_migrate_request,
+)
 
 
 async def run_vector_migration_pending_run_pipeline(
@@ -17,35 +25,25 @@ async def run_vector_migration_pending_run_pipeline(
     build_error_fn: Callable[..., dict[str, Any]],
 ) -> Any:
     target_version = resolve_target_version_fn()
-    pending = await collect_pending_candidates_fn(
-        limit=payload.limit,
+    pending = await collect_pending_run_candidates(
+        payload=payload,
         target_version=target_version,
-        from_version_filter=payload.from_version_filter,
+        collect_pending_candidates_fn=collect_pending_candidates_fn,
     )
-    if pending["backend"] == "qdrant" and not pending["distribution_complete"]:
-        if not payload.allow_partial_scan:
-            raise HTTPException(
-                status_code=409,
-                detail=build_error_fn(
-                    error_code_cls.CONSTRAINT_VIOLATION,
-                    stage="vector_migrate_pending_run",
-                    message=(
-                        "Qdrant distribution scan is partial; raise VECTOR_MIGRATION_SCAN_LIMIT "
-                        "or set allow_partial_scan=true"
-                    ),
-                    target_version=target_version,
-                    scanned_vectors=pending["scanned_vectors"],
-                    scan_limit=pending["scan_limit"],
-                ),
-            )
-    return await migrate_vectors_fn(
-        request_cls(
-            ids=pending["pending_ids"],
-            to_version=target_version,
-            dry_run=payload.dry_run,
-        ),
-        api_key=api_key,
+    ensure_pending_run_scan_is_allowed(
+        pending=pending,
+        allow_partial_scan=payload.allow_partial_scan,
+        target_version=target_version,
+        error_code_cls=error_code_cls,
+        build_error_fn=build_error_fn,
     )
+    migrate_request = build_pending_run_migrate_request(
+        pending=pending,
+        target_version=target_version,
+        dry_run=payload.dry_run,
+        request_cls=request_cls,
+    )
+    return await migrate_vectors_fn(migrate_request, api_key=api_key)
 
 
 __all__ = ["run_vector_migration_pending_run_pipeline"]
