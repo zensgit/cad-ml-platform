@@ -237,6 +237,35 @@ def test_validate_manifest_cli_writes_report_for_example_manifest(tmp_path: Path
     assert json.loads(output_json.read_text(encoding="utf-8"))["case_count"] == 1
 
 
+def test_validate_real_example_manifest_stays_valid(tmp_path: Path) -> None:
+    """Pin the shipped real-data field-reference manifest: it must stay
+    validator-runnable with errors=[] under the provenance contract — its one
+    release-eligible case carries full license/topology provenance, and below
+    the 50-sample floor it is insufficient_release_samples, not invalid."""
+    output_json = tmp_path / "report.json"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--manifest",
+            "config/brep_golden_manifest.real.example.json",
+            "--output-json",
+            str(output_json),
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "insufficient_release_samples"
+    assert payload["errors"] == []
+    assert payload["release_eligible_count"] == 1
+    assert payload["verified_topology_count"] == 1
+
+
 def test_validate_manifest_cli_can_fail_when_not_release_ready(tmp_path: Path) -> None:
     output_json = tmp_path / "report.json"
 
@@ -416,6 +445,22 @@ def test_public_nc_must_be_non_commercial(tmp_path: Path) -> None:
     report = _single(tmp_path, case, "contradicting axes")
     assert report["status"] == "invalid"
     assert any("requires license_status `non_commercial`" in e for e in report["errors"])
+
+
+def test_non_commercial_must_be_public_nc(tmp_path: Path) -> None:
+    """Reverse direction: a `non_commercial` license on a release-usable source
+    (e.g. public_cad) is the same silent contradiction and must error — even
+    when release_eligible is already false (the two exclusion axes must agree
+    both ways, not just public_nc -> non_commercial)."""
+    case = {
+        **_case("contradiction_reverse"),
+        "source_type": "public_cad",
+        "release_eligible": False,
+        "license_status": "non_commercial",
+    }
+    report = _single(tmp_path, case, "contradicting axes reverse")
+    assert report["status"] == "invalid"
+    assert any("requires source_type `public_nc`" in e for e in report["errors"])
 
 
 def test_release_eligible_requires_topology_source(tmp_path: Path) -> None:

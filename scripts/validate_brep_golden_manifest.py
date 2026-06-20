@@ -280,9 +280,9 @@ def validate_manifest(
                 topology_source_norm = raw_topology_source.strip().lower()
 
         # `public_nc` (source axis) and `non_commercial` (license axis) are the
-        # same NonCommercial fact. Forbid the silent contradiction where a
-        # public_nc row is labeled with a release-usable license_status — the
-        # two exclusion gates must agree, not quietly disagree.
+        # same NonCommercial fact, so the two exclusion axes must agree BOTH
+        # ways: neither may mark a case excluded while the other leaves it
+        # release-usable. Enforce the full biconditional public_nc <-> non_commercial.
         if (
             source_type == "public_nc"
             and license_status_norm
@@ -291,6 +291,15 @@ def validate_manifest(
             errors.append(
                 f"{case_label}: source_type `public_nc` requires license_status "
                 f"`non_commercial` (got `{license_status_norm}`)"
+            )
+        if (
+            license_status_norm == "non_commercial"
+            and source_type
+            and source_type != "public_nc"
+        ):
+            errors.append(
+                f"{case_label}: license_status `non_commercial` requires source_type "
+                f"`public_nc` (got `{source_type}`)"
             )
 
         inferred_release_eligible = (
