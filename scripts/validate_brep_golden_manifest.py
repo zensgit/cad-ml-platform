@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from collections import Counter
 from pathlib import Path
@@ -34,6 +35,39 @@ RELEASE_EXCLUDED_SOURCE_TYPES = {
 }
 ALLOWED_EXPECTED_BEHAVIORS = {"parse_success", "parse_failure", "graph_failure"}
 DEFAULT_MIN_RELEASE_SAMPLES = 50
+
+# --- Stage 2a provenance contract (license_status / topology_source) ---
+# These fields are OPTIONAL on the schema (so non-release fixture/NC/failure
+# rows and the existing example manifest stay valid) but REQUIRED on any case
+# that counts toward the release floor. The validator cannot verify that a
+# license or topology claim is *true*; it enforces that the claim is present,
+# well-formed, and carries an auditable pointer — provenance capture, not
+# verification. The point is to make a false "green" attributable, never silent.
+ALLOWED_LICENSE_STATUSES = {
+    "internal",
+    "public_domain",
+    "permissive",
+    "proprietary_authorized",
+    "non_commercial",
+    "unverified",
+}
+# License statuses under which a case MAY count toward the release floor. Each
+# requires a non-empty `license_source` so the (unverifiable) claim is at least
+# attributable to a named origin / authorization record.
+RELEASE_USABLE_LICENSE_STATUSES = {
+    "internal",
+    "public_domain",
+    "permissive",
+    "proprietary_authorized",
+}
+# License statuses that force release-ineligibility (NonCommercial or unproven).
+RELEASE_EXCLUDED_LICENSE_STATUSES = {"non_commercial", "unverified"}
+ALLOWED_TOPOLOGY_SOURCES = {"verified", "derived"}
+# Verified-topology release floor: at least this many release-eligible cases
+# must carry human-`verified` (not parser-`derived`) expected topology, so the
+# golden set is not validated tautologically by the same parser under test.
+RELEASE_VERIFIED_TOPOLOGY_FLOOR_MIN = 10
+RELEASE_VERIFIED_TOPOLOGY_FLOOR_RATIO = 0.2
 
 
 def _load_json(path: Path) -> Dict[str, Any]:
@@ -111,6 +145,21 @@ def _iter_cases(manifest: Dict[str, Any]) -> Iterable[Dict[str, Any]]:
     return [case for case in cases if isinstance(case, dict)]
 
 
+def _verified_topology_floor(release_eligible_count: int) -> int:
+    """Minimum human-verified topologies required at a given release-floor size.
+
+    `max(MIN, ceil(RATIO * N))`, capped at N: the floor can never demand more
+    verified cases than exist. The cap binds only for N < MIN (tiny/test
+    manifests); for any production floor (N >= 50) the cap never binds and the
+    value equals the spec `max(10, ceil(0.2 * N))`.
+    """
+    target = max(
+        RELEASE_VERIFIED_TOPOLOGY_FLOOR_MIN,
+        math.ceil(RELEASE_VERIFIED_TOPOLOGY_FLOOR_RATIO * release_eligible_count),
+    )
+    return min(target, release_eligible_count)
+
+
 def validate_manifest(
     manifest: Dict[str, Any],
     *,
@@ -127,7 +176,10 @@ def validate_manifest(
     format_counts: Counter[str] = Counter()
     source_type_counts: Counter[str] = Counter()
     behavior_counts: Counter[str] = Counter()
+    license_status_counts: Counter[str] = Counter()
     release_eligible_count = 0
+    verified_topology_count = 0
+    derived_topology_count = 0
 
     if manifest.get("schema_version") != SCHEMA_VERSION:
         errors.append(f"`schema_version` must be `{SCHEMA_VERSION}`")
@@ -194,6 +246,53 @@ def validate_manifest(
                     f"{case_label}: {expected_behavior} requires `expected_failure_reason`"
                 )
 
+        # --- license / topology provenance (Stage 2a) ---
+        # Validate the controlled vocabulary whenever a field is present (a typo
+        # is a schema error regardless of eligibility); the fields are only
+        # *required* on release_eligible cases, in the block below.
+        license_status_norm = ""
+        raw_license_status = case.get("license_status")
+        if raw_license_status is not None:
+            if (
+                not isinstance(raw_license_status, str)
+                or raw_license_status.strip().lower() not in ALLOWED_LICENSE_STATUSES
+            ):
+                errors.append(
+                    f"{case_label}: `license_status` must be one of "
+                    f"{sorted(ALLOWED_LICENSE_STATUSES)}"
+                )
+            else:
+                license_status_norm = raw_license_status.strip().lower()
+                license_status_counts[license_status_norm] += 1
+
+        topology_source_norm = ""
+        raw_topology_source = case.get("topology_source")
+        if raw_topology_source is not None:
+            if (
+                not isinstance(raw_topology_source, str)
+                or raw_topology_source.strip().lower() not in ALLOWED_TOPOLOGY_SOURCES
+            ):
+                errors.append(
+                    f"{case_label}: `topology_source` must be one of "
+                    f"{sorted(ALLOWED_TOPOLOGY_SOURCES)}"
+                )
+            else:
+                topology_source_norm = raw_topology_source.strip().lower()
+
+        # `public_nc` (source axis) and `non_commercial` (license axis) are the
+        # same NonCommercial fact. Forbid the silent contradiction where a
+        # public_nc row is labeled with a release-usable license_status — the
+        # two exclusion gates must agree, not quietly disagree.
+        if (
+            source_type == "public_nc"
+            and license_status_norm
+            and license_status_norm != "non_commercial"
+        ):
+            errors.append(
+                f"{case_label}: source_type `public_nc` requires license_status "
+                f"`non_commercial` (got `{license_status_norm}`)"
+            )
+
         inferred_release_eligible = (
             source_type not in RELEASE_EXCLUDED_SOURCE_TYPES
             and expected_behavior == "parse_success"
@@ -231,7 +330,12 @@ def validate_manifest(
             ]
             todo_fields = [
                 field
-                for field in ("part_family", "license")
+                for field in (
+                    "part_family",
+                    "license",
+                    "license_source",
+                    "topology_evidence",
+                )
                 if str(case.get(field) or "").strip().upper() == "TODO"
             ]
             if todo_tags or todo_fields:
@@ -242,20 +346,86 @@ def validate_manifest(
                     f"a human must fill them and clear the TODO markers "
                     f"before it can count toward the release floor"
                 )
+
+            # Provenance is mandatory for anything counting toward the release
+            # floor: an auditable license classification (+ source) and a
+            # declared topology origin. Without these the floor is a bare row
+            # count that says nothing about trustworthiness.
+            if not license_status_norm:
+                errors.append(
+                    f"{case_label}: release_eligible requires `license_status` "
+                    f"(one of {sorted(RELEASE_USABLE_LICENSE_STATUSES)})"
+                )
+            elif license_status_norm in RELEASE_EXCLUDED_LICENSE_STATUSES:
+                errors.append(
+                    f"{case_label}: license_status `{license_status_norm}` cannot be "
+                    f"release_eligible"
+                )
+            elif (
+                license_status_norm in RELEASE_USABLE_LICENSE_STATUSES
+                and not str(case.get("license_source") or "").strip()
+            ):
+                errors.append(
+                    f"{case_label}: license_status `{license_status_norm}` requires a "
+                    f"non-empty `license_source` (auditable provenance pointer)"
+                )
+
+            if not topology_source_norm:
+                errors.append(
+                    f"{case_label}: release_eligible requires `topology_source` "
+                    f"(`verified` or `derived`)"
+                )
+            elif topology_source_norm == "verified":
+                # `verified` must have teeth or the verified floor is gameable by
+                # relabeling: require an evidence pointer and a non-trivial face
+                # floor. faces_min only — surface-only parts legitimately have
+                # solids_min == 0.
+                if not str(case.get("topology_evidence") or "").strip():
+                    errors.append(
+                        f"{case_label}: topology_source `verified` requires non-empty "
+                        f"`topology_evidence`"
+                    )
+                topo = case.get("expected_topology")
+                faces_min = topo.get("faces_min") if isinstance(topo, dict) else None
+                if not isinstance(faces_min, int) or faces_min <= 0:
+                    errors.append(
+                        f"{case_label}: topology_source `verified` requires "
+                        f"`expected_topology.faces_min` > 0"
+                    )
+
+            if topology_source_norm == "verified":
+                verified_topology_count += 1
+            elif topology_source_norm == "derived":
+                derived_topology_count += 1
             release_eligible_count += 1
+
+    verified_topology_floor = _verified_topology_floor(release_eligible_count)
+    verified_topology_floor_met = verified_topology_count >= verified_topology_floor
 
     if release_eligible_count < min_release_samples:
         warnings.append(
             "release_eligible_count below minimum: "
             f"{release_eligible_count} < {min_release_samples}"
         )
+    elif not verified_topology_floor_met:
+        # Sample floor met, but too few human-verified topologies: the set is
+        # carried by `derived` rows whose expected_topology came from the same
+        # parser under test (tautological). Block release and emit the named
+        # flag the forward scorecard consumes.
+        warnings.append(
+            "topology_verified_below_release_floor: "
+            f"{verified_topology_count} < {verified_topology_floor} verified "
+            f"(release_eligible={release_eligible_count})"
+        )
 
     if errors:
         status = "invalid"
-    elif release_eligible_count >= min_release_samples:
-        status = "release_ready"
-    else:
+    elif release_eligible_count < min_release_samples:
         status = "insufficient_release_samples"
+    elif not verified_topology_floor_met:
+        status = "insufficient_verified_topology"
+    else:
+        status = "release_ready"
 
     return {
         "schema_version": SCHEMA_VERSION,
@@ -266,9 +436,14 @@ def validate_manifest(
         "case_count": len(cases),
         "release_eligible_count": release_eligible_count,
         "min_release_samples": min_release_samples,
+        "verified_topology_count": verified_topology_count,
+        "derived_topology_count": derived_topology_count,
+        "verified_topology_floor": verified_topology_floor,
+        "verified_topology_floor_met": verified_topology_floor_met,
         "format_counts": dict(format_counts),
         "source_type_counts": dict(source_type_counts),
         "expected_behavior_counts": dict(behavior_counts),
+        "license_status_counts": dict(license_status_counts),
         "errors": errors,
         "warnings": warnings,
     }

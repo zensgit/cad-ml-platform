@@ -20,6 +20,9 @@ def _write_case_file(root: Path, name: str = "part.step") -> Path:
 
 
 def _case(case_id: str, path: str = "part.step") -> dict:
+    """Canonical release-eligible case: human-`verified` topology with full
+    license/topology provenance, so it counts toward both the sample floor and
+    the verified-topology floor."""
     return {
         "id": case_id,
         "path": path,
@@ -28,6 +31,10 @@ def _case(case_id: str, path: str = "part.step") -> dict:
         "release_eligible": True,
         "part_family": "block",
         "license": "internal",
+        "license_status": "internal",
+        "license_source": "internal-dataset://golden/v1",
+        "topology_source": "verified",
+        "topology_evidence": "manual-review://golden/v1",
         "expected_behavior": "parse_success",
         "expected_topology": {
             "faces_min": 1,
@@ -37,6 +44,16 @@ def _case(case_id: str, path: str = "part.step") -> dict:
             "surface_types": ["plane"],
         },
     }
+
+
+def _derived_case(case_id: str, path: str = "part.step") -> dict:
+    """Release-eligible case whose expected topology was parser-`derived` (not
+    human-verified). Counts toward the sample floor but NOT the verified floor;
+    `derived` needs no evidence pointer."""
+    case = _case(case_id, path)
+    case["topology_source"] = "derived"
+    case.pop("topology_evidence", None)
+    return case
 
 
 def test_validate_manifest_reports_release_ready_with_enough_real_cases(tmp_path: Path) -> None:
@@ -116,6 +133,7 @@ def test_public_nc_excluded_from_release_count(tmp_path: Path) -> None:
                 "source_type": "public_nc",
                 "release_eligible": False,
                 "license": "CC-BY-NC-SA-4.0",
+                "license_status": "non_commercial",
             }
         )
     manifest = {
@@ -147,6 +165,7 @@ def test_public_nc_marked_release_eligible_is_rejected(tmp_path: Path) -> None:
                 "source_type": "public_nc",
                 "release_eligible": True,
                 "license": "CC-BY-NC-SA-4.0",
+                "license_status": "non_commercial",
             }
         ],
     }
@@ -337,3 +356,179 @@ def test_non_todo_string_tags_still_rejected_as_schema_violation(tmp_path: Path)
 
     assert report["status"] == "invalid"
     assert any("`tags` must be a list" in e for e in report["errors"])
+
+
+# --- Stage 2a provenance contract: license_status / topology_source ---
+
+
+def _single(tmp_path: Path, case: dict, name: str) -> dict:
+    _write_case_file(tmp_path)
+    return validate_manifest(
+        {
+            "schema_version": "brep_golden_manifest.v1",
+            "name": name,
+            "root": str(tmp_path),
+            "cases": [case],
+        },
+        min_release_samples=1,
+    )
+
+
+def test_release_eligible_requires_license_status(tmp_path: Path) -> None:
+    case = _case("no_license_status")
+    case.pop("license_status")
+    report = _single(tmp_path, case, "missing license_status")
+    assert report["status"] == "invalid"
+    assert any("requires `license_status`" in e for e in report["errors"])
+
+
+def test_release_usable_license_requires_source(tmp_path: Path) -> None:
+    case = _case("no_license_source")
+    case.pop("license_source")
+    report = _single(tmp_path, case, "missing license_source")
+    assert report["status"] == "invalid"
+    assert any("requires a non-empty `license_source`" in e for e in report["errors"])
+
+
+def test_excluded_license_status_cannot_be_release_eligible(tmp_path: Path) -> None:
+    case = {**_case("unverified_part"), "license_status": "unverified"}
+    report = _single(tmp_path, case, "unverified license")
+    assert report["status"] == "invalid"
+    assert any("cannot be release_eligible" in e for e in report["errors"])
+
+
+def test_invalid_license_status_value_is_rejected(tmp_path: Path) -> None:
+    case = {**_case("bad_status"), "license_status": "totally-made-up"}
+    report = _single(tmp_path, case, "bad license_status")
+    assert report["status"] == "invalid"
+    assert any("`license_status` must be one of" in e for e in report["errors"])
+
+
+def test_public_nc_must_be_non_commercial(tmp_path: Path) -> None:
+    """The source axis (public_nc) and license axis (non_commercial) describe
+    the same NonCommercial fact and must not silently disagree."""
+    case = {
+        **_case("contradiction"),
+        "source_type": "public_nc",
+        "release_eligible": False,
+        "license_status": "permissive",
+    }
+    report = _single(tmp_path, case, "contradicting axes")
+    assert report["status"] == "invalid"
+    assert any("requires license_status `non_commercial`" in e for e in report["errors"])
+
+
+def test_release_eligible_requires_topology_source(tmp_path: Path) -> None:
+    case = _case("no_topo_source")
+    case.pop("topology_source")
+    report = _single(tmp_path, case, "missing topology_source")
+    assert report["status"] == "invalid"
+    assert any("requires `topology_source`" in e for e in report["errors"])
+
+
+def test_verified_topology_requires_evidence(tmp_path: Path) -> None:
+    case = _case("verified_no_evidence")
+    case.pop("topology_evidence")
+    report = _single(tmp_path, case, "verified without evidence")
+    assert report["status"] == "invalid"
+    assert any("requires non-empty `topology_evidence`" in e for e in report["errors"])
+
+
+def test_verified_topology_requires_positive_faces_min(tmp_path: Path) -> None:
+    case = _case("verified_zero_faces")
+    case["expected_topology"] = {**case["expected_topology"], "faces_min": 0}
+    report = _single(tmp_path, case, "verified zero faces_min")
+    assert report["status"] == "invalid"
+    assert any("faces_min` > 0" in e for e in report["errors"])
+
+
+def test_derived_case_needs_no_evidence(tmp_path: Path) -> None:
+    """A `derived` case is valid without topology_evidence (it makes no
+    human-verified claim)."""
+    report = _single(tmp_path, _derived_case("derived_ok"), "single derived case")
+    # 1 eligible derived: below the (min 10) verified floor, but not INVALID.
+    assert report["status"] == "insufficient_verified_topology"
+    assert report["errors"] == []
+    assert report["derived_topology_count"] == 1
+
+
+def test_derived_only_set_blocks_release_below_verified_floor(tmp_path: Path) -> None:
+    """50 release-eligible cases all parser-`derived`: meets the sample floor
+    but not the verified floor, so the manifest is NOT release_ready. Binding
+    gate against a tautological golden set."""
+    cases = []
+    for index in range(50):
+        rel = f"derived/part_{index}.step"
+        _write_case_file(tmp_path, rel)
+        cases.append(_derived_case(f"derived_{index}", rel))
+    report = validate_manifest(
+        {
+            "schema_version": "brep_golden_manifest.v1",
+            "name": "all-derived manifest",
+            "root": str(tmp_path),
+            "cases": cases,
+        },
+        min_release_samples=50,
+    )
+    assert report["status"] == "insufficient_verified_topology"
+    assert report["ready_for_release"] is False
+    assert report["release_eligible_count"] == 50
+    assert report["verified_topology_count"] == 0
+    assert report["derived_topology_count"] == 50
+    assert report["verified_topology_floor"] == 10
+    assert report["verified_topology_floor_met"] is False
+    assert any("topology_verified_below_release_floor" in w for w in report["warnings"])
+    assert report["errors"] == []
+
+
+def test_verified_floor_boundary(tmp_path: Path) -> None:
+    """At 50 eligible the floor is max(10, ceil(0.2*50)) = 10: 10 verified +
+    40 derived is release_ready; 9 verified + 41 derived is not."""
+
+    def _build(num_verified: int) -> dict:
+        cases = []
+        for index in range(num_verified):
+            rel = f"v/part_{index}.step"
+            _write_case_file(tmp_path, rel)
+            cases.append(_case(f"v_{index}", rel))
+        for index in range(50 - num_verified):
+            rel = f"d/part_{index}.step"
+            _write_case_file(tmp_path, rel)
+            cases.append(_derived_case(f"d_{index}", rel))
+        return {
+            "schema_version": "brep_golden_manifest.v1",
+            "name": f"{num_verified}-verified manifest",
+            "root": str(tmp_path),
+            "cases": cases,
+        }
+
+    ok = validate_manifest(_build(10), min_release_samples=50)
+    assert ok["status"] == "release_ready"
+    assert ok["verified_topology_floor"] == 10
+    assert ok["verified_topology_count"] == 10
+
+    short = validate_manifest(_build(9), min_release_samples=50)
+    assert short["status"] == "insufficient_verified_topology"
+    assert short["ready_for_release"] is False
+
+
+def test_report_exposes_provenance_layered_counts(tmp_path: Path) -> None:
+    cases = []
+    for index in range(50):
+        rel = f"v/part_{index}.step"
+        _write_case_file(tmp_path, rel)
+        cases.append(_case(f"v_{index}", rel))
+    report = validate_manifest(
+        {
+            "schema_version": "brep_golden_manifest.v1",
+            "name": "provenance counts manifest",
+            "root": str(tmp_path),
+            "cases": cases,
+        },
+        min_release_samples=50,
+    )
+    assert report["status"] == "release_ready"
+    assert report["verified_topology_count"] == 50
+    assert report["derived_topology_count"] == 0
+    assert report["license_status_counts"].get("internal") == 50
+    assert report["verified_topology_floor_met"] is True

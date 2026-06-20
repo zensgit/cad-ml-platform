@@ -115,6 +115,14 @@ def build_skeleton(
         # release_eligible=False until a human reclassifies it. This makes
         # the TODO-source-type tag a hard gate, not advisory.
         release_eligible = clean and source_type not in RELEASE_EXCLUDED_SOURCE_TYPES
+        # Provenance placeholders (Stage 2a contract). `public_nc` is the same
+        # NonCommercial fact on the license axis, so stamp `non_commercial`
+        # (which the validator requires for that source); everything else is
+        # `unverified` until a human classifies the license. Topology defaults
+        # to parser-`derived` (no human-verified claim yet); a reviewer upgrades
+        # selected cases to `verified` (+ topology_evidence) to satisfy the
+        # verified-topology release floor.
+        license_status = "non_commercial" if source_type == "public_nc" else "unverified"
         tags = ["TODO-part-family", "TODO-license", "TODO-topology"]
         if not clean:
             tags.append("TODO-source-type")
@@ -127,6 +135,8 @@ def build_skeleton(
                 "release_eligible": release_eligible,
                 "part_family": "TODO",
                 "license": "TODO",
+                "license_status": license_status,
+                "license_source": "TODO",
                 "expected_behavior": "parse_success",
                 "expected_topology": {
                     "faces_min": 1,
@@ -135,6 +145,7 @@ def build_skeleton(
                     "graph_nodes_min": 1,
                     "surface_types": [],
                 },
+                "topology_source": "derived",
                 "tags": tags,
             }
         )
