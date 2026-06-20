@@ -30,7 +30,8 @@
 				graph2d-review-pack-gate-strict-e2e validate-graph2d-review-pack-gate-strict-e2e \
 				hybrid-superpass-gate hybrid-superpass-e2e-gh hybrid-superpass-apply-gh-vars \
 				hybrid-superpass-e2e-dual-gh hybrid-superpass-e2e-dual-gh-sequential hybrid-superpass-compare hybrid-superpass-nightly-gh \
-				validate-hybrid-superpass-workflow validate-hybrid-superpass-nightly-workflow
+				validate-hybrid-superpass-workflow validate-hybrid-superpass-nightly-workflow \
+	test-core install-test-core
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -213,6 +214,34 @@ test-new-modules: ## 运行新模块测试集合
 	$(MAKE) test-embeddings
 	$(MAKE) test-copilot
 	$(MAKE) test-training-scripts
+
+# Core (import-light) test lane. Selection rule: unit tests that import ONLY
+# src.core.* — no src.api facade, no ML/vector-db/cache stack (torch,
+# transformers, qdrant-client, redis, faiss). Runs in <1s on the light deps in
+# requirements-test-core.txt, so it is the fast feedback gate for core-logic
+# refactors (e.g. the vector-migration helper-ownership cleanup). Verified to
+# pass with light-only deps in an isolated python3.11 env. Extend this list as
+# more src.core-only suites are confirmed import-light.
+CORE_TESTS := \
+	$(TEST_DIR)/unit/test_vector_migration_plan_batches.py \
+	$(TEST_DIR)/unit/test_vector_migration_plan_outcome.py \
+	$(TEST_DIR)/unit/test_vector_migration_plan_pipeline.py \
+	$(TEST_DIR)/unit/test_vector_migration_pending_summary_helper.py \
+	$(TEST_DIR)/unit/test_vector_migration_pending_run_candidates.py \
+	$(TEST_DIR)/unit/test_vector_migration_pending_run_request.py \
+	$(TEST_DIR)/unit/test_vector_migration_pending_run_guard.py \
+	$(TEST_DIR)/unit/test_vector_migration_pending_run_pipeline.py \
+	$(TEST_DIR)/unit/test_vector_migration_pending_memory.py \
+	$(TEST_DIR)/unit/test_vector_migration_pending_qdrant.py \
+	$(TEST_DIR)/unit/test_decision_contract_schema.py
+
+install-test-core: ## 安装 core 轻量测试依赖（仅 web+pytest，无 ML 栈）
+	@echo "$(GREEN)Installing core (light) test deps...$(NC)"
+	$(PIP) install -r requirements-test-core.txt
+
+test-core: ## 运行 core 轻量测试（仅 src.core，无 ML/向量库依赖，秒级快速门）
+	@echo "$(GREEN)Running core (import-light) tests...$(NC)"
+	$(PYTEST) $(CORE_TESTS) -q
 
 test-tolerance: ## 运行公差知识相关测试（unit + integration）
 	@echo "$(GREEN)Running tolerance tests...$(NC)"
