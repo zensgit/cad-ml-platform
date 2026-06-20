@@ -30,7 +30,8 @@
 				graph2d-review-pack-gate-strict-e2e validate-graph2d-review-pack-gate-strict-e2e \
 				hybrid-superpass-gate hybrid-superpass-e2e-gh hybrid-superpass-apply-gh-vars \
 				hybrid-superpass-e2e-dual-gh hybrid-superpass-e2e-dual-gh-sequential hybrid-superpass-compare hybrid-superpass-nightly-gh \
-				validate-hybrid-superpass-workflow validate-hybrid-superpass-nightly-workflow
+				validate-hybrid-superpass-workflow validate-hybrid-superpass-nightly-workflow \
+	test-core install-test-core
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
