@@ -111,6 +111,30 @@ behavior.
   `src/core/vector_migration_pending_memory.py` while preserving
   `src.core.vector_migration_pending_candidates.collect_vector_migration_pending_candidates`
   as the shared normalization and dispatch entrypoint.
+- [x] Move vector migration plan version ranking, batch construction, and run
+  estimation into `src/core/vector_migration_plan_batches.py` while preserving
+  `src.core.vector_migration_plan_pipeline.build_vector_migration_plan_payload`
+  as the shared plan payload entrypoint.
+- [x] Move vector migration pending-summary payload construction into
+  `src/core/vector_migration_pending_summary.py` while preserving
+  `src.core.vector_migration_plan_pipeline.build_vector_migration_pending_summary_payload`
+  as the shared summary payload entrypoint.
+- [x] Move vector migration plan outcome metrics into
+  `src/core/vector_migration_plan_outcome.py` while preserving
+  `src.core.vector_migration_plan_pipeline.build_vector_migration_plan_payload`
+  as the shared plan payload entrypoint.
+- [x] Move vector migration pending-run partial-scan guard into
+  `src/core/vector_migration_pending_run_guard.py` while preserving
+  `src.core.vector_migration_pending_run_pipeline.run_vector_migration_pending_run_pipeline`
+  as the shared pending-run execution entrypoint.
+- [x] Move vector migration pending-run migrate-request construction into
+  `src/core/vector_migration_pending_run_request.py` while preserving
+  `src.core.vector_migration_pending_run_pipeline.run_vector_migration_pending_run_pipeline`
+  as the shared pending-run execution entrypoint.
+- [x] Move vector migration pending-run candidate collection call mapping into
+  `src/core/vector_migration_pending_run_candidates.py` while preserving
+  `src.core.vector_migration_pending_run_pipeline.run_vector_migration_pending_run_pipeline`
+  as the shared pending-run execution entrypoint.
 - [ ] Continue remaining shared helper ownership cleanup only in small slices with
   facade compatibility tests.
 
