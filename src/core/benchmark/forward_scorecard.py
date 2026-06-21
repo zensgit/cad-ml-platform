@@ -620,7 +620,10 @@ def _attach_brep_manifest_validation(
     if ready:
         return
     evidence_gaps = component.setdefault("evidence_gaps", [])
-    gap = f"brep_manifest_not_release_ready:{status}"
+    # General "manifest not release-ready" flag (the specific status is exposed in
+    # component["manifest_validation"]["status"]); the verified-floor case also
+    # emits topology_verified_below_release_floor below.
+    gap = "brep_manifest_validation_not_release_ready"
     if gap not in evidence_gaps:
         evidence_gaps.append(gap)
     if (
