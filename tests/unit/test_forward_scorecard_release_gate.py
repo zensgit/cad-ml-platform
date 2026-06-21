@@ -973,6 +973,75 @@ def test_build_forward_scorecard_optional_consumes_brep_golden_step_output(
     assert payload["artifacts"]["brep_summary"] == str(artifacts["brep"])
 
 
+def test_build_forward_scorecard_optional_consumes_brep_manifest_validation(
+    tmp_path: Path,
+) -> None:
+    # The wrapper must feed the brep_golden_manifest step's validation_json into
+    # --brep-manifest-validation-summary, so a not-release-ready manifest drops
+    # the brep component even when the eval summary alone looks release_ready.
+    artifacts = _ready_artifacts(tmp_path)
+    validation_json = _write_json(
+        tmp_path / "brep_validation.json",
+        {
+            "status": "insufficient_verified_topology",
+            "ready_for_release": False,
+            "release_eligible_count": 50,
+            "verified_topology_count": 0,
+            "derived_topology_count": 50,
+            "verified_topology_floor": 10,
+            "verified_topology_floor_met": False,
+        },
+    )
+    output_json = tmp_path / "latest.json"
+    output_md = tmp_path / "latest.md"
+    gate_json = tmp_path / "gate.json"
+    github_output = tmp_path / "github-output.txt"
+    steps_json = json.dumps(
+        {
+            "brep_golden_manifest": {
+                "outputs": {
+                    "eval_summary_json": str(artifacts["brep"]),
+                    "validation_json": str(validation_json),
+                }
+            }
+        }
+    )
+    env = _wrapper_env(
+        GITHUB_OUTPUT=str(github_output),
+        GITHUB_STEPS_JSON=steps_json,
+        FORWARD_SCORECARD_ENABLE="true",
+        FORWARD_SCORECARD_MODEL_READINESS_JSON=str(artifacts["model"]),
+        FORWARD_SCORECARD_HYBRID_SUMMARY_JSON=str(artifacts["hybrid"]),
+        FORWARD_SCORECARD_GRAPH2D_SUMMARY_JSON=str(artifacts["graph2d"]),
+        FORWARD_SCORECARD_HISTORY_SUMMARY_JSON=str(artifacts["history"]),
+        FORWARD_SCORECARD_QDRANT_SUMMARY_JSON=str(artifacts["qdrant"]),
+        FORWARD_SCORECARD_REVIEW_QUEUE_SUMMARY_JSON=str(artifacts["review"]),
+        FORWARD_SCORECARD_KNOWLEDGE_SUMMARY_JSON=str(artifacts["knowledge"]),
+        FORWARD_SCORECARD_OUTPUT_JSON=str(output_json),
+        FORWARD_SCORECARD_OUTPUT_MD=str(output_md),
+        FORWARD_SCORECARD_RELEASE_GATE_OUTPUT_JSON=str(gate_json),
+    )
+
+    subprocess.run(
+        ["bash", str(WRAPPER_SCRIPT)],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    payload = json.loads(output_json.read_text(encoding="utf-8"))
+    brep = payload["components"]["brep"]
+    assert brep["status"] == "benchmark_ready_with_gap"
+    assert brep["manifest_validation"]["status"] == "insufficient_verified_topology"
+    assert brep["manifest_validation"]["derived_topology_count"] == 50
+    assert "topology_verified_below_release_floor" in brep["evidence_gaps"]
+    assert payload["artifacts"]["brep_manifest_validation_summary"] == str(
+        validation_json
+    )
+
+
 def test_build_forward_scorecard_optional_gate_blocks_release_label(
     tmp_path: Path,
 ) -> None:

@@ -240,9 +240,14 @@ Goal: turn B-Rep from scaffolding into measurable capability.
   `public_nc <-> non_commercial`, a verified-topology release floor enforced in the
   validator's `release_ready`, and verified-vs-derived layered counts in the report.
   Docs: `CAD_ML_BREP_GOLDEN_PROVENANCE_CONTRACT_DEVELOPMENT_20260620.md` (#485).
-- [ ] Feed the validator's provenance layered counts into the forward scorecard
-  B-Rep component so the binding release decision (`pick("brep")`) also enforces the
-  verified floor (PR-B, follow-up to #485).
+- [ ] Feed validator provenance counts into the forward scorecard B-Rep component
+  so release artifacts surface the verified-floor gap (PR-B). Hard release-decision
+  gating remains a separate future policy decision: `export_benchmark_release_decision`
+  tolerates a B-Rep `benchmark_ready_with_gap` by design (B-Rep is the weak,
+  separately-reported lane). Adopt hard-gating only once a real B-Rep golden set
+  meets the release floor AND B-Rep capability is declared a necessary
+  product-release condition; then a dedicated policy PR hard-gates the release
+  decision (clearer and more auditable than folding it in here).
 - [ ] Populate the manifest with 50-100 real, release-eligible STEP/IGES files,
   with human-signed-off `license_status`/`license_source` and `verified` topology
   (+ evidence) meeting the verified-topology floor.

@@ -51,6 +51,7 @@ def main() -> None:
     parser.add_argument("--graph2d-summary", default="")
     parser.add_argument("--history-summary", default="")
     parser.add_argument("--brep-summary", default="")
+    parser.add_argument("--brep-manifest-validation-summary", default="")
     parser.add_argument("--qdrant-summary", default="")
     parser.add_argument("--review-queue-summary", default="")
     parser.add_argument("--knowledge-summary", default="")
@@ -77,6 +78,7 @@ def main() -> None:
         "graph2d_summary": args.graph2d_summary,
         "history_summary": args.history_summary,
         "brep_summary": args.brep_summary,
+        "brep_manifest_validation_summary": args.brep_manifest_validation_summary,
         "qdrant_summary": args.qdrant_summary,
         "review_queue_summary": args.review_queue_summary,
         "knowledge_summary": args.knowledge_summary,
@@ -92,6 +94,9 @@ def main() -> None:
         graph2d_summary=_maybe_load_json(args.graph2d_summary),
         history_summary=_maybe_load_json(args.history_summary),
         brep_summary=_maybe_load_json(args.brep_summary),
+        brep_manifest_validation=_maybe_load_json(
+            args.brep_manifest_validation_summary
+        ),
         qdrant_summary=_maybe_load_json(args.qdrant_summary),
         review_queue_summary=_maybe_load_json(args.review_queue_summary),
         knowledge_summary=_maybe_load_json(args.knowledge_summary),

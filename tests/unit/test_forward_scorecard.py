@@ -349,6 +349,98 @@ def test_blocked_manufacturing_review_manifest_validation_downgrades_release_rea
     assert any("review manifest" in item for item in payload["recommendations"])
 
 
+def test_brep_manifest_validation_not_release_ready_downgrades_release_ready() -> None:
+    # Every non-release-ready validator status must drop the brep component AND
+    # the scorecard overall_status off release_ready (not just the floor-miss).
+    for status in (
+        "insufficient_verified_topology",
+        "insufficient_release_samples",
+        "invalid",
+    ):
+        inputs = _ready_inputs()
+        inputs["brep_manifest_validation"] = {
+            "status": status,
+            "ready_for_release": False,
+            "release_eligible_count": 50,
+            "verified_topology_count": 0,
+            "derived_topology_count": 50,
+            "verified_topology_floor": 10,
+            "verified_topology_floor_met": False,
+        }
+
+        payload = build_forward_scorecard(**inputs, generated_at=1)
+
+        brep = payload["components"]["brep"]
+        assert payload["overall_status"] == "benchmark_ready_with_gap", status
+        assert brep["status"] == "benchmark_ready_with_gap", status
+        assert brep["manifest_validation"]["status"] == status
+        assert brep["manifest_validation"]["verified_topology_count"] == 0
+        assert brep["manifest_validation"]["derived_topology_count"] == 50
+        assert "brep_manifest_validation_not_release_ready" in brep["evidence_gaps"]
+        # The B-Rep manifest gap is the only gap here, so recommendations must
+        # name it and must NOT fall back to "supports release-readiness".
+        recs = payload["recommendations"]
+        assert any("B-Rep golden manifest provenance" in r for r in recs), status
+        assert not any("supports release-readiness" in r for r in recs), status
+
+    # The named floor flag is emitted only for the verified-topology shortfall.
+    floor_inputs = _ready_inputs()
+    floor_inputs["brep_manifest_validation"] = {
+        "status": "insufficient_verified_topology",
+        "ready_for_release": False,
+        "verified_topology_floor_met": False,
+    }
+    floor_payload = build_forward_scorecard(**floor_inputs, generated_at=1)
+    assert "topology_verified_below_release_floor" in (
+        floor_payload["components"]["brep"]["evidence_gaps"]
+    )
+
+
+def test_release_ready_brep_manifest_validation_keeps_release_ready() -> None:
+    inputs = _ready_inputs()
+    inputs["brep_manifest_validation"] = {
+        "status": "release_ready",
+        "ready_for_release": True,
+        "release_eligible_count": 60,
+        "verified_topology_count": 20,
+        "derived_topology_count": 40,
+        "verified_topology_floor": 12,
+        "verified_topology_floor_met": True,
+    }
+
+    payload = build_forward_scorecard(**inputs, generated_at=1)
+
+    brep = payload["components"]["brep"]
+    assert payload["overall_status"] == "release_ready"
+    assert brep["status"] == "release_ready"
+    assert brep["manifest_validation"]["ready_for_release"] is True
+    assert "brep_manifest_validation_not_release_ready" not in brep.get(
+        "evidence_gaps", []
+    )
+
+
+def test_missing_brep_manifest_validation_is_backward_compatible() -> None:
+    # No brep_manifest_validation -> brep component untouched, no extra key.
+    payload = build_forward_scorecard(**_ready_inputs(), generated_at=1)
+    brep = payload["components"]["brep"]
+    assert brep["status"] == "release_ready"
+    assert "manifest_validation" not in brep
+
+
+def test_brep_manifest_validation_surfaces_in_markdown() -> None:
+    inputs = _ready_inputs()
+    inputs["brep_manifest_validation"] = {
+        "status": "insufficient_verified_topology",
+        "ready_for_release": False,
+        "release_eligible_count": 50,
+        "verified_topology_count": 0,
+    }
+    payload = build_forward_scorecard(**inputs, generated_at=1)
+    rendered = render_forward_scorecard_markdown(payload, "t")
+    assert "manifest=insufficient_verified_topology" in rendered
+    assert "verified=0/50" in rendered
+
+
 def test_forward_scorecard_markdown_contains_component_table() -> None:
     payload = build_forward_scorecard(**_ready_inputs(), generated_at=1)
     rendered = render_forward_scorecard_markdown(payload, "Forward Scorecard")
@@ -440,3 +532,62 @@ def test_export_forward_scorecard_script_outputs_json_and_markdown(
         == "release_ready"
     )
     assert "`overall_status`: `release_ready`" in output_md.read_text(encoding="utf-8")
+
+
+def test_export_forward_scorecard_cli_consumes_brep_manifest_validation(
+    tmp_path: Path,
+) -> None:
+    # CLI layer (core / CLI / wrapper): the new --brep-manifest-validation-summary
+    # flows into the brep component even when the eval summary alone is release_ready.
+    model = _write_json(tmp_path / "model.json", _ready_model_registry())
+    brep_eval = _write_json(
+        tmp_path / "brep_eval.json",
+        {"sample_size": 50, "parse_success_count": 50, "graph_valid_count": 50},
+    )
+    validation = _write_json(
+        tmp_path / "brep_validation.json",
+        {
+            "status": "insufficient_verified_topology",
+            "ready_for_release": False,
+            "release_eligible_count": 50,
+            "verified_topology_count": 0,
+            "derived_topology_count": 50,
+            "verified_topology_floor": 10,
+            "verified_topology_floor_met": False,
+        },
+    )
+    output_json = tmp_path / "latest.json"
+    output_md = tmp_path / "latest.md"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--model-readiness-summary",
+            str(model),
+            "--brep-summary",
+            str(brep_eval),
+            "--brep-manifest-validation-summary",
+            str(validation),
+            "--output-json",
+            str(output_json),
+            "--output-md",
+            str(output_md),
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    brep = json.loads(result.stdout)["components"]["brep"]
+    assert brep["status"] == "benchmark_ready_with_gap"
+    assert brep["manifest_validation"]["status"] == "insufficient_verified_topology"
+    assert brep["manifest_validation"]["verified_topology_floor_met"] is False
+    assert "brep_manifest_validation_not_release_ready" in brep["evidence_gaps"]
+    assert "topology_verified_below_release_floor" in brep["evidence_gaps"]
+    assert (
+        json.loads(output_json.read_text(encoding="utf-8"))["artifacts"][
+            "brep_manifest_validation_summary"
+        ]
+        == str(validation)
+    )

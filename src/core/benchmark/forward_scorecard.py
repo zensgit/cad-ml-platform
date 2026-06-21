@@ -582,6 +582,59 @@ def _attach_manufacturing_review_manifest_validation(
         component["status"] = "benchmark_ready_with_gap"
 
 
+def _attach_brep_manifest_validation(
+    component: Dict[str, Any],
+    validation_report: Dict[str, Any],
+) -> None:
+    """Fold the B-Rep golden manifest validator report into the brep component.
+
+    Mirrors `_attach_manufacturing_review_manifest_validation`: when the manifest
+    is not release-ready for ANY reason (`invalid` / `insufficient_release_samples`
+    / `insufficient_verified_topology`), the B-Rep component cannot stay
+    `release_ready` — which in turn drops the scorecard's `overall_status`
+    (it requires every component release_ready). The verified-vs-derived counts
+    come from the validator report (the eval summary cannot carry provenance).
+    Empty report -> no-op, so existing callers are unchanged.
+    """
+    if not validation_report:
+        return
+    status = str(validation_report.get("status") or "unknown")
+    ready = bool(validation_report.get("ready_for_release"))
+    component["manifest_validation"] = {
+        "status": status,
+        "ready_for_release": ready,
+        "release_eligible_count": _to_int(validation_report.get("release_eligible_count")),
+        "verified_topology_count": _to_int(
+            validation_report.get("verified_topology_count")
+        ),
+        "derived_topology_count": _to_int(
+            validation_report.get("derived_topology_count")
+        ),
+        "verified_topology_floor": _to_int(
+            validation_report.get("verified_topology_floor")
+        ),
+        "verified_topology_floor_met": bool(
+            validation_report.get("verified_topology_floor_met")
+        ),
+    }
+    if ready:
+        return
+    evidence_gaps = component.setdefault("evidence_gaps", [])
+    # General "manifest not release-ready" flag (the specific status is exposed in
+    # component["manifest_validation"]["status"]); the verified-floor case also
+    # emits topology_verified_below_release_floor below.
+    gap = "brep_manifest_validation_not_release_ready"
+    if gap not in evidence_gaps:
+        evidence_gaps.append(gap)
+    if (
+        status == "insufficient_verified_topology"
+        and "topology_verified_below_release_floor" not in evidence_gaps
+    ):
+        evidence_gaps.append("topology_verified_below_release_floor")
+    if component.get("status") == "release_ready":
+        component["status"] = "benchmark_ready_with_gap"
+
+
 def _model_readiness_component(snapshot: Dict[str, Any]) -> Dict[str, Any]:
     items = snapshot.get("items") or {}
     if not snapshot:
@@ -652,6 +705,11 @@ def _recommendations(components: Dict[str, Dict[str, Any]]) -> List[str]:
         items.append(
             "Build a strict STEP/IGES B-Rep golden set with parse and graph metrics."
         )
+    elif components["brep"].get("evidence_gaps"):
+        items.append(
+            "Fill the B-Rep golden manifest provenance (license/topology) and meet "
+            "the verified-topology floor before claiming B-Rep release-readiness."
+        )
     if components["qdrant"].get("status") in {"blocked", "shadow_only"}:
         items.append("Provide Qdrant/vector migration readiness evidence.")
     if components["review_queue"].get("status") == "blocked":
@@ -698,6 +756,7 @@ def build_forward_scorecard(
     knowledge_summary: Optional[Dict[str, Any]] = None,
     manufacturing_summary: Optional[Dict[str, Any]] = None,
     manufacturing_review_manifest_validation: Optional[Dict[str, Any]] = None,
+    brep_manifest_validation: Optional[Dict[str, Any]] = None,
     artifact_paths: Optional[Dict[str, str]] = None,
     generated_at: Optional[int] = None,
 ) -> Dict[str, Any]:
@@ -718,6 +777,10 @@ def build_forward_scorecard(
     _attach_manufacturing_review_manifest_validation(
         components["manufacturing_evidence"],
         manufacturing_review_manifest_validation or {},
+    )
+    _attach_brep_manifest_validation(
+        components["brep"],
+        brep_manifest_validation or {},
     )
     overall_status = _overall_status(components)
     return {
@@ -788,9 +851,13 @@ def _component_evidence(name: str, row: Dict[str, Any]) -> str:
             f"f1={row.get('coarse_macro_f1')}"
         )
     if name == "brep":
+        manifest = row.get("manifest_validation") or {}
         return (
             f"n={row.get('sample_size')}; parse={row.get('parse_success_ratio')}; "
-            f"graph={row.get('graph_valid_ratio')}"
+            f"graph={row.get('graph_valid_ratio')}; "
+            f"manifest={manifest.get('status', 'not_provided')}; "
+            f"verified={manifest.get('verified_topology_count', 'n/a')}"
+            f"/{manifest.get('release_eligible_count', 'n/a')}"
         )
     if name == "qdrant":
         return (
