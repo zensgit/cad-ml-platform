@@ -28,6 +28,7 @@ from src.utils.metrics import (
     core_provider_checks_total,
 )
 from src.core.health_cache_metrics import compute_cache_tuning, compute_hit_ratio
+from src.core.health_model_status import compute_model_health
 
 router = APIRouter()
 
@@ -775,21 +776,13 @@ class ModelReadinessResponse(BaseModel):
 
 @router.get("/health/model", response_model=ModelHealthResponse)
 async def model_health(api_key: str = Depends(get_api_key)):
-    import time
-
     from src.ml.classifier import get_model_info
     from src.utils.analysis_metrics import model_health_checks_total
 
     info = get_model_info()
-
-    # Determine status based on loaded state and rollback level
-    rollback_level = info.get("rollback_level", 0)
-    if not info.get("loaded"):
-        status = "absent"
-    elif rollback_level > 0:
-        status = "rollback"
-    else:
-        status = "ok"
+    health = compute_model_health(info)
+    status = health["status"]
+    rollback_level = health["rollback_level"]
 
     model_health_checks_total.labels(status=status).inc()
     try:
@@ -798,26 +791,10 @@ async def model_health(api_key: str = Depends(get_api_key)):
             model_snapshots_available,
         )
 
-        snapshots_available = sum(
-            1
-            for flag in (
-                info.get("has_prev"),
-                info.get("has_prev2"),
-                info.get("has_prev3"),
-            )
-            if flag
-        )
         model_rollback_level.set(rollback_level)
-        model_snapshots_available.set(snapshots_available)
+        model_snapshots_available.set(health["snapshots_available"])
     except Exception:
         pass
-
-    uptime = None
-    if info.get("loaded_at"):
-        try:
-            uptime = time.time() - float(info.get("loaded_at"))
-        except Exception:
-            uptime = None
 
     return ModelHealthResponse(
         status=status,
@@ -826,7 +803,7 @@ async def model_health(api_key: str = Depends(get_api_key)):
         path=info.get("path"),
         loaded=bool(info.get("loaded")),
         loaded_at=info.get("loaded_at"),
-        uptime_seconds=uptime,
+        uptime_seconds=health["uptime_seconds"],
         last_error=info.get("last_error"),
         rollback_level=rollback_level,
         rollback_reason=info.get("rollback_reason"),
