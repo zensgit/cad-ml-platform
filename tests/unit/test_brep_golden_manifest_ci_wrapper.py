@@ -47,6 +47,10 @@ def _case(case_id: str, path: str) -> dict:
         "release_eligible": True,
         "part_family": "block",
         "license": "internal",
+        "license_status": "internal",
+        "license_source": "internal-dataset://golden/v1",
+        "topology_source": "verified",
+        "topology_evidence": "manual-review://golden/v1",
         "expected_behavior": "parse_success",
         "expected_topology": {
             "faces_min": 1,

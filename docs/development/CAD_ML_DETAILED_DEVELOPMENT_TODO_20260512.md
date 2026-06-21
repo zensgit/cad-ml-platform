@@ -234,7 +234,18 @@ Goal: turn B-Rep from scaffolding into measurable capability.
 - [x] Make strict B-Rep directory evaluation reproducible from a manifest.
 - [x] Wire the B-Rep golden manifest validator into the optional CI/release flow.
 - [x] Wire manifest-driven strict B-Rep evaluation into the forward scorecard inputs.
-- [ ] Populate the manifest with 50-100 real, release-eligible STEP/IGES files.
+- [x] Extend the golden manifest contract with license/topology provenance:
+  `license_status` controlled vocab + `license_source`, `topology_source`
+  (verified/derived) + `topology_evidence`, the biconditional
+  `public_nc <-> non_commercial`, a verified-topology release floor enforced in the
+  validator's `release_ready`, and verified-vs-derived layered counts in the report.
+  Docs: `CAD_ML_BREP_GOLDEN_PROVENANCE_CONTRACT_DEVELOPMENT_20260620.md` (#485).
+- [ ] Feed the validator's provenance layered counts into the forward scorecard
+  B-Rep component so the binding release decision (`pick("brep")`) also enforces the
+  verified floor (PR-B, follow-up to #485).
+- [ ] Populate the manifest with 50-100 real, release-eligible STEP/IGES files,
+  with human-signed-off `license_status`/`license_source` and `verified` topology
+  (+ evidence) meeting the verified-topology floor.
 - [x] Track:
   - parse success
   - face count

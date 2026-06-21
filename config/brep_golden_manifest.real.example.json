@@ -1,7 +1,7 @@
 {
   "schema_version": "brep_golden_manifest.v1",
   "name": "B-Rep STEP/IGES Golden Manifest — Real-Data Field Reference",
-  "description": "FIELD-FORMAT REFERENCE ONLY. Shows how internal / public_nc / fixture cases differ (release_eligible, license, source_type). Paths reuse repo fixtures purely so this file is validator-runnable; for real use, place files under data/brep_golden/<bucket>/ and run scripts/build_brep_golden_manifest_skeleton.py, then fill part_family/license/expected_topology. With only 1 release-eligible case here, the validator correctly reports status=insufficient_release_samples with errors=[] — that is the expected 'structurally correct but below the 50-sample floor' intermediate state.",
+  "description": "FIELD-FORMAT REFERENCE ONLY. Shows how internal / public_nc / fixture cases differ across release_eligible, source_type, and the Stage 2a provenance fields (license_status / license_source / topology_source / topology_evidence). Paths reuse repo fixtures purely so this file is validator-runnable; for real use, place files under data/brep_golden/<bucket>/ and run scripts/build_brep_golden_manifest_skeleton.py, then fill part_family/license/expected_topology and the provenance fields. With only 1 release-eligible case here, the validator correctly reports status=insufficient_release_samples with errors=[] — the expected 'structurally correct but below the 50-sample floor' intermediate state.",
   "root": "..",
   "cases": [
     {
@@ -12,6 +12,8 @@
       "release_eligible": true,
       "part_family": "housing",
       "license": "internal",
+      "license_status": "internal",
+      "license_source": "internal-dataset://plm/cad-golden/v1",
       "expected_behavior": "parse_success",
       "expected_topology": {
         "faces_min": 1,
@@ -20,6 +22,8 @@
         "graph_nodes_min": 1,
         "surface_types": ["plane", "cylinder"]
       },
+      "topology_source": "verified",
+      "topology_evidence": "manual-review://golden/internal_assembly_part_example",
       "tags": ["release", "internal-deliverable"]
     },
     {
@@ -30,6 +34,7 @@
       "release_eligible": false,
       "part_family": "cylinder_array",
       "license": "CC-BY-NC-SA-4.0",
+      "license_status": "non_commercial",
       "expected_behavior": "parse_success",
       "expected_topology": {
         "faces_min": 1,
@@ -38,6 +43,7 @@
         "graph_nodes_min": 1,
         "surface_types": ["cylinder"]
       },
+      "topology_source": "derived",
       "tags": ["coverage-only", "abc-dataset-style", "non-release"]
     },
     {

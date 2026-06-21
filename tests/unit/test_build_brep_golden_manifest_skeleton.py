@@ -177,9 +177,16 @@ def test_skeleton_requires_full_human_signoff_to_pass_validator(tmp_path: Path) 
         "unfilled skeleton placeholders" in e for e in half_filled["errors"]
     )
 
-    # Step 2: full signoff = also clear the TODO-* tags -> now release_ready.
+    # Step 2: full signoff = clear the TODO-* tags AND fill the provenance the
+    # Stage 2a contract now requires (license classification + auditable source,
+    # and a human-verified topology + evidence) -> now release_ready.
     for case in manifest["cases"]:
         case["tags"] = [t for t in case["tags"] if not t.startswith("TODO-")]
+        if case["release_eligible"]:
+            case["license_status"] = "internal"
+            case["license_source"] = "internal-dataset://golden/v1"
+            case["topology_source"] = "verified"
+            case["topology_evidence"] = "manual-review://golden/v1"
 
     report = validate_manifest(manifest, min_release_samples=50)
 
@@ -187,6 +194,9 @@ def test_skeleton_requires_full_human_signoff_to_pass_validator(tmp_path: Path) 
     # 50 cleanly-inferred internal eligible; public_nc excluded.
     assert report["release_eligible_count"] == 50
     assert report["case_count"] == 51
+    # All 50 eligible are now human-verified -> verified-topology floor met.
+    assert report["verified_topology_count"] == 50
+    assert report["verified_topology_floor_met"] is True
 
 
 def test_scaffolder_blocking_finding_regression_50_mystery_public_nc(
