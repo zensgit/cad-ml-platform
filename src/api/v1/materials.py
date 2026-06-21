@@ -8,16 +8,6 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import Response
 
-logger = logging.getLogger(__name__)
-router = APIRouter()
-
-
-# ============================================================================
-# Response Models
-# ============================================================================
-
-
-
 from src.api.v1.materials_models import (
     MaterialPropertiesResponse,
     ProcessRecommendationResponse,
@@ -55,6 +45,8 @@ from src.api.v1.materials_models import (
     FullCompatibilityResponse,
 )
 
+logger = logging.getLogger(__name__)
+router = APIRouter()
 
 
 # ============================================================================
