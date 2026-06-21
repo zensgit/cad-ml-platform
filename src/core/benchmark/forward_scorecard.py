@@ -705,6 +705,11 @@ def _recommendations(components: Dict[str, Dict[str, Any]]) -> List[str]:
         items.append(
             "Build a strict STEP/IGES B-Rep golden set with parse and graph metrics."
         )
+    elif components["brep"].get("evidence_gaps"):
+        items.append(
+            "Fill the B-Rep golden manifest provenance (license/topology) and meet "
+            "the verified-topology floor before claiming B-Rep release-readiness."
+        )
     if components["qdrant"].get("status") in {"blocked", "shadow_only"}:
         items.append("Provide Qdrant/vector migration readiness evidence.")
     if components["review_queue"].get("status") == "blocked":

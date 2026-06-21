@@ -377,6 +377,11 @@ def test_brep_manifest_validation_not_release_ready_downgrades_release_ready() -
         assert brep["manifest_validation"]["verified_topology_count"] == 0
         assert brep["manifest_validation"]["derived_topology_count"] == 50
         assert "brep_manifest_validation_not_release_ready" in brep["evidence_gaps"]
+        # The B-Rep manifest gap is the only gap here, so recommendations must
+        # name it and must NOT fall back to "supports release-readiness".
+        recs = payload["recommendations"]
+        assert any("B-Rep golden manifest provenance" in r for r in recs), status
+        assert not any("supports release-readiness" in r for r in recs), status
 
     # The named floor flag is emitted only for the verified-topology shortfall.
     floor_inputs = _ready_inputs()

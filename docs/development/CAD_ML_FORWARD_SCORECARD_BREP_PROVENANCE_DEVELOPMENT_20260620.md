@@ -26,7 +26,7 @@ Decision context: `CAD_ML_BREP_GOLDEN_PROVENANCE_CONTRACT_DEVELOPMENT_20260620.m
 | --- | --- |
 | 消费信号 | validator report 的 `ready_for_release`（综合信号）。`invalid` / `insufficient_release_samples` / `insufficient_verified_topology` 三者都使 `ready_for_release=false` |
 | 降级 | manifest 非 release-ready 时，brep component 若为 `release_ready` → 降为 `benchmark_ready_with_gap`（不能保持 release_ready） |
-| evidence flag | `brep_manifest_not_release_ready:<status>`；`insufficient_verified_topology` 额外发 `topology_verified_below_release_floor`（用户点名的 flag） |
+| evidence flag | `brep_manifest_validation_not_release_ready`（通用，status 在 `manifest_validation.status`）；`insufficient_verified_topology` 额外发 `topology_verified_below_release_floor`（用户点名的 flag） |
 | 附加可见性 | component 挂 `manifest_validation`：status / ready_for_release / verified / derived / floor / floor_met / eligible 计数 |
 | markdown | `_component_evidence` 的 brep 分支增列 `manifest=<status>; verified=<v>/<eligible>`，镜像 manufacturing 的 `review_manifest=` |
 | 向后兼容 | `build_forward_scorecard` 新增 `brep_manifest_validation`（Optional，默认 None）；空 report → no-op，既有 caller 不变 |
