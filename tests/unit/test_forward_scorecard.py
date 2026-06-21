@@ -349,6 +349,94 @@ def test_blocked_manufacturing_review_manifest_validation_downgrades_release_rea
     assert any("review manifest" in item for item in payload["recommendations"])
 
 
+def test_brep_manifest_validation_not_release_ready_downgrades_release_ready() -> None:
+    # Every non-release-ready validator status must drop the brep component AND
+    # the scorecard overall_status off release_ready (not just the floor-miss).
+    for status in (
+        "insufficient_verified_topology",
+        "insufficient_release_samples",
+        "invalid",
+    ):
+        inputs = _ready_inputs()
+        inputs["brep_manifest_validation"] = {
+            "status": status,
+            "ready_for_release": False,
+            "release_eligible_count": 50,
+            "verified_topology_count": 0,
+            "derived_topology_count": 50,
+            "verified_topology_floor": 10,
+            "verified_topology_floor_met": False,
+        }
+
+        payload = build_forward_scorecard(**inputs, generated_at=1)
+
+        brep = payload["components"]["brep"]
+        assert payload["overall_status"] == "benchmark_ready_with_gap", status
+        assert brep["status"] == "benchmark_ready_with_gap", status
+        assert brep["manifest_validation"]["status"] == status
+        assert brep["manifest_validation"]["verified_topology_count"] == 0
+        assert brep["manifest_validation"]["derived_topology_count"] == 50
+        assert f"brep_manifest_not_release_ready:{status}" in brep["evidence_gaps"]
+
+    # The named floor flag is emitted only for the verified-topology shortfall.
+    floor_inputs = _ready_inputs()
+    floor_inputs["brep_manifest_validation"] = {
+        "status": "insufficient_verified_topology",
+        "ready_for_release": False,
+        "verified_topology_floor_met": False,
+    }
+    floor_payload = build_forward_scorecard(**floor_inputs, generated_at=1)
+    assert "topology_verified_below_release_floor" in (
+        floor_payload["components"]["brep"]["evidence_gaps"]
+    )
+
+
+def test_release_ready_brep_manifest_validation_keeps_release_ready() -> None:
+    inputs = _ready_inputs()
+    inputs["brep_manifest_validation"] = {
+        "status": "release_ready",
+        "ready_for_release": True,
+        "release_eligible_count": 60,
+        "verified_topology_count": 20,
+        "derived_topology_count": 40,
+        "verified_topology_floor": 12,
+        "verified_topology_floor_met": True,
+    }
+
+    payload = build_forward_scorecard(**inputs, generated_at=1)
+
+    brep = payload["components"]["brep"]
+    assert payload["overall_status"] == "release_ready"
+    assert brep["status"] == "release_ready"
+    assert brep["manifest_validation"]["ready_for_release"] is True
+    assert not any(
+        g.startswith("brep_manifest_not_release_ready")
+        for g in brep.get("evidence_gaps", [])
+    )
+
+
+def test_missing_brep_manifest_validation_is_backward_compatible() -> None:
+    # No brep_manifest_validation -> brep component untouched, no extra key.
+    payload = build_forward_scorecard(**_ready_inputs(), generated_at=1)
+    brep = payload["components"]["brep"]
+    assert brep["status"] == "release_ready"
+    assert "manifest_validation" not in brep
+
+
+def test_brep_manifest_validation_surfaces_in_markdown() -> None:
+    inputs = _ready_inputs()
+    inputs["brep_manifest_validation"] = {
+        "status": "insufficient_verified_topology",
+        "ready_for_release": False,
+        "release_eligible_count": 50,
+        "verified_topology_count": 0,
+    }
+    payload = build_forward_scorecard(**inputs, generated_at=1)
+    rendered = render_forward_scorecard_markdown(payload, "t")
+    assert "manifest=insufficient_verified_topology" in rendered
+    assert "verified=0/50" in rendered
+
+
 def test_forward_scorecard_markdown_contains_component_table() -> None:
     payload = build_forward_scorecard(**_ready_inputs(), generated_at=1)
     rendered = render_forward_scorecard_markdown(payload, "Forward Scorecard")

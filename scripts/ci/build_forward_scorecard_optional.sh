@@ -88,6 +88,11 @@ mapping = {
         "brep_golden_manifest",
         "eval_summary_json",
     ],
+    "STEP_BREP_GOLDEN_VALIDATION_JSON": [
+        "steps",
+        "brep_golden_manifest",
+        "validation_json",
+    ],
 }
 
 for env_name, spec in mapping.items():
@@ -368,6 +373,14 @@ add_if_exists --brep-summary "${STEP_BREP_GOLDEN_EVAL_SUMMARY_JSON:-}"
 add_if_exists --brep-summary "${BENCHMARK_SCORECARD_BREP_SUMMARY_JSON:-}"
 add_if_exists --brep-summary "${WF_INPUT_FORWARD_SCORECARD_BREP_SUMMARY_JSON:-}"
 add_if_exists --brep-summary "${FORWARD_SCORECARD_BREP_SUMMARY_JSON:-}"
+
+# B-Rep golden manifest validator report (provenance: verified/derived counts +
+# release readiness). Lets the scorecard's brep component surface the
+# verified-topology-floor gap, instead of seeing only the eval summary. The
+# brep_golden_manifest step's validation_json is the CI source; the
+# FORWARD_SCORECARD_ env overrides it for local/manual runs.
+add_if_exists --brep-manifest-validation-summary "${STEP_BREP_GOLDEN_VALIDATION_JSON:-}"
+add_if_exists --brep-manifest-validation-summary "${FORWARD_SCORECARD_BREP_MANIFEST_VALIDATION_SUMMARY_JSON:-}"
 
 add_if_exists --qdrant-summary "${BENCHMARK_SCORECARD_QDRANT_READINESS_JSON:-}"
 add_if_exists --qdrant-summary "${BENCHMARK_SCORECARD_QDRANT_READINESS_SUMMARY:-}"
