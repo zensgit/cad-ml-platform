@@ -75,7 +75,7 @@ jobs:
           echo "流量模式: ${{ steps.traffic_analysis.outputs.pattern }}"
 
       - name: Upload traffic analysis
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: traffic-analysis
           path: traffic_analysis.json
@@ -132,7 +132,7 @@ jobs:
           fi
 
       - name: Upload performance report
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: performance-report
           path: |
@@ -254,7 +254,7 @@ jobs:
           echo "- P值: $p_value" >> test_report.md
 
       - name: Upload test results
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: ab-test-results
           path: |

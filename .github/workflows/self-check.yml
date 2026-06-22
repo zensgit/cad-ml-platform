@@ -38,7 +38,7 @@ jobs:
           export PYTHONPATH=$GITHUB_WORKSPACE
           echo "Captured at $(date -u)" > self_check_status.txt
           python scripts/self_check.py >> self_check_status.txt
-      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: success()
         with:
           name: self-check-status
