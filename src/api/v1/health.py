@@ -28,6 +28,7 @@ from src.utils.metrics import (
     core_provider_checks_total,
 )
 from src.core.health_cache_metrics import compute_cache_tuning, compute_hit_ratio
+from src.core.health_faiss_status import compute_faiss_health
 from src.core.health_model_status import compute_model_health
 
 router = APIRouter()
@@ -630,8 +631,6 @@ async def cache_prewarm_health_alias(
 
 @router.get("/faiss/health", response_model=FaissHealthResponse)
 async def faiss_health(api_key: str = Depends(get_api_key)):
-    import time
-
     from src.core.similarity import (
         _FAISS_AVAILABLE,
         _FAISS_DIM,
@@ -654,12 +653,6 @@ async def faiss_health(api_key: str = Depends(get_api_key)):
         except Exception:
             size = None
     dim = _FAISS_DIM
-    age_seconds = None
-    now = time.time()
-    if _FAISS_LAST_EXPORT_TS:
-        age_seconds = int(now - _FAISS_LAST_EXPORT_TS)
-    elif _FAISS_LAST_IMPORT:
-        age_seconds = int(now - _FAISS_LAST_IMPORT)
     pending = len(_FAISS_PENDING_DELETE) if available else None
     store = FaissVectorStore()
     normalize = store._normalize if available else None  # type: ignore[attr-defined]
@@ -667,13 +660,15 @@ async def faiss_health(api_key: str = Depends(get_api_key)):
     # Get degraded mode information
     degraded_info = get_degraded_mode_info()
 
-    # Determine status: degraded > unavailable > ok
-    if degraded_info["degraded"]:
-        status = "degraded"
-    elif not available:
-        status = "unavailable"
-    else:
-        status = "ok"
+    # Derive status (degraded > unavailable > ok) + index age via pure helper.
+    _faiss = compute_faiss_health(
+        available=available,
+        degraded=degraded_info["degraded"],
+        last_export_ts=_FAISS_LAST_EXPORT_TS,
+        last_import=_FAISS_LAST_IMPORT,
+    )
+    status = _faiss["status"]
+    age_seconds = _faiss["age_seconds"]
 
     last_rebuild_status = globals().get("_FAISS_LAST_REBUILD_STATUS")
     last_error = globals().get("_FAISS_LAST_ERROR")
