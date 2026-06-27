@@ -78,7 +78,7 @@ jobs:
 
       - name: Comment PR with quality report
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         with:
           script: |
             const { upsertBotIssueComment } = require('./scripts/ci/comment_pr_utils.js');
@@ -209,7 +209,7 @@ jobs:
 
       - name: Comment PR with mypy issues
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         with:
           script: |
             const { upsertBotIssueComment } = require('./scripts/ci/comment_pr_utils.js');
