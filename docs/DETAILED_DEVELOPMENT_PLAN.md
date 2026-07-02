@@ -2,10 +2,16 @@
 
 Status: All phases (1A–6) complete; ≥68 tests passing.
 
-## Follow-ups Priority
-- P1: Auto-recovery persistence; expose next_recovery_eta
-- P2: Preview percentiles; distribution breakdown
-- P3: Ops issue templates; CI hardening
+## Follow-ups Closeout (2026-07-01)
+
+The original P1/P2/P3 follow-ups are now closed on `main`; see
+`docs/development/CAD_ML_PLAN_TODO_CLOSEOUT_VERIFICATION_20260701.md`.
+
+| Item | Status | Current evidence |
+|---|---|---|
+| P1: Auto-recovery persistence; expose `next_recovery_eta` | Done | `GET /api/v1/health/faiss/health` exposes `next_recovery_eta` and `manual_recovery_in_progress`; `faiss_next_recovery_eta_seconds` is maintained; ETA schedule/reset tests cover the health surface. |
+| P2: Preview percentiles; distribution breakdown | Done | Vector migration preview reports `avg_delta` / `median_delta`; distribution/readiness endpoints expose version distribution, completion, pending, and Qdrant partial-scan metadata. |
+| P3: Ops issue templates; CI hardening | Done | `.github/ISSUE_TEMPLATE/*` includes degraded/cache/observability ops templates; Make/CI watcher readiness targets and tests cover `check-gh-actions-ready` and watcher validation. |
 
 ## Performance Baselines
 - v4 p95: Temporary ≤4× v3; Target ≤2× v3 (lock-in 2025-Q1)
@@ -32,4 +38,3 @@ Status: All phases (1A–6) complete; ≥68 tests passing.
 
 ## Status Footer
 ✅ All phases complete | 68+ tests passed
-
