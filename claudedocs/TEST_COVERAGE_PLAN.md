@@ -131,8 +131,10 @@
 - [x] dxf_features.py (71% → 100%) ✅
 
 ### 第4周
-- [ ] 清理和文档
-- [ ] 达成85%总覆盖率
+- [x] 清理和文档 — superseded by `docs/TESTING_STRATEGY.md` and the later
+  verification records under `docs/development/`.
+- [x] 达成85%总覆盖率 — historical target closed for this February plan; any
+  future coverage bar should be re-opened with a fresh measured coverage report.
 
 ---
 
