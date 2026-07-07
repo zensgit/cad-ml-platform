@@ -43,63 +43,73 @@
 
 若战略上确要横向服务 PLM/metasheet,请当**绿地集成**对待——今天一行对接代码都没有。**选一个真实第一消费者立项建 adapter + 量化 ROI**,别假设"天然是扩展"。本文建议:A 先钉死,B 作为 A 稳固后按 ROI 决定的**显式一跳**,不靠 README 默认成立。
 
-### 2.3 [锁|三仓真相源] 消除 vendored scoring 重复
+### 2.3 [锁|三仓真相源] 消除 vendored scoring 重复(**独立 owner-decision + 跨仓轨,别塞进串行 Phase**)
 
-现状:`dedupcad_precision/__init__.py` 明写"vendors the core … from the `dedupcad` repository";同时本仓是 `dedupcad-vision` 的 HTTP 客户端(`dedupcad_vision.py:36` `:58001`,`:370` `/api/v2/search`)。→ **同一 scoring 两处实现。** 决策:定**一个**真相源(本仓成 canonical、dedupcad 依赖它;或反之以依赖引入,停止 vendor 拷贝)。不除此债,后续每步双倍成本。
+**是两个不同层面,别混为一谈:** ① `dedupcad_precision/` **in-process vendor** 了 `dedupcad` 的 L4 几何 scoring(`__init__.py:1-6`);② 本仓是 `dedupcad-vision` :58001 的 **HTTP 客户端**做视觉召回(`dedupcad_vision.py:36`,`:370`)。→ 要消除的是 **①(in-process 拷贝)**;② 是正常服务调用,**保留**。决策:定 ① 的真相源(抽成共享 pip 包,两仓依赖它)。
+**⚠️ 去 vendor 非零成本(深审补):** 那份 vendored scoring 是 **5886-对 PR 阈值标定所锁定的 pinned artifact**;直接 repoint 到 canonical 会**静默失效阈值(精度回退且无失败测试)**。故:pin dedupcad 到精确 tag/commit → 采纳时**重跑 5886-对扫描**,门控 `precision-delta ≤ ε` → 过 golden dedup 门前**保留 vendor 作 fallback**。因需跨仓协调 + owner 拍板,**单列一条并行轨,勿阻塞其它工作**。
 
 ### 2.4 [锁|横切铁律] AI 是"提议"非"权威" + 证据精确
 ① 每个模型输出带 置信度 + 来源 + human-in-the-loop(同 metasheet2 的 untrusted-write 原则)。② **别再让目录名/README 声称代码没有的能力**(vision 误名、"trained ML" 无权重、"feedback loop" 实为 passive)——把你们 B-Rep provenance 门的"证据优先"推广到整个平台的能力自述。
 
 ---
 
-## 3. 路线图(接住已在跑的 `phase1-slim-*` + B-Rep)
+## 3. 路线图(**深审后 v2:3 轨并行,非 5 段串行**)
 
-### Phase 0 — 诚实化 + 去泡沫(让真核可见)· 低风险可回滚,先做
-- 删 13 个零引用死 **顶层 scaffold dir**(~7.1K LOC)—— **必须用完整路径,勿用裸目录名(会与同名活模块混淆)**:
+> 12-agent 对抗验证纠正了 v1 的串行结构:去泡沫 / 闭飞轮 / 数据三件事**互不依赖、归不同执行者**;串行会把**真瓶颈(数据)排到最后**、把**手动 hygiene 当 headline**([21])。改为三轨并行,在"评测门翻硬"处汇合。
+
+### 轨 C · 数据(瓶颈,human-gated,**第一天就起——lead time 最长**)
+- **B-Rep 真数据**:`data/brep_golden/` 已落 **~60 个真 NIST STEP/STP**(**非**单样例——深审纠正 v1 的"仅占位"说法),`brep-golden-eval.yml` 只等把它们 curate 成 release-eligible manifest + 标注。工具 100% 就绪,缺的是 curate+label,不是从零 sourcing。**外部 lead time 最长,必须最先并行,不能等代码轨([3][18])。**
+- **建"反馈 SOURCE"([19],飞轮的真前置):** 今天 DedupCAD **出站单向**(`analysis_metrics.py:816` 仅出站计数),corrections 存量 ~40 行 → 飞轮**无燃料**。先建一条纠正回收通道(DedupCAD 查重工作流人工复核 / golden 标注)**产出 `low_conf.csv` 的人工核验行**。
+
+### 轨 B · 飞轮(护城河,human-gated,与 C 汇合)
+- **拆"接管道"与"喂燃料"([1]):** 主 spine **已在跑**——classifier 推理 `maybe_enqueue` 已把 low-conf 样本持久化到 `data/review_queue/low_conf.csv`,`auto_retrain.sh` 已读它、且被**真硬门** `governance-gates.yml`(0 `continue-on-error`)守着。
+- 要做的只有:①**人工复核动作**(填 `reviewed_label/human_verified`,今空缺、未建)+ ②**排程触发** `auto_retrain.sh`(它 gate 在 `MIN_REVIEWED=200` 人工核验样本,需轨 C 的燃料);③**删重复死环**:`feedback_log.jsonl`(占位)+ 孤儿 `FeedbackLearningPipeline`(其 EMA 权重 classifier **从不读回**,是**删/重建**,非"接")。
+- **两条重训 track 分开别混([9]):**(A)`ActiveLearner→finetune_from_feedback.py→classifier_vX.pkl→reload_model`(真热重载+回滚);(B)`low_conf.csv→auto_retrain.sh→graph2d .pth→GRAPH2D_MODEL_PATH+重启`(**今天无热重载**)。
+
+### 轨 A · 诚实化 + 去泡沫(agent-fleet 可做,**但先设反膨胀硬门,再删**)
+- **[linchpin·先做] 反膨胀门翻 blocking([13][14]):** `code-quality.yml` 每步 `|| true`(dead-code `vulture`:165、duplicate-code:123 全 fail-soft)而 "Code Quality" 是 watched-required → **strip 掉 `|| true` 并设 branch-protection 必需**;加 **prune-safety job**(见 §60)+ **scaffolding-budget job**(复用 `metrics-budget-check.yml` 的 exit-1,防 core 文件数反弹;`vulture` 先 commit baseline、只 fail 新增)。**没这道门,清理会被同一车队重新灌回——这是整份方案最该补的一条。**
+- **[owner-gate·强制,[17]] 加 CODEOWNERS**:`.github/workflows/**`、`src/core/**` 删除、本 doc 需人工审——现**无 CODEOWNERS**,CLAUDE.md 又说分支保护可摘,持 merge 权的同一车队可自批删除/翻门 PR。
+- **然后再删** 13 个零引用死 **顶层 scaffold dir**(~7.1K LOC)—— **完整路径,勿裸名(会与同名活模块混淆)**:
   `src/core/circuit_breaker`、`src/core/dead_letter_queue`、`src/core/outbox`、`src/core/message_bus`、`src/core/idempotency`、`src/core/api_versioning`、`src/core/rate_limiter`、`src/core/webhook`、`src/core/caching`、`src/core/batch_processing`、`src/core/event_sourcing`、`src/core/health_check`、`src/core/notifications`。
-  - **⚠️ 不在 Phase 0 删除范围(同名但活,已核实被引用)**:`src/utils/circuit_breaker.py`、`src/utils/idempotency.py`(`api/v1/ocr.py`+`drawing.py` 用)、`src/utils/rate_limiter.py`、`src/core/assistant/caching.py`(assistant/e2e/perf/stress 测试用);以及 `src/core/vision/{api_versioning,event_sourcing,circuit_breaker,rate_limiter}.py`(vision 内同名文件,随 vision 处置,非本删除组)。
-  - **Phase 0 PR 必须逐路径附"零外部 import"证据**(见附录 A 命令),尤其上述同名活模块不得误碰。
-- 卸/删未挂载面:`src/api/v2`、`src/api/grpc`、未注册的 `api/v1/batch.py`/`api/v1/websocket.py`、未 mount 的 `AuditMiddleware`;pointcloud `/similar` 桩下线或显式标注。
-- ~20 个 test-only 模式 dir 与 vision 装饰器动物园:**删,或隔离进显式 `experimental/` 边界**;修"假绿"测试(它们给死代码假覆盖)。
-- **把 `vision/` 如实降级/改名为 "VLM 描述 façade"**;修 assistant 退役模型 ID(`claude-3-sonnet-20240229`→`claude-sonnet-5`,或整块 default-off 明确标休眠)。
-- **目标里程碑**:core 从 626 文件收敛到真正的 ~15–20 个模块;给 `phase1-slim-*` 一个北极星。
+  - **⚠️ 不在删除范围(同名但活)——排除清单以附录 A 的 twin-scan 输出为准,勿手抄(手抄会漏)。** 已核实活 twin 至少含:`src/utils/{circuit_breaker,idempotency,rate_limiter}.py`(`idempotency` 被 `api/v1/ocr.py:28`+`drawing.py:34` 用)、`src/core/assistant/caching.py`(测试用)、**以及深审补漏的 5 个**:`src/core/{resilience,resilience_enhanced,gateway}/circuit_breaker.py`、`src/core/{resilience,gateway}/rate_limiter.py`。
+  - **⚠️ 特例(先解耦再动 vision):** `src/core/vision/circuit_breaker.py` 被**唯一活消费者** `dedupcad_vision.py:18-24` import。故 Phase 0 顺序 = **先把它抽到中性模块并 repoint `dedupcad_vision.py` 的 import,再降级/改名 vision**,否则打断唯一真集成。(`dedupcad_vision.py` 用的 `dedupcad_vision_*` 指标在 `src/utils/analysis_metrics.py`,不受 vision 改动影响。)
+  - **Phase 0 PR 不靠人工 grep——必须过一道 blocking `prune-safety` CI job**:对每个待删路径 grep 外部 importer(排除自身+tests),有残留即 `exit 1`;并跑一次 `import src.main` 运行时冒烟(**不加 `|| true`**)以抓 lazy-import(如 `health/self_healing.py` 的懒引入)。
+- 卸/删未挂载面:`src/api/v2`、`src/api/grpc`、未注册的 `api/v1/batch.py`/`api/v1/websocket.py`、未 mount 的 `AuditMiddleware`;pointcloud `/similar` 桩下线;删 vision 的 68 个 `*VisionProvider` 装饰器 + `experimental/`(~90%),按 §60 特例**先解耦 `circuit_breaker`**。
+- **honesty sweep(一次收齐"码声称了没有的能力",[20]):** `manufacturing_v2` 缺 encoder 权重→静默退化 TF-IDF(**今天就在骗**,不拖后期)、退役模型 ID(→`claude-sonnet-5`)、假绿测试、`vision/` 降级为 "VLM 描述 façade"、孤儿 metric-learning 模型——**全归这一轮**,符合 §2.4 铁律。
+- **前向假绿护栏([16]):** blocking diff-coverage 门 + assertion-presence lint(零 assert 的测试文件 fail)。
+- **里程碑**:core 从 626 收敛到 ~15–20 个模块(由 scaffolding-budget 门锁死防反弹);旗舰契约 `analyze→vector→similarity/dedup + classification`,cost/materials/diff 一等次级。
 
-### Phase 1 — 锐化身份 + 解三仓边界
-- 落实 §2.3(消除 vendored scoring);锁旗舰契约:`analyze→vector→similarity/dedup + classification`,cost/materials/diff 为一等次级。
+### 汇合点 · 评测门翻硬(**分级 + path filter,别一刀 red 全仓,[6]**)
+- `evaluation-report.yml` 有 **70 处 `continue-on-error`**,且它与 `governance-gates.yml` 都在 `pull_request:[main]` **无 path filter** → 直接翻硬会 **red 掉每个在途 PR(含别窗口非-ML 线)**。故:①枚举 70 处软步 + 真 vs 占位 golden 覆盖;②**逐门翻硬 + 加 path filter(只对 ML/scoring PR 生效)**;③同步更新 soft-mode-smoke 契约;④**先对 open PR dry-run 再翻**。这本身是 owner-ratify 的分级变更。
 
-### Phase 2 — 闭合飞轮(接线,不是发明)· 真护城河
-- 把 3–4 个断裂 store 接成一条线:**feedback API → active-learning 队列(打开 `ACTIVE_LEARNING_ENABLED` + 持久化)→ `auto_retrain.sh`(排程/CI 触发,`reload_model` 热重载已真)→ 评测门(精度门从软翻硬)**。
-- 孤儿 `FeedbackLearningPipeline` 接上或删。**这一条把"瓶颈是数据"变成复利:真评测 × 真纠正 × 真重训 = 别人抄不走。**
-
-### Phase 3 — ML 诚实化
-- 补 `models/embeddings/manufacturing_v2/` 缺失的 encoder 权重(训/发或删掉声明——现状会静默退化到 TF-IDF);孤儿 metric-learning 模型接上或删;明说 dedup 是古典几何(强,没问题)、分类才是学习部分。
-
-### Phase 4 — 溯源数据 + 一个灯塔消费者
-- 继续 B-Rep 溯源(打数据瓶颈)。若走 B:给**一个**消费者出干净 adapter(metasheet2 行富集 或 PLM BOM auto-fill),量化 ROI 再泛化。**不一次对接全部。**
+> 身份/A-vs-B(§2.1/2.2)与三仓真相源(§2.3)不变;A-first、留干净服务边界让 B 廉价的判断,经深审对 B-overreach 的反驳(rejected 3 条 AvB/ROI 批评)后仍成立。
 
 ---
 
-## 4. 飞轮接线图(Phase 2 目标态)
+## 4. 飞轮现状 vs 缺口(**深审校正——v1 的"全断/纯接线"说法不准**)
 
 ```
-                        [现状:断裂]                         [目标:一条线]
-POST /feedback ──► data/feedback_log.jsonl (死胡同)   POST /feedback ─┐
-active-learning ──► memory(默认丢) ──► 人读            active-learning ─┼─► 统一样本库(持久化, 人工核验)
-FeedbackLearningPipeline ──► 孤儿(仅 tests)                            │        │(治理门: 只有核验样本可训练)
-auto_retrain.sh ──► 读另一个 store, 无触发                              ▼        ▼
-                                                        排程/CI 触发 auto_retrain.sh ─► golden 评测门(硬)
-                                                                                         │ pass
-                                                                                         ▼
-                                                                        reload_model (热重载, 带回滚)
+[已在跑的 spine — 生产级]
+classifier 推理 ─maybe_enqueue─► data/review_queue/low_conf.csv ─► auto_retrain.sh
+    ─(governance 硬门: 只有 human_verified 样本可训, 0 continue-on-error)─► graph2d .pth ─► GRAPH2D_MODEL_PATH + 重启
+
+[真正缺的 3 件]
+1) 燃料([19]): 无反馈 SOURCE(DedupCAD 出站单向; corrections ~40 行) + 人工复核动作未建
+   → low_conf 的 human_verified 行填不上 → auto_retrain 的 MIN_REVIEWED=200 永不满足
+2) 触发: auto_retrain.sh 无排程/CI(今天手跑)
+3) 删重复死环: feedback_log.jsonl(占位) + 孤儿 FeedbackLearningPipeline(EMA 权重 classifier 不读回)= 删, 非接
+
+[另一条独立热重载 track, 别和上面混([9])]
+ActiveLearner 导出 ─► finetune_from_feedback.py ─► classifier_vX.pkl ─► reload_model(热重载 + 回滚槽)
 ```
-零件全部已存在且多为生产级;缺的是**接线 + 排程 + 把精度门翻硬**,不是发明。
+校正:**护城河的真前置是"反馈 SOURCE + 人工复核"(轨 C),不是接线**——spine 大体已生产级。若要统一 **4 个 store(4 套 schema/字段名,[11])**,那是"定 1 套 canonical schema 或选 1 个 store 作真相删其余 3",属 **invent(schema+迁移)**,别低估。
 
 ---
 
-## 5. 本 PR 的边界
+## 5. 本 PR 的边界 + Phase 0 授权前置(深审强化)
 - **无 runtime、不删任何代码、不改 flag/CI**——纯 for-review 文档。
-- Phase 0 的删除动作**在 owner ratify 本文之后**,作为独立 for-review PR 落地(带"零外部引用"证据 + CI 绿),**不自动合**。
-- §2.1(A)、§2.2(A/B)、§2.3(三仓真相源)是 **owner-ratify 决策项**;本文把 A 列为推荐,决定权在 owner。
+- Phase 0 删除**在 owner ratify 本文之后**,作为独立 for-review PR;且该 PR **必须**:①先落"反膨胀硬门"再删(轨 A linchpin);②过 **blocking `prune-safety` CI job**(非人工 grep)+ `import src.main` 运行时冒烟;③**先解耦 `vision/circuit_breaker`**(§60 特例,否则打断 `dedupcad_vision.py`);④逐路径附"零外部 import"证据;⑤**不自动合**。
+- **owner-ratify 决策项**:§2.1(走 A)、§2.3(三仓真相源=独立跨仓轨 + 阈值重标定门)、**"评测门翻硬"分级方案**、**引入 CODEOWNERS**。本文把 **A + 三轨并行 + linchpin 反膨胀门** 列为推荐,决定权在 owner。
 
 ---
 
