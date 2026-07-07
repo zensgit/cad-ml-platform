@@ -2,7 +2,7 @@
 
 **编制日期**: 2026-07-06
 **性质**: for-review 提案 / 设计锁。**本 PR 无 runtime、不改代码、不删代码**——它锁定的是*方向*。承重决策(角色 A/B、三仓边界)留给 owner ratify;merge 即授权 Phase 0 动刀。
-**依据**: 一次 5-路代码级审计(vision 实质 / ~60-dir 脚手架引用图 / 实际服务面 / 反馈飞轮 / 消费者),以 file:line 证据为准,**不以 README 自述为准**。
+**依据**: 一次 5-路代码级审计(vision 实质 / ~60-dir 脚手架引用图 / 实际服务面 / 反馈飞轮 / 消费者),以 **file/path + line 证据**为准(部分为路径级/聚合级,非严格逐行;复算命令见**附录 A**),**不以 README 自述为准**。
 
 ---
 
@@ -55,7 +55,10 @@
 ## 3. 路线图(接住已在跑的 `phase1-slim-*` + B-Rep)
 
 ### Phase 0 — 诚实化 + 去泡沫(让真核可见)· 低风险可回滚,先做
-- 删 13 个零引用死 dir(~7.1K LOC):`circuit_breaker`/`dead_letter_queue`/`outbox`/`message_bus`/`idempotency`/`api_versioning`/`rate_limiter`/`webhook`/`caching`/`batch_processing`/`event_sourcing`/`health_check`/`notifications`。
+- 删 13 个零引用死 **顶层 scaffold dir**(~7.1K LOC)—— **必须用完整路径,勿用裸目录名(会与同名活模块混淆)**:
+  `src/core/circuit_breaker`、`src/core/dead_letter_queue`、`src/core/outbox`、`src/core/message_bus`、`src/core/idempotency`、`src/core/api_versioning`、`src/core/rate_limiter`、`src/core/webhook`、`src/core/caching`、`src/core/batch_processing`、`src/core/event_sourcing`、`src/core/health_check`、`src/core/notifications`。
+  - **⚠️ 不在 Phase 0 删除范围(同名但活,已核实被引用)**:`src/utils/circuit_breaker.py`、`src/utils/idempotency.py`(`api/v1/ocr.py`+`drawing.py` 用)、`src/utils/rate_limiter.py`、`src/core/assistant/caching.py`(assistant/e2e/perf/stress 测试用);以及 `src/core/vision/{api_versioning,event_sourcing,circuit_breaker,rate_limiter}.py`(vision 内同名文件,随 vision 处置,非本删除组)。
+  - **Phase 0 PR 必须逐路径附"零外部 import"证据**(见附录 A 命令),尤其上述同名活模块不得误碰。
 - 卸/删未挂载面:`src/api/v2`、`src/api/grpc`、未注册的 `api/v1/batch.py`/`api/v1/websocket.py`、未 mount 的 `AuditMiddleware`;pointcloud `/similar` 桩下线或显式标注。
 - ~20 个 test-only 模式 dir 与 vision 装饰器动物园:**删,或隔离进显式 `experimental/` 边界**;修"假绿"测试(它们给死代码假覆盖)。
 - **把 `vision/` 如实降级/改名为 "VLM 描述 façade"**;修 assistant 退役模型 ID(`claude-3-sonnet-20240229`→`claude-sonnet-5`,或整块 default-off 明确标休眠)。
@@ -97,3 +100,24 @@ auto_retrain.sh ──► 读另一个 store, 无触发                         
 - **无 runtime、不删任何代码、不改 flag/CI**——纯 for-review 文档。
 - Phase 0 的删除动作**在 owner ratify 本文之后**,作为独立 for-review PR 落地(带"零外部引用"证据 + CI 绿),**不自动合**。
 - §2.1(A)、§2.2(A/B)、§2.3(三仓真相源)是 **owner-ratify 决策项**;本文把 A 列为推荐,决定权在 owner。
+
+---
+
+## 附录 A — 证据复算命令(5-probe 关键命令)
+
+> 本文证据粒度到 **file/path + line**,非严格逐行。以下命令在 repo 根运行,可复算主要结论。
+
+- **死 dir 零引用 + 同名活模块碰撞**(Phase 0 安全性,防误删):
+  ```sh
+  for n in circuit_breaker dead_letter_queue outbox message_bus idempotency api_versioning \
+           rate_limiter webhook caching batch_processing event_sourcing health_check notifications; do
+    echo "$n: core=$([ -d src/core/$n ] && echo ✓ || echo ✗)  same-named-live=$(
+      { find src -type d -name "$n"; find src -type f -name "$n.py"; } | grep -vx "src/core/$n" | tr '\n' ' ')"
+  done
+  ```
+- **脚手架层可达性**(外部 importer,排除自身/tests):`grep -rlE "src\.core\.<dir>" src/main.py src/api src/core | grep -v "src/core/<dir>/"`(逐 dir 统计)。
+- **`vision/` 无本地 ML**:`grep -rlE "torch|tensorflow|cv2|faiss|sklearn|onnx" src/core/vision/`(应为空);默认桩 `src/core/vision/providers/deepseek_stub.py`。
+- **真 ML 权重位置**:`ls models/*.pth models/*.joblib`;加载方在 `src/ml/*`、`src/core/classification/*`(**非** `src/core/vision/`)。
+- **飞轮孤儿**:`grep -rl "FeedbackLearningPipeline" src tests`(应只有 `src/ml/learning/__init__.py` + `tests/unit/test_feedback_loop.py`);主 feedback 端点自述 `src/api/v1/feedback.py:229`。
+- **消费者**:`grep -rwE "PLM|ERP|MES|metasheet|Yuantus" src/`(除 `Yuantus` 1 注释外为空);DedupCAD 真集成 `src/core/dedupcad_vision.py`、`contracts/`、出站计数 `src/utils/analysis_metrics.py:818`。
+- **退役模型 ID**:`grep -rn "claude-3-sonnet-20240229\|claude-sonnet-4-20250514" src/core/assistant/`。
