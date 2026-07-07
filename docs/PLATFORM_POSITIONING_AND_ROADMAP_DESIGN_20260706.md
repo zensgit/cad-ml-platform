@@ -16,7 +16,7 @@
 
 ## 1. 诊断:真核 vs 泡沫(证据表)
 
-| 层 | 代码级结论(file:line 证据) | 归类 |
+| 层 | 代码级结论(file/path + line 证据) | 归类 |
 |---|---|---|
 | **查重/相似度引擎** | 生产级**古典几何**:Hungarian 指派、RANSAC/Kabsch、Fréchet、Procrustes、空间直方图(`dedupcad_precision/vendor/scoring.py`、`vendor/entities_match.py`);真 FAISS+Qdrant(`src/core/similarity.py`、`vector_stores/qdrant_store.py`);真 PR 标定(5886 对扫描,`data/dedup_threshold_scan_*`)。**启发式,非学习。** | ✅ 真核 (4/5) |
 | **分类 ML** | 真训练权重:graph2d GNN、PointNet(`models/pointnet_synthetic_v1.pth` 28MB)、ExtraTrees(`models/extratrees_*.joblib` 78MB)、cad_classifier;真金标 `data/manifests/golden_val_set.csv`(915)/`golden_train_set.csv`(3661);热重载 `src/ml/classifier.py:227` 真、带回滚。 | ✅ 真核(平台唯一真 ML) |
