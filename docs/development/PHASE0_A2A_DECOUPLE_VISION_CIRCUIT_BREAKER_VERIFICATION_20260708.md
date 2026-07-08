@@ -52,6 +52,34 @@ NameError: name '_circuit_breakers' is not defined
 
 Both are recorded because they are the reason this PR is trustworthy: a compile-only check would have shipped Bug 1.
 
+## 4b. CI caught a third bug my local checks missed (RED → fix → GREEN)
+
+The first push of this PR went **RED on 4 checks** (`core-fast-gate`, `test-new-modules`, `Platform Self-Check`, `training-governance`). Root cause, single and mine:
+
+```
+src/core/vision/circuit_breaker.py:53: NameError: name 'Optional' is not defined
+WARNING src.api:__init__.py:168 router_import_failed
+```
+
+When I rewrote `vision/circuit_breaker.py` as a shim I kept the two decorator bodies but **dropped the original stdlib import header** they depend on (`time`, `typing.{Callable,Dict,Optional}`). The other three failures were cascades of the same import error.
+
+`py_compile` passed, and the AST symbol check passed, because a `NameError` in a class-body annotation is a **runtime** failure. This is the second time in this slice that compilation was insufficient — and this time I had already written that lesson into §4 and still shipped it.
+
+**Fix**: restore the precise imports the two decorators need (computed by free-variable analysis, not blanket-copied):
+```python
+import time
+from typing import Callable, Dict, Optional
+```
+
+**New guard added to this slice's verification** — a *runtime import smoke* of the shim, executed locally with a stubbed `.base` so no heavy deps are needed. It executes the module body (evaluating class bodies), which is exactly what surfaces this bug class:
+
+```
+✅ shim imports cleanly (class bodies evaluated)
+✅ all decorators + re-exported generics present on the shim
+```
+
+Free-variable analysis after the fix reports only `e` (an `except … as e` handler variable — a known false positive of the crude scope model).
+
 ## 5. Back-compat — no incidental churn
 
 The shim must keep every existing importer green. Verified by AST, not by eye:

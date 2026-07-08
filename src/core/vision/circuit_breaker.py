@@ -11,6 +11,9 @@ VisionProvider and therefore import vision's .base. They are part of the decorat
 zoo pruned in Phase 0 slice 2.
 """
 
+import time
+from typing import Callable, Dict, Optional
+
 from .base import VisionDescription, VisionProvider
 from src.core.resilience.advanced_circuit_breaker import (  # noqa: F401  (re-export)
     CallRecord,
