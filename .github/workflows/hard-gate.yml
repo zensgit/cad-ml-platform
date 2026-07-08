@@ -1,0 +1,54 @@
+name: Hard Gate (diff-scoped, dry-run)
+
+# Phase 0 slice A4. Diff-scoped dead-code / duplicate-code gate.
+#
+# Unlike code-quality.yml (whole-tree, `|| true`, cannot be armed), this fails
+# ONLY on violations on lines the PR changed -- so it never punishes a PR for
+# pre-existing debt in files it didn't touch, which is what makes it safe to
+# eventually require.
+#
+# It ships in DRY-RUN: it reports what it WOULD block and exits 0. Arming it is
+# an OWNER action, deliberately NOT done here:
+#   1. set env HARD_GATE_ENFORCE=1 below (flip dry-run -> blocking), and
+#   2. add "Hard Gate (diff-scoped, dry-run)" to the branch-protection required list.
+# Step 2 is a branch-protection change; this workflow never performs it.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'scripts/ci/hard_gate_diff.py'
+      - '.github/workflows/hard-gate.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  hard-gate:
+    name: Hard Gate (diff-scoped, dry-run)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0          # need the merge-base to compute the diff
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        with:
+          python-version: "3.11"
+
+      # The load-bearing diff-filter logic. No `|| true`: a broken filter must fail.
+      - name: Diff-filter self-test (must pass)
+        run: python scripts/ci/test_hard_gate_diff.py
+
+      - name: Install finding-producers
+        run: pip install vulture pylint
+
+      # DRY-RUN: HARD_GATE_ENFORCE unset -> reports, exits 0. Owner flips to "1" to arm.
+      - name: Diff-scoped dead-code / duplicate-code (dry-run)
+        env:
+          HARD_GATE_BASE: origin/${{ github.base_ref }}
+          # HARD_GATE_ENFORCE: "1"   # <-- owner-only: uncomment to make blocking
+        run: |
+          git fetch origin "${{ github.base_ref }}" --depth=1 || true
+          python scripts/ci/hard_gate_diff.py
