@@ -15,7 +15,7 @@ from typing import Any, Dict, Optional
 
 import httpx
 
-from src.core.vision.circuit_breaker import (
+from src.core.resilience.advanced_circuit_breaker import (
     CircuitBreaker,
     CircuitBreakerConfig,
     CircuitState,
