@@ -48,6 +48,8 @@ PRUNED_MODULES: tuple[str, ...] = (
     "api.grpc",
     "api.v1.batch",
     "api.v1.websocket",
+    # Phase 0 slice B1 (#502): orphan FeedbackLearningPipeline deleted; guard against resurrection.
+    "ml.learning.feedback_loop",
 )
 
 # Same-named LIVE modules. Deleting any of these is a mis-delete, not de-bloat.
