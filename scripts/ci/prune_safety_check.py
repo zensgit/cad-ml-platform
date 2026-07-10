@@ -12,9 +12,10 @@ Two invariants, both hard-fail:
 
   2. NO MIS-DELETE — the same-named *live* modules must still exist. Several
      pruned dirs had live twins (e.g. src/core/circuit_breaker/ was dead, but
-     src/utils/circuit_breaker.py and src/core/vision/circuit_breaker.py are
-     live). A future prune that confuses them would break real imports; this
-     asserts the twins survive.
+     src/utils/circuit_breaker.py is live). A future prune that confuses them
+     would break real imports; this asserts the twins survive.
+     (src/core/vision/circuit_breaker.py was itself pruned in A2b — its live
+     generic twin is src/core/resilience/advanced_circuit_breaker.py.)
 
 Runtime import smoke is intentionally NOT duplicated here: the existing test
 suite already imports the app (tests/test_routes_smoke.py), so a broken import
@@ -50,6 +51,97 @@ PRUNED_MODULES: tuple[str, ...] = (
     "api.v1.websocket",
     # Phase 0 slice B1 (#502): orphan FeedbackLearningPipeline deleted; guard against resurrection.
     "ml.learning.feedback_loop",
+    # Phase 0 slice A2b (#A2b): vision observability/scaffolding zoo deleted
+    # (98 modules; package-aware import-closure prune). Guard the fleet from
+    # re-inflating it. circuit_breaker moved here from LIVE_TWINS — its live
+    # generic twin now lives at src/core/resilience/advanced_circuit_breaker.py (#501).
+    "core.vision.ab_testing",
+    "core.vision.access_control",
+    "core.vision.alert_manager",
+    "core.vision.analytics",
+    "core.vision.anomaly_detection",
+    "core.vision.api_gateway",
+    "core.vision.api_versioning",
+    "core.vision.apm_integration",
+    "core.vision.audit",
+    "core.vision.audit_logging",
+    "core.vision.auto_scaling",
+    "core.vision.batch",
+    "core.vision.cache",
+    "core.vision.chaos_engineering",
+    "core.vision.circuit_breaker",
+    "core.vision.comparison",
+    "core.vision.compliance",
+    "core.vision.config_management",
+    "core.vision.cost_tracker",
+    "core.vision.data_masking",
+    "core.vision.data_pipeline",
+    "core.vision.data_validation",
+    "core.vision.deduplication",
+    "core.vision.deployment",
+    "core.vision.discovery",
+    "core.vision.distributed_cache",
+    "core.vision.distributed_lock",
+    "core.vision.distributed_tracing",
+    "core.vision.documentation_generator",
+    "core.vision.embedding",
+    "core.vision.encryption",
+    "core.vision.event_bus",
+    "core.vision.event_sourcing",
+    "core.vision.failover",
+    "core.vision.feature_flags",
+    "core.vision.graceful_degradation",
+    "core.vision.health",
+    "core.vision.hot_reload",
+    "core.vision.integration_hub",
+    "core.vision.intelligent_routing",
+    "core.vision.key_management",
+    "core.vision.knowledge_base",
+    "core.vision.load_balancer",
+    "core.vision.log_aggregator",
+    "core.vision.logging_middleware",
+    "core.vision.message_queue",
+    "core.vision.metrics_dashboard",
+    "core.vision.metrics_exporter",
+    "core.vision.middleware",
+    "core.vision.ml_integration",
+    "core.vision.multi_tenancy",
+    "core.vision.multiregion",
+    "core.vision.observability",
+    "core.vision.observability_hub",
+    "core.vision.persistence",
+    "core.vision.plugin_manager",
+    "core.vision.plugin_system",
+    "core.vision.predictive_analytics",
+    "core.vision.preprocessing",
+    "core.vision.priority",
+    "core.vision.privacy_compliance",
+    "core.vision.profiles",
+    "core.vision.prompts",
+    "core.vision.provider_pool",
+    "core.vision.quotas",
+    "core.vision.rate_limiter",
+    "core.vision.recommendations",
+    "core.vision.reporting",
+    "core.vision.request_context",
+    "core.vision.retry_policy",
+    "core.vision.saga_pattern",
+    "core.vision.sdk_generator",
+    "core.vision.security_audit",
+    "core.vision.security_governance",
+    "core.vision.self_healing",
+    "core.vision.service_mesh",
+    "core.vision.sla_monitor",
+    "core.vision.stream_processing",
+    "core.vision.streaming",
+    "core.vision.tracing",
+    "core.vision.transformation",
+    "core.vision.validation",
+    "core.vision.versioning",
+    "core.vision.webhook_handler",
+    "core.vision.webhooks",
+    "core.vision.workflow_engine",
+    "core.vision.experimental",  # whole subpackage
 )
 
 # Same-named LIVE modules. Deleting any of these is a mis-delete, not de-bloat.
@@ -63,7 +155,6 @@ LIVE_TWINS: tuple[str, ...] = (
     "src/core/gateway/circuit_breaker.py",
     "src/core/resilience/rate_limiter.py",
     "src/core/gateway/rate_limiter.py",
-    "src/core/vision/circuit_breaker.py",
 )
 
 SCAN_ROOTS: tuple[str, ...] = ("src", "tests", "scripts")
