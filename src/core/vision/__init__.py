@@ -9,18 +9,11 @@ Supported providers:
 - openai: OpenAI GPT-4o/GPT-4-Vision
 - anthropic: Claude 3 family (Opus, Sonnet, Haiku)
 
-Experimental modules (moved to experimental/ during Phase A2 audit):
-  - audit_logger        (666 LOC)  duplicate of audit_logging
-  - automl_engine       (893 LOC)  ML experiment framework stub
-  - compliance_checker  (828 LOC)  duplicate of compliance
-  - data_lifecycle     (1280 LOC)  advanced data management stub
-  - encryption_manager  (636 LOC)  duplicate of encryption
-  - experiment_tracker  (945 LOC)  ML experiment tracking stub
-  - feature_store       (873 LOC)  feature store stub (internal only)
-  - intelligent_automation (1534 LOC)  automation framework stub
-  - model_registry      (943 LOC)  model registry stub
-  - pipeline_orchestrator (886 LOC) pipeline orchestrator stub
-  - security_scanner    (731 LOC)  duplicate of security_audit
+The experimental/ subpackage and the observability/enterprise scaffolding
+(metrics, alerting, APM, SLA, chaos, multi-region, …) were removed in Phase 0
+A2b — they were imported only by per-phase tests, never by a live route, and
+are NOT part of the public API. See
+docs/development/PHASE0_A2B_VISION_PRUNE_DESIGN_20260709.md.
 """
 
 
@@ -108,10 +101,3 @@ __all__ = [
     'ProviderMetrics',
     'create_resilient_provider',
 ]
-
-# ---------------------------------------------------------------------------
-# Experimental re-exports (Phase A2)
-# These modules have been moved to src/core/vision/experimental/ but are
-# re-exported here for backward compatibility.  They are NOT part of the
-# production API surface and may be removed in a future release.
-# ---------------------------------------------------------------------------
