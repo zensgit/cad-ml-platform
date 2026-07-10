@@ -68,3 +68,16 @@ Manifest with the full file list + `__init__` line numbers: `/private/tmp/cadml-
 
 ## 7. Honesty note
 This is **design groundwork**, not a completed slice. No code was deleted; no PR opened (backlog cap). The triage is thorough and cross-checked, but the load-bearing safety net is the runtime import smoke in the PR — a static reachability audit of a *live* package is necessary, not sufficient. Stated plainly rather than presented as "done."
+
+---
+
+## 8. Execution finding (2026-07-09, post-#501 merge): the delete-set premise is UNSAFE
+
+Attempting the actual deletion on the merged main surfaced two flaws the design-time triage missed — both caught by the **runtime import-smoke**, not by static reachability (the recurring "execute, don't compile" lesson):
+
+1. **Module cross-references.** Deleting `persistence.py` (its `*VisionProvider` is unreachable) broke `analytics.py` (kept), which does `from .persistence import ResultPersistence`. Scaffolding modules export **helpers** consumed by other modules, so decorator-reachability ≠ module-safety. `import src.core.vision` raised `ModuleNotFoundError: src.core.vision.persistence`.
+2. **Package-level imports.** A naive transitive-closure from the live seeds (`base/factory/manager/resilience`) dropped the **7 concrete providers** — they're pulled in via `from .providers import (...)`, a *package* (`providers/__init__.py`) my stem-keyed graph didn't resolve. Closure said KEEP=4, DELETE=105 (~76K) — which would delete live providers.
+
+**Correction to the design.** The A2b delete-set MUST be a **package-aware transitive-import closure** from the live entry points (`api/v1/vision.py` + `providers/vision.py` → `__init__` re-export surface → factory registries → the 7 providers), resolving `providers/__init__.py` to its submodules, then **iterated against the import-smoke** until `import src.core.vision` + the live route's named imports + `create_vision_provider("stub"|…)` all succeed. The `*VisionProvider`-reachability manifest (§1–5) is a *starting hint*, not the delete-set.
+
+**Status:** no deletion committed (a 76K prune of a live package on an unverified set is unsafe). The clean parts still hold: `__init__` surgery works via AST (3705→562 lines, compiles); the import-smoke is the correct gate. Next A2b pass: build the package-aware closure, iterate against the smoke, then delete + `__init__` surgery + move `vision/circuit_breaker.py` (still a #501 shim) in a follow-up.
