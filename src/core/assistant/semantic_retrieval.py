@@ -650,9 +650,24 @@ def create_semantic_retriever(
             if domain_model_path is not None:
                 kwargs["model_path"] = domain_model_path
             candidate = DomainEmbeddingProvider(**kwargs)
-            if candidate._available:  # noqa: SLF001 — checking internal flag
+            # Zero vectors would be silently wrong (constant similarity), so only
+            # adopt the domain provider when its model actually loaded.
+            if candidate.available:
                 provider = candidate
-                _logger.info("Using DomainEmbeddingProvider (dim=%d)", provider.dimension)
+                if candidate.is_fallback:
+                    # Don't let "Using DomainEmbeddingProvider" imply a fine-tuned
+                    # encoder when the model self-reports a fallback.
+                    _logger.warning(
+                        "Using DomainEmbeddingProvider (dim=%d) but it is serving a "
+                        "FALLBACK (%s), not the fine-tuned manufacturing encoder",
+                        provider.dimension,
+                        candidate.model_info.get("name", "unknown"),
+                    )
+                else:
+                    _logger.info(
+                        "Using DomainEmbeddingProvider (dim=%d, fine-tuned)",
+                        provider.dimension,
+                    )
         except Exception:
             _logger.debug("DomainEmbeddingProvider not available", exc_info=True)
 
