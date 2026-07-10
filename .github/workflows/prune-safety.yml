@@ -1,0 +1,39 @@
+name: Prune Safety
+
+# Phase 0 de-bloat guard (docs/PLATFORM_POSITIONING_AND_ROADMAP_DESIGN_20260706.md §3 轨A, §5).
+#
+# Two hard invariants:
+#   1. pruned scaffold modules are never imported again (stops re-inflation);
+#   2. same-named LIVE modules are never mis-deleted (the bare-name trap).
+#
+# Deliberately has NO `|| true`: unlike code-quality.yml's fail-soft steps, this
+# gate must be able to fail. Runtime import smoke is already covered by the test
+# suite (tests/test_routes_smoke.py imports the app).
+#
+# NOTE: this job is not yet a *required* status check — making it required is a
+# branch-protection change and belongs to the owner, per the design lock.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  prune-safety:
+    name: Prune Safety
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        with:
+          python-version: "3.11"
+
+      # Pure-static check: no dependency install needed, so this gate cannot
+      # false-red on an environment problem.
+      - name: Prune-safety invariants (no `|| true` — this gate must be able to fail)
+        run: python scripts/ci/prune_safety_check.py
