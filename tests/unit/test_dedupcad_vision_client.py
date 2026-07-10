@@ -10,7 +10,7 @@ from src.core.dedupcad_vision import (
     DedupCadVisionClient,
     DedupCadVisionResilienceConfig,
 )
-from src.core.vision.circuit_breaker import CircuitState
+from src.core.resilience.advanced_circuit_breaker import CircuitState
 
 
 def _make_response(status_code: int, payload: Any | None = None, headers: dict[str, str] | None = None):
