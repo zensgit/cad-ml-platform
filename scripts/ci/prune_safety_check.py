@@ -50,6 +50,10 @@ PRUNED_MODULES: tuple[str, ...] = (
     "api.v1.websocket",
     # Phase 0 slice B1 (#502): orphan FeedbackLearningPipeline deleted; guard against resurrection.
     "ml.learning.feedback_loop",
+    # Phase 0 slice A2b: vision/circuit_breaker.py had no live importer left after the
+    # #501 decoupling (it was only reachable via vision/__init__.py's own re-export).
+    # Deleted alongside the other ~90 unused vision scaffolds; guard against resurrection.
+    "core.vision.circuit_breaker",
 )
 
 # Same-named LIVE modules. Deleting any of these is a mis-delete, not de-bloat.
@@ -63,7 +67,6 @@ LIVE_TWINS: tuple[str, ...] = (
     "src/core/gateway/circuit_breaker.py",
     "src/core/resilience/rate_limiter.py",
     "src/core/gateway/rate_limiter.py",
-    "src/core/vision/circuit_breaker.py",
 )
 
 SCAN_ROOTS: tuple[str, ...] = ("src", "tests", "scripts")
