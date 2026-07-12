@@ -1,6 +1,10 @@
 # 🤖 CAD ML Platform - 智能CAD分析微服务平台
 ![Stress & Metrics Validation](https://github.com/OWNER/REPO/actions/workflows/stress-tests.yml/badge.svg)
 
+> **Current product strategy:** [`docs/PRODUCT_STRATEGY.md`](docs/PRODUCT_STRATEGY.md).
+> This README contains legacy capability descriptions and is being reconciled against
+> code and release evidence; do not treat the broad platform claims below as shipped proof.
+
 ## 目录
 - 项目概述
 - 系统架构
