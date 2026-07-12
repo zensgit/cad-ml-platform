@@ -685,6 +685,10 @@ jobs:
           pytest -q \
             tests/unit/test_eval_integrity_gate.py \
             tests/unit/test_auto_retrain_failclosed.py
+      - name: Run Track E evaluation-integrity splitter unit tests (dry-run reproducibility)
+        run: |
+          pytest -q \
+            tests/unit/test_track_e_eval_integrity.py
       - name: Run Hybrid confidence calibration gate (3.11 only, optional)
         if: matrix.python-version == '3.11'
         run: |
