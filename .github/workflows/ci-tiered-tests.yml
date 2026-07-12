@@ -97,6 +97,11 @@ jobs:
           pytest -q \
             tests/unit/test_track_e_eval_integrity.py
 
+      - name: Run Track E versioned-manifest unit tests (real/synthetic/augmented, §8.1.5/§8.1.6)
+        run: |
+          pytest -q \
+            tests/unit/test_track_e_manifest.py
+
       - name: Run unit tier
         run: bash scripts/test_with_local_api.sh --suite unit
 

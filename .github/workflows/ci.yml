@@ -689,6 +689,10 @@ jobs:
         run: |
           pytest -q \
             tests/unit/test_track_e_eval_integrity.py
+      - name: Run Track E versioned-manifest unit tests (real/synthetic/augmented, §8.1.5/§8.1.6)
+        run: |
+          pytest -q \
+            tests/unit/test_track_e_manifest.py
       - name: Run Hybrid confidence calibration gate (3.11 only, optional)
         if: matrix.python-version == '3.11'
         run: |
