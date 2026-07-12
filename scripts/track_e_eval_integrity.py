@@ -207,12 +207,14 @@ def compute_split(
 
     assignment: Dict[str, str] = {}
     component_of: Dict[str, str] = {}
+    content_hashes: Dict[str, str] = {}  # the single authoritative hash snapshot per surviving row
     for row, fam, ch in prepared:
         if ch in conflict_hashes:
             quarantined.append({"file_path": str(row["file_path"]), "reason": f"label-conflict content {ch[:12]}"})
             continue
         comp = uf.find(f"fam:{fam}")
         component_of[str(row["file_path"])] = comp
+        content_hashes[str(row["file_path"])] = ch
 
     # deterministic bucket per component
     comp_side: Dict[str, str] = {}
@@ -226,6 +228,7 @@ def compute_split(
 
     return {
         "assignment": assignment,               # file_path -> 'train'|'holdout'
+        "content_hashes": content_hashes,       # file_path -> content-hash used FOR the split
         "components": len(set(component_of.values())),
         "quarantined": quarantined,
         "holdout_fraction": holdout_fraction,
@@ -243,11 +246,21 @@ def build_artifact(
     rows: Iterable[dict],
     metrics: dict,
     *,
+    exit_condition_met: bool = False,
     label_authority: str = "manifest:taxonomy_v2_class",
     holdout_fraction: float = DEFAULT_HOLDOUT_FRACTION,
     root: Optional[Path] = None,
 ) -> dict:
-    """Assemble a gate-conformant evaluation-integrity-v2 artifact. Metrics come from the eval run."""
+    """Assemble an evaluation-integrity-v2 artifact.
+
+    **Fail-closed by default.** `reproducible` mirrors ``exit_condition_met`` — the FULL §8.1 exit
+    condition ("a fresh clone reproduces the evaluation RESULT"), which requires real, complete
+    metrics from an actual model run over the holdout. Slice-1/2 do NOT run the model, so a dry-run
+    build leaves ``exit_condition_met=False`` → ``reproducible=false`` → the L3 gate REJECTS it and
+    retraining stays fail-closed. Only the (future) model-run lane, after producing and verifying a
+    reproducible evaluation, calls this with ``exit_condition_met=True`` to mint a gate-unlocking
+    artifact. There is deliberately no CLI flag to flip it — that would be exactly the toggle §8 forbids.
+    """
     if not isinstance(metrics, dict):
         raise IntegrityError("metrics must be an object carrying the §8.1.4 families")
     missing = [k for k in REQUIRED_METRIC_KEYS if k not in metrics]
@@ -271,11 +284,13 @@ def build_artifact(
         },
         "metrics": metrics,
         "label_authority": label_authority,
-        "reproducible": True,
+        "reproducible": bool(exit_condition_met),
         "split_digest": split_digest(split),
     }
-    # gate-conformant by construction — assert against the imported contract before returning
-    _assert_gate_conformant(artifact)
+    # A gate-unlocking artifact must be gate-conformant by construction. A dry-run artifact is
+    # deliberately NOT (reproducible=false), and the gate rejects it — do not assert conformance there.
+    if exit_condition_met:
+        _assert_gate_conformant(artifact)
     return artifact
 
 
@@ -308,11 +323,11 @@ def verify_reproducible(rows: Iterable[dict], artifact: dict, *, root: Optional[
 
 
 # --- CLI ----------------------------------------------------------------------------------------
-def _load_metrics(path: Optional[str]) -> dict:
+def _load_metrics(path: str) -> dict:
+    # No placeholder path: a build with no real metrics must NOT be able to mint an artifact. A
+    # missing/empty --metrics is an error, not silently-zero "good" metrics.
     if not path:
-        # placeholder metrics carry every §8.1.4 family so the shape is exercised; a REAL run
-        # overwrites these. Zeros are explicit, not silently "good".
-        return {k: ({} if k == "per_class" else 0.0) for k in REQUIRED_METRIC_KEYS}
+        raise IntegrityError("--metrics is required: an eval-results JSON with the §8.1.4 families")
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
@@ -324,9 +339,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     sp.add_argument("--manifest", required=True)
     sp.add_argument("--holdout-fraction", type=float, default=DEFAULT_HOLDOUT_FRACTION)
 
-    bp = sub.add_parser("build", help="build the evaluation-integrity-v2 artifact")
+    bp = sub.add_parser("build", help="build a DRY-RUN artifact (reproducible=false; NOT gate-conformant)")
     bp.add_argument("--manifest", required=True)
-    bp.add_argument("--metrics", help="eval-results JSON with the §8.1.4 metric families")
+    bp.add_argument("--metrics", required=True, help="eval-results JSON with the §8.1.4 metric families")
     bp.add_argument("--out", required=True)
     bp.add_argument("--holdout-fraction", type=float, default=DEFAULT_HOLDOUT_FRACTION)
 
@@ -346,9 +361,15 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 0
         if args.cmd == "build":
             rows = _read_manifest(args.manifest)
+            # CLI build is always a DRY-RUN (exit_condition_met stays False) -> reproducible=false ->
+            # the L3 gate rejects it. Minting a gate-unlocking artifact requires a completed,
+            # verified model-run evaluation (a future lane), never a CLI flag.
             artifact = build_artifact(rows, _load_metrics(args.metrics), holdout_fraction=args.holdout_fraction)
             Path(args.out).write_text(json.dumps(artifact, indent=2), encoding="utf-8")
-            print(f"wrote {args.out} (digest {artifact['split_digest'][:12]})")
+            print(
+                f"wrote {args.out} (DRY-RUN, reproducible=false, NOT gate-conformant; "
+                f"split_digest {artifact['split_digest'][:12]})"
+            )
             return 0
         if args.cmd == "verify":
             rows = _read_manifest(args.manifest)

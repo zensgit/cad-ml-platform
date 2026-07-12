@@ -15,9 +15,12 @@ Track E (`evaluation-integrity-v2`, PRODUCT_STRATEGY.md §8.1) —
 - a **deterministic `split_digest`** with a `verify` that goes RED when a split is tampered or
   duplicate content is reintroduced — the reproducibility half of the §8.1 exit condition, wired
   **dry-run first** (§8.1.7);
-- **gate-conformant artifact assembly**: `build_artifact` emits the `evaluation-integrity-v2`
-  artifact the L3 gate (`scripts/eval_integrity_gate.py`) consumes, using the gate's own contract
-  constants (single source of truth).
+- **fail-closed artifact assembly**: `build_artifact` is **dry-run by default** — `reproducible`
+  mirrors `exit_condition_met` (the FULL §8.1 exit condition: a real, completed, reproducible model
+  evaluation). Slice-1/2 don't run the model, so the CLI `build` always leaves it `false` → the L3
+  gate **rejects** it → retraining stays fail-closed. There is deliberately no CLI flag to flip it;
+  only the future model-run lane, after completing + verifying a real evaluation, mints a
+  gate-unlocking artifact. (Corrects a review-found P1 where an all-zero placeholder unlocked L3.)
 
 **Is NOT (out of slice-1, needs the model run / follow-up):** real per-class / macro / calibration /
 false-duplicate / missed-reuse **metrics** (they require running the model over the holdout — torch +
