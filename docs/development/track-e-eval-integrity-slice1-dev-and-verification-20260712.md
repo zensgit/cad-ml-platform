@@ -15,12 +15,15 @@ Track E (`evaluation-integrity-v2`, PRODUCT_STRATEGY.md §8.1) —
 - a **deterministic `split_digest`** with a `verify` that goes RED when a split is tampered or
   duplicate content is reintroduced — the reproducibility half of the §8.1 exit condition, wired
   **dry-run first** (§8.1.7);
-- **fail-closed artifact assembly**: `build_artifact` is **dry-run by default** — `reproducible`
-  mirrors `exit_condition_met` (the FULL §8.1 exit condition: a real, completed, reproducible model
-  evaluation). Slice-1/2 don't run the model, so the CLI `build` always leaves it `false` → the L3
-  gate **rejects** it → retraining stays fail-closed. There is deliberately no CLI flag to flip it;
-  only the future model-run lane, after completing + verifying a real evaluation, mints a
-  gate-unlocking artifact. (Corrects a review-found P1 where an all-zero placeholder unlocked L3.)
+- **dry-run split artifact, fully decoupled from the L3 gate**: `build_split_artifact` emits a split
+  summary + `split_digest` for inspection and the §8.1.7 `verify` check. It carries a hardcoded
+  `unlocks_retraining: false` and has **no metrics, no `reproducible` field, and no import of the
+  gate**. The owner review found an artifact "you may proceed" token is an *unbound attestation*
+  (an artifact built for dataset A could green-light dataset B), so the L3 gate
+  (`scripts/eval_integrity_gate.py`) was rewritten to be **unconditional — no pass path at all**, and
+  this module was decoupled from it: nothing here can mint an unlock. Re-enabling retraining is a
+  separate, later, owner-gated mechanism that binds a validation-manifest digest + a promoted-model
+  hash. (Supersedes the earlier `build_artifact`/`exit_condition_met` design.)
 
 **Is NOT (out of slice-1, needs the model run / follow-up):** real per-class / macro / calibration /
 false-duplicate / missed-reuse **metrics** (they require running the model over the holdout — torch +
