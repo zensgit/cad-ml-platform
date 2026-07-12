@@ -1,13 +1,14 @@
-# Track E slice-1 — evaluation-integrity splitter + artifact — Dev & Verification (2026-07-12)
+# Track E slice-1 — leakage-safe split + dry-run split artifact — Dev & Verification (2026-07-12)
 
-> **Draft, blocked by L3 (#509), which is blocked by #508.** Parallel dev per the owner's `/goal`
-> ("可并行开发, 你来规划开发顺序"). This does NOT merge or activate before L3; it stacks on the L3
-> branch and imports the gate's contract so the artifact is gate-conformant by construction.
+> **Draft, stacked on #509 (the unconditional L3 gate).** Parallel dev per the owner's `/goal`. This
+> module is **fully decoupled from the L3 gate**: it imports nothing from it and cannot mint any
+> unlock (the L3 gate has no pass path by owner design). It does NOT enable retraining. Retarget to
+> `main` and run full CI after #509 merges.
 
 ## 0. What this is / is not
 
 **Is (slice-1, torch-free, fully verified here):** the leakage-safe **split integrity** layer of
-Track E (`evaluation-integrity-v2`, PRODUCT_STRATEGY.md §8.1) —
+Track E (the split artifact schema is `evaluation-integrity-split-v1`, PRODUCT_STRATEGY.md §8.1) —
 
 - **content-hash + normalized-family split** so identical drawing content and augmentation/revision
   variants of one drawing never straddle train/holdout (§8.1.1, §8.1.3);
@@ -69,9 +70,11 @@ follow-up slice on the model-run lane.
 | — byte-identical content across families lands on one side | pass |
 | — identical content + inconsistent labels → quarantined | pass |
 | — split is deterministic (order-independent digest) | pass |
-| — `build_artifact` is gate-conformant (passes real `validate_artifact`); missing metric family → rejected | pass |
+| — `build_split_artifact` carries `unlocks_retraining=false`; module imports nothing from the gate | pass |
+| — **fresh-clone-stable digest**: identical bytes under two different absolute roots → same digest | pass |
+| — invalid `holdout_fraction` (≤0, ≥1) rejected; `eval_eligible` reflects both sides populated | pass |
 | **reproducibility discrimination** — `verify` RED on: digest tamper / duplicate reintroduced / row moves family | **pass (3 cases)** |
-| CLI smoke (`split`→`build`→`verify`) + built artifact passes the real L3 gate | pass |
+| CLI smoke (`split`→`build`→`verify`) — dry-run split artifact (`unlocks_retraining=false`) | pass |
 
 **Independent adversarial review (Sonnet-5 lane)** — hunted for split-leakage. Found and **fixed**
 before push: (HIGH) family under-collapse straddle for `gear2.dxf` / `gear (1).dxf` etc. → strengthened
