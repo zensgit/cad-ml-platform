@@ -1,176 +1,102 @@
 #!/usr/bin/env python3
-"""Fail-closed evaluation-integrity gate (L3).
+"""L3 fail-closed gate: the retraining / model-promotion path is DISABLED.
 
-`scripts/auto_retrain.sh` calls this BEFORE any manifest write, preprocessing, or training.
-Re-enablement of the retraining / model-promotion path is bound to a **versioned, reproducible
-evaluation-integrity artifact** (PRODUCT_STRATEGY.md §5.2 model-promotion gate, §8.1 Track E:
-evaluation-integrity-v2) — never to queue-row counts or an environment toggle. A missing,
-invalid, or version-mismatched artifact makes this exit non-zero, so the pipeline stops before
-mutating anything.
+WHY THIS GATE IS UNCONDITIONAL — AND WHY IT DELIBERATELY HAS NO BYPASS
+---------------------------------------------------------------------
+`scripts/auto_retrain.sh` evaluates a candidate model against
+`data/manifests/golden_val_set.csv` and stamps "Ready for deployment" at a 91.5%
+threshold. That validation set carries **262/914 (28.7%)** rows whose *bytes* are
+identical to training rows (PRODUCT_STRATEGY.md §5.2). Accuracy computed on it is not
+release-grade, so no model may be promoted on it.
 
-Scope (L3, deliberately minimal): this validates that a *conforming, versioned* artifact is
-present. It does NOT re-run the evaluation or re-verify reproducibility from source — producing a
-genuinely reproducible artifact (content-hash + normalized-family split, holdout, versioned result
-artifact) is Track E's job (§8.1). L3 establishes the contract Track E must satisfy; it does not
-defend against a hand-forged artifact (§8 forbids an env-toggle bypass, not forgery).
+An earlier draft of this gate accepted a JSON "evaluation-integrity" artifact as a
+"you may proceed" token. That shape is wrong for two independent reasons:
+
+1. **The token was unbound.** It carried neither a digest of the validation manifest
+   actually used nor the hash of the candidate model actually promoted, while
+   `auto_retrain.sh` independently chooses `GOLDEN_VAL`. An artifact produced for
+   dataset A could therefore green-light a model evaluated on dataset B — a confused
+   deputy.
+
+2. **The token did not even need to be forged.** The sanctioned producer emitted a
+   *passing* artifact with `holdout_rows: 0`, all-zero metrics, and a hard-coded
+   `reproducible: true`. A gate built to stop fake-green was itself fake-green.
+
+You cannot offer a bypass whose validity you cannot bind. The narrowest correct v1
+therefore has **no pass path at all**: this gate always blocks.
+
+RE-ENABLEMENT IS A CODE CHANGE, NOT A FLAG
+------------------------------------------
+No argument, environment variable, or file opens this gate. Re-enabling retraining means
+*replacing the body of* `check()` with the real two-phase Track E gate
+(PRODUCT_STRATEGY.md §8.1):
+
+  pre-training :  validated manifest + content/family/label digest + NON-EMPTY holdout
+  post-training:  result bound to (candidate-model hash, split digest, evaluator version,
+                  thresholds) before any "Ready for deployment" is emitted
+
+This module is kept as the *seam*: future work replaces `check()`, it does not re-wire
+the pipeline.
 
 Stdlib only, so the fail-closed path runs without the ML stack installed.
 """
+
 from __future__ import annotations
 
-import argparse
-import json
 import sys
-from pathlib import Path
-
-REQUIRED_VERSION = "evaluation-integrity-v2"
-
-# Fields a real Track E (§8.1) artifact carries. Presence + non-emptiness is the L3 contract;
-# `reproducible` must be explicitly true (a placeholder that hasn't been reproduced is red).
-REQUIRED_FIELDS = (
-    "schema_version",
-    "split_strategy",   # e.g. content-hash+normalized-family (§8.1.1) — NOT path-only
-    "holdout",          # customer-family or time-based holdout (§8.1.3)
-    "metrics",          # per-class/macro/calibration/false-duplicate/missed-reuse (§8.1.4)
-    "label_authority",  # provenance / label authority (§8.1.6)
-    "reproducible",     # exit condition: a fresh clone can reproduce the result (§8.1)
-)
-
-# §8.1.1: the split must be content-hash + normalized-family, NOT a path-only check. The gate owns
-# this canonical value; a Track E artifact must match it exactly (a wrong/typo/type-confused value
-# — including a bare `true` — is red, not silently accepted).
-REQUIRED_SPLIT_STRATEGY = "content-hash+normalized-family"
-
-# §8.1.4: the metric families a real evaluation reports. All must be present in `metrics`.
-REQUIRED_METRIC_KEYS = (
-    "per_class",
-    "macro_f1",
-    "calibration_ece",
-    "false_duplicate_rate",
-    "missed_reuse_rate",
-)
+from typing import List, Optional
 
 _STRATEGY_REF = (
-    "See docs/PRODUCT_STRATEGY.md §5.2 (model-promotion gate) and "
-    "§8.1 (Track E: evaluation-integrity-v2)."
+    "See docs/PRODUCT_STRATEGY.md §5.2 (evaluation integrity is not release-grade) "
+    "and §8.1 (Track E: evaluation-integrity-v2)."
 )
 
 
-class GateError(Exception):
-    """A fail-closed reason. `reason` is one of: missing / invalid / version-mismatch."""
-
-    def __init__(self, kind: str, detail: str) -> None:
-        super().__init__(detail)
-        self.kind = kind
-        self.detail = detail
+class GateBlocked(RuntimeError):
+    """Raised unconditionally. This gate has no success path."""
 
 
-def validate_artifact(path: str, *, require_version: str = REQUIRED_VERSION) -> dict:
-    """Return the parsed artifact if it is a valid, version-matched evaluation-integrity artifact.
+def check() -> None:
+    """Always raises ``GateBlocked``.
 
-    Raises GateError(kind, detail) for the three fail-closed modes. Never returns on failure.
+    There is deliberately no parameter, environment variable, or artifact that makes
+    this return. Replacing this body with the real two-phase gate is the ONLY way to
+    re-enable retraining / model promotion.
     """
-    p = Path(path)
-    if not p.is_file():
-        raise GateError("missing", f"no evaluation-integrity artifact at {path!r}")
+    raise GateBlocked(
+        "the retraining / model-promotion path is fail-closed: the golden validation "
+        "split carries 262/914 (28.7%) rows byte-identical to training rows, so no "
+        "accuracy computed on it may promote a model"
+    )
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    # argv is accepted and IGNORED on purpose: no flag may change the outcome. Accepting
+    # `--artifact` / `--force` / anything else must not create the illusion of a bypass.
+    del argv
 
     try:
-        data = json.loads(p.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, UnicodeDecodeError, OSError) as exc:
-        raise GateError("invalid", f"artifact {path!r} is not readable JSON: {exc}")
-
-    if not isinstance(data, dict):
-        raise GateError("invalid", f"artifact {path!r} must be a JSON object")
-
-    version = data.get("schema_version")
-    if not version:
-        raise GateError("invalid", f"artifact {path!r} has no schema_version")
-    if version != require_version:
-        raise GateError(
-            "version-mismatch",
-            f"artifact schema_version {version!r} != required {require_version!r}",
-        )
-
-    absent = [f for f in REQUIRED_FIELDS if f not in data]
-    if absent:
-        raise GateError("invalid", f"artifact {path!r} missing required fields: {', '.join(absent)}")
-
-    # Per-field TYPE + VALUE checks. Presence alone is not enough: a schema bug in the Track E
-    # producer (or a forged artifact) can set a field to the wrong type — e.g. `true` — and
-    # non-empty-only validation would wrongly open the training path.
-    if data["split_strategy"] != REQUIRED_SPLIT_STRATEGY:
-        raise GateError(
-            "invalid",
-            f"split_strategy must equal {REQUIRED_SPLIT_STRATEGY!r} (§8.1.1: content-hash + "
-            f"normalized-family, not path-only), got {data['split_strategy']!r}",
-        )
-
-    if not isinstance(data["holdout"], dict) or not data["holdout"]:
-        raise GateError("invalid", "holdout must be a non-empty object (§8.1.3)")
-
-    metrics = data["metrics"]
-    if not isinstance(metrics, dict):
-        raise GateError("invalid", "metrics must be an object (§8.1.4)")
-    missing_metrics = [k for k in REQUIRED_METRIC_KEYS if k not in metrics]
-    if missing_metrics:
-        raise GateError(
-            "invalid", f"metrics missing required families (§8.1.4): {', '.join(missing_metrics)}"
-        )
-
-    label_authority = data["label_authority"]
-    if not (
-        (isinstance(label_authority, str) and label_authority.strip())
-        or (isinstance(label_authority, dict) and label_authority)
-    ):
-        raise GateError(
-            "invalid", "label_authority must be a non-empty string or a non-empty object (§8.1.6)"
-        )
-
-    # Strict identity: a truthy string/number ("true", 1) does NOT satisfy the reproducible gate.
-    if data["reproducible"] is not True:
-        raise GateError(
-            "invalid",
-            f"artifact {path!r} does not assert reproducible=true "
-            "(evaluation integrity not established)",
-        )
-
-    return data
-
-
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Fail-closed evaluation-integrity gate for the retraining pipeline."
-    )
-    parser.add_argument(
-        "--artifact",
-        required=True,
-        help="path to the evaluation-integrity-v2 artifact (JSON)",
-    )
-    parser.add_argument(
-        "--require-version",
-        default=REQUIRED_VERSION,
-        help=f"required schema_version (default: {REQUIRED_VERSION})",
-    )
-    args = parser.parse_args(argv)
-
-    try:
-        validate_artifact(args.artifact, require_version=args.require_version)
-    except GateError as exc:
+        check()
+    except GateBlocked as exc:
         sys.stderr.write(
-            "EVALUATION-INTEGRITY GATE (fail-closed): "
-            f"{exc.kind} — {exc.detail}\n"
-            "Retraining and model promotion are blocked until a valid, versioned "
-            f"{args.require_version} artifact exists.\n"
+            f"EVALUATION-INTEGRITY GATE (fail-closed): {exc}\n"
+            "Retraining and model promotion are DISABLED. This gate has no bypass: "
+            "no artifact, no environment toggle, no flag opens it.\n"
+            "Re-enablement requires replacing eval_integrity_gate.check() with the "
+            "two-phase Track E gate.\n"
             f"{_STRATEGY_REF}\n"
-            "This gate is not disableable by an environment toggle (per §8).\n"
         )
         return 1
 
-    sys.stdout.write(
-        f"evaluation-integrity gate PASS: {args.artifact} ({args.require_version})\n"
+    # Unreachable by construction. Kept — and still non-zero — so a future edit that
+    # accidentally makes check() return cannot silently open the gate without also
+    # having to change this line.
+    sys.stderr.write(
+        "EVALUATION-INTEGRITY GATE: invariant breach — check() returned without "
+        "raising. Refusing to allow promotion.\n"
     )
-    return 0
+    return 1
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    sys.exit(main(sys.argv[1:]))

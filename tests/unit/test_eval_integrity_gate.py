@@ -1,11 +1,24 @@
-"""Unit tests for the fail-closed evaluation-integrity gate (L3).
+"""Unit tests for the unconditional fail-closed evaluation-integrity gate (L3).
 
-Covers the three fail-closed modes named in the spec (missing / invalid / version-mismatch) plus
-the required-fields and reproducible contract, and the valid pass. See PRODUCT_STRATEGY.md §5.2, §8.1.
+The property under test is NOT "the gate fails on bad input". It is stronger:
+
+    **the gate has no success path at all.**
+
+An earlier draft accepted a JSON artifact as a "you may proceed" token. That token was
+unbound (it named neither the validation manifest actually used nor the candidate model
+actually promoted) and it did not even need forging — the sanctioned producer emitted a
+*passing* artifact with zero holdout rows and all-zero metrics.
+
+So these tests assert the bypass is *absent*, behaviourally (any argv, any env, even a
+perfectly-shaped artifact still blocks) and structurally (no `return 0` / `sys.exit(0)`
+reachable from `main`). See PRODUCT_STRATEGY.md §5.2, §8.1.
 """
+
 from __future__ import annotations
 
+import ast
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -14,176 +27,151 @@ import pytest
 
 from scripts import eval_integrity_gate as gate
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+GATE_PATH = REPO_ROOT / "scripts" / "eval_integrity_gate.py"
 
-def _valid_artifact() -> dict:
-    return {
+
+# --------------------------------------------------------------------------------------
+# Behavioural: no argv opens it
+# --------------------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "argv",
+    [
+        [],
+        ["--artifact", "/tmp/whatever.json"],
+        ["--require-version", "evaluation-integrity-v2"],
+        ["--force"],
+        ["--allow"],
+        ["--skip-gate"],
+        ["--artifact", "/tmp/x.json", "--require-version", "evaluation-integrity-v2"],
+        ["totally", "unknown", "positional", "args"],
+    ],
+)
+def test_no_argv_opens_the_gate(argv):
+    assert gate.main(argv) != 0
+
+
+# --------------------------------------------------------------------------------------
+# Behavioural: no env var opens it
+# --------------------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "var",
+    [
+        "EVAL_INTEGRITY_ARTIFACT",
+        "EVAL_INTEGRITY_SKIP",
+        "SKIP_EVAL_INTEGRITY",
+        "FORCE_RETRAIN",
+        "ALLOW_PROMOTION",
+        "CI",
+        "DEBUG",
+    ],
+)
+def test_no_env_var_opens_the_gate(monkeypatch, var):
+    monkeypatch.setenv(var, "1")
+    assert gate.main([]) != 0
+    monkeypatch.setenv(var, "true")
+    assert gate.main([]) != 0
+
+
+# --------------------------------------------------------------------------------------
+# Behavioural: even a perfectly-shaped artifact does not open it (the old bypass is gone)
+# --------------------------------------------------------------------------------------
+def test_a_perfectly_valid_looking_artifact_still_blocks(tmp_path):
+    """The exact shape the previous gate accepted must now be inert."""
+    artifact = {
         "schema_version": "evaluation-integrity-v2",
-        "split_strategy": "content-hash+normalized-family",
-        "holdout": {"type": "customer-family", "families": 12},
-        "metrics": {"per_class": {"gear": 0.93}, "macro_f1": 0.91, "calibration_ece": 0.03,
-                    "false_duplicate_rate": 0.02, "missed_reuse_rate": 0.05},
-        "label_authority": "human-verified",
         "reproducible": True,
+        "holdout": {"type": "content-hash+family", "fraction": 0.2, "holdout_rows": 180},
+        "split_digest": "0" * 64,
+        "metrics": {
+            "per_class": {"法兰": {"f1": 0.97}},
+            "macro_f1": 0.93,
+            "calibration_ece": 0.02,
+            "false_duplicate_rate": 0.01,
+            "missed_reuse_rate": 0.03,
+        },
     }
+    path = tmp_path / "evaluation_integrity_v2.json"
+    path.write_text(json.dumps(artifact), encoding="utf-8")
+
+    assert gate.main(["--artifact", str(path)]) != 0
 
 
-def _write(path: Path, obj) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(obj if isinstance(obj, str) else json.dumps(obj), encoding="utf-8")
-    return path
+# --------------------------------------------------------------------------------------
+# Behavioural: check() always raises
+# --------------------------------------------------------------------------------------
+def test_check_always_raises():
+    with pytest.raises(gate.GateBlocked):
+        gate.check()
 
 
-def test_valid_artifact_passes(tmp_path: Path) -> None:
-    p = _write(tmp_path / "art.json", _valid_artifact())
-    data = gate.validate_artifact(str(p))
-    assert data["schema_version"] == "evaluation-integrity-v2"
+# --------------------------------------------------------------------------------------
+# Structural: there is NO success path reachable from main()
+# --------------------------------------------------------------------------------------
+def test_main_has_no_zero_return_path():
+    """Assert the *absence of a bypass*, not merely that bad input fails.
+
+    Any `return 0` or `sys.exit(0)` inside `main` would be a pass path. There must be none.
+    """
+    tree = ast.parse(GATE_PATH.read_text(encoding="utf-8"), filename=str(GATE_PATH))
+    main_fn = next(
+        n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "main"
+    )
+
+    zero_returns = [
+        n
+        for n in ast.walk(main_fn)
+        if isinstance(n, ast.Return)
+        and isinstance(n.value, ast.Constant)
+        and n.value.value == 0
+    ]
+    assert not zero_returns, "main() must have no `return 0` — that would be a bypass"
+
+    zero_exits = [
+        n
+        for n in ast.walk(main_fn)
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Attribute)
+        and n.func.attr == "exit"
+        and n.args
+        and isinstance(n.args[0], ast.Constant)
+        and n.args[0].value == 0
+    ]
+    assert not zero_exits, "main() must have no `sys.exit(0)` — that would be a bypass"
+
+    # Every return in main must be a non-zero constant.
+    for node in ast.walk(main_fn):
+        if isinstance(node, ast.Return):
+            assert isinstance(node.value, ast.Constant) and node.value.value != 0, (
+                "every return from main() must be a non-zero constant"
+            )
 
 
-def test_missing_artifact_is_failclosed(tmp_path: Path) -> None:
-    with pytest.raises(gate.GateError) as exc:
-        gate.validate_artifact(str(tmp_path / "does_not_exist.json"))
-    assert exc.value.kind == "missing"
-
-
-def test_unparseable_artifact_is_invalid(tmp_path: Path) -> None:
-    p = _write(tmp_path / "art.json", "{ not json")
-    with pytest.raises(gate.GateError) as exc:
-        gate.validate_artifact(str(p))
-    assert exc.value.kind == "invalid"
-
-
-def test_non_object_artifact_is_invalid(tmp_path: Path) -> None:
-    p = _write(tmp_path / "art.json", "[1, 2, 3]")
-    with pytest.raises(gate.GateError) as exc:
-        gate.validate_artifact(str(p))
-    assert exc.value.kind == "invalid"
-
-
-def test_version_mismatch_is_failclosed(tmp_path: Path) -> None:
-    art = _valid_artifact()
-    art["schema_version"] = "evaluation-integrity-v1"
-    p = _write(tmp_path / "art.json", art)
-    with pytest.raises(gate.GateError) as exc:
-        gate.validate_artifact(str(p))
-    assert exc.value.kind == "version-mismatch"
-
-
-@pytest.mark.parametrize("field", ["split_strategy", "holdout", "metrics", "label_authority"])
-def test_missing_required_field_is_invalid(tmp_path: Path, field: str) -> None:
-    art = _valid_artifact()
-    del art[field]
-    p = _write(tmp_path / "art.json", art)
-    with pytest.raises(gate.GateError) as exc:
-        gate.validate_artifact(str(p))
-    assert exc.value.kind == "invalid"
-    assert field in exc.value.detail
-
-
-@pytest.mark.parametrize("field", ["split_strategy", "holdout", "metrics"])
-def test_empty_required_field_is_invalid(tmp_path: Path, field: str) -> None:
-    art = _valid_artifact()
-    art[field] = {} if field != "split_strategy" else ""
-    p = _write(tmp_path / "art.json", art)
-    with pytest.raises(gate.GateError) as exc:
-        gate.validate_artifact(str(p))
-    assert exc.value.kind == "invalid"
-
-
-def test_all_boolean_fields_are_invalid(tmp_path: Path) -> None:
-    # Type-confusion / Track E schema-bug guard: every required field present but set to `true`
-    # (correct schema_version) must NOT open the training path.
-    art = {
-        "schema_version": "evaluation-integrity-v2",
-        "split_strategy": True,
-        "holdout": True,
-        "metrics": True,
-        "label_authority": True,
-        "reproducible": True,
-    }
-    p = _write(tmp_path / "art.json", art)
-    with pytest.raises(gate.GateError) as exc:
-        gate.validate_artifact(str(p))
-    assert exc.value.kind == "invalid"
-
-
-def test_split_strategy_wrong_value_is_invalid(tmp_path: Path) -> None:
-    art = _valid_artifact()
-    art["split_strategy"] = "path-only"
-    p = _write(tmp_path / "art.json", art)
-    with pytest.raises(gate.GateError) as exc:
-        gate.validate_artifact(str(p))
-    assert exc.value.kind == "invalid"
-
-
-@pytest.mark.parametrize("field", ["holdout", "metrics"])
-def test_object_fields_must_be_objects(tmp_path: Path, field: str) -> None:
-    art = _valid_artifact()
-    art[field] = True
-    p = _write(tmp_path / "art.json", art)
-    with pytest.raises(gate.GateError) as exc:
-        gate.validate_artifact(str(p))
-    assert exc.value.kind == "invalid"
-
-
-@pytest.mark.parametrize("family", list(gate.REQUIRED_METRIC_KEYS))
-def test_metrics_missing_a_family_is_invalid(tmp_path: Path, family: str) -> None:
-    art = _valid_artifact()
-    del art["metrics"][family]
-    p = _write(tmp_path / "art.json", art)
-    with pytest.raises(gate.GateError) as exc:
-        gate.validate_artifact(str(p))
-    assert exc.value.kind == "invalid"
-    assert family in exc.value.detail
-
-
-@pytest.mark.parametrize("bad", [True, 1, "", "   ", {}, []])
-def test_label_authority_must_be_nonempty_string_or_object(tmp_path: Path, bad) -> None:
-    art = _valid_artifact()
-    art["label_authority"] = bad
-    p = _write(tmp_path / "art.json", art)
-    with pytest.raises(gate.GateError) as exc:
-        gate.validate_artifact(str(p))
-    assert exc.value.kind == "invalid"
-
-
-def test_reproducible_must_be_true(tmp_path: Path) -> None:
-    art = _valid_artifact()
-    art["reproducible"] = False
-    p = _write(tmp_path / "art.json", art)
-    with pytest.raises(gate.GateError) as exc:
-        gate.validate_artifact(str(p))
-    assert exc.value.kind == "invalid"
-
-
-def test_reproducible_truthy_string_is_not_accepted(tmp_path: Path) -> None:
-    # A truthy non-True value (e.g. the string "true") must NOT satisfy the reproducible gate.
-    art = _valid_artifact()
-    art["reproducible"] = "true"
-    p = _write(tmp_path / "art.json", art)
-    with pytest.raises(gate.GateError) as exc:
-        gate.validate_artifact(str(p))
-    assert exc.value.kind == "invalid"
-
-
-# --- CLI exit codes (stdlib-only, so this runs without the ML stack) ----------------------------
-def _run_cli(artifact: str) -> subprocess.CompletedProcess:
-    root = Path(__file__).resolve().parents[2]
-    return subprocess.run(
-        [sys.executable, str(root / "scripts" / "eval_integrity_gate.py"),
-         "--artifact", artifact, "--require-version", "evaluation-integrity-v2"],
-        capture_output=True, text=True,
+def test_check_body_is_an_unconditional_raise():
+    """`check()` must not acquire a conditional that could let it return."""
+    tree = ast.parse(GATE_PATH.read_text(encoding="utf-8"), filename=str(GATE_PATH))
+    check_fn = next(
+        n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "check"
+    )
+    # Strip the docstring, then the body must be exactly one `raise`.
+    body = [n for n in check_fn.body if not (isinstance(n, ast.Expr) and isinstance(n.value, ast.Constant))]
+    assert len(body) == 1 and isinstance(body[0], ast.Raise), (
+        "check() must be an unconditional raise; a branch here would be a bypass"
     )
 
 
-def test_cli_exits_nonzero_and_points_to_strategy_on_missing(tmp_path: Path) -> None:
-    r = _run_cli(str(tmp_path / "nope.json"))
-    assert r.returncode == 1
-    assert "§5.2" in r.stderr and "§8.1" in r.stderr
-    assert "environment toggle" in r.stderr
-
-
-def test_cli_exits_zero_on_valid(tmp_path: Path) -> None:
-    p = _write(tmp_path / "art.json", _valid_artifact())
-    r = _run_cli(str(p))
-    assert r.returncode == 0
-    assert "PASS" in r.stdout
+# --------------------------------------------------------------------------------------
+# End-to-end: invoking the script as a subprocess exits non-zero and says why
+# --------------------------------------------------------------------------------------
+def test_subprocess_exits_nonzero_with_strategy_pointer():
+    proc = subprocess.run(
+        [sys.executable, str(GATE_PATH), "--artifact", "/nonexistent.json"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        env={**os.environ, "PYTHONPATH": str(REPO_ROOT)},
+    )
+    assert proc.returncode != 0
+    assert "fail-closed" in proc.stderr
+    assert "PRODUCT_STRATEGY.md" in proc.stderr
+    assert "no bypass" in proc.stderr
