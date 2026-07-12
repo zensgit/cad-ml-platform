@@ -139,16 +139,41 @@ def test_split_is_deterministic(tmp_path: Path) -> None:
     assert d1 == d2
 
 
-# --- gate-conformant artifact ------------------------------------------------------------------
-def test_build_artifact_is_gate_conformant(tmp_path: Path) -> None:
-    rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), f"cls{i%2}") for i in range(6)]
-    art = te.build_artifact(rows, _metrics())
-    # the producer already asserts this internally; assert again against the real gate
+# --- fail-closed by default: dry-run artifacts must NOT unlock the L3 gate ----------------------
+def _gate_accepts(art: dict, tmp_path: Path) -> bool:
+    from scripts.eval_integrity_gate import GateError
     p = tmp_path / "art.json"
     p.write_text(__import__("json").dumps(art), encoding="utf-8")
-    validate_artifact(str(p))  # raises GateError if not conformant
+    try:
+        validate_artifact(str(p))
+        return True
+    except GateError:
+        return False
+
+
+def test_dry_run_build_is_rejected_by_the_gate(tmp_path: Path) -> None:
+    # The reproduced P1: a build WITHOUT a completed evaluation must NOT be gate-conformant.
+    rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), f"cls{i%2}") for i in range(6)]
+    art = te.build_artifact(rows, _metrics())            # exit_condition_met defaults to False
+    assert art["reproducible"] is False
+    assert _gate_accepts(art, tmp_path) is False, "dry-run artifact unlocked L3 (fail-open regression)"
+
+
+def test_all_zero_placeholder_metrics_do_not_unlock_l3(tmp_path: Path) -> None:
+    # Even with every §8.1.4 key present but all-zero, absent a completed evaluation it stays closed.
+    rows = [_mk(tmp_path, "f.dxf", b"c", "cls")]
+    zero = {k: ({} if k == "per_class" else 0.0) for k in _metrics()}
+    art = te.build_artifact(rows, zero)                  # exit_condition_met=False
+    assert _gate_accepts(art, tmp_path) is False
+
+
+def test_completed_evaluation_artifact_is_gate_conformant(tmp_path: Path) -> None:
+    # Only the completed-evaluation path (exit_condition_met=True) mints a gate-unlocking artifact.
+    rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), f"cls{i%2}") for i in range(6)]
+    art = te.build_artifact(rows, _metrics(), exit_condition_met=True)
+    assert art["reproducible"] is True
+    assert _gate_accepts(art, tmp_path) is True
     assert art["schema_version"] == "evaluation-integrity-v2"
-    assert art["split_strategy"] == "content-hash+normalized-family"
 
 
 def test_build_artifact_rejects_metrics_missing_a_family(tmp_path: Path) -> None:
@@ -156,7 +181,7 @@ def test_build_artifact_rejects_metrics_missing_a_family(tmp_path: Path) -> None
     bad = _metrics()
     del bad["macro_f1"]
     with pytest.raises(te.IntegrityError):
-        te.build_artifact(rows, bad)
+        te.build_artifact(rows, bad, exit_condition_met=True)
 
 
 # --- reproducibility exit-condition: tamper -> RED (the discrimination proof) -------------------
