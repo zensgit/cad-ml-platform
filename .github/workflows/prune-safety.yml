@@ -37,3 +37,16 @@ jobs:
       # false-red on an environment problem.
       - name: Prune-safety invariants (no `|| true` — this gate must be able to fail)
         run: python scripts/ci/prune_safety_check.py
+
+      # Runtime smoke for the Phase 0 A2b vision prune (docs/PLATFORM_POSITIONING...
+      # §3 轨A). py_compile/AST checks alone missed a real ModuleNotFoundError
+      # before, so this actually imports the package and calls the factory.
+      - name: Install runtime deps for vision-prune smoke
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Vision prune runtime smoke (no `|| true` — this gate must be able to fail)
+        run: python scripts/ci/vision_prune_smoke.py
+        env:
+          PYTHONPATH: .
