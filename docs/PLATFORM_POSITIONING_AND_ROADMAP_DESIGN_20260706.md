@@ -1,5 +1,10 @@
 # CAD-ML-Platform 定位与路线图 — Design (for-review)
 
+> **Historical decision record.** The current repo-level product and market strategy is
+> [`PRODUCT_STRATEGY.md`](PRODUCT_STRATEGY.md). This dated document remains the code
+> inventory, engineering-convergence record, and Phase 0 authorization; where product
+> direction conflicts, the canonical strategy wins.
+
 **编制日期**: 2026-07-06
 **性质**: for-review 提案 / 设计锁。**本 PR 无 runtime、不改代码、不删代码**——它锁定的是*方向*。承重决策(角色 A/B、三仓边界)留给 owner ratify;merge 即授权 Phase 0 动刀。
 **依据**: 一次 5-路代码级审计(vision 实质 / ~60-dir 脚手架引用图 / 实际服务面 / 反馈飞轮 / 消费者),以 **file/path + line 证据**为准(部分为路径级/聚合级,非严格逐行;复算命令见**附录 A**),**不以 README 自述为准**。
