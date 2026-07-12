@@ -1,0 +1,48 @@
+# CODEOWNERS — L3 surfaces require the owner's independent review.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+#  ⚠️  THIS FILE ALONE IS NOT A GATE. Two prerequisites are still MISSING:
+#
+#   1. Branch protection must set `require_code_owner_reviews = true`
+#      (currently FALSE — so these entries are advisory only).
+#
+#   2. A SECOND account or team that can independently approve must exist.
+#      With a single account, the author IS the code owner and cannot
+#      self-approve, so enabling (1) today would permanently DEADLOCK every
+#      L3 PR rather than gate it.
+#
+#      → Do (2) first, then (1). Enabling (1) without (2) is a foot-gun.
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Why these paths (docs/PRODUCT_STRATEGY.md §7.1): touching auth, authorization,
+# customer data, an AI-output sink, a model-release gate, lifecycle write-back, or
+# cross-system writes automatically promotes work to L3. Authors may not self-downgrade it.
+#
+# This file exists because an unattended cadence loop authored a model-release gate
+# (#509/#510) and produced a FAKE-GREEN gate: the sanctioned producer could emit a
+# PASSING artifact with zero holdout rows and all-zero metrics. §4.7 — "the author of a
+# guard must not be the only author or reviewer of the discriminator that claims to prove
+# it" — earned its place on the very first L3 attempt. An unattended loop cannot be both
+# author and independent critic.
+
+# --- Model-release gate (L3) -------------------------------------------------
+/scripts/auto_retrain.sh              @zensgit
+/scripts/eval_integrity_gate.py       @zensgit
+/scripts/track_e_eval_integrity.py    @zensgit
+/scripts/append_reviewed_to_manifest.py @zensgit
+
+# --- Evaluation / training-data governance (L3) ------------------------------
+/scripts/ci/check_training_data_governance.py @zensgit
+/scripts/ci/prune_safety_check.py     @zensgit
+/data/manifests/                      @zensgit
+
+# --- Authentication / authorization (L3) -------------------------------------
+/src/api/dependencies.py              @zensgit
+/src/api/middleware/                  @zensgit
+
+# --- CI: the gates themselves (L3) -------------------------------------------
+/.github/workflows/                   @zensgit
+/.github/CODEOWNERS                   @zensgit
+
+# --- Canonical product strategy ----------------------------------------------
+/docs/PRODUCT_STRATEGY.md             @zensgit
