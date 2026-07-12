@@ -198,28 +198,42 @@ def build_versioned_manifest(
     }
 
 
+def _report_category(row: dict) -> str:
+    """The category to report a row under. A missing or ILLEGAL category is NOT defaulted to
+    "real" — an unattributed row must never inflate the trusted-provenance count (review). It maps
+    to "unknown", the honest bucket for "we don't know this is real"."""
+    cat = str(row.get("category", "") or "")
+    return cat if cat in CATEGORIES else "unknown"
+
+
 def report_by_category(manifest: dict) -> dict:
     """Per-category (§8.1.5) breakdown: counts per category, per (category × split), and per
-    (category × taxonomy_v2_class). Every sub-breakdown sums back to the total row count."""
+    (category × taxonomy_v2_class). Every sub-breakdown sums back to the total row count. A row with
+    a missing/illegal category is reported as "unknown", never silently "real"."""
     rows = manifest.get("rows", [])
     by_category: Dict[str, int] = {c: 0 for c in CATEGORIES}
     by_category_split: Dict[str, Dict[str, int]] = {c: {} for c in CATEGORIES}
     by_category_class: Dict[str, Dict[str, int]] = {c: {} for c in CATEGORIES}
+    illegal = 0
 
     for row in rows:
-        cat = row.get("category", "real")
-        by_category[cat] = by_category.get(cat, 0) + 1
+        raw = str(row.get("category", "") or "")
+        if raw and raw not in CATEGORIES:
+            illegal += 1
+        cat = _report_category(row)
+        by_category[cat] += 1
 
         split = row.get("split", "")
-        cat_split = by_category_split.setdefault(cat, {})
+        cat_split = by_category_split[cat]
         cat_split[split] = cat_split.get(split, 0) + 1
 
         cls = row.get("taxonomy_v2_class", "")
-        cat_class = by_category_class.setdefault(cat, {})
+        cat_class = by_category_class[cat]
         cat_class[cls] = cat_class.get(cls, 0) + 1
 
     return {
         "total_rows": len(rows),
+        "illegal_category_rows": illegal,   # surfaced, not hidden — a data-integrity signal
         "by_category": by_category,
         "by_category_split": by_category_split,
         "by_category_taxonomy_v2_class": by_category_class,

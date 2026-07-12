@@ -51,11 +51,14 @@ never drift from the split the L3 gate trusts.
 | **tamper discrimination** — `verify_manifest` RED on content change / row-removal / row-add | pass |
 | CLI `build`→`report`→`verify` | pass |
 
-**Review fixes (this revision):** (P1) unmarked/undeclared rows now classify as **unknown**, never
-silently "real" — an explicit provenance column is authoritative, and `provenance_complete` surfaces
-any unknowns; (P2) `_enrich_rows` now reuses the **single hash snapshot** `compute_split` computed
+**Review fixes:** (P1) unmarked/undeclared rows now classify as **unknown**, never silently "real" —
+an explicit provenance column is authoritative, and `provenance_complete` surfaces any unknowns;
+(P2) `_enrich_rows` now reuses the **single hash snapshot** `compute_split` computed
 (`split["content_hashes"]`) instead of re-reading each file, so the manifest's `content_hash` can
-never disagree with the split it records (closes the two-read snapshot-inconsistency window).
+never disagree with the split it records; **`report_by_category`** no longer defaults a missing/
+illegal category to "real" — it maps to **"unknown"** and surfaces `illegal_category_rows`.
+Rebased onto the decoupled slice-1 (#510 no longer imports the L3 gate); slice-2 imports only
+slice-1's split primitives.
 
 **Documented scope boundary** (intentional, low-risk): `verify_manifest` re-derives
 `source`/`license`/`label_authority` from the stored manifest, so it catches content/split/row drift

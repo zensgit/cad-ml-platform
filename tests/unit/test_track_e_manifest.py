@@ -278,3 +278,18 @@ def test_cli_build_report_verify_round_trip(tmp_path: Path) -> None:
     out_path.write_text(json.dumps(manifest), encoding="utf-8")
     rc = tm.main(["verify", "--manifest", str(csv_path), "--manifest-json", str(out_path)])
     assert rc == 1
+
+
+def test_report_missing_or_illegal_category_maps_to_unknown_not_real() -> None:
+    # review: a missing or illegal category must NOT default to "real". It reports as "unknown",
+    # and illegal values are surfaced separately.
+    manifest = {"rows": [
+        {"split": "train", "taxonomy_v2_class": "c"},                    # missing category
+        {"split": "train", "taxonomy_v2_class": "c", "category": "bogus"},  # illegal
+        {"split": "holdout", "taxonomy_v2_class": "c", "category": "real"},
+    ]}
+    rep = tm.report_by_category(manifest)
+    assert rep["by_category"]["real"] == 1
+    assert rep["by_category"]["unknown"] == 2      # missing + illegal both -> unknown
+    assert rep["illegal_category_rows"] == 1
+    assert sum(rep["by_category"].values()) == rep["total_rows"] == 3
