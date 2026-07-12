@@ -170,6 +170,8 @@ def compute_split(
     (same content-hash) with inconsistent labels is quarantined. Deterministic: component → bucket
     by hashing the canonical component key, so the same manifest always yields the same split.
     """
+    if not (0.0 < holdout_fraction < 1.0):
+        raise IntegrityError(f"holdout_fraction must be in (0, 1), got {holdout_fraction}")
     rows = list(rows)
     hash_to_label: Dict[str, str] = {}
     conflict_hashes: set = set()
@@ -229,8 +231,17 @@ def compute_split(
 
 
 def split_digest(split: dict) -> str:
-    """A stable digest of the split assignment; changes iff any row's side changes."""
-    items = sorted(split["assignment"].items())
+    """A fresh-clone-STABLE digest of the split.
+
+    Keyed by each sample's CONTENT hash + its side — NOT its host ``file_path`` — so two clones of
+    the same data at different absolute paths produce the same digest (the §8.1 fresh-clone
+    reproduction requirement; hashing absolute paths would make it host-bound). Cardinality is
+    preserved (duplicate-content rows each contribute an entry), so adding/removing a sample or
+    moving a component's side changes the digest; a pure rename (same bytes) does not — which is
+    correct, since a rename does not change split integrity.
+    """
+    ch = split["content_hashes"]
+    items = sorted((ch[fp], side) for fp, side in split["assignment"].items())
     payload = json.dumps(items, ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
@@ -253,17 +264,22 @@ def build_split_artifact(
     split = compute_split(rows, holdout_fraction=holdout_fraction, root=root)
     sides = list(split["assignment"].values())
     holdout_n = sum(1 for s in sides if s == "holdout")
+    train_n = len(sides) - holdout_n
 
     return {
         "schema_version": SPLIT_ARTIFACT_VERSION,
         "split_strategy": SPLIT_STRATEGY,
         "unlocks_retraining": False,   # hardcoded: this artifact is a dry-run product, never a token
+        # A split with an empty side cannot support evaluation. Surfaced explicitly so a caller never
+        # mistakes a degenerate split for a usable one (holdout_fraction is validated to (0,1) in
+        # compute_split, but tiny data can still leave one side empty after component bucketing).
+        "eval_eligible": holdout_n > 0 and train_n > 0,
         "holdout": {
             "type": "content-hash+normalized-family component",
             "fraction": holdout_fraction,
             "components": split["components"],
             "holdout_rows": holdout_n,
-            "train_rows": len(sides) - holdout_n,
+            "train_rows": train_n,
             "quarantined": len(split["quarantined"]),
         },
         "label_authority": label_authority,

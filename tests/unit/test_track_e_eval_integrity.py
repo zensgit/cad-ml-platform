@@ -189,3 +189,35 @@ def test_verify_red_when_a_row_moves_family(tmp_path: Path) -> None:
     rows2 = list(rows) + [_mk(tmp_path, "brand_new_family.dxf", b"new", "cls")]
     with pytest.raises(te.IntegrityError, match="reproducibility check FAILED"):
         te.verify_reproducible(rows2, art)
+
+
+# --- review P1/P2: fresh-clone-stable digest + holdout validity ---------------------------------
+def test_split_digest_is_fresh_clone_stable(tmp_path: Path) -> None:
+    # identical bytes under two DIFFERENT absolute roots (simulating two clones) -> SAME digest.
+    def _clone(root: Path) -> str:
+        root.mkdir()
+        rows = []
+        for name, b, lbl in [("gear.dxf", b"A", "g"), ("bolt.dxf", b"B", "b"), ("nut.dxf", b"C", "n")]:
+            (root / name).write_bytes(b)
+            rows.append({"file_path": str(root / name), "cache_path": "", "taxonomy_v2_class": lbl})
+        return te.split_digest(te.compute_split(rows, holdout_fraction=0.5))
+    assert _clone(tmp_path / "cloneA") == _clone(tmp_path / "cloneB")
+
+
+@pytest.mark.parametrize("frac", [-0.1, 0.0, 1.0, 1.1])
+def test_invalid_holdout_fraction_is_rejected(tmp_path: Path, frac: float) -> None:
+    rows = [_mk(tmp_path, "f.dxf", b"c", "cls")]
+    with pytest.raises(te.IntegrityError):
+        te.compute_split(rows, holdout_fraction=frac)
+
+
+def test_eval_eligible_false_when_a_side_is_empty(tmp_path: Path) -> None:
+    art = te.build_split_artifact([_mk(tmp_path, "only.dxf", b"x", "cls")], holdout_fraction=0.5)
+    assert art["eval_eligible"] is False   # single component -> one side empty
+
+
+def test_eval_eligible_matches_both_sides_populated(tmp_path: Path) -> None:
+    rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "cls") for i in range(20)]
+    art = te.build_split_artifact(rows, holdout_fraction=0.5)
+    both = art["holdout"]["holdout_rows"] > 0 and art["holdout"]["train_rows"] > 0
+    assert art["eval_eligible"] is both
