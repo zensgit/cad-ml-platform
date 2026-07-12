@@ -680,6 +680,11 @@ jobs:
           pytest -q \
             tests/unit/test_calibrate_hybrid_confidence_script.py \
             tests/unit/test_hybrid_confidence_calibration_gate_check.py
+      - name: Run evaluation-integrity fail-closed gate unit tests (L3)
+        run: |
+          pytest -q \
+            tests/unit/test_eval_integrity_gate.py \
+            tests/unit/test_auto_retrain_failclosed.py
       - name: Run Hybrid confidence calibration gate (3.11 only, optional)
         if: matrix.python-version == '3.11'
         run: |
