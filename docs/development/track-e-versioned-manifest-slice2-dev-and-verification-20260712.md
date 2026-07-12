@@ -44,7 +44,10 @@ never drift from the split the L3 gate trusts.
 |---|---|
 | slice-2 unit tests (`tests/unit/test_track_e_manifest.py`) | **27 passed** |
 | combined slice-1 + slice-2 (no interference) | **52 passed** |
-| categorize boundaries (incl. false-positive traps `rotator`/`generalpurpose`/`gen2_assembly` → real) | pass (spot-checked) |
+| categorize: markers → augmented/synthetic; unmarked/undeclared → **unknown** (never "real"); declared column authoritative | pass |
+| manifest_digest covers the **full envelope** (schema/provenance/quarantined/rows/…); tamper → RED | pass |
+| manifest is **fresh-clone stable** (rows carry `sample_id`; digest excludes host `file_path`) | pass |
+| non-empty `source`/`license`/`label_authority` enforced (blank → fail-closed) | pass |
 | `manifest_digest` deterministic / order-independent | pass |
 | every §8.1.6 field present; quarantined (unreadable) row excluded | pass |
 | `report_by_category` sums back to the row count; per-split correct | pass |
@@ -60,10 +63,16 @@ illegal category to "real" — it maps to **"unknown"** and surfaces `illegal_ca
 Rebased onto the decoupled slice-1 (#510 no longer imports the L3 gate); slice-2 imports only
 slice-1's split primitives.
 
-**Documented scope boundary** (intentional, low-risk): `verify_manifest` re-derives
-`source`/`license`/`label_authority` from the stored manifest, so it catches content/split/row drift
-but not a *self-consistent* relabel of provenance-only fields (they aren't derivable from the rows) —
-same class as slice-1's verify authenticating the split, not metrics.
+**verify_manifest** now runs two checks: (1) **envelope self-consistency** — recompute the digest
+over the stored envelope (minus the digest) and compare, catching a tamper to ANY field; (2) **split
+drift** — re-derive the split from the actual files and compare `split_digest`. Residual boundary: a
+*self-consistent* rewrite of provenance-only fields (`source`/`license`/`label_authority`, which
+verify re-derives from the stored manifest) is not distinguishable — acceptable for a non-blocking
+dry-run.
+
+**Honest scope:** this is dry-run tooling. It does NOT compute the §8.1.4 metrics, does NOT bind a
+candidate model, and does NOT unlock retraining (the L3 gate is unconditional). Safety-infrastructure
+only; model improvement stays off until Phase B (real metrics + two-stage release gate).
 
 ## 3. CI & model routing
 

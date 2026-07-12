@@ -212,7 +212,7 @@ def test_verify_manifest_red_when_row_content_changes(tmp_path: Path) -> None:
     manifest = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")
     # mutate bytes of one file AFTER the manifest was built -> content_hash drifts -> RED
     Path(rows[0]["file_path"]).write_bytes(b"TAMPERED-CONTENT")
-    with pytest.raises(tm.IntegrityError, match="reproducibility check FAILED"):
+    with pytest.raises(tm.IntegrityError, match="FAILED"):
         tm.verify_manifest(rows, manifest)
 
 
@@ -220,7 +220,7 @@ def test_verify_manifest_red_when_a_row_is_added(tmp_path: Path) -> None:
     rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "cls") for i in range(5)]
     manifest = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")
     rows2 = list(rows) + [_mk(tmp_path, "brand_new_family.dxf", b"new-bytes", "cls")]
-    with pytest.raises(tm.IntegrityError, match="reproducibility check FAILED"):
+    with pytest.raises(tm.IntegrityError, match="FAILED"):
         tm.verify_manifest(rows2, manifest)
 
 
@@ -228,7 +228,7 @@ def test_verify_manifest_red_when_stored_digest_tampered(tmp_path: Path) -> None
     rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "cls") for i in range(5)]
     manifest = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")
     manifest["manifest_digest"] = "deadbeef" * 8
-    with pytest.raises(tm.IntegrityError, match="reproducibility check FAILED"):
+    with pytest.raises(tm.IntegrityError, match="FAILED"):
         tm.verify_manifest(rows, manifest)
 
 
@@ -293,3 +293,46 @@ def test_report_missing_or_illegal_category_maps_to_unknown_not_real() -> None:
     assert rep["by_category"]["unknown"] == 2      # missing + illegal both -> unknown
     assert rep["illegal_category_rows"] == 1
     assert sum(rep["by_category"].values()) == rep["total_rows"] == 3
+
+
+@pytest.mark.parametrize("field,newval", [
+    ("schema_version", "hacked-v9"),
+    ("provenance_complete", True),
+    ("unknown_provenance_rows", 0),
+    ("quarantined", []),                       # a manifest WITH a quarantined row -> [] is a tamper
+    ("source", "evil-source"),
+])
+def test_verify_manifest_red_on_envelope_tamper(tmp_path: Path, field, newval) -> None:
+    # review P1: tampering ANY envelope field (not just rows) must be caught by the digest.
+    rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "cls") for i in range(4)]  # unmarked -> unknown
+    # include an unreadable row so `quarantined` is non-empty (makes the quarantined-tamper real)
+    rows.append({"file_path": str(tmp_path / "missing.dxf"), "cache_path": "", "taxonomy_v2_class": "cls"})
+    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")
+    assert man["quarantined"], "test setup: expected a quarantined row"
+    man[field] = newval                       # tamper, leave manifest_digest as-is
+    with pytest.raises(tm.IntegrityError):
+        tm.verify_manifest(rows, man)
+
+
+@pytest.mark.parametrize("bad", [
+    {"source": "", "license_": "l", "label_authority": "a"},
+    {"source": "s", "license_": "   ", "label_authority": "a"},
+    {"source": "s", "license_": "l", "label_authority": ""},
+])
+def test_empty_provenance_fails_closed(tmp_path: Path, bad) -> None:
+    rows = [_mk(tmp_path, "f.dxf", b"c", "cls")]
+    with pytest.raises(tm.IntegrityError):
+        tm.build_versioned_manifest(rows, **bad)
+
+
+def test_manifest_digest_is_fresh_clone_stable(tmp_path: Path) -> None:
+    # identical bytes + basenames under two DIFFERENT absolute roots -> same manifest_digest
+    # (keyed on sample_id, not the host path).
+    def _clone(root: Path) -> str:
+        root.mkdir()
+        rows = []
+        for name, b, lbl in [("gear.dxf", b"A", "g"), ("bolt.dxf", b"B", "b")]:
+            (root / name).write_bytes(b)
+            rows.append({"file_path": str(root / name), "cache_path": "", "taxonomy_v2_class": lbl})
+        return tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")["manifest_digest"]
+    assert _clone(tmp_path / "cloneA") == _clone(tmp_path / "cloneB")

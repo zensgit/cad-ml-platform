@@ -128,13 +128,21 @@ def _enrich_rows(
         key = str(row.get("file_path", ""))
         if key not in split["assignment"]:
             continue  # quarantined upstream by compute_split; never enters the manifest
+        ch = content_hashes[key]
+        family = _family_key(row)
+        label = str(row.get("taxonomy_v2_class", "")).strip()
         enriched.append(
             {
+                # `sample_id` is a host-INDEPENDENT stable identity (content + family + label). The
+                # digest keys on it, not the absolute file_path, so a fresh clone at a different path
+                # reproduces the same manifest_digest. `file_path` is retained for actual dataset use
+                # but is excluded from the digest (see _canonicalize_for_digest).
+                "sample_id": hashlib.sha256(f"{ch}|{family}|{label}".encode()).hexdigest()[:16],
                 "file_path": key,
                 "cache_path": str(row.get("cache_path", "")),
-                "taxonomy_v2_class": str(row.get("taxonomy_v2_class", "")).strip(),
-                "family": _family_key(row),
-                "content_hash": content_hashes[key],   # the authoritative split-time snapshot
+                "taxonomy_v2_class": label,
+                "family": family,
+                "content_hash": ch,                    # the authoritative split-time snapshot
                 "split": split["assignment"][key],
                 "category": categorize(row),
                 "source": source,
@@ -145,17 +153,43 @@ def _enrich_rows(
     return enriched
 
 
-def _manifest_digest(enriched_rows: Iterable[dict]) -> str:
-    """sha256 over the sorted enriched rows — deterministic and order-independent.
+# Fields excluded from the digest because they are host-bound, not part of the sample's identity.
+_DIGEST_EXCLUDED_ROW_FIELDS = ("file_path", "cache_path")
 
-    Each row is first canonicalized to a sort-keyed JSON string (so field-order never matters),
-    then the list of those strings is sorted (so row order never matters) before hashing.
-    """
-    canonical = sorted(
-        json.dumps(r, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        for r in enriched_rows
+
+# The digest covers the ENTIRE manifest envelope except the digest field itself, so tampering ANY
+# field (schema_version, provenance_complete, unknown_provenance_rows, quarantined, rows, source,
+# split_digest, …) is detected — not just a changed row. Rows are order-canonicalized first.
+_DIGEST_EXCLUDED = ("manifest_digest",)
+
+
+def _strip_host_fields(row: dict) -> dict:
+    return {k: v for k, v in row.items() if k not in _DIGEST_EXCLUDED_ROW_FIELDS}
+
+
+def _canonicalize_for_digest(manifest: dict) -> dict:
+    m = {k: v for k, v in manifest.items() if k not in _DIGEST_EXCLUDED}
+    # rows/quarantined: drop host-bound path fields (fresh-clone stability via sample_id) and make
+    # the list order-independent (row identity, not position, is what matters).
+    if isinstance(m.get("rows"), list):
+        m["rows"] = sorted(
+            (_strip_host_fields(r) for r in m["rows"]),
+            key=lambda r: json.dumps(r, sort_keys=True, ensure_ascii=False),
+        )
+    if isinstance(m.get("quarantined"), list):
+        m["quarantined"] = sorted(
+            (_strip_host_fields(r) for r in m["quarantined"]),
+            key=lambda r: json.dumps(r, sort_keys=True, ensure_ascii=False),
+        )
+    return m
+
+
+def _manifest_digest(manifest_without_digest: dict) -> str:
+    """sha256 over the full canonicalized manifest envelope (minus ``manifest_digest``)."""
+    payload = json.dumps(
+        _canonicalize_for_digest(manifest_without_digest),
+        ensure_ascii=False, sort_keys=True, separators=(",", ":"),
     )
-    payload = json.dumps(canonical, ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
@@ -171,31 +205,37 @@ def build_versioned_manifest(
     """Build the §8.1.6 versioned manifest: source, license, provenance, family, hash, split,
     label authority — one enriched record per row that survives slice-1's leakage-safe split.
 
-    Quarantined rows (§8.1.2 conflicts, unreadable content, missing fields) are excluded from
-    ``rows`` and surfaced separately in ``quarantined`` for audit, never silently dropped.
+    Provenance metadata is required: ``source`` / ``license`` / ``label_authority`` must be non-empty
+    after trimming (a manifest with blank provenance fails closed). Quarantined rows (§8.1.2
+    conflicts, unreadable content, missing fields) are excluded from ``rows`` and surfaced separately.
     """
+    source, license_, label_authority = source.strip(), license_.strip(), label_authority.strip()
+    for name, val in (("source", source), ("license", license_), ("label_authority", label_authority)):
+        if not val:
+            raise IntegrityError(f"{name} must be a non-empty provenance value")
+
     rows = list(rows)
     split = compute_split(rows, holdout_fraction=holdout_fraction, root=root)
     enriched = _enrich_rows(
         rows, split, source=source, license_=license_, label_authority=label_authority
     )
     unknown_provenance = sum(1 for r in enriched if r["category"] == "unknown")
-    return {
+    manifest = {
         "schema_version": SCHEMA_VERSION,
         "source": source,
         "license": license_,
         "label_authority": label_authority,
         "holdout_fraction": holdout_fraction,
         # §8.1.5 provenance completeness: any row of unknown provenance means the manifest is NOT a
-        # clean, fully-attributed dataset — a downstream evaluation must NOT treat it as complete
-        # (keeps the L3 exit condition blocked until provenance is resolved).
+        # clean, fully-attributed dataset — a downstream evaluation must NOT treat it as complete.
         "provenance_complete": unknown_provenance == 0,
         "unknown_provenance_rows": unknown_provenance,
         "rows": enriched,
         "quarantined": list(split["quarantined"]),
-        "manifest_digest": _manifest_digest(enriched),
         "split_digest": split_digest(split),
     }
+    manifest["manifest_digest"] = _manifest_digest(manifest)  # over the full envelope above
+    return manifest
 
 
 def _report_category(row: dict) -> str:
@@ -241,34 +281,40 @@ def report_by_category(manifest: dict) -> dict:
 
 
 def verify_manifest(rows: Iterable[dict], manifest: dict, *, root: Optional[Path] = None) -> None:
-    """Re-derive the versioned manifest from ``rows`` and confirm both digests match. RAISES
-    ``IntegrityError`` on any drift — tamper, content change, or an added/removed/moved row.
+    """Confirm the manifest is untampered and its split still re-derives. RAISES ``IntegrityError``.
 
-    Dry-run posture (non-blocking), mirroring slice-1's ``verify_reproducible``: callers decide
-    what to do with the raised error (e.g. print-and-exit-nonzero in a CI check), this function
-    never exits or prints on its own.
+    Two independent checks:
+      1. **Envelope self-consistency** — recompute ``manifest_digest`` over the STORED envelope
+         (minus the digest itself) and compare to the stored value. This catches a tamper to ANY
+         field — schema_version, provenance_complete, unknown_provenance_rows, quarantined, rows,
+         provenance metadata — not just a changed row.
+      2. **Split drift** — re-derive the split from the actual ``rows`` and compare ``split_digest``,
+         so a change in the underlying file content (or an added/removed row) is caught.
+
+    Dry-run posture (non-blocking): the caller decides what to do with the raised error.
     """
-    holdout_fraction = manifest.get("holdout_fraction", DEFAULT_HOLDOUT_FRACTION)
+    stored_manifest_digest = manifest.get("manifest_digest")
+    envelope_digest = _manifest_digest(manifest)  # over the stored envelope, minus manifest_digest
+    if stored_manifest_digest != envelope_digest:
+        raise IntegrityError(
+            "manifest envelope FAILED self-consistency: manifest_digest "
+            f"{str(stored_manifest_digest)[:12]} != content digest {envelope_digest[:12]} — a field "
+            "(schema_version / provenance_complete / quarantined / rows / …) was tampered."
+        )
+
     recomputed = build_versioned_manifest(
         rows,
         source=str(manifest.get("source", "")),
         license_=str(manifest.get("license", "")),
         label_authority=str(manifest.get("label_authority", "")),
-        holdout_fraction=holdout_fraction,
+        holdout_fraction=manifest.get("holdout_fraction", DEFAULT_HOLDOUT_FRACTION),
         root=root,
     )
-    stored_manifest_digest = manifest.get("manifest_digest")
-    stored_split_digest = manifest.get("split_digest")
-    if (
-        stored_manifest_digest != recomputed["manifest_digest"]
-        or stored_split_digest != recomputed["split_digest"]
-    ):
+    if manifest.get("split_digest") != recomputed["split_digest"]:
         raise IntegrityError(
-            "reproducibility check FAILED: the manifest changed since it was built "
-            f"(manifest_digest stored {str(stored_manifest_digest)[:12]} != recomputed "
-            f"{recomputed['manifest_digest'][:12]}; split_digest stored "
-            f"{str(stored_split_digest)[:12]} != recomputed {recomputed['split_digest'][:12]}). "
-            "A manifest was tampered, row content changed, or a row was added/removed."
+            "split reproducibility FAILED: the split changed since the manifest was built "
+            f"(stored {str(manifest.get('split_digest'))[:12]} != recomputed "
+            f"{recomputed['split_digest'][:12]}) — row content changed or a row was added/removed."
         )
 
 
