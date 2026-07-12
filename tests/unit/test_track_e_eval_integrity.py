@@ -1,8 +1,10 @@
-"""Track E slice-1 — leakage-safe splitter + reproducibility digest + gate-conformant artifact.
+"""Track E slice-1 — leakage-safe splitter + reproducibility digest + DRY-RUN split artifact.
 
 Torch-free: exercises the integrity core (content-hash + normalized-family split, conflict
-quarantine, fail-closed unreadable content, deterministic digest, and the §8.1 exit-condition
-reproducibility check whose `verify` goes RED on split tamper / duplicate reintroduction).
+quarantine, fail-closed unreadable content, deterministic digest, and the split reproducibility
+check whose `verify` goes RED on split tamper / duplicate reintroduction). DECOUPLED from the L3
+gate: the artifact this module builds carries unlocks_retraining=false and has no unlock path (the
+L3 gate is unconditional by owner design).
 """
 from __future__ import annotations
 
@@ -11,17 +13,12 @@ from pathlib import Path
 import pytest
 
 from scripts import track_e_eval_integrity as te
-from scripts.eval_integrity_gate import REQUIRED_METRIC_KEYS, validate_artifact
 
 
 def _mk(tmp_path: Path, name: str, content: bytes, label: str) -> dict:
     p = tmp_path / name
     p.write_bytes(content)
     return {"file_path": str(p), "cache_path": "", "taxonomy_v2_class": label}
-
-
-def _metrics() -> dict:
-    return {k: ({"gear": 0.9} if k == "per_class" else 0.03) for k in REQUIRED_METRIC_KEYS}
 
 
 # --- normalized-family -------------------------------------------------------------------------
@@ -139,61 +136,39 @@ def test_split_is_deterministic(tmp_path: Path) -> None:
     assert d1 == d2
 
 
-# --- fail-closed by default: dry-run artifacts must NOT unlock the L3 gate ----------------------
-def _gate_accepts(art: dict, tmp_path: Path) -> bool:
-    from scripts.eval_integrity_gate import GateError
-    p = tmp_path / "art.json"
-    p.write_text(__import__("json").dumps(art), encoding="utf-8")
-    try:
-        validate_artifact(str(p))
-        return True
-    except GateError:
-        return False
-
-
-def test_dry_run_build_is_rejected_by_the_gate(tmp_path: Path) -> None:
-    # The reproduced P1: a build WITHOUT a completed evaluation must NOT be gate-conformant.
+# --- the artifact is a DRY-RUN split product with no unlock path --------------------------------
+def test_build_split_artifact_never_unlocks_retraining(tmp_path: Path) -> None:
     rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), f"cls{i%2}") for i in range(6)]
-    art = te.build_artifact(rows, _metrics())            # exit_condition_met defaults to False
-    assert art["reproducible"] is False
-    assert _gate_accepts(art, tmp_path) is False, "dry-run artifact unlocked L3 (fail-open regression)"
+    art = te.build_split_artifact(rows)
+    assert art["unlocks_retraining"] is False           # hardcoded — never a "you may proceed" token
+    assert art["schema_version"] == "evaluation-integrity-split-v1"
+    assert art["split_strategy"] == "content-hash+normalized-family"
+    assert len(art["split_digest"]) == 64
+    # decoupled: no metrics/reproducible/gate fields exist to be flipped into an unlock
+    assert "metrics" not in art and "reproducible" not in art
 
 
-def test_all_zero_placeholder_metrics_do_not_unlock_l3(tmp_path: Path) -> None:
-    # Even with every §8.1.4 key present but all-zero, absent a completed evaluation it stays closed.
-    rows = [_mk(tmp_path, "f.dxf", b"c", "cls")]
-    zero = {k: ({} if k == "per_class" else 0.0) for k in _metrics()}
-    art = te.build_artifact(rows, zero)                  # exit_condition_met=False
-    assert _gate_accepts(art, tmp_path) is False
-
-
-def test_completed_evaluation_artifact_is_gate_conformant(tmp_path: Path) -> None:
-    # Only the completed-evaluation path (exit_condition_met=True) mints a gate-unlocking artifact.
-    rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), f"cls{i%2}") for i in range(6)]
-    art = te.build_artifact(rows, _metrics(), exit_condition_met=True)
-    assert art["reproducible"] is True
-    assert _gate_accepts(art, tmp_path) is True
-    assert art["schema_version"] == "evaluation-integrity-v2"
-
-
-def test_build_artifact_rejects_metrics_missing_a_family(tmp_path: Path) -> None:
-    rows = [_mk(tmp_path, "f.dxf", b"c", "cls")]
-    bad = _metrics()
-    del bad["macro_f1"]
-    with pytest.raises(te.IntegrityError):
-        te.build_artifact(rows, bad, exit_condition_met=True)
+def test_module_does_not_import_the_gate() -> None:
+    # The whole point of the owner rewrite: this producer cannot depend on (or mint a token for) the
+    # gate. Assert the decoupling structurally — no IMPORT of the gate (doc mentions are fine).
+    import inspect
+    src = inspect.getsource(te)
+    assert "from eval_integrity_gate" not in src
+    assert "import eval_integrity_gate" not in src
+    assert not hasattr(te, "validate_artifact")         # gate validator is not re-exported
+    assert not hasattr(te, "build_artifact")            # the old gate-unlocking builder is gone
 
 
 # --- reproducibility exit-condition: tamper -> RED (the discrimination proof) -------------------
 def test_verify_passes_when_unchanged(tmp_path: Path) -> None:
     rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "cls") for i in range(6)]
-    art = te.build_artifact(rows, _metrics())
+    art = te.build_split_artifact(rows)
     te.verify_reproducible(rows, art)  # no raise
 
 
 def test_verify_red_when_split_digest_tampered(tmp_path: Path) -> None:
     rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "cls") for i in range(6)]
-    art = te.build_artifact(rows, _metrics())
+    art = te.build_split_artifact(rows)
     art["split_digest"] = "deadbeef" * 8   # tamper
     with pytest.raises(te.IntegrityError, match="reproducibility check FAILED"):
         te.verify_reproducible(rows, art)
@@ -201,7 +176,7 @@ def test_verify_red_when_split_digest_tampered(tmp_path: Path) -> None:
 
 def test_verify_red_when_duplicate_content_reintroduced(tmp_path: Path) -> None:
     rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "cls") for i in range(6)]
-    art = te.build_artifact(rows, _metrics())
+    art = te.build_split_artifact(rows)
     # reintroduce duplicate content in a new family -> unions a component -> split changes -> RED
     rows2 = list(rows) + [_mk(tmp_path, "dup.dxf", b"c0", "cls")]  # same bytes as f0.dxf
     with pytest.raises(te.IntegrityError, match="reproducibility check FAILED"):
@@ -210,7 +185,7 @@ def test_verify_red_when_duplicate_content_reintroduced(tmp_path: Path) -> None:
 
 def test_verify_red_when_a_row_moves_family(tmp_path: Path) -> None:
     rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "cls") for i in range(6)]
-    art = te.build_artifact(rows, _metrics())
+    art = te.build_split_artifact(rows)
     rows2 = list(rows) + [_mk(tmp_path, "brand_new_family.dxf", b"new", "cls")]
     with pytest.raises(te.IntegrityError, match="reproducibility check FAILED"):
         te.verify_reproducible(rows2, art)

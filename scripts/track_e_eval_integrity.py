@@ -37,21 +37,14 @@ from typing import Dict, Iterable, List, Optional, Tuple
 # grouping (§8.1.6 versioned manifest carries `family`). Preferred over the filename heuristic.
 _FAMILY_COLUMNS = ("family", "source_id", "source_drawing", "drawing_id")
 
-# Resolve the sibling gate whether this file is imported as ``scripts.track_e_eval_integrity``
-# (pytest, repo root on sys.path) or run as ``python3 scripts/track_e_eval_integrity.py`` (CLI,
-# scripts/ on sys.path). Add the scripts/ dir so the top-level import works in both.
-_SCRIPTS_DIR = str(Path(__file__).resolve().parent)
-if _SCRIPTS_DIR not in sys.path:
-    sys.path.insert(0, _SCRIPTS_DIR)
-
-# Single source of truth for the artifact contract — imported, never re-hardcoded, so the producer
-# can never drift from the gate that consumes it.
-from eval_integrity_gate import (  # noqa: E402  (sibling script; scripts/ ensured on sys.path above)
-    REQUIRED_METRIC_KEYS,
-    REQUIRED_SPLIT_STRATEGY,
-    REQUIRED_VERSION,
-    validate_artifact,
-)
+# Standalone. This module is DECOUPLED from the L3 gate. The owner made ``eval_integrity_gate.py``
+# UNCONDITIONAL (no pass path: it always blocks retraining, and auto_retrain.sh distrusts even a
+# subverted gate). An artifact "you may proceed" token was removed as an unbound attestation. So
+# this module NEVER produces a gate-unlocking artifact and imports nothing from the gate — it emits a
+# DRY-RUN split-integrity product for inspection/verification only. Re-enabling retraining is a
+# separate, later, owner-gated mechanism, not anything this file can mint.
+SPLIT_ARTIFACT_VERSION = "evaluation-integrity-split-v1"
+SPLIT_STRATEGY = "content-hash+normalized-family"
 
 # Augmentation / revision / copy markers that denote the SAME source drawing. Stripped (repeatedly)
 # from a path stem to collapse variants to one family. Conservative on purpose: over-collapsing is
@@ -242,38 +235,29 @@ def split_digest(split: dict) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def build_artifact(
+def build_split_artifact(
     rows: Iterable[dict],
-    metrics: dict,
     *,
-    exit_condition_met: bool = False,
     label_authority: str = "manifest:taxonomy_v2_class",
     holdout_fraction: float = DEFAULT_HOLDOUT_FRACTION,
     root: Optional[Path] = None,
 ) -> dict:
-    """Assemble an evaluation-integrity-v2 artifact.
+    """Assemble a DRY-RUN split-integrity artifact — it never unlocks retraining.
 
-    **Fail-closed by default.** `reproducible` mirrors ``exit_condition_met`` — the FULL §8.1 exit
-    condition ("a fresh clone reproduces the evaluation RESULT"), which requires real, complete
-    metrics from an actual model run over the holdout. Slice-1/2 do NOT run the model, so a dry-run
-    build leaves ``exit_condition_met=False`` → ``reproducible=false`` → the L3 gate REJECTS it and
-    retraining stays fail-closed. Only the (future) model-run lane, after producing and verifying a
-    reproducible evaluation, calls this with ``exit_condition_met=True`` to mint a gate-unlocking
-    artifact. There is deliberately no CLI flag to flip it — that would be exactly the toggle §8 forbids.
+    This carries the leakage-safe split + a reproducibility digest for inspection and for the
+    §8.1.7 ``verify`` check. It has NO metrics, NO ``reproducible=true``, and NO path to the L3
+    gate: ``unlocks_retraining`` is a hardcoded ``false``. The L3 gate is unconditional by owner
+    design; re-enabling retraining is a separate, later, owner-gated mechanism that binds a
+    validation-manifest digest + a promoted-model hash — none of which this file can assert.
     """
-    if not isinstance(metrics, dict):
-        raise IntegrityError("metrics must be an object carrying the §8.1.4 families")
-    missing = [k for k in REQUIRED_METRIC_KEYS if k not in metrics]
-    if missing:
-        raise IntegrityError(f"metrics missing required families (§8.1.4): {', '.join(missing)}")
-
     split = compute_split(rows, holdout_fraction=holdout_fraction, root=root)
     sides = list(split["assignment"].values())
     holdout_n = sum(1 for s in sides if s == "holdout")
 
-    artifact = {
-        "schema_version": REQUIRED_VERSION,
-        "split_strategy": REQUIRED_SPLIT_STRATEGY,
+    return {
+        "schema_version": SPLIT_ARTIFACT_VERSION,
+        "split_strategy": SPLIT_STRATEGY,
+        "unlocks_retraining": False,   # hardcoded: this artifact is a dry-run product, never a token
         "holdout": {
             "type": "content-hash+normalized-family component",
             "fraction": holdout_fraction,
@@ -282,34 +266,16 @@ def build_artifact(
             "train_rows": len(sides) - holdout_n,
             "quarantined": len(split["quarantined"]),
         },
-        "metrics": metrics,
         "label_authority": label_authority,
-        "reproducible": bool(exit_condition_met),
         "split_digest": split_digest(split),
     }
-    # A gate-unlocking artifact must be gate-conformant by construction. A dry-run artifact is
-    # deliberately NOT (reproducible=false), and the gate rejects it — do not assert conformance there.
-    if exit_condition_met:
-        _assert_gate_conformant(artifact)
-    return artifact
-
-
-def _assert_gate_conformant(artifact: dict) -> None:
-    import tempfile
-
-    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
-        json.dump(artifact, f)
-        tmp = f.name
-    try:
-        validate_artifact(tmp)  # raises GateError if the producer ever drifts from the gate
-    finally:
-        Path(tmp).unlink(missing_ok=True)
 
 
 def verify_reproducible(rows: Iterable[dict], artifact: dict, *, root: Optional[Path] = None) -> None:
-    """Re-derive the split and confirm the artifact's digest matches. RED on any drift.
+    """Re-derive the split and confirm the artifact's split_digest matches. RED on any drift.
 
-    This is the §8.1 exit-condition check ("changing a split → red"), wired dry-run first (§8.1.7).
+    This is the SPLIT reproducibility check ("changing a split → red"), the basis for the §8.1.7
+    path-filtered dry-run workflow. It authenticates the split only, not any (absent) unlock token.
     """
     frac = artifact.get("holdout", {}).get("fraction", DEFAULT_HOLDOUT_FRACTION)
     recomputed = split_digest(compute_split(rows, holdout_fraction=frac, root=root))
@@ -323,14 +289,6 @@ def verify_reproducible(rows: Iterable[dict], artifact: dict, *, root: Optional[
 
 
 # --- CLI ----------------------------------------------------------------------------------------
-def _load_metrics(path: str) -> dict:
-    # No placeholder path: a build with no real metrics must NOT be able to mint an artifact. A
-    # missing/empty --metrics is an error, not silently-zero "good" metrics.
-    if not path:
-        raise IntegrityError("--metrics is required: an eval-results JSON with the §8.1.4 families")
-    return json.loads(Path(path).read_text(encoding="utf-8"))
-
-
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Track E evaluation-integrity splitter/artifact.")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -339,9 +297,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     sp.add_argument("--manifest", required=True)
     sp.add_argument("--holdout-fraction", type=float, default=DEFAULT_HOLDOUT_FRACTION)
 
-    bp = sub.add_parser("build", help="build a DRY-RUN artifact (reproducible=false; NOT gate-conformant)")
+    bp = sub.add_parser("build", help="build a DRY-RUN split artifact (unlocks_retraining=false)")
     bp.add_argument("--manifest", required=True)
-    bp.add_argument("--metrics", required=True, help="eval-results JSON with the §8.1.4 metric families")
     bp.add_argument("--out", required=True)
     bp.add_argument("--holdout-fraction", type=float, default=DEFAULT_HOLDOUT_FRACTION)
 
@@ -361,13 +318,12 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 0
         if args.cmd == "build":
             rows = _read_manifest(args.manifest)
-            # CLI build is always a DRY-RUN (exit_condition_met stays False) -> reproducible=false ->
-            # the L3 gate rejects it. Minting a gate-unlocking artifact requires a completed,
-            # verified model-run evaluation (a future lane), never a CLI flag.
-            artifact = build_artifact(rows, _load_metrics(args.metrics), holdout_fraction=args.holdout_fraction)
+            # A DRY-RUN split product only. It carries unlocks_retraining=false and there is no path,
+            # flag, or metrics input that makes it unlock the (unconditional) L3 gate.
+            artifact = build_split_artifact(rows, holdout_fraction=args.holdout_fraction)
             Path(args.out).write_text(json.dumps(artifact, indent=2), encoding="utf-8")
             print(
-                f"wrote {args.out} (DRY-RUN, reproducible=false, NOT gate-conformant; "
+                f"wrote {args.out} (DRY-RUN split artifact, unlocks_retraining=false; "
                 f"split_digest {artifact['split_digest'][:12]})"
             )
             return 0
