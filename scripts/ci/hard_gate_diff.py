@@ -31,6 +31,15 @@ import sys
 from dataclasses import dataclass
 
 
+class HardGateError(RuntimeError):
+    """A gate MALFUNCTION (not a code finding).
+
+    Raised when the gate cannot do its job — e.g. the diff base does not resolve. A
+    malfunction must fail CLOSED regardless of dry-run/enforce, because the whole point of
+    this gate is that a broken gate must not silently report a pass.
+    """
+
+
 @dataclass(frozen=True)
 class Finding:
     file: str          # repo-relative path
@@ -49,10 +58,31 @@ def changed_lines(base_ref: str, run=subprocess.run) -> dict[str, set[int]]:
     are the new-file lines this diff introduced. Deletion-only hunks (``d == 0``)
     contribute nothing.
     """
-    out = run(
+    # FAIL CLOSED on an unresolvable base. If the base ref does not exist (e.g. the CI
+    # fetch failed), `git diff` would print nothing and exit non-zero — which the old code
+    # read as an EMPTY diff, i.e. "zero changed lines", i.e. a green gate on everything.
+    # An unknown base is a malfunction, not "no changes": refuse to run.
+    probe = run(
+        ["git", "rev-parse", "--verify", "--quiet", f"{base_ref}^{{commit}}"],
+        capture_output=True, text=True, check=False,
+    )
+    if probe.returncode != 0:
+        raise HardGateError(
+            f"diff base {base_ref!r} does not resolve to a commit. Refusing to run: an "
+            "unresolvable base sees zero changed lines and would pass the gate on everything. "
+            "(In CI this usually means the base fetch failed — it must not be swallowed with "
+            "`|| true`.)"
+        )
+    proc = run(
         ["git", "diff", "--unified=0", f"{base_ref}...HEAD", "--", "*.py"],
         capture_output=True, text=True, check=False,
-    ).stdout
+    )
+    if proc.returncode != 0:
+        raise HardGateError(
+            f"`git diff {base_ref}...HEAD` failed (rc={proc.returncode}): "
+            f"{proc.stderr.strip() or '<no stderr>'}"
+        )
+    out = proc.stdout
     result: dict[str, set[int]] = {}
     cur: str | None = None
     hunk = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
@@ -130,9 +160,16 @@ def main() -> int:
 
     print(f"hard-gate: mode={'ENFORCE' if enforce else 'dry-run'} base={base}")
     print(f"  changed .py files: {len(changed_files)}")
-    for tool, ok in [("vulture", vult_ok), ("duplicate-code", dup_ok)]:
-        if not ok:
-            print(f"  ::warning:: {tool} unavailable -- not run (gate does not fabricate a pass/fail)")
+    missing = [tool for tool, ok in [("vulture", vult_ok), ("duplicate-code", dup_ok)] if not ok]
+    for tool in missing:
+        print(f"  ::warning:: {tool} unavailable -- not run (gate does not fabricate a pass/fail)")
+    # In ENFORCE mode a missing finding-producer means the gate CANNOT verify the changed
+    # lines. That is a malfunction, not a pass: fail closed. (In dry-run it's only a warning.)
+    if enforce and missing:
+        raise HardGateError(
+            f"finding-producer(s) unavailable in enforce mode: {', '.join(missing)}. "
+            "The gate cannot certify changed lines without them; refusing to report a pass."
+        )
     if not new:
         print("  no NEW dead-code / duplicate-code on changed lines. OK")
         return 0
@@ -150,4 +187,10 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except HardGateError as exc:
+        # A malfunction fails CLOSED in BOTH modes (dry-run and enforce) — a broken gate
+        # must never be mistaken for a green one. Exit 2 to distinguish it from a finding (1).
+        print(f"::error::hard-gate MALFUNCTION (fail-closed): {exc}", file=sys.stderr)
+        sys.exit(2)

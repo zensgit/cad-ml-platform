@@ -16,10 +16,11 @@ name: Hard Gate (diff-scoped, dry-run)
 on:
   pull_request:
     branches: [main]
-    paths:
-      - 'src/**'
-      - 'scripts/ci/hard_gate_diff.py'
-      - '.github/workflows/hard-gate.yml'
+  # NO `paths:` filter. A required check must post a status on EVERY PR to main; with a
+  # paths filter, a PR that touches no matched file never triggers the job, so the required
+  # context is never reported and the PR waits forever. Path-scoping is done INSIDE the gate
+  # (it only inspects the .py lines this PR changed), so a PR with no relevant changes simply
+  # finds nothing and passes -- which is exactly what makes this safe to require.
 
 permissions:
   contents: read
@@ -50,5 +51,10 @@ jobs:
           HARD_GATE_BASE: origin/${{ github.base_ref }}
           # HARD_GATE_ENFORCE: "1"   # <-- owner-only: uncomment to make blocking
         run: |
-          git fetch origin "${{ github.base_ref }}" --depth=1 || true
+          # Fail CLOSED on a base-fetch failure: NO `|| true`. If we cannot fetch the base,
+          # the diff has no baseline and the gate would see "zero changed lines" and pass
+          # everything. Also no `--depth=1`: the merge-base (base...HEAD) needs real history,
+          # which `actions/checkout` already provided via fetch-depth: 0.
+          git fetch --no-tags origin \
+            "+refs/heads/${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}"
           python scripts/ci/hard_gate_diff.py

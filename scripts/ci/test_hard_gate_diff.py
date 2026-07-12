@@ -10,11 +10,18 @@ including local py3.9. Exercises the two invariants that make the gate safe to a
 
 Plus the git-diff hunk parser, driven by a fake `run` so no real repo is needed.
 """
+import os
 import sys
 import types
 
 sys.path.insert(0, ".")
-from scripts.ci.hard_gate_diff import Finding, changed_lines, new_violations  # noqa: E402
+from scripts.ci import hard_gate_diff as hg  # noqa: E402
+from scripts.ci.hard_gate_diff import (  # noqa: E402
+    Finding,
+    HardGateError,
+    changed_lines,
+    new_violations,
+)
 
 FAILS = []
 
@@ -60,7 +67,10 @@ FAKE_DIFF = (
 
 
 def fake_run(cmd, capture_output, text, check):  # noqa: ARG001
-    return types.SimpleNamespace(stdout=FAKE_DIFF)
+    # command-aware: the base-resolves probe (rev-parse) succeeds, the diff returns hunks.
+    if "rev-parse" in cmd:
+        return types.SimpleNamespace(stdout="deadbeef\n", stderr="", returncode=0)
+    return types.SimpleNamespace(stdout=FAKE_DIFF, stderr="", returncode=0)
 
 
 parsed = changed_lines("origin/main", run=fake_run)
@@ -68,6 +78,51 @@ check("hunk parser: foo.py added lines == {11,12,13}", parsed.get("src/core/foo.
 check("hunk parser: bar.py changed line == {5}", parsed.get("src/core/bar.py") == {5})
 check("hunk parser: deletion-only hunk adds nothing (no line 50/51)",
       50 not in parsed.get("src/core/foo.py", set()))
+
+# --- fail-closed invariant 1: an UNRESOLVABLE base must raise, not return {} -----
+def run_base_missing(cmd, capture_output, text, check):  # noqa: ARG001
+    if "rev-parse" in cmd:                       # base does not resolve
+        return types.SimpleNamespace(stdout="", stderr="", returncode=128)
+    raise AssertionError("must not run `git diff` once the base is known-unresolvable")
+
+
+try:
+    changed_lines("origin/gone", run=run_base_missing)
+    check("unresolvable base FAILS CLOSED (raises, not {} = pass-everything)", False)
+except HardGateError:
+    check("unresolvable base FAILS CLOSED (raises, not {} = pass-everything)", True)
+
+# --- fail-closed invariant 2: a `git diff` failure must raise --------------------
+def run_diff_fails(cmd, capture_output, text, check):  # noqa: ARG001
+    if "rev-parse" in cmd:
+        return types.SimpleNamespace(stdout="ok\n", stderr="", returncode=0)
+    return types.SimpleNamespace(stdout="", stderr="fatal: bad object", returncode=128)
+
+
+try:
+    changed_lines("origin/main", run=run_diff_fails)
+    check("git diff failure FAILS CLOSED (raises)", False)
+except HardGateError:
+    check("git diff failure FAILS CLOSED (raises)", True)
+
+# --- fail-closed invariant 3: enforce mode + missing tool must raise -------------
+_orig_avail = hg._tool_available
+_orig_cl = hg.changed_lines
+try:
+    hg._tool_available = lambda name: False                     # no vulture / pylint
+    hg.changed_lines = lambda base: {"src/x.py": {1}}           # pretend a .py changed
+    os.environ["HARD_GATE_ENFORCE"] = "1"
+    os.environ["HARD_GATE_BASE"] = "origin/main"
+    try:
+        hg.main()
+        check("enforce mode + missing finding-producer FAILS CLOSED (raises)", False)
+    except HardGateError:
+        check("enforce mode + missing finding-producer FAILS CLOSED (raises)", True)
+finally:
+    hg._tool_available = _orig_avail
+    hg.changed_lines = _orig_cl
+    os.environ.pop("HARD_GATE_ENFORCE", None)
+    os.environ.pop("HARD_GATE_BASE", None)
 
 print("\nOBSERVED-RED demonstration (the filter genuinely discriminates):")
 print(f"  same violation on changed line 11 -> caught={on_changed in kept}")
