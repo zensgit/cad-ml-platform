@@ -26,9 +26,12 @@ never drift from the split the L3 gate trusts.
 `scripts/track_e_manifest.py` (stdlib), importing slice-1's primitives (`compute_split`,
 `content_hash`, `_family_key`, `split_digest`, `QuarantineRow`, `IntegrityError`):
 
-- `categorize(row)` — "augmented" (aug/rot/flip/noise/jitter/scale + morphological variants),
-  "synthetic" (synthetic/synth/generated/gan), else "real"; augmentation wins ties; markers require a
-  separator/start-end boundary so `rotator`/`generalpurpose`/`gen2_assembly` do **not** false-positive.
+- `categorize(row)` — an explicit `data_origin`/`provenance`/`category` column is **authoritative**;
+  else a boundary-anchored marker positively identifies "augmented" (aug/rot/flip/noise/jitter/scale +
+  morphological variants) or "synthetic" (synthetic/synth/generated/gan); **else "unknown"** — an
+  unmarked, undeclared sample is NOT inferred to be real (review P1: §8.1.5 is a provenance report, not
+  inference). `provenance_complete` is false whenever any row is unknown, so an incomplete-provenance
+  dataset can't be treated as a clean evaluation input.
 - `build_versioned_manifest(...)` — runs `compute_split` (quarantined rows excluded, fail-closed
   inherited), enriches survivors, surfaces `quarantined` separately for audit.
 - `_manifest_digest` — sha256 over per-row `sort_keys` JSON, list-sorted → **order-independent**.
@@ -48,11 +51,16 @@ never drift from the split the L3 gate trusts.
 | **tamper discrimination** — `verify_manifest` RED on content change / row-removal / row-add | pass |
 | CLI `build`→`report`→`verify` | pass |
 
-**Documented scope boundaries** (intentional, low-risk): `verify_manifest` re-derives
+**Review fixes (this revision):** (P1) unmarked/undeclared rows now classify as **unknown**, never
+silently "real" — an explicit provenance column is authoritative, and `provenance_complete` surfaces
+any unknowns; (P2) `_enrich_rows` now reuses the **single hash snapshot** `compute_split` computed
+(`split["content_hashes"]`) instead of re-reading each file, so the manifest's `content_hash` can
+never disagree with the split it records (closes the two-read snapshot-inconsistency window).
+
+**Documented scope boundary** (intentional, low-risk): `verify_manifest` re-derives
 `source`/`license`/`label_authority` from the stored manifest, so it catches content/split/row drift
 but not a *self-consistent* relabel of provenance-only fields (they aren't derivable from the rows) —
-same class as slice-1's verify authenticating the split, not metrics. `content_hash` is read twice
-per surviving row (once in `compute_split`, once when enriching) — correct, acceptable at this scale.
+same class as slice-1's verify authenticating the split, not metrics.
 
 ## 3. CI & model routing
 

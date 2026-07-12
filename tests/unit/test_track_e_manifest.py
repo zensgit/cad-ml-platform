@@ -27,7 +27,8 @@ def _mk(tmp_path: Path, name: str, content: bytes, label: str, **extra: str) -> 
 @pytest.mark.parametrize(
     "name,expected",
     [
-        ("gear.dxf", "real"),
+        # review P1: an unmarked, undeclared sample is UNKNOWN provenance, not silently "real"
+        ("gear.dxf", "unknown"),
         ("gear_aug1.dxf", "augmented"),
         ("gear_AUG2.DXF", "augmented"),          # case-insensitive
         ("gear_rot90.dxf", "augmented"),
@@ -40,15 +41,22 @@ def _mk(tmp_path: Path, name: str, content: bytes, label: str, **extra: str) -> 
         ("part_synthetic.dxf", "synthetic"),
         ("PART_GENERATED.dxf", "synthetic"),      # case-insensitive
         ("part_gan.dxf", "synthetic"),
-        # adversarial: substrings that must NOT false-positive without a marker boundary
-        ("rotator_part.dxf", "real"),
-        ("generalpurpose.dxf", "real"),
-        ("gear2.dxf", "real"),                    # bare trailing digit, no marker word
+        # adversarial: substrings that must NOT false-positive without a marker boundary → unknown
+        ("rotator_part.dxf", "unknown"),
+        ("generalpurpose.dxf", "unknown"),
+        ("gear2.dxf", "unknown"),                 # bare trailing digit, no marker word
     ],
 )
 def test_categorize_from_filename(name: str, expected: str) -> None:
     row = {"file_path": name, "cache_path": "", "taxonomy_v2_class": "gear"}
     assert tm.categorize(row) == expected
+
+
+@pytest.mark.parametrize("declared", ["real", "synthetic", "augmented", "unknown"])
+def test_declared_provenance_column_is_authoritative(declared: str) -> None:
+    # an explicit data_origin/provenance/category column overrides any filename inference
+    row = {"file_path": "gear_aug1.dxf", "taxonomy_v2_class": "gear", "data_origin": declared}
+    assert tm.categorize(row) == declared
 
 
 def test_categorize_checks_declared_family_column_too() -> None:
@@ -66,10 +74,10 @@ def test_categorize_is_deterministic() -> None:
 
 # --- build_versioned_manifest: §8.1.6 fields + quarantine exclusion ------------------------------
 def test_build_versioned_manifest_emits_every_8_1_6_field(tmp_path: Path) -> None:
-    real_row = _mk(tmp_path, "gear.dxf", b"AAAA", "gear")
+    real_row = _mk(tmp_path, "gear.dxf", b"AAAA", "gear"); real_row["data_origin"] = "real"
     aug_row = _mk(tmp_path, "gear_aug1.dxf", b"BBBB", "gear")
     synth_row = _mk(tmp_path, "part_synth.dxf", b"CCCC", "part")
-    plain_row = _mk(tmp_path, "bracket.dxf", b"DDDD", "bracket")
+    plain_row = _mk(tmp_path, "bracket.dxf", b"DDDD", "bracket")  # unmarked, undeclared -> unknown
     missing_row = {
         "file_path": str(tmp_path / "does_not_exist.dxf"),
         "cache_path": "",
@@ -118,9 +126,14 @@ def test_build_versioned_manifest_emits_every_8_1_6_field(tmp_path: Path) -> Non
         assert len(row["content_hash"]) == 64  # sha256 hex
 
     by_path = {r["file_path"]: r for r in manifest["rows"]}
-    assert by_path[real_row["file_path"]]["category"] == "real"
+    assert by_path[real_row["file_path"]]["category"] == "real"          # declared data_origin
     assert by_path[aug_row["file_path"]]["category"] == "augmented"
     assert by_path[synth_row["file_path"]]["category"] == "synthetic"
+    assert by_path[plain_row["file_path"]]["category"] == "unknown"      # unmarked -> unknown
+
+    # unknown provenance keeps the manifest not-provenance-complete (review P1)
+    assert manifest["unknown_provenance_rows"] == 1
+    assert manifest["provenance_complete"] is False
 
     assert len(manifest["manifest_digest"]) == 64
     assert len(manifest["split_digest"]) == 64
@@ -152,7 +165,9 @@ def test_manifest_digest_is_deterministic_and_order_independent(tmp_path: Path) 
 def test_report_by_category_sums_and_split_breakdown_are_correct(tmp_path: Path) -> None:
     rows = []
     for i in range(3):
-        rows.append(_mk(tmp_path, f"real{i}.dxf", f"r{i}".encode(), "real_cls"))
+        r = _mk(tmp_path, f"real{i}.dxf", f"r{i}".encode(), "real_cls")
+        r["data_origin"] = "real"   # declared real provenance (name alone would be "unknown")
+        rows.append(r)
     for i in range(2):
         rows.append(_mk(tmp_path, f"part{i}_aug1.dxf", f"a{i}".encode(), "aug_cls"))
     rows.append(_mk(tmp_path, "widget_synth.dxf", b"synth-bytes", "synth_cls"))

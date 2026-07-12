@@ -31,7 +31,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional
 
 # Resolve the sibling slice-1 module whether this file is imported as
 # ``scripts.track_e_manifest`` (pytest, repo root on sys.path) or run as
@@ -45,19 +45,22 @@ if _SCRIPTS_DIR not in sys.path:
 # construction (single source of truth for the leakage-safe split).
 from track_e_eval_integrity import (  # noqa: E402  (sibling script; scripts/ ensured on sys.path above)
     IntegrityError,
-    QuarantineRow,
     _family_key,
     compute_split,
-    content_hash,
     split_digest,
 )
 
 SCHEMA_VERSION = "evaluation-integrity-manifest-v2"
 DEFAULT_HOLDOUT_FRACTION = 0.2
 
-# §8.1.5: separate reporting for real, synthetic, and augmented data. Order is meaningful only as
-# the canonical enumeration order for report scaffolding — categorize() below decides membership.
-CATEGORIES = ("real", "synthetic", "augmented")
+# §8.1.5: separate reporting for real, synthetic, and augmented data — plus "unknown", because the
+# absence of a synthetic/augmentation marker does NOT prove a sample is real provenance (§8.1.5 is
+# a provenance report, not an inference). Order is only the canonical report-scaffolding order.
+CATEGORIES = ("real", "synthetic", "augmented", "unknown")
+
+# Explicit provenance columns are AUTHORITATIVE — preferred over any filename inference.
+_DECLARED_COLUMNS = ("data_origin", "provenance", "category")
+_VALID_DECLARED = {"real", "synthetic", "augmented", "unknown"}
 
 # Markers that denote a sample was produced by data augmentation of some other source sample.
 # Anchored on a separator-or-start boundary before, and a separator-or-end boundary after any
@@ -77,13 +80,21 @@ _SYNTHETIC_RE = re.compile(
 
 
 def categorize(row: dict) -> str:
-    """Classify a manifest row as real/synthetic/augmented from filename/family markers (§8.1.5).
+    """Classify a manifest row's provenance: real / synthetic / augmented / unknown (§8.1.5).
 
-    Regex-based, case-insensitive, deterministic — no I/O, no RNG, so two runs over the same row
-    always agree. Checks both the ``file_path`` stem and an explicit ``family`` column (if
-    present); augmentation markers take priority over synthetic markers (an augmented copy is,
-    first and foremost, an augmentation of *something*).
+    1. An explicit ``data_origin``/``provenance``/``category`` column is AUTHORITATIVE.
+    2. Otherwise a positive filename/family marker can identify ``augmented`` or ``synthetic``
+       (augmentation wins ties — an augmented copy is first an augmentation *of* something).
+    3. Otherwise ``unknown`` — the absence of a marker is NOT proof of real provenance, so an
+       unmarked, undeclared sample must not be silently counted as real (it keeps the manifest's
+       provenance incomplete rather than fabricating a "real" label).
+
+    Deterministic, no I/O, no RNG.
     """
+    for col in _DECLARED_COLUMNS:
+        val = str(row.get(col, "") or "").strip().lower()
+        if val in _VALID_DECLARED:
+            return val
     stem = Path(str(row.get("file_path", ""))).stem
     family = str(row.get("family", "") or "")
     text = f"{stem} {family}" if family else stem
@@ -91,7 +102,7 @@ def categorize(row: dict) -> str:
         return "augmented"
     if _SYNTHETIC_RE.search(text):
         return "synthetic"
-    return "real"
+    return "unknown"
 
 
 def _enrich_rows(
@@ -101,35 +112,29 @@ def _enrich_rows(
     source: str,
     license_: str,
     label_authority: str,
-    root: Optional[Path] = None,
-) -> Tuple[List[dict], List[dict]]:
+) -> List[dict]:
     """Build one §8.1.6-complete record per row that survived slice-1's ``compute_split``.
 
     Rows slice-1 quarantined (missing/unreadable content, label conflict, missing field) are
     silently absent from ``split["assignment"]`` and therefore excluded here too — fail-closed
-    behaviour is inherited, not re-implemented.
+    behaviour is inherited, not re-implemented. The ``content_hash`` is the SAME snapshot
+    ``compute_split`` computed to build the split (``split["content_hashes"]``) — NOT a second read
+    — so the manifest's hash can never disagree with the split it records (review P2: a file
+    changing between two independent reads could otherwise let identical content straddle).
     """
+    content_hashes = split["content_hashes"]
     enriched: List[dict] = []
-    extra_quarantined: List[dict] = []
     for row in rows:
         key = str(row.get("file_path", ""))
         if key not in split["assignment"]:
             continue  # quarantined upstream by compute_split; never enters the manifest
-        fp = key.strip()
-        try:
-            ch = content_hash(fp, root=root)
-        except QuarantineRow as exc:
-            # Defensive fail-closed: content vanished/became unreadable between compute_split's
-            # pass and this one. Never silently include a row we cannot re-hash.
-            extra_quarantined.append({"file_path": key, "reason": str(exc)})
-            continue
         enriched.append(
             {
                 "file_path": key,
                 "cache_path": str(row.get("cache_path", "")),
                 "taxonomy_v2_class": str(row.get("taxonomy_v2_class", "")).strip(),
                 "family": _family_key(row),
-                "content_hash": ch,
+                "content_hash": content_hashes[key],   # the authoritative split-time snapshot
                 "split": split["assignment"][key],
                 "category": categorize(row),
                 "source": source,
@@ -137,7 +142,7 @@ def _enrich_rows(
                 "label_authority": label_authority,
             }
         )
-    return enriched, extra_quarantined
+    return enriched
 
 
 def _manifest_digest(enriched_rows: Iterable[dict]) -> str:
@@ -171,18 +176,23 @@ def build_versioned_manifest(
     """
     rows = list(rows)
     split = compute_split(rows, holdout_fraction=holdout_fraction, root=root)
-    enriched, extra_quarantined = _enrich_rows(
-        rows, split, source=source, license_=license_, label_authority=label_authority, root=root
+    enriched = _enrich_rows(
+        rows, split, source=source, license_=license_, label_authority=label_authority
     )
-    quarantined = list(split["quarantined"]) + extra_quarantined
+    unknown_provenance = sum(1 for r in enriched if r["category"] == "unknown")
     return {
         "schema_version": SCHEMA_VERSION,
         "source": source,
         "license": license_,
         "label_authority": label_authority,
         "holdout_fraction": holdout_fraction,
+        # §8.1.5 provenance completeness: any row of unknown provenance means the manifest is NOT a
+        # clean, fully-attributed dataset — a downstream evaluation must NOT treat it as complete
+        # (keeps the L3 exit condition blocked until provenance is resolved).
+        "provenance_complete": unknown_provenance == 0,
+        "unknown_provenance_rows": unknown_provenance,
         "rows": enriched,
-        "quarantined": quarantined,
+        "quarantined": list(split["quarantined"]),
         "manifest_digest": _manifest_digest(enriched),
         "split_digest": split_digest(split),
     }
