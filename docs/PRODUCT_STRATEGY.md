@@ -163,7 +163,9 @@ A content-hash audit on 2026-07-12 resolved the files referenced by the current 
 
 The current governance check in `scripts/ci/check_training_data_governance.py` compares only `file_path` and `cache_path` strings. The corresponding unit test also checks only path strings. It therefore reports a clean split even when different paths contain identical bytes.
 
-The source drawings are not reproducible from a fresh clone, so the audit above is workstation evidence, not a release artifact. Until section 8.1 lands, accuracy claims such as `91.5%` are advisory and must not be used as a customer promise.
+The `91.5%` threshold is not merely a reporting claim. `scripts/auto_retrain.sh` defaults `GOLDEN_VAL` to this validation manifest, fine-tunes against it, and treats `ACC >= 91.5` as the gate for a model artifact to be marked `Ready for deployment`; a failing artifact is deleted. The path is dormant today only because it has fewer than 200 human-reviewed samples. That is accidental safety: Track C is intended to create those samples and would otherwise arm a known-contaminated promotion gate.
+
+The source drawings are not reproducible from a fresh clone, so the audit above is workstation evidence, not a release artifact. Until section 8.1 lands, accuracy claims such as `91.5%` are advisory, must not be used as a customer promise, and must not authorize model promotion.
 
 ### 5.3 B-Rep evidence is not a shipped moat
 
@@ -224,6 +226,8 @@ A capability is complete only when:
 
 Merging this document authorizes only the following new product work. Phase 0 cleanup and CI hardening already authorized by [the 2026-07-06 design record](PLATFORM_POSITIONING_AND_ROADMAP_DESIGN_20260706.md) may continue, but it is engineering hygiene, not market validation.
 
+**Hard ordering constraint**: Tracks E and C may run in parallel for discovery, lawful sample collection, and human review, but the retraining and model-promotion path must remain fail-closed until Track E's exit condition is satisfied. The first implementation change after ratification, and before Track C writes any correction to a retraining-readable store, must make `scripts/auto_retrain.sh` exit non-zero before mutation or training and point operators to sections 5.2 and 8.1. Re-enablement must be bound to a versioned, reproducible evaluation-integrity artifact, not to the presence of enough queue rows or an unreviewed environment toggle.
+
 ### 8.1 Track E: evaluation-integrity-v2
 
 Deliver a reproducible independent evaluation pack before improving models:
@@ -250,11 +254,13 @@ Run two real discovery tracks in parallel with evaluation work. Each track must 
 
 Do not promise a full platform. Offer one vertical slice: ingest archive, find candidates, review evidence, decide reuse/revise/new, and export or write back the decision through the customer's authority.
 
+Corrections collected before Track E completes remain quarantined review evidence. They must not be appended to a training manifest, consumed by `auto_retrain.sh`, or used to promote a model.
+
 Exit condition by day 90: at least one partner agrees to a measured pilot with data access and named reviewers. Otherwise pause feature work and reassess the wedge.
 
 ### 8.3 Pilot release gates
 
-Before any pilot handles customer drawings:
+Before any pilot runtime handles customer drawings:
 
 - remove default test credentials from production mode;
 - require authenticated tenant and user identity;
@@ -264,13 +270,20 @@ Before any pilot handles customer drawings:
 - run the candidate model on an independent customer holdout;
 - document all unsupported formats and failure states.
 
+Before these gates pass, a legally obtained sample may be processed only in an isolated offline environment under the agreed retention policy, with no external-provider egress and no connection to a production or shared tenant.
+
 ### 8.4 Thirty, sixty, and ninety days
 
 | Window | Required outcome | Stop signal |
 |---|---|---|
-| Days 0-30 | Freeze the evaluation-integrity-v2 contract; inventory and contact at least ten qualified manufacturers; obtain two legal sample-data conversations. | No one will share a bounded sample or name the costly workflow. Revisit the customer profile before building. |
-| Days 31-60 | Run the reproducible evaluator on the first real archive; close production-auth defaults; demonstrate the reuse/revise/new review flow without canonical write-back. | Independent holdout quality or review usefulness is below the agreed pilot threshold. Improve evidence, not feature breadth. |
+| Days 0-30 | Freeze the evaluation-integrity-v2 contract; close production-auth defaults; define and verify isolated sample handling; inventory and contact at least ten qualified manufacturers; obtain two legal sample-data conversations. | No one will share a bounded sample or name the costly workflow. Revisit the customer profile before building. |
+| Days 31-60 | Run the reproducible evaluator on the first real archive in the approved isolated or pilot environment; demonstrate the reuse/revise/new review flow without canonical write-back. | Independent holdout quality or review usefulness is below the agreed pilot threshold. Improve evidence, not feature breadth. |
 | Days 61-90 | Secure at least one measured pilot with named reviewers, baseline metrics, data policy, and commercial next step. | No measured pilot commitment. Pause product features and decide whether to fold the engine into the chosen CAD/PLM product. |
+
+The commercial gates form an explicit ladder, not interchangeable wording:
+
+1. **Day 90** requires a measured pilot commitment with data access, named reviewers, metrics, and a commercial next step. Missing it pauses feature work and forces a wedge review.
+2. **Month 6** requires payment or a contractual commitment. Missing it ends the independent-product attempt and folds the engine into the chosen CAD/PLM product.
 
 ## 9. Three-year roadmap
 
