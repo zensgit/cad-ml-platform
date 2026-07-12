@@ -40,6 +40,21 @@ echo "Min samples: ${MIN_REVIEWED}"
 echo "Acc gate:    ${ACC_GATE}%"
 echo ""
 
+# Step 0 (L3, fail-closed): evaluation-integrity gate. Runs BEFORE any manifest write,
+# preprocessing, or training. Re-enablement of the retraining / model-promotion path is bound to a
+# versioned, reproducible evaluation-integrity-v2 artifact (PRODUCT_STRATEGY.md §5.2, §8.1) — never
+# to queue-row counts or an environment toggle. Unset/empty env resolves to the default path and is
+# STILL checked (a missing artifact is red), so there is no fail-open on an unset var.
+EVAL_INTEGRITY_ARTIFACT="${EVAL_INTEGRITY_ARTIFACT:-data/eval_integrity/evaluation_integrity_v2.json}"
+echo "Step 0: Evaluation-integrity gate (${EVAL_INTEGRITY_ARTIFACT})..."
+# Guarded (not bare) so `set -e` cannot swallow the gate's own §-pointer message.
+if ! python3 scripts/eval_integrity_gate.py \
+        --artifact "${EVAL_INTEGRITY_ARTIFACT}" \
+        --require-version evaluation-integrity-v2; then
+    echo "  BLOCKED: retraining is fail-closed until Track E's evaluation-integrity-v2 artifact is valid."
+    exit 1
+fi
+
 # Step 1: Check reviewed sample count
 REVIEWED=$(python3 -c "
 from src.ml.low_conf_queue import LowConfidenceQueue
