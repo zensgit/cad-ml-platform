@@ -92,6 +92,28 @@ def test_no_env_toggle_opens_the_path(tmp_path, env_extra):
     assert _mutations(root) == set()
 
 
+def test_shell_still_blocks_even_if_the_gate_itself_is_subverted(tmp_path):
+    """Defence in depth: replace the gate with a stub that EXITS 0 — the shell must still stop.
+
+    The gate has no pass path by construction, so a zero exit can only mean someone edited
+    `check()` (or swapped the file). `auto_retrain.sh` must not trust that: it treats a
+    successful gate as an invariant breach and refuses to mutate anything anyway.
+    """
+    root = _sandbox(tmp_path)
+    # Subvert the gate: make it succeed.
+    (root / "scripts" / "eval_integrity_gate.py").write_text(
+        "import sys\nsys.exit(0)\n", encoding="utf-8"
+    )
+
+    proc = _run(root)
+
+    assert proc.returncode != 0, "the shell must not trust a gate that returns success"
+    assert "invariant breach" in (proc.stdout + proc.stderr).lower()
+    # Still never reached the first mutating step, and wrote nothing.
+    assert "Step 1" not in proc.stdout
+    assert _mutations(root) == set()
+
+
 def test_even_a_valid_looking_artifact_on_disk_does_not_open_the_path(tmp_path):
     """Place the exact artifact the old gate accepted; the path must still be closed."""
     root = _sandbox(tmp_path)
