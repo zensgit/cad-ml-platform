@@ -141,10 +141,29 @@ try:
             check(f"vulture malfunction FAILS CLOSED: {label}", True)
     _, st1 = hg.run_vulture(["src/x.py"], run=_vult(1, "syntax error in a.py"))
     check("vulture rc=1 (unparseable file) -> status 'partial' (incomplete)", st1 == "partial")
-    _, st0 = hg.run_vulture(["src/x.py"], run=_vult(0))
-    check("vulture rc=0 (clean) -> status 'ok'", st0 == "ok")
+    for rc in (0, 3):
+        _, st = hg.run_vulture(["src/x.py"], run=_vult(rc))
+        check(f"vulture rc={rc} -> status 'ok'", st == "ok")
+    # ANY unexpected exit code (not 0/1/3) must fail closed -- do not guess completeness.
+    for rc in (4, 137, -9):
+        try:
+            hg.run_vulture(["src/x.py"], run=_vult(rc))
+            check(f"vulture unexpected rc={rc} FAILS CLOSED (raises)", False)
+        except HardGateError:
+            check(f"vulture unexpected rc={rc} FAILS CLOSED (raises)", True)
 finally:
     hg._tool_available = _orig_avail
+
+# --- tokenize normalization: a '#' INSIDE A STRING is not a comment (naive split got this wrong) ---
+_norm = hg._tokenized_lines('x = "a#b"\ny = 1  # real comment\n')
+check("tokenize: '#' inside a string literal is preserved", "a#b" in _norm.get(1, ""))
+check("tokenize: a real trailing comment is dropped", "#" not in _norm.get(2, ""))
+_tok_raised = False
+try:
+    hg._tokenized_lines("def broken(\n")   # unbalanced -> TokenError
+except (Exception,):  # noqa: BLE001  (TokenError/SyntaxError/IndentationError all acceptable)
+    _tok_raised = True
+check("tokenize: untokenizable input raises (caller turns it into 'partial')", _tok_raised)
 
 # --- enforce mode + INCOMPLETE analysis must exit 2 (dry-run only warns) -------------
 os.environ["HARD_GATE_BASE"] = "origin/main"

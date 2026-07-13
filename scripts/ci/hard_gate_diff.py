@@ -25,10 +25,12 @@ is the diff-line filter, exercised by scripts/ci/test_hard_gate_diff.py.
 from __future__ import annotations
 
 import hashlib
+import io
 import os
 import re
 import subprocess
 import sys
+import tokenize
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -185,18 +187,24 @@ def run_vulture(corpus: list[str], run=subprocess.run) -> tuple[list[Finding], s
         return [], "ok"
     proc = run([sys.executable, "-m", "vulture", *corpus, "--min-confidence", "80"],
                capture_output=True, text=True, check=False)
-    # vulture: 0=clean, 3=dead code found (both complete). 2=bad CLI + any traceback = malfunction.
-    # 1 = some file could not be parsed -> INCOMPLETE (a broken file, possibly the PR's own).
-    if proc.returncode == 2 or "Traceback (most recent call last)" in proc.stderr:
-        raise HardGateError(
-            f"vulture malfunctioned (rc={proc.returncode}): "
-            f"{(proc.stderr or proc.stdout).strip()[:300]}"
-        )
-    status = "ok"
-    if proc.returncode == 1:
+    # vulture exit codes (allow-list, fail-closed on anything else):
+    #   0 = clean, 3 = dead code found  -> complete run ('ok')
+    #   1 = some file could not be parsed -> INCOMPLETE ('partial'; fail-closed in enforce)
+    #   ANYTHING ELSE (2 bad-args, a traceback, a signal-kill like 137/OOM, an unknown code)
+    #     -> malfunction: a required gate must not guess. RAISE.
+    if "Traceback (most recent call last)" in proc.stderr:
+        raise HardGateError(f"vulture crashed: {proc.stderr.strip()[:300]}")
+    if proc.returncode in (0, 3):
+        status = "ok"
+    elif proc.returncode == 1:
         status = "partial"
         if proc.stderr.strip():
             print(f"  ::warning:: vulture partial: {proc.stderr.strip().splitlines()[0][:160]}")
+    else:
+        raise HardGateError(
+            f"vulture returned an unexpected exit code {proc.returncode} -- refusing to guess "
+            f"whether the run was complete: {(proc.stderr or proc.stdout).strip()[:300]}"
+        )
     findings = []
     pat = re.compile(r"^(.+?):(\d+): (.+)$")
     for line in proc.stdout.splitlines():
@@ -206,37 +214,55 @@ def run_vulture(corpus: list[str], run=subprocess.run) -> tuple[list[Finding], s
     return findings, status
 
 
-# Duplicate detection: a normalized-line FINGERPRINT INDEX over the whole corpus, NOT pylint.
+# Duplicate detection: a TOKENIZED-line FINGERPRINT INDEX over the whole corpus, NOT pylint.
 # pylint duplicate-code is superlinear -> the full tree times out (>150s), forcing a subsystem
 # bound that left cross-scope duplicates ungated. The index is O(total_lines) (~0.6s on this
 # repo), so it covers the ENTIRE tree with no scope gap, and is deterministic + tool-version-
-# independent (no JSON/exit-code parsing to break).
+# independent. Normalization is by `tokenize`, not naive text: a comment character inside a
+# string ("a#b") must NOT be treated as a comment, which a `split("#")` heuristic got wrong.
 DUP_MIN_LINES = 10
 
+_SKIP_TOK = frozenset({
+    tokenize.COMMENT, tokenize.NL, tokenize.NEWLINE, tokenize.INDENT,
+    tokenize.DEDENT, tokenize.ENCODING, tokenize.ENDMARKER,
+})
 
-def _normalize_line(line: str) -> str:
-    """Collapse a source line for comparison: drop a trailing comment, strip all whitespace.
-    Blank / comment-only lines normalise to "" and are skipped (a window is DUP_MIN_LINES
-    consecutive NON-trivial lines)."""
-    return re.sub(r"\s+", "", line.split("#", 1)[0])
+
+def _tokenized_lines(text: str) -> dict[int, str]:
+    """physical-line-number -> the significant tokens on that line, joined with NUL.
+
+    Uses the real tokenizer, so comments are dropped correctly (including a `#` inside a string
+    literal, which naive splitting mishandled) and whitespace is irrelevant. Identifier names
+    are KEPT (a verbatim/whitespace-different copy is the threat; pylint's R0801 does not rename
+    either). Raises tokenize.TokenError / IndentationError / SyntaxError on untokenizable input;
+    the caller treats that as an unparseable file (incomplete analysis)."""
+    per_line: dict[int, list[str]] = {}
+    reader = io.StringIO(text).readline
+    for tok in tokenize.generate_tokens(reader):
+        if tok.type in _SKIP_TOK:
+            continue
+        s = tok.string.strip()
+        if s:
+            per_line.setdefault(tok.start[0], []).append(s)
+    return {ln: "\x00".join(toks) for ln, toks in per_line.items()}
 
 
 def find_duplicates(corpus: list[str], changed_files: list[str],
                     min_lines: int = DUP_MIN_LINES) -> tuple[list[Finding], str]:
-    """Emit a finding for every changed-file window of `min_lines` consecutive non-trivial
-    normalized lines whose fingerprint ALSO appears in a DIFFERENT file (a cross-file copy).
+    """Emit a finding for every changed-file window of `min_lines` consecutive significant
+    (tokenized) lines whose fingerprint ALSO appears in a DIFFERENT file (a cross-file copy).
     Findings carry the changed file's real line numbers; main() filters to changed lines."""
     fp_files: dict[str, set[str]] = {}
     file_windows: dict[str, list[tuple[str, list[int]]]] = {}
-    unreadable: list[str] = []
+    unparseable: list[str] = []
     for f in corpus:
         try:
             text = Path(f).read_text(encoding="utf-8", errors="strict")
-        except (OSError, UnicodeDecodeError):
-            unreadable.append(f)
+            norm = _tokenized_lines(text)
+        except (OSError, UnicodeDecodeError, tokenize.TokenError, SyntaxError, IndentationError):
+            unparseable.append(f)
             continue
-        nontrivial = [(i + 1, _normalize_line(l)) for i, l in enumerate(text.splitlines())]
-        nontrivial = [(ln, n) for ln, n in nontrivial if n]
+        nontrivial = sorted(norm.items())  # (line_no, normalized) for lines with tokens
         wins: list[tuple[str, list[int]]] = []
         for j in range(len(nontrivial) - min_lines + 1):
             window = nontrivial[j:j + min_lines]
@@ -259,10 +285,13 @@ def find_duplicates(corpus: list[str], changed_files: list[str],
                                                 "duplicate-code"))
 
     status = "ok"
-    if unreadable:
+    if unparseable:
+        # A corpus file we could not tokenize is analysed INCOMPLETELY -> 'partial'
+        # (fail-closed in enforce). If one of the CHANGED files is unparseable, that is the PR's
+        # own syntax error and other CI catches it; here it just means we can't gate that file.
         status = "partial"
-        print(f"  ::warning:: duplicate-index: {len(unreadable)} corpus file(s) unreadable "
-              f"(e.g. {unreadable[0]})")
+        print(f"  ::warning:: duplicate-index: {len(unparseable)} corpus file(s) unparseable "
+              f"(e.g. {unparseable[0]})")
     return findings, status
 
 

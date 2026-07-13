@@ -58,7 +58,7 @@ that would let an *armed* gate pass code it should block. Both reproduced with *
 | # | Defect (before) | Achieved | Verified by (executed) |
 |---|---|---|---|
 | 4 | **Duplicate false-negative.** Producers were handed only the *changed* files. A new `b.py` copying an **unchanged** `a.py` → pylint never sees `a.py` → no R0801. This is the main "agent re-injects duplicate code" case. | Producers scan a **corpus** (changed files + their subsystem), then findings are filtered to changed lines. R0801 is parsed from **all** involved locations (JSON `==module:[range]`), not just pylint's order-dependent anchor — so a duplicate anchored on the *unchanged* file still reaches the changed one. | real-tool golden: new file copying an UNCHANGED file → **exit 1, R0801**; unit: "multi-location parse emits BOTH files"; "changed-line filter keeps the dup despite anchor on the unchanged". Repro of the *old* miss: only-`b.py`→0 findings, `a.py`+`b.py`→1. |
-| 5 | **Producer execution failure fails open.** `run_vulture`/`run_duplicate` ignored the subprocess return code + stderr, always returning `ok=True`. A tool that crashed / hit bad args / emitted unparseable output → `findings=[]` → **green**. | Exit codes are interpreted: vulture `0/3` expected, `2`/traceback → malfunction; pylint bit-mask — `8`=dup (expected), bit `1`(fatal)/`32`(usage) → malfunction; unparseable JSON → malfunction. A malfunction raises `HardGateError` → **exit 2 in both modes**. Distinct from "tool absent" (warn/enforce-fail). | unit: vulture rc=2 / traceback, pylint rc=32 / rc=1 / bad-JSON all → raise; rc=0 clean NOT misread as malfunction. |
+| 5 | **Producer execution failure fails open.** `run_vulture`/`run_duplicate` ignored the subprocess return code + stderr, always returning `ok=True`. A tool that crashed / hit bad args / emitted unparseable output → `findings=[]` → **green**. | vulture exit codes are an **allow-list**: `0/3`=ok, `1`=partial (incomplete); **ANY other code (2, a traceback, a signal-kill like 137, an unknown value) → malfunction → raise** — a required gate must not guess completeness. `git ls-files` failure and an untokenizable corpus file are handled too (raise / partial). | unit: vulture rc∈{2,4,137,-9}/traceback → raise; rc 0/3→ok, 1→partial; git-ls-files fail→raise; untokenizable file→partial. |
 
 ### Supporting changes
 - **Corpus is bounded, not the literal full tree.** The whole tree (~1200 `.py`) makes pylint
@@ -87,16 +87,17 @@ bound.
 
 | # | Defect (before) | Achieved | Verified by (executed) |
 |---|---|---|---|
-| 6 | **Duplicate gap was only closed within a subsystem.** The corpus was bounded (pylint timed out on the full tree), so `src/core/a` copied into `src/api/b` could pass. | **Global** duplicate detection via a normalized-line **fingerprint index** over the *whole* production tree (no subsystem bound): a window of `DUP_MIN_LINES=10` consecutive non-trivial normalized lines whose fingerprint also appears in a **different** file is a cross-file duplicate. O(total-lines), **~0.6 s**; full gate **6.4 s** end-to-end over 1167 files (was >150 s → timeout). Deterministic, tool-version-independent. | **golden: cross-SUBSYSTEM copy (`src/api` copies `src/core`) → exit 1** ("duplicate block also in src/core/orig.py"). Runs with no external tool. |
+| 6 | **Duplicate gap was only closed within a subsystem.** The corpus was bounded (pylint timed out on the full tree), so `src/core/a` copied into `src/api/b` could pass. | **Global** duplicate detection via a **tokenize-based fingerprint index** over the *whole* production tree (no subsystem bound): a window of `DUP_MIN_LINES=10` consecutive significant (tokenized) lines whose fingerprint also appears in a **different** file is a cross-file duplicate. Normalization uses the real tokenizer, so a `#` **inside a string** is not mistaken for a comment (the naive `split('#')` got that wrong). O(total-lines), full gate **~10 s** end-to-end over 1167 files (pylint was >150 s → timeout). Deterministic, tool-version-independent. | **golden: cross-SUBSYSTEM copy (`src/api` copies `src/core`) → exit 1** ("duplicate block also in src/core/orig.py"). Runs with no external tool. |
 | 7 | **Corpus/producer failures degraded silently.** `git ls-files` return code ignored → a failure shrank the corpus to changed-files-only. vulture `rc=1` (a file couldn't parse) only warned, even in enforce. | `candidate_corpus` **raises** on `git ls-files` failure. Producers return a 3-state status (`ok`/`absent`/`partial`); **any non-`ok` in ENFORCE → `HardGateError` → exit 2** (dry-run warns). A required gate never passes what it could not fully analyse. | unit: git-ls-files failure → raise; vulture rc=1 → `partial`; enforce+`partial`/`absent` → raise; dry-run+same → warn+continue; unreadable corpus file → `partial`. |
 
 ### Supporting changes
 - **pylint removed entirely** from duplicate detection — with it go the JSON parsing, order-dependent
   anchor, module→path mapping, exit-code bit-mask, and version pinning. Only **vulture** remains an
   external producer (still pinned `==2.16`); the fingerprint index is stdlib (`hashlib`).
-- **Fingerprint semantics documented:** normalized = trailing-comment stripped + all whitespace
-  removed; blank/comment-only lines skipped. Catches verbatim / whitespace- or comment-different
-  copies (the realistic re-injection); a rename-heavy paraphrase is out of scope by design.
+- **Fingerprint semantics documented:** normalization is by `tokenize` (comments/whitespace dropped
+  correctly, including a `#` inside a string; identifier names kept — pylint's R0801 doesn't rename
+  either). Catches verbatim / whitespace- or comment-different copies; a rename-heavy paraphrase is
+  out of scope by design.
 - vulture still runs over the **full tree** (5.5 s) so cross-file usage is correct (no false
   positives from changed-files-only).
 
@@ -105,6 +106,7 @@ bound.
 - **Arming remains owner-only** and is deliberately not performed here: it requires (a) uncommenting
   `HARD_GATE_ENFORCE: "1"`, and (b) adding the check to branch protection. This PR makes the gate
   *safe to arm* — it does not arm it. `merged != enabled != safe to enable` (§7.2).
-- **Duplicate detection is line-fingerprint, not AST/token** — it will not catch a copy that renames
-  identifiers throughout. Documented trade-off; an AST/token index is a future upgrade if needed.
+- **Duplicate detection is token-fingerprint, keeping names** — it will not catch a copy that
+  renames identifiers throughout. Documented trade-off; a rename-insensitive AST index is a future
+  upgrade if a real case appears.
 - These fixes make the gate *requireable*; whether to require it is a branch-protection decision.
