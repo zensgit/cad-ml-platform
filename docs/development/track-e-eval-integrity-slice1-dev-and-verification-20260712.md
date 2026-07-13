@@ -1,9 +1,9 @@
 # Track E slice-1 — leakage-safe split + dry-run split artifact — Dev & Verification (2026-07-12)
 
-> **Draft, stacked on #509 (the unconditional L3 gate).** Parallel dev per the owner's `/goal`. This
-> module is **fully decoupled from the L3 gate**: it imports nothing from it and cannot mint any
-> unlock (the L3 gate has no pass path by owner design). It does NOT enable retraining. Retarget to
-> `main` and run full CI after #509 merges.
+> **Targets `main` (#509 merged as `8ff94175`).** This module is **fully decoupled from the L3
+> gate**: it imports nothing from it and cannot mint any unlock (the gate has no pass path by owner
+> design). It does NOT enable retraining — Phase-A posture: *Safety foundation complete; retraining
+> remains disabled.*
 
 ## 0. What this is / is not
 
@@ -30,8 +30,8 @@ Track E (the split artifact schema is `evaluation-integrity-split-v1`, PRODUCT_S
 false-duplicate / missed-reuse **metrics** (they require running the model over the holdout — torch +
 data, not executable in this environment), and therefore the *full* §8.1 exit condition ("a fresh
 clone reproduces the **evaluation result**"). Slice-1 reproduces the **split** deterministically —
-the leakage-relevant half — and takes metrics from an eval-results file. Producing real metrics is a
-follow-up slice on the model-run lane.
+the leakage-relevant half — and emits no metrics at all. Producing real metrics (and the two-stage
+release gate that binds them to a candidate model) is a later phase on the model-run lane.
 
 ## 1. Design
 
@@ -51,10 +51,12 @@ follow-up slice on the model-run lane.
   two differently-named files with byte-identical content are merged into one unit and cannot
   straddle. Each component is assigned to `holdout`/`train` deterministically by hashing
   `"evaluation-integrity-v2|<component>"` — no RNG, no dict-order dependence.
-- `split_digest(split)` — sha256 over the sorted `(file_path, side)` assignment.
-- `build_artifact(rows, metrics)` — assembles the artifact from **imported** contract constants
-  (`REQUIRED_VERSION`, `REQUIRED_SPLIT_STRATEGY`, `REQUIRED_METRIC_KEYS`) and asserts it against the
-  real `validate_artifact` before returning (drift-proof).
+- `split_digest(split)` — sha256 over the sorted `(content_hash, side)` pairs — **host-independent**
+  (a fresh clone at a different absolute path reproduces the same digest; a pure rename of identical
+  bytes does not change it, which is correct for split integrity).
+- `build_split_artifact(rows)` — a **dry-run** split report (`evaluation-integrity-split-v1`):
+  hardcoded `unlocks_retraining: false`, `eval_eligible` (both sides populated), no metrics, no
+  `reproducible` field, and no import of the gate. Nothing here can re-enable retraining.
 - `verify_reproducible(rows, artifact)` — re-derives the split and compares the digest; RED on any
   drift. CLI: `split` / `build` / `verify`.
 
@@ -62,7 +64,7 @@ follow-up slice on the model-run lane.
 
 | Check | Result |
 |---|---|
-| Unit tests (`tests/unit/test_track_e_eval_integrity.py`) | **25 passed** |
+| Unit tests (`tests/unit/test_track_e_eval_integrity.py`) | **32 passed** |
 | — family variant collapse incl. `gear2` / `gear (1)` / `gear - Copy` / NFC-NFD (10 cases) | pass |
 | — declared `family` column is authoritative over the filename | pass |
 | — unreadable content **and NUL-byte path** → quarantined, not "distinct"/crash (fail-closed) | pass |
