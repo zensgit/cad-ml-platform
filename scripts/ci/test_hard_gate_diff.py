@@ -139,11 +139,26 @@ try:
             check(f"vulture malfunction FAILS CLOSED: {label}", False)
         except HardGateError:
             check(f"vulture malfunction FAILS CLOSED: {label}", True)
+    def _vult_out(rc, out):
+        def _r(cmd, capture_output, text, check):  # noqa: ARG001
+            return types.SimpleNamespace(stdout=out, stderr="", returncode=rc)
+        return _r
+
     _, st1 = hg.run_vulture(["src/x.py"], run=_vult(1, "syntax error in a.py"))
     check("vulture rc=1 (unparseable file) -> status 'partial' (incomplete)", st1 == "partial")
-    for rc in (0, 3):
-        _, st = hg.run_vulture(["src/x.py"], run=_vult(rc))
-        check(f"vulture rc={rc} -> status 'ok'", st == "ok")
+    _, st0 = hg.run_vulture(["src/x.py"], run=_vult_out(0, ""))
+    check("vulture rc=0 (clean, no output) -> status 'ok'", st0 == "ok")
+    _f3, _st3 = hg.run_vulture(["src/x.py"], run=_vult_out(3, "src/a.py:5: unused var 'x' (80% confidence)"))
+    check("vulture rc=3 WITH a parseable finding -> status 'ok'", _st3 == "ok" and len(_f3) == 1)
+    # rc=3 with no parseable finding, OR any unrecognised output line, is fake-green -> malfunction.
+    for label, run in [("rc=3 + no finding", _vult_out(3, "")),
+                       ("rc=3 + unrecognised output", _vult_out(3, "weird line\nanother")),
+                       ("rc=0 + unrecognised output", _vult_out(0, "unexpected garbage"))]:
+        try:
+            hg.run_vulture(["src/x.py"], run=run)
+            check(f"vulture {label} FAILS CLOSED (raises)", False)
+        except HardGateError:
+            check(f"vulture {label} FAILS CLOSED (raises)", True)
     # ANY unexpected exit code (not 0/1/3) must fail closed -- do not guess completeness.
     for rc in (4, 137, -9):
         try:
@@ -194,27 +209,30 @@ finally:
 _, dst = hg.find_duplicates(["/no/such/file_xyz.py"], ["/no/such/file_xyz.py"])
 check("find_duplicates: unreadable corpus file -> status 'partial'", dst == "partial")
 
-# --- test files are OUT of scope ----------------------------------------------------
-check("is_test_path: test_*.py excluded", hg.is_test_path("scripts/ci/test_x.py"))
-check("is_test_path: tests/ dir excluded", hg.is_test_path("tests/unit/x.py"))
-check("is_test_path: conftest.py excluded", hg.is_test_path("conftest.py"))
-check("is_test_path: production file NOT excluded", not hg.is_test_path("src/core/foo.py"))
+# --- candidate_corpus: a path with a SPACE must survive (NUL-safe ls-files) ----------
+def _ls_space(cmd, capture_output, text, check):  # noqa: ARG001
+    if "ls-files" in cmd:
+        return types.SimpleNamespace(stdout="src/new module.py\0src/a.py\0", stderr="", returncode=0)
+    return types.SimpleNamespace(stdout="", stderr="", returncode=0)
 
-# --- GOLDEN: new file copying an UNCHANGED file in a DIFFERENT subsystem -> RED ------
-# Pure-Python fingerprint index (no external tool), so this always runs. Proves GLOBAL
-# coverage: the copy in src/api is caught against the source in src/core.
+
+_corp = hg.candidate_corpus([], run=_ls_space)
+check("candidate_corpus: a space in a path is preserved, not torn by .split()",
+      "src/new module.py" in _corp and "src/a.py" in _corp)
+
+# --- test files: exclude only real test LOCATIONS, not any file named test_*.py -------
+check("is_test_path: tests/ dir excluded", hg.is_test_path("tests/unit/x.py"))
+check("is_test_path: a /test/ dir component excluded", hg.is_test_path("src/test/helper.py"))
+check("is_test_path: conftest.py excluded", hg.is_test_path("conftest.py"))
+check("is_test_path: the gate's own scripts/ci/test_*.py excluded",
+      hg.is_test_path("scripts/ci/test_hard_gate_diff.py"))
+check("is_test_path: a production file NOT excluded", not hg.is_test_path("src/core/foo.py"))
+check("is_test_path: a bare test_*.py in a PRODUCTION dir is GATED (bypass fix)",
+      not hg.is_test_path("src/test_runtime.py"))
+
 import subprocess
 import tempfile
 
-_d = tempfile.mkdtemp()
-
-
-def _git(*a):
-    return subprocess.run(["git", "-C", _d, *a], capture_output=True, text=True)
-
-
-_git("init", "-q"); _git("config", "user.email", "t@t"); _git("config", "user.name", "t")
-os.makedirs(f"{_d}/src/core"); os.makedirs(f"{_d}/src/api")
 _body = (
     "def compute_totals(rows):\n    total = 0\n    count = 0\n    invalid = 0\n    skipped = 0\n"
     "    for r in rows:\n        if r is None:\n            invalid += 1\n            continue\n"
@@ -222,19 +240,120 @@ _body = (
     "        total += r['amount']\n        count += 1\n    average = total / count if count else 0\n"
     "    return total, count, invalid, skipped, average\n"
 )
-open(f"{_d}/src/core/orig.py", "w").write(_body)
-open(f"{_d}/src/api/keep.py", "w").write("x = 1\n")
-_git("add", "-A"); _git("commit", "-qm", "base")
-_base = _git("rev-parse", "HEAD").stdout.strip()
-open(f"{_d}/src/api/copied.py", "w").write(_body)   # NEW file in src/api copies UNCHANGED src/core
-_git("add", "-A"); _git("commit", "-qm", "cross-subsystem copy")
-_res = subprocess.run(
-    [sys.executable, hg.__file__], cwd=_d,
-    env={**os.environ, "HARD_GATE_BASE": _base, "HARD_GATE_ENFORCE": "1"},
-    capture_output=True, text=True,
-)
-check("GOLDEN: cross-SUBSYSTEM copy (src/api copies src/core) -> RED (exit 1)",
-      _res.returncode == 1 and "duplicate block also in src/core/orig.py" in _res.stdout)
+
+# --- GOLDEN (PURE PYTHON, no external tool): find_duplicates catches a cross-subsystem copy ---
+# The earlier golden ran the whole gate as a subprocess, which needs vulture; without it the gate
+# exits 2 and the golden fails for the wrong reason. This one calls find_duplicates() directly, so
+# it proves GLOBAL duplicate coverage with zero external dependency.
+_gd = tempfile.mkdtemp()
+os.makedirs(f"{_gd}/src/core"); os.makedirs(f"{_gd}/src/api")
+open(f"{_gd}/src/core/orig.py", "w").write(_body)
+open(f"{_gd}/src/api/copied.py", "w").write(_body)   # copy lives in a DIFFERENT subsystem
+_fd, _ = hg.find_duplicates([f"{_gd}/src/core/orig.py", f"{_gd}/src/api/copied.py"],
+                            [f"{_gd}/src/api/copied.py"])
+check("GOLDEN (pure Python): cross-subsystem copy flagged on the CHANGED file",
+      any(f.file == f"{_gd}/src/api/copied.py" for f in _fd))
+
+# --- GOLDEN (end-to-end, guarded on vulture): the whole gate exits 1 on the same copy ---
+if hg._tool_available("vulture"):
+    _d = tempfile.mkdtemp()
+
+    def _git(*a):
+        return subprocess.run(["git", "-C", _d, *a], capture_output=True, text=True)
+
+    _git("init", "-q"); _git("config", "user.email", "t@t"); _git("config", "user.name", "t")
+    os.makedirs(f"{_d}/src/core"); os.makedirs(f"{_d}/src/api")
+    open(f"{_d}/src/core/orig.py", "w").write(_body)
+    open(f"{_d}/src/api/keep.py", "w").write("x = 1\n")
+    _git("add", "-A"); _git("commit", "-qm", "base")
+    _base = _git("rev-parse", "HEAD").stdout.strip()
+    open(f"{_d}/src/api/copied.py", "w").write(_body)
+    _git("add", "-A"); _git("commit", "-qm", "cross-subsystem copy")
+    _res = subprocess.run(
+        [sys.executable, hg.__file__], cwd=_d,
+        env={**os.environ, "HARD_GATE_BASE": _base, "HARD_GATE_ENFORCE": "1"},
+        capture_output=True, text=True,
+    )
+    check("GOLDEN (end-to-end): cross-subsystem copy -> RED (exit 1)",
+          _res.returncode == 1 and "duplicate block also in src/core/orig.py" in _res.stdout)
+else:
+    print("  SKIP end-to-end golden (vulture absent; the pure-Python golden above proves coverage)")
+
+# --- git invocations carry the hardening flags (non-ASCII / noprefix / -w / -z) -------
+_seen_cmds = []
+def _capture(cmd, capture_output, text, check):  # noqa: ARG001
+    _seen_cmds.append(cmd)
+    if "rev-parse" in cmd:
+        return types.SimpleNamespace(stdout="deadbeef", stderr="", returncode=0)
+    return types.SimpleNamespace(stdout="", stderr="", returncode=0)
+
+
+hg.changed_lines("origin/main", run=_capture)
+_diff_cmd = next((c for c in _seen_cmds if "diff" in c), [])
+check("git diff uses core.quotePath=false (non-ASCII paths not octal-escaped)",
+      "core.quotePath=false" in _diff_cmd)
+check("git diff uses diff.noprefix=false (b/ prefix the parser needs)",
+      "diff.noprefix=false" in _diff_cmd)
+check("git diff uses -w (a reindent of a pre-existing dup is not a 'change')", "-w" in _diff_cmd)
+_seen_cmds.clear()
+hg.candidate_corpus([], run=_capture)
+_ls_cmd = next((c for c in _seen_cmds if "ls-files" in c), [])
+check("git ls-files uses core.quotePath=false + -z", "core.quotePath=false" in _ls_cmd and "-z" in _ls_cmd)
+check("candidate_corpus enumerates ALL .py (not just src/scripts)", _ls_cmd[-1] == "*.py")
+
+# --- HARD_GATE_ENFORCE accepts truthy values, not only exact '1' ----------------------
+def _enforce_from(v):
+    return v.strip().lower() in ("1", "true", "yes", "on")
+for v in ("1", "true", "TRUE", "yes", "on"):
+    check(f"enforce accepts {v!r}", _enforce_from(v))
+for v in ("0", "", " false", "no"):
+    check(f"enforce rejects {v!r}", not _enforce_from(v))
+
+# --- find_duplicates: a file over the size cap is skipped (-> 'partial', fail-closed enforce) ---
+_big = tempfile.mkdtemp() + "/huge.py"
+with open(_big, "w") as _fh:
+    _fh.write("x = 1\n" * (hg._MAX_FILE_BYTES // 6 + 1000))  # comfortably over the cap
+_, _bst = hg.find_duplicates([_big], [_big])
+check("find_duplicates: a file over _MAX_FILE_BYTES -> status 'partial'", _bst == "partial")
+
+# --- P1: vulture finding-path has REAL coverage (a regression disabling it would be caught) ---
+if hg._tool_available("vulture"):
+    _vd = tempfile.mkdtemp()
+    # a genuinely dead function; vulture must produce a finding at its line
+    open(f"{_vd}/dead.py", "w").write("import os\n\n\ndef _never_called():\n    return 42\n")
+    _vf, _vst = hg.run_vulture([f"{_vd}/dead.py"])
+    check("REAL vulture: dead code yields a parsed finding (arm has finding-path coverage)",
+          _vst == "ok" and any(fd.source == "vulture" for fd in _vf))
+else:
+    print("  SKIP real-vulture finding-path coverage (vulture absent)")
+
+# --- baseline: a WHITESPACE-only reindent of a pre-existing duplicate is NOT flagged (real git) ---
+if hg._tool_available("vulture"):
+    _bd = tempfile.mkdtemp()
+
+    def _bgit(*a):
+        return subprocess.run(["git", "-C", _bd, *a], capture_output=True, text=True)
+
+    _bgit("init", "-q"); _bgit("config", "user.email", "t@t"); _bgit("config", "user.name", "t")
+    os.makedirs(f"{_bd}/src")
+    _blk = ("    total = 0\n    count = 0\n    invalid = 0\n    skipped = 0\n    for r in rows:\n"
+            "        if r is None:\n            invalid += 1\n        total += r\n        count += 1\n"
+            "    avg = total / count\n    return total, count, avg\n")
+    open(f"{_bd}/src/a.py", "w").write("def a(rows):\n" + _blk)
+    open(f"{_bd}/src/b.py", "w").write("def b(rows):\n" + _blk)   # pre-existing duplicate AT BASE
+    _bgit("add", "-A"); _bgit("commit", "-qm", "base")
+    _bbase = _bgit("rev-parse", "HEAD").stdout.strip()
+    # whitespace-only edit to b.py's duplicated block (tokens unchanged, no new construct)
+    _bt = open(f"{_bd}/src/b.py").read().replace("total = 0", "total  =  0").replace("count = 0", "count  =  0")
+    open(f"{_bd}/src/b.py", "w").write(_bt)
+    _bgit("add", "-A"); _bgit("commit", "-qm", "whitespace-reindent")
+    _br = subprocess.run([sys.executable, hg.__file__], cwd=_bd,
+                         env={**os.environ, "HARD_GATE_BASE": _bbase, "HARD_GATE_ENFORCE": "1"},
+                         capture_output=True, text=True)
+    check("BASELINE: whitespace edit to a PRE-EXISTING duplicate -> NOT flagged (exit 0)",
+          _br.returncode == 0)
+else:
+    print("  SKIP baseline reindent golden (vulture absent)")
 
 print("\nOBSERVED-RED demonstration (the filter genuinely discriminates):")
 print(f"  same violation on changed line 11 -> caught={on_changed in kept}")

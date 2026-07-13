@@ -2,8 +2,33 @@
 
 **Date**: 2026-07-12 · **PR**: #505 (branch `phase0-a4-hardgate-mechanics-20260708`)
 **Rigor**: L2 (CI mechanics — not L3 auth/model) · **Grounded on**: `origin/main@8ff94175`
-**Model tier**: spec-complete mechanical CI work → **Sonnet-5 tier** per `PRODUCT_STRATEGY.md`
-policy; executed on **Opus 4.8** (Fable 5 at daily cap). Stated explicitly per the tiering rule.
+**Model tier**: mostly spec-complete mechanical CI work (**Sonnet-5 tier**); the round-3/5
+adversarial reviews and design calls are **Fable-5 tier**. Executed on Opus 4.8 / Fable 5.
+
+## ⭐ CURRENT STATE (round 5 — authoritative; the round-by-round history below is provenance)
+
+The gate as it stands on this branch:
+- **Duplicate detection = a stdlib normalized-**token** fingerprint index over ALL tracked non-test
+  `.py`** (via `tokenize`; global, O(lines), ~10s). **pylint is gone** (it timed out on the full
+  tree; its output was fragile). The rounds below that mention pylint / a subsystem-bounded corpus /
+  `paths:` filters describe **superseded** intermediate states.
+- **Dead code = vulture** (the only external producer, pinned `==2.16`).
+- **Fully fail-closed:** unresolvable base / `git ls-files` / incomplete analysis in enforce / any
+  unexpected vulture exit code / rc=3-with-no-parsed-finding / any unrecognised vulture line → **exit
+  2** (malfunction, both modes). A finding is exit 1 (enforce only).
+- **Diff-scoped and pre-existing-debt-safe:** `git diff --unified=0 -w` — a *reindent* of a
+  pre-existing duplicate is not treated as a change.
+- **git-config-robust:** `-c core.quotePath=false -c diff.noprefix=false` + `ls-files -z` — non-ASCII
+  paths, spaced paths, and `diff.noprefix=true` no longer bypass or wedge the gate.
+- **Scoped exclusion:** only real test *locations* (a `tests`/`test` dir, `conftest.py`,
+  `scripts/ci/test_*.py`) are out of scope — a bare `src/test_runtime.py` is **gated**.
+- **The required CI context is `Hard Gate (diff-scoped)`** (mode-agnostic; arming won't orphan it).
+- **Dry-run; owner-armed.** `HARD_GATE_ENFORCE ∈ {1,true,yes,on}` + add the context to branch
+  protection.
+- **Known limitations (documented, not bugs):** duplicate detection is token-fingerprint (a
+  full-identifier-rename copy, or a *reflowed*/line-interleaved copy, or a *relocated* pre-existing
+  duplicate is not caught); a base-vs-head duplicate index and an AST/token-shingle detector are the
+  future upgrades.
 
 ## Why this slice now
 
@@ -100,6 +125,26 @@ bound.
   out of scope by design.
 - vulture still runs over the **full tree** (5.5 s) so cross-file usage is correct (no false
   positives from changed-files-only).
+
+## Round 4/5 — bypasses, fake-green, false-positives (human review + a 6-dimension adversarial self-review)
+
+A human review and an independent multi-agent adversarial review (6 dimensions → each finding
+reproduced-or-refuted; 23 confirmed) found further defects. All reproduced first, then fixed, then
+locked with observed-RED (56 self-tests now).
+
+| Defect | Fix |
+|---|---|
+| **`src/test_runtime.py` bypassed the whole gate** — `is_test_path` excluded any file *named* `test_*.py`. | Exclude only real test *locations* (a `tests`/`test` dir, `conftest.py`, `scripts/ci/test_*.py`); a production `test_*.py` is gated. |
+| **vulture `rc=3` + unrecognised output → fake-green** — `rc=3` ("dead code found") with zero parsed findings, or any unrecognised line, silently passed. | `rc=3` must parse ≥1 finding, and any non-empty unrecognised line → **malfunction (exit 2)**. |
+| **Non-ASCII filename bypass** — under default `core.quotePath` git octal-escapes a Chinese path in the diff/ls-files, so it was missed. | `-c core.quotePath=false` on every git call (+ `ls-files -z` for spaces). |
+| **`diff.noprefix=true` → armed gate passes EVERY PR** — the `b/` prefix the parser needs disappears → `changed_lines` empty. | `-c diff.noprefix=false`. |
+| **`tokenize` fixed a naive `#`-in-string bug** (round 4). | Normalization is by the real tokenizer; comments/whitespace dropped correctly, names kept. |
+| **Unexpected vulture exit codes fell through to 'ok'** (round 4). | Allow-list: `0/3`=ok, `1`=partial, **anything else → exit 2**. |
+| **Reindenting a PRE-EXISTING duplicate red an innocent PR** (false positive — broke the core promise). | `git diff -w`: a whitespace-only reindent is not a change; genuinely-new copies still caught. (Residual: a *relocated* pre-existing dup — documented; base-index is the future fix.) |
+| **`HARD_GATE_ENFORCE` only honoured exact `"1"`** — arming with `true`/`yes` silently stayed dry-run. | Accept `{1,true,yes,on}` (case-insensitive). |
+| **Corpus roots gap** — 6 production `.py` under `clients/config/demo/examples/sdk` were invisible. | Enumerate **all** tracked non-test `.py`, not just `src/scripts`. |
+| **No per-file size cap** (DoS). | Skip a file over 2 MB (→ partial, fail-closed in enforce). |
+| **Docs described the old (pylint/subsystem/paths) implementation** — would mis-configure branch protection. | Script docstring, MD (this "current state" header), and PR body synced to the fingerprint design and the `Hard Gate (diff-scoped)` context name. |
 
 ## What is still NOT done (honest scope)
 

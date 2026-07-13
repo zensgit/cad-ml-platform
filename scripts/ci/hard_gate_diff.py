@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
-"""Diff-scoped hard gate for dead-code (vulture) and duplicate-code (pylint).
+"""Diff-scoped hard gate for dead-code (vulture) and duplicate-code (a stdlib fingerprint index).
 
-Phase 0 slice A4. The repo's existing dead-code / duplicate-code checks
-(code-quality.yml) run over the WHOLE, already-bloated tree and end in ``|| true``
--- so they can neither be made blocking (they'd red every PR on pre-existing
-debt) nor stop the fleet re-introducing new debt.
+Phase 0 slice A4. The repo's existing dead-code / duplicate-code checks (code-quality.yml) run
+over the WHOLE, already-bloated tree and end in ``|| true`` -- they can neither be made blocking
+(they'd red every PR on pre-existing debt) nor stop the fleet re-introducing new debt.
 
-This gate is the missing MECHANIC: it fails ONLY on violations located on lines
-the current PR actually added or changed, so it never punishes a PR for
-pre-existing debt in files it didn't touch. That is what makes it safe to arm as
-a *required* check (an owner action -- this script does not touch branch
-protection).
+This gate is the missing MECHANIC: it fails ONLY on violations located on lines the current PR
+added or changed, so it never punishes a PR for pre-existing debt it didn't introduce. That is
+what makes it safe to arm as a *required* check (an owner action -- this script never touches
+branch protection).
 
 Two modes:
-  * dry-run (default): report what it WOULD block, exit 0. Arm it here first.
-  * enforce (HARD_GATE_ENFORCE=1): exit 1 on any new violation.
+  * dry-run (default): report what it WOULD block, exit 0.
+  * enforce (HARD_GATE_ENFORCE in {1,true,yes,on}): exit 1 on any NEW violation.
+A gate MALFUNCTION (broken producer, unresolvable base, incomplete analysis in enforce) exits 2
+in BOTH modes -- a broken gate must never look green.
 
-The finding-producers (vulture, pylint) are shelled out and are best-effort: if a
-tool is missing the gate reports "tool unavailable" and does NOT fail (a missing
-linter must not mask or fabricate a violation). The load-bearing, testable logic
-is the diff-line filter, exercised by scripts/ci/test_hard_gate_diff.py.
+Duplicate detection is a stdlib normalized-token FINGERPRINT INDEX over the whole tree (O(lines)),
+NOT pylint (removed: it timed out on the full tree and its output was fragile). Dead-code is
+vulture (the only external producer). The load-bearing, testable logic is exercised by
+scripts/ci/test_hard_gate_diff.py; the required CI context is "Hard Gate (diff-scoped)".
 """
 
 from __future__ import annotations
@@ -78,7 +78,20 @@ def changed_lines(base_ref: str, run=subprocess.run) -> dict[str, set[int]]:
             "`|| true`.)"
         )
     proc = run(
-        ["git", "diff", "--unified=0", f"{base_ref}...HEAD", "--", "*.py"],
+        # -w (ignore whitespace): a REINDENT of a pre-existing duplicate (e.g. wrapping a block in
+        #   `if True:`) is token-identical -- our fingerprint deems it a no-op -- yet a plain diff
+        #   marks every line changed, so without -w the gate would red a PR that introduced ZERO new
+        #   duplication, breaking its "never punish pre-existing debt" promise. -w drops the
+        #   whitespace-only lines from the changed set, so only genuinely new content is gated.
+        #   (Residual, documented limitation: relocating a pre-existing duplicate block to new line
+        #   numbers still counts as changed; the fully-general fix is a base-vs-head duplicate-index
+        #   comparison, a future upgrade.)
+        # -c core.quotePath=false: otherwise git octal-escapes a non-ASCII path (a Chinese filename)
+        #   in the +++ header and the parser misses it -> that file's changes are UNGATED.
+        # -c diff.noprefix=false: a repo/global `diff.noprefix=true` would drop the `b/` prefix the
+        #   parser keys on -> changed_lines returns {} -> the gate passes EVERYTHING.
+        ["git", "-c", "core.quotePath=false", "-c", "diff.noprefix=false",
+         "diff", "--unified=0", "-w", f"{base_ref}...HEAD", "--", "*.py"],
         capture_output=True, text=True, check=False,
     )
     if proc.returncode != 0:
@@ -120,36 +133,45 @@ def new_violations(findings: list[Finding], changed: dict[str, set[int]]) -> lis
 # changed lines AFTERWARDS -- pre-existing debt on unchanged lines is never reported.
 # ---------------------------------------------------------------------------
 def is_test_path(path: str) -> bool:
-    """Test scaffolding is deliberately OUT of scope: test helpers are legitimately 'unused'
-    (fixtures, fakes) and tests intentionally duplicate. Dead-code/duplicate analysis of them
-    is noise, and would red a PR for touching its own test file. The gate guards PRODUCTION
-    code re-inflation, not test code."""
-    base = os.path.basename(path)
+    """Test scaffolding is OUT of scope: test helpers are legitimately 'unused' and tests
+    intentionally duplicate. But exclude ONLY real test *locations*, not any file merely NAMED
+    `test_*.py`: a bare filename check let a `src/test_runtime.py` (production code, or re-injected
+    dead/duplicate code) bypass the whole gate. So exclude only: a `tests`/`test` DIRECTORY
+    component; `conftest.py`; and this repo's own self-tests under `scripts/ci/`. A `test_*.py`
+    that lives in a production directory is GATED."""
     parts = path.split("/")
-    return (
-        base.startswith("test_") or base.endswith("_test.py") or base == "conftest.py"
-        or "tests" in parts or "test" in parts
-    )
+    dirs, base = parts[:-1], parts[-1]
+    if "tests" in dirs or "test" in dirs:
+        return True
+    if base == "conftest.py":
+        return True
+    if dirs[:2] == ["scripts", "ci"] and base.startswith("test_") and base.endswith(".py"):
+        return True
+    return False
 
 
-def candidate_corpus(changed_files: list[str], run=subprocess.run,
-                     roots: tuple[str, ...] = ("src", "scripts")) -> list[str]:
-    """The FULL production tree (all tracked non-test .py under `roots`) + the changed files.
+def candidate_corpus(changed_files: list[str], run=subprocess.run) -> list[str]:
+    """ALL tracked non-test .py in the repo + the changed files.
 
-    No subsystem bound: a new file copying an EXISTING file must be caught wherever the source
-    lives (src/core/a copied into src/api/b included), so there is NO cross-scope coverage gap.
-    A full-tree scan is affordable because duplicate detection is a fingerprint index
-    (`find_duplicates`, O(total_lines)), not pylint's superlinear all-pairs.
+    Not restricted to (src, scripts): a duplicate SOURCE can live anywhere (the repo also has
+    production/example .py under clients/, config/, demo/, examples/, sdk/), and copying such a
+    file into src must be caught. A full-tree scan is affordable because duplicate detection is a
+    fingerprint index (`find_duplicates`, O(total_lines)). Test paths are excluded (is_test_path).
 
     FAIL-CLOSED: if `git ls-files` cannot enumerate the tree, raise -- a partial corpus would
-    silently shrink coverage (a duplicate whose source was dropped would pass)."""
-    proc = run(["git", "ls-files", "--", *roots], capture_output=True, text=True, check=False)
+    silently shrink coverage (a duplicate whose source was dropped would pass).
+
+    NUL-safe + quotePath=false: a path with a SPACE stays whole (-z), and a non-ASCII path is not
+    octal-escaped -- otherwise it would be torn / mangled and read as a non-existent file."""
+    proc = run(["git", "-c", "core.quotePath=false", "ls-files", "-z", "--", "*.py"],
+               capture_output=True, text=True, check=False)
     if proc.returncode != 0:
         raise HardGateError(
             f"`git ls-files` failed (rc={proc.returncode}): {proc.stderr.strip()[:200]} -- "
             "cannot build the corpus; refusing to run against a partial tree."
         )
-    corpus = {p for p in proc.stdout.split() if p.endswith(".py") and not is_test_path(p)}
+    tracked = [p for p in proc.stdout.split("\0") if p]
+    corpus = {p for p in tracked if p.endswith(".py") and not is_test_path(p)}
     corpus.update(f for f in changed_files if f.endswith(".py") and not is_test_path(f))
     return sorted(corpus)
 
@@ -206,11 +228,30 @@ def run_vulture(corpus: list[str], run=subprocess.run) -> tuple[list[Finding], s
             f"whether the run was complete: {(proc.stderr or proc.stdout).strip()[:300]}"
         )
     findings = []
+    unparsed = []
     pat = re.compile(r"^(.+?):(\d+): (.+)$")
     for line in proc.stdout.splitlines():
+        if not line.strip():
+            continue
         m = pat.match(line)
         if m:
             findings.append(Finding(m.group(1), int(m.group(2)), m.group(3), "vulture"))
+        else:
+            unparsed.append(line)
+    # rc=3 MEANS "dead code found" -> we must have parsed at least one finding. Zero means our
+    # parser no longer recognises vulture's output; reporting a pass would be fake-green.
+    if proc.returncode == 3 and not findings:
+        raise HardGateError(
+            "vulture reported dead code (rc=3) but the parser extracted no finding -- its output "
+            "format is unrecognised; refusing to report a pass."
+        )
+    # Any non-empty line we could NOT parse is unrecognised output: we cannot trust that we saw
+    # every finding. Fail closed rather than silently drop whatever we didn't understand.
+    if unparsed:
+        raise HardGateError(
+            f"vulture emitted {len(unparsed)} unrecognised output line(s) "
+            f"(e.g. {unparsed[0][:120]!r}) -- refusing to guess completeness."
+        )
     return findings, status
 
 
@@ -221,6 +262,7 @@ def run_vulture(corpus: list[str], run=subprocess.run) -> tuple[list[Finding], s
 # independent. Normalization is by `tokenize`, not naive text: a comment character inside a
 # string ("a#b") must NOT be treated as a comment, which a `split("#")` heuristic got wrong.
 DUP_MIN_LINES = 10
+_MAX_FILE_BYTES = 2 * 1024 * 1024  # a real .py is far smaller; cap guards against a pathological file
 
 _SKIP_TOK = frozenset({
     tokenize.COMMENT, tokenize.NL, tokenize.NEWLINE, tokenize.INDENT,
@@ -257,6 +299,11 @@ def find_duplicates(corpus: list[str], changed_files: list[str],
     unparseable: list[str] = []
     for f in corpus:
         try:
+            # Guard against a pathological file (a real .py is far under this): read no more than
+            # _MAX_FILE_BYTES, so one giant/binary corpus file can't blow up memory before failing.
+            if Path(f).stat().st_size > _MAX_FILE_BYTES:
+                unparseable.append(f)
+                continue
             text = Path(f).read_text(encoding="utf-8", errors="strict")
             norm = _tokenized_lines(text)
         except (OSError, UnicodeDecodeError, tokenize.TokenError, SyntaxError, IndentationError):
@@ -297,7 +344,9 @@ def find_duplicates(corpus: list[str], changed_files: list[str],
 
 def main() -> int:
     base = os.environ.get("HARD_GATE_BASE", "origin/main")
-    enforce = os.environ.get("HARD_GATE_ENFORCE") == "1"
+    # Accept any common truthy value, not only the exact "1": arming with `true`/`yes`/`on` (a very
+    # easy mistake) must NOT silently leave the gate in dry-run while the owner believes it armed.
+    enforce = os.environ.get("HARD_GATE_ENFORCE", "").strip().lower() in ("1", "true", "yes", "on")
 
     changed_all = changed_lines(base)
     # Test files are out of scope (see is_test_path). Drop them from the changed set and say so.
