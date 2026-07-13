@@ -73,7 +73,7 @@ Classified by reachability, per the review's taxonomy.
 ### 1.B Startup / runtime-config activation (mutates a RUNNING service)
 | Point | Family | Evidence | Current guard |
 |---|---|---|---|
-| `CLASSIFICATION_MODEL_PATH` → `pickle.load` on **first `predict()`** (lazy, not at startup: `load_models()` only builds a readiness snapshot) | pickle classifier | `src/ml/classifier.py:22,85` (load fires via `classifier.py:124`) | **none — no magic-number check and no proof binding.** (The magic-number check is only in the *hot-reload* path `reload_model`, `classifier.py:313`, NOT this startup load — corrected from the first draft.) |
+| `CLASSIFICATION_MODEL_PATH` → `pickle.load` on **first `predict()`** (lazy, not at startup: `load_model()` is the loader (`classifier.py:47`); `load_models()`-style readiness only builds a snapshot) | pickle classifier | `src/ml/classifier.py:22,85` (load fires via `classifier.py:124`) | **none — no magic-number check and no proof binding.** (The magic-number check is only in the *hot-reload* path `reload_model`, `classifier.py:313`, NOT this startup load — corrected from the first draft.) |
 | `GRAPH2D_MODEL_PATH` → `torch.load` in `Graph2DClassifier` | Graph2D | path `src/ml/vision_2d.py:41`, load `src/ml/vision_2d.py:136`; `src/main.py:61` only *reads the flag*, does not load | **no proof binding** |
 
 ### 1.C NOT production-reachable — reclassified (corrected from the first draft)
@@ -98,7 +98,10 @@ is larger than two families. Verified additional production-reachable, proof-unb
 |---|---|---|
 | PointNet via the **mounted** pointcloud router | pointnet | router imported+mounted `src/api/__init__.py:269,522`; the endpoint loads the point-cloud model |
 | V16 part-classifier ensemble | cad-ensemble | `torch.load` `src/ml/part_classifier.py:62`; reachable via classify / health routes |
-| HybridClassifier branch checkpoints | graph2d/stat/text | `torch.load` `src/ml/hybrid_classifier.py:448,476` |
+| HybridClassifier branch checkpoints | hybrid(stat/text) | `torch.load` `src/ml/hybrid_classifier.py:448,476` |
+| PartClassifier / V16 / V14 | part | `torch.load` `src/ml/part_classifier.py:62,655,695` (via `/analyze`, `/health`) |
+| HistorySequence | history | `torch.load` `src/ml/history_sequence_classifier.py:162` (via `/analyze`) |
+| Vision3D encoder (`UVNET_MODEL_PATH`) | vision3d/uvnet | `torch.load` `src/ml/vision_3d.py:196` (via `/analyze` on 3D/STEP/IGES inputs; format+cache-miss gated but real) |
 
 **The recurring lesson — a hand-enumerated count is the wrong contract.** It has been wrong three
 times. The membrane's completeness must be enforced **by construction, not by a list**: ship a CI
@@ -215,14 +218,31 @@ it at `/etc/shadow` or a 50 GB file). Instead:
 5. On **any miss**, apply the readiness rule (§2.3): fall back to LKG **only if LKG's own proof is
    still valid**, else refuse to serve — never load the unverified bytes. Emit an audit record (§3.3).
 
-Every **production-reachable** point in §1.A/1.B calls it **before** the model is loaded/served:
-- `model.py:71` — the external `/model/reload`;
-- `classifier.py:85` — the startup `pickle.load`;
-- `vision_2d.py:136` — the startup Graph2D `torch.load`.
+The set of call sites is **NOT a hand-list** (a hand count has been wrong repeatedly — §1.B(cont)).
+The **CI activation-surface enumerator is the completeness authority**: the membrane is accepted only
+when the enumerator confirms **every `gated` load site routes through `verify_and_load`**. The §1 map
+is that enumerator's *seed*, not the boundary. Implementation is **sharded per model family**, each
+shard wiring `verify_and_load` **before** the load and shipping its own enumerator entry + golden:
+
+- **pickle-classifier** — `model.py:71` (external `/model/reload`) and `classifier.py:85` (the lazy
+  first-`predict()` `pickle.load`, which today has NO magic/hash/opcode check). The current hot-reload
+  path deserializes **before** it checks (`classifier.py:535` `pickle.loads` runs ahead of the
+  whitelist/hash check, and the hash is truncated to 16 hex) — `verify_and_load`'s "cheap guards +
+  one immutable read, hash-and-load the same bytes" (above) replaces that ordering.
+- **graph2d** — `vision_2d.py:136`.
+- **hybrid** (its own container auto-enables on file presence, same footing as graph2d) —
+  `hybrid_classifier.py:448` (stat branch) and `:476` (text branch).
+- **pointnet** — the **mounted** `/pointcloud` router → `pointnet/inference.py:108`.
+- **part / v16 / v14** — `part_classifier.py:62,655,695` (reached via `/analyze`, `/health`).
+- **history-sequence** — `history_sequence_classifier.py:162` (reached via `/analyze`).
+- **vision3d / uvnet** — `vision_3d.py:196` (`UVNET_MODEL_PATH`, reached via `/analyze` on 3D inputs).
+- any surface the enumerator later discovers → its own shard before it can go live.
+
 The §1.C producer/latent points gain the same check **before they are wired to activate**:
 `auto_remediation.py:301` (before it is ever scheduled), and `auto_retrain.sh` (swap #509's
 unconditional block for the membrane call — the *only* place the permanent-closed logic changes, and
-only once the signed store exists).
+only once the signed store exists). The **unmounted serving scaffold** (`src/ml/serving/*`) is promoted
+into a shard automatically if it is ever mounted (the enumerator reds until it is).
 
 Until the proof store and Track E exist, **the membrane's default implementation is #509's: raise
 unconditionally.** Re-enablement is replacing the body, not adding a flag. (`merged != enabled !=
@@ -241,8 +261,10 @@ elsewhere. Keeping them separate keeps the design honest.
   it has no runtime path to `/model/reload`.
 - **Code-generating routine** (the unattended loop): it can modify branches and open PRs, but it
   **cannot thereby reach a runtime activation**. It is governed by *different* controls. Current
-  branch protection (`required_reviews=1 + enforce_admins`) blocks the normal same-account merge path,
-  but it is not an independent review and must not substitute for disabling an unsafe routine.
+  branch protection (live facts: **0 required approvals**, **11 required strict status checks**,
+  required conversation-resolution, `enforce_admins`, no force-push/deletion) blocks a direct push and
+  a checks-failing PR, but **requires NO human approval** — so it is not independent review and must
+  not substitute for disabling an unsafe routine (a checks-passing PR is not review-gated).
   `CODEOWNERS` is only a path inventory in this solo-maintainer repository;
   `require_code_owner_reviews=false` and must remain so while the owner cannot approve its own PR.
   The isolated-critic protocol above supplies review evidence, while the human owner alone ratifies
@@ -260,7 +282,7 @@ activation.
 
 **Ordering lock:** the external `/model/reload` route may be enabled **only when BOTH gates hold**:
 1. the production-identity gate (separate design-lock): no default `test` credentials, unambiguous
-   authenticated tenant/user, `x-user-id` cannot override the token subject (`integration_auth.py:104`);
+   authenticated tenant/user, `x-user-id` cannot override the token subject (`src/api/middleware/integration_auth.py:104`);
 2. the proof membrane (this doc).
 The route is **LIVE today** (that is precisely the vulnerability, §1.A/§6) — so "disabled" is an
 ACTION the implementation MUST take (disable `/model/reload` until both gates hold), not a current
@@ -283,7 +305,7 @@ revocation and incident review possible after the fact.
 
 - Not building the proof store or Track E here — this locks their **contract**.
 - Not touching auth defaults here — that is a **separate** L3 design-lock (production-identity model:
-  `dependencies.py:8` default `test`, `integration_auth.py:104` header-overrides-subject). Cross-ref,
+  `dependencies.py:8` default `test`, `src/api/middleware/integration_auth.py:104` header-overrides-subject). Cross-ref,
   don't merge the two.
 - Not covering offline training/quantization (§1.D) — they don't activate.
 - Customer corrections are **isolated until Track E lands**; after it, they may enter a
@@ -316,15 +338,20 @@ revocation and incident review possible after the fact.
 
 Accurate post-#509 status, by threat actor (§3.1 — do not conflate them):
 
-- **The unattended routine** cannot use the normal same-account merge path
-  (`required_reviews=1 + enforce_admins`), cannot retrain via `auto_retrain.sh` (#509), and — being a
-  code-generating actor — **has no runtime path to any activation point** (it cannot call
+- **The unattended routine** is constrained by branch protection (live: **0 required approvals**,
+  **11 required strict checks**, conversation-resolution, `enforce_admins`, no force-push/deletion) —
+  which stops a direct push and a checks-failing PR but does **not require a human approval**, so it
+  does not by itself prevent a checks-passing self-merge; cannot retrain via `auto_retrain.sh` (#509);
+  and — being a code-generating actor — **has no runtime path to any activation point** (it cannot call
   `/model/reload`). It is **not** contained by CODEOWNERS (#512 is an unarmed ownership map), and branch
   protection is not a substitute for stopping it. No unattended routine may author or merge this L3
   runtime.
-- **A runtime API caller / operator** can still reach the **3 production-reachable activation points**
-  — external `/model/reload` (admin token defaulted to `test`) and the two startup loads — none of
-  which have proof binding. *This* is what the membrane defends, and it is **entirely unbuilt**.
+- **A runtime API caller / operator** can still reach the **≥5 production-reachable activation points
+  across ≥4 model families** (the CI activation-surface enumerator, not a hand count, is the
+  authority — §1.B(cont)/§3) — the external `/model/reload` (admin token defaulted to `test`), the
+  pickle-classifier startup load, and the graph2d / hybrid-branch (stat, text) / pointnet / part /
+  history-sequence / vision3d(uvnet) `torch.load` surfaces — none of which have proof binding. *This*
+  is what the membrane defends, and it is **entirely unbuilt**.
 
 **So: strong bleeding-control on the code-gen actor; the runtime activation membrane is not built.**
 This design-lock defines that membrane. Stopping the routine and owner-ratifying this design under the
