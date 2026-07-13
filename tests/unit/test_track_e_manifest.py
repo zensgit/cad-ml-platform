@@ -709,3 +709,14 @@ def test_verify_red_on_smuggled_quarantine_key(tmp_path: Path) -> None:
     man["manifest_digest"] = tm._manifest_digest(man)
     with pytest.raises(tm.IntegrityError, match="schema key-set FAILED"):
         tm.verify_manifest(rows, man, root=tmp_path)
+
+
+def test_keyset_independently_airtight_when_recomputed_list_empty(tmp_path: Path) -> None:
+    # defense-in-depth: even when recomputed rows are non-empty but the check falls back to the
+    # schema CONSTANT, an extra key on a surviving row is caught by the key-set layer itself (not
+    # only the binding). Also assert the quarantine key constant matches a real quarantine record.
+    good = _mk(tmp_path, "good.dxf", b"G", "g")
+    rows = [good, {"file_path": str(tmp_path / "gone.dxf"), "cache_path": "", "taxonomy_v2_class": "g"}]
+    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=tmp_path)
+    assert set(man["quarantined"][0].keys()) == set(tm._QUARANTINE_KEYS)
+    assert set(man["rows"][0].keys()) == set(tm._BOUND_ROW_FIELDS)

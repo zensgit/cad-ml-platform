@@ -255,6 +255,10 @@ _BOUND_ROW_FIELDS = (
     "content_hash", "split", "category", "source", "license", "label_authority",
 )
 
+# The exact key set every quarantine record carries (see _normalize_quarantine). Used, like
+# _BOUND_ROW_FIELDS, as the closed-key-set expectation when the re-derived list is empty.
+_QUARANTINE_KEYS = ("locator", "reason_code", "detail")
+
 # Stable quarantine reason codes (these DO enter the digest; the human `detail` does not).
 _QUARANTINE_REASON_CODES = (
     ("unreadable content", "unreadable"),
@@ -579,14 +583,19 @@ def verify_manifest(
             f"schema key-set FAILED: top-level keys differ from the built schema "
             f"(extra={sorted(extra)}, missing={sorted(missing)}) — an unbound field was injected."
         )
-    for label, got, exp in (
-        ("row", manifest.get("rows", []), recomputed["rows"]),
-        ("quarantine", manifest.get("quarantined", []), recomputed["quarantined"]),
+    # Expected per-entry key sets: prefer the freshly-built ``recomputed`` (tracks schema evolution),
+    # but fall back to the known schema CONSTANT when recomputed's list is empty (all rows survived
+    # elsewhere / none quarantined) — so this layer is independently airtight and never relies on the
+    # empty-list case being caught only by the row/quarantine BINDING above (which it also is: a
+    # phantom entry against an empty recomputed list already fails that binding).
+    for label, got, exp, const_keys in (
+        ("row", manifest.get("rows", []), recomputed["rows"], set(_BOUND_ROW_FIELDS)),
+        ("quarantine", manifest.get("quarantined", []), recomputed["quarantined"], set(_QUARANTINE_KEYS)),
     ):
-        exp_keys = set(exp[0].keys()) if exp else None
+        exp_keys = set(exp[0].keys()) if exp else const_keys
         for entry in got:
             keys = set(entry.keys())
-            if exp_keys is not None and keys != exp_keys:
+            if keys != exp_keys:
                 raise IntegrityError(
                     f"schema key-set FAILED: a {label} entry's keys {sorted(keys)} differ from the "
                     f"built schema {sorted(exp_keys)} — an unbound field was injected."

@@ -51,8 +51,8 @@ never drift from slice-1's split. (The L3 gate is unconditional — it trusts no
 
 | Check | Result |
 |---|---|
-| slice-2 unit tests (`tests/unit/test_track_e_manifest.py`) | **73 passed** |
-| combined slice-1 + slice-2 (no interference) | **105 passed** |
+| slice-2 unit tests (`tests/unit/test_track_e_manifest.py`) | **74 passed** |
+| combined slice-1 + slice-2 (no interference) | **106 passed** |
 | **containment**: file/cache outside the dataset root, `..`-escaping or absolute locators → fail-closed at build AND rejected at verify even when re-digested | pass |
 | **default-root cannot be widened**: absolute input rows with NO explicit root → RED; **absolute AND relative** symlink-escape inside the root rejected via `resolve()`; containment **pre-flights BEFORE `compute_split`** so `content_hash` never opens an out-of-root file (spy asserts zero calls on escaping input) — in BOTH the explicit-`--root` path AND the repo-relative `root=None` CLI-default path (symlink resolved against cwd) | pass |
 | **stored locator tamper** (`locator`/`cache_locator` redirected in the stored manifest) → RED: a naive redirect trips the envelope digest; a re-digested redirect trips the `(sample_id, locator)` binding | pass |
@@ -106,7 +106,12 @@ provenance binding** — `provenance_complete` / `unknown_provenance_rows` must 
 values. **Residual (documented, not defeated):** the free-text `source`/`license`/`label_authority`
 are external inputs, not row-derived — verify re-derives FROM the stored values, so a self-consistent
 rewrite of those three (consistently across rows + envelope) cannot be distinguished. Acceptable for
-a non-blocking dry-run; a signing layer is the Phase-B answer.
+a non-blocking dry-run; a signing layer is the Phase-B answer. Two further residuals are documented,
+not defeated: a runtime **TOCTOU** symlink-swap between the `resolve()` pre-flight and `content_hash`'s
+`open()` (fundamental to any resolve-then-open; a dry-run offline tool does not fd-pin), and the
+free-text quarantine `detail` string (digest-excluded for clone stability; its presence/type is
+key-set-bound but its text is not). An independent adversarial pass (spy-instrumented, 10 escape
+variants + 8 key smuggles) reproduced **no** bypass of the containment or key-set fixes.
 
 **Honest scope:** this is dry-run tooling. It does NOT compute the §8.1.4 metrics, does NOT bind a
 candidate model, and does NOT unlock retraining (the L3 gate is unconditional). Safety-infrastructure
