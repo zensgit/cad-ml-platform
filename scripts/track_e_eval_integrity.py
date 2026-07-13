@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Track E slice-1: evaluation-integrity splitter + artifact builder (evaluation-integrity-v2).
+"""Track E slice-1: leakage-safe evaluation split + DRY-RUN split artifact (evaluation-integrity-split-v1).
 
-Produces the versioned, reproducible evaluation-integrity artifact that the L3 gate
-(``scripts/eval_integrity_gate.py``) requires before ``scripts/auto_retrain.sh`` may mutate or
-train. The integrity core (PRODUCT_STRATEGY.md §8.1):
+Standalone split-integrity tooling. It is fully DECOUPLED from the L3 gate
+(``scripts/eval_integrity_gate.py`` is unconditional — no pass path — and this module imports
+nothing from it): the artifact built here carries a hardcoded ``unlocks_retraining: false`` and can
+never re-enable retraining. The integrity core (PRODUCT_STRATEGY.md §8.1):
 
   * **content-hash** — identical file CONTENT is detected regardless of path. Unreadable bytes
     **fail closed** (the row is quarantined, never silently treated as "distinct" — which would
@@ -18,9 +19,8 @@ train. The integrity core (PRODUCT_STRATEGY.md §8.1):
     blocking.
 
 Slice-1 does NOT compute model metrics (per-class / calibration / false-duplicate / missed-reuse
-need the model run over the holdout); ``build_artifact`` takes them from an eval-results file. The
-gate's contract constants are IMPORTED here, so the artifact is gate-conformant by construction
-(single source of truth). Stdlib only.
+need the model run over the holdout) and does NOT mint anything the retrain path could consume:
+``build_split_artifact`` emits a dry-run split report only. Stdlib only.
 """
 from __future__ import annotations
 
