@@ -44,14 +44,15 @@ never drift from slice-1's split. (The L3 gate is unconditional — it trusts no
 
 | Check | Result |
 |---|---|
-| slice-2 unit tests (`tests/unit/test_track_e_manifest.py`) | **57 passed** |
-| combined slice-1 + slice-2 (no interference) | **89 passed** |
+| slice-2 unit tests (`tests/unit/test_track_e_manifest.py`) | **58 passed** |
+| combined slice-1 + slice-2 (no interference) | **90 passed** |
 | **containment**: file/cache outside the dataset root, `..`-escaping or absolute locators → fail-closed at build AND rejected at verify even when re-digested | pass |
 | **default-root cannot be widened**: absolute input rows with NO explicit root → RED (the old common-parent heuristic would silently widen the root and admit a sibling-dir file); symlink-escape inside the root also rejected via `resolve()` | pass |
 | **stored locator tamper** (`locator`/`cache_locator` redirected in the stored manifest) → RED: a naive redirect trips the envelope digest; a re-digested redirect trips the `(sample_id, locator)` binding | pass |
+| **re-digested provenance flip** (`provenance_complete` False→True + zeroed unknown-count + recomputed digest) → RED via provenance binding | pass |
 | quarantine records digest as (`locator`=root-relative full path, `reason_code`); OS text stays human-only `detail`; same missing file under two clone roots → **same digest** | pass |
 | categorize: markers → augmented/synthetic; unmarked/undeclared → **unknown** (never "real"); declared column authoritative | pass |
-| manifest_digest covers the **full envelope** (schema/provenance/quarantined/rows/…); tamper → RED | pass |
+| a **naive** single-field tamper trips the envelope self-check; a **re-digested** tamper is caught by independent re-derivation of split_digest / locators / **provenance verdict** (`provenance_complete`, `unknown_provenance_rows`) from the rows → RED | pass |
 | manifest is **fresh-clone PORTABLE**: rows carry root-relative `locator`/`cache_locator` (digested); NO absolute run path enters the manifest; **A-build → B-verify of the SAME artifact = PASS** | pass |
 | non-empty `source`/`license`/`label_authority` enforced (blank → fail-closed) | pass |
 | `manifest_digest` deterministic / order-independent | pass |
@@ -69,12 +70,17 @@ illegal category to "real" — it maps to **"unknown"** and surfaces `illegal_ca
 Rebased onto the decoupled slice-1 (#510 no longer imports the L3 gate); slice-2 imports only
 slice-1's split primitives.
 
-**verify_manifest** now runs two checks: (1) **envelope self-consistency** — recompute the digest
-over the stored envelope (minus the digest) and compare, catching a tamper to ANY field; (2) **split
-drift** — re-derive the split from the actual files and compare `split_digest`. Residual boundary: a
-*self-consistent* rewrite of provenance-only fields (`source`/`license`/`label_authority`, which
-verify re-derives from the stored manifest) is not distinguishable — acceptable for a non-blocking
-dry-run.
+**verify_manifest** does NOT trust the digest self-check alone (a re-digesting attacker defeats it),
+so every load-bearing field is independently re-derived from the rows: (1) **envelope
+self-consistency** — recompute the digest over the stored envelope and compare (catches a naive
+single-field tamper); (2) **split drift** — re-derive the split and compare `split_digest`; (3)
+**locator binding** — stored `(sample_id, locator, cache_locator)` must equal the row-re-derived
+set; (4) **provenance binding** — stored `provenance_complete` / `unknown_provenance_rows` must
+equal the row-re-derived values, so a re-digested flip of the provenance verdict is RED. **Residual
+(documented, not defeated):** the free-text `source`/`license`/`label_authority` are external
+inputs, not row-derived — verify re-derives FROM the stored values, so a self-consistent rewrite of
+those three cannot be distinguished. Acceptable for a non-blocking dry-run; a signing layer is the
+Phase-B answer.
 
 **Honest scope:** this is dry-run tooling. It does NOT compute the §8.1.4 metrics, does NOT bind a
 candidate model, and does NOT unlock retraining (the L3 gate is unconditional). Safety-infrastructure

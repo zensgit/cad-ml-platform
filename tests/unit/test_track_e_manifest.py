@@ -522,3 +522,19 @@ def test_symlink_escape_is_contained(tmp_path: Path) -> None:
     ]
     with pytest.raises(tm.IntegrityError, match="escapes the dataset root"):
         tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=dataset)
+
+
+def test_verify_red_on_redigested_provenance_flip(tmp_path: Path) -> None:
+    # A re-digesting attacker flips provenance_complete False->True (hiding unknown-provenance rows)
+    # and recomputes manifest_digest. The envelope self-check passes, but provenance binding — which
+    # re-derives provenance_complete/unknown_provenance_rows FROM the rows — must catch it.
+    real = _mk(tmp_path, "gear.dxf", b"A", "g"); real["data_origin"] = "real"
+    unknown = _mk(tmp_path, "mystery.dxf", b"B", "m")   # unmarked -> unknown provenance
+    rows = [real, unknown]
+    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=tmp_path)
+    assert man["provenance_complete"] is False and man["unknown_provenance_rows"] == 1
+    man["provenance_complete"] = True                    # attacker forges a clean-provenance verdict
+    man["unknown_provenance_rows"] = 0
+    man["manifest_digest"] = tm._manifest_digest(man)    # ...and re-digests to pass self-consistency
+    with pytest.raises(tm.IntegrityError, match="provenance binding FAILED"):
+        tm.verify_manifest(rows, man, root=tmp_path)

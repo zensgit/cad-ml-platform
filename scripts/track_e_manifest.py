@@ -393,15 +393,22 @@ def report_by_category(manifest: dict) -> dict:
 def verify_manifest(rows: Iterable[dict], manifest: dict, *, root: Optional[Path] = None) -> None:
     """Confirm the manifest is untampered and its split still re-derives. RAISES ``IntegrityError``.
 
-    Two independent checks:
-      1. **Envelope self-consistency** — recompute ``manifest_digest`` over the STORED envelope
-         (minus the digest itself) and compare to the stored value. This catches a tamper to ANY
-         field — schema_version, provenance_complete, unknown_provenance_rows, quarantined, rows,
-         provenance metadata — not just a changed row.
-      2. **Split drift** — re-derive the split from the actual ``rows`` and compare ``split_digest``,
-         so a change in the underlying file content (or an added/removed row) is caught.
-      3. **Locator binding** — the stored portable ``(sample_id, locator)`` pairs must equal the
-         pairs re-derived from the actual rows, so a redirected locator is RED.
+    Checks (the digest self-check alone is NOT trusted — a re-digesting attacker defeats it, so
+    every load-bearing field is INDEPENDENTLY re-derived from the rows):
+      1. **Envelope self-consistency** — recompute ``manifest_digest`` over the STORED envelope and
+         compare. Catches a naive single-field tamper. NOT sufficient on its own: an attacker who
+         also recomputes the digest passes this check, which is why 2–4 re-derive from the rows.
+      2. **Split drift** — re-derive the split from the actual ``rows`` and compare ``split_digest``.
+      3. **Locator binding** — the stored ``(sample_id, locator, cache_locator)`` pairs must equal
+         the pairs re-derived from the rows; a redirected/escaping/absolute locator is RED.
+      4. **Provenance binding** — the stored ``provenance_complete`` / ``unknown_provenance_rows``
+         must equal the values re-derived from the rows, so a re-digested flip of the provenance
+         verdict (e.g. incomplete → complete, or a zeroed unknown-count) is RED.
+
+    RESIDUAL (documented, not defeated): the free-text ``source`` / ``license`` /
+    ``label_authority`` are external inputs, not row-derived — ``verify`` re-derives the manifest
+    FROM the stored values, so a self-consistent rewrite of those three cannot be distinguished.
+    Acceptable for a non-blocking dry-run; a signing layer is the Phase-B answer.
 
     FRESH-CLONE PORTABLE: locators are dataset-root-relative, so an artifact built on clone A
     verifies against clone B's rows (same bytes, same layout, different absolute root).
@@ -456,6 +463,17 @@ def verify_manifest(rows: Iterable[dict], manifest: dict, *, root: Optional[Path
             "to describe — a storage locator was tampered/redirected."
         )
 
+    # Provenance binding: provenance_complete / unknown_provenance_rows are ROW-DERIVED (built from
+    # the same rows), so a re-digested manifest that flipped the provenance verdict to GREEN (or
+    # zeroed the unknown count) disagrees with the re-derivation and is RED. Without this, the only
+    # guard on these fields is the digest self-check, which a re-digesting attacker defeats.
+    for field in ("provenance_complete", "unknown_provenance_rows"):
+        if manifest.get(field) != recomputed[field]:
+            raise IntegrityError(
+                f"provenance binding FAILED: stored {field}={manifest.get(field)!r} != row-derived "
+                f"{recomputed[field]!r} — the provenance verdict was tampered (re-digested)."
+            )
+
 
 # --- CLI ----------------------------------------------------------------------------------------
 def _read_manifest_csv(path: str) -> List[dict]:
@@ -483,8 +501,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     bp.add_argument("--label-authority", required=True, dest="label_authority")
     bp.add_argument("--holdout-fraction", type=float, default=DEFAULT_HOLDOUT_FRACTION)
     bp.add_argument("--root", default=None,
-                    help="dataset root every locator is expressed against (default: inferred as the "
-                         "common parent of absolute row paths; relative rows pass through)")
+                    help="dataset root every locator is expressed against; REQUIRED when any row "
+                         "path is absolute (root inference is forbidden — absolute rows with no "
+                         "--root fail closed); omit only when every row path is already relative")
     bp.add_argument("--out", required=True)
 
     rp = sub.add_parser("report", help="per-category (real/synthetic/augmented) breakdown")
