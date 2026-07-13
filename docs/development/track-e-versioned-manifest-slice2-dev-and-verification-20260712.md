@@ -1,7 +1,8 @@
 # Track E slice-2 — versioned manifest + real/synth/augmented reporting — Dev & Verification (2026-07-12)
 
-> **Draft, stacked on Track E slice-1 (#510) → L3 (#509) → #508.** Parallel dev per the owner /goal.
-> Does NOT merge/activate before the stack lands. Retarget to `main` as each base merges.
+> **Draft, stacked on Track E slice-1 (#510); #509 is merged (`8ff94175`).** Retargets to `main` and
+> runs full CI after #510 merges. Dry-run tooling only — does NOT unlock retraining (the L3 gate is
+> unconditional). Phase-A posture: *Safety foundation complete; retraining remains disabled.*
 
 ## 0. What this is / is not
 
@@ -42,8 +43,10 @@ never drift from the split the L3 gate trusts.
 
 | Check | Result |
 |---|---|
-| slice-2 unit tests (`tests/unit/test_track_e_manifest.py`) | **27 passed** |
-| combined slice-1 + slice-2 (no interference) | **52 passed** |
+| slice-2 unit tests (`tests/unit/test_track_e_manifest.py`) | **44 passed** |
+| combined slice-1 + slice-2 (no interference) | **76 passed** |
+| **stored locator tamper** (`file_path`/`cache_path` redirected in the stored manifest) → RED via the explicit binding check | pass |
+| quarantine records digest as (`locator`=basename, `reason_code`); same missing file under two clone roots → **same digest** | pass |
 | categorize: markers → augmented/synthetic; unmarked/undeclared → **unknown** (never "real"); declared column authoritative | pass |
 | manifest_digest covers the **full envelope** (schema/provenance/quarantined/rows/…); tamper → RED | pass |
 | manifest is **fresh-clone stable** (rows carry `sample_id`; digest excludes host `file_path`) | pass |
@@ -85,7 +88,7 @@ only; model improvement stays off until Phase B (real metrics + two-stage releas
 
 ## 4. Scope boundary (portfolio)
 
-Only the cadml Track E line is cleanly buildable now. Unchanged/blocked elsewhere: **metasheet2**
-(#4168/#4004/#4159, other live sessions), **yuantus** (#1186 / discussion-auth, `adharamans` gh 404),
-**cadml #508/#509** (your independent-approval gate). Real Track E **metrics** are the model-run
-follow-up.
+#508 and #509 are merged; this PR waits only on #510. Real Track E **metrics**, the two-stage
+release gate (manifest/split digest + candidate model hash + evaluator version + thresholds), and
+any re-enablement of retraining are **Phase B** — they require a real data/model environment and
+owner threshold decisions, and are deliberately NOT claimed here.

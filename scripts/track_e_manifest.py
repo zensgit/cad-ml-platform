@@ -153,8 +153,41 @@ def _enrich_rows(
     return enriched
 
 
-# Fields excluded from the digest because they are host-bound, not part of the sample's identity.
-_DIGEST_EXCLUDED_ROW_FIELDS = ("file_path", "cache_path")
+# Fields excluded from the digest because they are host-bound or free-text, not part of the
+# sample's identity: absolute paths and human error detail vary per clone/OS locale.
+_DIGEST_EXCLUDED_ROW_FIELDS = ("file_path", "cache_path", "detail")
+
+# Stable quarantine reason codes (these DO enter the digest; the human `detail` does not).
+_QUARANTINE_REASON_CODES = (
+    ("unreadable content", "unreadable"),
+    ("label-conflict", "label_conflict"),
+    ("missing file_path or label", "missing_field"),
+)
+
+
+def _normalize_quarantine(entry: dict) -> dict:
+    """Rewrite a slice-1 quarantine record into a fresh-clone-stable form.
+
+    ``locator`` = NFC-normalized basename (host-independent), ``reason_code`` = stable enum-like
+    code. The original absolute path and OS error text are kept as human ``detail`` but are
+    EXCLUDED from the digest — two clones quarantining the same missing file must produce the same
+    ``manifest_digest``.
+    """
+    import unicodedata
+
+    fp = str(entry.get("file_path", ""))
+    reason = str(entry.get("reason", ""))
+    code = "other"
+    for prefix, rc in _QUARANTINE_REASON_CODES:
+        if reason.startswith(prefix):
+            code = rc
+            break
+    return {
+        "locator": unicodedata.normalize("NFC", Path(fp).name),
+        "reason_code": code,
+        "file_path": fp,     # host detail — excluded from the digest
+        "detail": reason,    # human detail — excluded from the digest
+    }
 
 
 # The digest covers the ENTIRE manifest envelope except the digest field itself, so tampering ANY
@@ -231,7 +264,7 @@ def build_versioned_manifest(
         "provenance_complete": unknown_provenance == 0,
         "unknown_provenance_rows": unknown_provenance,
         "rows": enriched,
-        "quarantined": list(split["quarantined"]),
+        "quarantined": [_normalize_quarantine(q) for q in split["quarantined"]],
         "split_digest": split_digest(split),
     }
     manifest["manifest_digest"] = _manifest_digest(manifest)  # over the full envelope above
@@ -315,6 +348,22 @@ def verify_manifest(rows: Iterable[dict], manifest: dict, *, root: Optional[Path
             "split reproducibility FAILED: the split changed since the manifest was built "
             f"(stored {str(manifest.get('split_digest'))[:12]} != recomputed "
             f"{recomputed['split_digest'][:12]}) — row content changed or a row was added/removed."
+        )
+
+    # Locator binding: the digest deliberately excludes host paths (fresh-clone stability), so a
+    # tampered STORED file_path/cache_path would otherwise pass. Bind them here instead: the stored
+    # (sample_id, file_path, cache_path) multiset must equal the one re-derived from the actual rows,
+    # so a redirected locator (pointing a consumer at different data) is RED.
+    def _locators(m: dict) -> list:
+        return sorted(
+            (str(r.get("sample_id", "")), str(r.get("file_path", "")), str(r.get("cache_path", "")))
+            for r in m.get("rows", [])
+        )
+
+    if _locators(manifest) != _locators(recomputed):
+        raise IntegrityError(
+            "locator binding FAILED: a stored file_path/cache_path does not match the manifest rows "
+            "it claims to describe — a storage locator was tampered/redirected."
         )
 
 

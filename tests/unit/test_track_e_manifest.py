@@ -102,7 +102,7 @@ def test_build_versioned_manifest_emits_every_8_1_6_field(tmp_path: Path) -> Non
     assert len(manifest["rows"]) == 4
     file_paths = {r["file_path"] for r in manifest["rows"]}
     assert missing_row["file_path"] not in file_paths
-    assert any("unreadable" in q["reason"] for q in manifest["quarantined"])
+    assert any(q["reason_code"] == "unreadable" for q in manifest["quarantined"])
 
     required_fields = {
         "file_path",
@@ -335,4 +335,39 @@ def test_manifest_digest_is_fresh_clone_stable(tmp_path: Path) -> None:
             (root / name).write_bytes(b)
             rows.append({"file_path": str(root / name), "cache_path": "", "taxonomy_v2_class": lbl})
         return tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")["manifest_digest"]
+    assert _clone(tmp_path / "cloneA") == _clone(tmp_path / "cloneB")
+
+
+def test_verify_red_on_stored_locator_tamper(tmp_path: Path) -> None:
+    # review P1: file_path/cache_path are excluded from the digest (fresh-clone stability), so a
+    # tampered STORED locator must be caught by the explicit binding check instead.
+    rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "cls") for i in range(4)]
+    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")
+    man["rows"][0]["file_path"] = str(tmp_path / "evil_redirect.dxf")   # redirect a consumer
+    with pytest.raises(tm.IntegrityError, match="locator binding FAILED"):
+        tm.verify_manifest(rows, man)
+
+
+def test_verify_red_on_stored_cache_path_tamper(tmp_path: Path) -> None:
+    rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "cls") for i in range(4)]
+    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")
+    man["rows"][0]["cache_path"] = "/evil/cache.pt"
+    with pytest.raises(tm.IntegrityError, match="locator binding FAILED"):
+        tm.verify_manifest(rows, man)
+
+
+def test_manifest_digest_stable_across_clones_with_quarantined_rows(tmp_path: Path) -> None:
+    # review P1: quarantine records must not leak absolute paths / OS text into the digest — the
+    # SAME missing file under two different clone roots must yield the same manifest_digest.
+    def _clone(root: Path) -> str:
+        root.mkdir()
+        (root / "good.dxf").write_bytes(b"G")
+        rows = [
+            {"file_path": str(root / "good.dxf"), "cache_path": "", "taxonomy_v2_class": "g"},
+            {"file_path": str(root / "gone.dxf"), "cache_path": "", "taxonomy_v2_class": "g"},
+        ]
+        m = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")
+        assert m["quarantined"] and m["quarantined"][0]["reason_code"] == "unreadable"
+        assert m["quarantined"][0]["locator"] == "gone.dxf"
+        return m["manifest_digest"]
     assert _clone(tmp_path / "cloneA") == _clone(tmp_path / "cloneB")
