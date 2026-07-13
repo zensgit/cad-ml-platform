@@ -653,3 +653,59 @@ def test_verify_accepts_nondefault_policy_when_caller_declares_it(tmp_path: Path
         rows, source="s", license_="l", label_authority="a", holdout_fraction=0.3, root=tmp_path
     )
     tm.verify_manifest(rows, man, root=tmp_path, expected_holdout_fraction=0.3)  # must not raise
+
+
+def test_no_root_relative_symlink_escape_is_contained(tmp_path: Path, monkeypatch) -> None:
+    # audit P1: the root=None (repo-relative CLI default) branch previously skipped resolve()
+    # containment. A relative in-tree symlink pointing OUTSIDE cwd must be RED before any read.
+    import os
+    dataset = tmp_path / "dataset"; dataset.mkdir()
+    (dataset / "real.dxf").write_bytes(b"R")
+    secret = tmp_path / "secret.dxf"; secret.write_bytes(b"S")
+    try:
+        os.symlink(str(secret), str(dataset / "link.dxf"))
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks unavailable")
+    monkeypatch.chdir(dataset)                      # content_hash(root=None) opens relative to cwd
+    rows = [
+        {"file_path": "real.dxf", "cache_path": "", "taxonomy_v2_class": "g"},
+        {"file_path": "link.dxf", "cache_path": "", "taxonomy_v2_class": "g"},   # symlink OUT of cwd
+    ]
+    calls = {"split": 0}
+    real_split = tm.compute_split
+    monkeypatch.setattr(tm, "compute_split",
+                        lambda *a, **k: (calls.__setitem__("split", calls["split"] + 1) or real_split(*a, **k)))
+    with pytest.raises(tm.IntegrityError, match="escapes the dataset root"):
+        tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")  # root=None
+    assert calls["split"] == 0                       # RED before compute_split/content_hash
+
+
+def test_verify_red_on_smuggled_top_level_key(tmp_path: Path) -> None:
+    # audit P3: a re-digested manifest must not smuggle an unbound top-level key (esp. a
+    # security-named unlocks_retraining) through verify.
+    rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "g") for i in range(4)]
+    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=tmp_path)
+    man["unlocks_retraining"] = True                 # smuggle a forbidden flag
+    man["manifest_digest"] = tm._manifest_digest(man)
+    with pytest.raises(tm.IntegrityError, match="schema key-set FAILED"):
+        tm.verify_manifest(rows, man, root=tmp_path)
+
+
+def test_verify_red_on_smuggled_row_key(tmp_path: Path) -> None:
+    rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "g") for i in range(4)]
+    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=tmp_path)
+    man["rows"][0]["report_override"] = "forged"     # extra row key beyond _BOUND_ROW_FIELDS
+    man["manifest_digest"] = tm._manifest_digest(man)
+    with pytest.raises(tm.IntegrityError, match="schema key-set FAILED"):
+        tm.verify_manifest(rows, man, root=tmp_path)
+
+
+def test_verify_red_on_smuggled_quarantine_key(tmp_path: Path) -> None:
+    good = _mk(tmp_path, "good.dxf", b"G", "g")
+    rows = [good, {"file_path": str(tmp_path / "gone.dxf"), "cache_path": "", "taxonomy_v2_class": "g"}]
+    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=tmp_path)
+    assert man["quarantined"]
+    man["quarantined"][0]["smuggled"] = "x"          # extra quarantine key
+    man["manifest_digest"] = tm._manifest_digest(man)
+    with pytest.raises(tm.IntegrityError, match="schema key-set FAILED"):
+        tm.verify_manifest(rows, man, root=tmp_path)

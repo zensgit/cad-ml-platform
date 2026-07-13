@@ -166,7 +166,17 @@ def _relative_locator(fp: str, root: Optional[Path]) -> str:
             "inferred without widening the trust boundary)"
         )
     else:
-        rel = str(p)  # no declared root: repo-relative pass-through (string-validated below)
+        # No declared root (repo-relative mode): content_hash(fp, root=None) opens the path relative
+        # to CWD, so CWD is the effective dataset root. Contain against it the SAME resolve() way —
+        # a string-only check is blind to symlinks, which is how the no-root path re-opened the
+        # containment hole. An in-tree relative symlink pointing outside CWD is RED.
+        try:
+            rel = str(p.resolve().relative_to(Path.cwd().resolve()))
+        except ValueError as exc:
+            raise IntegrityError(
+                f"locator escapes the dataset root: {fp!r} resolves outside the current working "
+                "directory (symlink / `..` escape) — a versioned dataset must be self-contained"
+            ) from exc
     locator = _ud.normalize("NFC", Path(rel).as_posix())
     _validate_locator(locator, original=fp)
     return locator
@@ -556,6 +566,31 @@ def verify_manifest(
                 f"provenance binding FAILED: stored {field}={manifest.get(field)!r} != row-derived "
                 f"{recomputed[field]!r} — the provenance verdict was tampered (re-digested)."
             )
+
+    # Closed key-set binding: the artifact's key set must EXACTLY equal what build emits — no extra
+    # or missing keys at the top level, per row, or per quarantine entry. Without this, a re-digested
+    # manifest could smuggle an unbound key (e.g. a security-named ``unlocks_retraining: True``, or a
+    # digest-excluded row ``detail``) through a PASS. Compared against the freshly built ``recomputed``
+    # so it tracks schema evolution automatically.
+    if set(manifest.keys()) != set(recomputed.keys()):
+        extra = set(manifest.keys()) - set(recomputed.keys())
+        missing = set(recomputed.keys()) - set(manifest.keys())
+        raise IntegrityError(
+            f"schema key-set FAILED: top-level keys differ from the built schema "
+            f"(extra={sorted(extra)}, missing={sorted(missing)}) — an unbound field was injected."
+        )
+    for label, got, exp in (
+        ("row", manifest.get("rows", []), recomputed["rows"]),
+        ("quarantine", manifest.get("quarantined", []), recomputed["quarantined"]),
+    ):
+        exp_keys = set(exp[0].keys()) if exp else None
+        for entry in got:
+            keys = set(entry.keys())
+            if exp_keys is not None and keys != exp_keys:
+                raise IntegrityError(
+                    f"schema key-set FAILED: a {label} entry's keys {sorted(keys)} differ from the "
+                    f"built schema {sorted(exp_keys)} — an unbound field was injected."
+                )
 
 
 # --- CLI ----------------------------------------------------------------------------------------
