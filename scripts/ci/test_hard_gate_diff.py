@@ -355,6 +355,35 @@ if hg._tool_available("vulture"):
 else:
     print("  SKIP baseline reindent golden (vulture absent)")
 
+# --- SPACE-PATH end-to-end: a DUPLICATE copied into a path WITH A SPACE must be caught ------------
+# The trailing-tab the git `+++ b/` header appends for a spaced path made changed_lines emit a
+# tab-suffixed key that never matched the corpus, so the duplicate was silently UNGATED. This is the
+# full-enforce observed-RED the reviewer asked for (not just `ls-files -z`).
+if hg._tool_available("vulture"):
+    _sd = tempfile.mkdtemp()
+
+    def _sgit(*a):
+        return subprocess.run(["git", "-C", _sd, *a], capture_output=True, text=True)
+
+    _sgit("init", "-q"); _sgit("config", "user.email", "t@t"); _sgit("config", "user.name", "t")
+    os.makedirs(f"{_sd}/src")
+    _sbody = (
+        "def compute(x):\n    a = x + 1\n    b = a * 2\n    c = b - 3\n    d = c / 4\n    e = d ** 2\n"
+        "    g = e + 5\n    h = g - 6\n    i = h + 7\n    j = i + 8\n    return a+b+c+d+e+g+h+i+j\n"
+    )
+    open(f"{_sd}/src/orig.py", "w").write(_sbody)
+    _sgit("add", "-A"); _sgit("commit", "-qm", "base")
+    _sbase = _sgit("rev-parse", "HEAD").stdout.strip()
+    open(f"{_sd}/src/new module.py", "w").write(_sbody)   # NEW file WITH A SPACE, copies orig
+    _sgit("add", "-A"); _sgit("commit", "-qm", "dup in a spaced path")
+    _sr = subprocess.run([sys.executable, hg.__file__], cwd=_sd,
+                         env={**os.environ, "HARD_GATE_BASE": _sbase, "HARD_GATE_ENFORCE": "1"},
+                         capture_output=True, text=True)
+    check("SPACE-PATH: a duplicate copied into 'src/new module.py' -> RED (exit 1), not ungated",
+          _sr.returncode == 1 and "src/new module.py" in _sr.stdout)
+else:
+    print("  SKIP space-path golden (vulture absent)")
+
 print("\nOBSERVED-RED demonstration (the filter genuinely discriminates):")
 print(f"  same violation on changed line 11 -> caught={on_changed in kept}")
 print(f"  same violation on unchanged line 400 -> caught={on_unchanged in kept}  (must be False)")

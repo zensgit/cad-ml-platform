@@ -1,5 +1,13 @@
 # Phase 0 · A4 verification — diff-scoped hard-gate mechanics
 
+> ## ⛔ SUPERSEDED (2026-07-13) — do NOT configure anything from this document
+> This verification predates five hardening rounds and describes the **obsolete** implementation
+> (pylint; changed-files-only scan; `paths:` filter; the old required-check name
+> `Hard Gate (diff-scoped, dry-run)`). The current required context is **`Hard Gate (diff-scoped)`** —
+> the old name would make branch protection wait forever. **Authoritative current doc:**
+> [`PHASE0_A4_HARDGATE_HARDENING_DEV_AND_VERIFICATION_20260712.md`](PHASE0_A4_HARDGATE_HARDENING_DEV_AND_VERIFICATION_20260712.md).
+> Kept only for provenance.
+
 Companion to `PHASE0_A4_HARD_GATE_MECHANICS_DESIGN_20260708.md`. Grounded on `origin/main @ 8337ea6e`, **executed locally** (guardrail: run, don't just compile).
 
 ---

@@ -137,6 +137,7 @@ locked with observed-RED (56 self-tests now).
 | **`src/test_runtime.py` bypassed the whole gate** — `is_test_path` excluded any file *named* `test_*.py`. | Exclude only real test *locations* (a `tests`/`test` dir, `conftest.py`, `scripts/ci/test_*.py`); a production `test_*.py` is gated. |
 | **vulture `rc=3` + unrecognised output → fake-green** — `rc=3` ("dead code found") with zero parsed findings, or any unrecognised line, silently passed. | `rc=3` must parse ≥1 finding, and any non-empty unrecognised line → **malfunction (exit 2)**. |
 | **Non-ASCII filename bypass** — under default `core.quotePath` git octal-escapes a Chinese path in the diff/ls-files, so it was missed. | `-c core.quotePath=false` on every git call (+ `ls-files -z` for spaces). |
+| **Space in a filename → the duplicate in it was UNGATED** — `git`'s `+++ b/<path>` header appends a TAB for a spaced path, so `changed_lines` emitted a tab-suffixed key that never matched the corpus. | `changed_lines` strips the trailing tab (`ls-files -z` handles the corpus side); a duplicate copied into `src/new module.py` now → exit 1 (observed-RED). |
 | **`diff.noprefix=true` → armed gate passes EVERY PR** — the `b/` prefix the parser needs disappears → `changed_lines` empty. | `-c diff.noprefix=false`. |
 | **`tokenize` fixed a naive `#`-in-string bug** (round 4). | Normalization is by the real tokenizer; comments/whitespace dropped correctly, names kept. |
 | **Unexpected vulture exit codes fell through to 'ok'** (round 4). | Allow-list: `0/3`=ok, `1`=partial, **anything else → exit 2**. |

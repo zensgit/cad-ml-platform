@@ -105,7 +105,12 @@ def changed_lines(base_ref: str, run=subprocess.run) -> dict[str, set[int]]:
     hunk = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
     for line in out.splitlines():
         if line.startswith("+++ b/"):
-            cur = line[6:]
+            # git appends a TAB after a path that contains a space (as a terminator), e.g.
+            # `+++ b/src/new module.py\t`. Without stripping it the key carries a trailing tab,
+            # never matches the (clean, ls-files -z) corpus key, and that file's changes -- incl.
+            # a duplicate copied INTO it -- are silently UNGATED. Normal paths have no trailing tab,
+            # so rstrip is a no-op for them.
+            cur = line[6:].rstrip("\t")
             result.setdefault(cur, set())
         elif line.startswith("@@") and cur is not None:
             m = hunk.match(line)

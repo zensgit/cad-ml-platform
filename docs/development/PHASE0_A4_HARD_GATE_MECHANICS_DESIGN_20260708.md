@@ -1,5 +1,15 @@
 # Phase 0 · A4 — diff-scoped hard-gate mechanics (my half of the split)
 
+> ## ⛔ SUPERSEDED (2026-07-13) — do NOT configure anything from this document
+> The implementation described below is **obsolete**. It predates five hardening rounds. In
+> particular it describes **pylint** (removed — now a stdlib tokenize fingerprint index),
+> **producers scanning changed-files-only** (now the full tree), a **`paths:` workflow filter**
+> (removed), and the old required-check name **`Hard Gate (diff-scoped, dry-run)`**. The context is
+> now **`Hard Gate (diff-scoped)`** — configuring branch protection with the old name makes a PR
+> **wait forever**. **Authoritative current doc:**
+> [`PHASE0_A4_HARDGATE_HARDENING_DEV_AND_VERIFICATION_20260712.md`](PHASE0_A4_HARDGATE_HARDENING_DEV_AND_VERIFICATION_20260712.md)
+> (see its "CURRENT STATE" header). This file is kept only for provenance.
+
 - **Status**: for-review groundwork. Branch only, **no PR** (backlog cap). Ships DRY-RUN; arming is owner-only.
 - **Grounded on** `origin/main @ 8337ea6e`, executed locally (not just compiled).
 - **The owner/agent split** (owner's framing): *I build the path-filtered, dry-run-first hard-gate mechanics + evidence; the owner adds the check to the branch-protection required list.* This is my half.
