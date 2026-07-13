@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.main import app
+from src.ml.classifier import reload_model
 from src.utils.analysis_metrics import (
     model_opcode_blocked_total,
     model_opcode_mode,
@@ -46,12 +47,7 @@ def test_opcode_blacklist_blocks_global(tmp_path):
     os.environ["MODEL_OPCODE_SCAN"] = "1"
     target = tmp_path / "blk.pkl"
     _write_model(target, unsafe_function)
-    resp = client.post(
-        "/api/v1/model/reload",
-        headers={"X-API-Key": "test", "X-Admin-Token": "secret"},
-        json={"path": str(target)},
-    )
-    data = resp.json()
+    data = reload_model(str(target))
     assert data["status"] == "opcode_blocked"
     assert data["error"]["code"] == "INPUT_FORMAT_INVALID"
     assert data["error"]["stage"] == "model_reload"
@@ -63,12 +59,7 @@ def test_opcode_audit_does_not_block(tmp_path):
     target = tmp_path / "audit.pkl"
     _write_model(target, unsafe_function)
     # Expect success because audit mode does not block globals
-    resp = client.post(
-        "/api/v1/model/reload",
-        headers={"X-API-Key": "test", "X-Admin-Token": "secret"},
-        json={"path": str(target), "force": True},
-    )
-    data = resp.json()
+    data = reload_model(str(target), force=True)
     # In audit mode we still require predict; unsafe_function lacks it so treat as load error
     if data["status"] != "success":
         # Should fail due to missing predict, not opcode block
@@ -84,12 +75,7 @@ def test_opcode_whitelist_blocks_global(tmp_path):
     os.environ["MODEL_OPCODE_SCAN"] = "1"
     target = tmp_path / "wl.pkl"
     _write_model(target, unsafe_function)
-    resp = client.post(
-        "/api/v1/model/reload",
-        headers={"X-API-Key": "test", "X-Admin-Token": "secret"},
-        json={"path": str(target)},
-    )
-    data = resp.json()
+    data = reload_model(str(target))
     assert data["status"] == "opcode_blocked"
     assert data["error"]["code"] == "INPUT_FORMAT_INVALID"
 
@@ -99,11 +85,7 @@ def test_opcode_audit_counts_increment(tmp_path):
     os.environ["MODEL_OPCODE_SCAN"] = "1"
     target = tmp_path / "audit2.pkl"
     _write_model(target, unsafe_function)
-    resp = client.post(
-        "/api/v1/model/reload",
-        headers={"X-API-Key": "test", "X-Admin-Token": "secret"},
-        json={"path": str(target), "force": True},
-    )
+    reload_model(str(target), force=True)
     # Query audit endpoint
     audit_resp = client.get(
         "/api/v1/model/opcode-audit",
@@ -122,11 +104,7 @@ def test_opcode_mode_gauge_updates(tmp_path):
     os.environ["MODEL_OPCODE_SCAN"] = "1"
     target = tmp_path / "mode.pkl"
     _write_model(target, unsafe_function)
-    client.post(
-        "/api/v1/model/reload",
-        headers={"X-API-Key": "test", "X-Admin-Token": "secret"},
-        json={"path": str(target)},
-    )
+    reload_model(str(target))
     gauge_value = None
     for sample in model_opcode_mode.collect()[0].samples:
         if sample.name == "model_opcode_mode":
@@ -155,11 +133,7 @@ def test_opcode_scan_counters_increment(tmp_path):
     before_scans = _counter_sum(model_opcode_scans_total, "model_opcode_scans_total")
     before_blocked = _counter_sum(model_opcode_blocked_total, "model_opcode_blocked_total")
 
-    client.post(
-        "/api/v1/model/reload",
-        headers={"X-API-Key": "test", "X-Admin-Token": "secret"},
-        json={"path": str(target)},
-    )
+    reload_model(str(target))
 
     after_scans = _counter_sum(model_opcode_scans_total, "model_opcode_scans_total")
     after_blocked = _counter_sum(model_opcode_blocked_total, "model_opcode_blocked_total")

@@ -1,14 +1,10 @@
 import os
 import pickle
-from pathlib import Path
 from unittest.mock import patch
 
-from fastapi.testclient import TestClient
-
-from src.main import app
+from src.ml.classifier import reload_model
 from tests.unit.test_model_reload_errors_structured_support import (
     DummyModel,
-    GoodModel,
     VersionedModel,
 )
 
@@ -22,28 +18,14 @@ def test_model_reload_success(tmp_path):
 
     # Disable opcode scanning for this test
     with patch.dict(os.environ, {"MODEL_OPCODE_SCAN": "0"}):
-        client = TestClient(app)
-        r = client.post(
-            "/api/v1/model/reload",
-            json={"path": str(model_path), "expected_version": "vX", "force": True},
-            headers={"X-API-Key": "test", "X-Admin-Token": "test"},
-        )
-        assert r.status_code == 200
-        data = r.json()
+        data = reload_model(str(model_path), expected_version="vX", force=True)
         assert data["status"] == "success"
         assert "model_version" in data
         assert "hash" in data
 
 
 def test_model_reload_not_found():
-    client = TestClient(app)
-    r = client.post(
-        "/api/v1/model/reload",
-        json={"path": "nonexistent.pkl"},
-        headers={"X-API-Key": "test", "X-Admin-Token": "test"},
-    )
-    assert r.status_code == 200
-    data = r.json()
+    data = reload_model("nonexistent.pkl")
     assert data["status"] == "not_found"
     # Verify structured error
     assert "error" in data
@@ -53,14 +35,7 @@ def test_model_reload_not_found():
 def test_model_reload_missing_path_uses_default(tmp_path, monkeypatch):
     model_path = tmp_path / "missing_default.pkl"
     monkeypatch.setenv("CLASSIFICATION_MODEL_PATH", str(model_path))
-    client = TestClient(app)
-    r = client.post(
-        "/api/v1/model/reload",
-        json={"force": True},
-        headers={"X-API-Key": "test", "X-Admin-Token": "test"},
-    )
-    assert r.status_code == 200
-    data = r.json()
+    data = reload_model(None, force=True)
     assert data["status"] == "not_found"
     assert data["error"]["context"]["path"] == str(model_path)
 
@@ -79,14 +54,7 @@ def test_model_reload_size_exceeded(tmp_path, monkeypatch):
 
     # Disable opcode scanning to isolate size check
     with patch.dict(os.environ, {"MODEL_OPCODE_SCAN": "0"}):
-        client = TestClient(app)
-        r = client.post(
-            "/api/v1/model/reload",
-            json={"path": str(big_path), "expected_version": "vZ"},
-            headers={"X-API-Key": "test", "X-Admin-Token": "test"},
-        )
-        assert r.status_code == 200
-        data = r.json()
+        data = reload_model(str(big_path), expected_version="vZ")
         assert data["status"] == "size_exceeded"
         # Verify structured error present
         assert "error" in data
@@ -108,19 +76,12 @@ def test_model_reload_version_mismatch(tmp_path, monkeypatch):
 
     # Disable opcode scanning for this test
     with patch.dict(os.environ, {"MODEL_OPCODE_SCAN": "0"}):
-        client = TestClient(app)
-        r = client.post(
-            "/api/v1/model/reload",
-            json={
-                "path": str(model_path),
-                "expected_version": "v2.0",  # Mismatch with env var
-                "force": False,  # Don't force - should fail on mismatch
-            },
-            headers={"X-API-Key": "test", "X-Admin-Token": "test"},
+        data = reload_model(
+            str(model_path),
+            expected_version="v2.0",  # Mismatch with env var
+            force=False,  # Don't force - should fail on mismatch
         )
 
-        assert r.status_code == 200
-        data = r.json()
         assert data["status"] == "version_mismatch"
 
 
@@ -132,15 +93,8 @@ def test_model_reload_rollback_on_failure(tmp_path):
 
     # Disable opcode scanning to test rollback behavior
     with patch.dict(os.environ, {"MODEL_OPCODE_SCAN": "0"}):
-        client = TestClient(app)
-        r = client.post(
-            "/api/v1/model/reload",
-            json={"path": str(bad_model_path), "force": True},
-            headers={"X-API-Key": "test", "X-Admin-Token": "test"},
-        )
+        data = reload_model(str(bad_model_path), force=True)
 
-        assert r.status_code == 200
-        data = r.json()
         # Magic number check should catch this before rollback
         assert data["status"] in ("magic_invalid", "error", "rollback")
 
@@ -157,15 +111,8 @@ def test_model_reload_rollback_on_failure(tmp_path):
 
 def test_model_reload_structured_error_format():
     """Test that all error responses follow structured error format."""
-    client = TestClient(app)
-    r = client.post(
-        "/api/v1/model/reload",
-        json={"path": "/nonexistent/path/model.pkl"},
-        headers={"X-API-Key": "test", "X-Admin-Token": "test"},
-    )
+    data = reload_model("/nonexistent/path/model.pkl")
 
-    assert r.status_code == 200
-    data = r.json()
     assert data["status"] == "not_found"
 
     # Verify structured error format
@@ -188,16 +135,7 @@ def test_model_reload_success_no_error_field(tmp_path):
 
     # Disable opcode scanning for successful load
     with patch.dict(os.environ, {"MODEL_OPCODE_SCAN": "0"}):
-        client = TestClient(app)
-        r = client.post(
-            "/api/v1/model/reload",
-            json={"path": str(model_path), "force": True},
-            headers={"X-API-Key": "test", "X-Admin-Token": "test"},
-        )
-
-        # Should succeed
-        assert r.status_code == 200
-        data = r.json()
+        data = reload_model(str(model_path), force=True)
 
         if data["status"] == "success":
             # Success response should not have error field

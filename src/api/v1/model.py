@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.api.dependencies import get_admin_token, get_api_key
@@ -43,90 +43,50 @@ class ModelReloadResponse(BaseModel):
     model_config = ConfigDict(protected_namespaces=())
 
 
-@router.post("/reload", response_model=ModelReloadResponse)
+@router.post(
+    "/reload",
+    status_code=403,  # SEALED — no success status exists; the contract is 403 (+422 validation)
+    responses={403: {"description": "Sealed (L3 Phase A): model reload via the API is fail-closed."}},
+)
 async def model_reload(
     payload: ModelReloadRequest,
     api_key: str = Depends(get_api_key),
     admin_token: str = Depends(get_admin_token),
 ):
+    """SEALED (L3 Phase A) — always 403; no model is ever loaded through this route.
+
+    This route hot-reloaded an ARBITRARY caller-supplied `path` into the serving process
+    (`reload_model(payload.path, force=...)` → `classifier.py:535 pickle.loads`, which deserializes
+    BEFORE the whitelist/hash check, with the hash truncated to 16 hex — a reproduced RCE), guarded
+    only by `api_key`/`admin_token` that both default to the literal `"test"`. It is the highest-risk
+    external model-activation surface (L3 design-lock §1.A/§3.2).
+
+    Per the design-lock, this route may be re-enabled ONLY when BOTH hold: (1) the production-identity
+    gate (no default `test`, unforgeable authenticated subject), and (2) the proof membrane
+    (`verify_and_load` — a server-owned artifact id, one immutable read hash-and-load, a signed
+    out-of-band proof binding model_hash+family+split+evaluator+thresholds+env, expiry/revocation).
+    Neither exists yet, so the membrane default here is #509's: **fail closed, unconditionally.**
+    Emergency rollback runs in-process via auto-remediation and does not use this route.
+
+    Do NOT log the caller-supplied path (untrusted input).
     """
-    重载机器学习模型
-
-    支持以下功能：
-    - 指定路径加载模型
-    - 版本验证
-    - 强制重载
-    - 自动回滚机制
-
-    Args:
-        payload: 模型重载请求参数
-        api_key: API密钥
-
-    Returns:
-        模型重载结果
-    """
-    from src.ml.classifier import reload_model
-
-    # Call the reload function
-    result = reload_model(
-        payload.path, expected_version=payload.expected_version, force=payload.force
+    logger.warning(
+        "model reload via API refused (L3 Phase-A seal): path_provided=%s force=%s",
+        bool(payload.path), bool(payload.force),
     )
-
-    status = result.get("status")
-
-    # Handle different status cases
-    if status == "success":
-        logger.info(
-            f"Model reloaded successfully: version={result.get('model_version')}, "
-            f"hash={result.get('hash')}"
-        )
-        # When audit mode is active, include audit snapshot
-        from src.ml.classifier import get_opcode_audit_snapshot  # type: ignore
-
-        get_opcode_audit_snapshot()
-        return ModelReloadResponse(
-            status="success", model_version=result.get("model_version"), hash=result.get("hash")
-        )
-
-    if status == "not_found":
-        logger.error(f"Model file not found: {payload.path}")
-        return ModelReloadResponse(status="not_found", error=result.get("error"))
-
-    if status == "version_mismatch":
-        logger.warning(
-            f"Model version mismatch: expected={payload.expected_version}, actual={result.get('actual_version')}"
-        )
-        return ModelReloadResponse(status="version_mismatch", error=result.get("error"))
-
-    if status == "size_exceeded":
-        logger.error(
-            f"Model size exceeded: {result.get('error', {}).get('context', {}).get('size_mb')}MB > {result.get('error', {}).get('context', {}).get('max_mb')}MB"
-        )
-        return ModelReloadResponse(status="size_exceeded", error=result.get("error"))
-
-    # Pass-through structured security/validation errors
-    if status in {"magic_invalid", "hash_mismatch", "opcode_blocked", "opcode_scan_error"}:
-        logger.warning(
-            "Model reload failed",
-            extra={
-                "status": status,
-                "error": result.get("error"),
-            },
-        )
-        return ModelReloadResponse(status=status, error=result.get("error"))
-
-    if status == "rollback":
-        logger.warning(f"Model rolled back to version {result.get('rollback_version')}")
-        return ModelReloadResponse(
-            status="rollback",
-            model_version=result.get("rollback_version"),
-            hash=result.get("rollback_hash"),
-            error=result.get("error"),
-        )
-
-    # Unknown status
-    logger.error(f"Unknown model reload status: {status}")
-    return ModelReloadResponse(status="error", error=result.get("error"))
+    raise HTTPException(
+        status_code=403,
+        detail=(
+            "Model reload via the API is disabled (fail-closed). The retrain/activation path is "
+            "sealed until the L3 production-identity gate AND the model-activation proof membrane "
+            "both hold (design-lock §3.2). Emergency rollback runs in-process via auto-remediation."
+        ),
+    )
+    # NOTE (post-membrane): reintroduce loading behind verify_and_load, accepting only a server-owned
+    # artifact id (never a caller path) whose bytes' SHA-256 matches a signed, unexpired, unrevoked
+    # release proof for the server-owned (family, environment). The pre-seal status envelope
+    # (success / not_found / version_mismatch / size_exceeded / magic_invalid / hash_mismatch /
+    # opcode_blocked / opcode_scan_error / rollback) was removed with the seal, not left as dead code.
 
 
 @router.get("/version")

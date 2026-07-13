@@ -685,6 +685,12 @@ jobs:
           pytest -q \
             tests/unit/test_eval_integrity_gate.py \
             tests/unit/test_auto_retrain_failclosed.py
+      - name: L3 activation-surface enumerator — no new unclassified model-load site (fail-closed)
+        run: |
+          python scripts/ci/activation_surface_enumerator.py
+          pytest -q \
+            tests/unit/test_activation_surface_enumerator.py \
+            tests/unit/test_l3_phase_a_runtime_bleeding_control.py
       - name: Run Hybrid confidence calibration gate (3.11 only, optional)
         if: matrix.python-version == '3.11'
         run: |
