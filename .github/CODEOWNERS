@@ -1,26 +1,29 @@
-# CODEOWNERS — L3 surfaces require an INDEPENDENT owner's review.
+# CODEOWNERS — L3 surface inventory for the current solo-maintainer repository.
 #
 # ─────────────────────────────────────────────────────────────────────────────
-#  ⚠️  THIS FILE ALONE IS NOT A GATE. Enabling code-owner review on it TODAY
-#      would permanently DEADLOCK every L3 PR, because every rule below names
-#      only @zensgit — the sole account — which cannot approve its own PRs.
+#  ⚠️  THIS FILE IS AN OWNERSHIP MAP, NOT AN INDEPENDENT-REVIEW GATE.
+#      @zensgit is the sole developer and cannot approve its own pull requests.
+#      `require_code_owner_reviews` MUST remain false while that is true.
 #
-#  Two prerequisites, in this order, BEFORE `require_code_owner_reviews = true`:
+#  Solo-maintainer L3 protocol:
 #
-#   1. A genuinely INDEPENDENT reviewer with write access must exist AND be
-#      added to every rule below, e.g.:
-#          /scripts/eval_integrity_gate.py  @zensgit @independent-reviewer
-#      This repo is a personal account (`zensgit/`), so a GitHub *organization
-#      team* cannot be used without migrating the repo; add an independent
-#      *collaborator* with write access instead.
-#      NOTE: a second account controlled by the SAME person satisfies GitHub's
-#      mechanical approval only — it does NOT satisfy the §4.7 "independent
-#      critic" requirement. The reviewer must be a different person.
+#   1. An isolated critic that did not author the patch first derives the
+#      load-bearing discriminators from the ratified design lock, then reviews
+#      the implementation. Use a different model when available; at minimum use
+#      a fresh context with no inherited implementation rationale.
+#   2. The critic's findings, fail-first golden, observed-RED evidence, and final
+#      reviewed head are recorded in the PR. The critic supplies evidence only;
+#      it does not approve or ratify the change.
+#   3. The human owner explicitly ratifies the design and authorizes the pinned
+#      head. Merge and production enablement remain separate owner decisions;
+#      L3 runtime ships default-off.
 #
-#   2. THEN set `require_code_owner_reviews = true` in branch protection.
+#  Do not create a second account controlled by the same person to simulate
+#  independence. If a genuinely independent human reviewer is added later,
+#  amend every applicable rule first and only then consider enabling
+#  `require_code_owner_reviews`.
 #
-#      Doing (2) before (1) is a foot-gun that locks the repo. Both are
-#      owner-only actions; this PR touches neither.
+#  This PR changes no branch-protection setting.
 # ─────────────────────────────────────────────────────────────────────────────
 #
 # Why (PRODUCT_STRATEGY.md §7.1): touching auth, authorization, customer data, an
@@ -30,7 +33,7 @@
 # This file exists because an unattended cadence loop authored a model-release gate
 # (#509/#510/#511) and produced a FAKE-GREEN gate. §4.7 — "the author of a guard must not
 # be the only author or reviewer of the discriminator that claims to prove it" — earned its
-# place on the very first L3 attempt. An unattended loop cannot be both author and critic.
+# place on the very first L3 attempt. An unattended loop cannot be author, critic, or ratifier.
 
 # --- Model ACTIVATION membrane (L3) ------------------------------------------
 # The full boundary is broader than auto_retrain.sh. reload_model() has THREE call
