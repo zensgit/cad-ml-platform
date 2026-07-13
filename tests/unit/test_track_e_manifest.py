@@ -362,7 +362,7 @@ def test_verify_red_on_redigested_locator_tamper(tmp_path: Path) -> None:
     man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=tmp_path)
     man["rows"][0]["locator"] = "evil_redirect.dxf"
     man["manifest_digest"] = tm._manifest_digest(man)   # attacker re-digests the envelope
-    with pytest.raises(tm.IntegrityError, match="locator binding FAILED"):
+    with pytest.raises(tm.IntegrityError, match="row binding FAILED"):
         tm.verify_manifest(rows, man, root=tmp_path)
 
 
@@ -371,7 +371,7 @@ def test_verify_red_on_redigested_cache_locator_tamper(tmp_path: Path) -> None:
     man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=tmp_path)
     man["rows"][0]["cache_locator"] = "evil/cache.pt"
     man["manifest_digest"] = tm._manifest_digest(man)
-    with pytest.raises(tm.IntegrityError, match="locator binding FAILED"):
+    with pytest.raises(tm.IntegrityError, match="row binding FAILED"):
         tm.verify_manifest(rows, man, root=tmp_path)
 
 
@@ -537,4 +537,63 @@ def test_verify_red_on_redigested_provenance_flip(tmp_path: Path) -> None:
     man["unknown_provenance_rows"] = 0
     man["manifest_digest"] = tm._manifest_digest(man)    # ...and re-digests to pass self-consistency
     with pytest.raises(tm.IntegrityError, match="provenance binding FAILED"):
+        tm.verify_manifest(rows, man, root=tmp_path)
+
+
+def test_relative_symlink_escape_is_contained(tmp_path: Path) -> None:
+    # review P1: the relative-path branch previously skipped resolve() containment. A RELATIVE
+    # locator that is a symlink to OUTSIDE root (read as root/link.dxf by content_hash) must be RED.
+    import os
+    dataset = tmp_path / "dataset"; dataset.mkdir()
+    (dataset / "real.dxf").write_bytes(b"R")
+    secret = tmp_path / "secret.dxf"; secret.write_bytes(b"S")
+    try:
+        os.symlink(str(secret), str(dataset / "link.dxf"))
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks unavailable")
+    rows = [
+        {"file_path": "real.dxf", "cache_path": "", "taxonomy_v2_class": "g"},   # relative, in-root
+        {"file_path": "link.dxf", "cache_path": "", "taxonomy_v2_class": "g"},   # relative symlink OUT
+    ]
+    with pytest.raises(tm.IntegrityError, match="escapes the dataset root"):
+        tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=dataset)
+
+
+@pytest.mark.parametrize("field,forged", [
+    ("category", "real"),          # unknown -> real (forges clean provenance)
+    ("taxonomy_v2_class", "forged"),
+    ("locator", "evil_redirect.dxf"),
+    ("content_hash", "0" * 64),
+])
+def test_verify_red_on_redigested_per_row_tamper(tmp_path: Path, field: str, forged: str) -> None:
+    # review P1: provenance binding only guarded the top-level verdict; a re-digested PER-ROW tamper
+    # to category/split/taxonomy/locator/content_hash slipped through. Full row binding must catch it.
+    rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "g") for i in range(4)]
+    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=tmp_path)
+    man["rows"][0][field] = forged
+    man["manifest_digest"] = tm._manifest_digest(man)     # attacker re-digests
+    with pytest.raises(tm.IntegrityError, match="row binding FAILED"):
+        tm.verify_manifest(rows, man, root=tmp_path)
+
+
+def test_verify_red_on_redigested_quarantine_tamper(tmp_path: Path) -> None:
+    # a re-digested drop/re-label of a quarantined row must be RED.
+    good = _mk(tmp_path, "good.dxf", b"G", "g")
+    rows = [good, {"file_path": str(tmp_path / "gone.dxf"), "cache_path": "", "taxonomy_v2_class": "g"}]
+    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=tmp_path)
+    assert man["quarantined"], "expected a quarantined missing row"
+    man["quarantined"][0]["reason_code"] = "other"        # re-label the quarantine reason
+    man["manifest_digest"] = tm._manifest_digest(man)
+    with pytest.raises(tm.IntegrityError, match="quarantine binding FAILED"):
+        tm.verify_manifest(rows, man, root=tmp_path)
+
+
+def test_verify_red_on_redigested_split_flip(tmp_path: Path) -> None:
+    # moving a sample across the split (train<->holdout) + re-digest must be RED via row binding.
+    rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "g") for i in range(6)]
+    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=tmp_path)
+    cur = man["rows"][0]["split"]
+    man["rows"][0]["split"] = "train" if cur == "holdout" else "holdout"   # flip to the opposite
+    man["manifest_digest"] = tm._manifest_digest(man)
+    with pytest.raises(tm.IntegrityError, match="row binding FAILED"):
         tm.verify_manifest(rows, man, root=tmp_path)

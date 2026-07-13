@@ -36,23 +36,30 @@ never drift from slice-1's split. (The L3 gate is unconditional — it trusts no
   dataset can't be treated as a clean evaluation input.
 - `build_versioned_manifest(...)` — runs `compute_split` (quarantined rows excluded, fail-closed
   inherited), enriches survivors, surfaces `quarantined` separately for audit.
-- `_manifest_digest` — sha256 over per-row `sort_keys` JSON, list-sorted → **order-independent**.
-- `verify_manifest` — re-derive + compare both digests; RAISES `IntegrityError` on drift.
-- CLI: `build` / `report` / `verify`.
+- `_manifest_digest` — sha256 over the **entire canonicalized manifest envelope** minus the digest
+  field itself (schema/provenance/quarantined/rows/split_digest/…), rows list-sorted →
+  **order-independent**. (Not per-row only — the whole envelope is covered.)
+- `verify_manifest` — does NOT trust the digest self-check alone; independently re-derives from the
+  rows and binds: split_digest, the **full per-row projection** (`_BOUND_ROW_FIELDS`), the
+  quarantine `(locator, reason_code)` set, and the aggregate provenance verdict. RAISES
+  `IntegrityError` on any drift or re-digested tamper.
+- CLI: `build` / `report` / `verify` (`build`/`verify` take `--root`; absolute rows require it).
 
 ## 2. Verification (local)
 
 | Check | Result |
 |---|---|
-| slice-2 unit tests (`tests/unit/test_track_e_manifest.py`) | **58 passed** |
-| combined slice-1 + slice-2 (no interference) | **90 passed** |
+| slice-2 unit tests (`tests/unit/test_track_e_manifest.py`) | **65 passed** |
+| combined slice-1 + slice-2 (no interference) | **97 passed** |
 | **containment**: file/cache outside the dataset root, `..`-escaping or absolute locators → fail-closed at build AND rejected at verify even when re-digested | pass |
-| **default-root cannot be widened**: absolute input rows with NO explicit root → RED (the old common-parent heuristic would silently widen the root and admit a sibling-dir file); symlink-escape inside the root also rejected via `resolve()` | pass |
+| **default-root cannot be widened**: absolute input rows with NO explicit root → RED; **absolute AND relative** symlink-escape inside the root rejected via `resolve()` (relative paths resolved against root, matching slice-1's `content_hash`) | pass |
 | **stored locator tamper** (`locator`/`cache_locator` redirected in the stored manifest) → RED: a naive redirect trips the envelope digest; a re-digested redirect trips the `(sample_id, locator)` binding | pass |
-| **re-digested provenance flip** (`provenance_complete` False→True + zeroed unknown-count + recomputed digest) → RED via provenance binding | pass |
+| **re-digested per-row tamper** (`category` unknown→real / `split` train→holdout / forged `taxonomy` / redirected `locator` / forged `content_hash`, each with a recomputed digest) → RED via full row binding | pass |
+| **re-digested quarantine tamper** (drop/re-label a quarantined `(locator, reason_code)`) → RED via quarantine binding | pass |
+| **re-digested provenance flip** (`provenance_complete` False→True + zeroed unknown-count) → RED via aggregate provenance binding | pass |
 | quarantine records digest as (`locator`=root-relative full path, `reason_code`); OS text stays human-only `detail`; same missing file under two clone roots → **same digest** | pass |
 | categorize: markers → augmented/synthetic; unmarked/undeclared → **unknown** (never "real"); declared column authoritative | pass |
-| a **naive** single-field tamper trips the envelope self-check; a **re-digested** tamper is caught by independent re-derivation of split_digest / locators / **provenance verdict** (`provenance_complete`, `unknown_provenance_rows`) from the rows → RED | pass |
+| a **naive** single-field tamper trips the envelope self-check; a **re-digested** tamper is caught by independent re-derivation of split_digest / **the full per-row projection** / quarantine set / aggregate provenance verdict from the rows → RED | pass |
 | manifest is **fresh-clone PORTABLE**: rows carry root-relative `locator`/`cache_locator` (digested); NO absolute run path enters the manifest; **A-build → B-verify of the SAME artifact = PASS** | pass |
 | non-empty `source`/`license`/`label_authority` enforced (blank → fail-closed) | pass |
 | `manifest_digest` deterministic / order-independent | pass |
@@ -74,13 +81,17 @@ slice-1's split primitives.
 so every load-bearing field is independently re-derived from the rows: (1) **envelope
 self-consistency** — recompute the digest over the stored envelope and compare (catches a naive
 single-field tamper); (2) **split drift** — re-derive the split and compare `split_digest`; (3)
-**locator binding** — stored `(sample_id, locator, cache_locator)` must equal the row-re-derived
-set; (4) **provenance binding** — stored `provenance_complete` / `unknown_provenance_rows` must
-equal the row-re-derived values, so a re-digested flip of the provenance verdict is RED. **Residual
-(documented, not defeated):** the free-text `source`/`license`/`label_authority` are external
-inputs, not row-derived — verify re-derives FROM the stored values, so a self-consistent rewrite of
-those three cannot be distinguished. Acceptable for a non-blocking dry-run; a signing layer is the
-Phase-B answer.
+**full row binding** — EVERY bound field of every stored row (`_BOUND_ROW_FIELDS`: sample_id /
+locator / cache_locator / taxonomy / family / content_hash / split / category / source / license /
+label_authority) must equal the row-re-derived value, so a re-digested per-row tamper (category,
+split, label, a redirected locator, a forged hash) is RED — this subsumes and extends the earlier
+locator-only binding; (4) **quarantine binding** — the stored `(locator, reason_code)` set must
+equal the re-derived one, so a quarantined row cannot be dropped or re-labelled; (5) **aggregate
+provenance binding** — `provenance_complete` / `unknown_provenance_rows` must equal the row-re-derived
+values. **Residual (documented, not defeated):** the free-text `source`/`license`/`label_authority`
+are external inputs, not row-derived — verify re-derives FROM the stored values, so a self-consistent
+rewrite of those three (consistently across rows + envelope) cannot be distinguished. Acceptable for
+a non-blocking dry-run; a signing layer is the Phase-B answer.
 
 **Honest scope:** this is dry-run tooling. It does NOT compute the §8.1.4 metrics, does NOT bind a
 candidate model, and does NOT unlock retraining (the L3 gate is unconditional). Safety-infrastructure

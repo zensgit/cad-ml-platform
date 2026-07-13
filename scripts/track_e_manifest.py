@@ -144,24 +144,29 @@ def _relative_locator(fp: str, root: Optional[Path]) -> str:
     import unicodedata as _ud
 
     p = Path(fp)
-    if p.is_absolute():
-        if root is None:
-            raise IntegrityError(
-                f"absolute path {fp!r} requires an explicit dataset root (containment cannot be "
-                "inferred without widening the trust boundary)"
-            )
-        # STRICT containment: resolve both sides (symlinks/.. collapsed) and require the file to
-        # be inside the root — relpath()-style '..'-emitting fallbacks are forbidden.
+    if root is not None:
+        # STRICT containment for BOTH absolute and relative inputs. The file actually READ is the
+        # same one slice-1's content_hash opens: absolute as-is, relative resolved AGAINST ROOT
+        # (content_hash does `p = root / p`). Resolve that actual target (following symlinks) and
+        # require it inside the resolved root — so a relative OR absolute symlink/`..` pointing
+        # outside root is RED. Both sides are resolved so a symlinked root prefix (e.g. macOS
+        # /tmp -> /private/tmp) is not itself mistaken for an escape.
+        base = p if p.is_absolute() else (Path(root) / p)
         try:
-            rel = p.resolve().relative_to(Path(root).resolve())
+            rel = base.resolve().relative_to(Path(root).resolve())
         except ValueError as exc:
             raise IntegrityError(
-                f"locator escapes the dataset root: {fp!r} is outside {str(root)!r} — a versioned "
-                "dataset must be self-contained"
+                f"locator escapes the dataset root: {fp!r} resolves outside {str(root)!r} — a "
+                "versioned dataset must be self-contained (symlink / `..` / out-of-root escape)"
             ) from exc
         rel = str(rel)
+    elif p.is_absolute():
+        raise IntegrityError(
+            f"absolute path {fp!r} requires an explicit dataset root (containment cannot be "
+            "inferred without widening the trust boundary)"
+        )
     else:
-        rel = str(p)  # already relative -> validated below
+        rel = str(p)  # no declared root: repo-relative pass-through (string-validated below)
     locator = _ud.normalize("NFC", Path(rel).as_posix())
     _validate_locator(locator, original=fp)
     return locator
@@ -231,6 +236,14 @@ def _enrich_rows(
 # Free-text human detail is excluded from the digest (varies per clone/OS locale). Locators are
 # dataset-root-relative and DO enter the digest; absolute run paths never enter the manifest.
 _DIGEST_EXCLUDED_ROW_FIELDS = ("detail",)
+
+# The complete set of ROW-DERIVED fields verify re-derives and binds against the stored manifest.
+# Every field here is a function of the input rows (+ the manifest-level source/license/authority),
+# so a re-digested tamper to any of them disagrees with the re-derivation and is caught RED.
+_BOUND_ROW_FIELDS = (
+    "sample_id", "locator", "cache_locator", "taxonomy_v2_class", "family",
+    "content_hash", "split", "category", "source", "license", "label_authority",
+)
 
 # Stable quarantine reason codes (these DO enter the digest; the human `detail` does not).
 _QUARANTINE_REASON_CODES = (
@@ -399,11 +412,14 @@ def verify_manifest(rows: Iterable[dict], manifest: dict, *, root: Optional[Path
          compare. Catches a naive single-field tamper. NOT sufficient on its own: an attacker who
          also recomputes the digest passes this check, which is why 2–4 re-derive from the rows.
       2. **Split drift** — re-derive the split from the actual ``rows`` and compare ``split_digest``.
-      3. **Locator binding** — the stored ``(sample_id, locator, cache_locator)`` pairs must equal
-         the pairs re-derived from the rows; a redirected/escaping/absolute locator is RED.
-      4. **Provenance binding** — the stored ``provenance_complete`` / ``unknown_provenance_rows``
-         must equal the values re-derived from the rows, so a re-digested flip of the provenance
-         verdict (e.g. incomplete → complete, or a zeroed unknown-count) is RED.
+      3. **Full row binding** — EVERY bound field of every stored row (``_BOUND_ROW_FIELDS``:
+         sample_id / locator / cache_locator / taxonomy / family / content_hash / split / category /
+         source / license / label_authority) must equal the field re-derived from the rows, so a
+         re-digested per-row tamper (category, split, label, a redirected locator, …) is RED.
+      4. **Quarantine binding** — the stored ``(locator, reason_code)`` set must equal the re-derived
+         one, so a quarantined row cannot be dropped or re-labelled after a re-digest.
+      5. **Provenance binding** — the top-level ``provenance_complete`` / ``unknown_provenance_rows``
+         must equal the row-re-derived values, so a re-digested flip of the aggregate verdict is RED.
 
     RESIDUAL (documented, not defeated): the free-text ``source`` / ``license`` /
     ``label_authority`` are external inputs, not row-derived — ``verify`` re-derives the manifest
@@ -447,26 +463,41 @@ def verify_manifest(rows: Iterable[dict], manifest: dict, *, root: Optional[Path
             f"{recomputed['split_digest'][:12]}) — row content changed or a row was added/removed."
         )
 
-    # Locator binding on PORTABLE addresses: stored (sample_id, locator, cache_locator) must equal
-    # the multiset re-derived from the actual rows. Locators are dataset-root-relative, so this
-    # holds across clones (A-built artifact verifies against B's rows) while a redirected stored
-    # locator — pointing a consumer at different data — is RED.
-    def _locators(m: dict) -> list:
+    # FULL row binding on PORTABLE, ROW-DERIVED projections: every bound field of every stored row
+    # must equal the field re-derived from the actual rows. This subsumes locator binding and
+    # extends it to category / split / taxonomy / family / content_hash / provenance columns — so a
+    # re-digested per-row tamper (e.g. category unknown->real, split train->holdout, a forged label)
+    # is RED, not just a redirected locator. Locators are dataset-root-relative, so an A-built
+    # artifact still verifies against clone B's rows (portability preserved).
+    def _rows(m: dict) -> list:
         return sorted(
-            (str(r.get("sample_id", "")), str(r.get("locator", "")), str(r.get("cache_locator", "")))
+            json.dumps({k: r.get(k) for k in _BOUND_ROW_FIELDS}, sort_keys=True, ensure_ascii=False)
             for r in m.get("rows", [])
         )
 
-    if _locators(manifest) != _locators(recomputed):
+    if _rows(manifest) != _rows(recomputed):
         raise IntegrityError(
-            "locator binding FAILED: a stored locator does not match the manifest rows it claims "
-            "to describe — a storage locator was tampered/redirected."
+            "row binding FAILED: a stored row field (locator / category / split / taxonomy / "
+            "family / content_hash / provenance) does not match the row-re-derived manifest — a "
+            "re-digested per-row tamper."
         )
 
-    # Provenance binding: provenance_complete / unknown_provenance_rows are ROW-DERIVED (built from
-    # the same rows), so a re-digested manifest that flipped the provenance verdict to GREEN (or
-    # zeroed the unknown count) disagrees with the re-derivation and is RED. Without this, the only
-    # guard on these fields is the digest self-check, which a re-digesting attacker defeats.
+    # Quarantine binding: the stored (locator, reason_code) set must equal the re-derived one, so a
+    # quarantined row cannot be silently dropped or re-labelled after a re-digest.
+    def _quarantine(m: dict) -> list:
+        return sorted(
+            (str(q.get("locator", "")), str(q.get("reason_code", "")))
+            for q in m.get("quarantined", [])
+        )
+
+    if _quarantine(manifest) != _quarantine(recomputed):
+        raise IntegrityError(
+            "quarantine binding FAILED: a stored (locator, reason_code) does not match the "
+            "re-derived quarantine set — a quarantined row was tampered/dropped (re-digested)."
+        )
+
+    # Aggregate provenance binding: provenance_complete / unknown_provenance_rows are ROW-DERIVED,
+    # so a re-digested flip of the top-level verdict disagrees with the re-derivation and is RED.
     for field in ("provenance_complete", "unknown_provenance_rows"):
         if manifest.get(field) != recomputed[field]:
             raise IntegrityError(
