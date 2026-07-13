@@ -1,60 +1,62 @@
-name: Hard Gate (diff-scoped, dry-run)
-
 # Phase 0 slice A4. Diff-scoped dead-code / duplicate-code gate.
 #
-# Unlike code-quality.yml (whole-tree, `|| true`, cannot be armed), this fails
-# ONLY on violations on lines the PR changed -- so it never punishes a PR for
-# pre-existing debt in files it didn't touch, which is what makes it safe to
-# eventually require.
+# Unlike code-quality.yml (whole-tree, `|| true`, cannot be armed), this fails ONLY on
+# violations on lines the PR changed -- so it never punishes a PR for pre-existing debt in
+# files it didn't touch, which is what makes it safe to eventually require.
 #
-# It ships in DRY-RUN: it reports what it WOULD block and exits 0. Arming it is
-# an OWNER action, deliberately NOT done here:
-#   1. set env HARD_GATE_ENFORCE=1 below (flip dry-run -> blocking), and
-#   2. add "Hard Gate (diff-scoped, dry-run)" to the branch-protection required list.
+# The check NAME is stable and mode-agnostic ("Hard Gate (diff-scoped)"): the dry-run/enforce
+# mode is a runtime detail, NOT part of the name. If the name carried "dry-run", arming it
+# (removing the word) would rename the required status context and branch protection would wait
+# forever for the old name. Arming is an OWNER action, deliberately NOT done here:
+#   1. set HARD_GATE_ENFORCE: "1" below (dry-run -> blocking), and
+#   2. add "Hard Gate (diff-scoped)" to the branch-protection required list.
 # Step 2 is a branch-protection change; this workflow never performs it.
+name: Hard Gate (diff-scoped)
 
 on:
   pull_request:
     branches: [main]
-  # NO `paths:` filter. A required check must post a status on EVERY PR to main; with a
-  # paths filter, a PR that touches no matched file never triggers the job, so the required
-  # context is never reported and the PR waits forever. Path-scoping is done INSIDE the gate
-  # (it only inspects the .py lines this PR changed), so a PR with no relevant changes simply
-  # finds nothing and passes -- which is exactly what makes this safe to require.
+  # NO `paths:` filter. A required check must post a status on EVERY PR to main; with a paths
+  # filter, a PR that touches no matched file never triggers the job, so the required context
+  # is never reported and the PR waits forever. Path-scoping is done INSIDE the gate (it only
+  # inspects the .py lines this PR changed), so an irrelevant PR finds nothing and passes --
+  # which is exactly what makes this safe to require.
 
 permissions:
   contents: read
 
 jobs:
   hard-gate:
-    name: Hard Gate (diff-scoped, dry-run)
+    name: Hard Gate (diff-scoped)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
-          fetch-depth: 0          # need the merge-base to compute the diff
+          fetch-depth: 0          # need the merge-base to compute base...HEAD
 
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version: "3.11"
 
-      # The load-bearing diff-filter logic. No `|| true`: a broken filter must fail.
-      - name: Diff-filter self-test (must pass)
+      # Producers are installed at PINNED versions BEFORE the self-test, so the self-test's
+      # real-tool golden ("a new file copying an unchanged file must be caught") actually runs.
+      # Pinning matters: the parser depends on pylint's JSON shape and exit-code semantics.
+      - name: Install finding-producers (pinned)
+        run: pip install "vulture==2.16" "pylint==3.3.9"
+
+      # The load-bearing logic. No `|| true`: a broken filter must fail.
+      - name: Diff-filter + producer self-test (must pass)
         run: python scripts/ci/test_hard_gate_diff.py
 
-      - name: Install finding-producers
-        run: pip install vulture pylint
-
       # DRY-RUN: HARD_GATE_ENFORCE unset -> reports, exits 0. Owner flips to "1" to arm.
-      - name: Diff-scoped dead-code / duplicate-code (dry-run)
+      - name: Diff-scoped dead-code / duplicate-code
         env:
           HARD_GATE_BASE: origin/${{ github.base_ref }}
           # HARD_GATE_ENFORCE: "1"   # <-- owner-only: uncomment to make blocking
         run: |
-          # Fail CLOSED on a base-fetch failure: NO `|| true`. If we cannot fetch the base,
-          # the diff has no baseline and the gate would see "zero changed lines" and pass
-          # everything. Also no `--depth=1`: the merge-base (base...HEAD) needs real history,
-          # which `actions/checkout` already provided via fetch-depth: 0.
+          # Fail CLOSED on a base-fetch failure: NO `|| true`. If we cannot fetch the base, the
+          # diff has no baseline and the gate would see "zero changed lines" and pass everything.
+          # No `--depth=1` either: base...HEAD needs real history (checkout gave fetch-depth: 0).
           git fetch --no-tags origin \
             "+refs/heads/${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}"
           python scripts/ci/hard_gate_diff.py

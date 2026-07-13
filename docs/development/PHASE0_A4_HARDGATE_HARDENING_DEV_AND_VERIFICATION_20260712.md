@@ -48,9 +48,39 @@ End-to-end against a real git repo: `HARD_GATE_BASE=origin/nonexistent python3 h
 → **`exit=2`**, stderr `::error::hard-gate MALFUNCTION (fail-closed)`. Normal path (resolvable base,
 one changed line) correctly isolates the changed line; a no-`.py`-change PR yields `{}` and passes.
 
+## Round 2 — two more load-bearing defects (second review)
+
+The first round fixed the wedge + base fail-open. A second review found two **false-negatives**
+that would let an *armed* gate pass code it should block. Both reproduced with **real tools**.
+
+### Desired → Achieved (round 2)
+
+| # | Defect (before) | Achieved | Verified by (executed) |
+|---|---|---|---|
+| 4 | **Duplicate false-negative.** Producers were handed only the *changed* files. A new `b.py` copying an **unchanged** `a.py` → pylint never sees `a.py` → no R0801. This is the main "agent re-injects duplicate code" case. | Producers scan a **corpus** (changed files + their subsystem), then findings are filtered to changed lines. R0801 is parsed from **all** involved locations (JSON `==module:[range]`), not just pylint's order-dependent anchor — so a duplicate anchored on the *unchanged* file still reaches the changed one. | real-tool golden: new file copying an UNCHANGED file → **exit 1, R0801**; unit: "multi-location parse emits BOTH files"; "changed-line filter keeps the dup despite anchor on the unchanged". Repro of the *old* miss: only-`b.py`→0 findings, `a.py`+`b.py`→1. |
+| 5 | **Producer execution failure fails open.** `run_vulture`/`run_duplicate` ignored the subprocess return code + stderr, always returning `ok=True`. A tool that crashed / hit bad args / emitted unparseable output → `findings=[]` → **green**. | Exit codes are interpreted: vulture `0/3` expected, `2`/traceback → malfunction; pylint bit-mask — `8`=dup (expected), bit `1`(fatal)/`32`(usage) → malfunction; unparseable JSON → malfunction. A malfunction raises `HardGateError` → **exit 2 in both modes**. Distinct from "tool absent" (warn/enforce-fail). | unit: vulture rc=2 / traceback, pylint rc=32 / rc=1 / bad-JSON all → raise; rc=0 clean NOT misread as malfunction. |
+
+### Supporting changes
+- **Corpus is bounded, not the literal full tree.** The whole tree (~1200 `.py`) makes pylint
+  duplicate-code **time out (>150 s)** — unaffordable for a required gate. Scope = the changed
+  files' **subsystem** (depth-3, e.g. `src/core/vision`), tightened to changed-dirs if it exceeds
+  `CORPUS_CAP=250`. Measured 2.6–17.7 s across `src/api`, `src/ml`, `src/core/vision`, `scripts/ci`.
+  The scope is **always printed** (never a silent cap).
+- **Test files are out of scope** (`is_test_path`): test helpers are legitimately "unused" and tests
+  intentionally duplicate — analysing them is noise (the review saw 6 vulture findings in the gate's
+  own test file). Now excluded and logged; the gate self-applies **clean** on this PR.
+- **Producers invoked via `python -m`** (import-based availability), robust when pip installs the
+  module without a console script on PATH.
+- **Workflow:** producers **pinned** (`vulture==2.16`, `pylint==3.3.9`) and installed **before** the
+  self-test so its real-tool golden runs; the check name is now **`Hard Gate (diff-scoped)`** —
+  mode-agnostic, so arming (removing "dry-run") will not orphan a required status context.
+
 ## What is still NOT done (honest scope)
 
 - **Arming remains owner-only** and is deliberately not performed here: it requires (a) uncommenting
   `HARD_GATE_ENFORCE: "1"`, and (b) adding the check to branch protection. This PR makes the gate
   *safe to arm* — it does not arm it. `merged != enabled != safe to enable` (§7.2).
+- **Bounded corpus is a documented trade-off:** a duplicate whose source lives in a *different*
+  subsystem than the changed file is not caught. Acceptable for a fast required gate (the realistic
+  re-injection copies a nearby file) and surfaced in the logs.
 - These fixes make the gate *requireable*; whether to require it is a branch-protection decision.

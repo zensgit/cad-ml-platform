@@ -10,6 +10,7 @@ including local py3.9. Exercises the two invariants that make the gate safe to a
 
 Plus the git-diff hunk parser, driven by a fake `run` so no real repo is needed.
 """
+import json
 import os
 import sys
 import types
@@ -123,6 +124,102 @@ finally:
     hg.changed_lines = _orig_cl
     os.environ.pop("HARD_GATE_ENFORCE", None)
     os.environ.pop("HARD_GATE_BASE", None)
+
+# --- producer malfunction (tool present but crashed) FAILS CLOSED ----------------
+def _crash(rc, stderr=""):
+    def _r(cmd, capture_output, text, check):  # noqa: ARG001
+        return types.SimpleNamespace(stdout="", stderr=stderr, returncode=rc)
+    return _r
+
+
+hg._tool_available = lambda name: True  # pretend the tools exist so we reach the run
+try:
+    for label, prod, run in [
+        ("vulture bad-args (rc=2)", hg.run_vulture, _crash(2, "usage")),
+        ("vulture traceback", hg.run_vulture, _crash(1, "Traceback (most recent call last):")),
+        ("pylint usage-error (rc=32)", hg.run_duplicate, _crash(32, "bad flag")),
+        ("pylint fatal (rc=1)", hg.run_duplicate, _crash(1, "fatal")),
+    ]:
+        try:
+            prod(["src/x.py"], run=run)
+            check(f"producer malfunction FAILS CLOSED: {label}", False)
+        except HardGateError:
+            check(f"producer malfunction FAILS CLOSED: {label}", True)
+
+    # normal exit codes must NOT be misread as a malfunction
+    ok_clean = hg.run_duplicate(["src/x.py"], run=_crash(0))  # rc=0, empty JSON handled
+    check("pylint rc=0 (clean) is NOT a malfunction", ok_clean == ([], True))
+
+    # multi-location parse: pylint anchors R0801 on the UNCHANGED file (order-dependent), the
+    # finding must STILL reach the CHANGED file or the changed-line filter silently drops it.
+    def run_anchor_on_unchanged(cmd, capture_output, text, check):  # noqa: ARG001
+        msg = "Similar lines in 2 files\n==orig:[1:12]\n==copy_new:[1:12]"
+        payload = json.dumps([{"symbol": "duplicate-code", "path": "src/core/orig.py",
+                               "line": 1, "message": msg}])
+        return types.SimpleNamespace(stdout=payload, stderr="", returncode=8)
+
+    dup_findings, _ = hg.run_duplicate(["src/core/orig.py", "src/core/copy_new.py"],
+                                       run=run_anchor_on_unchanged)
+    dup_files = {f.file for f in dup_findings}
+    check("multi-location parse emits BOTH files (anchor-order irrelevant)",
+          {"src/core/orig.py", "src/core/copy_new.py"} <= dup_files)
+    kept_dup = new_violations(dup_findings, {"src/core/copy_new.py": set(range(1, 13))})
+    check("changed-line filter keeps the dup on the CHANGED file despite anchor on the unchanged",
+          any(f.file == "src/core/copy_new.py" for f in kept_dup))
+finally:
+    hg._tool_available = _orig_avail
+
+# --- test files are OUT of scope -------------------------------------------------
+check("is_test_path: test_*.py excluded", hg.is_test_path("scripts/ci/test_x.py"))
+check("is_test_path: tests/ dir excluded", hg.is_test_path("tests/unit/x.py"))
+check("is_test_path: conftest.py excluded", hg.is_test_path("conftest.py"))
+check("is_test_path: production file NOT excluded", not hg.is_test_path("src/core/foo.py"))
+
+# --- REAL-TOOL golden (reviewer-required): new file copying an UNCHANGED file -> RED ---
+if hg._tool_available("vulture") and hg._tool_available("pylint"):
+    import subprocess
+    import tempfile
+
+    d = tempfile.mkdtemp()
+
+    def _git(*a):
+        return subprocess.run(["git", "-C", d, *a], capture_output=True, text=True)
+
+    _git("init", "-q"); _git("config", "user.email", "t@t"); _git("config", "user.name", "t")
+    os.makedirs(f"{d}/src/core")
+    # >= min-similarity-lines=10 (well clear of the threshold), so pylint reliably flags it.
+    _body = (
+        "def compute_totals(rows):\n"
+        "    total = 0\n"
+        "    count = 0\n"
+        "    invalid = 0\n"
+        "    skipped = 0\n"
+        "    for r in rows:\n"
+        "        if r is None:\n"
+        "            invalid += 1\n"
+        "            continue\n"
+        "        if r.get('skip'):\n"
+        "            skipped += 1\n"
+        "            continue\n"
+        "        total += r['amount']\n"
+        "        count += 1\n"
+        "    average = total / count if count else 0\n"
+        "    return total, count, invalid, skipped, average\n"
+    )
+    open(f"{d}/src/core/orig.py", "w").write(_body)
+    _git("add", "-A"); _git("commit", "-qm", "base")
+    _base = _git("rev-parse", "HEAD").stdout.strip()
+    open(f"{d}/src/core/copy_new.py", "w").write(_body)   # NEW file, byte-copy of UNCHANGED orig
+    _git("add", "-A"); _git("commit", "-qm", "dup")
+    _res = subprocess.run(
+        [sys.executable, hg.__file__], cwd=d,
+        env={**os.environ, "HARD_GATE_BASE": _base, "HARD_GATE_ENFORCE": "1"},
+        capture_output=True, text=True,
+    )
+    check("REAL-TOOL golden: new file copying an UNCHANGED file -> RED (exit 1, R0801)",
+          _res.returncode == 1 and "R0801" in _res.stdout)
+else:
+    print("  SKIP real-tool golden (vulture/pylint not importable in this env; CI installs them)")
 
 print("\nOBSERVED-RED demonstration (the filter genuinely discriminates):")
 print(f"  same violation on changed line 11 -> caught={on_changed in kept}")
