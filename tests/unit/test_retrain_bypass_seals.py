@@ -139,3 +139,17 @@ def test_auto_remediation_rollback_still_works(monkeypatch, tmp_path) -> None:
     assert calls["reload"], "rollback must still reach reload_model (in-process, not via the API)"
     assert result["action"] == "rollback_model"
     assert result["previous_path"] == str(prev)
+
+
+def test_model_reload_unauthenticated_is_rejected_before_the_seal(monkeypatch) -> None:
+    # No credentials -> the auth dependencies reject (401/403) without ever reaching the handler;
+    # with the seal behind them, there is no request shape that loads a model.
+    monkeypatch.setenv("X_API_KEY", "test")
+    monkeypatch.setenv("ADMIN_TOKEN", "secret")
+    from fastapi.testclient import TestClient
+
+    from src.main import app
+
+    client = TestClient(app)
+    resp = client.post("/api/v1/model/reload", json={"path": "/tmp/x.pkl"})  # no auth headers
+    assert resp.status_code in (401, 403)

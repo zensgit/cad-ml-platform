@@ -43,38 +43,32 @@ class ModelReloadResponse(BaseModel):
     model_config = ConfigDict(protected_namespaces=())
 
 
-@router.post("/reload", response_model=ModelReloadResponse)
+@router.post(
+    "/reload",
+    responses={403: {"description": "Sealed (Phase A): model reload via the API is fail-closed."}},
+)
 async def model_reload(
     payload: ModelReloadRequest,
     api_key: str = Depends(get_api_key),
     admin_token: str = Depends(get_admin_token),
 ):
+    """SEALED (Phase A) — always responds 403; no model is ever loaded through this route.
+
+    The pre-seal behaviors (path load, version check, force reload, auto-rollback) are DISABLED
+    until the Phase-B two-stage release gate exists. Emergency rollback runs in-process via
+    auto-remediation and does not use this route.
     """
-    重载机器学习模型
-
-    支持以下功能：
-    - 指定路径加载模型
-    - 版本验证
-    - 强制重载
-    - 自动回滚机制
-
-    Args:
-        payload: 模型重载请求参数
-        api_key: API密钥
-
-    Returns:
-        模型重载结果
-    """
-    # L3 seal (Phase A): this route loads an ARBITRARY model path into the serving process — a
+    # L3 seal (Phase A): this route loaded an ARBITRARY model path into the serving process — a
     # promotion sink that bypassed the unconditional evaluation-integrity gate guarding
     # auto_retrain.sh. Until the Phase-B two-stage release gate exists (which will accept only a
     # candidate whose SHA-256 matches an approved evaluation artifact), the route is sealed
     # fail-closed: no request payload, credential, or flag opens it. Emergency rollback is NOT
     # affected — auto_remediation._action_rollback_model calls reload_model(prev_path) in-process
     # and never traverses this route. See docs/PRODUCT_STRATEGY.md §5.2 and §8.1.
+    # Do NOT log the user-supplied path (untrusted input; keep refusal logs content-free).
     logger.warning(
-        "model reload via API refused (Phase-A seal): path=%s expected_version=%s force=%s",
-        payload.path, payload.expected_version, payload.force,
+        "model reload via API refused (Phase-A seal): path_provided=%s force=%s",
+        bool(payload.path), bool(payload.force),
     )
     raise HTTPException(
         status_code=403,

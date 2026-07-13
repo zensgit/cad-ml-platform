@@ -1,6 +1,9 @@
 # Phase A — retrain/promotion bypass seals — Dev & Verification (2026-07-12)
 
-> **Posture: Safety foundation complete; retraining remains disabled.** The unconditional L3 gate
+> **Posture: Safety foundation complete — automated retrain/hot-reload paths are sealed;
+> retraining remains disabled. The operator-controlled STARTUP model selection
+> (`CLASSIFICATION_MODEL_PATH` at boot) is a registered ops residual, NOT claimed sealed.**
+> The unconditional L3 gate
 > (#509, merged `8ff94175`) guards `scripts/auto_retrain.sh` — but two sinks bypassed it. This PR
 > seals them, proves zero side effects, and proves the emergency ROLLBACK path is NOT harmed.
 > No Track E completion is claimed; re-enabling anything is Phase B (real §8.1.4 metrics + the
@@ -16,6 +19,8 @@
 | `POST /api/v1/model/reload` | loads an ARBITRARY model path into serving | **SEALED (this PR)** — 403 fail-closed; no payload/credential/flag opens it; pre-seal handler body removed (not dead code); Phase B reintroduces it accepting ONLY an approved-artifact-bound model hash |
 | `auto_remediation._action_rollback_model` | emergency ROLLBACK to the KNOWN previous model (`_MODEL_PREV_PATH`), in-process | **NOT sealed (deliberate)** — never traverses the API route; verified by test to still work. Distinction: rollback restores a previously-served model; it does not promote a new one |
 | `src/ml/classifier.reload_model` | the loader mechanism + its security validation (magic/size/hash/opcode) | unchanged; still fully covered by direct-call unit tests (route tests converted to direct calls) |
+| `src/ml/classifier.load_model()` | operator-controlled STARTUP surface: lazy-loads from `CLASSIFICATION_MODEL_PATH`/`_VERSION` env at first predict (and resets on env change) — a restart with a changed env swaps the served model without touching either seal | **REGISTERED as ops residual, deliberately NOT blocked in Phase A** — blocking startup would brick the service; binding the startup model to an approved artifact hash is Phase-B scope. Honest posture: automated retrain/hot-reload is sealed; the operator startup model remains an ops-controlled residual |
+| `src/ml/serving/rest_api.py` | an UNMOUNTED serving scaffold exposing a load surface (never included in `src.main`) | registered as unmounted scaffold; must gain the same gate treatment if ever mounted |
 | research/offline training scripts (`train_classifier_*.py`, `finetune_graph2d_*`, `finetune_v11_on_real.py`, `finetune_agent_llm.py`, `distill_ensemble.py`, …) | save model FILES offline; do not reload/promote into serving | **REGISTERED, not blocked** (per owner ruling); they become promotion sinks only via the sealed paths above |
 | `scripts/finetune_from_feedback_e2e.py` | offline demo (memory store, synthetic vectors); no reload | registered; additionally inherits the seal wherever it drives the sealed script |
 | `scripts/stress_concurrency_reload.py` | stress tool that POSTs the API route | registered; now receives 403 — usable again when Phase B re-opens the route |
@@ -35,7 +40,7 @@
   (identical result-dict assertions), so the loader's security machinery keeps its coverage while
   the route itself is pinned to 403.
 
-## 3. Verification (`tests/unit/test_retrain_bypass_seals.py` — 5 tests, all green)
+## 3. Verification (`tests/unit/test_retrain_bypass_seals.py` — 6 tests, all green)
 
 | Proof | Test |
 |---|---|
@@ -44,8 +49,10 @@
 | API: 403 + `reload_model` never invoked (spy) | `test_model_reload_route_is_sealed_403_and_never_loads` |
 | API: no payload shape (path/None/'', force, expected_version) opens the seal | `test_model_reload_seal_has_no_payload_bypass` |
 | rollback: `_action_rollback_model` still reaches `reload_model(prev_path)` in-process | `test_auto_remediation_rollback_still_works` |
+| API: unauthenticated request rejected by the auth deps before the handler | `test_model_reload_unauthenticated_is_rejected_before_the_seal` |
+| handler-level: direct `await model_reload(...)` raises 403; mocked loader never called | `test_model_endpoint_coverage.py::TestModelReloadSealed` |
 
-Plus the three converted security-test files stay green (direct-call coverage of the loader).
+Plus the four converted files stay green: three route-based security suites AND the handler-level coverage file (its 10 obsolete pre-seal branch tests replaced by the sealed-403 contract). The sealed route no longer declares a success `response_model`; OpenAPI documents the 403, and the refusal log records only `path_provided`/`force` booleans — never the user-supplied path.
 
 ## 4. What this deliberately does NOT do
 
