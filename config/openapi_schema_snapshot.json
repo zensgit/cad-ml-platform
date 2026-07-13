@@ -1681,7 +1681,6 @@
         "deprecated": false,
         "operationId": "model_reload_api_v1_model_reload_post",
         "responses": [
-          "200",
           "403",
           "422"
         ]

@@ -45,6 +45,7 @@ class ModelReloadResponse(BaseModel):
 
 @router.post(
     "/reload",
+    status_code=403,  # sealed: there is NO success status — the contract is 403 (+422 validation)
     responses={403: {"description": "Sealed (Phase A): model reload via the API is fail-closed."}},
 )
 async def model_reload(
