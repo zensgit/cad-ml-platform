@@ -8,9 +8,10 @@
 
 **Is (slice-2, torch-free, verified here):**
 - **§8.1.6 versioned manifest** — `build_versioned_manifest` emits one enriched record per row that
-  survives slice-1's leakage-safe `compute_split`, carrying **every §8.1.6 field**: `file_path`,
-  `cache_path`, `taxonomy_v2_class`, `family`, `content_hash`, `split`, `category`, `source`,
-  `license`, `label_authority` — plus a deterministic `manifest_digest` and the slice-1 `split_digest`.
+  survives slice-1's leakage-safe `compute_split`, carrying **every §8.1.6 field**: a host-independent
+  `sample_id`, a dataset-root-relative `locator` + `cache_locator` (NO absolute run path enters the
+  manifest), `taxonomy_v2_class`, `family`, `content_hash`, `split`, `category`, `source`, `license`,
+  `label_authority` — plus a deterministic `manifest_digest` and the slice-1 `split_digest`.
 - **§8.1.5 real / synthetic / augmented reporting** — `categorize` classifies each row from
   filename/family markers (boundary-anchored regex, no I/O, no RNG); `report_by_category` breaks down
   counts per category, per (category × split), per (category × class).
@@ -43,11 +44,12 @@ never drift from slice-1's split. (The L3 gate is unconditional — it trusts no
 
 | Check | Result |
 |---|---|
-| slice-2 unit tests (`tests/unit/test_track_e_manifest.py`) | **54 passed** |
-| combined slice-1 + slice-2 (no interference) | **86 passed** |
+| slice-2 unit tests (`tests/unit/test_track_e_manifest.py`) | **57 passed** |
+| combined slice-1 + slice-2 (no interference) | **89 passed** |
 | **containment**: file/cache outside the dataset root, `..`-escaping or absolute locators → fail-closed at build AND rejected at verify even when re-digested | pass |
-| **stored locator tamper** (`file_path`/`cache_path` redirected in the stored manifest) → RED via the explicit binding check | pass |
-| quarantine records digest as (`locator`=basename, `reason_code`); same missing file under two clone roots → **same digest** | pass |
+| **default-root cannot be widened**: absolute input rows with NO explicit root → RED (the old common-parent heuristic would silently widen the root and admit a sibling-dir file); symlink-escape inside the root also rejected via `resolve()` | pass |
+| **stored locator tamper** (`locator`/`cache_locator` redirected in the stored manifest) → RED: a naive redirect trips the envelope digest; a re-digested redirect trips the `(sample_id, locator)` binding | pass |
+| quarantine records digest as (`locator`=root-relative full path, `reason_code`); OS text stays human-only `detail`; same missing file under two clone roots → **same digest** | pass |
 | categorize: markers → augmented/synthetic; unmarked/undeclared → **unknown** (never "real"); declared column authoritative | pass |
 | manifest_digest covers the **full envelope** (schema/provenance/quarantined/rows/…); tamper → RED | pass |
 | manifest is **fresh-clone PORTABLE**: rows carry root-relative `locator`/`cache_locator` (digested); NO absolute run path enters the manifest; **A-build → B-verify of the SAME artifact = PASS** | pass |

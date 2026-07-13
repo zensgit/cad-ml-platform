@@ -107,19 +107,26 @@ def categorize(row: dict) -> str:
 
 
 def _dataset_root(rows: List[dict], root: Optional[Path]) -> Optional[Path]:
-    """The base every locator is expressed against. Explicit ``root`` wins; otherwise the common
-    parent of all ABSOLUTE row paths (deterministic given the same clone layout). ``None`` when all
-    row paths are already relative (repo-style manifests) — they are then locators as-is."""
+    """The base every locator is expressed against.
+
+    FAIL-CLOSED (review): if any input path is ABSOLUTE, an explicit ``root`` is REQUIRED. Root
+    inference (e.g. a common-parent heuristic) is forbidden — mixing in a file from a sibling
+    directory would silently WIDEN the inferred root upward (``/tmp/dataset`` + ``/tmp/outside``
+    → root ``/tmp``), legitimizing out-of-dataset files instead of rejecting them. The trust
+    boundary must be declared, never derived from the data it is supposed to contain.
+    ``None`` only when every row path is already relative (repo-style manifests).
+    """
     if root is not None:
         return Path(root)
-    import os as _os
-
-    abs_dirs = [
-        str(Path(str(r.get("file_path", ""))).parent)
-        for r in rows
-        if str(r.get("file_path", "")) and Path(str(r.get("file_path", ""))).is_absolute()
-    ]
-    return Path(_os.path.commonpath(abs_dirs)) if abs_dirs else None
+    for r in rows:
+        fp = str(r.get("file_path", ""))
+        cache = str(r.get("cache_path", ""))
+        if (fp and Path(fp).is_absolute()) or (cache and Path(cache).is_absolute()):
+            raise IntegrityError(
+                "rows contain absolute paths but no dataset root was given — an explicit root is "
+                "required (containment cannot be inferred without widening the trust boundary)"
+            )
+    return None
 
 
 def _relative_locator(fp: str, root: Optional[Path]) -> str:
@@ -134,12 +141,25 @@ def _relative_locator(fp: str, root: Optional[Path]) -> str:
     and an escaping locator would let a manifest address data outside the dataset it claims to
     describe.
     """
-    import os as _os
     import unicodedata as _ud
 
     p = Path(fp)
-    if root is not None and p.is_absolute():
-        rel = _os.path.relpath(str(p), str(root))
+    if p.is_absolute():
+        if root is None:
+            raise IntegrityError(
+                f"absolute path {fp!r} requires an explicit dataset root (containment cannot be "
+                "inferred without widening the trust boundary)"
+            )
+        # STRICT containment: resolve both sides (symlinks/.. collapsed) and require the file to
+        # be inside the root — relpath()-style '..'-emitting fallbacks are forbidden.
+        try:
+            rel = p.resolve().relative_to(Path(root).resolve())
+        except ValueError as exc:
+            raise IntegrityError(
+                f"locator escapes the dataset root: {fp!r} is outside {str(root)!r} — a versioned "
+                "dataset must be self-contained"
+            ) from exc
+        rel = str(rel)
     else:
         rel = str(p)  # already relative -> validated below
     locator = _ud.normalize("NFC", Path(rel).as_posix())
@@ -301,8 +321,10 @@ def build_versioned_manifest(
             raise IntegrityError(f"{name} must be a non-empty provenance value")
 
     rows = list(rows)
-    split = compute_split(rows, holdout_fraction=holdout_fraction, root=root)
+    # Resolve/validate the trust boundary FIRST (fail-closed before any file I/O): absolute rows
+    # with no explicit root are rejected here, before compute_split touches the filesystem.
     dataset_root = _dataset_root(rows, root)
+    split = compute_split(rows, holdout_fraction=holdout_fraction, root=root)
     enriched = _enrich_rows(
         rows, split, source=source, license_=license_, label_authority=label_authority,
         dataset_root=dataset_root,

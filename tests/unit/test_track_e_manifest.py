@@ -90,6 +90,7 @@ def test_build_versioned_manifest_emits_every_8_1_6_field(tmp_path: Path) -> Non
         source="acme-archive-2026",
         license_="proprietary-internal",
         label_authority="manifest:taxonomy_v2_class",
+        root=tmp_path,
     )
 
     assert manifest["schema_version"] == "evaluation-integrity-manifest-v2"
@@ -147,7 +148,8 @@ def test_build_versioned_manifest_family_matches_slice1_declared_column(tmp_path
     b = _mk(tmp_path, "totally_other.dxf", b"2", "gear", family="gear-7")
     rows = [a, b] + [_mk(tmp_path, f"{f}.dxf", f.encode(), f) for f in ("m", "n", "o", "p")]
     manifest = tm.build_versioned_manifest(
-        rows, source="s", license_="l", label_authority="a", holdout_fraction=0.5
+        rows, source="s", license_="l", label_authority="a", holdout_fraction=0.5,
+        root=tmp_path,
     )
     by_loc = {r["locator"]: r for r in manifest["rows"]}
     # same declared family -> same family key -> can never straddle the split (inherited from slice-1)
@@ -158,8 +160,8 @@ def test_build_versioned_manifest_family_matches_slice1_declared_column(tmp_path
 # --- manifest_digest determinism ------------------------------------------------------------------
 def test_manifest_digest_is_deterministic_and_order_independent(tmp_path: Path) -> None:
     rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), f"cls{i % 3}") for i in range(8)]
-    m1 = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")
-    m2 = tm.build_versioned_manifest(list(reversed(rows)), source="s", license_="l", label_authority="a")
+    m1 = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=tmp_path)
+    m2 = tm.build_versioned_manifest(list(reversed(rows)), source="s", license_="l", label_authority="a", root=tmp_path)
     assert m1["manifest_digest"] == m2["manifest_digest"]
     assert m1["split_digest"] == m2["split_digest"]
 
@@ -176,7 +178,8 @@ def test_report_by_category_sums_and_split_breakdown_are_correct(tmp_path: Path)
     rows.append(_mk(tmp_path, "widget_synth.dxf", b"synth-bytes", "synth_cls"))
 
     manifest = tm.build_versioned_manifest(
-        rows, source="s", license_="l", label_authority="a", holdout_fraction=0.5
+        rows, source="s", license_="l", label_authority="a", holdout_fraction=0.5,
+        root=tmp_path,
     )
     report = tm.report_by_category(manifest)
 
@@ -206,33 +209,33 @@ def test_report_by_category_sums_and_split_breakdown_are_correct(tmp_path: Path)
 # --- verify_manifest: tamper / drift -> RED --------------------------------------------------------
 def test_verify_manifest_passes_when_unchanged(tmp_path: Path) -> None:
     rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "cls") for i in range(5)]
-    manifest = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")
-    tm.verify_manifest(rows, manifest)  # no raise
+    manifest = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=tmp_path)
+    tm.verify_manifest(rows, manifest, root=tmp_path)  # no raise
 
 
 def test_verify_manifest_red_when_row_content_changes(tmp_path: Path) -> None:
     rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "cls") for i in range(5)]
-    manifest = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")
+    manifest = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=tmp_path)
     # mutate bytes of one file AFTER the manifest was built -> content_hash drifts -> RED
     Path(rows[0]["file_path"]).write_bytes(b"TAMPERED-CONTENT")
     with pytest.raises(tm.IntegrityError, match="FAILED"):
-        tm.verify_manifest(rows, manifest)
+        tm.verify_manifest(rows, manifest, root=tmp_path)
 
 
 def test_verify_manifest_red_when_a_row_is_added(tmp_path: Path) -> None:
     rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "cls") for i in range(5)]
-    manifest = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")
+    manifest = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=tmp_path)
     rows2 = list(rows) + [_mk(tmp_path, "brand_new_family.dxf", b"new-bytes", "cls")]
     with pytest.raises(tm.IntegrityError, match="FAILED"):
-        tm.verify_manifest(rows2, manifest)
+        tm.verify_manifest(rows2, manifest, root=tmp_path)
 
 
 def test_verify_manifest_red_when_stored_digest_tampered(tmp_path: Path) -> None:
     rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "cls") for i in range(5)]
-    manifest = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")
+    manifest = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=tmp_path)
     manifest["manifest_digest"] = "deadbeef" * 8
     with pytest.raises(tm.IntegrityError, match="FAILED"):
-        tm.verify_manifest(rows, manifest)
+        tm.verify_manifest(rows, manifest, root=tmp_path)
 
 
 # --- CLI round trip (build -> report -> verify) -----------------------------------------------------
@@ -254,6 +257,8 @@ def test_cli_build_report_verify_round_trip(tmp_path: Path) -> None:
             "build",
             "--manifest",
             str(csv_path),
+            "--root",
+            str(tmp_path),
             "--source",
             "acme",
             "--license",
@@ -273,13 +278,13 @@ def test_cli_build_report_verify_round_trip(tmp_path: Path) -> None:
     rc = tm.main(["report", "--manifest-json", str(out_path)])
     assert rc == 0
 
-    rc = tm.main(["verify", "--manifest", str(csv_path), "--manifest-json", str(out_path)])
+    rc = tm.main(["verify", "--manifest", str(csv_path), "--root", str(tmp_path), "--manifest-json", str(out_path)])
     assert rc == 0
 
     # tamper the on-disk manifest json digest -> CLI verify must exit non-zero
     manifest["manifest_digest"] = "deadbeef" * 8
     out_path.write_text(json.dumps(manifest), encoding="utf-8")
-    rc = tm.main(["verify", "--manifest", str(csv_path), "--manifest-json", str(out_path)])
+    rc = tm.main(["verify", "--manifest", str(csv_path), "--root", str(tmp_path), "--manifest-json", str(out_path)])
     assert rc == 1
 
 
@@ -310,11 +315,11 @@ def test_verify_manifest_red_on_envelope_tamper(tmp_path: Path, field, newval) -
     rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "cls") for i in range(4)]  # unmarked -> unknown
     # include an unreadable row so `quarantined` is non-empty (makes the quarantined-tamper real)
     rows.append({"file_path": str(tmp_path / "missing.dxf"), "cache_path": "", "taxonomy_v2_class": "cls"})
-    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")
+    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=tmp_path)
     assert man["quarantined"], "test setup: expected a quarantined row"
     man[field] = newval                       # tamper, leave manifest_digest as-is
     with pytest.raises(tm.IntegrityError):
-        tm.verify_manifest(rows, man)
+        tm.verify_manifest(rows, man, root=tmp_path)
 
 
 @pytest.mark.parametrize("bad", [
@@ -325,7 +330,7 @@ def test_verify_manifest_red_on_envelope_tamper(tmp_path: Path, field, newval) -
 def test_empty_provenance_fails_closed(tmp_path: Path, bad) -> None:
     rows = [_mk(tmp_path, "f.dxf", b"c", "cls")]
     with pytest.raises(tm.IntegrityError):
-        tm.build_versioned_manifest(rows, **bad)
+        tm.build_versioned_manifest(rows, **bad, root=tmp_path)
 
 
 def test_manifest_digest_is_fresh_clone_stable(tmp_path: Path) -> None:
@@ -337,37 +342,37 @@ def test_manifest_digest_is_fresh_clone_stable(tmp_path: Path) -> None:
         for name, b, lbl in [("gear.dxf", b"A", "g"), ("bolt.dxf", b"B", "b")]:
             (root / name).write_bytes(b)
             rows.append({"file_path": str(root / name), "cache_path": "", "taxonomy_v2_class": lbl})
-        return tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")["manifest_digest"]
+        return tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=root)["manifest_digest"]
     assert _clone(tmp_path / "cloneA") == _clone(tmp_path / "cloneB")
 
 
 def test_verify_red_on_stored_locator_tamper(tmp_path: Path) -> None:
     # locators are digested: a naive stored-locator redirect trips the ENVELOPE check.
     rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "cls") for i in range(4)]
-    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")
+    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=tmp_path)
     man["rows"][0]["locator"] = "evil_redirect.dxf"
     with pytest.raises(tm.IntegrityError, match="FAILED"):
-        tm.verify_manifest(rows, man)
+        tm.verify_manifest(rows, man, root=tmp_path)
 
 
 def test_verify_red_on_redigested_locator_tamper(tmp_path: Path) -> None:
     # a SOPHISTICATED tamper that also recomputes manifest_digest passes the envelope check but
     # must be caught by the (sample_id, locator) binding against the re-derived rows.
     rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "cls") for i in range(4)]
-    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")
+    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=tmp_path)
     man["rows"][0]["locator"] = "evil_redirect.dxf"
     man["manifest_digest"] = tm._manifest_digest(man)   # attacker re-digests the envelope
     with pytest.raises(tm.IntegrityError, match="locator binding FAILED"):
-        tm.verify_manifest(rows, man)
+        tm.verify_manifest(rows, man, root=tmp_path)
 
 
 def test_verify_red_on_redigested_cache_locator_tamper(tmp_path: Path) -> None:
     rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "cls") for i in range(4)]
-    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")
+    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=tmp_path)
     man["rows"][0]["cache_locator"] = "evil/cache.pt"
     man["manifest_digest"] = tm._manifest_digest(man)
     with pytest.raises(tm.IntegrityError, match="locator binding FAILED"):
-        tm.verify_manifest(rows, man)
+        tm.verify_manifest(rows, man, root=tmp_path)
 
 
 def test_manifest_digest_stable_across_clones_with_quarantined_rows(tmp_path: Path) -> None:
@@ -380,7 +385,7 @@ def test_manifest_digest_stable_across_clones_with_quarantined_rows(tmp_path: Pa
             {"file_path": str(root / "good.dxf"), "cache_path": "", "taxonomy_v2_class": "g"},
             {"file_path": str(root / "gone.dxf"), "cache_path": "", "taxonomy_v2_class": "g"},
         ]
-        m = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")
+        m = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=root)
         assert m["quarantined"] and m["quarantined"][0]["reason_code"] == "unreadable"
         assert m["quarantined"][0]["locator"] == "gone.dxf"
         return m["manifest_digest"]
@@ -402,15 +407,17 @@ def test_artifact_built_on_clone_a_verifies_on_clone_b(tmp_path: Path) -> None:
     # THE fresh-clone portability discriminator (review P1): build on clone A, verify the SAME
     # artifact against clone B's rows (same bytes + layout, different absolute root) -> PASS.
     man = tm.build_versioned_manifest(
-        _clone_rows(tmp_path / "cloneA"), source="s", license_="l", label_authority="a"
+        _clone_rows(tmp_path / "cloneA"), source="s", license_="l", label_authority="a",
+        root=tmp_path / "cloneA",
     )
-    tm.verify_manifest(_clone_rows(tmp_path / "cloneB"), man)   # must not raise
+    tm.verify_manifest(_clone_rows(tmp_path / "cloneB"), man, root=tmp_path / "cloneB")  # must not raise
 
 
 def test_same_basename_different_dirs_do_not_collide(tmp_path: Path) -> None:
     # locators are full relative paths, not basenames: gear.dxf vs sub/gear.dxf stay distinct.
     man = tm.build_versioned_manifest(
-        _clone_rows(tmp_path / "cloneC"), source="s", license_="l", label_authority="a"
+        _clone_rows(tmp_path / "cloneC"), source="s", license_="l", label_authority="a",
+        root=tmp_path / "cloneC",
     )
     locs = sorted(r["locator"] for r in man["rows"])
     assert locs == ["bolt.dxf", "gear.dxf", "sub/gear.dxf"]
@@ -420,7 +427,7 @@ def test_quarantine_locator_is_relative_full_path(tmp_path: Path) -> None:
     root = tmp_path / "cloneQ"
     rows = _clone_rows(root)
     rows.append({"file_path": str(root / "sub" / "gone.dxf"), "cache_path": "", "taxonomy_v2_class": "g"})
-    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")
+    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=root)
     q = man["quarantined"][0]
     assert q["locator"] == "sub/gone.dxf"      # relative full path, not a basename
     assert "file_path" not in q                # no absolute run path in the manifest
@@ -460,8 +467,58 @@ def test_relative_dotdot_input_row_fails_closed(tmp_path: Path) -> None:
 @pytest.mark.parametrize("evil", ["../outside.dxf", "/abs/path.dxf", "a/../../b.dxf"])
 def test_stored_hostile_locator_rejected_even_if_redigested(tmp_path: Path, evil: str) -> None:
     rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "cls") for i in range(3)]
-    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")
+    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=tmp_path)
     man["rows"][0]["locator"] = evil
     man["manifest_digest"] = tm._manifest_digest(man)   # attacker re-digests
     with pytest.raises(tm.IntegrityError, match="escapes the dataset root|absolute"):
-        tm.verify_manifest(rows, man)
+        tm.verify_manifest(rows, man, root=tmp_path)
+
+
+def test_absolute_rows_without_explicit_root_fail_closed(tmp_path: Path) -> None:
+    # THE review bypass repro: /X/dataset/a.dxf + /X/outside/secret.dxf with NO root previously let
+    # a common-parent heuristic widen the root to /X and legitimize BOTH ("dataset/a.dxf" +
+    # "outside/secret.dxf"). Root inference is now forbidden: ANY absolute input without an
+    # explicit root is RED — the trust boundary is declared, never derived from the data.
+    dataset = tmp_path / "dataset"; dataset.mkdir()
+    outside = tmp_path / "outside"; outside.mkdir()
+    (dataset / "a.dxf").write_bytes(b"A")
+    (outside / "secret.dxf").write_bytes(b"S")
+    rows = [
+        {"file_path": str(dataset / "a.dxf"), "cache_path": "", "taxonomy_v2_class": "g"},
+        {"file_path": str(outside / "secret.dxf"), "cache_path": "", "taxonomy_v2_class": "g"},
+    ]
+    with pytest.raises(tm.IntegrityError, match="explicit root is required"):
+        tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")
+    # and with the CORRECT explicit root, the stray outside file is rejected as an escape — never
+    # widened in by inferring a broader root.
+    with pytest.raises(tm.IntegrityError, match="escapes the dataset root"):
+        tm.build_versioned_manifest(
+            rows, source="s", license_="l", label_authority="a", root=dataset
+        )
+
+
+def test_no_root_single_dir_absolute_also_requires_explicit_root(tmp_path: Path) -> None:
+    # even a clean single-dir absolute input must not silently self-infer a root.
+    (tmp_path / "a.dxf").write_bytes(b"A")
+    rows = [{"file_path": str(tmp_path / "a.dxf"), "cache_path": "", "taxonomy_v2_class": "g"}]
+    with pytest.raises(tm.IntegrityError, match="explicit"):
+        tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")
+
+
+def test_symlink_escape_is_contained(tmp_path: Path) -> None:
+    # resolve()-based containment: a symlink inside the root pointing OUTSIDE must be rejected.
+    import os
+    dataset = tmp_path / "dataset"; dataset.mkdir()
+    (dataset / "real.dxf").write_bytes(b"R")
+    secret = tmp_path / "secret.dxf"; secret.write_bytes(b"S")
+    link = dataset / "link.dxf"
+    try:
+        os.symlink(str(secret), str(link))
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks unavailable")
+    rows = [
+        {"file_path": str(dataset / "real.dxf"), "cache_path": "", "taxonomy_v2_class": "g"},
+        {"file_path": str(link), "cache_path": "", "taxonomy_v2_class": "g"},
+    ]
+    with pytest.raises(tm.IntegrityError, match="escapes the dataset root"):
+        tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=dataset)
