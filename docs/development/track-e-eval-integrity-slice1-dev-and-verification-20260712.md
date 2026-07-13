@@ -106,10 +106,10 @@ NOT fragmented across agents; an **independent adversarial review** ran on the *
 low-difficulty mechanical bulk was separable without integration risk, so no Fable-5 delegation this
 slice.
 
-## 5. Scope boundary (honest, per the portfolio plan)
+## 5. Scope boundary (honest)
 
-This is the only cleanly-buildable line right now. The rest of the one-month plan is blocked *not by
-effort* but by ownership/gates and stays untouched from here: **cadml #508** needs an independent
-reviewer's APPROVE (owner); **metasheet2** D-2 (#4168/#4004) + UI (#4159) are live in other sessions
-(collision); **yuantus** #1186 + discussion-auth are blocked by the `adharamans` gh/API 404. Real
-Track E **metrics** are the follow-up on the model-run lane.
+#508 and #509 are both merged; this PR targets `main` directly. Real Track E **metrics** (§8.1.4),
+the two-stage release gate (manifest/split digests + candidate SHA-256 + evaluator version +
+thresholds), and any re-enablement of retraining are **Phase B** — they require a real data/model
+environment and owner threshold decisions, and are deliberately NOT claimed here. Phase-A posture:
+*Safety foundation complete; retraining remains disabled.*
