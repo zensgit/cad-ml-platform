@@ -18,8 +18,9 @@ work is P0-blocked and a design-lock is a doc, not runtime.
 #509 made `scripts/auto_retrain.sh` unconditionally fail-closed. That was correct **but narrow**, and
 an earlier claim that it "closed retraining on main" was **overstated**. Corrected here (second
 review): `auto_retrain.sh` is a **producer** (it prints a deploy command, it does not activate a
-running service), so #509 closes **none of the three production-reachable activation points** — it is
-bleeding-control one layer upstream. The runtime activation membrane is still entirely unbuilt.
+running service), so #509 closes **none of the production-reachable activation points** (there are
+≥5, across ≥4 model families — see §1.B; a hand-count has been wrong three times, hence the
+CI-enumerator contract). It is bleeding-control one layer upstream; the runtime membrane is unbuilt.
 
 Corrections from review, all load-bearing:
 
@@ -48,7 +49,7 @@ Classified by reachability, per the review's taxonomy.
 ### 1.B Startup / runtime-config activation (mutates a RUNNING service)
 | Point | Family | Evidence | Current guard |
 |---|---|---|---|
-| `CLASSIFICATION_MODEL_PATH` → `pickle.load` at import/startup | pickle classifier | `src/ml/classifier.py:22,85` | **none — no magic-number check and no proof binding.** (The magic-number check is only in the *hot-reload* path `reload_model`, `classifier.py:313`, NOT this startup load — corrected from the first draft.) |
+| `CLASSIFICATION_MODEL_PATH` → `pickle.load` on **first `predict()`** (lazy, not at startup: `load_models()` only builds a readiness snapshot) | pickle classifier | `src/ml/classifier.py:22,85` (load fires via `classifier.py:124`) | **none — no magic-number check and no proof binding.** (The magic-number check is only in the *hot-reload* path `reload_model`, `classifier.py:313`, NOT this startup load — corrected from the first draft.) |
 | `GRAPH2D_MODEL_PATH` → `torch.load` in `Graph2DClassifier` | Graph2D | path `src/ml/vision_2d.py:41`, load `src/ml/vision_2d.py:136`; `src/main.py:61` only *reads the flag*, does not load | **no proof binding** |
 
 ### 1.C NOT production-reachable — reclassified (corrected from the first draft)
@@ -66,12 +67,26 @@ The first draft over-counted these as live "activation points". They are not:
   mounted routes (verified). Not a production boundary today; mark `inert` (or delete). If ever
   mounted it is promoted into 1.A and must gain a proof check first.
 
-**Coverage gap today (corrected):** there are **3 production-reachable activation points** — the
-external `/model/reload` (1.A) and the two startup loads (1.B). **#509 closes NONE of them** — it
-closes the `auto_retrain` *producer*, which is necessary but is not one of the three. So the runtime
-activation membrane is **entirely unbuilt**; the auto_retrain closure is bleeding-control one layer
-upstream. (The producers/latent points in 1.C must gain the check too, but before they are wired,
-not as today's live gap.)
+### 1.B (cont.) MORE production-reachable loads — a hand-count kept missing these
+An earlier draft said "**exactly 3**". That was wrong (the third such error), because the model zoo
+is larger than two families. Verified additional production-reachable, proof-unbound loads:
+| Point | Family | Evidence |
+|---|---|---|
+| PointNet via the **mounted** pointcloud router | pointnet | router imported+mounted `src/api/__init__.py:269,522`; the endpoint loads the point-cloud model |
+| V16 part-classifier ensemble | cad-ensemble | `torch.load` `src/ml/part_classifier.py:62`; reachable via classify / health routes |
+| HybridClassifier branch checkpoints | graph2d/stat/text | `torch.load` `src/ml/hybrid_classifier.py:448,476` |
+
+**The recurring lesson — a hand-enumerated count is the wrong contract.** It has been wrong three
+times. The membrane's completeness must be enforced **by construction, not by a list**: ship a CI
+**activation-surface enumerator** that greps every `torch.load` / `pickle.load` / `load_state_dict` /
+`reload_model(` call site, marks each `gated | producer | offline | unmounted`, and **fails if any
+`gated` site does not route through `verify_and_load` (§3), or if a new un-annotated load appears.**
+That inverts the burden: a new activation surface reds CI until it is gated or explicitly classified
+out. This §1 map is the *seed* of that enumerator, not the authority.
+
+**Coverage gap today:** **#509 closes NONE of the runtime activation points** — it closes the
+`auto_retrain` *producer* (necessary, but upstream of activation). Every load in §1.A/1.B (now ≥5,
+across ≥4 families) is proof-unbound. The runtime activation membrane is **entirely unbuilt**.
 
 ---
 
@@ -85,10 +100,13 @@ Bind the training/evaluation split to **content**, not paths:
 - **portable, versioned manifest** — no workstation absolute paths (today's manifests carry
   `/Users/.../…`); source drawings tracked or content-addressed so provenance is independent.
 - **canonical split digest over `content_hash + family + label + side`** — NOT `(file_path → side)`.
-  The current digest (`track_e_eval_integrity.py`) is blind to *same-path-changed-bytes* and
-  *same-path-changed-label* — exactly the 262/914 content-overlap class it must catch.
+  The split digest on the (unmerged) Track E branch `claude/track-e-eval-integrity-splitter-...`
+  hashed only `(file_path → side)` — blind to *same-path-changed-bytes* / *same-path-changed-label*,
+  the 262/914 content-overlap class it must catch. (That file is NOT on `origin/main@8ff94175`; this
+  requirement is what the Track E digest MUST satisfy, not a description of current main.)
 - **non-empty both sides** + **largest-component share** reported and bounded (real data: `file:syn`
-  is ≈50.9% of assignable rows — a single component; a 20% "family holdout" over that is not a family
+  is a single dominant component (~50%+ of assignable rows — a PR #510-review figure, not a
+  reproducible current metric; re-run gives ~53%) — so a 20% "family holdout" over that is not a family
   sample). Release-quality requires authoritative family/source fields, not the filename heuristic.
 
 ### 2.2 Post-training proof — the model is the one that was evaluated
@@ -116,6 +134,11 @@ Binding the fields is necessary but **not sufficient** — the fields alone prov
 - **Trusted issuer + signature (or a server-owned, unforgeable record).** A proof is valid only if
   signed by a trusted evaluator identity, or recorded server-side where the requester cannot write
   it. Otherwise anyone who can write a well-formed file has "a proof".
+  **Key custody (review gap):** the signing key must **not** be a CI-accessible repo secret — if it
+  were, the code-generating routine could mint valid proofs from a branch, collapsing the two-actor
+  separation §3.1 relies on. The key lives outside CI (an HSM / a human-gated signer); signing is
+  invoked only by the evaluator identity, never by a PR job; and the verifying service **pins** the
+  issuer public key (it does not trust whatever key a proof names).
 - **`manifest_digest` over provenance**, since the current `split_digest` covers only the split
   assignment — not source, license, or label-authority. Provenance must be in the signed envelope.
 - **Policy version + revocation + expiry (`not_after`)** so a compromised or superseded proof stops
@@ -126,11 +149,14 @@ Binding the fields is necessary but **not sufficient** — the fields alone prov
 - **Readiness / fallback on proof-miss.** A failed check does not just raise — it defines the service
   state: fall back to the last-known-good model, or refuse to serve (fail-closed), never silently
   serve the unverified one.
-- **The last-known-good must STILL have a valid proof (review gap).** "Was good once" is not a
-  licence to keep running. LKG is only a permitted fallback while *its* proof is unexpired and
-  unrevoked; a revoked / expired / compromised model — even the currently-serving one — flips
-  readiness to red (refuse to serve). Otherwise revocation is toothless: the bad model just keeps
-  serving as "last known good".
+- **The last-known-good must STILL have a valid proof, and needs a re-validation MECHANISM (review
+  gap).** "Was good once" is not a licence to keep running. But `verify_and_load` (§3) runs only at
+  *activation* time — so revoking the currently-serving model's proof would do nothing without a
+  post-activation check. **Mechanism (required, not just asserted):** a readiness probe re-validates
+  the *currently-serving* `model_hash`'s proof against the store's revocation/expiry list on a bounded
+  interval (and on a revocation-push if the store supports it); a serving model whose proof is now
+  revoked/expired flips readiness to **red** (drain / refuse to serve). Without this loop, revocation
+  only affects the NEXT activation, and the toothless case §2.3 exists to fix persists.
 
 An activation point resolves a **server-owned artifact ID** to bytes from a controlled store (never a
 caller path — §3), requires a **signed** proof whose `model_hash` + server-owned `family` +
@@ -156,7 +182,10 @@ it at `/etc/shadow` or a 50 GB file). Instead:
    load the model from THE SAME bytes.** Closes the TOCTOU — no re-open-by-path between check and load,
    so "verified A, loaded B" is impossible.
 4. Look up a **signed** proof for `(hash, server-owned family, server-owned env)` in a **read-only,
-   out-of-band proof store** (a model may not carry its own passing proof — self-attestation again);
+   out-of-band proof store** (a model may not carry its own passing proof — self-attestation again).
+   **Store UNREACHABLE ≠ proof ABSENT:** a store timeout/outage is NOT a transient "keep serving" —
+   it is an unverifiable state → fail-closed (refuse to activate; hold LKG only while LKG's proof is
+   independently cached-valid). A builder must not implement store-down as "skip the check";
    verify the signature/issuer and that the proof is **unexpired and unrevoked** with a current
    `policy_version`/`evaluator_version`/`thresholds`.
 5. On **any miss**, apply the readiness rule (§2.3): fall back to LKG **only if LKG's own proof is
@@ -207,7 +236,9 @@ activation.
 1. the production-identity gate (separate design-lock): no default `test` credentials, unambiguous
    authenticated tenant/user, `x-user-id` cannot override the token subject (`integration_auth.py:104`);
 2. the proof membrane (this doc).
-Until both are true the route stays **disabled** (the startup loads in §1.B are internal and gated by
+The route is **LIVE today** (that is precisely the vulnerability, §1.A/§6) — so "disabled" is an
+ACTION the implementation MUST take (disable `/model/reload` until both gates hold), not a current
+fact. Do not read §3.2/§5 as "already disabled". (The §1.B loads are internal and gated by
 the proof membrane alone, but they must not read a caller-influenced path either). Neither gate alone
 is sufficient; do not ship one and call the surface safe.
 
@@ -215,7 +246,9 @@ is sufficient; do not ship one and call the surface safe.
 
 Every activation *attempt* (success or refusal) writes one **append-only** record:
 `{ timestamp, actor (authenticated identity), decision (activated|refused|fell-back-to-LKG),
-proof_id, model_hash, model_family, environment, previous_model_hash, new_model_hash, failure_reason }`.
+proof_id, artifact_id, model_family, environment, candidate_model_hash, previous_model_hash,
+new_model_hash (== candidate on 'activated', null on 'refused'), failure_reason }` (drop the ambiguous
+bare `model_hash`; `candidate_model_hash` is what was attempted, `new_model_hash` what is now serving).
 **No filesystem paths or other sensitive strings** (per the redaction discipline the strategy applies
 to logs). The ledger is append-only so a bad activation cannot be erased, and it is what makes
 revocation and incident review possible after the fact.
