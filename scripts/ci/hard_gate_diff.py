@@ -24,12 +24,13 @@ is the diff-line filter, exercised by scripts/ci/test_hard_gate_diff.py.
 
 from __future__ import annotations
 
-import json
+import hashlib
 import os
 import re
 import subprocess
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 
 class HardGateError(RuntimeError):
@@ -129,52 +130,26 @@ def is_test_path(path: str) -> bool:
     )
 
 
-CORPUS_CAP = 250  # keep pylint duplicate-code well under a required-gate time budget
+def candidate_corpus(changed_files: list[str], run=subprocess.run,
+                     roots: tuple[str, ...] = ("src", "scripts")) -> list[str]:
+    """The FULL production tree (all tracked non-test .py under `roots`) + the changed files.
 
+    No subsystem bound: a new file copying an EXISTING file must be caught wherever the source
+    lives (src/core/a copied into src/api/b included), so there is NO cross-scope coverage gap.
+    A full-tree scan is affordable because duplicate detection is a fingerprint index
+    (`find_duplicates`, O(total_lines)), not pylint's superlinear all-pairs.
 
-def _scope_prefixes(changed_files: list[str], depth: int) -> set[str]:
-    """Path prefixes of the changed files at `depth` components (or the file's dir if shallower).
-    e.g. depth=3: src/core/vision/x.py -> 'src/core/vision'; src/ml/x.py -> 'src/ml'."""
-    out = set()
-    for f in changed_files:
-        if not f.endswith(".py") or is_test_path(f):
-            continue
-        parts = f.split("/")
-        out.add("/".join(parts[:depth]) if len(parts) > depth else "/".join(parts[:-1]) or ".")
-    return out
-
-
-def candidate_corpus(changed_files: list[str], run=subprocess.run) -> list[str]:
-    """The tree the producers scan, so a new file copying an EXISTING file is detectable.
-
-    Scanning the literal full tree (~1200 .py) makes pylint duplicate-code time out (>150s),
-    which a required gate cannot afford. So the corpus is bounded to the changed files' scope,
-    tightened until it fits CORPUS_CAP: subsystem (depth-3, e.g. src/core/vision) first, else
-    the changed files' immediate directories. This catches the realistic threat -- re-injecting
-    a copy of a nearby existing file -- while staying fast; a cross-scope duplicate is rare and,
-    being dry-run until armed, visible to the owner first. The scope is always PRINTED (never a
-    silent cap) so a dropped area is auditable."""
-    changed_py = [f for f in changed_files if f.endswith(".py") and not is_test_path(f)]
-
-    def _corpus_for(prefixes: set[str]) -> list[str]:
-        tracked = run(["git", "ls-files", "--", *sorted(prefixes)],
-                      capture_output=True, text=True, check=False).stdout.split()
-        c = {p for p in tracked if p.endswith(".py") and not is_test_path(p)}
-        c.update(changed_py)
-        return sorted(c)
-
-    for depth, label in ((3, "subsystem(depth-3)"), (99, "changed-dirs")):
-        prefixes = _scope_prefixes(changed_files, depth)
-        corpus = _corpus_for(prefixes) if prefixes else changed_py
-        if len(corpus) <= CORPUS_CAP:
-            print(f"  corpus scope: {label}, {len(corpus)} .py files "
-                  f"({', '.join(sorted(prefixes)[:4])}{' …' if len(prefixes) > 4 else ''})")
-            return corpus
-    # Even the changed files' own dirs exceed the cap: scan only the changed files + their
-    # exact directory, and say so loudly -- a duplicate outside these dirs is not checked.
-    print(f"  ::warning:: corpus > {CORPUS_CAP} even at changed-dirs scope; "
-          "checking changed files' directories only -- cross-directory duplicates NOT gated.")
-    return corpus
+    FAIL-CLOSED: if `git ls-files` cannot enumerate the tree, raise -- a partial corpus would
+    silently shrink coverage (a duplicate whose source was dropped would pass)."""
+    proc = run(["git", "ls-files", "--", *roots], capture_output=True, text=True, check=False)
+    if proc.returncode != 0:
+        raise HardGateError(
+            f"`git ls-files` failed (rc={proc.returncode}): {proc.stderr.strip()[:200]} -- "
+            "cannot build the corpus; refusing to run against a partial tree."
+        )
+    corpus = {p for p in proc.stdout.split() if p.endswith(".py") and not is_test_path(p)}
+    corpus.update(f for f in changed_files if f.endswith(".py") and not is_test_path(f))
+    return sorted(corpus)
 
 
 # ---------------------------------------------------------------------------
@@ -197,92 +172,98 @@ def _tool_available(name: str) -> bool:
         return False
 
 
-def run_vulture(corpus: list[str], run=subprocess.run) -> tuple[list[Finding], bool]:
+def run_vulture(corpus: list[str], run=subprocess.run) -> tuple[list[Finding], str]:
+    """Returns (findings, status): status ∈ {"ok","absent","partial"}.
+      "absent"  = vulture not installed.
+      "partial" = ran, but some input could not be parsed (rc=1) -- INCOMPLETE analysis.
+    A hard malfunction (bad args rc=2, or a traceback) raises. main() turns absent/partial into
+    a warning (dry-run) or a fail-closed exit 2 (enforce): a required gate must not pass what it
+    could not fully analyse."""
     if not _tool_available("vulture"):
-        return [], False
+        return [], "absent"
     if not corpus:
-        return [], True
+        return [], "ok"
     proc = run([sys.executable, "-m", "vulture", *corpus, "--min-confidence", "80"],
                capture_output=True, text=True, check=False)
-    # vulture exit codes: 0=clean, 3=dead code found (both expected). 2=bad CLI args and any
-    # traceback are a real malfunction. 1=some input file could not be parsed -- for a
-    # whole-tree scan that means a PRE-EXISTING broken file, which must NOT red every PR:
-    # warn and use the findings from the files that did parse.
+    # vulture: 0=clean, 3=dead code found (both complete). 2=bad CLI + any traceback = malfunction.
+    # 1 = some file could not be parsed -> INCOMPLETE (a broken file, possibly the PR's own).
     if proc.returncode == 2 or "Traceback (most recent call last)" in proc.stderr:
         raise HardGateError(
             f"vulture malfunctioned (rc={proc.returncode}): "
             f"{(proc.stderr or proc.stdout).strip()[:300]}"
         )
-    if proc.returncode == 1 and proc.stderr.strip():
-        print(f"  ::warning:: vulture: partial run -- {proc.stderr.strip().splitlines()[0][:160]}")
+    status = "ok"
+    if proc.returncode == 1:
+        status = "partial"
+        if proc.stderr.strip():
+            print(f"  ::warning:: vulture partial: {proc.stderr.strip().splitlines()[0][:160]}")
     findings = []
     pat = re.compile(r"^(.+?):(\d+): (.+)$")
     for line in proc.stdout.splitlines():
         m = pat.match(line)
         if m:
             findings.append(Finding(m.group(1), int(m.group(2)), m.group(3), "vulture"))
-    return findings, True
+    return findings, status
 
 
-# pylint exit code is a bit-mask: 1=fatal, 2=error, 4=warning, 8=refactor, 16=convention,
-# 32=usage error. duplicate-code (R0801) is a refactor (bit 8). A fatal (1) or usage (32)
-# is a malfunction; an error (2) means a file could not be processed -> warn, don't red.
-_PYLINT_FATAL, _PYLINT_USAGE = 1, 32
+# Duplicate detection: a normalized-line FINGERPRINT INDEX over the whole corpus, NOT pylint.
+# pylint duplicate-code is superlinear -> the full tree times out (>150s), forcing a subsystem
+# bound that left cross-scope duplicates ungated. The index is O(total_lines) (~0.6s on this
+# repo), so it covers the ENTIRE tree with no scope gap, and is deterministic + tool-version-
+# independent (no JSON/exit-code parsing to break).
+DUP_MIN_LINES = 10
 
 
-def _pylint_module_map(corpus: list[str]) -> dict[str, list[str]]:
-    """pylint reports duplicate locations as `==<module>:[a:b]` using module names, not paths.
-    Map a module name back to the corpus path(s) whose stem matches. Ambiguous stems (same
-    basename in two dirs) map to BOTH -- deliberately conservative (fail toward reporting)."""
-    m: dict[str, list[str]] = {}
-    for p in corpus:
-        stem = os.path.splitext(os.path.basename(p))[0]
-        m.setdefault(stem, []).append(p)
-    return m
+def _normalize_line(line: str) -> str:
+    """Collapse a source line for comparison: drop a trailing comment, strip all whitespace.
+    Blank / comment-only lines normalise to "" and are skipped (a window is DUP_MIN_LINES
+    consecutive NON-trivial lines)."""
+    return re.sub(r"\s+", "", line.split("#", 1)[0])
 
 
-def run_duplicate(corpus: list[str], run=subprocess.run) -> tuple[list[Finding], bool]:
-    if not _tool_available("pylint"):
-        return [], False
-    if not corpus:
-        return [], True
-    proc = run([sys.executable, "-m", "pylint", *corpus, "--disable=all",
-                "--enable=duplicate-code", "--min-similarity-lines=10",
-                "--output-format=json"],
-               capture_output=True, text=True, check=False)
-    if (proc.returncode & _PYLINT_FATAL) or (proc.returncode & _PYLINT_USAGE):
-        raise HardGateError(
-            f"pylint malfunctioned (rc={proc.returncode}, "
-            f"fatal={bool(proc.returncode & _PYLINT_FATAL)} usage={bool(proc.returncode & _PYLINT_USAGE)}): "
-            f"{proc.stderr.strip()[:300] or '<see json>'}"
-        )
-    try:
-        messages = json.loads(proc.stdout or "[]")
-    except json.JSONDecodeError as exc:
-        raise HardGateError(f"pylint produced unparseable JSON: {exc}") from exc
-
-    modmap = _pylint_module_map(corpus)
-    loc_re = re.compile(r"==([\w.]+):\[(\d+):(\d+)\]")
-    findings: list[Finding] = []
-    for msg in messages:
-        if msg.get("symbol") != "duplicate-code":
+def find_duplicates(corpus: list[str], changed_files: list[str],
+                    min_lines: int = DUP_MIN_LINES) -> tuple[list[Finding], str]:
+    """Emit a finding for every changed-file window of `min_lines` consecutive non-trivial
+    normalized lines whose fingerprint ALSO appears in a DIFFERENT file (a cross-file copy).
+    Findings carry the changed file's real line numbers; main() filters to changed lines."""
+    fp_files: dict[str, set[str]] = {}
+    file_windows: dict[str, list[tuple[str, list[int]]]] = {}
+    unreadable: list[str] = []
+    for f in corpus:
+        try:
+            text = Path(f).read_text(encoding="utf-8", errors="strict")
+        except (OSError, UnicodeDecodeError):
+            unreadable.append(f)
             continue
-        summary = msg.get("message", "").splitlines()[0] if msg.get("message") else "R0801 duplicate"
-        seen: set[tuple[str, int]] = set()
-        # Every involved location must be emitted -- pylint's anchor is order-dependent, so
-        # relying on it alone would silently drop a duplicate anchored on the UNCHANGED file.
-        for mod, lo, hi in loc_re.findall(msg.get("message", "")):
-            stem = mod.split(".")[-1]
-            for path in modmap.get(stem, []):
-                for ln in range(int(lo), int(hi) + 1):
-                    if (path, ln) not in seen:
-                        seen.add((path, ln))
-                        findings.append(Finding(path, ln, f"R0801: {summary}", "duplicate-code"))
-        # Fallback: if the message body had no parseable ranges, keep the JSON anchor.
-        if not any(loc_re.finditer(msg.get("message", ""))) and msg.get("path"):
-            findings.append(Finding(msg["path"], int(msg.get("line", 1)),
-                                    f"R0801: {summary}", "duplicate-code"))
-    return findings, True
+        nontrivial = [(i + 1, _normalize_line(l)) for i, l in enumerate(text.splitlines())]
+        nontrivial = [(ln, n) for ln, n in nontrivial if n]
+        wins: list[tuple[str, list[int]]] = []
+        for j in range(len(nontrivial) - min_lines + 1):
+            window = nontrivial[j:j + min_lines]
+            fp = hashlib.sha256("\n".join(n for _, n in window).encode()).hexdigest()
+            fp_files.setdefault(fp, set()).add(f)
+            wins.append((fp, [ln for ln, _ in window]))
+        file_windows[f] = wins
+
+    findings: list[Finding] = []
+    seen: set[tuple[str, int]] = set()  # one finding per (file, line); overlapping windows dedupe
+    for f in changed_files:
+        for fp, orig_lines in file_windows.get(f, []):
+            others = fp_files.get(fp, set()) - {f}
+            if others:
+                other = sorted(others)[0]
+                for ln in orig_lines:
+                    if (f, ln) not in seen:
+                        seen.add((f, ln))
+                        findings.append(Finding(f, ln, f"duplicate block also in {other}",
+                                                "duplicate-code"))
+
+    status = "ok"
+    if unreadable:
+        status = "partial"
+        print(f"  ::warning:: duplicate-index: {len(unreadable)} corpus file(s) unreadable "
+              f"(e.g. {unreadable[0]})")
+    return findings, status
 
 
 def main() -> int:
@@ -304,22 +285,26 @@ def main() -> int:
     # Producers scan the FULL corpus so cross-file duplicates/usage are visible; findings are
     # filtered to changed lines afterwards. (Scanning changed-files-only misses a new file that
     # copies an unchanged one -- the main "agent re-injects duplicate code" case.)
-    corpus = candidate_corpus(changed_files)
-    vult, vult_ok = run_vulture(corpus)
-    dup, dup_ok = run_duplicate(corpus)
+    corpus = candidate_corpus(changed_files)  # raises (fail-closed) if git can't enumerate
+    vult, vstatus = run_vulture(corpus)
+    dup, dstatus = find_duplicates(corpus, changed_files)
     new = new_violations(vult + dup, changed)
 
     print(f"hard-gate: mode={'ENFORCE' if enforce else 'dry-run'} base={base}")
     print(f"  changed .py files: {len(changed_files)}  |  corpus scanned: {len(corpus)} .py files")
-    missing = [tool for tool, ok in [("vulture", vult_ok), ("duplicate-code", dup_ok)] if not ok]
-    for tool in missing:
-        print(f"  ::warning:: {tool} unavailable -- not run (gate does not fabricate a pass/fail)")
-    # In ENFORCE mode a missing finding-producer means the gate CANNOT verify the changed
-    # lines. That is a malfunction, not a pass: fail closed. (In dry-run it's only a warning.)
-    if enforce and missing:
+
+    # Any producer that is absent or could only PARTIALLY analyse the corpus means the gate
+    # could not fully verify the change. That is fail-closed in ENFORCE (a required gate must
+    # not report a pass it could not stand behind); a warning in dry-run.
+    incomplete = [(n, s) for n, s in (("vulture", vstatus), ("duplicate-index", dstatus))
+                  if s != "ok"]
+    for name, status in incomplete:
+        print(f"  ::warning:: {name} analysis {status} -- corpus not fully verified")
+    if enforce and incomplete:
         raise HardGateError(
-            f"finding-producer(s) unavailable in enforce mode: {', '.join(missing)}. "
-            "The gate cannot certify changed lines without them; refusing to report a pass."
+            "incomplete analysis in enforce mode ("
+            + ", ".join(f"{n}={s}" for n, s in incomplete)
+            + "). A required gate must not pass what it could not fully analyse."
         )
     if not new:
         print("  no NEW dead-code / duplicate-code on changed lines. OK")

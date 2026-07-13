@@ -38,11 +38,12 @@ jobs:
         with:
           python-version: "3.11"
 
-      # Producers are installed at PINNED versions BEFORE the self-test, so the self-test's
-      # real-tool golden ("a new file copying an unchanged file must be caught") actually runs.
-      # Pinning matters: the parser depends on pylint's JSON shape and exit-code semantics.
-      - name: Install finding-producers (pinned)
-        run: pip install "vulture==2.16" "pylint==3.3.9"
+      # Only vulture is an external producer (pinned; the parser depends on its output/exit
+      # codes). Duplicate detection is a stdlib fingerprint index -- no pylint, no version
+      # coupling. Installed BEFORE the self-test so its vulture-dependent cases run; the
+      # cross-subsystem duplicate golden needs no tool and runs anywhere.
+      - name: Install finding-producer (pinned)
+        run: pip install "vulture==2.16"
 
       # The load-bearing logic. No `|| true`: a broken filter must fail.
       - name: Diff-filter + producer self-test (must pass)

@@ -75,12 +75,36 @@ that would let an *armed* gate pass code it should block. Both reproduced with *
   self-test so its real-tool golden runs; the check name is now **`Hard Gate (diff-scoped)`** —
   mode-agnostic, so arming (removing "dry-run") will not orphan a required status context.
 
+## Round 3 — close the cross-scope gap + full fail-closed (third review)
+
+Round 2 bounded the corpus to a subsystem for speed and **logged** the cross-subsystem gap. A
+third review was right that for a *required* gate a known coverage gap is a malfunction, not a
+warning, and that several producer/corpus failure modes still degraded silently. Both closed by
+**replacing pylint with a stdlib fingerprint index** — which removes the very cost that forced the
+bound.
+
+### Desired → Achieved (round 3)
+
+| # | Defect (before) | Achieved | Verified by (executed) |
+|---|---|---|---|
+| 6 | **Duplicate gap was only closed within a subsystem.** The corpus was bounded (pylint timed out on the full tree), so `src/core/a` copied into `src/api/b` could pass. | **Global** duplicate detection via a normalized-line **fingerprint index** over the *whole* production tree (no subsystem bound): a window of `DUP_MIN_LINES=10` consecutive non-trivial normalized lines whose fingerprint also appears in a **different** file is a cross-file duplicate. O(total-lines), **~0.6 s**; full gate **6.4 s** end-to-end over 1167 files (was >150 s → timeout). Deterministic, tool-version-independent. | **golden: cross-SUBSYSTEM copy (`src/api` copies `src/core`) → exit 1** ("duplicate block also in src/core/orig.py"). Runs with no external tool. |
+| 7 | **Corpus/producer failures degraded silently.** `git ls-files` return code ignored → a failure shrank the corpus to changed-files-only. vulture `rc=1` (a file couldn't parse) only warned, even in enforce. | `candidate_corpus` **raises** on `git ls-files` failure. Producers return a 3-state status (`ok`/`absent`/`partial`); **any non-`ok` in ENFORCE → `HardGateError` → exit 2** (dry-run warns). A required gate never passes what it could not fully analyse. | unit: git-ls-files failure → raise; vulture rc=1 → `partial`; enforce+`partial`/`absent` → raise; dry-run+same → warn+continue; unreadable corpus file → `partial`. |
+
+### Supporting changes
+- **pylint removed entirely** from duplicate detection — with it go the JSON parsing, order-dependent
+  anchor, module→path mapping, exit-code bit-mask, and version pinning. Only **vulture** remains an
+  external producer (still pinned `==2.16`); the fingerprint index is stdlib (`hashlib`).
+- **Fingerprint semantics documented:** normalized = trailing-comment stripped + all whitespace
+  removed; blank/comment-only lines skipped. Catches verbatim / whitespace- or comment-different
+  copies (the realistic re-injection); a rename-heavy paraphrase is out of scope by design.
+- vulture still runs over the **full tree** (5.5 s) so cross-file usage is correct (no false
+  positives from changed-files-only).
+
 ## What is still NOT done (honest scope)
 
 - **Arming remains owner-only** and is deliberately not performed here: it requires (a) uncommenting
   `HARD_GATE_ENFORCE: "1"`, and (b) adding the check to branch protection. This PR makes the gate
   *safe to arm* — it does not arm it. `merged != enabled != safe to enable` (§7.2).
-- **Bounded corpus is a documented trade-off:** a duplicate whose source lives in a *different*
-  subsystem than the changed file is not caught. Acceptable for a fast required gate (the realistic
-  re-injection copies a nearby file) and surfaced in the logs.
+- **Duplicate detection is line-fingerprint, not AST/token** — it will not catch a copy that renames
+  identifiers throughout. Documented trade-off; an AST/token index is a future upgrade if needed.
 - These fixes make the gate *requireable*; whether to require it is a branch-protection decision.
