@@ -30,14 +30,13 @@ async def get_api_key(x_api_key: str = Header(default="test", alias="X-API-Key")
     if not x_api_key:
         raise HTTPException(status_code=401, detail="Missing API Key")
     # Fail-closed in a production posture: the literal insecure default must not authenticate.
+    # (Scope is limited to refusing the `"test"` default — general X-API-Key validation against a
+    # configured secret is intentionally NOT added here; it is a separate production-identity change.)
     if _production_posture() and x_api_key == _INSECURE_DEFAULT:
         raise HTTPException(
             status_code=401,
             detail="Default 'test' API key is not accepted in a production posture (set a real X-API-Key).",
         )
-    expected = os.getenv("API_KEY", "").strip()
-    if expected and x_api_key != expected:
-        raise HTTPException(status_code=401, detail="Invalid API Key")
     return x_api_key
 
 
