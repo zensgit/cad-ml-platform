@@ -124,31 +124,43 @@ Binding the fields is necessary but **not sufficient** — the fields alone prov
   deployment, **never supplied by the requester** (a caller must not label its own model's family or
   claim `environment=staging` to dodge the prod policy).
 - **Readiness / fallback on proof-miss.** A failed check does not just raise — it defines the service
-  state: stay on the last-known-good model, or refuse to serve (fail-closed), never silently serve
-  the unverified one.
+  state: fall back to the last-known-good model, or refuse to serve (fail-closed), never silently
+  serve the unverified one.
+- **The last-known-good must STILL have a valid proof (review gap).** "Was good once" is not a
+  licence to keep running. LKG is only a permitted fallback while *its* proof is unexpired and
+  unrevoked; a revoked / expired / compromised model — even the currently-serving one — flips
+  readiness to red (refuse to serve). Otherwise revocation is toothless: the bad model just keeps
+  serving as "last known good".
 
-An activation point computes `sha256(model-about-to-load)`, requires a **signed** proof whose
-`model_hash` + server-owned `family` + server-owned `environment` match, is unexpired and unrevoked.
-**Any miss → fail-closed** per the readiness rule. This makes the token *bound and authorized* — the
-defect that sank the first gate (an artifact for dataset A green-lighting a model on dataset B, and
-"a passing-format artifact anyone can emit") cannot recur.
+An activation point resolves a **server-owned artifact ID** to bytes from a controlled store (never a
+caller path — §3), requires a **signed** proof whose `model_hash` + server-owned `family` +
+server-owned `environment` match, is unexpired and unrevoked. **Any miss → fail-closed** per the
+readiness rule. This makes the token *bound and authorized* — the defect that sank the first gate (an
+artifact for dataset A green-lighting a model on dataset B, and "a passing-format artifact anyone can
+emit") cannot recur.
 
 ---
 
 ## 3. The membrane (one choke-point, enforced at every production-reachable activation)
 
-A single function — call it `verify_and_load(model_path, family, env)` — that:
-1. **Opens the file ONCE and reads the bytes into memory (or holds an fd); hashes THOSE bytes and
-   loads the model from THE SAME bytes.** This closes a TOCTOU (review gap): the first draft hashed
-   *by path* and let the loader re-open the path, so the file could be swapped between check and load
-   — "verified A, loaded B". Hash and load must be one immutable read (bytes/fd), or the artifact must
-   be a content-addressed, read-only object the loader fetches by hash.
-2. looks up a **signed** proof for `(hash, server-owned family, server-owned env)` in a **read-only,
+A single function — `verify_and_load(artifact_id, family, env)` — where **`artifact_id` is a
+server-owned identifier (or model hash), NOT a caller-supplied filesystem path (review gap).** The
+first draft let the caller pass `payload.path`, which — even with later verification — first *opens
+that path*, creating a path-probe / arbitrary-file-read / memory-IO-DoS surface (a caller could point
+it at `/etc/shadow` or a 50 GB file). Instead:
+1. **Resolve `artifact_id` in a controlled, read-only, content-addressed store.** The caller names
+   *which approved artifact*, the server owns *where its bytes are*. Reject an unknown id.
+2. **Cheap guards before reading the whole thing:** file type / magic-number and a max-size cap, so a
+   hostile or corrupt object is rejected before it is fully loaded.
+3. **One immutable read:** read the resolved bytes into memory (or an fd) ONCE; **hash THOSE bytes and
+   load the model from THE SAME bytes.** Closes the TOCTOU — no re-open-by-path between check and load,
+   so "verified A, loaded B" is impossible.
+4. Look up a **signed** proof for `(hash, server-owned family, server-owned env)` in a **read-only,
    out-of-band proof store** (a model may not carry its own passing proof — self-attestation again);
-3. verifies the signature/issuer, and that the proof is **unexpired and unrevoked** and its
-   `policy_version`/`evaluator_version`/`thresholds` are current;
-4. on **any miss**, applies the readiness rule (§2.3): keep last-known-good or refuse to serve —
-   never load the unverified bytes.
+   verify the signature/issuer and that the proof is **unexpired and unrevoked** with a current
+   `policy_version`/`evaluator_version`/`thresholds`.
+5. On **any miss**, apply the readiness rule (§2.3): fall back to LKG **only if LKG's own proof is
+   still valid**, else refuse to serve — never load the unverified bytes. Emit an audit record (§3.3).
 
 Every **production-reachable** point in §1.A/1.B calls it **before** the model is loaded/served:
 - `model.py:71` — the external `/model/reload`;
@@ -175,10 +187,38 @@ elsewhere. Keeping them separate keeps the design honest.
   cannot activate a model without a valid signed proof. The unattended routine is **not** this actor —
   it has no runtime path to `/model/reload`.
 - **Code-generating routine** (the unattended loop): it can modify branches and open PRs, but it
-  **cannot thereby reach a runtime activation**. It is contained by *different* controls —
-  branch-protection (can't merge to main) + CODEOWNERS on L3 paths (#512) + human review. Conflating
+  **cannot thereby reach a runtime activation**. It is contained by *different* controls — today by
+  **branch-protection** (`required_reviews=1 + enforce_admins`, so it can't merge to main) + human
+  review; and **prospectively** by CODEOWNERS on L3 paths — but #512 is **not yet a gate**
+  (`require_code_owner_reviews=false`, and no independent reviewer exists yet), so it does NOT contain
+  the routine today. Do not claim CODEOWNERS containment until it is armed. Conflating
   the two would mis-scope the membrane (it is not a defense against branch edits) and under-protect the
   runtime (which needs the proof regardless of who wrote the code).
+
+## 3.2 The external `/model/reload` HARD-DEPENDS on the production-identity gate (review gap)
+
+The proof membrane authorizes *which model* may activate; it does **not** authenticate *who* is
+asking. `POST /model/reload` today is guarded by `api_key` + `admin_token`, **both defaulting to
+`test`** (`dependencies.py:8,38`). Completing the proof membrane must **not** re-open that route while
+identity is fail-open — a trusted-but-defaulted caller passing a valid proof is still an anonymous
+activation.
+
+**Ordering lock:** the external `/model/reload` route may be enabled **only when BOTH gates hold**:
+1. the production-identity gate (separate design-lock): no default `test` credentials, unambiguous
+   authenticated tenant/user, `x-user-id` cannot override the token subject (`integration_auth.py:104`);
+2. the proof membrane (this doc).
+Until both are true the route stays **disabled** (the startup loads in §1.B are internal and gated by
+the proof membrane alone, but they must not read a caller-influenced path either). Neither gate alone
+is sufficient; do not ship one and call the surface safe.
+
+## 3.3 Append-only activation audit (review suggestion — adopted)
+
+Every activation *attempt* (success or refusal) writes one **append-only** record:
+`{ timestamp, actor (authenticated identity), decision (activated|refused|fell-back-to-LKG),
+proof_id, model_hash, model_family, environment, previous_model_hash, new_model_hash, failure_reason }`.
+**No filesystem paths or other sensitive strings** (per the redaction discipline the strategy applies
+to logs). The ledger is append-only so a bad activation cannot be erased, and it is what makes
+revocation and incident review possible after the fact.
 
 ## 4. Non-goals / explicit exclusions
 
@@ -187,7 +227,10 @@ elsewhere. Keeping them separate keeps the design honest.
   `dependencies.py:8` default `test`, `integration_auth.py:104` header-overrides-subject). Cross-ref,
   don't merge the two.
 - Not covering offline training/quantization (§1.D) — they don't activate.
-- No cross-customer training; customer corrections never enter a training-readable store (§8 arc).
+- Customer corrections are **isolated until Track E lands**; after it, they may enter a
+  training-readable store **only** under explicit customer authorization, single-customer isolation,
+  and with cross-customer training default-off. (The earlier "never enter a training-readable store"
+  overstated the canonical strategy — the rule is conditional, not absolute.)
 
 ## 5. Golden matrix the implementation must ship (observed-RED, executed)
 
@@ -198,6 +241,10 @@ elsewhere. Keeping them separate keeps the design honest.
 | **unsigned / wrongly-signed** proof (well-formed but not from a trusted issuer) | RED (no authority — §2.3) |
 | **expired / revoked** proof (`not_after` passed, or policy revoked) | RED (stale proof is not valid) |
 | requester supplies `family` or `environment=staging` to dodge policy | IGNORED — both are server-owned (§2.3) |
+| caller supplies a filesystem `path` (not a server-owned artifact id) | REJECTED — no caller path is opened (§3) |
+| artifact exceeds max-size / wrong file type | REJECTED before full load (§3) |
+| fall back to a last-known-good model whose proof is REVOKED/EXPIRED | RED — readiness refuses; LKG needs a valid proof (§2.3) |
+| complete the proof membrane but leave `ADMIN_TOKEN=test` on `/model/reload` | route stays DISABLED — needs the identity gate too (§3.2) |
 | proof for family A, activate a family-B model of same bytes-len | RED (family mismatch) |
 | proof for `staging`, activate in `prod` | RED (environment mismatch) |
 | change one byte of the model file after the proof was issued | RED (model_hash mismatch) |
