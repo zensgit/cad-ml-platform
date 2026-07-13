@@ -100,13 +100,16 @@ def test_build_versioned_manifest_emits_every_8_1_6_field(tmp_path: Path) -> Non
 
     # the unreadable row is EXCLUDED from rows and surfaced in quarantined instead
     assert len(manifest["rows"]) == 4
-    file_paths = {r["file_path"] for r in manifest["rows"]}
-    assert missing_row["file_path"] not in file_paths
+    locators = {r["locator"] for r in manifest["rows"]}
+    assert "does_not_exist.dxf" not in locators
+    # absolute run paths never enter the manifest
+    for r in manifest["rows"]:
+        assert not r["locator"].startswith("/")
     assert any(q["reason_code"] == "unreadable" for q in manifest["quarantined"])
 
     required_fields = {
-        "file_path",
-        "cache_path",
+        "locator",
+        "cache_locator",
         "taxonomy_v2_class",
         "family",
         "content_hash",
@@ -125,11 +128,11 @@ def test_build_versioned_manifest_emits_every_8_1_6_field(tmp_path: Path) -> Non
         assert row["category"] in tm.CATEGORIES
         assert len(row["content_hash"]) == 64  # sha256 hex
 
-    by_path = {r["file_path"]: r for r in manifest["rows"]}
-    assert by_path[real_row["file_path"]]["category"] == "real"          # declared data_origin
-    assert by_path[aug_row["file_path"]]["category"] == "augmented"
-    assert by_path[synth_row["file_path"]]["category"] == "synthetic"
-    assert by_path[plain_row["file_path"]]["category"] == "unknown"      # unmarked -> unknown
+    by_loc = {r["locator"]: r for r in manifest["rows"]}
+    assert by_loc["gear.dxf"]["category"] == "real"                      # declared data_origin
+    assert by_loc["gear_aug1.dxf"]["category"] == "augmented"
+    assert by_loc["part_synth.dxf"]["category"] == "synthetic"
+    assert by_loc["bracket.dxf"]["category"] == "unknown"                # unmarked -> unknown
 
     # unknown provenance keeps the manifest not-provenance-complete (review P1)
     assert manifest["unknown_provenance_rows"] == 1
@@ -146,10 +149,10 @@ def test_build_versioned_manifest_family_matches_slice1_declared_column(tmp_path
     manifest = tm.build_versioned_manifest(
         rows, source="s", license_="l", label_authority="a", holdout_fraction=0.5
     )
-    by_path = {r["file_path"]: r for r in manifest["rows"]}
+    by_loc = {r["locator"]: r for r in manifest["rows"]}
     # same declared family -> same family key -> can never straddle the split (inherited from slice-1)
-    assert by_path[a["file_path"]]["family"] == by_path[b["file_path"]]["family"]
-    assert by_path[a["file_path"]]["split"] == by_path[b["file_path"]]["split"]
+    assert by_loc["weird_alpha.dxf"]["family"] == by_loc["totally_other.dxf"]["family"]
+    assert by_loc["weird_alpha.dxf"]["split"] == by_loc["totally_other.dxf"]["split"]
 
 
 # --- manifest_digest determinism ------------------------------------------------------------------
@@ -339,19 +342,30 @@ def test_manifest_digest_is_fresh_clone_stable(tmp_path: Path) -> None:
 
 
 def test_verify_red_on_stored_locator_tamper(tmp_path: Path) -> None:
-    # review P1: file_path/cache_path are excluded from the digest (fresh-clone stability), so a
-    # tampered STORED locator must be caught by the explicit binding check instead.
+    # locators are digested: a naive stored-locator redirect trips the ENVELOPE check.
     rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "cls") for i in range(4)]
     man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")
-    man["rows"][0]["file_path"] = str(tmp_path / "evil_redirect.dxf")   # redirect a consumer
+    man["rows"][0]["locator"] = "evil_redirect.dxf"
+    with pytest.raises(tm.IntegrityError, match="FAILED"):
+        tm.verify_manifest(rows, man)
+
+
+def test_verify_red_on_redigested_locator_tamper(tmp_path: Path) -> None:
+    # a SOPHISTICATED tamper that also recomputes manifest_digest passes the envelope check but
+    # must be caught by the (sample_id, locator) binding against the re-derived rows.
+    rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "cls") for i in range(4)]
+    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")
+    man["rows"][0]["locator"] = "evil_redirect.dxf"
+    man["manifest_digest"] = tm._manifest_digest(man)   # attacker re-digests the envelope
     with pytest.raises(tm.IntegrityError, match="locator binding FAILED"):
         tm.verify_manifest(rows, man)
 
 
-def test_verify_red_on_stored_cache_path_tamper(tmp_path: Path) -> None:
+def test_verify_red_on_redigested_cache_locator_tamper(tmp_path: Path) -> None:
     rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "cls") for i in range(4)]
     man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")
-    man["rows"][0]["cache_path"] = "/evil/cache.pt"
+    man["rows"][0]["cache_locator"] = "evil/cache.pt"
+    man["manifest_digest"] = tm._manifest_digest(man)
     with pytest.raises(tm.IntegrityError, match="locator binding FAILED"):
         tm.verify_manifest(rows, man)
 
@@ -371,3 +385,42 @@ def test_manifest_digest_stable_across_clones_with_quarantined_rows(tmp_path: Pa
         assert m["quarantined"][0]["locator"] == "gone.dxf"
         return m["manifest_digest"]
     assert _clone(tmp_path / "cloneA") == _clone(tmp_path / "cloneB")
+
+
+def _clone_rows(root: Path) -> list:
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "sub").mkdir(exist_ok=True)
+    rows = []
+    for rel, b, lbl in [("gear.dxf", b"A", "g"), ("sub/gear.dxf", b"B", "s"), ("bolt.dxf", b"C", "b")]:
+        p = root / rel
+        p.write_bytes(b)
+        rows.append({"file_path": str(p), "cache_path": "", "taxonomy_v2_class": lbl})
+    return rows
+
+
+def test_artifact_built_on_clone_a_verifies_on_clone_b(tmp_path: Path) -> None:
+    # THE fresh-clone portability discriminator (review P1): build on clone A, verify the SAME
+    # artifact against clone B's rows (same bytes + layout, different absolute root) -> PASS.
+    man = tm.build_versioned_manifest(
+        _clone_rows(tmp_path / "cloneA"), source="s", license_="l", label_authority="a"
+    )
+    tm.verify_manifest(_clone_rows(tmp_path / "cloneB"), man)   # must not raise
+
+
+def test_same_basename_different_dirs_do_not_collide(tmp_path: Path) -> None:
+    # locators are full relative paths, not basenames: gear.dxf vs sub/gear.dxf stay distinct.
+    man = tm.build_versioned_manifest(
+        _clone_rows(tmp_path / "cloneC"), source="s", license_="l", label_authority="a"
+    )
+    locs = sorted(r["locator"] for r in man["rows"])
+    assert locs == ["bolt.dxf", "gear.dxf", "sub/gear.dxf"]
+
+
+def test_quarantine_locator_is_relative_full_path(tmp_path: Path) -> None:
+    root = tmp_path / "cloneQ"
+    rows = _clone_rows(root)
+    rows.append({"file_path": str(root / "sub" / "gone.dxf"), "cache_path": "", "taxonomy_v2_class": "g"})
+    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")
+    q = man["quarantined"][0]
+    assert q["locator"] == "sub/gone.dxf"      # relative full path, not a basename
+    assert "file_path" not in q                # no absolute run path in the manifest

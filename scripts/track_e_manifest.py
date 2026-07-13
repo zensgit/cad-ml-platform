@@ -6,8 +6,9 @@ separate reporting for real, synthetic, and augmented data, and §8.1.6 requires
 manifest carrying source, license, provenance, family, hash, split, and label authority. Slice-1
 already delivers the leakage-safe split (content-hash + normalized-family, conflict quarantine,
 fail-closed unreadable content, deterministic digest); this module REUSES those primitives rather
-than re-deriving them, so a manifest built here can never drift from the split slice-1 (and the
-L3 gate behind it) already trusts.
+than re-deriving them, so a manifest built here can never drift from slice-1's split. (The L3 gate
+is UNCONDITIONAL — it trusts no artifact and nothing here can unlock it; this is inspection/audit
+tooling only.)
 
   * ``categorize`` — regex-based, case-insensitive, deterministic real/synthetic/augmented
     classification from filename/family markers (§8.1.5). No I/O, no RNG.
@@ -105,6 +106,40 @@ def categorize(row: dict) -> str:
     return "unknown"
 
 
+def _dataset_root(rows: List[dict], root: Optional[Path]) -> Optional[Path]:
+    """The base every locator is expressed against. Explicit ``root`` wins; otherwise the common
+    parent of all ABSOLUTE row paths (deterministic given the same clone layout). ``None`` when all
+    row paths are already relative (repo-style manifests) — they are then locators as-is."""
+    if root is not None:
+        return Path(root)
+    import os as _os
+
+    abs_dirs = [
+        str(Path(str(r.get("file_path", ""))).parent)
+        for r in rows
+        if str(r.get("file_path", "")) and Path(str(r.get("file_path", ""))).is_absolute()
+    ]
+    return Path(_os.path.commonpath(abs_dirs)) if abs_dirs else None
+
+
+def _relative_locator(fp: str, root: Optional[Path]) -> str:
+    """Dataset-root-RELATIVE, NFC-normalized, POSIX-style locator.
+
+    The sample's portable address inside the versioned dataset: it IS digested, must be identical
+    on every fresh clone, and never carries a host prefix. A full relative path (not a basename),
+    so same-named files in different directories cannot collide.
+    """
+    import os as _os
+    import unicodedata as _ud
+
+    p = Path(fp)
+    if root is not None and p.is_absolute():
+        rel = _os.path.relpath(str(p), str(root))
+    else:
+        rel = str(p)  # already relative -> use as-is
+    return _ud.normalize("NFC", Path(rel).as_posix())
+
+
 def _enrich_rows(
     rows: List[dict],
     split: dict,
@@ -112,15 +147,18 @@ def _enrich_rows(
     source: str,
     license_: str,
     label_authority: str,
+    dataset_root: Optional[Path],
 ) -> List[dict]:
     """Build one §8.1.6-complete record per row that survived slice-1's ``compute_split``.
 
     Rows slice-1 quarantined (missing/unreadable content, label conflict, missing field) are
     silently absent from ``split["assignment"]`` and therefore excluded here too — fail-closed
     behaviour is inherited, not re-implemented. The ``content_hash`` is the SAME snapshot
-    ``compute_split`` computed to build the split (``split["content_hashes"]``) — NOT a second read
-    — so the manifest's hash can never disagree with the split it records (review P2: a file
-    changing between two independent reads could otherwise let identical content straddle).
+    ``compute_split`` computed to build the split (``split["content_hashes"]``) — NOT a second read.
+
+    ABSOLUTE RUN PATHS DO NOT ENTER THE MANIFEST (fresh-clone portability): each row carries a
+    dataset-root-relative ``locator`` (+ ``cache_locator``), and locators ARE digested. A consumer
+    resolves data as ``<its own dataset root>/<locator>``.
     """
     content_hashes = split["content_hashes"]
     enriched: List[dict] = []
@@ -131,15 +169,13 @@ def _enrich_rows(
         ch = content_hashes[key]
         family = _family_key(row)
         label = str(row.get("taxonomy_v2_class", "")).strip()
+        cache = str(row.get("cache_path", ""))
         enriched.append(
             {
-                # `sample_id` is a host-INDEPENDENT stable identity (content + family + label). The
-                # digest keys on it, not the absolute file_path, so a fresh clone at a different path
-                # reproduces the same manifest_digest. `file_path` is retained for actual dataset use
-                # but is excluded from the digest (see _canonicalize_for_digest).
+                # host-INDEPENDENT stable identity (content + family + label)
                 "sample_id": hashlib.sha256(f"{ch}|{family}|{label}".encode()).hexdigest()[:16],
-                "file_path": key,
-                "cache_path": str(row.get("cache_path", "")),
+                "locator": _relative_locator(key, dataset_root),
+                "cache_locator": _relative_locator(cache, dataset_root) if cache else "",
                 "taxonomy_v2_class": label,
                 "family": family,
                 "content_hash": ch,                    # the authoritative split-time snapshot
@@ -153,9 +189,9 @@ def _enrich_rows(
     return enriched
 
 
-# Fields excluded from the digest because they are host-bound or free-text, not part of the
-# sample's identity: absolute paths and human error detail vary per clone/OS locale.
-_DIGEST_EXCLUDED_ROW_FIELDS = ("file_path", "cache_path", "detail")
+# Free-text human detail is excluded from the digest (varies per clone/OS locale). Locators are
+# dataset-root-relative and DO enter the digest; absolute run paths never enter the manifest.
+_DIGEST_EXCLUDED_ROW_FIELDS = ("detail",)
 
 # Stable quarantine reason codes (these DO enter the digest; the human `detail` does not).
 _QUARANTINE_REASON_CODES = (
@@ -165,16 +201,15 @@ _QUARANTINE_REASON_CODES = (
 )
 
 
-def _normalize_quarantine(entry: dict) -> dict:
+def _normalize_quarantine(entry: dict, dataset_root: Optional[Path]) -> dict:
     """Rewrite a slice-1 quarantine record into a fresh-clone-stable form.
 
-    ``locator`` = NFC-normalized basename (host-independent), ``reason_code`` = stable enum-like
-    code. The original absolute path and OS error text are kept as human ``detail`` but are
-    EXCLUDED from the digest — two clones quarantining the same missing file must produce the same
-    ``manifest_digest``.
+    ``locator`` = dataset-root-RELATIVE path (a full relative path, not a basename, so same-named
+    files in different directories cannot collide); ``reason_code`` = stable enum-like code. Both
+    are digested. The OS error text is kept as human ``detail`` only — EXCLUDED from the digest —
+    so two clones quarantining the same missing file produce the same ``manifest_digest``. No
+    absolute run path enters the manifest.
     """
-    import unicodedata
-
     fp = str(entry.get("file_path", ""))
     reason = str(entry.get("reason", ""))
     code = "other"
@@ -183,9 +218,8 @@ def _normalize_quarantine(entry: dict) -> dict:
             code = rc
             break
     return {
-        "locator": unicodedata.normalize("NFC", Path(fp).name),
+        "locator": _relative_locator(fp, dataset_root),
         "reason_code": code,
-        "file_path": fp,     # host detail — excluded from the digest
         "detail": reason,    # human detail — excluded from the digest
     }
 
@@ -249,8 +283,10 @@ def build_versioned_manifest(
 
     rows = list(rows)
     split = compute_split(rows, holdout_fraction=holdout_fraction, root=root)
+    dataset_root = _dataset_root(rows, root)
     enriched = _enrich_rows(
-        rows, split, source=source, license_=license_, label_authority=label_authority
+        rows, split, source=source, license_=license_, label_authority=label_authority,
+        dataset_root=dataset_root,
     )
     unknown_provenance = sum(1 for r in enriched if r["category"] == "unknown")
     manifest = {
@@ -264,7 +300,7 @@ def build_versioned_manifest(
         "provenance_complete": unknown_provenance == 0,
         "unknown_provenance_rows": unknown_provenance,
         "rows": enriched,
-        "quarantined": [_normalize_quarantine(q) for q in split["quarantined"]],
+        "quarantined": [_normalize_quarantine(q, dataset_root) for q in split["quarantined"]],
         "split_digest": split_digest(split),
     }
     manifest["manifest_digest"] = _manifest_digest(manifest)  # over the full envelope above
@@ -323,7 +359,11 @@ def verify_manifest(rows: Iterable[dict], manifest: dict, *, root: Optional[Path
          provenance metadata — not just a changed row.
       2. **Split drift** — re-derive the split from the actual ``rows`` and compare ``split_digest``,
          so a change in the underlying file content (or an added/removed row) is caught.
+      3. **Locator binding** — the stored portable ``(sample_id, locator)`` pairs must equal the
+         pairs re-derived from the actual rows, so a redirected locator is RED.
 
+    FRESH-CLONE PORTABLE: locators are dataset-root-relative, so an artifact built on clone A
+    verifies against clone B's rows (same bytes, same layout, different absolute root).
     Dry-run posture (non-blocking): the caller decides what to do with the raised error.
     """
     stored_manifest_digest = manifest.get("manifest_digest")
@@ -350,20 +390,20 @@ def verify_manifest(rows: Iterable[dict], manifest: dict, *, root: Optional[Path
             f"{recomputed['split_digest'][:12]}) — row content changed or a row was added/removed."
         )
 
-    # Locator binding: the digest deliberately excludes host paths (fresh-clone stability), so a
-    # tampered STORED file_path/cache_path would otherwise pass. Bind them here instead: the stored
-    # (sample_id, file_path, cache_path) multiset must equal the one re-derived from the actual rows,
-    # so a redirected locator (pointing a consumer at different data) is RED.
+    # Locator binding on PORTABLE addresses: stored (sample_id, locator, cache_locator) must equal
+    # the multiset re-derived from the actual rows. Locators are dataset-root-relative, so this
+    # holds across clones (A-built artifact verifies against B's rows) while a redirected stored
+    # locator — pointing a consumer at different data — is RED.
     def _locators(m: dict) -> list:
         return sorted(
-            (str(r.get("sample_id", "")), str(r.get("file_path", "")), str(r.get("cache_path", "")))
+            (str(r.get("sample_id", "")), str(r.get("locator", "")), str(r.get("cache_locator", "")))
             for r in m.get("rows", [])
         )
 
     if _locators(manifest) != _locators(recomputed):
         raise IntegrityError(
-            "locator binding FAILED: a stored file_path/cache_path does not match the manifest rows "
-            "it claims to describe — a storage locator was tampered/redirected."
+            "locator binding FAILED: a stored locator does not match the manifest rows it claims "
+            "to describe — a storage locator was tampered/redirected."
         )
 
 

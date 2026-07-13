@@ -20,7 +20,7 @@
 
 **Is NOT:** model **metrics** (§8.1.4) still need the model run — a follow-up. This reuses slice-1's
 already-adversarially-reviewed leakage-safe split rather than re-deriving it, so the manifest can
-never drift from the split the L3 gate trusts.
+never drift from slice-1's split. (The L3 gate is unconditional — it trusts no artifact; this is inspection/audit tooling only.)
 
 ## 1. Design
 
@@ -43,13 +43,13 @@ never drift from the split the L3 gate trusts.
 
 | Check | Result |
 |---|---|
-| slice-2 unit tests (`tests/unit/test_track_e_manifest.py`) | **44 passed** |
-| combined slice-1 + slice-2 (no interference) | **76 passed** |
+| slice-2 unit tests (`tests/unit/test_track_e_manifest.py`) | **48 passed** |
+| combined slice-1 + slice-2 (no interference) | **80 passed** |
 | **stored locator tamper** (`file_path`/`cache_path` redirected in the stored manifest) → RED via the explicit binding check | pass |
 | quarantine records digest as (`locator`=basename, `reason_code`); same missing file under two clone roots → **same digest** | pass |
 | categorize: markers → augmented/synthetic; unmarked/undeclared → **unknown** (never "real"); declared column authoritative | pass |
 | manifest_digest covers the **full envelope** (schema/provenance/quarantined/rows/…); tamper → RED | pass |
-| manifest is **fresh-clone stable** (rows carry `sample_id`; digest excludes host `file_path`) | pass |
+| manifest is **fresh-clone PORTABLE**: rows carry root-relative `locator`/`cache_locator` (digested); NO absolute run path enters the manifest; **A-build → B-verify of the SAME artifact = PASS** | pass |
 | non-empty `source`/`license`/`label_authority` enforced (blank → fail-closed) | pass |
 | `manifest_digest` deterministic / order-independent | pass |
 | every §8.1.6 field present; quarantined (unreadable) row excluded | pass |
