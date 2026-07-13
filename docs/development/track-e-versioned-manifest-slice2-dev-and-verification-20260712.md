@@ -43,8 +43,9 @@ never drift from slice-1's split. (The L3 gate is unconditional — it trusts no
 
 | Check | Result |
 |---|---|
-| slice-2 unit tests (`tests/unit/test_track_e_manifest.py`) | **48 passed** |
-| combined slice-1 + slice-2 (no interference) | **80 passed** |
+| slice-2 unit tests (`tests/unit/test_track_e_manifest.py`) | **54 passed** |
+| combined slice-1 + slice-2 (no interference) | **86 passed** |
+| **containment**: file/cache outside the dataset root, `..`-escaping or absolute locators → fail-closed at build AND rejected at verify even when re-digested | pass |
 | **stored locator tamper** (`file_path`/`cache_path` redirected in the stored manifest) → RED via the explicit binding check | pass |
 | quarantine records digest as (`locator`=basename, `reason_code`); same missing file under two clone roots → **same digest** | pass |
 | categorize: markers → augmented/synthetic; unmarked/undeclared → **unknown** (never "real"); declared column authoritative | pass |

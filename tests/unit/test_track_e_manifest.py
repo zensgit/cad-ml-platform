@@ -424,3 +424,44 @@ def test_quarantine_locator_is_relative_full_path(tmp_path: Path) -> None:
     q = man["quarantined"][0]
     assert q["locator"] == "sub/gone.dxf"      # relative full path, not a basename
     assert "file_path" not in q                # no absolute run path in the manifest
+
+
+# --- containment: root escape / absolute / .. locators are rejected (review) --------------------
+def test_file_outside_explicit_root_fails_closed(tmp_path: Path) -> None:
+    inside = tmp_path / "data"; inside.mkdir()
+    (inside / "a.dxf").write_bytes(b"A")
+    outside = tmp_path / "elsewhere.dxf"; outside.write_bytes(b"B")
+    rows = [
+        {"file_path": str(inside / "a.dxf"), "cache_path": "", "taxonomy_v2_class": "g"},
+        {"file_path": str(outside), "cache_path": "", "taxonomy_v2_class": "g"},
+    ]
+    with pytest.raises(tm.IntegrityError, match="escapes the dataset root"):
+        tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=inside)
+
+
+def test_cache_path_outside_root_fails_closed(tmp_path: Path) -> None:
+    inside = tmp_path / "data"; inside.mkdir()
+    (inside / "a.dxf").write_bytes(b"A")
+    rows = [{"file_path": str(inside / "a.dxf"), "cache_path": "../evil_cache.pt", "taxonomy_v2_class": "g"}]
+    with pytest.raises(tm.IntegrityError, match="escapes the dataset root"):
+        tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=inside)
+
+
+def test_relative_dotdot_input_row_fails_closed(tmp_path: Path) -> None:
+    (tmp_path / "a.dxf").write_bytes(b"A")
+    rows = [
+        {"file_path": str(tmp_path / "a.dxf"), "cache_path": "", "taxonomy_v2_class": "g"},
+        {"file_path": "../sneaky.dxf", "cache_path": "", "taxonomy_v2_class": "g"},
+    ]
+    with pytest.raises(tm.IntegrityError, match="escapes the dataset root|unreadable"):
+        tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=tmp_path)
+
+
+@pytest.mark.parametrize("evil", ["../outside.dxf", "/abs/path.dxf", "a/../../b.dxf"])
+def test_stored_hostile_locator_rejected_even_if_redigested(tmp_path: Path, evil: str) -> None:
+    rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "cls") for i in range(3)]
+    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a")
+    man["rows"][0]["locator"] = evil
+    man["manifest_digest"] = tm._manifest_digest(man)   # attacker re-digests
+    with pytest.raises(tm.IntegrityError, match="escapes the dataset root|absolute"):
+        tm.verify_manifest(rows, man)

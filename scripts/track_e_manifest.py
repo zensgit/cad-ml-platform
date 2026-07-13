@@ -123,11 +123,16 @@ def _dataset_root(rows: List[dict], root: Optional[Path]) -> Optional[Path]:
 
 
 def _relative_locator(fp: str, root: Optional[Path]) -> str:
-    """Dataset-root-RELATIVE, NFC-normalized, POSIX-style locator.
+    """Dataset-root-RELATIVE, NFC-normalized, POSIX-style locator — CONTAINED in the root.
 
     The sample's portable address inside the versioned dataset: it IS digested, must be identical
     on every fresh clone, and never carries a host prefix. A full relative path (not a basename),
     so same-named files in different directories cannot collide.
+
+    FAIL-CLOSED containment (review): a file OUTSIDE the dataset root, an absolute locator, or any
+    locator containing a ``..`` segment is REJECTED — a versioned dataset must be self-contained,
+    and an escaping locator would let a manifest address data outside the dataset it claims to
+    describe.
     """
     import os as _os
     import unicodedata as _ud
@@ -136,8 +141,22 @@ def _relative_locator(fp: str, root: Optional[Path]) -> str:
     if root is not None and p.is_absolute():
         rel = _os.path.relpath(str(p), str(root))
     else:
-        rel = str(p)  # already relative -> use as-is
-    return _ud.normalize("NFC", Path(rel).as_posix())
+        rel = str(p)  # already relative -> validated below
+    locator = _ud.normalize("NFC", Path(rel).as_posix())
+    _validate_locator(locator, original=fp)
+    return locator
+
+
+def _validate_locator(locator: str, *, original: str = "") -> None:
+    """Reject absolute or root-escaping locators (fail-closed containment)."""
+    ref = f" (from {original!r})" if original and original != locator else ""
+    if Path(locator).is_absolute() or (len(locator) > 1 and locator[1] == ":"):  # POSIX + drive
+        raise IntegrityError(f"locator must be dataset-root-relative, got absolute {locator!r}{ref}")
+    if locator == ".." or locator.startswith("../") or "/../" in locator or locator.endswith("/.."):
+        raise IntegrityError(
+            f"locator escapes the dataset root: {locator!r}{ref} — the file is outside the "
+            "dataset root; a versioned dataset must be self-contained"
+        )
 
 
 def _enrich_rows(
@@ -375,6 +394,15 @@ def verify_manifest(rows: Iterable[dict], manifest: dict, *, root: Optional[Path
             "(schema_version / provenance_complete / quarantined / rows / …) was tampered."
         )
 
+    # Containment of STORED locators: even a re-digested (self-consistent) manifest must never
+    # carry an absolute or root-escaping locator — reject before any consumer could resolve it.
+    for r in manifest.get("rows", []):
+        _validate_locator(str(r.get("locator", "")))
+        if r.get("cache_locator"):
+            _validate_locator(str(r.get("cache_locator", "")))
+    for q in manifest.get("quarantined", []):
+        _validate_locator(str(q.get("locator", "")))
+
     recomputed = build_versioned_manifest(
         rows,
         source=str(manifest.get("source", "")),
@@ -432,6 +460,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     bp.add_argument("--license", required=True, dest="license_")
     bp.add_argument("--label-authority", required=True, dest="label_authority")
     bp.add_argument("--holdout-fraction", type=float, default=DEFAULT_HOLDOUT_FRACTION)
+    bp.add_argument("--root", default=None,
+                    help="dataset root every locator is expressed against (default: inferred as the "
+                         "common parent of absolute row paths; relative rows pass through)")
     bp.add_argument("--out", required=True)
 
     rp = sub.add_parser("report", help="per-category (real/synthetic/augmented) breakdown")
@@ -440,6 +471,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     vp = sub.add_parser("verify", help="tamper/drift check: re-derive from --manifest, compare to --manifest-json")
     vp.add_argument("--manifest", required=True, help="input CSV (source rows)")
     vp.add_argument("--manifest-json", required=True, help="a versioned manifest produced by 'build'")
+    vp.add_argument("--root", default=None, help="dataset root for locator re-derivation (see build --root)")
 
     args = parser.parse_args(argv)
     try:
@@ -451,6 +483,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 license_=args.license_,
                 label_authority=args.label_authority,
                 holdout_fraction=args.holdout_fraction,
+                root=Path(args.root) if args.root else None,
             )
             Path(args.out).write_text(json.dumps(manifest, indent=2), encoding="utf-8")
             print(f"wrote {args.out} (manifest_digest {manifest['manifest_digest'][:12]})")
@@ -462,7 +495,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         if args.cmd == "verify":
             rows = _read_manifest_csv(args.manifest)
             manifest = json.loads(Path(args.manifest_json).read_text(encoding="utf-8"))
-            verify_manifest(rows, manifest)
+            verify_manifest(rows, manifest, root=Path(args.root) if args.root else None)
             print("verify PASS: manifest matches the re-derived rows (no tamper/drift)")
             return 0
     except IntegrityError as exc:
