@@ -1,7 +1,7 @@
 """Tests for src/api/v1/model.py to improve coverage.
 
 Covers:
-- model_reload endpoint with all status branches
+- model_reload endpoint Phase-A seal (403; no status branches remain)
 - get_model_version endpoint
 - get_opcode_audit endpoint
 - Error handling paths
@@ -15,210 +15,29 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
-class TestModelReloadSuccess:
-    """Tests for model_reload success path."""
+class TestModelReloadSealed:
+    """Phase-A seal: the handler refuses BEFORE any loader work (no status branches remain).
+
+    The pre-seal status-branch matrix (success / not_found / version_mismatch / size_exceeded /
+    magic_invalid / hash_mismatch / opcode_blocked / opcode_scan_error / rollback / unknown) was
+    removed with the handler body; reload_model's own behavior keeps direct-call coverage in
+    test_model_reload_endpoint.py and test_model_reload_errors_structured.py. Phase B reintroduces
+    the route behind the two-stage gate (approved-artifact-bound model hash).
+    """
 
     @pytest.mark.asyncio
-    async def test_model_reload_success(self):
-        """Test successful model reload."""
+    async def test_model_reload_handler_is_sealed_403(self):
+        from fastapi import HTTPException
+
         from src.api.v1.model import ModelReloadRequest, model_reload
 
-        payload = ModelReloadRequest(path="/path/to/model.pkl", force=False)
-
+        payload = ModelReloadRequest(path="/path/to/model.pkl", force=True)
         with patch("src.ml.classifier.reload_model") as mock_reload:
-            mock_reload.return_value = {
-                "status": "success",
-                "model_version": "1.0.0",
-                "hash": "abc123",
-            }
-            with patch("src.ml.classifier.get_opcode_audit_snapshot") as mock_audit:
-                mock_audit.return_value = {}
-                result = await model_reload(payload, api_key="test", admin_token="admin")
-
-        assert result.status == "success"
-        assert result.model_version == "1.0.0"
-        assert result.hash == "abc123"
-
-
-class TestModelReloadNotFound:
-    """Tests for model_reload not_found path."""
-
-    @pytest.mark.asyncio
-    async def test_model_reload_not_found(self):
-        """Test model reload when file not found."""
-        from src.api.v1.model import ModelReloadRequest, model_reload
-
-        payload = ModelReloadRequest(path="/nonexistent/model.pkl")
-
-        with patch("src.ml.classifier.reload_model") as mock_reload:
-            mock_reload.return_value = {
-                "status": "not_found",
-                "error": {"message": "File not found"},
-            }
-            result = await model_reload(payload, api_key="test", admin_token="admin")
-
-        assert result.status == "not_found"
-        assert result.error is not None
-
-
-class TestModelReloadVersionMismatch:
-    """Tests for model_reload version_mismatch path."""
-
-    @pytest.mark.asyncio
-    async def test_model_reload_version_mismatch(self):
-        """Test model reload with version mismatch."""
-        from src.api.v1.model import ModelReloadRequest, model_reload
-
-        payload = ModelReloadRequest(
-            path="/path/to/model.pkl",
-            expected_version="2.0.0",
-        )
-
-        with patch("src.ml.classifier.reload_model") as mock_reload:
-            mock_reload.return_value = {
-                "status": "version_mismatch",
-                "actual_version": "1.0.0",
-                "error": {"message": "Version mismatch"},
-            }
-            result = await model_reload(payload, api_key="test", admin_token="admin")
-
-        assert result.status == "version_mismatch"
-
-
-class TestModelReloadSizeExceeded:
-    """Tests for model_reload size_exceeded path."""
-
-    @pytest.mark.asyncio
-    async def test_model_reload_size_exceeded(self):
-        """Test model reload when size limit exceeded."""
-        from src.api.v1.model import ModelReloadRequest, model_reload
-
-        payload = ModelReloadRequest(path="/path/to/large_model.pkl")
-
-        with patch("src.ml.classifier.reload_model") as mock_reload:
-            mock_reload.return_value = {
-                "status": "size_exceeded",
-                "error": {
-                    "message": "Model too large",
-                    "context": {"size_mb": 500, "max_mb": 100},
-                },
-            }
-            result = await model_reload(payload, api_key="test", admin_token="admin")
-
-        assert result.status == "size_exceeded"
-
-
-class TestModelReloadSecurityErrors:
-    """Tests for model_reload security error paths."""
-
-    @pytest.mark.asyncio
-    async def test_model_reload_magic_invalid(self):
-        """Test model reload with invalid magic bytes."""
-        from src.api.v1.model import ModelReloadRequest, model_reload
-
-        payload = ModelReloadRequest(path="/path/to/bad_model.pkl")
-
-        with patch("src.ml.classifier.reload_model") as mock_reload:
-            mock_reload.return_value = {
-                "status": "magic_invalid",
-                "error": {"message": "Invalid magic bytes"},
-            }
-            result = await model_reload(payload, api_key="test", admin_token="admin")
-
-        assert result.status == "magic_invalid"
-
-    @pytest.mark.asyncio
-    async def test_model_reload_hash_mismatch(self):
-        """Test model reload with hash mismatch."""
-        from src.api.v1.model import ModelReloadRequest, model_reload
-
-        payload = ModelReloadRequest(path="/path/to/tampered_model.pkl")
-
-        with patch("src.ml.classifier.reload_model") as mock_reload:
-            mock_reload.return_value = {
-                "status": "hash_mismatch",
-                "error": {"message": "Hash verification failed"},
-            }
-            result = await model_reload(payload, api_key="test", admin_token="admin")
-
-        assert result.status == "hash_mismatch"
-
-    @pytest.mark.asyncio
-    async def test_model_reload_opcode_blocked(self):
-        """Test model reload with blocked opcode."""
-        from src.api.v1.model import ModelReloadRequest, model_reload
-
-        payload = ModelReloadRequest(path="/path/to/malicious_model.pkl")
-
-        with patch("src.ml.classifier.reload_model") as mock_reload:
-            mock_reload.return_value = {
-                "status": "opcode_blocked",
-                "error": {"message": "Dangerous opcode detected"},
-            }
-            result = await model_reload(payload, api_key="test", admin_token="admin")
-
-        assert result.status == "opcode_blocked"
-
-    @pytest.mark.asyncio
-    async def test_model_reload_opcode_scan_error(self):
-        """Test model reload with opcode scan error."""
-        from src.api.v1.model import ModelReloadRequest, model_reload
-
-        payload = ModelReloadRequest(path="/path/to/model.pkl")
-
-        with patch("src.ml.classifier.reload_model") as mock_reload:
-            mock_reload.return_value = {
-                "status": "opcode_scan_error",
-                "error": {"message": "Failed to scan opcodes"},
-            }
-            result = await model_reload(payload, api_key="test", admin_token="admin")
-
-        assert result.status == "opcode_scan_error"
-
-
-class TestModelReloadRollback:
-    """Tests for model_reload rollback path (lines 116-122)."""
-
-    @pytest.mark.asyncio
-    async def test_model_reload_rollback(self):
-        """Test model reload triggers rollback."""
-        from src.api.v1.model import ModelReloadRequest, model_reload
-
-        payload = ModelReloadRequest(path="/path/to/broken_model.pkl")
-
-        with patch("src.ml.classifier.reload_model") as mock_reload:
-            mock_reload.return_value = {
-                "status": "rollback",
-                "rollback_version": "0.9.0",
-                "rollback_hash": "rollback_hash_123",
-                "error": {"message": "Model failed validation, rolled back"},
-            }
-            result = await model_reload(payload, api_key="test", admin_token="admin")
-
-        assert result.status == "rollback"
-        assert result.model_version == "0.9.0"
-        assert result.hash == "rollback_hash_123"
-        assert result.error is not None
-
-
-class TestModelReloadUnknownStatus:
-    """Tests for model_reload unknown status path."""
-
-    @pytest.mark.asyncio
-    async def test_model_reload_unknown_status(self):
-        """Test model reload with unknown status."""
-        from src.api.v1.model import ModelReloadRequest, model_reload
-
-        payload = ModelReloadRequest(path="/path/to/model.pkl")
-
-        with patch("src.ml.classifier.reload_model") as mock_reload:
-            mock_reload.return_value = {
-                "status": "unexpected_status",
-                "error": {"message": "Something unexpected happened"},
-            }
-            result = await model_reload(payload, api_key="test", admin_token="admin")
-
-        assert result.status == "error"
+            with pytest.raises(HTTPException) as exc:
+                await model_reload(payload, api_key="test", admin_token="admin")
+        assert exc.value.status_code == 403
+        assert "fail-closed" in exc.value.detail
+        mock_reload.assert_not_called()   # the loader is never reached through the handler
 
 
 class TestGetModelVersion:
