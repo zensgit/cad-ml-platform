@@ -36,14 +36,31 @@
 # place on the very first L3 attempt. An unattended loop cannot be author, critic, or ratifier.
 
 # --- Model ACTIVATION membrane (L3) ------------------------------------------
-# The full boundary is broader than auto_retrain.sh. reload_model() has THREE call
-# sites, all of which bypass the auto_retrain gate:
-#   - src/api/v1/model.py:71                 (admin force hot-reload; ADMIN_TOKEN default "test")
-#   - src/ml/monitoring/auto_remediation.py:301  (async auto rollback — no human in the loop)
-#   - scripts/finetune_from_feedback.py:302  (force=True reload after retrain)
-# plus the startup GRAPH2D_MODEL_PATH load in src/main.py.
+# The activation boundary is CROSS-FAMILY and much broader than reload_model(): every
+# module that deserializes model bytes into a running service is an activation surface.
+# `torch.load(weights_only=False)` is arbitrary-code-execution on load (pickle-equivalent),
+# and `pickle.load`/`pickle.loads` likewise. Verified production-reachable loaders on main:
+#   pickle-classifier — src/api/v1/model.py:71 (/model/reload, ADMIN_TOKEN default "test";
+#                       pickle.loads BEFORE the hash check), src/ml/classifier.py:85 (startup
+#                       pickle.load, no magic/hash/opcode), :535 (hot-reload)
+#   graph2d          — src/ml/vision_2d.py:136 (torch.load weights_only=False)
+#   pointnet         — src/api/v1/pointcloud.py (MOUNTED /pointcloud) -> src/ml/pointnet/inference.py:108
+#   part / v16 / v14 — src/ml/part_classifier.py:62,655,695 (reached via /analyze, /health)
+#   hybrid           — src/ml/hybrid_classifier.py:448,476
+#   history-sequence — src/ml/history_sequence_classifier.py:162 (reached via /analyze)
+#   vision3d         — src/ml/vision_3d.py:196
+# Latent/producer/scaffold also owned: auto_remediation.py:301 (latent rollback),
+# scripts/finetune_from_feedback.py:302 (offline), src/ml/serving/* (unmounted scaffold).
 /src/api/v1/model.py                  @zensgit
+/src/api/v1/pointcloud.py             @zensgit
 /src/ml/classifier.py                 @zensgit
+/src/ml/vision_2d.py                  @zensgit
+/src/ml/vision_3d.py                  @zensgit
+/src/ml/part_classifier.py            @zensgit
+/src/ml/hybrid_classifier.py          @zensgit
+/src/ml/history_sequence_classifier.py @zensgit
+/src/ml/pointnet/                     @zensgit
+/src/ml/serving/                      @zensgit
 /src/ml/monitoring/auto_remediation.py @zensgit
 /src/main.py                          @zensgit
 
