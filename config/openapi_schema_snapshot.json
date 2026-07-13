@@ -257,8 +257,8 @@
     "WeldingType"
   ],
   "openapi": "3.1.0",
-  "operation_count": 199,
-  "path_count": 194,
+  "operation_count": 198,
+  "path_count": 193,
   "paths": {
     "/": {
       "get": {
@@ -2192,15 +2192,6 @@
       "get": {
         "deprecated": false,
         "operationId": "extended_health_health_extended_get",
-        "responses": [
-          "200"
-        ]
-      }
-    },
-    "/metrics": {
-      "get": {
-        "deprecated": false,
-        "operationId": "metrics_fallback_metrics_get",
         "responses": [
           "200"
         ]
