@@ -9,7 +9,31 @@ work is P0-blocked and a design-lock is a doc, not runtime.
 > **This is a proposal, not an implementation.** It changes no runtime, touches no model-activation
 > code, and does not itself close any surface. It defines the contract the future implementation must
 > satisfy so it can be ratified before any code is written — precisely the "propose, don't build"
-> mode L3 requires while an unattended reviewer is unavailable.
+> mode L3 requires. Unattended routines may not author or merge this runtime surface.
+
+### Solo-maintainer L3 review protocol
+
+This repository currently has one human developer. That makes a second human GitHub approval
+unavailable; it does **not** justify fabricating one or silently lowering L3 rigor. For this repository,
+`PRODUCT_STRATEGY.md` §4.7 and §7.1 are satisfied by the following compensating protocol:
+
+1. An isolated critic that did not author the patch first derives the load-bearing discriminators
+   from this ratified design lock, then reviews the implementation. Use a different model when
+   available; at minimum use a fresh context with no inherited implementation rationale.
+2. The PR records the critic findings, fail-first golden, observed-RED run, positive controls for the
+   verifier itself, and the exact final head reviewed. A material post-review change invalidates that
+   evidence and requires another pass.
+3. The critic provides **evidence, not approval**. The sole human owner explicitly ratifies the design
+   and separately authorizes the pinned implementation head. A second account controlled by the same
+   person is not independent review.
+4. Merge, deployment, and enablement are separate decisions. The implementation lands default-off;
+   production activation remains blocked on the proof membrane, the production-identity gate, the
+   Track E evidence, and the explicit enablement decision in this document.
+
+`.github/CODEOWNERS` may inventory this surface, but `require_code_owner_reviews` remains false while
+the repository has only one developer; enabling it would create an impossible approval gate, not an
+independent critic. If an independent human reviewer becomes available later, their review strengthens
+this protocol but is not simulated in the meantime.
 
 ---
 
@@ -216,11 +240,13 @@ elsewhere. Keeping them separate keeps the design honest.
   cannot activate a model without a valid signed proof. The unattended routine is **not** this actor —
   it has no runtime path to `/model/reload`.
 - **Code-generating routine** (the unattended loop): it can modify branches and open PRs, but it
-  **cannot thereby reach a runtime activation**. It is contained by *different* controls — today by
-  **branch-protection** (`required_reviews=1 + enforce_admins`, so it can't merge to main) + human
-  review; and **prospectively** by CODEOWNERS on L3 paths — but #512 is **not yet a gate**
-  (`require_code_owner_reviews=false`, and no independent reviewer exists yet), so it does NOT contain
-  the routine today. Do not claim CODEOWNERS containment until it is armed. Conflating
+  **cannot thereby reach a runtime activation**. It is governed by *different* controls. Current
+  branch protection (`required_reviews=1 + enforce_admins`) blocks the normal same-account merge path,
+  but it is not an independent review and must not substitute for disabling an unsafe routine.
+  `CODEOWNERS` is only a path inventory in this solo-maintainer repository;
+  `require_code_owner_reviews=false` and must remain so while the owner cannot approve its own PR.
+  The isolated-critic protocol above supplies review evidence, while the human owner alone ratifies
+  and authorizes a pinned head. Do not claim CODEOWNERS containment. Conflating
   the two would mis-scope the membrane (it is not a defense against branch edits) and under-protect the
   runtime (which needs the proof regardless of who wrote the code).
 
@@ -290,18 +316,20 @@ revocation and incident review possible after the fact.
 
 Accurate post-#509 status, by threat actor (§3.1 — do not conflate them):
 
-- **The unattended routine** cannot merge to main (`required_reviews=1 + enforce_admins`), cannot
-  retrain via `auto_retrain.sh` (#509), and — being a code-generating actor — **has no runtime path to
-  any activation point** (it cannot call `/model/reload`). It is contained by branch-protection +
-  CODEOWNERS (#512) + review, not by this membrane.
+- **The unattended routine** cannot use the normal same-account merge path
+  (`required_reviews=1 + enforce_admins`), cannot retrain via `auto_retrain.sh` (#509), and — being a
+  code-generating actor — **has no runtime path to any activation point** (it cannot call
+  `/model/reload`). It is **not** contained by CODEOWNERS (#512 is an unarmed ownership map), and branch
+  protection is not a substitute for stopping it. No unattended routine may author or merge this L3
+  runtime.
 - **A runtime API caller / operator** can still reach the **3 production-reachable activation points**
   — external `/model/reload` (admin token defaulted to `test`) and the two startup loads — none of
   which have proof binding. *This* is what the membrane defends, and it is **entirely unbuilt**.
 
 **So: strong bleeding-control on the code-gen actor; the runtime activation membrane is not built.**
-This design-lock defines that membrane. The two owner P0s (stop the routine; establish an independent
-L3 reviewer) gate *building* it, but note they address the code-gen actor — the runtime membrane is a
-separate, additional need.
+This design-lock defines that membrane. Stopping the routine and owner-ratifying this design under the
+solo-maintainer protocol gate *building* it. The isolated critic is mandatory evidence but cannot
+ratify or merge. The runtime membrane remains a separate, additional need.
 
 ---
 
