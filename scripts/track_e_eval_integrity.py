@@ -237,8 +237,14 @@ def split_digest(split: dict) -> str:
     the same data at different absolute paths produce the same digest (the §8.1 fresh-clone
     reproduction requirement; hashing absolute paths would make it host-bound). Cardinality is
     preserved (duplicate-content rows each contribute an entry), so adding/removing a sample or
-    moving a component's side changes the digest; a pure rename (same bytes) does not — which is
-    correct, since a rename does not change split integrity.
+    moving a component's side changes the digest.
+
+    Rename invariance is QUALIFIED, not blanket: a rename that PRESERVES the normalized-family
+    (a directory move / absolute-path change keeping the basename) leaves the digest unchanged —
+    the fresh-clone requirement. But a rename that CHANGES a file's normalized-family regroups its
+    connected component and can therefore change its side and the digest; that is correct drift and
+    ``verify`` surfaces it. The load-bearing, always-true guarantee is the different-absolute-path
+    clone equality above.
     """
     ch = split["content_hashes"]
     items = sorted((ch[fp], side) for fp, side in split["assignment"].items())
