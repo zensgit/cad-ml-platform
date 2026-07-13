@@ -102,10 +102,13 @@ def _family_key(row: dict) -> str:
     """Authoritative family from an explicit manifest column if present (§8.1.6), else the
     filename heuristic. Prefixed so a filename can never collide with a declared family id."""
     for col in _FAMILY_COLUMNS:
-        val = str(row.get(col, "")).strip()
+        raw = row.get(col)
+        val = "" if raw is None else str(raw).strip()
         if val:
             return f"declared:{unicodedata.normalize('NFC', val).lower()}"
-    return f"file:{normalized_family(str(row.get('file_path', '')))}"
+    raw_path = row.get("file_path")
+    path_value = "" if raw_path is None else str(raw_path)
+    return f"file:{normalized_family(path_value)}"
 
 
 def content_hash(file_path: str, *, root: Optional[Path] = None) -> str:
@@ -147,8 +150,11 @@ class _Union:
 
 
 def _read_manifest(path: str) -> List[dict]:
-    with open(path, newline="", encoding="utf-8") as f:
-        rows = list(csv.DictReader(f))
+    try:
+        with open(path, newline="", encoding="utf-8") as f:
+            rows = list(csv.DictReader(f))
+    except (OSError, UnicodeError, csv.Error) as exc:
+        raise IntegrityError(f"failed to read manifest {path!r}: {exc}") from exc
     if not rows:
         raise IntegrityError(f"manifest {path!r} is empty")
     required = {"file_path", "taxonomy_v2_class"}
@@ -180,8 +186,10 @@ def compute_split(
     uf = _Union()
 
     for row in rows:
-        fp = str(row.get("file_path", "")).strip()
-        label = str(row.get("taxonomy_v2_class", "")).strip()
+        raw_path = row.get("file_path")
+        raw_label = row.get("taxonomy_v2_class")
+        fp = "" if raw_path is None else str(raw_path).strip()
+        label = "" if raw_label is None else str(raw_label).strip()
         if not fp or not label:
             quarantined.append({"file_path": fp, "reason": "missing file_path or label"})
             continue
@@ -343,7 +351,10 @@ def main(argv: Optional[List[str]] = None) -> int:
             # A DRY-RUN split product only. It carries unlocks_retraining=false and there is no path,
             # flag, or metrics input that makes it unlock the (unconditional) L3 gate.
             artifact = build_split_artifact(rows, holdout_fraction=args.holdout_fraction)
-            Path(args.out).write_text(json.dumps(artifact, indent=2), encoding="utf-8")
+            try:
+                Path(args.out).write_text(json.dumps(artifact, indent=2), encoding="utf-8")
+            except (OSError, UnicodeError) as exc:
+                raise IntegrityError(f"failed to write artifact {args.out!r}: {exc}") from exc
             print(
                 f"wrote {args.out} (DRY-RUN split artifact, unlocks_retraining=false; "
                 f"split_digest {artifact['split_digest'][:12]})"
@@ -351,7 +362,10 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 0
         if args.cmd == "verify":
             rows = _read_manifest(args.manifest)
-            artifact = json.loads(Path(args.artifact).read_text(encoding="utf-8"))
+            try:
+                artifact = json.loads(Path(args.artifact).read_text(encoding="utf-8"))
+            except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+                raise IntegrityError(f"failed to read artifact {args.artifact!r}: {exc}") from exc
             verify_reproducible(rows, artifact)
             print("reproducibility check PASS (dry-run): split matches the artifact digest")
             return 0

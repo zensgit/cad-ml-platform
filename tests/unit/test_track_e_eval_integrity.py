@@ -71,6 +71,11 @@ def test_declared_family_column_is_authoritative(tmp_path: Path) -> None:
     assert split["assignment"][a["file_path"]] == split["assignment"][b["file_path"]]
 
 
+def test_none_declared_family_falls_back_to_filename() -> None:
+    row = {"file_path": "gear_v2.dxf", "family": None}
+    assert te._family_key(row) == "file:gear"
+
+
 # --- fail-closed content hashing ---------------------------------------------------------------
 def test_unreadable_content_is_quarantined_not_distinct(tmp_path: Path) -> None:
     good = _mk(tmp_path, "a.dxf", b"AAAA", "gear")
@@ -89,6 +94,16 @@ def test_nul_byte_path_is_quarantined_not_crash(tmp_path: Path) -> None:
     split = te.compute_split([good, nul])  # must not raise
     assert "bad\x00path.dxf" not in split["assignment"]
     assert any("bad" in q["file_path"] for q in split["quarantined"])
+
+
+def test_none_label_is_quarantined_not_stringified(tmp_path: Path) -> None:
+    row = _mk(tmp_path, "a.dxf", b"AAAA", "gear")
+    row["taxonomy_v2_class"] = None
+    split = te.compute_split([row])
+    assert row["file_path"] not in split["assignment"]
+    assert split["quarantined"] == [
+        {"file_path": row["file_path"], "reason": "missing file_path or label"}
+    ]
 
 
 # --- no family / component straddles the split -------------------------------------------------
@@ -221,3 +236,46 @@ def test_eval_eligible_matches_both_sides_populated(tmp_path: Path) -> None:
     art = te.build_split_artifact(rows, holdout_fraction=0.5)
     both = art["holdout"]["holdout_rows"] > 0 and art["holdout"]["train_rows"] > 0
     assert art["eval_eligible"] is both
+
+
+# --- CLI failures stay structured ---------------------------------------------------------------
+def test_cli_missing_manifest_returns_clean_integrity_error(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    rc = te.main(["split", "--manifest", str(tmp_path / "missing.csv")])
+    assert rc == 1
+    assert "failed to read manifest" in capsys.readouterr().err
+
+
+def test_cli_invalid_artifact_returns_clean_integrity_error(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    row = _mk(tmp_path, "a.dxf", b"AAAA", "gear")
+    manifest = tmp_path / "manifest.csv"
+    manifest.write_text(
+        f"file_path,taxonomy_v2_class\n{row['file_path']},gear\n",
+        encoding="utf-8",
+    )
+    artifact = tmp_path / "artifact.json"
+    artifact.write_text("not-json", encoding="utf-8")
+
+    rc = te.main(["verify", "--manifest", str(manifest), "--artifact", str(artifact)])
+    assert rc == 1
+    assert "failed to read artifact" in capsys.readouterr().err
+
+
+def test_cli_unwritable_artifact_returns_clean_integrity_error(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    row = _mk(tmp_path, "a.dxf", b"AAAA", "gear")
+    manifest = tmp_path / "manifest.csv"
+    manifest.write_text(
+        f"file_path,taxonomy_v2_class\n{row['file_path']},gear\n",
+        encoding="utf-8",
+    )
+
+    rc = te.main([
+        "build",
+        "--manifest",
+        str(manifest),
+        "--out",
+        str(tmp_path / "missing-parent" / "artifact.json"),
+    ])
+    assert rc == 1
+    assert "failed to write artifact" in capsys.readouterr().err

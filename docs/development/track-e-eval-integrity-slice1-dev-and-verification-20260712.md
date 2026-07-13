@@ -64,7 +64,7 @@ release gate that binds them to a candidate model) is a later phase on the model
 
 | Check | Result |
 |---|---|
-| Unit tests (`tests/unit/test_track_e_eval_integrity.py`) | **32 passed** |
+| Unit tests (`tests/unit/test_track_e_eval_integrity.py`) | **37 passed** |
 | — family variant collapse incl. `gear2` / `gear (1)` / `gear - Copy` / NFC-NFD (10 cases) | pass |
 | — declared `family` column is authoritative over the filename | pass |
 | — unreadable content **and NUL-byte path** → quarantined, not "distinct"/crash (fail-closed) | pass |
