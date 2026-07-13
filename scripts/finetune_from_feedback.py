@@ -240,6 +240,31 @@ def main():
     )
     args = parser.parse_args()
 
+    # L3 seal (Phase A): this script trains AND promotes (reload_model force=True below), i.e. it is
+    # a retrain/promotion sink exactly like auto_retrain.sh — so it must pass the SAME unconditional
+    # evaluation-integrity gate BEFORE any side effect (feedback export, training, save, reload).
+    # The gate has no pass path; if it somehow RETURNS instead of raising, that can only mean the
+    # gate was subverted — treated as a breach too (mirror of auto_retrain.sh's distrust posture).
+    import sys as _sys
+    from pathlib import Path as _Path
+
+    _scripts_dir = str(_Path(__file__).resolve().parent)
+    if _scripts_dir not in _sys.path:
+        _sys.path.insert(0, _scripts_dir)
+    try:
+        from eval_integrity_gate import GateBlocked, check as _gate_check
+    except Exception as exc:  # a missing/renamed gate must fail CLOSED, never fall through to train
+        logger.error("evaluation-integrity gate unavailable (%s) — refusing to retrain", exc)
+        raise SystemExit(1)
+    try:
+        _gate_check()
+    except GateBlocked as exc:
+        logger.error("retraining blocked by the evaluation-integrity gate: %s", exc)
+        raise SystemExit(1)
+    else:
+        logger.error("invariant breach: the evaluation-integrity gate returned instead of blocking")
+        raise SystemExit(1)
+
     learner = get_active_learner()
 
     # Check threshold

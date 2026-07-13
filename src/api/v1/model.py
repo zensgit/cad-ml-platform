@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.api.dependencies import get_admin_token, get_api_key
@@ -65,68 +65,32 @@ async def model_reload(
     Returns:
         模型重载结果
     """
-    from src.ml.classifier import reload_model
-
-    # Call the reload function
-    result = reload_model(
-        payload.path, expected_version=payload.expected_version, force=payload.force
+    # L3 seal (Phase A): this route loads an ARBITRARY model path into the serving process — a
+    # promotion sink that bypassed the unconditional evaluation-integrity gate guarding
+    # auto_retrain.sh. Until the Phase-B two-stage release gate exists (which will accept only a
+    # candidate whose SHA-256 matches an approved evaluation artifact), the route is sealed
+    # fail-closed: no request payload, credential, or flag opens it. Emergency rollback is NOT
+    # affected — auto_remediation._action_rollback_model calls reload_model(prev_path) in-process
+    # and never traverses this route. See docs/PRODUCT_STRATEGY.md §5.2 and §8.1.
+    logger.warning(
+        "model reload via API refused (Phase-A seal): path=%s expected_version=%s force=%s",
+        payload.path, payload.expected_version, payload.force,
     )
-
-    status = result.get("status")
-
-    # Handle different status cases
-    if status == "success":
-        logger.info(
-            f"Model reloaded successfully: version={result.get('model_version')}, "
-            f"hash={result.get('hash')}"
-        )
-        # When audit mode is active, include audit snapshot
-        from src.ml.classifier import get_opcode_audit_snapshot  # type: ignore
-
-        get_opcode_audit_snapshot()
-        return ModelReloadResponse(
-            status="success", model_version=result.get("model_version"), hash=result.get("hash")
-        )
-
-    if status == "not_found":
-        logger.error(f"Model file not found: {payload.path}")
-        return ModelReloadResponse(status="not_found", error=result.get("error"))
-
-    if status == "version_mismatch":
-        logger.warning(
-            f"Model version mismatch: expected={payload.expected_version}, actual={result.get('actual_version')}"
-        )
-        return ModelReloadResponse(status="version_mismatch", error=result.get("error"))
-
-    if status == "size_exceeded":
-        logger.error(
-            f"Model size exceeded: {result.get('error', {}).get('context', {}).get('size_mb')}MB > {result.get('error', {}).get('context', {}).get('max_mb')}MB"
-        )
-        return ModelReloadResponse(status="size_exceeded", error=result.get("error"))
-
-    # Pass-through structured security/validation errors
-    if status in {"magic_invalid", "hash_mismatch", "opcode_blocked", "opcode_scan_error"}:
-        logger.warning(
-            "Model reload failed",
-            extra={
-                "status": status,
-                "error": result.get("error"),
-            },
-        )
-        return ModelReloadResponse(status=status, error=result.get("error"))
-
-    if status == "rollback":
-        logger.warning(f"Model rolled back to version {result.get('rollback_version')}")
-        return ModelReloadResponse(
-            status="rollback",
-            model_version=result.get("rollback_version"),
-            hash=result.get("rollback_hash"),
-            error=result.get("error"),
-        )
-
-    # Unknown status
-    logger.error(f"Unknown model reload status: {status}")
-    return ModelReloadResponse(status="error", error=result.get("error"))
+    raise HTTPException(
+        status_code=403,
+        detail=(
+            "Model reload via the API is disabled: the retrain/promotion path is fail-closed "
+            "until the Track E two-stage release gate binds an approved evaluation artifact to "
+            "the candidate model hash (PRODUCT_STRATEGY.md §5.2, §8.1). Emergency rollback runs "
+            "in-process via auto-remediation and is unaffected."
+        ),
+    )
+    # NOTE (Phase B): the pre-seal implementation (reload_model + the structured status envelope —
+    # success / not_found / version_mismatch / size_exceeded / magic_invalid / hash_mismatch /
+    # opcode_blocked / opcode_scan_error / rollback) was removed with the seal rather than left as
+    # dead code. Reintroduce it behind the two-stage gate, accepting ONLY a candidate whose SHA-256
+    # matches the approved evaluation artifact. reload_model itself (and its security validation)
+    # is unchanged and still covered by the direct-call unit tests.
 
 
 @router.get("/version")
