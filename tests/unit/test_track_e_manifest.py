@@ -597,3 +597,59 @@ def test_verify_red_on_redigested_split_flip(tmp_path: Path) -> None:
     man["manifest_digest"] = tm._manifest_digest(man)
     with pytest.raises(tm.IntegrityError, match="row binding FAILED"):
         tm.verify_manifest(rows, man, root=tmp_path)
+
+
+def test_escaping_symlink_rejected_before_any_content_read(tmp_path: Path, monkeypatch) -> None:
+    # review P1: containment must fire BEFORE compute_split/content_hash opens the out-of-root file.
+    import os
+    dataset = tmp_path / "dataset"; dataset.mkdir()
+    (dataset / "real.dxf").write_bytes(b"R")
+    secret = tmp_path / "secret.dxf"; secret.write_bytes(b"S")
+    try:
+        os.symlink(str(secret), str(dataset / "link.dxf"))
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks unavailable")
+    rows = [
+        {"file_path": "real.dxf", "cache_path": "", "taxonomy_v2_class": "g"},
+        {"file_path": "link.dxf", "cache_path": "", "taxonomy_v2_class": "g"},   # symlink OUT of root
+    ]
+    calls = {"split": 0}
+    real_split = tm.compute_split
+    monkeypatch.setattr(
+        tm, "compute_split",
+        lambda *a, **k: (calls.__setitem__("split", calls["split"] + 1) or real_split(*a, **k)),
+    )
+    with pytest.raises(tm.IntegrityError, match="escapes the dataset root"):
+        tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=dataset)
+    assert calls["split"] == 0   # containment pre-flight fired BEFORE compute_split/content_hash
+
+
+def test_verify_red_on_redigested_schema_version(tmp_path: Path) -> None:
+    # review P1: verify must PIN schema_version, not trust the artifact's self-declared value.
+    rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "g") for i in range(4)]
+    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=tmp_path)
+    man["schema_version"] = "attacker-schema-v999"
+    man["manifest_digest"] = tm._manifest_digest(man)   # re-digest to pass self-consistency
+    with pytest.raises(tm.IntegrityError, match="schema_version mismatch"):
+        tm.verify_manifest(rows, man, root=tmp_path)
+
+
+def test_verify_red_on_redigested_holdout_policy(tmp_path: Path) -> None:
+    # review P1: an artifact rebuilt under a different split policy (0.9) + full re-digest must be RED
+    # because verify measures against the TRUSTED policy (default 0.2), not the artifact's claim.
+    rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), f"c{i}") for i in range(20)]
+    man = tm.build_versioned_manifest(
+        rows, source="s", license_="l", label_authority="a", holdout_fraction=0.9, root=tmp_path
+    )  # fully self-consistent artifact, just a hostile split policy
+    with pytest.raises(tm.IntegrityError, match="holdout policy mismatch"):
+        tm.verify_manifest(rows, man, root=tmp_path)   # trusted default 0.2 != declared 0.9
+
+
+def test_verify_accepts_nondefault_policy_when_caller_declares_it(tmp_path: Path) -> None:
+    # the trusted policy is caller-supplied: a legitimate non-default build verifies when the caller
+    # passes the matching expected_holdout_fraction (proves the pin isn't just hardcoded to 0.2).
+    rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), f"c{i}") for i in range(20)]
+    man = tm.build_versioned_manifest(
+        rows, source="s", license_="l", label_authority="a", holdout_fraction=0.3, root=tmp_path
+    )
+    tm.verify_manifest(rows, man, root=tmp_path, expected_holdout_fraction=0.3)  # must not raise

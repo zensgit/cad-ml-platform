@@ -39,24 +39,28 @@ never drift from slice-1's split. (The L3 gate is unconditional — it trusts no
 - `_manifest_digest` — sha256 over the **entire canonicalized manifest envelope** minus the digest
   field itself (schema/provenance/quarantined/rows/split_digest/…), rows list-sorted →
   **order-independent**. (Not per-row only — the whole envelope is covered.)
-- `verify_manifest` — does NOT trust the digest self-check alone; independently re-derives from the
-  rows and binds: split_digest, the **full per-row projection** (`_BOUND_ROW_FIELDS`), the
-  quarantine `(locator, reason_code)` set, and the aggregate provenance verdict. RAISES
-  `IntegrityError` on any drift or re-digested tamper.
+- `verify_manifest` — TRUSTED inputs come from the CALLER/this module, never the artifact: it PINS
+  `schema_version == SCHEMA_VERSION` and takes the holdout policy from `expected_holdout_fraction`
+  (default `0.2`), not the artifact's self-declared value. It does NOT trust the digest self-check
+  alone; it independently re-derives from the rows under the trusted policy and binds: split_digest,
+  the **full per-row projection** (`_BOUND_ROW_FIELDS`), the quarantine `(locator, reason_code)` set,
+  and the aggregate provenance verdict. RAISES `IntegrityError` on any drift or re-digested tamper.
 - CLI: `build` / `report` / `verify` (`build`/`verify` take `--root`; absolute rows require it).
 
 ## 2. Verification (local)
 
 | Check | Result |
 |---|---|
-| slice-2 unit tests (`tests/unit/test_track_e_manifest.py`) | **65 passed** |
-| combined slice-1 + slice-2 (no interference) | **97 passed** |
+| slice-2 unit tests (`tests/unit/test_track_e_manifest.py`) | **69 passed** |
+| combined slice-1 + slice-2 (no interference) | **101 passed** |
 | **containment**: file/cache outside the dataset root, `..`-escaping or absolute locators → fail-closed at build AND rejected at verify even when re-digested | pass |
-| **default-root cannot be widened**: absolute input rows with NO explicit root → RED; **absolute AND relative** symlink-escape inside the root rejected via `resolve()` (relative paths resolved against root, matching slice-1's `content_hash`) | pass |
+| **default-root cannot be widened**: absolute input rows with NO explicit root → RED; **absolute AND relative** symlink-escape inside the root rejected via `resolve()`; containment **pre-flights BEFORE `compute_split`** so `content_hash` never opens an out-of-root file (spy asserts `compute_split`/`content_hash` NOT called on escaping input) | pass |
 | **stored locator tamper** (`locator`/`cache_locator` redirected in the stored manifest) → RED: a naive redirect trips the envelope digest; a re-digested redirect trips the `(sample_id, locator)` binding | pass |
 | **re-digested per-row tamper** (`category` unknown→real / `split` train→holdout / forged `taxonomy` / redirected `locator` / forged `content_hash`, each with a recomputed digest) → RED via full row binding | pass |
 | **re-digested quarantine tamper** (drop/re-label a quarantined `(locator, reason_code)`) → RED via quarantine binding | pass |
 | **re-digested provenance flip** (`provenance_complete` False→True + zeroed unknown-count) → RED via aggregate provenance binding | pass |
+| **re-digested schema tamper** (`schema_version`→`attacker-schema-v999`) → RED: verify PINS `SCHEMA_VERSION`, never trusts the artifact's self-declared schema | pass |
+| **re-digested split-policy tamper** (full rebuild at `holdout_fraction=0.9`) → RED: verify uses the TRUSTED policy (caller/default `0.2`), not the artifact's declared fraction; a legit non-default build verifies only when the caller declares the matching `expected_holdout_fraction` | pass |
 | quarantine records digest as (`locator`=root-relative full path, `reason_code`); OS text stays human-only `detail`; same missing file under two clone roots → **same digest** | pass |
 | categorize: markers → augmented/synthetic; unmarked/undeclared → **unknown** (never "real"); declared column authoritative | pass |
 | a **naive** single-field tamper trips the envelope self-check; a **re-digested** tamper is caught by independent re-derivation of split_digest / **the full per-row projection** / quarantine set / aggregate provenance verdict from the rows → RED | pass |
@@ -77,8 +81,16 @@ illegal category to "real" — it maps to **"unknown"** and surfaces `illegal_ca
 Rebased onto the decoupled slice-1 (#510 no longer imports the L3 gate); slice-2 imports only
 slice-1's split primitives.
 
-**verify_manifest** does NOT trust the digest self-check alone (a re-digesting attacker defeats it),
-so every load-bearing field is independently re-derived from the rows: (1) **envelope
+**Pre-read containment (build):** every file/cache path is resolve()-contained BEFORE `compute_split`
+reads any bytes, so an escaping symlink is rejected without `content_hash` ever opening the out-of-root
+file (a spy asserts zero `compute_split`/`content_hash` calls on escaping input).
+
+**verify_manifest** measures the artifact against TRUSTED config, never the artifact's own claims: it
+PINS `schema_version == SCHEMA_VERSION` and takes the holdout policy from the caller
+(`expected_holdout_fraction`, default `0.2`) — a full rebuild under a hostile schema or split policy,
+even with a recomputed digest, is RED. It also does NOT trust the digest self-check alone (a
+re-digesting attacker defeats it), so every load-bearing field is independently re-derived from the
+rows under the trusted policy: (1) **envelope
 self-consistency** — recompute the digest over the stored envelope and compare (catches a naive
 single-field tamper); (2) **split drift** — re-derive the split and compare `split_digest`; (3)
 **full row binding** — EVERY bound field of every stored row (`_BOUND_ROW_FIELDS`: sample_id /

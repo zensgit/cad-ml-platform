@@ -312,6 +312,22 @@ def _manifest_digest(manifest_without_digest: dict) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def _preflight_containment(rows: List[dict], dataset_root: Optional[Path]) -> None:
+    """Reject any escaping file/cache path BEFORE ``compute_split`` reads bytes.
+
+    ``_relative_locator`` resolves each path (following symlinks at the path level — an lstat walk,
+    not an ``open``) and raises ``IntegrityError`` on an out-of-root / ``..`` / absolute escape. Run
+    ahead of ``compute_split`` so ``content_hash`` never opens or hashes an out-of-root file.
+    """
+    for r in rows:
+        fp = str(r.get("file_path", ""))
+        if fp:
+            _relative_locator(fp, dataset_root)
+        cache = str(r.get("cache_path", ""))
+        if cache:
+            _relative_locator(cache, dataset_root)
+
+
 def build_versioned_manifest(
     rows: Iterable[dict],
     *,
@@ -337,6 +353,10 @@ def build_versioned_manifest(
     # Resolve/validate the trust boundary FIRST (fail-closed before any file I/O): absolute rows
     # with no explicit root are rejected here, before compute_split touches the filesystem.
     dataset_root = _dataset_root(rows, root)
+    # Pre-flight containment BEFORE compute_split reads any bytes: _relative_locator resolve()s each
+    # path (following symlinks — a path-level lstat, NOT a content read) and raises on escape, so an
+    # escaping symlink is rejected before content_hash ever opens/hashes the out-of-root file.
+    _preflight_containment(rows, dataset_root)
     split = compute_split(rows, holdout_fraction=holdout_fraction, root=root)
     enriched = _enrich_rows(
         rows, split, source=source, license_=license_, label_authority=label_authority,
@@ -403,11 +423,27 @@ def report_by_category(manifest: dict) -> dict:
     }
 
 
-def verify_manifest(rows: Iterable[dict], manifest: dict, *, root: Optional[Path] = None) -> None:
+def verify_manifest(
+    rows: Iterable[dict],
+    manifest: dict,
+    *,
+    root: Optional[Path] = None,
+    expected_holdout_fraction: Optional[float] = None,
+) -> None:
     """Confirm the manifest is untampered and its split still re-derives. RAISES ``IntegrityError``.
 
+    TRUSTED INPUTS come from the CALLER, never from the artifact under test: ``SCHEMA_VERSION`` is
+    pinned by this module, and the holdout policy is ``expected_holdout_fraction`` (defaulting to
+    ``DEFAULT_HOLDOUT_FRACTION``) — NOT the artifact's self-declared ``holdout_fraction``. An
+    attacker who rebuilds the whole artifact under a different schema or split policy and re-digests
+    is therefore RED, because verify measures the artifact against the trusted config, not against
+    the artifact's own claims.
+
     Checks (the digest self-check alone is NOT trusted — a re-digesting attacker defeats it, so
-    every load-bearing field is INDEPENDENTLY re-derived from the rows):
+    every load-bearing field is INDEPENDENTLY re-derived from the rows under the TRUSTED policy):
+      0. **Schema pin** — ``schema_version`` must equal this module's ``SCHEMA_VERSION``.
+      0b. **Policy pin** — the artifact's declared ``holdout_fraction`` must equal the trusted
+          ``expected_holdout_fraction``; the re-derivation below uses the TRUSTED value.
       1. **Envelope self-consistency** — recompute ``manifest_digest`` over the STORED envelope and
          compare. Catches a naive single-field tamper. NOT sufficient on its own: an attacker who
          also recomputes the digest passes this check, which is why 2–4 re-derive from the rows.
@@ -430,6 +466,22 @@ def verify_manifest(rows: Iterable[dict], manifest: dict, *, root: Optional[Path
     verifies against clone B's rows (same bytes, same layout, different absolute root).
     Dry-run posture (non-blocking): the caller decides what to do with the raised error.
     """
+    # Trusted config — from the caller / this module, NEVER from the artifact under test.
+    if manifest.get("schema_version") != SCHEMA_VERSION:
+        raise IntegrityError(
+            f"schema_version mismatch: artifact declares {manifest.get('schema_version')!r} != "
+            f"trusted {SCHEMA_VERSION!r} — refusing to verify an unrecognized schema."
+        )
+    trusted_holdout = (
+        DEFAULT_HOLDOUT_FRACTION if expected_holdout_fraction is None else expected_holdout_fraction
+    )
+    if manifest.get("holdout_fraction") != trusted_holdout:
+        raise IntegrityError(
+            f"holdout policy mismatch: artifact declares holdout_fraction="
+            f"{manifest.get('holdout_fraction')!r} != trusted {trusted_holdout!r} — the split "
+            "policy must come from trusted config, not the artifact."
+        )
+
     stored_manifest_digest = manifest.get("manifest_digest")
     envelope_digest = _manifest_digest(manifest)  # over the stored envelope, minus manifest_digest
     if stored_manifest_digest != envelope_digest:
@@ -453,7 +505,7 @@ def verify_manifest(rows: Iterable[dict], manifest: dict, *, root: Optional[Path
         source=str(manifest.get("source", "")),
         license_=str(manifest.get("license", "")),
         label_authority=str(manifest.get("label_authority", "")),
-        holdout_fraction=manifest.get("holdout_fraction", DEFAULT_HOLDOUT_FRACTION),
+        holdout_fraction=trusted_holdout,   # TRUSTED policy, not the artifact's self-declared value
         root=root,
     )
     if manifest.get("split_digest") != recomputed["split_digest"]:
@@ -544,6 +596,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     vp.add_argument("--manifest", required=True, help="input CSV (source rows)")
     vp.add_argument("--manifest-json", required=True, help="a versioned manifest produced by 'build'")
     vp.add_argument("--root", default=None, help="dataset root for locator re-derivation (see build --root)")
+    vp.add_argument("--holdout-fraction", type=float, default=DEFAULT_HOLDOUT_FRACTION,
+                    help="TRUSTED holdout policy the artifact is checked against (NOT read from the "
+                         "artifact); the declared holdout_fraction must equal this or verify is RED")
 
     args = parser.parse_args(argv)
     try:
@@ -567,7 +622,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         if args.cmd == "verify":
             rows = _read_manifest_csv(args.manifest)
             manifest = json.loads(Path(args.manifest_json).read_text(encoding="utf-8"))
-            verify_manifest(rows, manifest, root=Path(args.root) if args.root else None)
+            verify_manifest(
+                rows, manifest,
+                root=Path(args.root) if args.root else None,
+                expected_holdout_fraction=args.holdout_fraction,
+            )
             print("verify PASS: manifest matches the re-derived rows (no tamper/drift)")
             return 0
     except IntegrityError as exc:
