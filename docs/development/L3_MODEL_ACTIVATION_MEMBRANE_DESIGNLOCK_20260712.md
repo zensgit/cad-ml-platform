@@ -1,7 +1,7 @@
 # L3 Design-Lock — Model-Release & Activation Proof Membrane
 
 **Date**: 2026-07-12 (rev 2026-07-13 — review 4: **Phase A/B split**) · **Status**: PROPOSED (for-review; do NOT self-merge; owner ratifies)
-**Rigor**: L3 (`PRODUCT_STRATEGY.md` §7.1) · **Grounded on**: `origin/main@8ff94175`; activation map reconfirmed against `origin/main@e2facd99` (2026-07-13 90-day verification: 13 production-reachable loads, 8 arbitrary-object deserializers)
+**Rigor**: L3 (`PRODUCT_STRATEGY.md` §7.1) · **Grounded on**: `origin/main@8ff94175`; activation map reconfirmed against `origin/main@e2facd99` (2026-07-13: the CI activation-surface enumerator — import-aware, the authority, NOT a hand-count — reports **38 `gated` production-reachable loads across 11 families**; a hand-count has been wrong ≥4 times)
 **Authority**: `PRODUCT_STRATEGY.md` §4 (AI safety), §5.2 (evaluation integrity not release-grade),
 §8.1 (Track E). Scheduled deliverable for the 7/20–7/26 week; pulled forward because the runtime
 work is P0-blocked and a design-lock is a doc, not runtime.
@@ -43,7 +43,7 @@ this protocol but is not simulated in the meantime.
 an earlier claim that it "closed retraining on main" was **overstated**. Corrected here (second
 review): `auto_retrain.sh` is a **producer** (it prints a deploy command, it does not activate a
 running service), so #509 closes **none of the production-reachable activation points** (there are
-≥5, across ≥4 model families — see §1.B; a hand-count has been wrong three times, hence the
+38 `gated`, across 11 model families per the import-aware CI enumerator — see §1.B; a hand-count has been wrong ≥4 times, hence the
 CI-enumerator contract). It is bleeding-control one layer upstream; the runtime membrane is unbuilt.
 
 Corrections from review, all load-bearing:
@@ -84,12 +84,14 @@ membrane and is **deferred until a real pilot needs dynamic model-swap**. Buildi
    load cannot activate, and **no caller-influenced path is opened** at any site (the §3 rule minus the proof
    lookup).
 3. **CI activation-surface enumerator (§1/§3) — the completeness authority.** Marks every
-   `torch.load`/`pickle.load`/`load_state_dict`/`reload_model(` site `gated|producer|offline|unmounted` and
+   `torch.load`/`pickle.load(s)`/`joblib.load` (import-alias-aware) / `load_state_dict` / `from_pretrained` (HF) / model constructors (`SentenceTransformer`/`PaddleOCR`/…) / `reload_model(` site `gated|producer|offline|unmounted|infra` and
    REDS when a new un-annotated load appears, or a `gated` site is neither frozen (Phase A) nor routed through
    `verify_and_load` (Phase B). This replaces the hand-count (wrong ≥3×). Seed = the §1 map; authority = the
-   e2facd99 enumeration (13 loads / 8 arbitrary-object deserializers: pickle ×3 `classifier.py:85`,
-   `classifier.py:535`, `faiss_store.py:96`; torch `weights_only=False` ×5 `part_classifier.py:655,695,62`,
-   `hybrid_classifier.py:448,476`).
+   e2facd99 IMPORT-AWARE enumeration: **124 load sites total, 38 `gated`** across 11 families
+   (pickle-classifier, graph2d, pointnet, part, part-v16, hybrid, history, vision3d-uvnet, **ocr** —
+   DeepSeek HF `from_pretrained`+PaddleOCR via mounted /ocr — and **embedding** — SentenceTransformer;
+   plus latent anomaly-monitor). A name-only matcher (review 5) missed the ocr/embedding families and
+   import aliases entirely — the enumerator is now import-aware and reds on any new un-annotated load.
 
 **Phase A exit criteria (observed-RED, REQUIRED — NOT claimed executed here):** external
 `/model/reload` refuses in prod with no env bypass; a new un-annotated prod loader REDS CI; **every**
