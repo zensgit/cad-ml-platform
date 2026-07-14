@@ -22,10 +22,15 @@ membrane / be frozen), ``producer`` (offline artifact emitter), ``offline`` (a C
 ``unmounted`` (0-route scaffold; auto-promotes to gated if mounted), ``infra`` (non-model
 deserialization — calibrator / vector-store / cache).
 
-Discovery + fail-closed bookkeeping ONLY: it can never emit a "green that enables" — it only passes
-(all classified) or reds. Not provably exhaustive of every possible Python model load; it covers the
-enumerated patterns above and reds on any NEW site matching them. Widen the patterns as new loader
-idioms appear. Exit 0 = all classified + no stale entry; exit 1 otherwise. Stdlib only.
+**Scope of the completeness claim (honest — review 6):** this covers the DECLARED loader idioms
+listed above (torch/pickle/joblib/onnx `.load(s)` import-alias-aware, `load_state_dict`,
+`from_pretrained`, the curated model constructors incl. `InferenceSession`, `reload_model(`). It is
+**NOT** a proof of exhaustive coverage of every possible Python model load: a NEW framework or a novel
+loader idiom (a bespoke `MyLoader.from_file`, a C-extension entry point, `eval`-constructed calls)
+would escape until its pattern is added here. So the guarantee is precisely: *"a new site matching a
+DECLARED idiom cannot land unclassified"*, and the idiom list must be widened as new frameworks
+appear. Discovery + fail-closed bookkeeping ONLY: it can never emit a "green that enables" — it only
+passes (all classified) or reds. Exit 0 = all classified + no stale entry; exit 1 otherwise. Stdlib only.
 """
 from __future__ import annotations
 
@@ -40,10 +45,12 @@ MANIFEST = REPO_ROOT / "scripts" / "ci" / "activation_surface.json"
 SCAN_DIRS = ("src", "scripts")
 VALID_CLASSES = {"gated", "producer", "offline", "unmounted", "infra"}
 
-# Deserializer modules and their load attributes.
-_MODULE_LOADERS = {"torch": {"load"}, "pickle": {"load", "loads"}, "joblib": {"load"}}
+# Deserializer / model-loader modules and their load attributes.
+_MODULE_LOADERS = {"torch": {"load"}, "pickle": {"load", "loads"}, "joblib": {"load"}, "onnx": {"load"}}
 # Model constructors that load weights on construction (import-aware; curated — extend as needed).
-_MODEL_CONSTRUCTORS = {"SentenceTransformer", "CrossEncoder", "PaddleOCR"}
+_MODEL_CONSTRUCTORS = {"SentenceTransformer", "CrossEncoder", "PaddleOCR", "InferenceSession"}
+# Extra modules whose aliases we track (for module.Constructor(...) forms like ort.InferenceSession).
+_TRACKED_EXTRA_MODULES = {"sentence_transformers", "transformers", "paddleocr", "onnxruntime"}
 # Attribute-call kinds that are model loads regardless of the receiver object.
 _ATTR_LOADERS = {"from_pretrained", "load_state_dict"}
 _BARE_CALL_NAMES = {"reload_model"}
@@ -62,7 +69,7 @@ def _collect_imports(tree: ast.AST) -> Tuple[Dict[str, str], Dict[str, Tuple[str
         if isinstance(node, ast.Import):
             for a in node.names:
                 canon = a.name.split(".")[0]
-                if canon in _MODULE_LOADERS or canon in {"sentence_transformers", "transformers", "paddleocr"}:
+                if canon in _MODULE_LOADERS or canon in _TRACKED_EXTRA_MODULES:
                     mod_alias[a.asname or a.name] = canon
         elif isinstance(node, ast.ImportFrom):
             base = (node.module or "").split(".")[0]

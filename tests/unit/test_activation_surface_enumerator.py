@@ -87,6 +87,9 @@ def _detect(src: str):
     ("from sentence_transformers import SentenceTransformer\ndef f(): return SentenceTransformer('x')", "ctor:SentenceTransformer"),
     ("import sentence_transformers as st\ndef f(): return st.SentenceTransformer('x')", "ctor:SentenceTransformer"),
     ("from paddleocr import PaddleOCR\ndef f(): return PaddleOCR()", "ctor:PaddleOCR"),
+    ("import onnx\ndef f(): return onnx.load('m.onnx')", "onnx.load"),                # review 6
+    ("import onnxruntime as ort\ndef f(): return ort.InferenceSession('m')", "ctor:InferenceSession"),
+    ("from onnxruntime import InferenceSession\ndef f(): return InferenceSession('m')", "ctor:InferenceSession"),
 ])
 def test_import_aware_detection_no_blind_spots(src: str, expect_kind: str) -> None:
     # review 5: a name-only matcher missed all of these; the import-aware detector must catch them.
