@@ -182,9 +182,11 @@ def enumerate_sites() -> Dict[str, dict]:
                 continue
             try:
                 tree = ast.parse(py.read_text(encoding="utf-8"), filename=rel)
-            except (SyntaxError, UnicodeDecodeError, OSError) as exc:
+            except (SyntaxError, ValueError, OSError) as exc:
                 # FAIL-CLOSED: an unparseable OR unreadable in-scope file means we cannot prove we saw
-                # every loader in it. Record a MALFUNCTION (exit 2) — never silently skip (fail-open).
+                # every loader in it. ValueError covers UnicodeDecodeError and Python versions where
+                # ast.parse reports a null character that way. Record a MALFUNCTION (exit 2) — never
+                # silently skip (fail-open).
                 malfunctions.append((rel, type(exc).__name__, " ".join(str(exc).split())))
                 continue
             mod_alias, imported = _collect_imports(tree)

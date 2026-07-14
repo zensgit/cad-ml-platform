@@ -104,6 +104,18 @@ def test_unicodedecodeerror_in_scope_is_malfunction_exit_2(tmp_path, monkeypatch
     assert "MALFUNCTION" in err and "src/bad_bytes.py" in err and "UnicodeDecodeError" in err
 
 
+def test_valueerror_from_ast_parse_is_malfunction_exit_2(tmp_path, monkeypatch, capsys) -> None:
+    _point_scan_at(tmp_path, monkeypatch, {"src/null_byte.py": "X = 1\n"})
+
+    def reject_null_byte(*_args, **_kwargs) -> None:
+        raise ValueError("source code string cannot contain null bytes")
+
+    monkeypatch.setattr(enum.ast, "parse", reject_null_byte)
+    assert enum.main() == enum.EXIT_MALFUNCTION == 2
+    err = capsys.readouterr().err
+    assert "MALFUNCTION" in err and "src/null_byte.py" in err and "ValueError" in err
+
+
 def test_unreadable_in_scope_file_is_malfunction_exit_2(tmp_path, monkeypatch, capsys) -> None:
     # an OSError while reading an in-scope file is equally "cannot prove I saw its loaders".
     # A directory named *.py is matched by rglob and raises IsADirectoryError (an OSError) on read —
