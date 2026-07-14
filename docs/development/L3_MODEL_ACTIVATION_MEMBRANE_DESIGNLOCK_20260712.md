@@ -83,15 +83,15 @@ membrane and is **deferred until a real pilot needs dynamic model-swap**. Buildi
    Phase-A body is #509's `raise` (or a hard-refuse) applied at each `gated` site, so an unproven/unclassified
    load cannot activate, and **no caller-influenced path is opened** at any site (the §3 rule minus the proof
    lookup).
-3. **CI activation-surface enumerator (§1/§3) — the completeness authority.** Marks every
+3. **CI activation-surface enumerator (§1/§3) — the completeness authority FOR DECLARED loader idioms** (import-aware torch/pickle/joblib/onnx `.load`, `load_state_dict`, `from_pretrained`, curated constructors, `reload_model(`; NOT a proof of every possible Python load — a novel framework escapes until its pattern is added). Marks every
    `torch.load`/`pickle.load(s)`/`joblib.load` (import-alias-aware) / `load_state_dict` / `from_pretrained` (HF) / model constructors (`SentenceTransformer`/`PaddleOCR`/…) / `reload_model(` site `gated|producer|offline|unmounted|infra` and
-   REDS when a new un-annotated load appears, or a `gated` site is neither frozen (Phase A) nor routed through
+   REDS when a new un-annotated load MATCHING A DECLARED IDIOM appears, or a `gated` site is neither frozen (Phase A) nor routed through
    `verify_and_load` (Phase B). This replaces the hand-count (wrong ≥3×). Seed = the §1 map; authority = the
    e2facd99 IMPORT-AWARE enumeration: **128 load sites total, 38 `gated`** across 11 families
    (pickle-classifier, graph2d, pointnet, part, part-v16, hybrid, history, vision3d-uvnet, **ocr** —
    DeepSeek HF `from_pretrained`+PaddleOCR via mounted /ocr — and **embedding** — SentenceTransformer;
    plus latent anomaly-monitor). A name-only matcher (review 5) missed the ocr/embedding families and
-   import aliases entirely — the enumerator is now import-aware and reds on any new un-annotated load.
+   import aliases entirely — the enumerator is now import-aware (+onnx/ort, review 6) and reds on any new un-annotated load matching a declared idiom.
 
 **Phase A exit criteria (observed-RED, REQUIRED — NOT claimed executed here):** external
 `/model/reload` refuses in prod with no env bypass; a new un-annotated prod loader REDS CI; **every**
@@ -301,7 +301,7 @@ it at `/etc/shadow` or a 50 GB file). Instead:
    still valid**, else refuse to serve — never load the unverified bytes. Emit an audit record (§3.3).
 
 The set of call sites is **NOT a hand-list** (a hand count has been wrong repeatedly — §1.B(cont)).
-The **CI activation-surface enumerator is the completeness authority**: the membrane is accepted only
+The **CI activation-surface enumerator is the completeness authority for the DECLARED loader idioms** (bounded — not a proof of every possible load): the membrane is accepted only
 when the enumerator confirms **every `gated` load site routes through `verify_and_load`**. The §1 map
 is that enumerator's *seed*, not the boundary. Implementation is **sharded per model family**, each
 shard wiring `verify_and_load` **before** the load and shipping its own enumerator entry + golden:
