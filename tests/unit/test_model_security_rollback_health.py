@@ -9,6 +9,7 @@ from typing import Any, Dict
 from fastapi.testclient import TestClient
 
 from src.main import app
+from src.ml.classifier import reload_model
 
 client = TestClient(app)
 
@@ -68,13 +69,7 @@ def test_model_security_rollback_health_fields(tmp_path, monkeypatch) -> None:
         monkeypatch.setenv("CLASSIFICATION_MODEL_VERSION", "v1")
         monkeypatch.setenv("ALLOWED_MODEL_HASHES", "")
 
-        response = client.post(
-            "/api/v1/model/reload",
-            json={"path": str(safe_path)},
-            headers={"X-API-Key": "test", "X-Admin-Token": "test"},
-        )
-        assert response.status_code == 200
-        data = response.json()
+        data = reload_model(str(safe_path))
         assert data["status"] == "success"
 
         malicious_path = tmp_path / "malicious_model.pkl"
@@ -82,13 +77,7 @@ def test_model_security_rollback_health_fields(tmp_path, monkeypatch) -> None:
         monkeypatch.setenv("MODEL_OPCODE_MODE", "blacklist")
         monkeypatch.setenv("MODEL_OPCODE_SCAN", "1")
 
-        blocked = client.post(
-            "/api/v1/model/reload",
-            json={"path": str(malicious_path)},
-            headers={"X-API-Key": "test", "X-Admin-Token": "test"},
-        )
-        assert blocked.status_code == 200
-        blocked_data = blocked.json()
+        blocked_data = reload_model(str(malicious_path))
         assert blocked_data["status"] == "opcode_blocked"
         assert blocked_data["error"]["context"]["opcode"]
 

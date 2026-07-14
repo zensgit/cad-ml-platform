@@ -1,0 +1,555 @@
+{
+  "_doc": "L3 activation-surface classification (import-aware; covers DECLARED loader idioms — see the enumerator docstring for scope). Every model-load site MUST have an entry; a NEW un-annotated site matching a declared idiom reds CI. class: gated|producer|offline|unmounted|infra. `gated` = production-reachable model activation; each MUST be frozen (Phase A) or route through the proof membrane (Phase B). Classifies only; enables nothing.",
+  "sites": {
+    "scripts/analyze_final_errors.py::main::load_state_dict#0": {
+      "class": "offline",
+      "reason": "offline analysis/eval CLI"
+    },
+    "scripts/analyze_final_errors.py::main::torch.load#0": {
+      "class": "offline",
+      "reason": "offline analysis/eval CLI"
+    },
+    "scripts/analyze_final_errors_v2.py::main::load_state_dict#0": {
+      "class": "offline",
+      "reason": "offline analysis/eval CLI"
+    },
+    "scripts/analyze_final_errors_v2.py::main::torch.load#0": {
+      "class": "offline",
+      "reason": "offline analysis/eval CLI"
+    },
+    "scripts/analyze_v13_errors.py::analyze_errors::load_state_dict#0": {
+      "class": "offline",
+      "reason": "offline analysis/eval CLI"
+    },
+    "scripts/analyze_v13_errors.py::analyze_errors::torch.load#0": {
+      "class": "offline",
+      "reason": "offline analysis/eval CLI"
+    },
+    "scripts/analyze_v14_errors.py::analyze_v14_errors::load_state_dict#0": {
+      "class": "offline",
+      "reason": "offline analysis/eval CLI"
+    },
+    "scripts/analyze_v14_errors.py::analyze_v14_errors::torch.load#0": {
+      "class": "offline",
+      "reason": "offline analysis/eval CLI"
+    },
+    "scripts/augment_dxf_graphs.py::augment_class::torch.load#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/calibrate_graph2d_temperature.py::_build_model_from_checkpoint::load_state_dict#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/calibrate_graph2d_temperature.py::_load_graph2d_checkpoint::torch.load#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/distill_ensemble.py::build_teacher_soft_labels::torch.load#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/distill_ensemble.py::main::load_state_dict#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/distill_ensemble.py::main::load_state_dict#1": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/distill_ensemble.py::main::torch.load#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/distill_ensemble.py::main::torch.load#1": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/ensemble_graph2d.py::predict_single_model::load_state_dict#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/ensemble_graph2d.py::predict_single_model::load_state_dict#1": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/ensemble_graph2d.py::predict_single_model::torch.load#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/eval_2d_graph.py::main::load_state_dict#0": {
+      "class": "offline",
+      "reason": "offline analysis/eval CLI"
+    },
+    "scripts/eval_2d_graph.py::main::torch.load#0": {
+      "class": "offline",
+      "reason": "offline analysis/eval CLI"
+    },
+    "scripts/evaluate_graph2d_v2.py::load_model::load_state_dict#0": {
+      "class": "offline",
+      "reason": "offline analysis/eval CLI"
+    },
+    "scripts/evaluate_graph2d_v2.py::load_model::load_state_dict#1": {
+      "class": "offline",
+      "reason": "offline analysis/eval CLI"
+    },
+    "scripts/evaluate_graph2d_v2.py::load_model::torch.load#0": {
+      "class": "offline",
+      "reason": "offline analysis/eval CLI"
+    },
+    "scripts/evaluate_hetero_ensemble.py::main::load_state_dict#0": {
+      "class": "offline",
+      "reason": "offline analysis/eval CLI"
+    },
+    "scripts/evaluate_hetero_ensemble.py::main::load_state_dict#1": {
+      "class": "offline",
+      "reason": "offline analysis/eval CLI"
+    },
+    "scripts/evaluate_hetero_ensemble.py::main::torch.load#0": {
+      "class": "offline",
+      "reason": "offline analysis/eval CLI"
+    },
+    "scripts/evaluate_hetero_ensemble.py::main::torch.load#1": {
+      "class": "offline",
+      "reason": "offline analysis/eval CLI"
+    },
+    "scripts/evaluate_hetero_ensemble.py::main::torch.load#2": {
+      "class": "offline",
+      "reason": "offline analysis/eval CLI"
+    },
+    "scripts/finetune_from_feedback.py::main::reload_model()#0": {
+      "class": "offline",
+      "reason": "offline CLI — no src importer"
+    },
+    "scripts/finetune_from_feedback.py::train_model::pickle.load#0": {
+      "class": "offline",
+      "reason": "offline CLI — no src importer"
+    },
+    "scripts/finetune_graph2d_from_pretrained.py::CachedGraphDataset.__getitem__::torch.load#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/finetune_graph2d_from_pretrained.py::finetune::load_state_dict#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/finetune_graph2d_from_pretrained.py::finetune::load_state_dict#1": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/finetune_graph2d_from_pretrained.py::finetune::load_state_dict#2": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/finetune_graph2d_from_pretrained.py::finetune::load_state_dict#3": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/finetune_graph2d_from_pretrained.py::finetune::load_state_dict#4": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/finetune_graph2d_from_pretrained.py::finetune::load_state_dict#5": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/finetune_graph2d_from_pretrained.py::finetune::load_state_dict#6": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/finetune_graph2d_from_pretrained.py::finetune::load_state_dict#7": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/finetune_graph2d_from_pretrained.py::finetune::load_state_dict#8": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/finetune_graph2d_from_pretrained.py::finetune::torch.load#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/finetune_graph2d_v2_augmented.py::train::load_state_dict#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/finetune_graph2d_v2_augmented.py::train::torch.load#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/finetune_v11_on_real.py::main::load_state_dict#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/finetune_v11_on_real.py::main::torch.load#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/quantize_graph2d_model.py::main::load_state_dict#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/quantize_graph2d_model.py::main::torch.load#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/quantize_graph2d_model.py::quantize_model::torch.load#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/quantize_graph2d_model.py::verify_accuracy::load_state_dict#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/quantize_graph2d_model.py::verify_accuracy::torch.load#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/train_classifier_v11.py::main::load_state_dict#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/train_classifier_v13.py::main::load_state_dict#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/train_classifier_v14.py::main::load_state_dict#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/train_classifier_v15.py::main::load_state_dict#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/train_classifier_v16.py::main::load_state_dict#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/train_classifier_v16.py::main::load_state_dict#1": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/train_classifier_v16.py::main::torch.load#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/train_classifier_v16.py::main::torch.load#1": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/train_classifier_v2.py::main::load_state_dict#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/train_classifier_v2.py::main::torch.load#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/train_knowledge_distillation.py::run_distillation::load_state_dict#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/train_knowledge_distillation.py::run_distillation::torch.load#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/train_stat_mlp.py::StatFeatureDataset.__getitem__::torch.load#0": {
+      "class": "producer",
+      "reason": "offline trainer/quantizer/distiller"
+    },
+    "scripts/uvnet_checkpoint_inspect.py::_load_checkpoint::torch.load#0": {
+      "class": "offline",
+      "reason": "offline analysis/eval CLI"
+    },
+    "src/core/assembly/confidence_calibrator.py::ConfidenceCalibrationSystem.load_calibrator::pickle.load#0": {
+      "class": "infra",
+      "reason": "confidence calibrator (pickle) — not a classifier; tracked"
+    },
+    "src/core/assistant/embedding_retriever.py::EmbeddingProvider._init_model::ctor:SentenceTransformer#0": {
+      "class": "gated",
+      "family": "embedding",
+      "reason": "SentenceTransformer — reached via the assistant"
+    },
+    "src/core/assistant/semantic_retrieval.py::SentenceTransformerProvider._load_model::ctor:SentenceTransformer#0": {
+      "class": "gated",
+      "family": "embedding",
+      "reason": "SentenceTransformer — reached via the assistant"
+    },
+    "src/core/ocr/providers/deepseek_hf.py::DeepSeekHfProvider._lazy_load::from_pretrained#0": {
+      "class": "gated",
+      "family": "ocr",
+      "reason": "DeepSeek OCR: HF from_pretrained + PaddleOCR — MOUNTED /ocr"
+    },
+    "src/core/ocr/providers/deepseek_hf.py::DeepSeekHfProvider._lazy_load::from_pretrained#1": {
+      "class": "gated",
+      "family": "ocr",
+      "reason": "DeepSeek OCR: HF from_pretrained + PaddleOCR — MOUNTED /ocr"
+    },
+    "src/core/ocr/providers/deepseek_hf.py::DeepSeekHfProvider.extract::ctor:PaddleOCR#0": {
+      "class": "gated",
+      "family": "ocr",
+      "reason": "DeepSeek OCR: HF from_pretrained + PaddleOCR — MOUNTED /ocr"
+    },
+    "src/core/ocr/providers/deepseek_hf.py::DeepSeekHfProvider.warmup::ctor:PaddleOCR#0": {
+      "class": "gated",
+      "family": "ocr",
+      "reason": "DeepSeek OCR: HF from_pretrained + PaddleOCR — MOUNTED /ocr"
+    },
+    "src/core/ocr/providers/paddle.py::PaddleOcrProvider._init_paddle::ctor:PaddleOCR#0": {
+      "class": "gated",
+      "family": "ocr",
+      "reason": "PaddleOCR provider — MOUNTED /ocr"
+    },
+    "src/core/vectors/stores/faiss_store.py::FaissStore.load::pickle.load#0": {
+      "class": "infra",
+      "reason": "FAISS vector-store metadata (pickle)"
+    },
+    "src/inference/classifier_api.py::V16Classifier.load::load_state_dict#0": {
+      "class": "gated",
+      "family": "part-v16",
+      "reason": "V16Classifier — imported by the MOUNTED /health route"
+    },
+    "src/inference/classifier_api.py::V16Classifier.load::load_state_dict#1": {
+      "class": "gated",
+      "family": "part-v16",
+      "reason": "V16Classifier — imported by the MOUNTED /health route"
+    },
+    "src/inference/classifier_api.py::V16Classifier.load::torch.load#0": {
+      "class": "gated",
+      "family": "part-v16",
+      "reason": "V16Classifier — imported by the MOUNTED /health route"
+    },
+    "src/inference/classifier_api.py::V16Classifier.load::torch.load#1": {
+      "class": "gated",
+      "family": "part-v16",
+      "reason": "V16Classifier — imported by the MOUNTED /health route"
+    },
+    "src/ml/classifier.py::_reload_model_impl::pickle.loads#0": {
+      "class": "gated",
+      "family": "pickle-classifier",
+      "reason": "startup + hot-reload pickle (de)serialization of the classification model"
+    },
+    "src/ml/classifier.py::load_model::pickle.load#0": {
+      "class": "gated",
+      "family": "pickle-classifier",
+      "reason": "startup + hot-reload pickle (de)serialization of the classification model"
+    },
+    "src/ml/compression/export.py::ONNXExporter.export::onnx.load#0": {
+      "class": "offline",
+      "reason": "offline model compression/export tool — not on a serving path"
+    },
+    "src/ml/compression/export.py::ONNXExporter.export::onnx.load#1": {
+      "class": "offline",
+      "reason": "offline model compression/export tool — not on a serving path"
+    },
+    "src/ml/compression/export.py::ONNXExporter.verify_export::ctor:InferenceSession#0": {
+      "class": "offline",
+      "reason": "offline model compression/export tool — not on a serving path"
+    },
+    "src/ml/compression/export.py::optimize_onnx::onnx.load#0": {
+      "class": "offline",
+      "reason": "offline model compression/export tool — not on a serving path"
+    },
+    "src/ml/compression/quantization.py::Quantizer.load_quantized::load_state_dict#0": {
+      "class": "offline",
+      "reason": "offline model compression/export tool — not on a serving path"
+    },
+    "src/ml/compression/quantization.py::Quantizer.load_quantized::torch.load#0": {
+      "class": "offline",
+      "reason": "offline model compression/export tool — not on a serving path"
+    },
+    "src/ml/embeddings/model.py::DomainEmbeddingModel._try_load_sentence_transformer::ctor:SentenceTransformer#0": {
+      "class": "gated",
+      "family": "embedding",
+      "reason": "DomainEmbeddingModel SentenceTransformer — production embedding path"
+    },
+    "src/ml/embeddings/trainer.py::DomainEmbeddingTrainer._init_model::ctor:SentenceTransformer#0": {
+      "class": "offline",
+      "reason": "training-time module"
+    },
+    "src/ml/embeddings/trainer.py::DomainEmbeddingTrainer.load::ctor:SentenceTransformer#0": {
+      "class": "offline",
+      "reason": "training-time module"
+    },
+    "src/ml/history_sequence_classifier.py::HistorySequenceClassifier._load_model::load_state_dict#0": {
+      "class": "gated",
+      "family": "history",
+      "reason": "HistorySequence — reached via /analyze"
+    },
+    "src/ml/history_sequence_classifier.py::HistorySequenceClassifier._load_model::torch.load#0": {
+      "class": "gated",
+      "family": "history",
+      "reason": "HistorySequence — reached via /analyze"
+    },
+    "src/ml/hybrid_classifier.py::HybridClassifier.stat_mlp::load_state_dict#0": {
+      "class": "gated",
+      "family": "hybrid",
+      "reason": "HybridClassifier stat/text — reached via classify tools"
+    },
+    "src/ml/hybrid_classifier.py::HybridClassifier.stat_mlp::torch.load#0": {
+      "class": "gated",
+      "family": "hybrid",
+      "reason": "HybridClassifier stat/text — reached via classify tools"
+    },
+    "src/ml/hybrid_classifier.py::HybridClassifier.tfidf_text_classifier::load_state_dict#0": {
+      "class": "gated",
+      "family": "hybrid",
+      "reason": "HybridClassifier stat/text — reached via classify tools"
+    },
+    "src/ml/hybrid_classifier.py::HybridClassifier.tfidf_text_classifier::torch.load#0": {
+      "class": "gated",
+      "family": "hybrid",
+      "reason": "HybridClassifier stat/text — reached via classify tools"
+    },
+    "src/ml/monitoring/anomaly_detector.py::MetricsAnomalyDetector.load_models::joblib.load#0": {
+      "class": "gated",
+      "family": "anomaly-monitor",
+      "reason": "loads anomaly model (joblib/pickle) in production monitoring; conservatively gated"
+    },
+    "src/ml/monitoring/anomaly_detector.py::MetricsAnomalyDetector.load_models::pickle.load#0": {
+      "class": "gated",
+      "family": "anomaly-monitor",
+      "reason": "loads anomaly model (joblib/pickle) in production monitoring; conservatively gated"
+    },
+    "src/ml/monitoring/auto_remediation.py::AutoRemediation._action_rollback_model::reload_model()#0": {
+      "class": "gated",
+      "family": "pickle-classifier",
+      "reason": "LATENT in-process rollback reload; gate before wired"
+    },
+    "src/ml/part_classifier.py::PartClassifier._load_model::load_state_dict#0": {
+      "class": "gated",
+      "family": "part",
+      "reason": "PartClassifier/V16/V14 — reached via /analyze, /health"
+    },
+    "src/ml/part_classifier.py::PartClassifier._load_model::torch.load#0": {
+      "class": "gated",
+      "family": "part",
+      "reason": "PartClassifier/V16/V14 — reached via /analyze, /health"
+    },
+    "src/ml/part_classifier.py::PartClassifierV16._load_models::load_state_dict#0": {
+      "class": "gated",
+      "family": "part",
+      "reason": "PartClassifier/V16/V14 — reached via /analyze, /health"
+    },
+    "src/ml/part_classifier.py::PartClassifierV16._load_models::load_state_dict#1": {
+      "class": "gated",
+      "family": "part",
+      "reason": "PartClassifier/V16/V14 — reached via /analyze, /health"
+    },
+    "src/ml/part_classifier.py::PartClassifierV16._load_models::torch.load#0": {
+      "class": "gated",
+      "family": "part",
+      "reason": "PartClassifier/V16/V14 — reached via /analyze, /health"
+    },
+    "src/ml/part_classifier.py::PartClassifierV16._load_models::torch.load#1": {
+      "class": "gated",
+      "family": "part",
+      "reason": "PartClassifier/V16/V14 — reached via /analyze, /health"
+    },
+    "src/ml/pipeline/stages.py::DataLoadingStage.run::torch.load#0": {
+      "class": "infra",
+      "reason": "loads a data tensor (not a model)"
+    },
+    "src/ml/pointnet/inference.py::PointNet3DAnalyzer._try_load_model::load_state_dict#0": {
+      "class": "gated",
+      "family": "pointnet",
+      "reason": "PointNet — reached via MOUNTED /pointcloud"
+    },
+    "src/ml/pointnet/inference.py::PointNet3DAnalyzer._try_load_model::load_state_dict#1": {
+      "class": "gated",
+      "family": "pointnet",
+      "reason": "PointNet — reached via MOUNTED /pointcloud"
+    },
+    "src/ml/pointnet/inference.py::PointNet3DAnalyzer._try_load_model::load_state_dict#2": {
+      "class": "gated",
+      "family": "pointnet",
+      "reason": "PointNet — reached via MOUNTED /pointcloud"
+    },
+    "src/ml/pointnet/inference.py::PointNet3DAnalyzer._try_load_model::load_state_dict#3": {
+      "class": "gated",
+      "family": "pointnet",
+      "reason": "PointNet — reached via MOUNTED /pointcloud"
+    },
+    "src/ml/pointnet/inference.py::PointNet3DAnalyzer._try_load_model::torch.load#0": {
+      "class": "gated",
+      "family": "pointnet",
+      "reason": "PointNet — reached via MOUNTED /pointcloud"
+    },
+    "src/ml/serving/grpc_service.py::InferenceGRPCService._deserialize_inputs::torch.load#0": {
+      "class": "unmounted",
+      "reason": "serving scaffold — 0 mounted routes; auto-promotes if mounted"
+    },
+    "src/ml/serving/worker.py::ModelWorker.load::load_state_dict#0": {
+      "class": "unmounted",
+      "reason": "serving scaffold — 0 mounted routes; auto-promotes if mounted"
+    },
+    "src/ml/serving/worker.py::ModelWorker.load::torch.load#0": {
+      "class": "unmounted",
+      "reason": "serving scaffold — 0 mounted routes; auto-promotes if mounted"
+    },
+    "src/ml/train/dataset_2d.py::DXFManifestDataset._disk_cache_get::torch.load#0": {
+      "class": "infra",
+      "reason": "training-data disk cache (not a model)"
+    },
+    "src/ml/train/model_2d.py::EdgeGraphSageClassifier.get_encoder::load_state_dict#0": {
+      "class": "offline",
+      "reason": "training-time module"
+    },
+    "src/ml/train/model_2d.py::EdgeGraphSageClassifier.get_encoder::load_state_dict#1": {
+      "class": "offline",
+      "reason": "training-time module"
+    },
+    "src/ml/train/model_2d.py::EdgeGraphSageClassifier.load_pretrained::load_state_dict#0": {
+      "class": "offline",
+      "reason": "training-time module"
+    },
+    "src/ml/train/model_2d.py::EdgeGraphSageClassifier.load_pretrained::torch.load#0": {
+      "class": "offline",
+      "reason": "training-time module"
+    },
+    "src/ml/train/model_2d.py::GraphEncoderV2WithHead.from_checkpoint::load_state_dict#0": {
+      "class": "offline",
+      "reason": "training-time module"
+    },
+    "src/ml/train/model_2d.py::GraphEncoderV2WithHead.from_checkpoint::load_state_dict#1": {
+      "class": "offline",
+      "reason": "training-time module"
+    },
+    "src/ml/train/model_2d.py::SimpleGraphClassifier.get_encoder::load_state_dict#0": {
+      "class": "offline",
+      "reason": "training-time module"
+    },
+    "src/ml/train/model_2d.py::SimpleGraphClassifier.get_encoder::load_state_dict#1": {
+      "class": "offline",
+      "reason": "training-time module"
+    },
+    "src/ml/train/model_2d.py::SimpleGraphClassifier.load_pretrained::load_state_dict#0": {
+      "class": "offline",
+      "reason": "training-time module"
+    },
+    "src/ml/train/model_2d.py::SimpleGraphClassifier.load_pretrained::torch.load#0": {
+      "class": "offline",
+      "reason": "training-time module"
+    },
+    "src/ml/vision_2d.py::Graph2DClassifier._load_model::load_state_dict#0": {
+      "class": "gated",
+      "family": "graph2d",
+      "reason": "Graph2DClassifier — reached via /analyze"
+    },
+    "src/ml/vision_2d.py::Graph2DClassifier._load_model::torch.load#0": {
+      "class": "gated",
+      "family": "graph2d",
+      "reason": "Graph2DClassifier — reached via /analyze"
+    },
+    "src/ml/vision_3d.py::UVNetEncoder._load_model::load_state_dict#0": {
+      "class": "gated",
+      "family": "vision3d-uvnet",
+      "reason": "UVNet 3D encoder — reached via /analyze on 3D inputs"
+    },
+    "src/ml/vision_3d.py::UVNetEncoder._load_model::torch.load#0": {
+      "class": "gated",
+      "family": "vision3d-uvnet",
+      "reason": "UVNet 3D encoder — reached via /analyze on 3D inputs"
+    }
+  }
+}
