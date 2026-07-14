@@ -108,7 +108,7 @@ is Phase B). Per the owner's decision (b), models still load from pinned server-
 3. **CI activation-surface enumerator (§1/§3) — the completeness authority FOR DECLARED loader idioms** (import-aware torch/pickle/joblib/onnx `.load`, `load_state_dict`, `from_pretrained`, curated constructors, `reload_model(`; NOT a proof of every possible Python load — a novel framework escapes until its pattern is added). Marks every
    `torch.load`/`pickle.load(s)`/`joblib.load` (import-alias-aware) / `load_state_dict` / `from_pretrained` (HF) / model constructors (`SentenceTransformer`/`PaddleOCR`/…) / `reload_model(` site `gated|producer|offline|unmounted|infra` and
    REDS when a new un-annotated load MATCHING A DECLARED IDIOM appears, or a `gated` site is neither fixed-hash-checked (Phase A, owner decision (b)) nor routed through
-   `verify_and_load` (Phase B). This replaces the hand-count (wrong ≥3×). Seed = the §1 map; authority = the
+   `verify_and_load` (Phase B). This replaces the hand-count (wrong ≥4×). Seed = the §1 map; authority = the
    IMPORT-AWARE enumeration (f2ebe2fa): **128 load sites total, 38 `gated`** across 11 families
    (pickle-classifier, graph2d, pointnet, part, part-v16, hybrid, history, vision3d-uvnet, **ocr** —
    DeepSeek HF `from_pretrained`+PaddleOCR via mounted /ocr — and **embedding** — SentenceTransformer;
@@ -142,7 +142,7 @@ is Phase B). Per the owner's decision (b), models still load from pinned server-
 
 **Phase A exit criteria (observed-RED, REQUIRED — NOT claimed executed here):** external
 `/model/reload` refuses in prod with no env bypass; a new un-annotated prod loader REDS CI; **every**
-`gated` §1.A/1.B site activates ONLY via the fixed-`SHA-256` server-owned-artifact check (owner
+`gated` §1.A/1.B site activates ONLY via the §0.5 step-2 per-KIND check (single-file fixed-`SHA-256` / bundle tree-digest) over a server-owned artifact (owner
 decision (b)) — no caller path, no env path-swap, no dynamic replacement; a mismatch/unknown-id
 refuses fail-closed; and the enumerator asserts every `gated` site is either fixed-hash-checked
 (Phase A) or routed through `verify_and_load` (Phase B).
@@ -241,7 +241,7 @@ The first draft over-counted these as live "activation points". They are not:
   mounted it is promoted into 1.A and must gain a proof check first.
 
 ### 1.B (cont.) MORE production-reachable loads — a hand-count kept missing these
-An earlier draft said "**exactly 3**". That was wrong (the third such error), because the model zoo
+An earlier draft said "**exactly 3**". That was wrong (the fourth such miscount), because the model zoo
 is larger than two families. Verified additional production-reachable, proof-unbound loads:
 | Point | Family | Evidence |
 |---|---|---|
@@ -251,6 +251,8 @@ is larger than two families. Verified additional production-reachable, proof-unb
 | PartClassifier / V16 / V14 | part | `torch.load` `src/ml/part_classifier.py:62,655,695` (via `/analyze`, `/health`) |
 | HistorySequence | history | `torch.load` `src/ml/history_sequence_classifier.py:162` (via `/analyze`) |
 | Vision3D encoder (`UVNET_MODEL_PATH`) | vision3d/uvnet | `torch.load` `src/ml/vision_3d.py:196` (via `/analyze` on 3D/STEP/IGES inputs; format+cache-miss gated but real) |
+| DeepSeek OCR (HF) + PaddleOCR — **bundle/tree** | ocr | `from_pretrained` `src/core/ocr/providers/deepseek_hf.py:93` + `PaddleOCR` `:47`; **mounted** `/ocr` (a directory artifact — bundle-digest KIND) |
+| SentenceTransformer embedding — **bundle/tree** | embedding | `SentenceTransformer` `src/core/assistant/embedding_retriever.py:59` (also `semantic_retrieval.py`, `ml/embeddings/model.py`); via the assistant (a directory artifact — bundle-digest KIND) |
 
 **The recurring lesson — a hand-enumerated count is the wrong contract.** It has been wrong three
 times. The membrane's completeness must be enforced **by construction, not by a list**: ship a CI
@@ -387,6 +389,8 @@ Phase B, `verify_and_load`) **before** the load and shipping its own enumerator 
 - **part / v16 / v14** — `part_classifier.py:62,655,695` (reached via `/analyze`, `/health`).
 - **history-sequence** — `history_sequence_classifier.py:162` (reached via `/analyze`).
 - **vision3d / uvnet** — `vision_3d.py:196` (`UVNET_MODEL_PATH`, reached via `/analyze` on 3D inputs).
+- **ocr** (bundle-digest KIND) — DeepSeek HF `from_pretrained` (`deepseek_hf.py:93`) + PaddleOCR (`:47`), **mounted** `/ocr`; a directory artifact → tree-digest, offline-only, no silent stub (§0.5 step 2 + failure-semantics).
+- **embedding** (bundle-digest KIND) — SentenceTransformer (`embedding_retriever.py:59`, `semantic_retrieval.py`, `ml/embeddings/model.py`), via the assistant; directory artifact → tree-digest.
 - any surface the enumerator later discovers → its own shard before it can go live.
 
 The §1.C producer/latent points gain the same check **before they are wired to activate**:
@@ -395,9 +399,11 @@ unconditional block for the membrane call — the *only* place the permanent-clo
 only once the signed store exists). The **unmounted serving scaffold** (`src/ml/serving/*`) is promoted
 into a shard automatically if it is ever mounted (the enumerator reds until it is).
 
-Per owner decision (b), the **Phase-A body at each `gated` site is the static fixed-`SHA-256`
-check** (resolve a server-owned artifact id → read once → SHA-256 == the pinned value → load THOSE
-bytes, else refuse to a defined `degraded`/503) — models load, but **only** from pinned server-owned
+Per owner decision (b), the **Phase-A body at each `gated` site is the per-KIND static check of §0.5
+step 2** — **single-file** (read once → `SHA-256(bytes)` == the pinned value → load THOSE bytes) or
+**bundle/tree** (recompute the deterministic tree-digest over the offline, per-file `resolve()`-contained
+unpacked dir → == the pinned tree-digest → hand the framework the verified local path), else refuse to a
+defined `degraded`/503 — models load, but **only** from pinned server-owned
 artifacts, with no caller path, no env path-swap, no runtime hot-swap. The external `/model/reload`
 route is the exception: it stays **sealed (403, done by #516)**, re-opened only under Phase B + the
 identity gate (§3.2). Once **Track E** and the signed proof store exist, Phase B **replaces** the
@@ -528,8 +534,8 @@ Accurate post-#509 status, by threat actor (§3.1 — do not conflate them):
   `/model/reload`). It is **not** contained by CODEOWNERS (#512 is an unarmed ownership map), and branch
   protection is not a substitute for stopping it. No unattended routine may author or merge this L3
   runtime.
-- **A runtime API caller / operator** can still reach the **38 production-reachable `gated` activation points
-  across 11 model families** (the CI activation-surface enumerator, not a hand count, is the
+- **A runtime API caller / operator** can still reach the **38 production-reachable `gated` AST load sites
+  across 11 model families** (these 38 AST sites group into fewer *logical* activations — §0.5 step 4 — which is the guard-coverage denominator) (the CI activation-surface enumerator, not a hand count, is the
   authority — §1.B(cont)/§3). The external `/model/reload` is **now SEALED (403, #516)** and is no
   longer reachable; the remaining live gap is the **38 internal `gated` loaders** — the pickle-classifier
   startup load and the graph2d / hybrid-branch (stat, text) / pointnet / part / history-sequence /
