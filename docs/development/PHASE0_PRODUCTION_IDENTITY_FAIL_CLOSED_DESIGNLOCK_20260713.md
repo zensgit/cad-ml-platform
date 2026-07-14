@@ -124,7 +124,7 @@ consumer is wired. This lock closes it now and does **not** claim a live exploit
 
 ---
 
-## 2. Fail-first golden matrix (observed-RED, executed; production mode unless noted)
+## 2. Fail-first golden **plan** (observed-RED **required in the implementation PR**, NOT executed here; production mode unless noted)
 
 | Case | Required result | Today (`e2facd99`) |
 |---|---|---|
@@ -180,5 +180,5 @@ git show origin/main:src/api/dependencies.py | sed -n '8,45p'                 # 
 git show origin/main:src/api/middleware/integration_auth.py | sed -n '55,113p' # disabled=skip; jwt.decode no aud/iss/exp; user_id=header or sub
 git show origin/main:tests/unit/test_integration_auth_middleware.py | sed -n '100,113p' # asserts user_id=="user-header"
 git show origin/main:src/main.py | sed -n '61,141p'                          # only GRAPH2D/FUSION validated; no auth guard
-git grep -n "headers.get(self.user_header)\|x-user-id\|x_user_id" origin/main -- 'src/**/*.py' # live raw-header readers
+git grep -n "headers.get(self.user_header)\|x-user-id\|x_user_id" origin/main -- 'src/**/*.py' # enumerate raw-header references; verify mounted/called status separately (all dormant at e2facd99 — §0/§F)
 ```
