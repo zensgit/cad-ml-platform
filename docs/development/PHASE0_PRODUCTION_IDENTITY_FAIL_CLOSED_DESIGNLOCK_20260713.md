@@ -2,7 +2,7 @@
 
 **Date**: 2026-07-13 · **Status**: PROPOSED (for-review; do NOT self-merge; owner ratifies)
 **Rigor**: L3 (`PRODUCT_STRATEGY.md` §7.1) · **Grounded on**: `origin/main@e2facd99`
-**Authority**: `PRODUCT_STRATEGY.md` §8.4 Days 0-30 ("close production-auth defaults") · **Ordering**: this is the **first runtime L3** after #509, ahead of Track E (owner ratification 2026-07-13).
+**Authority**: `PRODUCT_STRATEGY.md` §8.4 Days 0-30 ("close production-auth defaults") · **Ordering**: this is the **first runtime L3** after #509, ahead of Track E (owner-**directed** ordering 2026-07-13). **This design-lock is itself PROPOSED — the owner has NOT ratified it; "ordering" ≠ ratification of this contract.**
 
 > **This is a proposal, not an implementation.** It changes no runtime and closes no surface. It defines
 > the contract the implementation must satisfy so it can be ratified before code is written — "propose,
@@ -138,7 +138,7 @@ consumer is wired. This lock closes it now and does **not** claim a live exploit
 | JWT with wrong / missing `aud` | **401** | accepted (no aud check) |
 | JWT with wrong / missing `iss` | **401** | accepted (no iss check) |
 | forged `x-tenant-id` ≠ token | 401 | 401 (keep) |
-| audit actor for request with `x-user-id` header + valid token | logs **`sub`**, not header | logs header value where read live |
+| identity/audit reader **if/when mounted** (all such readers are **dormant** today, §0/§F) | derives actor from validated `sub`, never the header | **no live reader today** — forward guard (F), not a live-today assertion |
 | dev/test with explicit insecure opt-in | unchanged (permissive) | permissive |
 | production with all creds configured non-default | serves normally | — |
 
@@ -155,8 +155,8 @@ succeeds), and the flipped `test_required_valid_token_sets_state` committed in t
    later binds *which* model may load.
 
 Neither alone is sufficient. #513 Phase A freezes the route immediately (emergency containment); this gate is
-the *who-may-ask* half required before it could ever be re-opened. Build order (owner-ratified): **#513 Phase A
-freeze → this identity gate → Track E → #513 Phase B (pilot-gated).**
+the *who-may-ask* half required before it could ever be re-opened. Build order (owner-**directed** 2026-07-13;
+none of these locks is yet ratified): **#513 Phase A freeze → this identity gate → Track E → #513 Phase B (pilot-gated).**
 
 ## 4. Non-goals / exclusions
 
