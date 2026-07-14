@@ -1,7 +1,7 @@
 # L3 Design-Lock — Model-Release & Activation Proof Membrane
 
-**Date**: 2026-07-12 · **Status**: PROPOSED (for-review; do NOT self-merge; owner ratifies)
-**Rigor**: L3 (`PRODUCT_STRATEGY.md` §7.1) · **Grounded on**: `origin/main@8ff94175`
+**Date**: 2026-07-12 (rev 2026-07-13 — review 4: **Phase A/B split**) · **Status**: PROPOSED (for-review; do NOT self-merge; owner ratifies)
+**Rigor**: L3 (`PRODUCT_STRATEGY.md` §7.1) · **Grounded on**: `origin/main@8ff94175`; activation map reconfirmed against `origin/main@e2facd99` (2026-07-13 90-day verification: 13 production-reachable loads, 8 arbitrary-object deserializers)
 **Authority**: `PRODUCT_STRATEGY.md` §4 (AI safety), §5.2 (evaluation integrity not release-grade),
 §8.1 (Track E). Scheduled deliverable for the 7/20–7/26 week; pulled forward because the runtime
 work is P0-blocked and a design-lock is a doc, not runtime.
@@ -61,6 +61,57 @@ Corrections from review, all load-bearing:
 
 ---
 
+## 0.5 Phasing — freeze first (Phase A), prove later (Phase B)
+
+Per the owner's 2026-07-13 ratification, this membrane ships in **two separately-ratifiable phases**.
+Phase A is cheap containment that needs **no** cryptographic proof store; Phase B is the full proof
+membrane and is **deferred until a real pilot needs dynamic model-swap**. Building the signed store now
+(Phase B) would spend ~2–3 weeks and add **no customer evidence**, while the live boundary (§1.A external
+`/model/reload`, caller-path + `force`) stays open. Freeze first.
+
+### Phase A — Activation freeze (build next, after this lock **and** the production-identity lock ratify)
+
+**Goal:** no arbitrary or caller-path model activation can occur in production — with **zero** cryptography.
+1. **Production-disable the external `POST /api/v1/model/reload` route — no environment-variable bypass.**
+   It is LIVE today (§1.A/§3.2); disabling it is an ACTION the implementation takes. In production the
+   route refuses unconditionally; **no flag or env var re-opens it** (re-opening is a Phase B + identity-gate
+   decision, §3.2). A request carrying a valid `path`+`force`+default `test` creds must not reach
+   `reload_model`.
+2. **Fail-closed on every §1.A/1.B production-reachable load not explicitly classified-out.** The membrane's
+   Phase-A body is #509's `raise` (or a hard-refuse) applied at each `gated` site, so an unproven/unclassified
+   load cannot activate, and **no caller-influenced path is opened** at any site (the §3 rule minus the proof
+   lookup).
+3. **CI activation-surface enumerator (§1/§3) — the completeness authority.** Marks every
+   `torch.load`/`pickle.load`/`load_state_dict`/`reload_model(` site `gated|producer|offline|unmounted` and
+   REDS when a new un-annotated load appears, or a `gated` site is neither frozen (Phase A) nor routed through
+   `verify_and_load` (Phase B). This replaces the hand-count (wrong ≥3×). Seed = the §1 map; authority = the
+   e2facd99 enumeration (13 loads / 8 arbitrary-object deserializers: pickle ×3 `classifier.py:85`,
+   `classifier.py:535`, `faiss_store.py:96`; torch `weights_only=False` ×5 `part_classifier.py:655,695,62`,
+   `hybrid_classifier.py:448,476`).
+
+**Phase A exit (observed-RED, executed):** external `/model/reload` refuses in prod with no env bypass;
+a new un-annotated prod loader REDS CI; every `gated` §1.A/1.B site is frozen per the enumerator; no caller
+path is opened anywhere.
+
+**Phase A does NOT build:** the proof schema (§2.2), the signed proof store / issuer / key-custody (§2.3),
+`verify_and_load`'s proof lookup (§3 steps 4–5), revocation/expiry, the LKG re-validation readiness probe,
+or the append-only activation audit (§3.3). All of those are Phase B.
+
+### Phase B — Proof membrane (DEFERRED — build **only** when a real pilot needs dynamic model-swap)
+
+The full contract in §2–§3: content-bound split digest (§2.1), the signed proof envelope (§2.2), the trust
+source + key-custody + revocation + expiry + LKG re-validation (§2.3), the `verify_and_load` choke-point with
+**server-owned artifact IDs** and TOCTOU-safe hash-and-load (§3), and the append-only audit (§3.3). Phase B
+**replaces** each Phase-A frozen body with real proof-gated activation — re-enablement is replacing the body,
+not adding a flag (§7.2). Phase B depends on **Track E** (§8.1) existing (the split/manifest/metrics the proof
+binds to) and on a **HSM / human-gated signer outside CI** (§2.3 key-custody).
+
+**Do not start Phase B while no pilot requires dynamic model-swap.** Until then Phase A's freeze **is** the
+membrane and is sufficient for a static-model production deployment. Sections §2, §2.3, and §3 below define
+Phase B; §1 and the enumerator define Phase A.
+
+---
+
 ## 1. Activation map (verified `file:line` — the boundary this membrane must cover)
 
 Classified by reachability, per the review's taxonomy.
@@ -117,7 +168,7 @@ across ≥4 families) is proof-unbound. The runtime activation membrane is **ent
 
 ---
 
-## 2. The proof (what "may activate" means)
+## 2. The proof (what "may activate" means) — **Phase B**
 
 An activation is authorized **iff** the model being activated is bound to a *reproducible evaluation
 that a fresh clone can re-derive*. The proof has two phases (Track E, `PRODUCT_STRATEGY.md` §8.1).
@@ -194,7 +245,7 @@ emit") cannot recur.
 
 ---
 
-## 3. The membrane (one choke-point, enforced at every production-reachable activation)
+## 3. The membrane (one choke-point, enforced at every production-reachable activation) — **Phase B** (Phase A freezes these same sites; see §0.5)
 
 A single function — `verify_and_load(artifact_id, family, env)` — where **`artifact_id` is a
 server-owned identifier (or model hash), NOT a caller-supplied filesystem path (review gap).** The
@@ -314,6 +365,12 @@ revocation and incident review possible after the fact.
   overstated the canonical strategy — the rule is conditional, not absolute.)
 
 ## 5. Golden matrix the implementation must ship (observed-RED, executed)
+
+**Phasing of this matrix:** **Phase A** ships the freeze/reject subset — *caller supplies a filesystem `path`*
+→ REJECTED, *complete-but-leave-`ADMIN_TOKEN=test`* → route stays DISABLED, and *a new un-annotated prod
+loader* → CI RED. **Phase B** ships the proof-binding subset — no-proof / TOCTOU / unsigned / expired-revoked /
+server-owned family+env / max-size / family-mismatch / env-mismatch / byte-change / label-change / content-dup /
+stale-evaluator, and the single GREEN. A row that needs a proof store is Phase B by definition.
 
 | Case | Required result |
 |---|---|
