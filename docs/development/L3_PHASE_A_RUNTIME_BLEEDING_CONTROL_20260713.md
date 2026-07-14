@@ -1,18 +1,18 @@
 # L3 Phase A0 — runtime bleeding-control — Dev & Verification (2026-07-13)
 
 > **This is Phase A0 (not full Phase A):** it seals the EXTERNAL `/model/reload`, fail-closes default creds, and ships the enumerator as a DISCOVERY gate — it does NOT freeze the 38 internal `gated` loaders (they still load) and the enumerator does NOT yet assert each gated site is frozen/verify_and_load'd (that is full Phase A, design-lock #513 §0.5). Honest closeout: **external reload sealed; producer disabled; internal runtime activation remains proof-unbound.** This is fail-closed,
-> risk-REDUCING bleeding-control ONLY — it seals a reproduced live RCE surface, refuses the insecure
+> risk-REDUCING bleeding-control ONLY — it seals an externally reachable arbitrary-deserialization / code-execution risk, refuses the insecure
 > default credentials in production, and makes activation-surface completeness (for the DECLARED loader idioms — bounded, not a proof of every possible load) enforced in CI. It builds **no proof membrane** and enables **nothing**: every change here can only
 > refuse, never green-light an activation. Grounded on `origin/main@e2facd99`. Fresh from latest
 > main — does NOT revive the closed #514. The membrane itself is the ratification-gated follow-up
 > (design-lock #513).
 
-## 0. Why (the reproduced live risk on `e2facd99`)
+## 0. Why (the live risk on `e2facd99`)
 
 - `POST /api/v1/model/reload` hot-reloads an **arbitrary caller-supplied path** into the serving
   process. The reload deserializes **before** it checks: `src/ml/classifier.py:535` runs
   `pickle.loads(data)` ahead of the whitelist/hash check, and the compared hash is truncated to 16
-  hex — a reproduced arbitrary-code-execution-on-load. Guarded only by `api_key` + `admin_token`
+  hex — an externally reachable arbitrary-deserialization / code-execution risk. Guarded only by `api_key` + `admin_token`
   that **both default to the literal `"test"`** (`src/api/dependencies.py`).
 - A hand-maintained "these are the activation points" list has been wrong repeatedly; the real
   surface is **≥38 model-load sites across ≥11 families** (design-lock #513 §1).

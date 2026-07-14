@@ -66,6 +66,47 @@ def test_every_gated_site_carries_a_family() -> None:
     assert not missing, f"gated sites without a family: {missing}"
 
 
+# --- fail-closed on unparseable files: a MALFUNCTION (exit 2), never a silent skip -----------------
+# observed-RED: on the pre-fix code these unparseable files were silently `continue`d, so with an empty
+# manifest `main()` returned 0 (clean) — an unparseable file could hide an unregistered loader. The fix
+# raises EnumeratorMalfunction -> exit 2 (a malfunction, distinct from the exit-1 finding path).
+
+def _point_scan_at(tmp_path, monkeypatch, files: dict) -> None:
+    """Point the enumerator's scan at a temp tree. files = {relpath: str|bytes}. Empty manifest, so on
+    the OLD (skip) behaviour main() would have returned 0 — making the exit-2 assertion an observed-RED."""
+    for rel, content in files.items():
+        p = tmp_path / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(content) if isinstance(content, bytes) else p.write_text(content, encoding="utf-8")
+    mani = tmp_path / "manifest.json"
+    mani.write_text(json.dumps({"sites": {}}), encoding="utf-8")
+    monkeypatch.setattr(enum, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(enum, "SCAN_DIRS", ("src",))
+    monkeypatch.setattr(enum, "MANIFEST", mani)
+
+
+def test_syntaxerror_in_scope_is_malfunction_exit_2(tmp_path, monkeypatch, capsys) -> None:
+    _point_scan_at(tmp_path, monkeypatch, {"src/broken_syntax.py": "def f(:\n    pass\n"})
+    assert enum.main() == enum.EXIT_MALFUNCTION == 2
+    err = capsys.readouterr().err
+    assert "MALFUNCTION" in err and "src/broken_syntax.py" in err and "SyntaxError" in err
+    assert "NOT a finding" in err  # must not be confused with the exit-1 finding path
+
+
+def test_unicodedecodeerror_in_scope_is_malfunction_exit_2(tmp_path, monkeypatch, capsys) -> None:
+    _point_scan_at(tmp_path, monkeypatch, {"src/bad_bytes.py": b"\xff\xfe not valid utf-8 \x80\x81\n"})
+    assert enum.main() == enum.EXIT_MALFUNCTION == 2
+    err = capsys.readouterr().err
+    assert "MALFUNCTION" in err and "src/bad_bytes.py" in err and "UnicodeDecodeError" in err
+
+
+def test_wellformed_file_is_not_a_malfunction(tmp_path, monkeypatch) -> None:
+    # positive control: a parseable in-scope file with no loader is NOT a malfunction -> exit 0, not 2.
+    _point_scan_at(tmp_path, monkeypatch, {"src/fine.py": "X = 1\ndef g():\n    return X\n"})
+    assert enum.enumerate_sites() == {}          # parses cleanly, no raise, no loaders
+    assert enum.main() == enum.EXIT_OK == 0
+
+
 import ast as _ast
 
 

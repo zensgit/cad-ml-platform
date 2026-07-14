@@ -31,7 +31,9 @@ loader idiom (a bespoke `MyLoader.from_file`, a C-extension entry point, `eval`-
 would escape until its pattern is added here. So the guarantee is precisely: *"a new site matching a
 DECLARED idiom cannot land unclassified"*, and the idiom list must be widened as new frameworks
 appear. Discovery + fail-closed bookkeeping ONLY: it can never emit a "green that enables" — it only
-passes (all classified) or reds. Exit 0 = all classified + no stale entry; exit 1 otherwise. Stdlib only.
+passes (all classified) or reds. Exit 0 = all classified + no stale entry; exit 1 = unclassified/stale
+FINDING; exit 2 = MALFUNCTION (an in-scope file could not be parsed → the enumeration is INCOMPLETE →
+fail-closed, never a silent skip). A malfunction is NOT a finding. Stdlib only.
 """
 from __future__ import annotations
 
@@ -55,6 +57,22 @@ _TRACKED_EXTRA_MODULES = {"sentence_transformers", "transformers", "paddleocr", 
 # Attribute-call kinds that are model loads regardless of the receiver object.
 _ATTR_LOADERS = {"from_pretrained", "load_state_dict"}
 _BARE_CALL_NAMES = {"reload_model"}
+
+# Exit codes — a gate MALFUNCTION must never be mistaken for a clean pass (0) or a finding (1).
+EXIT_OK = 0            # every discovered site is classified, no stale manifest entry
+EXIT_FINDING = 1       # a new UNCLASSIFIED site, or a STALE manifest entry
+EXIT_MALFUNCTION = 2   # an in-scope file could not be parsed → enumeration INCOMPLETE → fail-closed
+
+
+class EnumeratorMalfunction(Exception):
+    """The scan could not parse one or more in-scope files, so the enumeration is INCOMPLETE and its
+    completeness CANNOT be asserted. This is a MALFUNCTION (exit 2), NOT a finding (exit 1): an
+    unparseable file may hide unregistered loaders, so we fail closed rather than silently skip it.
+    """
+
+    def __init__(self, malfunctions: List[Tuple[str, str, str]]) -> None:
+        self.malfunctions = malfunctions  # list of (relpath, error_type, message)
+        super().__init__(f"{len(malfunctions)} unparseable in-scope file(s)")
 
 
 def _collect_imports(tree: ast.AST) -> Tuple[Dict[str, str], Dict[str, Tuple[str, str]]]:
@@ -144,6 +162,7 @@ def enumerate_sites() -> Dict[str, dict]:
     key = "<relpath>::<qualname>::<kind>#<n>" — stable across line-number drift (AST, not grep).
     """
     found: Dict[str, dict] = {}
+    malfunctions: List[Tuple[str, str, str]] = []
     for d in SCAN_DIRS:
         for py in sorted((REPO_ROOT / d).rglob("*.py")):
             rel = py.relative_to(REPO_ROOT).as_posix()
@@ -151,7 +170,10 @@ def enumerate_sites() -> Dict[str, dict]:
                 continue
             try:
                 tree = ast.parse(py.read_text(encoding="utf-8"), filename=rel)
-            except (SyntaxError, UnicodeDecodeError):
+            except (SyntaxError, UnicodeDecodeError) as exc:
+                # FAIL-CLOSED: an unparseable in-scope file means we cannot prove we saw every loader
+                # in it. Record a MALFUNCTION (exit 2) — never silently skip it (that is fail-open).
+                malfunctions.append((rel, type(exc).__name__, " ".join(str(exc).split())))
                 continue
             mod_alias, imported = _collect_imports(tree)
             v = _LoadVisitor(mod_alias, imported)
@@ -162,6 +184,8 @@ def enumerate_sites() -> Dict[str, dict]:
                 n = per_key.get(base, 0)
                 per_key[base] = n + 1
                 found[f"{base}#{n}"] = {"file": rel, "symbol": qual, "kind": kind, "lineno": lineno}
+    if malfunctions:
+        raise EnumeratorMalfunction(malfunctions)
     return found
 
 
@@ -179,7 +203,17 @@ def load_manifest() -> Dict[str, dict]:
 
 
 def main(argv=None) -> int:
-    found = enumerate_sites()
+    try:
+        found = enumerate_sites()
+    except EnumeratorMalfunction as exc:
+        sys.stderr.write(
+            "[activation-enumerator] MALFUNCTION (exit 2) — cannot parse in-scope file(s); the "
+            "enumeration is INCOMPLETE, so completeness CANNOT be asserted. This is a gate malfunction, "
+            "NOT a finding (exit 1). Fix the file(s) or remove them from SCAN_DIRS:\n"
+        )
+        for rel, etype, msg in exc.malfunctions:
+            sys.stderr.write(f"  ! {rel}  {etype}: {msg}\n")
+        return EXIT_MALFUNCTION
     manifest = load_manifest()
     unclassified = sorted(set(found) - set(manifest))
     stale = sorted(set(manifest) - set(found))
@@ -197,7 +231,7 @@ def main(argv=None) -> int:
         for k in stale:
             sys.stderr.write(f"  - {k}  (was: {manifest[k].get('class')})\n")
     if unclassified or stale:
-        return 1
+        return EXIT_FINDING
 
     by_class: Dict[str, int] = {}
     for e in manifest.values():
@@ -208,7 +242,7 @@ def main(argv=None) -> int:
     print(f"[activation-enumerator] {gated} `gated` production-reachable activation point(s). These "
           "are DISCOVERED + classified only; Phase A0 does NOT freeze them (they still load). Full "
           "Phase A must freeze each (hard-refuse) or route it through verify_and_load (Phase B).")
-    return 0
+    return EXIT_OK
 
 
 if __name__ == "__main__":
