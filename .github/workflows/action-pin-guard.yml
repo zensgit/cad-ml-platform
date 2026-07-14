@@ -15,12 +15,9 @@ on:
       - "tests/unit/test_check_workflow_action_pins.py"
       - "Makefile"
   pull_request:
-    paths:
-      - ".github/workflows/**"
-      - "scripts/ci/check_workflow_action_pins.py"
-      - "config/workflow_action_pin_policy.json"
-      - "tests/unit/test_check_workflow_action_pins.py"
-      - "Makefile"
+    # No `paths:` filter: this is a REQUIRED status check, so it must run on EVERY PR to produce the
+    # context. A paths filter here permanently BLOCKS docs-only / CODEOWNERS-only PRs (the context is
+    # never generated). The guard is a fast pass when no workflow files changed.
 
 permissions:
   contents: read
