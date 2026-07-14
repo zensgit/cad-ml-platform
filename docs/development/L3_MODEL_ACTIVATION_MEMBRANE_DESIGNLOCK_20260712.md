@@ -63,7 +63,9 @@ Corrections from review, all load-bearing:
 
 ## 0.5 Phasing — freeze first (Phase A), prove later (Phase B)
 
-Per the owner's 2026-07-13 ratification, this membrane ships in **two separately-ratifiable phases**.
+**PROPOSED phasing — no ratification has occurred.** This doc is for-review; the owner alone
+ratifies it (no owner review/comment/pinned-head ratification exists as of this writing). The
+proposal is that the membrane ships in **two separately-ratifiable phases**.
 Phase A is cheap containment that needs **no** cryptographic proof store; Phase B is the full proof
 membrane and is **deferred until a real pilot needs dynamic model-swap**. Building the signed store now
 (Phase B) would spend ~2–3 weeks and add **no customer evidence**, while the live boundary (§1.A external
@@ -89,9 +91,19 @@ membrane and is **deferred until a real pilot needs dynamic model-swap**. Buildi
    `classifier.py:535`, `faiss_store.py:96`; torch `weights_only=False` ×5 `part_classifier.py:655,695,62`,
    `hybrid_classifier.py:448,476`).
 
-**Phase A exit (observed-RED, executed):** external `/model/reload` refuses in prod with no env bypass;
-a new un-annotated prod loader REDS CI; every `gated` §1.A/1.B site is frozen per the enumerator; no caller
-path is opened anywhere.
+**Phase A exit criteria (observed-RED, REQUIRED — NOT claimed executed here):** external
+`/model/reload` refuses in prod with no env bypass; a new un-annotated prod loader REDS CI; **every**
+`gated` §1.A/1.B site is frozen (hard-refuse) per the enumerator; no caller path is opened anywhere.
+
+> **What #516 actually delivers = Phase A0 only, not full Phase A.** #516 seals the external
+> `/model/reload` route (403), fail-closes the default `test` creds in a production posture, and ships
+> the enumerator as a *discovery/classification* gate. It does **NOT** yet freeze the 30 internal
+> `gated` loaders (they still load), and the enumerator does **NOT** yet assert each `gated` site is
+> frozen or routed through `verify_and_load`. So the middle exit criterion above ("every gated site
+> frozen") and the enumerator-freeze assertion are **still unbuilt**. Honest #516 closeout: *external
+> reload sealed; producer disabled; internal runtime activation remains proof-unbound.* Full Phase A
+> (freeze every gated site + enumerator asserts frozen-or-verified) is the next build after this lock
+> ratifies.
 
 **Phase A does NOT build:** the proof schema (§2.2), the signed proof store / issuer / key-custody (§2.3),
 `verify_and_load`'s proof lookup (§3 steps 4–5), revocation/expiry, the LKG re-validation readiness probe,
@@ -364,7 +376,7 @@ revocation and incident review possible after the fact.
   and with cross-customer training default-off. (The earlier "never enter a training-readable store"
   overstated the canonical strategy — the rule is conditional, not absolute.)
 
-## 5. Golden matrix the implementation must ship (observed-RED, executed)
+## 5. Golden matrix the implementation must ship (observed-RED, REQUIRED — not yet executed; the membrane is unbuilt)
 
 **Phasing of this matrix:** **Phase A** ships the freeze/reject subset — *caller supplies a filesystem `path`*
 → REJECTED, *complete-but-leave-`ADMIN_TOKEN=test`* → route stays DISABLED, and *a new un-annotated prod
