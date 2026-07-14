@@ -32,8 +32,10 @@ would escape until its pattern is added here. So the guarantee is precisely: *"a
 DECLARED idiom cannot land unclassified"*, and the idiom list must be widened as new frameworks
 appear. Discovery + fail-closed bookkeeping ONLY: it can never emit a "green that enables" — it only
 passes (all classified) or reds. Exit 0 = all classified + no stale entry; exit 1 = unclassified/stale
-FINDING; exit 2 = MALFUNCTION (an in-scope file could not be parsed → the enumeration is INCOMPLETE →
-fail-closed, never a silent skip). A malfunction is NOT a finding. Stdlib only.
+FINDING; exit 2 = MALFUNCTION — the gate could not complete its own check (an in-scope file could not be
+read/parsed, or the manifest is missing/unreadable/undecodable/invalid-JSON/schema-invalid), so
+completeness CANNOT be asserted → fail-closed, never a silent skip. A malfunction is NOT a finding, and
+never wears a finding's exit code. Stdlib only.
 """
 from __future__ import annotations
 
@@ -170,9 +172,9 @@ def enumerate_sites() -> Dict[str, dict]:
                 continue
             try:
                 tree = ast.parse(py.read_text(encoding="utf-8"), filename=rel)
-            except (SyntaxError, UnicodeDecodeError) as exc:
-                # FAIL-CLOSED: an unparseable in-scope file means we cannot prove we saw every loader
-                # in it. Record a MALFUNCTION (exit 2) — never silently skip it (that is fail-open).
+            except (SyntaxError, UnicodeDecodeError, OSError) as exc:
+                # FAIL-CLOSED: an unparseable OR unreadable in-scope file means we cannot prove we saw
+                # every loader in it. Record a MALFUNCTION (exit 2) — never silently skip (fail-open).
                 malfunctions.append((rel, type(exc).__name__, " ".join(str(exc).split())))
                 continue
             mod_alias, imported = _collect_imports(tree)
@@ -190,14 +192,41 @@ def enumerate_sites() -> Dict[str, dict]:
 
 
 def load_manifest() -> Dict[str, dict]:
+    """The classification manifest.
+
+    EVERY failure here is a gate MALFUNCTION (exit 2), never a finding (exit 1): if the manifest is
+    missing / unreadable / undecodable / not valid JSON / schema-invalid, the gate cannot assert
+    completeness at all. Previously these raised ``SystemExit(str)`` and surfaced as exit 1 — i.e. a
+    malfunction wearing a finding's exit code, which breaks the exit-code contract.
+    """
+    rel = MANIFEST.as_posix()
     if not MANIFEST.exists():
-        raise SystemExit(f"[activation-enumerator] manifest missing: {MANIFEST}")
-    entries = json.loads(MANIFEST.read_text(encoding="utf-8")).get("sites", {})
+        raise EnumeratorMalfunction(
+            [(rel, "FileNotFoundError", "manifest missing — completeness cannot be asserted")]
+        )
+    try:
+        raw = MANIFEST.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise EnumeratorMalfunction([(rel, type(exc).__name__, " ".join(str(exc).split()))]) from exc
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise EnumeratorMalfunction([(rel, "JSONDecodeError", " ".join(str(exc).split()))]) from exc
+    if not isinstance(data, dict) or not isinstance(data.get("sites", {}), dict):
+        raise EnumeratorMalfunction(
+            [(rel, "SchemaError", "manifest must be an object with a 'sites' object")]
+        )
+    entries = data.get("sites", {})
     for key, entry in entries.items():
+        if not isinstance(entry, dict):
+            raise EnumeratorMalfunction(
+                [(rel, "SchemaError", f"entry {key!r} must be an object, got {type(entry).__name__}")]
+            )
         if entry.get("class") not in VALID_CLASSES:
-            raise SystemExit(
-                f"[activation-enumerator] manifest entry {key!r} has invalid class "
-                f"{entry.get('class')!r} (valid: {sorted(VALID_CLASSES)})"
+            raise EnumeratorMalfunction(
+                [(rel, "InvalidClass",
+                  f"entry {key!r} has invalid class {entry.get('class')!r} "
+                  f"(valid: {sorted(VALID_CLASSES)})")]
             )
     return entries
 
@@ -205,16 +234,16 @@ def load_manifest() -> Dict[str, dict]:
 def main(argv=None) -> int:
     try:
         found = enumerate_sites()
+        manifest = load_manifest()
     except EnumeratorMalfunction as exc:
         sys.stderr.write(
-            "[activation-enumerator] MALFUNCTION (exit 2) — cannot parse in-scope file(s); the "
-            "enumeration is INCOMPLETE, so completeness CANNOT be asserted. This is a gate malfunction, "
-            "NOT a finding (exit 1). Fix the file(s) or remove them from SCAN_DIRS:\n"
+            "[activation-enumerator] MALFUNCTION (exit 2) — the gate could not complete its own check "
+            "(an unreadable/unparseable in-scope file, or an unusable manifest), so completeness CANNOT "
+            "be asserted. This is a gate malfunction, NOT a finding (exit 1):\n"
         )
         for rel, etype, msg in exc.malfunctions:
             sys.stderr.write(f"  ! {rel}  {etype}: {msg}\n")
         return EXIT_MALFUNCTION
-    manifest = load_manifest()
     unclassified = sorted(set(found) - set(manifest))
     stale = sorted(set(manifest) - set(found))
 

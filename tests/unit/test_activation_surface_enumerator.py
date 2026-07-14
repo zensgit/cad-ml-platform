@@ -48,15 +48,19 @@ def test_stale_manifest_entry_reds(tmp_path, monkeypatch, capsys) -> None:
     assert "STALE" in capsys.readouterr().err
 
 
-def test_invalid_class_is_rejected(tmp_path, monkeypatch) -> None:
+def test_invalid_class_is_rejected(tmp_path, monkeypatch, capsys) -> None:
     real = json.loads(enum.MANIFEST.read_text(encoding="utf-8"))
     k = sorted(real["sites"])[0]
     real["sites"][k] = {"class": "totally-safe-trust-me", "reason": "x"}
     bad = tmp_path / "activation_surface.json"
     bad.write_text(json.dumps(real), encoding="utf-8")
     monkeypatch.setattr(enum, "MANIFEST", bad)
-    with pytest.raises(SystemExit):
+    # a schema-invalid manifest is a MALFUNCTION (exit 2), not a finding (exit 1): previously this
+    # raised SystemExit(str) and the CLI surfaced exit 1 — a malfunction wearing a finding's code.
+    with pytest.raises(enum.EnumeratorMalfunction):
         enum.load_manifest()
+    assert enum.main() == enum.EXIT_MALFUNCTION == 2
+    assert "InvalidClass" in capsys.readouterr().err
 
 
 def test_every_gated_site_carries_a_family() -> None:
@@ -100,11 +104,49 @@ def test_unicodedecodeerror_in_scope_is_malfunction_exit_2(tmp_path, monkeypatch
     assert "MALFUNCTION" in err and "src/bad_bytes.py" in err and "UnicodeDecodeError" in err
 
 
+def test_unreadable_in_scope_file_is_malfunction_exit_2(tmp_path, monkeypatch, capsys) -> None:
+    # an OSError while reading an in-scope file is equally "cannot prove I saw its loaders".
+    # A directory named *.py is matched by rglob and raises IsADirectoryError (an OSError) on read —
+    # deterministic and portable (unlike chmod, which root ignores).
+    _point_scan_at(tmp_path, monkeypatch, {"src/fine.py": "X = 1\n"})
+    (tmp_path / "src" / "unreadable.py").mkdir()
+    assert enum.main() == enum.EXIT_MALFUNCTION == 2
+    err = capsys.readouterr().err
+    assert "MALFUNCTION" in err and "src/unreadable.py" in err
+
+
 def test_wellformed_file_is_not_a_malfunction(tmp_path, monkeypatch) -> None:
     # positive control: a parseable in-scope file with no loader is NOT a malfunction -> exit 0, not 2.
     _point_scan_at(tmp_path, monkeypatch, {"src/fine.py": "X = 1\ndef g():\n    return X\n"})
     assert enum.enumerate_sites() == {}          # parses cleanly, no raise, no loaders
     assert enum.main() == enum.EXIT_OK == 0
+
+
+# --- manifest failures are MALFUNCTIONS too (exit 2), never findings (exit 1) ----------------------
+# observed-RED: on the pre-fix code all three below raised SystemExit(str)/JSONDecodeError and the CLI
+# exited 1 — i.e. a gate malfunction misclassified as a finding. Reproduced: exit 1, 1, 1.
+
+def test_missing_manifest_is_malfunction_exit_2(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.setattr(enum, "MANIFEST", tmp_path / "does_not_exist.json")
+    assert enum.main() == enum.EXIT_MALFUNCTION == 2
+    err = capsys.readouterr().err
+    assert "MALFUNCTION" in err and "FileNotFoundError" in err and "NOT a finding" in err
+
+
+def test_corrupt_json_manifest_is_malfunction_exit_2(tmp_path, monkeypatch, capsys) -> None:
+    bad = tmp_path / "activation_surface.json"
+    bad.write_text("{ this is not valid json", encoding="utf-8")
+    monkeypatch.setattr(enum, "MANIFEST", bad)
+    assert enum.main() == enum.EXIT_MALFUNCTION == 2
+    assert "JSONDecodeError" in capsys.readouterr().err
+
+
+def test_manifest_schema_violation_is_malfunction_exit_2(tmp_path, monkeypatch, capsys) -> None:
+    bad = tmp_path / "activation_surface.json"
+    bad.write_text(json.dumps({"sites": {"k::x::torch.load#0": "not-an-object"}}), encoding="utf-8")
+    monkeypatch.setattr(enum, "MANIFEST", bad)
+    assert enum.main() == enum.EXIT_MALFUNCTION == 2
+    assert "SchemaError" in capsys.readouterr().err
 
 
 import ast as _ast
