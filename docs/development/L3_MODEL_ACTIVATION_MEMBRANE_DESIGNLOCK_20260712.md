@@ -1,7 +1,7 @@
 # L3 Design-Lock — Model-Release & Activation Proof Membrane
 
 **Date**: 2026-07-12 (rev 2026-07-13 — review 4: **Phase A/B split**) · **Status**: PROPOSED (for-review; do NOT self-merge; owner ratifies)
-**Rigor**: L3 (`PRODUCT_STRATEGY.md` §7.1) · **Grounded on**: `origin/main@8ff94175`; activation map reconfirmed against `origin/main@e2facd99` (2026-07-13: the CI activation-surface enumerator — import-aware, the authority, NOT a hand-count — reports **38 `gated` production-reachable loads across 11 families**; a hand-count has been wrong ≥4 times)
+**Rigor**: L3 (`PRODUCT_STRATEGY.md` §7.1) · **Grounded on**: `origin/main@8ff94175`; activation map on `origin/main@f2ebe2fa` (2026-07-14; #516 enumerator + #519 hardening merged; the CI activation-surface enumerator — import-aware, the authority, NOT a hand-count — reports **38 `gated` production-reachable loads across 11 families**; a hand-count has been wrong ≥4 times)
 **Authority**: `PRODUCT_STRATEGY.md` §4 (AI safety), §5.2 (evaluation integrity not release-grade),
 §8.1 (Track E). Scheduled deliverable for the 7/20–7/26 week; pulled forward because the runtime
 work is P0-blocked and a design-lock is a doc, not runtime.
@@ -70,7 +70,7 @@ ratifies it (no owner review/comment/pinned-head ratification exists as of this 
 proposal is that the membrane ships in **two separately-ratifiable phases**.
 Phase A is cheap containment that needs **no** cryptographic proof store; Phase B is the full proof
 membrane and is **deferred until a real pilot needs dynamic model-swap**. Building the signed store now
-(Phase B) would spend ~2–3 weeks and add **no customer evidence**, The external `/model/reload` boundary is now **sealed (#516, 403)**; the remaining live gap is
+(Phase B) would spend ~2–3 weeks and add **no customer evidence**. The external `/model/reload` boundary is now **sealed (#516, 403)**; the remaining live gap is
 the **38 internal `gated` loaders** (still unpinned). Pin those first (owner decision (b)).
 
 ### Phase A — Static-artifact activation (fixed-`SHA-256` pin; build next, after **this** lock ratifies — the internal fixed-hash loaders do NOT depend on caller identity; the production-identity gate only gates a future re-open of `/model/reload`)
@@ -83,20 +83,62 @@ is Phase B). Per the owner's decision (b), models still load from pinned server-
    decision, §3.2). A request carrying a valid `path`+`force`+default `test` creds must not reach
    `reload_model`. (This route is DONE — #516.)
 2. **Static fixed-hash activation at every §1.A/1.B `gated` site (owner decision (b)).** Each `gated`
-   loader may activate a model **only** from a *server-owned, fixed-`SHA-256`* artifact resolved from a
-   controlled store: **no caller-influenced path, no env-var path-swap, no dynamic replacement**. The
-   site reads the resolved bytes once, compares their SHA-256 to the pinned value, and loads THOSE
-   bytes (or refuses fail-closed on mismatch/unknown-id). An unclassified/unpinned load cannot
-   activate. This is a subset of §3's `verify_and_load` **without** the signed proof store (Phase B).
+   loader may activate a model **only** from a *server-owned* artifact resolved from a controlled store:
+   **no caller-influenced path, no env-var path-swap, no dynamic replacement, and no network fetch at
+   load** (offline-only). An unclassified/unpinned load cannot activate. This is a subset of §3's
+   `verify_and_load` **without** the signed proof store (Phase B). Two artifact KINDS — because several
+   `gated` families are NOT single files (review 7c):
+
+   - **single-file** (`torch.load`/`pickle.load`/`onnx.load` of one file — graph2d, part, hybrid,
+     history, vision3d, pickle-classifier): read the resolved bytes **once**, `SHA-256(bytes) ==`
+     the pinned value, and load **THOSE** bytes (TOCTOU-safe). This is the original contract.
+   - **bundle / tree** (`from_pretrained` / `SentenceTransformer` / `PaddleOCR` — ocr, embedding —
+     which load a **directory of many files**, and may otherwise fetch from a network hub): the pin is
+     a **deterministic tree digest** = `SHA-256` over the **sorted** list of `(posix-relpath,
+     SHA-256(file-bytes))` for **every** file under the artifact root. The site (a) resolves a
+     server-owned artifact id to a controlled, **read-only, already-unpacked** local directory —
+     **never** a hub id, and with `HF_HUB_OFFLINE=1` / `local_files_only=True` so no network load can
+     occur; (b) recomputes the tree digest over that directory, `resolve()`-contained to the store
+     root (reject any symlink/`..`/absolute escaping the root, per-file); (c) `== the pinned tree
+     digest`, then hands the framework loader the **verified local path**; else refuses fail-closed.
+     A controlled unpack (if the release ships an archive) verifies the archive digest first and
+     unpacks into the store with path-traversal rejection, before the tree digest is taken.
+
+   Either KIND refuses fail-closed on mismatch / unknown-id / missing / any containment escape.
 3. **CI activation-surface enumerator (§1/§3) — the completeness authority FOR DECLARED loader idioms** (import-aware torch/pickle/joblib/onnx `.load`, `load_state_dict`, `from_pretrained`, curated constructors, `reload_model(`; NOT a proof of every possible Python load — a novel framework escapes until its pattern is added). Marks every
    `torch.load`/`pickle.load(s)`/`joblib.load` (import-alias-aware) / `load_state_dict` / `from_pretrained` (HF) / model constructors (`SentenceTransformer`/`PaddleOCR`/…) / `reload_model(` site `gated|producer|offline|unmounted|infra` and
    REDS when a new un-annotated load MATCHING A DECLARED IDIOM appears, or a `gated` site is neither fixed-hash-checked (Phase A, owner decision (b)) nor routed through
    `verify_and_load` (Phase B). This replaces the hand-count (wrong ≥3×). Seed = the §1 map; authority = the
-   e2facd99 IMPORT-AWARE enumeration: **128 load sites total, 38 `gated`** across 11 families
+   IMPORT-AWARE enumeration (f2ebe2fa): **128 load sites total, 38 `gated`** across 11 families
    (pickle-classifier, graph2d, pointnet, part, part-v16, hybrid, history, vision3d-uvnet, **ocr** —
    DeepSeek HF `from_pretrained`+PaddleOCR via mounted /ocr — and **embedding** — SentenceTransformer;
    plus latent anomaly-monitor). A name-only matcher (review 5) missed the ocr/embedding families and
    import aliases entirely — the enumerator is now import-aware (+onnx/ort, review 6) and reds on any new un-annotated load matching a declared idiom.
+
+4. **Guard-verification contract — the enumerator must PROVE each guard is wired, not just classify
+   (review 7c).** #516's enumerator only classifies a site (`class`/`family`/`reason`); it is GREEN
+   even with **zero** guards wired — that is correct for **Phase A0** (discovery), but full Phase A
+   must make "the guard is present" a machine-checked fact. The manifest schema therefore gains, per
+   **logical activation** (NOT per AST call site — see below):
+
+   - `logical_activation_id` — one stable id per *logical* model activation. The 38 AST call sites are
+     **not** 38 activations: a single `_load_model()` often has one `torch.load` **plus** several
+     `load_state_dict` calls that together are **one** activation; the contract binds the id to the
+     activation (its entry function), and the enumerator groups the member AST sites under it.
+   - `guard_mode` ∈ `{ sealed | fixed-hash | bundle-digest | verify_and_load | unbuilt }` — what
+     protects this activation. `sealed` = the route is 403 (`/model/reload`, #516). `fixed-hash` /
+     `bundle-digest` = the Phase-A (b) single-file / tree check. `verify_and_load` = Phase B. `unbuilt`
+     = no guard yet (the 38 internal loaders today).
+   - `guard_symbol` — the fully-qualified function that performs the check (e.g.
+     `src.ml.model_pin.assert_fixed_hash`), which the enumerator must find **dominating** the load in
+     the activation's call graph.
+
+   **The enumerator's Phase-A assertion:** for every `gated` `logical_activation_id`, `guard_mode`
+   must be a real guard (not `unbuilt`) **and** the `guard_symbol` must actually be present on the
+   path to the load; **deleting or bypassing the guard reds CI (an observed-RED test ships with it).**
+   Until full Phase A wires the guards, the internal loaders are honestly recorded `guard_mode:
+   unbuilt` and the assertion is **advisory** (A0) → **blocking** (full Phase A). This closes the "38
+   sites all unguarded but CI green" gap the reviewer flagged.
 
 **Phase A exit criteria (observed-RED, REQUIRED — NOT claimed executed here):** external
 `/model/reload` refuses in prod with no env bypass; a new un-annotated prod loader REDS CI; **every**
@@ -110,7 +152,7 @@ refuses fail-closed; and the enumerator asserts every `gated` site is either fix
 > the enumerator as a *discovery/classification* gate. It does **NOT** yet freeze the 38 internal
 > `gated` loaders (they still load), and the enumerator does **NOT** yet assert each `gated` site is
 > frozen or routed through `verify_and_load`. So the middle exit criterion above (every gated
-> site fixed-hash-checked, owner decision (b)) and the enumerator assertion are **still unbuilt**. Honest #516 closeout: *external
+> site fixed-hash/bundle-digest-checked, owner decision (b)) and the enumerator guard-assertion are **still unbuilt**. Honest #516 closeout: *external
 > reload sealed; producer disabled; internal runtime activation remains proof-unbound.* Full Phase A
 > (fixed-hash-check every gated site per (b) + enumerator asserts hashed-or-verified) is the next build
 > after this lock ratifies.
@@ -118,6 +160,26 @@ refuses fail-closed; and the enumerator asserts every `gated` site is either fix
 **Phase A does NOT build:** the proof schema (§2.2), the signed proof store / issuer / key-custody (§2.3),
 `verify_and_load`'s proof lookup (§3 steps 4–5), revocation/expiry, the LKG re-validation readiness probe,
 or the append-only activation audit (§3.3). All of those are Phase B.
+
+**Phase A — default-off, pin authority, and failure product-semantics (review 7c).**
+
+- **Default-off at land.** When the Phase-A code merges it ships with **no production pin configured**;
+  the guard defaults to *refuse* (`degraded`, §below) until a pin manifest is supplied. **Enabling a
+  pin is a separate owner/deployment decision — a controlled release asset, not a code flag** (there
+  is no `ENABLE_PIN=1`; a pin exists or it does not). `merged != enabled != safe`.
+- **Pin authority & immutability.** The pin manifest (`logical_activation_id / artifact_id → {kind,
+  SHA-256 | tree-digest}`) lives in a **controlled release asset that the running service cannot
+  modify** (read-only mount / signed release bundle / deploy-time-baked config). It is **not**
+  runtime-writable and **not** env-swappable; a new pin is a **deploy**, never a request or a hot
+  refresh. The service reads it once at startup into immutable state.
+- **Failure = an explicit, defined product state — NO silent stub.** On missing pin / hash-miss /
+  bundle-digest-miss / containment-escape, each family MUST enter a **defined `degraded` state with a
+  `503` (or family-appropriate) health/readiness contract** — the endpoint tells the client the model
+  is unavailable; it does **not** silently serve a stand-in. This is a **hard change from today**:
+  `src/core/ocr/providers/deepseek_hf.py` currently **falls back to a stub** on load failure
+  (`deepseek_hf.py:93`), which is *fail-open* (a caller silently gets a stub answer). Phase A replaces
+  every such silent-stub/best-effort fallback with the explicit `degraded`/503 contract; a family's
+  Phase-A shard is not accepted until its silent fallbacks are gone and its degraded contract is tested.
 
 ### Phase B — Proof membrane (DEFERRED — build **only** when a real pilot needs dynamic model-swap)
 
@@ -201,8 +263,7 @@ That inverts the burden: a new activation surface reds CI until it is gated or e
 out. This §1 map is the *seed* of that enumerator, not the authority.
 
 **Coverage gap today:** **#509 closes NONE of the runtime activation points** — it closes the
-`auto_retrain` *producer* (necessary, but upstream of activation). Every load in §1.A/1.B (now ≥5,
-across ≥4 families) is proof-unbound. The runtime activation membrane is **entirely unbuilt**.
+`auto_retrain` *producer* (necessary, but upstream of activation). Every load in §1.A/1.B (**38 `gated` across 11 families** per the enumerator) is proof-unbound. The runtime activation membrane is **entirely unbuilt**.
 
 ---
 
@@ -426,6 +487,12 @@ on **Track E** existing, so the build order is **Phase A → Track E → Phase B
 | caller supplies a filesystem `path`, or an env var swaps the artifact path | REJECTED — no caller-influenced path is ever opened |
 | attempt to **hot-swap / re-point the pinned manifest at runtime** | REJECTED — the pin manifest is **immutable at runtime**; a new pin is a deploy, not a request/env-swap |
 | the resolved artifact **escapes the store root** (symlink / `..` / absolute outside root) | RED — `resolve()`-contained to the store root (same containment discipline as the Track E manifest) |
+| **bundle/tree** family (HF/SentenceTransformer/PaddleOCR): the deterministic tree digest over the unpacked dir **== the pinned tree-digest** | **GREEN** (bundle Phase-A green; loads from the verified local path) |
+| a file is added/removed/changed inside the bundle dir | RED — the tree digest changes → `degraded`/503 |
+| the loader would **fetch from a network hub** (hub id / online) | REJECTED — offline-only (`HF_HUB_OFFLINE`/`local_files_only`); a hub id is never a valid artifact id |
+| any file in the bundle **escapes the store root** (per-file symlink/`..`/absolute) | RED — per-file `resolve()`-containment |
+| load fails and the provider tries a **silent stub / best-effort fallback** (e.g. deepseek_hf.py:93) | FORBIDDEN — must enter the explicit `degraded`/503, never serve a stub |
+| **no pin configured** at land (default-off) | the guard refuses → `degraded`/503 (a pin is a deploy decision, not a code flag) |
 | **swap the file between hash and load** (TOCTOU) | RED — read once, hash and load THE SAME bytes |
 | a new **un-annotated** prod loader appears | CI RED (the enumerator, §1/§3) |
 
@@ -461,8 +528,8 @@ Accurate post-#509 status, by threat actor (§3.1 — do not conflate them):
   `/model/reload`). It is **not** contained by CODEOWNERS (#512 is an unarmed ownership map), and branch
   protection is not a substitute for stopping it. No unattended routine may author or merge this L3
   runtime.
-- **A runtime API caller / operator** can still reach the **≥5 production-reachable activation points
-  across ≥4 model families** (the CI activation-surface enumerator, not a hand count, is the
+- **A runtime API caller / operator** can still reach the **38 production-reachable `gated` activation points
+  across 11 model families** (the CI activation-surface enumerator, not a hand count, is the
   authority — §1.B(cont)/§3). The external `/model/reload` is **now SEALED (403, #516)** and is no
   longer reachable; the remaining live gap is the **38 internal `gated` loaders** — the pickle-classifier
   startup load and the graph2d / hybrid-branch (stat, text) / pointnet / part / history-sequence /
