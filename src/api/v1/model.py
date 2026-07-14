@@ -57,7 +57,8 @@ async def model_reload(
 
     This route hot-reloaded an ARBITRARY caller-supplied `path` into the serving process
     (`reload_model(payload.path, force=...)` → `classifier.py:535 pickle.loads`, which deserializes
-    BEFORE the whitelist/hash check, with the hash truncated to 16 hex — a reproduced RCE), guarded
+    BEFORE the whitelist/hash check, with the hash truncated to 16 hex — an externally reachable
+    arbitrary-deserialization / code-execution risk), guarded
     only by `api_key`/`admin_token` that both default to the literal `"test"`. It is the highest-risk
     external model-activation surface (L3 design-lock §1.A/§3.2).
 

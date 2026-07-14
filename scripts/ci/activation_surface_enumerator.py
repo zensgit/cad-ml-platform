@@ -31,7 +31,11 @@ loader idiom (a bespoke `MyLoader.from_file`, a C-extension entry point, `eval`-
 would escape until its pattern is added here. So the guarantee is precisely: *"a new site matching a
 DECLARED idiom cannot land unclassified"*, and the idiom list must be widened as new frameworks
 appear. Discovery + fail-closed bookkeeping ONLY: it can never emit a "green that enables" — it only
-passes (all classified) or reds. Exit 0 = all classified + no stale entry; exit 1 otherwise. Stdlib only.
+passes (all classified) or reds. Exit 0 = all classified + no stale entry; exit 1 = unclassified/stale
+FINDING; exit 2 = MALFUNCTION — the gate could not complete its own check (an in-scope file could not be
+read/parsed, or the manifest is missing/unreadable/undecodable/invalid-JSON/schema-invalid), so
+completeness CANNOT be asserted → fail-closed, never a silent skip. A malfunction is NOT a finding, and
+never wears a finding's exit code. Stdlib only.
 """
 from __future__ import annotations
 
@@ -55,6 +59,32 @@ _TRACKED_EXTRA_MODULES = {"sentence_transformers", "transformers", "paddleocr", 
 # Attribute-call kinds that are model loads regardless of the receiver object.
 _ATTR_LOADERS = {"from_pretrained", "load_state_dict"}
 _BARE_CALL_NAMES = {"reload_model"}
+
+# Exit codes — a gate MALFUNCTION must never be mistaken for a clean pass (0) or a finding (1).
+EXIT_OK = 0            # every discovered site is classified, no stale manifest entry
+EXIT_FINDING = 1       # a new UNCLASSIFIED site, or a STALE manifest entry
+EXIT_MALFUNCTION = 2   # the gate could not complete its own check — an unreadable/unparseable
+                       # in-scope file, OR an unusable manifest → completeness UNASSERTABLE →
+                       # fail-closed (never a silent skip, never an "empty but valid" degrade)
+
+
+class EnumeratorMalfunction(Exception):
+    """The gate could not complete its own check, so completeness CANNOT be asserted.
+
+    Two sources, one verdict — a MALFUNCTION (exit 2), never a finding (exit 1):
+
+    * **source scan** — an in-scope file could not be read or parsed; it may hide unregistered
+      loaders, so skipping it would be fail-open;
+    * **manifest** — missing / unreadable / undecodable / invalid JSON / schema-invalid /
+      invalid class; without a usable classification there is nothing to check completeness
+      against, and degrading to an "empty but valid" manifest would fabricate a clean pass.
+
+    Fail closed in both cases.
+    """
+
+    def __init__(self, malfunctions: List[Tuple[str, str, str]]) -> None:
+        self.malfunctions = malfunctions  # list of (relpath, error_type, message)
+        super().__init__(f"{len(malfunctions)} gate malfunction(s)")
 
 
 def _collect_imports(tree: ast.AST) -> Tuple[Dict[str, str], Dict[str, Tuple[str, str]]]:
@@ -144,6 +174,7 @@ def enumerate_sites() -> Dict[str, dict]:
     key = "<relpath>::<qualname>::<kind>#<n>" — stable across line-number drift (AST, not grep).
     """
     found: Dict[str, dict] = {}
+    malfunctions: List[Tuple[str, str, str]] = []
     for d in SCAN_DIRS:
         for py in sorted((REPO_ROOT / d).rglob("*.py")):
             rel = py.relative_to(REPO_ROOT).as_posix()
@@ -151,7 +182,12 @@ def enumerate_sites() -> Dict[str, dict]:
                 continue
             try:
                 tree = ast.parse(py.read_text(encoding="utf-8"), filename=rel)
-            except (SyntaxError, UnicodeDecodeError):
+            except (SyntaxError, ValueError, OSError) as exc:
+                # FAIL-CLOSED: an unparseable OR unreadable in-scope file means we cannot prove we saw
+                # every loader in it. ValueError covers UnicodeDecodeError and Python versions where
+                # ast.parse reports a null character that way. Record a MALFUNCTION (exit 2) — never
+                # silently skip (fail-open).
+                malfunctions.append((rel, type(exc).__name__, " ".join(str(exc).split())))
                 continue
             mod_alias, imported = _collect_imports(tree)
             v = _LoadVisitor(mod_alias, imported)
@@ -162,25 +198,72 @@ def enumerate_sites() -> Dict[str, dict]:
                 n = per_key.get(base, 0)
                 per_key[base] = n + 1
                 found[f"{base}#{n}"] = {"file": rel, "symbol": qual, "kind": kind, "lineno": lineno}
+    if malfunctions:
+        raise EnumeratorMalfunction(malfunctions)
     return found
 
 
 def load_manifest() -> Dict[str, dict]:
+    """The classification manifest.
+
+    EVERY failure here is a gate MALFUNCTION (exit 2), never a finding (exit 1): if the manifest is
+    missing / unreadable / undecodable / not valid JSON / schema-invalid, the gate cannot assert
+    completeness at all. Previously these raised ``SystemExit(str)`` and surfaced as exit 1 — i.e. a
+    malfunction wearing a finding's exit code, which breaks the exit-code contract.
+    """
+    rel = MANIFEST.as_posix()
     if not MANIFEST.exists():
-        raise SystemExit(f"[activation-enumerator] manifest missing: {MANIFEST}")
-    entries = json.loads(MANIFEST.read_text(encoding="utf-8")).get("sites", {})
+        raise EnumeratorMalfunction(
+            [(rel, "FileNotFoundError", "manifest missing — completeness cannot be asserted")]
+        )
+    try:
+        raw = MANIFEST.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise EnumeratorMalfunction([(rel, type(exc).__name__, " ".join(str(exc).split()))]) from exc
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise EnumeratorMalfunction([(rel, "JSONDecodeError", " ".join(str(exc).split()))]) from exc
+    if (
+        not isinstance(data, dict)
+        or "sites" not in data
+        or not isinstance(data["sites"], dict)
+    ):
+        # NB: `data.get("sites", {})` would let a manifest with NO 'sites' key through as an "empty
+        # but valid" manifest — a fabricated clean pass. A missing key is schema-invalid, not empty.
+        raise EnumeratorMalfunction(
+            [(rel, "SchemaError",
+              "manifest must be an object with a 'sites' object (a missing 'sites' key is "
+              "schema-invalid, NOT an empty manifest)")]
+        )
+    entries = data["sites"]
     for key, entry in entries.items():
+        if not isinstance(entry, dict):
+            raise EnumeratorMalfunction(
+                [(rel, "SchemaError", f"entry {key!r} must be an object, got {type(entry).__name__}")]
+            )
         if entry.get("class") not in VALID_CLASSES:
-            raise SystemExit(
-                f"[activation-enumerator] manifest entry {key!r} has invalid class "
-                f"{entry.get('class')!r} (valid: {sorted(VALID_CLASSES)})"
+            raise EnumeratorMalfunction(
+                [(rel, "InvalidClass",
+                  f"entry {key!r} has invalid class {entry.get('class')!r} "
+                  f"(valid: {sorted(VALID_CLASSES)})")]
             )
     return entries
 
 
 def main(argv=None) -> int:
-    found = enumerate_sites()
-    manifest = load_manifest()
+    try:
+        found = enumerate_sites()
+        manifest = load_manifest()
+    except EnumeratorMalfunction as exc:
+        sys.stderr.write(
+            "[activation-enumerator] MALFUNCTION (exit 2) — the gate could not complete its own check "
+            "(an unreadable/unparseable in-scope file, or an unusable manifest), so completeness CANNOT "
+            "be asserted. This is a gate malfunction, NOT a finding (exit 1):\n"
+        )
+        for rel, etype, msg in exc.malfunctions:
+            sys.stderr.write(f"  ! {rel}  {etype}: {msg}\n")
+        return EXIT_MALFUNCTION
     unclassified = sorted(set(found) - set(manifest))
     stale = sorted(set(manifest) - set(found))
 
@@ -197,7 +280,7 @@ def main(argv=None) -> int:
         for k in stale:
             sys.stderr.write(f"  - {k}  (was: {manifest[k].get('class')})\n")
     if unclassified or stale:
-        return 1
+        return EXIT_FINDING
 
     by_class: Dict[str, int] = {}
     for e in manifest.values():
@@ -208,7 +291,7 @@ def main(argv=None) -> int:
     print(f"[activation-enumerator] {gated} `gated` production-reachable activation point(s). These "
           "are DISCOVERED + classified only; Phase A0 does NOT freeze them (they still load). Full "
           "Phase A must freeze each (hard-refuse) or route it through verify_and_load (Phase B).")
-    return 0
+    return EXIT_OK
 
 
 if __name__ == "__main__":
