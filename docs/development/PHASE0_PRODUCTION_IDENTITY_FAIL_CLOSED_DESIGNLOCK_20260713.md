@@ -25,9 +25,9 @@ server by the owner 2026-07-13):
 | 2 | **Any** attacker-chosen `X-API-Key` → **200** | `dependencies.py:8-11` — returns the header value; **no comparison to any expected key** |
 | 3 | Valid JWT `sub=alice` + `x-user-id=bob` → identity `user_id=bob` | `src/api/middleware/integration_auth.py:104` — `user_id = header or str(subject)`; **tenant is checked (`:95`), user is not** |
 | 4 | Default `ADMIN_TOKEN=test` lets a caller's `path`+`force` reach the model loader | `dependencies.py:38` `os.getenv("ADMIN_TOKEN","test")` + `src/api/v1/model.py:46,71` → `reload_model(payload.path, force=…)` |
-| 5 | `INTEGRATION_AUTH_MODE` default `disabled` → **all auth skipped**; identity set from **raw headers** | `src/core/config.py:27` / `config/__init__.py:50` default `"disabled"`; `integration_auth.py:47-49` skip + `_set_state_from_headers` |
-| 6 | JWT accepted with **no `exp` / no `aud` / no `iss`** | `integration_auth.py:88` `jwt.decode(token, secret, algorithms=[alg])` — no `audience=`, no `issuer=`, no `require:["exp"]` |
-| 7 | **A test locks in the vulnerability** | `tests/unit/test_integration_auth_middleware.py:110` asserts `user_id == "user-header"` (spoofed) while `auth_subject == "user-1"` |
+| 5 | `INTEGRATION_AUTH_MODE` default `disabled` → **all auth skipped**; identity set from **raw headers** | `src/core/config.py:27` / `config/__init__.py:50` default `"disabled"`; `integration_auth.py:56-58` skip + `_set_state_from_headers` |
+| 6 | JWT accepted with **no `exp` / no `aud` / no `iss`** | `integration_auth.py:84` `jwt.decode(token, secret, algorithms=[alg])` — no `audience=`, no `issuer=`, no `require:["exp"]` |
+| 7 | **A test locks in the vulnerability** | `tests/unit/test_integration_auth_middleware.py:111` asserts `user_id == "user-header"` (spoofed); `:112` asserts `auth_subject == "user-1"` |
 
 There is **no** startup/runtime guard that inspects `ENVIRONMENT`/`APP_ENV=production` to reject default
 `test` credentials or `disabled` auth — `src/main.py:61-141` (`_validate_optional_feature_flags`, the only
@@ -36,12 +36,18 @@ checks emptiness not the `test` literal, and has no production condition. **Fail
 merely under-tested.** #509 stopped contaminated-eval-driven retrain, but this identity boundary and the
 caller-path reload are live.
 
-Scope correction vs the 90-day verification: the `x-user-id` override's `request.state.user_id` sink is not
-consumed by a live authz decision (its only reader `create_api_actor_from_request`, `audit/service.py:531`,
-is uncalled) — BUT the raw `x-user-id` header **is** read live by `audit/logger.py:614`,
-`feature_flags/decorators.py:136`, `request_context/__init__.py:213`, and the test above **asserts** the
-override contract. So it is a fix-now identity defect (spoofable attribution + an encoded bad contract),
-not "latent" — this design-lock treats it as such.
+Scope — precise (corrected by the isolated critic 2026-07-13): there is **no live consumer of a spoofed
+identity** today. The `request.state.user_id` sink's only reader (`create_api_actor_from_request`,
+`audit/service.py:531`) is uncalled; and the three raw-`x-user-id` readers cited in an earlier draft are
+**all dormant** — `audit/logger.py:614` sits in the **unmounted** `AuditMiddleware`,
+`feature_flags/decorators.py:136` in the **unmounted** `FeatureFlagMiddleware`, and
+`request_context/__init__.py:213` (`RequestContext.from_headers`) has **no `src` caller**. Only CORS /
+TrustedHost / `IntegrationAuthMiddleware` are mounted (`src/main.py:395-407`). The defect is nonetheless a
+**fix-now latent trap**, not an active exploit: the **live** `IntegrationAuthMiddleware` sets
+`request.state.user_id` from the header (`integration_auth.py:104`) and via `_set_state_from_headers`
+(`:113-122`), **and a test asserts that spoofed contract** — so it becomes exploitable the instant any
+consumer is wired. This lock closes it now and does **not** claim a live exploit. (Earlier phrasing said
+"read live by …" — that was wrong; the readers are dormant.)
 
 ---
 
@@ -54,15 +60,31 @@ not "latent" — this design-lock treats it as such.
   default — fixes #4).
 
 ### B. Production mode is explicit and fail-closed.
-- A single startup guard keyed on `ENVIRONMENT`/`APP_ENV`. When it indicates **production**, the service
-  **refuses to boot (or rejects all requests)** if any of: API key unset/`test`, `ADMIN_TOKEN` unset/`test`,
-  `INTEGRATION_AUTH_MODE ∈ {disabled}` , or JWT config absent while integration is expected (fixes #1/#4/#5).
-- The permissive dev/test defaults require an **explicit opt-in** (e.g. `ENVIRONMENT=development` or an
-  explicit `ALLOW_INSECURE_DEFAULTS=1`), never the fallback. Absence of the signal = production = fail-closed.
+- **Decidable production signal, precedence defined:** treat the deployment as **production UNLESS**
+  `ENVIRONMENT`/`APP_ENV` is exactly `development`/`test`; any conflicting/unknown value resolves to
+  **production** (fail-closed). NB the implementation MUST pick one canonical rule and apply it everywhere,
+  because today these disagree: `ENVIRONMENT` defaults to `development` by *absence* in
+  `observability/__init__.py:188` / `metrics.py:94` / `tracing.py:101`, while `APP_ENV=production` is baked
+  into the image (`Dockerfile:50`, `docker-compose.yml:17`, which also configures **no** creds).
+- When production, the service **refuses to boot** if any of: `X-API-Key` unconfigured or `test`; `ADMIN_TOKEN`
+  unset/`test`; `INTEGRATION_AUTH_MODE=disabled`; or — decidable rule — `mode=required` without
+  secret+audience+issuer, or `mode=optional` with any `INTEGRATION_*` set but no secret (fixes #1/#4/#5;
+  replaces the undecidable "JWT config absent while integration is expected").
+- **The permissive dev/test defaults require an explicit opt-in AND a harness migration in the SAME change**
+  (load-bearing — without it the whole test suite + ≥5 CI workflows go red, since none sets any signal today):
+  set the opt-in (`ENVIRONMENT=development`) **autouse** in `tests/conftest.py` (and add it to
+  `_ENV_VARS_TO_ISOLATE`); set it in every server-booting workflow (`ci.yml`, `self-check.yml`,
+  `observability-checks.yml`, `ci-tiered-tests.yml`, `stress-tests.yml`); document the now-required production
+  credentials in `docker-compose.yml` / `.env.example` / README. A golden asserts **pytest *without* the
+  opt-in fails closed**, so the wiring is deliberate, not accidental.
 
 ### C. JWT must carry and verify issuer, audience, and expiry.
-- `jwt.decode(..., audience=<expected>, issuer=<expected>, options={"require": ["exp","iat","sub","tenant_id"]})`.
-  Missing/`wrong` `aud`, `iss`, or `exp` → **401** (fixes #6). A token that never expires is not accepted.
+- `jwt.decode(..., audience=<INTEGRATION_JWT_AUDIENCE>, issuer=<INTEGRATION_JWT_ISSUER>,
+  options={"require": ["exp","iat","sub","tenant_id"]})`. Missing/wrong `aud`, `iss`, or `exp` → **401**
+  (fixes #6). A token that never expires is not accepted.
+- **New config keys:** add `INTEGRATION_JWT_AUDIENCE` / `INTEGRATION_JWT_ISSUER` to `src/core/config.py`
+  (they exist nowhere today) and to B's production boot checklist. These requirements apply in `required` mode
+  and whenever a token is presented in `optional` mode.
 - Hardening (note, not blocking): prefer an **asymmetric alg** (RS256/ES256, verify-only public key) so the
   service holds no signing-capable secret; if HS256 remains, the secret is production-required (per B) and
   never defaulted.
@@ -71,9 +93,12 @@ not "latent" — this design-lock treats it as such.
 - `request.state.user_id` (and every identity used for authz **or** attribution) = the validated `sub`. The
   `x-user-id` header **never** sets or overrides identity (fixes #3). Collapse the `user_id` (spoofable) /
   `auth_subject` (authentic) duplication into one authenticated identity.
-- **Fail-first flips the locked contract:** `test_required_valid_token_sets_state` must assert
-  `user_id == "user-1"` (the `sub`), and a new test asserts a mismatching `x-user-id` header does **not**
-  change identity (and, in `required` mode, is rejected — see E).
+- **Fail-first flips the locked contract, concretely** (so it does not collide with C/E): rewrite
+  `test_required_valid_token_sets_state` to (a) mint a token carrying `exp`/`iat`/`aud`/`iss` matching the new
+  settings **and** `sub=user-1`, (b) send it **without** a conflicting `x-user-id` header, and assert
+  `user_id == "user-1"` on 200. The mismatching-header case becomes a **separate** test asserting **401** (per
+  E). The old `:111` assertion (`user_id == "user-header"`) and any other test encoding the override are
+  updated in the same change.
 
 ### E. Forged identity headers are rejected, never trusted.
 - In authenticated (`required`) mode, an `x-user-id`/`x-tenant-id`/`x-org-id` header that **disagrees** with a
@@ -84,10 +109,18 @@ not "latent" — this design-lock treats it as such.
   from raw headers (fixes #5). Untrusted hints, if kept at all, must be clearly non-authoritative and unusable
   for authz/attribution.
 
-### F. Audit and context read the authenticated identity, not the raw header.
-- The live raw-header readers — `audit/logger.py:614`, `feature_flags/decorators.py:136`,
-  `request_context/__init__.py:213`, `audit/service.py:531` — must read the **validated** identity (from
-  request state set by D), never `request.headers.get("x-user-id")`. Audit attribution must not be spoofable.
+### F. Identity readers use the validated identity, not the raw header (forward guard).
+- These readers are **dormant today** — `audit/logger.py:614` (unmounted `AuditMiddleware`),
+  `feature_flags/decorators.py:136` (unmounted `FeatureFlagMiddleware`), `request_context/__init__.py:213`
+  (`from_headers`, no `src` caller), `audit/service.py:531` (uncalled). **Requirement:** each must be
+  **fixed-or-deleted before it is ever mounted/wired** — a mounted reader derives identity from validated
+  request state (set by D), never `request.headers.get("x-user-id")`. This is a forward guard, not an
+  active-exploit fix (see §0).
+- **`RequestContext.from_headers` special case:** a unit test (`test_enterprise_p52_p55.py:961-983`) asserts it
+  reads `X-User-ID` → `ctx.user_id`. The lock must pick one: (a) add it to the fail-first flip inventory, or
+  (b) **exempt** it as an internal trace-propagation utility (it also carries `X-Request-ID`/`X-Trace-ID`
+  between trusted services and has no access to a validated token). **Default: exempt-and-document** — it is
+  not an authenticated-identity path; do not silently break its test.
 
 ---
 
@@ -99,7 +132,8 @@ not "latent" — this design-lock treats it as such.
 | attacker-chosen `X-API-Key` | **401** | 200 |
 | `ADMIN_TOKEN` unset (default `test`) on `/model/reload` | **refuse (boot or 401)** | reachable with `X-Admin-Token: test` |
 | `INTEGRATION_AUTH_MODE=disabled` in production | **boot refuses** | silently skips all auth |
-| valid JWT `sub=alice` + `x-user-id=bob` | identity = **alice** | **bob** (locked by a test) |
+| valid JWT `sub=alice`, **no** conflicting id header | identity = **alice** (from `sub`) | override path unexercised |
+| valid JWT `sub=alice` + `x-user-id=bob` (mismatch, `required` mode) | **401** (per E) | **200**, id=`bob` (locked by a test) |
 | JWT with **no `exp`** | **401** | accepted |
 | JWT with wrong / missing `aud` | **401** | accepted (no aud check) |
 | JWT with wrong / missing `iss` | **401** | accepted (no iss check) |
