@@ -63,6 +63,14 @@
 /src/ml/serving/                      @zensgit
 /src/ml/monitoring/auto_remediation.py @zensgit
 /src/main.py                          @zensgit
+# review 5: import-aware enumeration surfaced these production-reachable loaders (from_pretrained /
+# SentenceTransformer / PaddleOCR) — every `gated` file in scripts/ci/activation_surface.json is owned.
+/src/inference/classifier_api.py      @zensgit
+/src/ml/monitoring/anomaly_detector.py @zensgit
+/src/ml/embeddings/model.py           @zensgit
+/src/core/ocr/providers/              @zensgit
+/src/core/assistant/embedding_retriever.py @zensgit
+/src/core/assistant/semantic_retrieval.py @zensgit
 
 # --- Retraining / evaluation-integrity gate (L3) -----------------------------
 # GLOB patterns, not exact filenames: an unattended loop already escaped an exact
@@ -80,6 +88,10 @@
 /scripts/ci/check_training_data_governance.py @zensgit
 /scripts/ci/prune_safety_check.py     @zensgit
 /data/manifests/                      @zensgit
+
+# --- L3 activation-surface enumerator (the completeness gate itself) ----------
+/scripts/ci/activation_surface_enumerator.py @zensgit
+/scripts/ci/activation_surface.json   @zensgit
 
 # --- Authentication / authorization (L3) -------------------------------------
 /src/api/dependencies.py              @zensgit
