@@ -64,3 +64,45 @@ def test_every_gated_site_carries_a_family() -> None:
     manifest = enum.load_manifest()
     missing = [k for k, e in manifest.items() if e["class"] == "gated" and not e.get("family")]
     assert not missing, f"gated sites without a family: {missing}"
+
+
+import ast as _ast
+
+
+def _detect(src: str):
+    tree = _ast.parse(src)
+    ma, im = enum._collect_imports(tree)
+    v = enum._LoadVisitor(ma, im)
+    v.visit(tree)
+    return [s[1] for s in v.sites]
+
+
+@pytest.mark.parametrize("src,expect_kind", [
+    ("import torch as t\ndef f(): return t.load('x')", "torch.load"),                 # alias
+    ("from torch import load\ndef f(): return load('x')", "torch.load"),              # bare from-import
+    ("from torch import load as L\ndef f(): return L('x')", "torch.load"),            # aliased from-import
+    ("import pickle as p\ndef f(): return p.loads(b'x')", "pickle.loads"),            # pickle alias
+    ("import joblib as jl\ndef f(): return jl.load('x')", "joblib.load"),             # joblib alias
+    ("from transformers import AutoModel\ndef f(): return AutoModel.from_pretrained('x')", "from_pretrained"),
+    ("from sentence_transformers import SentenceTransformer\ndef f(): return SentenceTransformer('x')", "ctor:SentenceTransformer"),
+    ("import sentence_transformers as st\ndef f(): return st.SentenceTransformer('x')", "ctor:SentenceTransformer"),
+    ("from paddleocr import PaddleOCR\ndef f(): return PaddleOCR()", "ctor:PaddleOCR"),
+])
+def test_import_aware_detection_no_blind_spots(src: str, expect_kind: str) -> None:
+    # review 5: a name-only matcher missed all of these; the import-aware detector must catch them.
+    assert expect_kind in _detect(src), f"blind spot: {src!r} -> {_detect(src)}"
+
+
+def test_real_hf_and_embedding_loaders_are_gated() -> None:
+    # the specific loaders the review proved were MISSING must now be enumerated AND classified gated.
+    manifest = enum.load_manifest()
+    must_be_gated = {
+        "src/core/ocr/providers/deepseek_hf.py": "from_pretrained/PaddleOCR (mounted /ocr)",
+        "src/core/assistant/semantic_retrieval.py": "SentenceTransformer",
+        "src/ml/embeddings/model.py": "SentenceTransformer",
+    }
+    for f in must_be_gated:
+        hits = [e for k, e in manifest.items() if k.startswith(f + "::")]
+        assert hits, f"{f} not enumerated (blind spot regressed)"
+        assert all(e["class"] == "gated" and e.get("family") for e in hits), \
+            f"{f} must be gated with a family: {hits}"

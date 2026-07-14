@@ -1,6 +1,6 @@
-# L3 Phase A — runtime bleeding-control — Dev & Verification (2026-07-13)
+# L3 Phase A0 — runtime bleeding-control — Dev & Verification (2026-07-13)
 
-> **Posture: Producer disabled; runtime activation remains untrusted.** This is fail-closed,
+> **This is Phase A0 (not full Phase A):** it seals the EXTERNAL `/model/reload`, fail-closes default creds, and ships the enumerator as a DISCOVERY gate — it does NOT freeze the 38 internal `gated` loaders (they still load) and the enumerator does NOT yet assert each gated site is frozen/verify_and_load'd (that is full Phase A, design-lock #513 §0.5). Honest closeout: **external reload sealed; producer disabled; internal runtime activation remains proof-unbound.** This is fail-closed,
 > risk-REDUCING bleeding-control ONLY — it seals a reproduced live RCE surface, refuses the insecure
 > default credentials in production, and makes activation-surface completeness enforced *by
 > construction*. It builds **no proof membrane** and enables **nothing**: every change here can only
@@ -16,7 +16,7 @@
   hex — a reproduced arbitrary-code-execution-on-load. Guarded only by `api_key` + `admin_token`
   that **both default to the literal `"test"`** (`src/api/dependencies.py`).
 - A hand-maintained "these are the activation points" list has been wrong repeatedly; the real
-  surface is **≥30 model-load sites across ≥9 families** (design-lock #513 §1).
+  surface is **≥38 model-load sites across ≥11 families** (design-lock #513 §1).
 
 ## 1. Changes (all fail-closed)
 
@@ -33,21 +33,24 @@ Emergency rollback runs in-process via auto-remediation and does not use this ro
 `get_api_key` / `get_admin_token` (`src/api/dependencies.py`) now refuse the insecure default in a
 production posture (`REQUIRE_STRONG_AUTH=1`, or `ENVIRONMENT`/`APP_ENV`/`ENV` ∈
 {production, prod, staging}): a missing/`"test"` `ADMIN_TOKEN` → **500 fail-closed** (refuse to
-operate), and `X-API-Key: test` → **401**; an optional `API_KEY` env is validated when set. Dev/CI
+operate), and `X-API-Key: test` → **401**. Scope is limited to REFUSING the literal `"test"` default; general X-API-Key validation against a configured secret is a SEPARATE production-identity change and is deliberately NOT added here (any other non-empty key still passes). Dev/CI
 leave the posture unset, so the historical `"test"` default is preserved and the suite is not bricked.
 
 ### 1.C Activation-surface enumerator — completeness by construction
-`scripts/ci/activation_surface_enumerator.py` (stdlib, AST-based) discovers **every** model-load site
-(`torch.load` / `pickle.load(s)` / `joblib.load` / `*.load_state_dict` / a `reload_model(` call) in
-`src/` + `scripts/` and requires each to be classified in `scripts/ci/activation_surface.json`
+`scripts/ci/activation_surface_enumerator.py` (stdlib, AST, **import-aware**) discovers model-load
+sites — `torch.load`/`pickle.load(s)`/`joblib.load` **resolved through import aliases** (`import torch
+as t; t.load`, `from torch import load`), `*.load_state_dict`, `*.from_pretrained` (HF), curated model
+constructors (`SentenceTransformer`/`CrossEncoder`/`PaddleOCR`), and `reload_model(` — in `src/` +
+`scripts/`, and requires each classified in `scripts/ci/activation_surface.json`
 (`gated | producer | offline | unmounted | infra`). Keys are `<file>::<enclosing symbol>::<kind>#<n>`
 — **stable across line-number drift** (AST, not grep-by-line). A **new un-annotated load site reds
 CI**, so a new activation surface cannot land silently. It is discovery + fail-closed bookkeeping
 only: it can never emit a "green that enables" — it only passes (all classified) or reds.
 
-Current classification (`e2facd99` after the seal): **114 sites** — `gated`=30, `producer`=44,
-`offline`=33, `unmounted`=3, `infra`=4. The **30 gated** production-reachable activation points span
-9 families: pickle-classifier, graph2d, pointnet, part, part-v16, hybrid, history, vision3d-uvnet,
+Current classification (`e2facd99` after the seal): **124 sites** — `gated`=38, `producer`=44,
+`offline`=35, `unmounted`=3, `infra`=4. The **38 gated** production-reachable activation points span
+11 families: pickle-classifier, graph2d, pointnet, part, part-v16, hybrid, history, vision3d-uvnet,
+**ocr** (DeepSeek HF `from_pretrained` + PaddleOCR, mounted /ocr), **embedding** (SentenceTransformer),
 anomaly-monitor. Each `gated` site MUST route through the L3 proof membrane (`verify_and_load`) once
 it exists; until then the membrane default is #509's unconditional raise.
 
@@ -57,6 +60,7 @@ it exists; until then the membrane default is #509's unconditional raise.
 |---|---|
 | enumerator: current tree fully classified; `main()` exit 0 | pass |
 | enumerator: a NEW unclassified load site → **RED** (exit 1) | pass |
+| enumerator **import-aware** (review 5): `import torch as t; t.load` / `from torch import load` / `p.loads` / `from_pretrained` / `SentenceTransformer` / `PaddleOCR` all detected (observed no-blind-spot); the real DeepSeek-HF + embedding loaders are enumerated AND `gated` | pass |
 | enumerator: a STALE manifest entry → RED; invalid class rejected; every `gated` names a family | pass |
 | `/model/reload` sealed 403; `reload_model` **never** invoked (spy); no payload bypass | pass |
 | default `ADMIN_TOKEN` unset/`"test"` in prod posture → **500**; `X-API-Key: test` in prod → **401** | pass |
@@ -65,7 +69,7 @@ it exists; until then the membrane default is #509's unconditional raise.
 | OpenAPI snapshot regenerated: `/model/reload` responses = **403 + 422**, 193 paths / 198 ops | pass (CI view; local shows a known +`/metrics` delta) |
 | reload route tests converted to direct `reload_model` calls — loader security coverage preserved | pass |
 
-`tests/unit/test_activation_surface_enumerator.py` (5) + `tests/unit/test_l3_phase_a_runtime_bleeding_control.py` (7).
+`tests/unit/test_activation_surface_enumerator.py` (15, incl. 9 import-aware no-blind-spot cases) + `tests/unit/test_l3_phase_a_runtime_bleeding_control.py` (7).
 CI wired in `ci.yml` + `ci-tiered-tests.yml` (enumerator + these suites run as an L3 step).
 
 ## 3. What this deliberately does NOT do

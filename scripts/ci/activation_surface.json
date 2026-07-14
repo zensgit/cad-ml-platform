@@ -1,269 +1,304 @@
 {
-  "_doc": "L3 activation-surface classification. Generated + hand-audited. Each model-load site (torch.load/pickle.load(s)/joblib.load/load_state_dict/reload_model()) MUST have an entry. A NEW un-annotated site reds CI (scripts/ci/activation_surface_enumerator.py). class: gated|producer|offline|unmounted|infra. `gated` = production-reachable model activation; each MUST route through the L3 proof membrane (verify_and_load) once built; until then the membrane default is #509's unconditional raise. This file classifies; it does not enable anything.",
+  "_doc": "L3 activation-surface classification (import-aware). Every model-load site (torch.load/pickle.load(s)/joblib.load/load_state_dict/from_pretrained/model-constructor/reload_model), resolved through import aliases, MUST have an entry. A NEW un-annotated site reds CI (scripts/ci/activation_surface_enumerator.py). class: gated|producer|offline|unmounted|infra. `gated` = production-reachable model activation; each MUST be frozen (Phase A) or route through the proof membrane (Phase B). This file classifies; it enables nothing.",
   "sites": {
     "scripts/analyze_final_errors.py::main::load_state_dict#0": {
       "class": "offline",
-      "reason": "offline analysis/eval CLI — reads a checkpoint, mutates no running service"
+      "reason": "offline analysis/eval CLI"
     },
     "scripts/analyze_final_errors.py::main::torch.load#0": {
       "class": "offline",
-      "reason": "offline analysis/eval CLI — reads a checkpoint, mutates no running service"
+      "reason": "offline analysis/eval CLI"
     },
     "scripts/analyze_final_errors_v2.py::main::load_state_dict#0": {
       "class": "offline",
-      "reason": "offline analysis/eval CLI — reads a checkpoint, mutates no running service"
+      "reason": "offline analysis/eval CLI"
     },
     "scripts/analyze_final_errors_v2.py::main::torch.load#0": {
       "class": "offline",
-      "reason": "offline analysis/eval CLI — reads a checkpoint, mutates no running service"
+      "reason": "offline analysis/eval CLI"
     },
     "scripts/analyze_v13_errors.py::analyze_errors::load_state_dict#0": {
       "class": "offline",
-      "reason": "offline analysis/eval CLI — reads a checkpoint, mutates no running service"
+      "reason": "offline analysis/eval CLI"
     },
     "scripts/analyze_v13_errors.py::analyze_errors::torch.load#0": {
       "class": "offline",
-      "reason": "offline analysis/eval CLI — reads a checkpoint, mutates no running service"
+      "reason": "offline analysis/eval CLI"
     },
     "scripts/analyze_v14_errors.py::analyze_v14_errors::load_state_dict#0": {
       "class": "offline",
-      "reason": "offline analysis/eval CLI — reads a checkpoint, mutates no running service"
+      "reason": "offline analysis/eval CLI"
     },
     "scripts/analyze_v14_errors.py::analyze_v14_errors::torch.load#0": {
       "class": "offline",
-      "reason": "offline analysis/eval CLI — reads a checkpoint, mutates no running service"
+      "reason": "offline analysis/eval CLI"
     },
     "scripts/augment_dxf_graphs.py::augment_class::torch.load#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/calibrate_graph2d_temperature.py::_build_model_from_checkpoint::load_state_dict#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/calibrate_graph2d_temperature.py::_load_graph2d_checkpoint::torch.load#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/distill_ensemble.py::build_teacher_soft_labels::torch.load#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/distill_ensemble.py::main::load_state_dict#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/distill_ensemble.py::main::load_state_dict#1": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/distill_ensemble.py::main::torch.load#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/distill_ensemble.py::main::torch.load#1": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/ensemble_graph2d.py::predict_single_model::load_state_dict#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/ensemble_graph2d.py::predict_single_model::load_state_dict#1": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/ensemble_graph2d.py::predict_single_model::torch.load#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/eval_2d_graph.py::main::load_state_dict#0": {
       "class": "offline",
-      "reason": "offline analysis/eval CLI — reads a checkpoint, mutates no running service"
+      "reason": "offline analysis/eval CLI"
     },
     "scripts/eval_2d_graph.py::main::torch.load#0": {
       "class": "offline",
-      "reason": "offline analysis/eval CLI — reads a checkpoint, mutates no running service"
+      "reason": "offline analysis/eval CLI"
     },
     "scripts/evaluate_graph2d_v2.py::load_model::load_state_dict#0": {
       "class": "offline",
-      "reason": "offline analysis/eval CLI — reads a checkpoint, mutates no running service"
+      "reason": "offline analysis/eval CLI"
     },
     "scripts/evaluate_graph2d_v2.py::load_model::load_state_dict#1": {
       "class": "offline",
-      "reason": "offline analysis/eval CLI — reads a checkpoint, mutates no running service"
+      "reason": "offline analysis/eval CLI"
     },
     "scripts/evaluate_graph2d_v2.py::load_model::torch.load#0": {
       "class": "offline",
-      "reason": "offline analysis/eval CLI — reads a checkpoint, mutates no running service"
+      "reason": "offline analysis/eval CLI"
     },
     "scripts/evaluate_hetero_ensemble.py::main::load_state_dict#0": {
       "class": "offline",
-      "reason": "offline analysis/eval CLI — reads a checkpoint, mutates no running service"
+      "reason": "offline analysis/eval CLI"
     },
     "scripts/evaluate_hetero_ensemble.py::main::load_state_dict#1": {
       "class": "offline",
-      "reason": "offline analysis/eval CLI — reads a checkpoint, mutates no running service"
+      "reason": "offline analysis/eval CLI"
     },
     "scripts/evaluate_hetero_ensemble.py::main::torch.load#0": {
       "class": "offline",
-      "reason": "offline analysis/eval CLI — reads a checkpoint, mutates no running service"
+      "reason": "offline analysis/eval CLI"
     },
     "scripts/evaluate_hetero_ensemble.py::main::torch.load#1": {
       "class": "offline",
-      "reason": "offline analysis/eval CLI — reads a checkpoint, mutates no running service"
+      "reason": "offline analysis/eval CLI"
     },
     "scripts/evaluate_hetero_ensemble.py::main::torch.load#2": {
       "class": "offline",
-      "reason": "offline analysis/eval CLI — reads a checkpoint, mutates no running service"
+      "reason": "offline analysis/eval CLI"
     },
     "scripts/finetune_from_feedback.py::main::reload_model()#0": {
       "class": "offline",
-      "reason": "offline CLI — reload happens in a CLI process that exits; no src importer"
+      "reason": "offline CLI — no src importer"
     },
     "scripts/finetune_from_feedback.py::train_model::pickle.load#0": {
       "class": "offline",
-      "reason": "offline CLI — reload happens in a CLI process that exits; no src importer"
+      "reason": "offline CLI — no src importer"
     },
     "scripts/finetune_graph2d_from_pretrained.py::CachedGraphDataset.__getitem__::torch.load#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/finetune_graph2d_from_pretrained.py::finetune::load_state_dict#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/finetune_graph2d_from_pretrained.py::finetune::load_state_dict#1": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/finetune_graph2d_from_pretrained.py::finetune::load_state_dict#2": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/finetune_graph2d_from_pretrained.py::finetune::load_state_dict#3": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/finetune_graph2d_from_pretrained.py::finetune::load_state_dict#4": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/finetune_graph2d_from_pretrained.py::finetune::load_state_dict#5": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/finetune_graph2d_from_pretrained.py::finetune::load_state_dict#6": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/finetune_graph2d_from_pretrained.py::finetune::load_state_dict#7": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/finetune_graph2d_from_pretrained.py::finetune::load_state_dict#8": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/finetune_graph2d_from_pretrained.py::finetune::torch.load#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/finetune_graph2d_v2_augmented.py::train::load_state_dict#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/finetune_graph2d_v2_augmented.py::train::torch.load#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/finetune_v11_on_real.py::main::load_state_dict#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/finetune_v11_on_real.py::main::torch.load#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/quantize_graph2d_model.py::main::load_state_dict#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/quantize_graph2d_model.py::main::torch.load#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/quantize_graph2d_model.py::quantize_model::torch.load#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/quantize_graph2d_model.py::verify_accuracy::load_state_dict#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/quantize_graph2d_model.py::verify_accuracy::torch.load#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/train_classifier_v11.py::main::load_state_dict#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/train_classifier_v13.py::main::load_state_dict#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/train_classifier_v14.py::main::load_state_dict#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/train_classifier_v15.py::main::load_state_dict#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/train_classifier_v16.py::main::load_state_dict#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/train_classifier_v16.py::main::load_state_dict#1": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/train_classifier_v16.py::main::torch.load#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/train_classifier_v16.py::main::torch.load#1": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/train_classifier_v2.py::main::load_state_dict#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/train_classifier_v2.py::main::torch.load#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/train_knowledge_distillation.py::run_distillation::load_state_dict#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/train_knowledge_distillation.py::run_distillation::torch.load#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/train_stat_mlp.py::StatFeatureDataset.__getitem__::torch.load#0": {
       "class": "producer",
-      "reason": "offline trainer/quantizer/distiller — emits an artifact; does not activate a running service"
+      "reason": "offline trainer/quantizer/distiller — emits an artifact"
     },
     "scripts/uvnet_checkpoint_inspect.py::_load_checkpoint::torch.load#0": {
       "class": "offline",
-      "reason": "offline analysis/eval CLI — reads a checkpoint, mutates no running service"
+      "reason": "offline analysis/eval CLI"
     },
     "src/core/assembly/confidence_calibrator.py::ConfidenceCalibrationSystem.load_calibrator::pickle.load#0": {
       "class": "infra",
-      "reason": "confidence calibrator artifact (pickle) — not a classifier; deserialization surface, tracked"
+      "reason": "confidence calibrator (pickle) — not a classifier; deserialization surface, tracked"
+    },
+    "src/core/assistant/embedding_retriever.py::EmbeddingProvider._init_model::ctor:SentenceTransformer#0": {
+      "class": "gated",
+      "family": "embedding",
+      "reason": "SentenceTransformer embedding — reached via the assistant"
+    },
+    "src/core/assistant/semantic_retrieval.py::SentenceTransformerProvider._load_model::ctor:SentenceTransformer#0": {
+      "class": "gated",
+      "family": "embedding",
+      "reason": "SentenceTransformer embedding — reached via the assistant"
+    },
+    "src/core/ocr/providers/deepseek_hf.py::DeepSeekHfProvider._lazy_load::from_pretrained#0": {
+      "class": "gated",
+      "family": "ocr",
+      "reason": "DeepSeek OCR: HF from_pretrained + PaddleOCR — reached via the MOUNTED /ocr route"
+    },
+    "src/core/ocr/providers/deepseek_hf.py::DeepSeekHfProvider._lazy_load::from_pretrained#1": {
+      "class": "gated",
+      "family": "ocr",
+      "reason": "DeepSeek OCR: HF from_pretrained + PaddleOCR — reached via the MOUNTED /ocr route"
+    },
+    "src/core/ocr/providers/deepseek_hf.py::DeepSeekHfProvider.extract::ctor:PaddleOCR#0": {
+      "class": "gated",
+      "family": "ocr",
+      "reason": "DeepSeek OCR: HF from_pretrained + PaddleOCR — reached via the MOUNTED /ocr route"
+    },
+    "src/core/ocr/providers/deepseek_hf.py::DeepSeekHfProvider.warmup::ctor:PaddleOCR#0": {
+      "class": "gated",
+      "family": "ocr",
+      "reason": "DeepSeek OCR: HF from_pretrained + PaddleOCR — reached via the MOUNTED /ocr route"
+    },
+    "src/core/ocr/providers/paddle.py::PaddleOcrProvider._init_paddle::ctor:PaddleOCR#0": {
+      "class": "gated",
+      "family": "ocr",
+      "reason": "PaddleOCR provider — reached via the MOUNTED /ocr route"
     },
     "src/core/vectors/stores/faiss_store.py::FaissStore.load::pickle.load#0": {
       "class": "infra",
@@ -292,20 +327,33 @@
     "src/ml/classifier.py::_reload_model_impl::pickle.loads#0": {
       "class": "gated",
       "family": "pickle-classifier",
-      "reason": "startup + hot-reload pickle (de)serialization of the CLASSIFICATION model"
+      "reason": "startup + hot-reload pickle (de)serialization of the classification model"
     },
     "src/ml/classifier.py::load_model::pickle.load#0": {
       "class": "gated",
       "family": "pickle-classifier",
-      "reason": "startup + hot-reload pickle (de)serialization of the CLASSIFICATION model"
+      "reason": "startup + hot-reload pickle (de)serialization of the classification model"
     },
     "src/ml/compression/quantization.py::Quantizer.load_quantized::load_state_dict#0": {
       "class": "offline",
-      "reason": "offline quantization tool — not on a serving path"
+      "reason": "offline quantization tool"
     },
     "src/ml/compression/quantization.py::Quantizer.load_quantized::torch.load#0": {
       "class": "offline",
-      "reason": "offline quantization tool — not on a serving path"
+      "reason": "offline quantization tool"
+    },
+    "src/ml/embeddings/model.py::DomainEmbeddingModel._try_load_sentence_transformer::ctor:SentenceTransformer#0": {
+      "class": "gated",
+      "family": "embedding",
+      "reason": "DomainEmbeddingModel SentenceTransformer — production embedding path"
+    },
+    "src/ml/embeddings/trainer.py::DomainEmbeddingTrainer._init_model::ctor:SentenceTransformer#0": {
+      "class": "offline",
+      "reason": "training-time module — not on a serving path"
+    },
+    "src/ml/embeddings/trainer.py::DomainEmbeddingTrainer.load::ctor:SentenceTransformer#0": {
+      "class": "offline",
+      "reason": "training-time module — not on a serving path"
     },
     "src/ml/history_sequence_classifier.py::HistorySequenceClassifier._load_model::load_state_dict#0": {
       "class": "gated",
@@ -340,17 +388,17 @@
     "src/ml/monitoring/anomaly_detector.py::MetricsAnomalyDetector.load_models::joblib.load#0": {
       "class": "gated",
       "family": "anomaly-monitor",
-      "reason": "loads anomaly model from disk (joblib/pickle) in a production monitoring component; conservatively gated"
+      "reason": "loads anomaly model (joblib/pickle) in a production monitoring component; conservatively gated"
     },
     "src/ml/monitoring/anomaly_detector.py::MetricsAnomalyDetector.load_models::pickle.load#0": {
       "class": "gated",
       "family": "anomaly-monitor",
-      "reason": "loads anomaly model from disk (joblib/pickle) in a production monitoring component; conservatively gated"
+      "reason": "loads anomaly model (joblib/pickle) in a production monitoring component; conservatively gated"
     },
     "src/ml/monitoring/auto_remediation.py::AutoRemediation._action_rollback_model::reload_model()#0": {
       "class": "gated",
       "family": "pickle-classifier",
-      "reason": "LATENT in-process rollback reload; must pass proof before ever wired"
+      "reason": "LATENT in-process rollback reload; must be gated before ever wired"
     },
     "src/ml/part_classifier.py::PartClassifier._load_model::load_state_dict#0": {
       "class": "gated",
@@ -389,39 +437,39 @@
     "src/ml/pointnet/inference.py::PointNet3DAnalyzer._try_load_model::load_state_dict#0": {
       "class": "gated",
       "family": "pointnet",
-      "reason": "PointNet — reached via MOUNTED /pointcloud route"
+      "reason": "PointNet — reached via MOUNTED /pointcloud"
     },
     "src/ml/pointnet/inference.py::PointNet3DAnalyzer._try_load_model::load_state_dict#1": {
       "class": "gated",
       "family": "pointnet",
-      "reason": "PointNet — reached via MOUNTED /pointcloud route"
+      "reason": "PointNet — reached via MOUNTED /pointcloud"
     },
     "src/ml/pointnet/inference.py::PointNet3DAnalyzer._try_load_model::load_state_dict#2": {
       "class": "gated",
       "family": "pointnet",
-      "reason": "PointNet — reached via MOUNTED /pointcloud route"
+      "reason": "PointNet — reached via MOUNTED /pointcloud"
     },
     "src/ml/pointnet/inference.py::PointNet3DAnalyzer._try_load_model::load_state_dict#3": {
       "class": "gated",
       "family": "pointnet",
-      "reason": "PointNet — reached via MOUNTED /pointcloud route"
+      "reason": "PointNet — reached via MOUNTED /pointcloud"
     },
     "src/ml/pointnet/inference.py::PointNet3DAnalyzer._try_load_model::torch.load#0": {
       "class": "gated",
       "family": "pointnet",
-      "reason": "PointNet — reached via MOUNTED /pointcloud route"
+      "reason": "PointNet — reached via MOUNTED /pointcloud"
     },
     "src/ml/serving/grpc_service.py::InferenceGRPCService._deserialize_inputs::torch.load#0": {
       "class": "unmounted",
-      "reason": "serving scaffold — imported by 0 mounted routes; auto-promotes to gated if ever mounted"
+      "reason": "serving scaffold — 0 mounted routes; auto-promotes to gated if mounted"
     },
     "src/ml/serving/worker.py::ModelWorker.load::load_state_dict#0": {
       "class": "unmounted",
-      "reason": "serving scaffold — imported by 0 mounted routes; auto-promotes to gated if ever mounted"
+      "reason": "serving scaffold — 0 mounted routes; auto-promotes to gated if mounted"
     },
     "src/ml/serving/worker.py::ModelWorker.load::torch.load#0": {
       "class": "unmounted",
-      "reason": "serving scaffold — imported by 0 mounted routes; auto-promotes to gated if ever mounted"
+      "reason": "serving scaffold — 0 mounted routes; auto-promotes to gated if mounted"
     },
     "src/ml/train/dataset_2d.py::DXFManifestDataset._disk_cache_get::torch.load#0": {
       "class": "infra",
@@ -429,53 +477,53 @@
     },
     "src/ml/train/model_2d.py::EdgeGraphSageClassifier.get_encoder::load_state_dict#0": {
       "class": "offline",
-      "reason": "training-time module — loads checkpoints during training, not in a serving path"
+      "reason": "training-time module — not on a serving path"
     },
     "src/ml/train/model_2d.py::EdgeGraphSageClassifier.get_encoder::load_state_dict#1": {
       "class": "offline",
-      "reason": "training-time module — loads checkpoints during training, not in a serving path"
+      "reason": "training-time module — not on a serving path"
     },
     "src/ml/train/model_2d.py::EdgeGraphSageClassifier.load_pretrained::load_state_dict#0": {
       "class": "offline",
-      "reason": "training-time module — loads checkpoints during training, not in a serving path"
+      "reason": "training-time module — not on a serving path"
     },
     "src/ml/train/model_2d.py::EdgeGraphSageClassifier.load_pretrained::torch.load#0": {
       "class": "offline",
-      "reason": "training-time module — loads checkpoints during training, not in a serving path"
+      "reason": "training-time module — not on a serving path"
     },
     "src/ml/train/model_2d.py::GraphEncoderV2WithHead.from_checkpoint::load_state_dict#0": {
       "class": "offline",
-      "reason": "training-time module — loads checkpoints during training, not in a serving path"
+      "reason": "training-time module — not on a serving path"
     },
     "src/ml/train/model_2d.py::GraphEncoderV2WithHead.from_checkpoint::load_state_dict#1": {
       "class": "offline",
-      "reason": "training-time module — loads checkpoints during training, not in a serving path"
+      "reason": "training-time module — not on a serving path"
     },
     "src/ml/train/model_2d.py::SimpleGraphClassifier.get_encoder::load_state_dict#0": {
       "class": "offline",
-      "reason": "training-time module — loads checkpoints during training, not in a serving path"
+      "reason": "training-time module — not on a serving path"
     },
     "src/ml/train/model_2d.py::SimpleGraphClassifier.get_encoder::load_state_dict#1": {
       "class": "offline",
-      "reason": "training-time module — loads checkpoints during training, not in a serving path"
+      "reason": "training-time module — not on a serving path"
     },
     "src/ml/train/model_2d.py::SimpleGraphClassifier.load_pretrained::load_state_dict#0": {
       "class": "offline",
-      "reason": "training-time module — loads checkpoints during training, not in a serving path"
+      "reason": "training-time module — not on a serving path"
     },
     "src/ml/train/model_2d.py::SimpleGraphClassifier.load_pretrained::torch.load#0": {
       "class": "offline",
-      "reason": "training-time module — loads checkpoints during training, not in a serving path"
+      "reason": "training-time module — not on a serving path"
     },
     "src/ml/vision_2d.py::Graph2DClassifier._load_model::load_state_dict#0": {
       "class": "gated",
       "family": "graph2d",
-      "reason": "Graph2DClassifier — reached via /analyze pipeline"
+      "reason": "Graph2DClassifier — reached via /analyze"
     },
     "src/ml/vision_2d.py::Graph2DClassifier._load_model::torch.load#0": {
       "class": "gated",
       "family": "graph2d",
-      "reason": "Graph2DClassifier — reached via /analyze pipeline"
+      "reason": "Graph2DClassifier — reached via /analyze"
     },
     "src/ml/vision_3d.py::UVNetEncoder._load_model::load_state_dict#0": {
       "class": "gated",
