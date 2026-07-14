@@ -51,3 +51,23 @@ def test_action_pin_guard_workflow_has_expected_triggers_and_steps() -> None:
     assert "--workflows-dir .github/workflows" in run_script
     assert "--policy-json config/workflow_action_pin_policy.json" in run_script
     assert "--require-policy-for-all-external" in run_script
+
+
+def test_validation_step_has_no_network_dependency() -> None:
+    """The validator is pure stdlib, so this REQUIRED check must never install packages.
+
+    A `pip install` here would make every PR depend on PyPI being reachable — a needless
+    network-failure surface on a gate whose entire value is being dependable.
+    """
+    workflow = _load_workflow(WORKFLOW_PATH)
+    validate_step = _find_step_by_name(
+        workflow, "action-pin-guard", "Validate workflow action pins"
+    )
+    run_script = validate_step["run"]
+    assert "pip install" not in run_script, (
+        f"validation step must not install packages (pure stdlib; no PyPI per PR): {run_script!r}"
+    )
+    # nothing else in the job may reach the network either (only checkout + setup-python + validate).
+    steps = workflow["jobs"]["action-pin-guard"]["steps"]
+    for step in steps:
+        assert "pip install" not in (step.get("run") or ""), f"network dep in step {step.get('name')!r}"
