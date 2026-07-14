@@ -26,9 +26,10 @@ unavailable; it does **not** justify fabricating one or silently lowering L3 rig
 3. The critic provides **evidence, not approval**. The sole human owner explicitly ratifies the design
    and separately authorizes the pinned implementation head. A second account controlled by the same
    person is not independent review.
-4. Merge, deployment, and enablement are separate decisions. The implementation lands default-off;
-   production activation remains blocked on the proof membrane, the production-identity gate, the
-   Track E evidence, and the explicit enablement decision in this document.
+4. Merge, deployment, and enablement are separate decisions. The implementation lands default-off.
+   **Dynamic** activation and any **re-enablement** of `/model/reload` remain blocked on the proof
+   membrane, the production-identity gate, and the Track E evidence; the **Phase-A static fixed-`SHA-256`
+   activation (owner (b))** needs none of those — only this lock ratifying (§0.5).
 
 `.github/CODEOWNERS` may inventory this surface, but `require_code_owner_reviews` remains false while
 the repository has only one developer; enabling it would create an impossible approval gate, not an
@@ -57,7 +58,8 @@ Corrections from review, all load-bearing:
 
 2. **A file-reference count is a discovery list, not a boundary.** The 15 `*_MODEL_PATH` / `load` hits
    are not 15 production entry points. The acceptance goal is *"every production-reachable activation
-   point passes the same proof"* — **not** mechanically wrapping every `load()`.
+   point passes the **phase-appropriate activation gate**"* — Phase A: a fixed-`SHA-256` pin; Phase B:
+   the signed proof — **not** mechanically wrapping every `load()`.
 
 ---
 
@@ -71,7 +73,7 @@ membrane and is **deferred until a real pilot needs dynamic model-swap**. Buildi
 (Phase B) would spend ~2–3 weeks and add **no customer evidence**, The external `/model/reload` boundary is now **sealed (#516, 403)**; the remaining live gap is
 the **38 internal `gated` loaders** (still unpinned). Pin those first (owner decision (b)).
 
-### Phase A — Static-artifact activation (fixed-`SHA-256` pin; build next, after this lock **and** the production-identity lock ratify)
+### Phase A — Static-artifact activation (fixed-`SHA-256` pin; build next, after **this** lock ratifies — the internal fixed-hash loaders do NOT depend on caller identity; the production-identity gate only gates a future re-open of `/model/reload`)
 
 **Goal:** no arbitrary, caller-path, or hot-swapped model activation can occur in production — with
 **no signing keys / no signed proof store** (a plain content-hash comparison only; the signed proof
@@ -153,7 +155,7 @@ Classified by reachability, per the review's taxonomy.
 ### 1.A External-reachable activation (highest risk)
 | Point | Family | Evidence | Current guard |
 |---|---|---|---|
-| `POST /api/v1/model/reload` → `reload_model(payload.path, force=payload.force)` | pickle classifier | `src/api/v1/model.py:46,71` | `api_key` + `admin_token` **both default `"test"`** (`src/api/dependencies.py:8,38`). **No proof binding.** Client supplies an arbitrary `path`. |
+| `POST /api/v1/model/reload` (was `reload_model(payload.path, force=…)`) | pickle classifier | `src/api/v1/model.py` | **SEALED 403 by #516.** The reproduced RCE (arbitrary caller `path`; `api_key`+`admin_token` both default `"test"`; no proof binding) is CLOSED. Re-open only under Phase B + the identity gate (§3.2). |
 
 ### 1.B Startup / runtime-config activation (mutates a RUNNING service)
 | Point | Family | Evidence | Current guard |
@@ -190,9 +192,11 @@ is larger than two families. Verified additional production-reachable, proof-unb
 
 **The recurring lesson — a hand-enumerated count is the wrong contract.** It has been wrong three
 times. The membrane's completeness must be enforced **by construction, not by a list**: ship a CI
-**activation-surface enumerator** that greps every `torch.load` / `pickle.load` / `load_state_dict` /
-`reload_model(` call site, marks each `gated | producer | offline | unmounted`, and **fails if any
-`gated` site does not route through `verify_and_load` (§3), or if a new un-annotated load appears.**
+**activation-surface enumerator** that AST-parses (import-aware) every `torch.load` / `pickle.load(s)` /
+`joblib.load` / `onnx.load` / `load_state_dict` / `from_pretrained` / model-constructor / `reload_model(`
+call site, marks each `gated | producer | offline | unmounted | infra`, and **fails if any `gated` site
+is neither fixed-hash-checked (Phase A) nor routed through `verify_and_load` (Phase B, §3), or if a new
+un-annotated load appears.**
 That inverts the burden: a new activation surface reds CI until it is gated or explicitly classified
 out. This §1 map is the *seed* of that enumerator, not the authority.
 
@@ -279,7 +283,7 @@ emit") cannot recur.
 
 ---
 
-## 3. The membrane (one choke-point, enforced at every production-reachable activation) — **Phase B** (Phase A freezes these same sites; see §0.5)
+## 3. The membrane (one choke-point at every production-reachable activation) — **Phase B** (Phase A fixed-hash-checks these same sites; see §0.5)
 
 A single function — `verify_and_load(artifact_id, family, env)` — where **`artifact_id` is a
 server-owned identifier (or model hash), NOT a caller-supplied filesystem path (review gap).** The
@@ -305,9 +309,10 @@ it at `/etc/shadow` or a 50 GB file). Instead:
 
 The set of call sites is **NOT a hand-list** (a hand count has been wrong repeatedly — §1.B(cont)).
 The **CI activation-surface enumerator is the completeness authority for the DECLARED loader idioms** (bounded — not a proof of every possible load): the membrane is accepted only
-when the enumerator confirms **every `gated` load site routes through `verify_and_load`**. The §1 map
-is that enumerator's *seed*, not the boundary. Implementation is **sharded per model family**, each
-shard wiring `verify_and_load` **before** the load and shipping its own enumerator entry + golden:
+when the enumerator confirms **every `gated` load site is fixed-hash-checked (Phase A) or routed
+through `verify_and_load` (Phase B)**. The §1 map is that enumerator's *seed*, not the boundary.
+Implementation is **sharded per model family**, each shard wiring the Phase-A fixed-hash check (in
+Phase B, `verify_and_load`) **before** the load and shipping its own enumerator entry + golden:
 
 - **pickle-classifier** — `model.py:71` (external `/model/reload`) and `classifier.py:85` (the lazy
   first-`predict()` `pickle.load`, which today has NO magic/hash/opcode check). The current hot-reload
@@ -366,10 +371,10 @@ elsewhere. Keeping them separate keeps the design honest.
 ## 3.2 The external `/model/reload` HARD-DEPENDS on the production-identity gate (review gap)
 
 The proof membrane authorizes *which model* may activate; it does **not** authenticate *who* is
-asking. `POST /model/reload` today is guarded by `api_key` + `admin_token`, **both defaulting to
-`test`** (`dependencies.py:8,38`). Completing the proof membrane must **not** re-open that route while
-identity is fail-open — a trusted-but-defaulted caller passing a valid proof is still an anonymous
-activation.
+asking. `POST /model/reload` is **now SEALED (403, #516)**; before the seal it was guarded only by `api_key` +
+`admin_token` **both defaulting to `test`** (`dependencies.py:8,38` — #516 also fail-closes that default
+in a production posture). Completing the proof membrane must **not** re-open the route while identity is
+fail-open — a trusted-but-defaulted caller passing a valid proof would still be an anonymous activation.
 
 **Ordering lock:** the external `/model/reload` route may be enabled **only when BOTH gates hold**:
 1. the production-identity gate (separate design-lock): no default `test` credentials, unambiguous
@@ -458,10 +463,11 @@ Accurate post-#509 status, by threat actor (§3.1 — do not conflate them):
   runtime.
 - **A runtime API caller / operator** can still reach the **≥5 production-reachable activation points
   across ≥4 model families** (the CI activation-surface enumerator, not a hand count, is the
-  authority — §1.B(cont)/§3) — the external `/model/reload` (admin token defaulted to `test`), the
-  pickle-classifier startup load, and the graph2d / hybrid-branch (stat, text) / pointnet / part /
-  history-sequence / vision3d(uvnet) `torch.load` surfaces — none of which have proof binding. *This*
-  is what the membrane defends, and it is **entirely unbuilt**.
+  authority — §1.B(cont)/§3). The external `/model/reload` is **now SEALED (403, #516)** and is no
+  longer reachable; the remaining live gap is the **38 internal `gated` loaders** — the pickle-classifier
+  startup load and the graph2d / hybrid-branch (stat, text) / pointnet / part / history-sequence /
+  vision3d(uvnet) / ocr / embedding surfaces — which still load **unpinned** (no Phase-A fixed-hash check
+  yet). *That* is what full Phase A must close, and it is **unbuilt**.
 
 **So: strong bleeding-control on the code-gen actor; the runtime activation membrane is not built.**
 This design-lock defines that membrane. Stopping the routine and owner-ratifying this design under the
