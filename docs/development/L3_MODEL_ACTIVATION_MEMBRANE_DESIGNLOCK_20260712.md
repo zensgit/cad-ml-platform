@@ -61,7 +61,7 @@ Corrections from review, all load-bearing:
 
 ---
 
-## 0.5 Phasing — freeze first (Phase A), prove later (Phase B)
+## 0.5 Phasing — pin first (Phase A: static fixed-hash), prove later (Phase B: signed proof)
 
 **PROPOSED phasing — no ratification has occurred.** This doc is for-review; the owner alone
 ratifies it (no owner review/comment/pinned-head ratification exists as of this writing). The
@@ -69,23 +69,27 @@ proposal is that the membrane ships in **two separately-ratifiable phases**.
 Phase A is cheap containment that needs **no** cryptographic proof store; Phase B is the full proof
 membrane and is **deferred until a real pilot needs dynamic model-swap**. Building the signed store now
 (Phase B) would spend ~2–3 weeks and add **no customer evidence**, while the live boundary (§1.A external
-`/model/reload`, caller-path + `force`) stays open. Freeze first.
+`/model/reload`, caller-path + `force`) stays open. Pin first (owner decision (b)).
 
-### Phase A — Activation freeze (build next, after this lock **and** the production-identity lock ratify)
+### Phase A — Static-artifact activation (fixed-`SHA-256` pin; build next, after this lock **and** the production-identity lock ratify)
 
-**Goal:** no arbitrary or caller-path model activation can occur in production — with **zero** cryptography.
+**Goal:** no arbitrary, caller-path, or hot-swapped model activation can occur in production — with
+**no signing keys / no signed proof store** (a plain content-hash comparison only; the signed proof
+is Phase B). Per the owner's decision (b), models still load from pinned server-owned artifacts.
 1. **Production-disable the external `POST /api/v1/model/reload` route — no environment-variable bypass.**
    It is LIVE today (§1.A/§3.2); disabling it is an ACTION the implementation takes. In production the
    route refuses unconditionally; **no flag or env var re-opens it** (re-opening is a Phase B + identity-gate
    decision, §3.2). A request carrying a valid `path`+`force`+default `test` creds must not reach
-   `reload_model`.
-2. **Fail-closed on every §1.A/1.B production-reachable load not explicitly classified-out.** The membrane's
-   Phase-A body is #509's `raise` (or a hard-refuse) applied at each `gated` site, so an unproven/unclassified
-   load cannot activate, and **no caller-influenced path is opened** at any site (the §3 rule minus the proof
-   lookup).
+   `reload_model`. (#516 has already sealed this route, 403.)
+2. **Static fixed-hash activation at every §1.A/1.B `gated` site (owner decision (b)).** Each `gated`
+   loader may activate a model **only** from a *server-owned, fixed-`SHA-256`* artifact resolved from a
+   controlled store: **no caller-influenced path, no env-var path-swap, no dynamic replacement**. The
+   site reads the resolved bytes once, compares their SHA-256 to the pinned value, and loads THOSE
+   bytes (or refuses fail-closed on mismatch/unknown-id). An unclassified/unpinned load cannot
+   activate. This is a subset of §3's `verify_and_load` **without** the signed proof store (Phase B).
 3. **CI activation-surface enumerator (§1/§3) — the completeness authority FOR DECLARED loader idioms** (import-aware torch/pickle/joblib/onnx `.load`, `load_state_dict`, `from_pretrained`, curated constructors, `reload_model(`; NOT a proof of every possible Python load — a novel framework escapes until its pattern is added). Marks every
    `torch.load`/`pickle.load(s)`/`joblib.load` (import-alias-aware) / `load_state_dict` / `from_pretrained` (HF) / model constructors (`SentenceTransformer`/`PaddleOCR`/…) / `reload_model(` site `gated|producer|offline|unmounted|infra` and
-   REDS when a new un-annotated load MATCHING A DECLARED IDIOM appears, or a `gated` site is neither frozen (Phase A) nor routed through
+   REDS when a new un-annotated load MATCHING A DECLARED IDIOM appears, or a `gated` site is neither fixed-hash-checked (Phase A, owner decision (b)) nor routed through
    `verify_and_load` (Phase B). This replaces the hand-count (wrong ≥3×). Seed = the §1 map; authority = the
    e2facd99 IMPORT-AWARE enumeration: **128 load sites total, 38 `gated`** across 11 families
    (pickle-classifier, graph2d, pointnet, part, part-v16, hybrid, history, vision3d-uvnet, **ocr** —
@@ -95,17 +99,20 @@ membrane and is **deferred until a real pilot needs dynamic model-swap**. Buildi
 
 **Phase A exit criteria (observed-RED, REQUIRED — NOT claimed executed here):** external
 `/model/reload` refuses in prod with no env bypass; a new un-annotated prod loader REDS CI; **every**
-`gated` §1.A/1.B site is frozen (hard-refuse) per the enumerator; no caller path is opened anywhere.
+`gated` §1.A/1.B site activates ONLY via the fixed-`SHA-256` server-owned-artifact check (owner
+decision (b)) — no caller path, no env path-swap, no dynamic replacement; a mismatch/unknown-id
+refuses fail-closed; and the enumerator asserts every `gated` site is either fixed-hash-checked
+(Phase A) or routed through `verify_and_load` (Phase B).
 
 > **What #516 actually delivers = Phase A0 only, not full Phase A.** #516 seals the external
 > `/model/reload` route (403), fail-closes the default `test` creds in a production posture, and ships
 > the enumerator as a *discovery/classification* gate. It does **NOT** yet freeze the 38 internal
 > `gated` loaders (they still load), and the enumerator does **NOT** yet assert each `gated` site is
-> frozen or routed through `verify_and_load`. So the middle exit criterion above ("every gated site
-> frozen") and the enumerator-freeze assertion are **still unbuilt**. Honest #516 closeout: *external
+> frozen or routed through `verify_and_load`. So the middle exit criterion above (every gated
+> site fixed-hash-checked, owner decision (b)) and the enumerator assertion are **still unbuilt**. Honest #516 closeout: *external
 > reload sealed; producer disabled; internal runtime activation remains proof-unbound.* Full Phase A
-> (freeze every gated site + enumerator asserts frozen-or-verified) is the next build after this lock
-> ratifies.
+> (fixed-hash-check every gated site per (b) + enumerator asserts hashed-or-verified) is the next build
+> after this lock ratifies.
 
 **Phase A does NOT build:** the proof schema (§2.2), the signed proof store / issuer / key-custody (§2.3),
 `verify_and_load`'s proof lookup (§3 steps 4–5), revocation/expiry, the LKG re-validation readiness probe,
@@ -116,30 +123,27 @@ or the append-only activation audit (§3.3). All of those are Phase B.
 The full contract in §2–§3: content-bound split digest (§2.1), the signed proof envelope (§2.2), the trust
 source + key-custody + revocation + expiry + LKG re-validation (§2.3), the `verify_and_load` choke-point with
 **server-owned artifact IDs** and TOCTOU-safe hash-and-load (§3), and the append-only audit (§3.3). Phase B
-**replaces** each Phase-A frozen body with real proof-gated activation — re-enablement is replacing the body,
+**replaces** each Phase-A fixed-hash body with real signed-proof-gated activation — re-enablement is replacing the body,
 not adding a flag (§7.2). Phase B depends on **Track E** (§8.1) existing (the split/manifest/metrics the proof
 binds to) and on a **HSM / human-gated signer outside CI** (§2.3 key-custody).
 
 **Do not start Phase B while no pilot requires dynamic model-swap.** Sections §2, §2.3, and §3 below
 define Phase B; §1 and the enumerator define Phase A.
 
-> **OPEN DECISION — the owner must resolve this before ratifying (a real contradiction, review 6).**
-> Phase A step 2 says *every* `gated` site hard-refuses (`raise`). Taken literally that disables
-> **all** ML capability — classify / OCR / embedding all refuse to load — which is NOT a functional
-> "static-model production deployment". The earlier "Phase A's freeze is sufficient for static
-> production" claim is therefore **withdrawn as written**. The owner must choose the Phase-A usability
-> semantics, and this doc is **not ratifiable until then**:
+> **RESOLVED — owner selected (b) Static-artifact-only startup (2026-07-14).** (This records the
+> owner's design choice; the owner still ratifies the final pinned head — see the protocol above.)
+> Phase A is therefore **static fixed-hash artifact activation**, NOT a blanket hard-refuse of all
+> ML: a `gated` loader may load **only** from a *server-owned, fixed-`SHA-256`* artifact resolved
+> from a controlled store — **no caller path, no env-var-swap of the path, and dynamic replacement is
+> forbidden**. Models work; hot-swap does not. Each `gated` site gains a minimal fixed-hash check (a
+> subset of §3's `verify_and_load`: resolve a server-owned artifact id → read once → compare SHA-256
+> to the pinned value → load the same bytes, or refuse) with **no signed proof store and no signing
+> keys** (that is Phase B). The rejected alternative (a) — every `gated` loader hard-refuses, ML
+> fully off with a defined `degraded`/health contract — is recorded for the audit trail but NOT the
+> chosen path.
 >
-> - **(a) Full disable + defined degraded behaviour.** Every `gated` loader refuses; the service runs
->   with ML off and MUST define explicit health/`degraded` responses (which endpoints 503/`degraded`,
->   what a client sees) so "disabled" is a specified state, not a crash.
-> - **(b) Static-artifact-only startup.** A `gated` loader may load **only** from a *server-owned,
->   fixed-hash* artifact resolved from a controlled store (no caller path, no env-swap), and **dynamic
->   replacement stays forbidden**. Models work; hot-swap does not. This needs a minimal fixed-hash
->   check at each `gated` site (a subset of §3's `verify_and_load`, without the signed proof store).
->
-> #516 (Phase A0) prejudges neither: it seals only the external `/model/reload` and leaves the 38
-> internal `gated` loaders loading as-is. Full Phase A implements whichever of (a)/(b) the owner picks.
+> #516 (Phase A0) prejudged neither: it sealed only the external `/model/reload` and left the 38
+> internal `gated` loaders loading as-is. Full Phase A implements (b) at each `gated` site.
 
 ---
 
