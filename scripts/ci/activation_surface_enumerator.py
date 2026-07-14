@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""L3 activation-surface enumerator — completeness by construction, not by a hand-list.
+"""L3 activation-surface enumerator — bounded completeness for DECLARED loader idioms (not a hand-list).
 
-Discovers every place that deserializes model bytes into a process and requires each to be
+Discovers each DECLARED-idiom load site that deserializes model bytes into a process (see the
+scope note below — this is NOT provably every possible load) and requires each to be
 CLASSIFIED in ``scripts/ci/activation_surface.json``. A NEW, un-annotated load site fails CI RED.
 
 **Import-aware** (review 5 — a name-only matcher had real blind spots): resolves import aliases so
@@ -204,9 +205,9 @@ def main(argv=None) -> int:
     summary = ", ".join(f"{c}={by_class.get(c, 0)}" for c in sorted(VALID_CLASSES))
     print(f"[activation-enumerator] OK — {len(found)} load sites, all classified ({summary}).")
     gated = sum(1 for e in manifest.values() if e["class"] == "gated")
-    print(f"[activation-enumerator] {gated} `gated` production-reachable activation point(s); each "
-          "MUST be frozen (Phase A) or route through verify_and_load (Phase B). Until then the "
-          "membrane default is #509's unconditional raise.")
+    print(f"[activation-enumerator] {gated} `gated` production-reachable activation point(s). These "
+          "are DISCOVERED + classified only; Phase A0 does NOT freeze them (they still load). Full "
+          "Phase A must freeze each (hard-refuse) or route it through verify_and_load (Phase B).")
     return 0
 
 

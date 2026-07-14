@@ -44,7 +44,7 @@ constructors (`SentenceTransformer`/`CrossEncoder`/`PaddleOCR`/`InferenceSession
 `scripts/`, and requires each classified in `scripts/ci/activation_surface.json`
 (`gated | producer | offline | unmounted | infra`). Keys are `<file>::<enclosing symbol>::<kind>#<n>`
 — **stable across line-number drift** (AST, not grep-by-line). A **new un-annotated load site reds
-CI**, so a new activation surface cannot land silently. It is discovery + fail-closed bookkeeping
+CI**, so a new load site **matching a declared idiom** cannot land silently (bounded — see the scope note below; a novel framework/idiom escapes until its pattern is added). It is discovery + fail-closed bookkeeping
 only: it can never emit a "green that enables" — it only passes (all classified) or reds. **Scope (honest):** it covers the DECLARED loader idioms (torch/pickle/joblib/onnx `.load`, `load_state_dict`, `from_pretrained`, curated constructors incl. `InferenceSession`, `reload_model(`) — NOT a proof of exhaustive coverage of every possible Python model load; a novel framework/idiom escapes until its pattern is added. The guarantee is: *a new site matching a declared idiom cannot land unclassified.*
 
 Current classification (`e2facd99` after the seal): **128 sites** — `gated`=38, `producer`=44,
@@ -69,7 +69,7 @@ it exists; until then the membrane default is #509's unconditional raise.
 | OpenAPI snapshot regenerated: `/model/reload` responses = **403 + 422**, 193 paths / 198 ops | pass (CI view; local shows a known +`/metrics` delta) |
 | reload route tests converted to direct `reload_model` calls — loader security coverage preserved | pass |
 
-`tests/unit/test_activation_surface_enumerator.py` (15, incl. 9 import-aware no-blind-spot cases) + `tests/unit/test_l3_phase_a_runtime_bleeding_control.py` (7).
+`tests/unit/test_activation_surface_enumerator.py` (18, incl. 12 import-aware/onnx no-blind-spot cases) + `tests/unit/test_l3_phase_a_runtime_bleeding_control.py` (7).
 CI wired in `ci.yml` + `ci-tiered-tests.yml` (enumerator + these suites run as an L3 step).
 
 ## 3. What this deliberately does NOT do
