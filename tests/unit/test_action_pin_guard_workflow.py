@@ -27,12 +27,14 @@ def test_action_pin_guard_workflow_has_expected_triggers_and_steps() -> None:
     workflow = _load_workflow(WORKFLOW_PATH)
 
     assert workflow["name"] == "Action Pin Guard"
+    # push stays path-filtered.
     assert ".github/workflows/**" in workflow["on"]["push"]["paths"]
     assert "config/workflow_action_pin_policy.json" in workflow["on"]["push"]["paths"]
-    assert ".github/workflows/**" in workflow["on"]["pull_request"]["paths"]
-    assert (
-        "config/workflow_action_pin_policy.json"
-        in workflow["on"]["pull_request"]["paths"]
+    # pull_request must have NO `paths:` filter — this is a REQUIRED status check, so it must run on
+    # EVERY PR to produce the context (a paths filter permanently BLOCKS docs-only/CODEOWNERS-only PRs).
+    pr_trigger = workflow["on"]["pull_request"]
+    assert pr_trigger is None or "paths" not in pr_trigger, (
+        f"pull_request must not be path-filtered (required-context deadlock): {pr_trigger}"
     )
 
     checkout_step = _find_step_by_name(workflow, "action-pin-guard", "Checkout")
