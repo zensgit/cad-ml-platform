@@ -2,8 +2,7 @@
 
 > **This is Phase A0 (not full Phase A):** it seals the EXTERNAL `/model/reload`, fail-closes default creds, and ships the enumerator as a DISCOVERY gate — it does NOT freeze the 38 internal `gated` loaders (they still load) and the enumerator does NOT yet assert each gated site is frozen/verify_and_load'd (that is full Phase A, design-lock #513 §0.5). Honest closeout: **external reload sealed; producer disabled; internal runtime activation remains proof-unbound.** This is fail-closed,
 > risk-REDUCING bleeding-control ONLY — it seals a reproduced live RCE surface, refuses the insecure
-> default credentials in production, and makes activation-surface completeness enforced *by
-> construction*. It builds **no proof membrane** and enables **nothing**: every change here can only
+> default credentials in production, and makes activation-surface completeness (for the DECLARED loader idioms — bounded, not a proof of every possible load) enforced in CI. It builds **no proof membrane** and enables **nothing**: every change here can only
 > refuse, never green-light an activation. Grounded on `origin/main@e2facd99`. Fresh from latest
 > main — does NOT revive the closed #514. The membrane itself is the ratification-gated follow-up
 > (design-lock #513).
@@ -51,8 +50,9 @@ Current classification (`e2facd99` after the seal): **128 sites** — `gated`=38
 `offline`=39, `unmounted`=3, `infra`=4. The **38 gated** production-reachable activation points span
 11 families: pickle-classifier, graph2d, pointnet, part, part-v16, hybrid, history, vision3d-uvnet,
 **ocr** (DeepSeek HF `from_pretrained` + PaddleOCR, mounted /ocr), **embedding** (SentenceTransformer),
-anomaly-monitor. Each `gated` site MUST route through the L3 proof membrane (`verify_and_load`) once
-it exists; until then the membrane default is #509's unconditional raise.
+anomaly-monitor. **Phase A0 does NOT freeze these 38 gated sites — they still load and remain
+proof-unbound.** Full Phase A must freeze each (hard-refuse) or route it through `verify_and_load`
+(Phase B); until then the *external* `/model/reload` is the only activation this PR closes.
 
 ## 2. Verification (local)
 
