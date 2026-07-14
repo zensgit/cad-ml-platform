@@ -39,32 +39,27 @@ This turn's verification already exercised the rule: Fable ×3 (semantic claims)
 | **G** Governance / close-out | refresh #498; #512 as path-list (no CODEOWNERS enforce); split #513 → Phase A/B; Hard Gate observation | — | design ✅ · **merge/ratify/enable = owner** | Fable | — |
 | **I** Production identity fail-closed | prod refuses default creds + `disabled`; bind identity to `auth_subject`; drop `x-user-id` override; negative tests | 10% | ✅ for-review, default-off | Fable → Sonnet → Fable | — (independent of E) |
 | **F** Activation freeze (**#513 Phase A**) | prod-disable `/model/reload`; fail-closed unproven startup loads; CI activation-surface enumerator over the 8-point set | design/0% | ✅ for-review, default-off | Fable → Sonnet(enumerator) → Opus review | design-lock ratify |
-| **E** Track E eval-integrity-v2 | 7× §8.1: manifest+provenance, content/family/label/side digests, quarantine, holdout, real/synth/aug metrics, two-phase candidate gate | ~15% | design ✅ · **runtime after gate** | Fable → Sonnet → Fable | **#512 landed + design-lock ratify** |
+| **E** Track E eval-integrity-v2 | 7× §8.1: manifest+provenance, content/family/label/side digests, quarantine, holdout, real/synth/aug metrics, two-phase candidate gate | **5–10%** (only #509 safety-brake) | design ✅ · **runtime after gate** | Fable → Sonnet → Fable | **#512 landed + design-lock ratify** |
 | **M** Full proof membrane (**#513 Phase B**) | signed proof store, revocation, LKG re-validation | 0% | design ✅ | Fable | **conditional** — only when a pilot needs dynamic model-swap |
 | **P** Offline pilot/eval pack | ingest → candidate → deterministic evidence → reuse/revise/new export | 0% | ✅ after a real sample | Fable → Sonnet | first lawful customer archive |
 | **C** Customer discovery / data agreement / pilot | named customer, sample rights, pilot commitment | no repo evidence | ❌ **owner-only** | — | owner |
 
 ---
 
-## 3. Parallel DAG
+## 3. Parallelism model — design parallel, runtime **WIP=1** (owner-ratified 2026-07-13)
+
+Single maintainer ⇒ **runtime L3 is WIP=1**: exactly one runtime track is implemented at a time. Design-locks, audits, and model-generated *evidence* run in parallel; the human remains the sole ratifier. Running two runtime L3 tracks at once would collapse the isolated-critic, observed-RED, and final-head binding together. (This corrects the earlier draft's parallel-runtime DAG.)
+
+**Ratified runtime order (serial):**
 
 ```
-Week 1        Weeks 2–4 (parallel)              Week 5      Week 6       Weeks 7–8
-─────────     ────────────────────────          ───────     ────────     ──────────
-G (design) ─┬─► E.design ─(gate)─► E.runtime ───────────────────────────► (E done)
-            │
-            ├─► I.design ─► I.runtime ─────────► I hardening ───────────► (I done)
-            │
-            └─► F.design (#513 Phase A) ──────────────────► F.runtime ──► (F done)
-
-C (customer discovery) ═══════════ runs the whole time, owner-driven ═══════════►
-                                                             P (pilot pack) ─► after first sample
-M (#513 Phase B) … deferred until a pilot requires dynamic model-swap
+①#513 Phase A freeze → ②Production identity → ③Track E v2 → ④Phase A rest (activation-surface freeze) → ⑥#513 Phase B (DEFERRED: pilot-pull only)
+                                                    ⑤Pilot pack — only with a real lawful sample
 ```
 
-- **Critical path:** `G → E.runtime` (E's runtime is the only track blocked on a governance gate).
-- **Three independent design fronts start immediately and in parallel:** E.design, I.design, F.design. None blocks another.
-- **Recommended deviation from the owner's week-numbering (flagged, default-on unless vetoed):** because the verification confirmed **default-open auth as the true P0** and it is fully independent of Track E, start **I (production identity) design + fail-first negative tests now, in parallel with Track E design** — rather than waiting for Week 5. This does **not** reorder any merge; it only front-loads the P0's for-review evidence.
+- **Design in parallel now (no runtime):** the #513 Phase A/B split (#513), the production-identity design-lock (#517), and the Track E design-lock may be authored + critiqued concurrently. **No runtime is written until the relevant design-lock is ratified.**
+- **First runtime L3 is NOT Track E** — it is freezing the live `/model/reload` boundary + production identity. #509 already blocks contaminated-eval retrain; the open live boundary is identity + caller-path reload.
+- **Customer line (C) runs in parallel from Week 1**, owner-driven. **No lawful sample by Week 4 → cancel the Week 7–8 pilot build** rather than fill it with simulated data.
 
 ---
 
@@ -77,10 +72,11 @@ Every track produces, per the owner's standing instruction:
 3. **Adversarial review** (Fable, default-refute) — the independent-critic pass; findings reproduced-or-refuted.
 4. **Verification MD** — observed-RED evidence, positive controls, and the adversarial review's confirmed set.
 
-### Track I — the immediate P0 (design highlights)
-- **Boot-refuse in production:** when `ENVIRONMENT`/`APP_ENV` indicates production, refuse to start (or reject all requests) if `ADMIN_TOKEN`/`X-API-Key` are at the literal `test` default or `INTEGRATION_AUTH_MODE=disabled`. This is the missing guard (verification §1). Fail-first test: prod + default creds → boot/refuse; dev + defaults → unaffected.
-- **Identity binding:** downstream identity derives from `auth_subject` (authentic), not the `x-user-id` header; delete or correctly wire the dead `create_api_actor_from_request` sink (verification §3).
-- **Negative suite:** anonymous, forged header, wrong tenant, default-cred-in-prod — all must fail closed; dev/test opt-in stays explicit.
+### Track I — production identity, the first runtime L3 (design-lock #517)
+- **No default credential authenticates:** `get_api_key` must compare to a configured key set (today it accepts ANY non-empty key — `dependencies.py:8`); `ADMIN_TOKEN` must not authenticate at its `test` default.
+- **Production explicit + fail-closed:** an `ENVIRONMENT`/`APP_ENV` guard boot-refuses on default/`test` creds or `INTEGRATION_AUTH_MODE=disabled`; dev/test permissiveness is an explicit opt-in.
+- **JWT verifies issuer/audience/expiry** (today `jwt.decode` passes none — `integration_auth.py:88`); **actor derives ONLY from the validated `sub`** — the `x-user-id` override is **fix-now, not latent** (live raw-header readers: `audit/logger.py:614`, `feature_flags/decorators.py:136`, `request_context:213`), and a test **locks in** the bad contract (`test_integration_auth_middleware.py:110`) — fail-first flips it.
+- **Forged identity headers rejected; audit reads the validated identity, not the raw header.**
 
 ### Track F — activation freeze / #513 Phase A (design highlights)
 - Production-disable dynamic `/model/reload` (verification §2); unproven startup model loads fail closed.
@@ -103,10 +99,25 @@ Every track produces, per the owner's standing instruction:
 | Decide branch-protection posture (req=0 CI-gated vs req=1 + real reviewer) | merge windows for all tracks |
 | First lawful customer archive | Track P (pilot pack) |
 
-Author proceeds now on all **design** fronts (E/I/F) and Track I fail-first tests without waiting; runtime lands only as each gate opens.
+Author proceeds now on **design-locks only** (E/I/F design + isolated critic). **No runtime — including fail-first tests — until the relevant design-lock is ratified** (owner: 暂不启动任何 runtime).
 
 ---
 
-## 6. Open decision for the owner
+## 6. Ratified two-month schedule (owner, 2026-07-13)
 
-**Ordering of Track I (production identity).** Verification confirms it is the P0 and it is parallelizable. Default action (unless vetoed): begin I.design + fail-first negative tests now, alongside E/F design, landing for-review/default-off — without changing any merge sequence. If you prefer to hold I to Week 5 as originally scheduled, say so and it moves back.
+Owner-ratified; supersedes the earlier "front-load Track I" open question (resolved: identity/reload-freeze **is** the first runtime L3, as W2–3). Estimate: governance + identity + Track E + Phase A ≈ **26–34 eng-days**; +offline pilot pack 5–7 days *with a real sample*; full Phase B +10–15 days, **not this round**.
+
+| Week | Main deliverable | Required exit |
+|---|---|---|
+| W1 | close #498; #512 as path-list only; fix #513 live facts + split A/B; draft production-identity design-lock | **two design-locks ratified; NO runtime** |
+| W2 | Phase A0: production unconditionally disable external `/model/reload`; start identity impl | caller path/force can't reach the loader; observed-RED |
+| W3 | complete production identity membrane | any key, default token, missing/no-expiry JWT, forged user header — all fail-closed |
+| W4 | Track E: portable manifest, provenance, content/family/label/side digest, conflict quarantine | byte-change, label-change, duplicate-content all RED |
+| W5 | family/time holdout, non-empty both sides, max-component check, real/synth/augmented layering | fresh clone can recompute split |
+| W6 | metrics + candidate proof: macro/per-class, calibration, false-duplicate, missed-reuse; CI dry-run | split-change must red; #509 stays closed |
+| W7 | activation-surface enumerator, startup-load freeze, deploy safety checks | new unclassified loader reds CI |
+| W8 | with lawful samples: offline pilot pack; without: ops/security close-out only (no features) | ingest→candidate→evidence→export; no training, no write-back |
+
+**Customer line, parallel from W1:** 10 target manufacturers, 2 lawful-sample conversations, one named reviewer. **No lawful sample by W4 → cancel W7–8 pilot dev** (do not simulate).
+
+**W1 status:** #513 A/B split done (`c65f952c`); #517 production-identity design-lock open; isolated critic running for ratification evidence. #512 already reduced to path-list; #498 refresh + owner ratifications pending. No runtime started.
