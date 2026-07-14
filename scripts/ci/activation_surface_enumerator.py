@@ -63,18 +63,28 @@ _BARE_CALL_NAMES = {"reload_model"}
 # Exit codes — a gate MALFUNCTION must never be mistaken for a clean pass (0) or a finding (1).
 EXIT_OK = 0            # every discovered site is classified, no stale manifest entry
 EXIT_FINDING = 1       # a new UNCLASSIFIED site, or a STALE manifest entry
-EXIT_MALFUNCTION = 2   # an in-scope file could not be parsed → enumeration INCOMPLETE → fail-closed
+EXIT_MALFUNCTION = 2   # the gate could not complete its own check — an unreadable/unparseable
+                       # in-scope file, OR an unusable manifest → completeness UNASSERTABLE →
+                       # fail-closed (never a silent skip, never an "empty but valid" degrade)
 
 
 class EnumeratorMalfunction(Exception):
-    """The scan could not parse one or more in-scope files, so the enumeration is INCOMPLETE and its
-    completeness CANNOT be asserted. This is a MALFUNCTION (exit 2), NOT a finding (exit 1): an
-    unparseable file may hide unregistered loaders, so we fail closed rather than silently skip it.
+    """The gate could not complete its own check, so completeness CANNOT be asserted.
+
+    Two sources, one verdict — a MALFUNCTION (exit 2), never a finding (exit 1):
+
+    * **source scan** — an in-scope file could not be read or parsed; it may hide unregistered
+      loaders, so skipping it would be fail-open;
+    * **manifest** — missing / unreadable / undecodable / invalid JSON / schema-invalid /
+      invalid class; without a usable classification there is nothing to check completeness
+      against, and degrading to an "empty but valid" manifest would fabricate a clean pass.
+
+    Fail closed in both cases.
     """
 
     def __init__(self, malfunctions: List[Tuple[str, str, str]]) -> None:
         self.malfunctions = malfunctions  # list of (relpath, error_type, message)
-        super().__init__(f"{len(malfunctions)} unparseable in-scope file(s)")
+        super().__init__(f"{len(malfunctions)} gate malfunction(s)")
 
 
 def _collect_imports(tree: ast.AST) -> Tuple[Dict[str, str], Dict[str, Tuple[str, str]]]:
@@ -212,11 +222,19 @@ def load_manifest() -> Dict[str, dict]:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise EnumeratorMalfunction([(rel, "JSONDecodeError", " ".join(str(exc).split()))]) from exc
-    if not isinstance(data, dict) or not isinstance(data.get("sites", {}), dict):
+    if (
+        not isinstance(data, dict)
+        or "sites" not in data
+        or not isinstance(data["sites"], dict)
+    ):
+        # NB: `data.get("sites", {})` would let a manifest with NO 'sites' key through as an "empty
+        # but valid" manifest — a fabricated clean pass. A missing key is schema-invalid, not empty.
         raise EnumeratorMalfunction(
-            [(rel, "SchemaError", "manifest must be an object with a 'sites' object")]
+            [(rel, "SchemaError",
+              "manifest must be an object with a 'sites' object (a missing 'sites' key is "
+              "schema-invalid, NOT an empty manifest)")]
         )
-    entries = data.get("sites", {})
+    entries = data["sites"]
     for key, entry in entries.items():
         if not isinstance(entry, dict):
             raise EnumeratorMalfunction(

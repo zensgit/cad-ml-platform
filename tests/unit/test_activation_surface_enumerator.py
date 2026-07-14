@@ -149,6 +149,23 @@ def test_manifest_schema_violation_is_malfunction_exit_2(tmp_path, monkeypatch, 
     assert "SchemaError" in capsys.readouterr().err
 
 
+@pytest.mark.parametrize("payload", ["{}", '{"notsites": {}}', '{"sites": []}', '"a string"'])
+def test_manifest_without_a_sites_object_is_malfunction_exit_2(
+    payload, tmp_path, monkeypatch, capsys
+) -> None:
+    # observed-RED: `data.get("sites", {})` let a manifest with NO 'sites' key through as an "empty
+    # but valid" manifest — in a scan scope with no loaders that printed "OK ... all classified" and
+    # exited 0, i.e. a schema-invalid manifest fabricating a clean pass. A missing/!dict 'sites' is a
+    # MALFUNCTION (exit 2), never an empty manifest.
+    bad = tmp_path / "activation_surface.json"
+    bad.write_text(payload, encoding="utf-8")
+    monkeypatch.setattr(enum, "MANIFEST", bad)
+    with pytest.raises(enum.EnumeratorMalfunction):
+        enum.load_manifest()
+    assert enum.main() == enum.EXIT_MALFUNCTION == 2
+    assert "SchemaError" in capsys.readouterr().err
+
+
 import ast as _ast
 
 
