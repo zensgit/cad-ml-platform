@@ -68,8 +68,8 @@ ratifies it (no owner review/comment/pinned-head ratification exists as of this 
 proposal is that the membrane ships in **two separately-ratifiable phases**.
 Phase A is cheap containment that needs **no** cryptographic proof store; Phase B is the full proof
 membrane and is **deferred until a real pilot needs dynamic model-swap**. Building the signed store now
-(Phase B) would spend ~2–3 weeks and add **no customer evidence**, while the live boundary (§1.A external
-`/model/reload`, caller-path + `force`) stays open. Pin first (owner decision (b)).
+(Phase B) would spend ~2–3 weeks and add **no customer evidence**, The external `/model/reload` boundary is now **sealed (#516, 403)**; the remaining live gap is
+the **38 internal `gated` loaders** (still unpinned). Pin those first (owner decision (b)).
 
 ### Phase A — Static-artifact activation (fixed-`SHA-256` pin; build next, after this lock **and** the production-identity lock ratify)
 
@@ -77,10 +77,9 @@ membrane and is **deferred until a real pilot needs dynamic model-swap**. Buildi
 **no signing keys / no signed proof store** (a plain content-hash comparison only; the signed proof
 is Phase B). Per the owner's decision (b), models still load from pinned server-owned artifacts.
 1. **Production-disable the external `POST /api/v1/model/reload` route — no environment-variable bypass.**
-   It is LIVE today (§1.A/§3.2); disabling it is an ACTION the implementation takes. In production the
-   route refuses unconditionally; **no flag or env var re-opens it** (re-opening is a Phase B + identity-gate
+   It was LIVE (§1.A/§3.2); **#516 has already sealed it (403)**. It refuses unconditionally; **no flag or env var re-opens it** (re-opening is a Phase B + identity-gate
    decision, §3.2). A request carrying a valid `path`+`force`+default `test` creds must not reach
-   `reload_model`. (#516 has already sealed this route, 403.)
+   `reload_model`. (This route is DONE — #516.)
 2. **Static fixed-hash activation at every §1.A/1.B `gated` site (owner decision (b)).** Each `gated`
    loader may activate a model **only** from a *server-owned, fixed-`SHA-256`* artifact resolved from a
    controlled store: **no caller-influenced path, no env-var path-swap, no dynamic replacement**. The
@@ -330,9 +329,15 @@ unconditional block for the membrane call — the *only* place the permanent-clo
 only once the signed store exists). The **unmounted serving scaffold** (`src/ml/serving/*`) is promoted
 into a shard automatically if it is ever mounted (the enumerator reds until it is).
 
-Until the proof store and Track E exist, **the membrane's default implementation is #509's: raise
-unconditionally.** Re-enablement is replacing the body, not adding a flag. (`merged != enabled !=
-safe to enable`, §7.2.)
+Per owner decision (b), the **Phase-A body at each `gated` site is the static fixed-`SHA-256`
+check** (resolve a server-owned artifact id → read once → SHA-256 == the pinned value → load THOSE
+bytes, else refuse to a defined `degraded`/503) — models load, but **only** from pinned server-owned
+artifacts, with no caller path, no env path-swap, no runtime hot-swap. The external `/model/reload`
+route is the exception: it stays **sealed (403, done by #516)**, re-opened only under Phase B + the
+identity gate (§3.2). Once **Track E** and the signed proof store exist, Phase B **replaces** the
+fixed-hash body with the signed-proof `verify_and_load` — re-enablement is replacing the body, not
+adding a flag (`merged != enabled != safe to enable`, §7.2). Build order: **Phase A → Track E →
+Phase B → enablement.**
 
 ---
 
@@ -370,9 +375,10 @@ activation.
 1. the production-identity gate (separate design-lock): no default `test` credentials, unambiguous
    authenticated tenant/user, `x-user-id` cannot override the token subject (`src/api/middleware/integration_auth.py:104`);
 2. the proof membrane (this doc).
-The route is **LIVE today** (that is precisely the vulnerability, §1.A/§6) — so "disabled" is an
-ACTION the implementation MUST take (disable `/model/reload` until both gates hold), not a current
-fact. Do not read §3.2/§5 as "already disabled". (The §1.B loads are internal and gated by
+The route **was LIVE (the original vulnerability, §1.A/§6); #516 has now SEALED it (403)** and it
+stays sealed until BOTH gates hold — re-opening it is a Phase B + identity-gate decision, never a
+flag. So for `/model/reload`, "disabled" is now a fact (#516); for the §1.B internal loads it is the
+Phase-A fixed-hash body that must still be built. (The §1.B loads are internal and gated by
 the proof membrane alone, but they must not read a caller-influenced path either). Neither gate alone
 is sufficient; do not ship one and call the surface safe.
 
@@ -401,12 +407,24 @@ revocation and incident review possible after the fact.
 
 ## 5. Golden matrix the implementation must ship (observed-RED, REQUIRED — not yet executed; the membrane is unbuilt)
 
-**Phasing of this matrix:** **Phase A** ships the freeze/reject subset — *caller supplies a filesystem `path`*
-→ REJECTED, *complete-but-leave-`ADMIN_TOKEN=test`* → route stays DISABLED, and *a new un-annotated prod
-loader* → CI RED. **Phase B** ships the proof-binding subset — no-proof / TOCTOU / unsigned / expired-revoked /
-server-owned family+env / max-size / family-mismatch / env-mismatch / byte-change / label-change / content-dup /
-stale-evaluator, and the single GREEN. A row that needs a proof store is Phase B by definition.
+**Phasing of this matrix (owner decision (b)).** **Phase A** is *static fixed-`SHA-256` activation* — a
+`gated` site loads ONLY from a server-owned pinned artifact, **no proof store, no signing keys**; its
+golden cases are the first table. **Phase B** adds the signed-proof binding (the second table); any row
+needing a proof store / signature / evaluator / revocation is Phase B **by definition**. Phase B depends
+on **Track E** existing, so the build order is **Phase A → Track E → Phase B → enablement**.
 
+### Phase A (b) — static fixed-hash activation (no proof store, no signing keys)
+| Case | Required result |
+|---|---|
+| a `gated` site loads a **server-owned** artifact whose bytes' `SHA-256` **== the pinned value** | **GREEN — the Phase-A green** (this is the fixed-hash success case; models work) |
+| bytes' `SHA-256` **≠** the pinned value, or the pinned artifact is missing/unknown-id | RED → the site enters a defined **`degraded`/503** state (never loads the mismatched bytes) |
+| caller supplies a filesystem `path`, or an env var swaps the artifact path | REJECTED — no caller-influenced path is ever opened |
+| attempt to **hot-swap / re-point the pinned manifest at runtime** | REJECTED — the pin manifest is **immutable at runtime**; a new pin is a deploy, not a request/env-swap |
+| the resolved artifact **escapes the store root** (symlink / `..` / absolute outside root) | RED — `resolve()`-contained to the store root (same containment discipline as the Track E manifest) |
+| **swap the file between hash and load** (TOCTOU) | RED — read once, hash and load THE SAME bytes |
+| a new **un-annotated** prod loader appears | CI RED (the enumerator, §1/§3) |
+
+### Phase B — signed-proof binding (needs Track E + the signed store; replaces the Phase-A body)
 | Case | Required result |
 |---|---|
 | activate a model whose bytes have **no** proof | RED at every §1.A/1.B point |
@@ -424,7 +442,7 @@ stale-evaluator, and the single GREEN. A row that needs a proof store is Phase B
 | change a **label** in the manifest, re-derive split_digest | RED (split digest changes — §2.1) |
 | rewrite an existing file's **bytes** to duplicate another's content | RED (content in digest — §2.1) |
 | bump `evaluator_version` / a threshold | RED (stale proof) |
-| a genuine, signed, unexpired, fresh-clone-reproducible proof matching (hash, family, env) | GREEN — the only green |
+| a genuine, signed, unexpired, fresh-clone-reproducible proof matching (hash, family, env) | GREEN — the Phase-B green (the Phase-A green is the fixed-hash match above) |
 
 ## 6. What this changes about the current risk statement
 
