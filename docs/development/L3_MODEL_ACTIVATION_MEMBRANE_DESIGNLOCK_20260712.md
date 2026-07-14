@@ -87,7 +87,7 @@ membrane and is **deferred until a real pilot needs dynamic model-swap**. Buildi
    `torch.load`/`pickle.load(s)`/`joblib.load` (import-alias-aware) / `load_state_dict` / `from_pretrained` (HF) / model constructors (`SentenceTransformer`/`PaddleOCR`/…) / `reload_model(` site `gated|producer|offline|unmounted|infra` and
    REDS when a new un-annotated load appears, or a `gated` site is neither frozen (Phase A) nor routed through
    `verify_and_load` (Phase B). This replaces the hand-count (wrong ≥3×). Seed = the §1 map; authority = the
-   e2facd99 IMPORT-AWARE enumeration: **124 load sites total, 38 `gated`** across 11 families
+   e2facd99 IMPORT-AWARE enumeration: **128 load sites total, 38 `gated`** across 11 families
    (pickle-classifier, graph2d, pointnet, part, part-v16, hybrid, history, vision3d-uvnet, **ocr** —
    DeepSeek HF `from_pretrained`+PaddleOCR via mounted /ocr — and **embedding** — SentenceTransformer;
    plus latent anomaly-monitor). A name-only matcher (review 5) missed the ocr/embedding families and
@@ -99,7 +99,7 @@ membrane and is **deferred until a real pilot needs dynamic model-swap**. Buildi
 
 > **What #516 actually delivers = Phase A0 only, not full Phase A.** #516 seals the external
 > `/model/reload` route (403), fail-closes the default `test` creds in a production posture, and ships
-> the enumerator as a *discovery/classification* gate. It does **NOT** yet freeze the 30 internal
+> the enumerator as a *discovery/classification* gate. It does **NOT** yet freeze the 38 internal
 > `gated` loaders (they still load), and the enumerator does **NOT** yet assert each `gated` site is
 > frozen or routed through `verify_and_load`. So the middle exit criterion above ("every gated site
 > frozen") and the enumerator-freeze assertion are **still unbuilt**. Honest #516 closeout: *external
@@ -120,9 +120,26 @@ source + key-custody + revocation + expiry + LKG re-validation (§2.3), the `ver
 not adding a flag (§7.2). Phase B depends on **Track E** (§8.1) existing (the split/manifest/metrics the proof
 binds to) and on a **HSM / human-gated signer outside CI** (§2.3 key-custody).
 
-**Do not start Phase B while no pilot requires dynamic model-swap.** Until then Phase A's freeze **is** the
-membrane and is sufficient for a static-model production deployment. Sections §2, §2.3, and §3 below define
-Phase B; §1 and the enumerator define Phase A.
+**Do not start Phase B while no pilot requires dynamic model-swap.** Sections §2, §2.3, and §3 below
+define Phase B; §1 and the enumerator define Phase A.
+
+> **OPEN DECISION — the owner must resolve this before ratifying (a real contradiction, review 6).**
+> Phase A step 2 says *every* `gated` site hard-refuses (`raise`). Taken literally that disables
+> **all** ML capability — classify / OCR / embedding all refuse to load — which is NOT a functional
+> "static-model production deployment". The earlier "Phase A's freeze is sufficient for static
+> production" claim is therefore **withdrawn as written**. The owner must choose the Phase-A usability
+> semantics, and this doc is **not ratifiable until then**:
+>
+> - **(a) Full disable + defined degraded behaviour.** Every `gated` loader refuses; the service runs
+>   with ML off and MUST define explicit health/`degraded` responses (which endpoints 503/`degraded`,
+>   what a client sees) so "disabled" is a specified state, not a crash.
+> - **(b) Static-artifact-only startup.** A `gated` loader may load **only** from a *server-owned,
+>   fixed-hash* artifact resolved from a controlled store (no caller path, no env-swap), and **dynamic
+>   replacement stays forbidden**. Models work; hot-swap does not. This needs a minimal fixed-hash
+>   check at each `gated` site (a subset of §3's `verify_and_load`, without the signed proof store).
+>
+> #516 (Phase A0) prejudges neither: it seals only the external `/model/reload` and leaves the 38
+> internal `gated` loaders loading as-is. Full Phase A implements whichever of (a)/(b) the owner picks.
 
 ---
 
