@@ -1,0 +1,105 @@
+# CODEOWNERS — L3 surface inventory for the current solo-maintainer repository.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+#  ⚠️  THIS FILE IS AN OWNERSHIP MAP, NOT AN INDEPENDENT-REVIEW GATE.
+#      @zensgit is the sole developer and cannot approve its own pull requests.
+#      `require_code_owner_reviews` MUST remain false while that is true.
+#
+#  Solo-maintainer L3 protocol:
+#
+#   1. An isolated critic that did not author the patch first derives the
+#      load-bearing discriminators from the ratified design lock, then reviews
+#      the implementation. Use a different model when available; at minimum use
+#      a fresh context with no inherited implementation rationale.
+#   2. The critic's findings, fail-first golden, observed-RED evidence, and final
+#      reviewed head are recorded in the PR. The critic supplies evidence only;
+#      it does not approve or ratify the change.
+#   3. The human owner explicitly ratifies the design and authorizes the pinned
+#      head. Merge and production enablement remain separate owner decisions;
+#      L3 runtime ships default-off.
+#
+#  Do not create a second account controlled by the same person to simulate
+#  independence. If a genuinely independent human reviewer is added later,
+#  amend every applicable rule first and only then consider enabling
+#  `require_code_owner_reviews`.
+#
+#  This PR changes no branch-protection setting.
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Why (PRODUCT_STRATEGY.md §7.1): touching auth, authorization, customer data, an
+# AI-output sink, a MODEL-RELEASE / MODEL-ACTIVATION surface, lifecycle write-back,
+# or cross-system writes automatically promotes work to L3. Authors may not self-downgrade.
+#
+# This file exists because an unattended cadence loop authored a model-release gate
+# (#509/#510/#511) and produced a FAKE-GREEN gate. §4.7 — "the author of a guard must not
+# be the only author or reviewer of the discriminator that claims to prove it" — earned its
+# place on the very first L3 attempt. An unattended loop cannot be author, critic, or ratifier.
+
+# --- Model ACTIVATION membrane (L3) ------------------------------------------
+# The activation boundary is CROSS-FAMILY and much broader than reload_model(): every
+# module that deserializes model bytes into a running service is an activation surface.
+# `torch.load(weights_only=False)` is arbitrary-code-execution on load (pickle-equivalent),
+# and `pickle.load`/`pickle.loads` likewise. Verified production-reachable loaders on main:
+#   pickle-classifier — src/api/v1/model.py:71 (/model/reload, ADMIN_TOKEN default "test";
+#                       pickle.loads BEFORE the hash check), src/ml/classifier.py:85 (startup
+#                       pickle.load, no magic/hash/opcode), :535 (hot-reload)
+#   graph2d          — src/ml/vision_2d.py:136 (torch.load weights_only=False)
+#   pointnet         — src/api/v1/pointcloud.py (MOUNTED /pointcloud) -> src/ml/pointnet/inference.py:108
+#   part / v16 / v14 — src/ml/part_classifier.py:62,655,695 (reached via /analyze, /health)
+#   hybrid           — src/ml/hybrid_classifier.py:448,476
+#   history-sequence — src/ml/history_sequence_classifier.py:162 (reached via /analyze)
+#   vision3d         — src/ml/vision_3d.py:196
+# Latent/producer/scaffold also owned: auto_remediation.py:301 (latent rollback),
+# scripts/finetune_from_feedback.py:302 (offline), src/ml/serving/* (unmounted scaffold).
+/src/api/v1/model.py                  @zensgit
+/src/api/v1/pointcloud.py             @zensgit
+/src/ml/classifier.py                 @zensgit
+/src/ml/vision_2d.py                  @zensgit
+/src/ml/vision_3d.py                  @zensgit
+/src/ml/part_classifier.py            @zensgit
+/src/ml/hybrid_classifier.py          @zensgit
+/src/ml/history_sequence_classifier.py @zensgit
+/src/ml/pointnet/                     @zensgit
+/src/ml/serving/                      @zensgit
+/src/ml/monitoring/auto_remediation.py @zensgit
+/src/main.py                          @zensgit
+# review 5: import-aware enumeration surfaced these production-reachable loaders (from_pretrained /
+# SentenceTransformer / PaddleOCR) — every `gated` file in scripts/ci/activation_surface.json is owned.
+/src/inference/classifier_api.py      @zensgit
+/src/ml/monitoring/anomaly_detector.py @zensgit
+/src/ml/embeddings/model.py           @zensgit
+/src/core/ocr/providers/              @zensgit
+/src/core/assistant/embedding_retriever.py @zensgit
+/src/core/assistant/semantic_retrieval.py @zensgit
+
+# --- Retraining / evaluation-integrity gate (L3) -----------------------------
+# GLOB patterns, not exact filenames: an unattended loop already escaped an exact
+# name (scripts/track_e_manifest.py slipped past track_e_eval_integrity.py). A new
+# scripts/track_e_*.py or scripts/finetune_*.py must NOT be able to dodge ownership.
+# (CODEOWNERS uses gitignore-style matching, so a trailing `*` is REQUIRED — a bare
+#  `/scripts/track_e_` would only match a file literally named `track_e_`.)
+/scripts/auto_retrain.sh              @zensgit
+/scripts/eval_integrity_gate.py       @zensgit
+/scripts/track_e_*                    @zensgit
+/scripts/finetune_*                   @zensgit
+/scripts/append_reviewed_to_manifest.py @zensgit
+
+# --- Training-data governance (L3) -------------------------------------------
+/scripts/ci/check_training_data_governance.py @zensgit
+/scripts/ci/prune_safety_check.py     @zensgit
+/data/manifests/                      @zensgit
+
+# --- L3 activation-surface enumerator (the completeness gate itself) ----------
+/scripts/ci/activation_surface_enumerator.py @zensgit
+/scripts/ci/activation_surface.json   @zensgit
+
+# --- Authentication / authorization (L3) -------------------------------------
+/src/api/dependencies.py              @zensgit
+/src/api/middleware/                  @zensgit
+
+# --- CI: the gates themselves (L3) -------------------------------------------
+/.github/workflows/                   @zensgit
+/.github/CODEOWNERS                   @zensgit
+
+# --- Canonical product strategy ----------------------------------------------
+/docs/PRODUCT_STRATEGY.md             @zensgit
