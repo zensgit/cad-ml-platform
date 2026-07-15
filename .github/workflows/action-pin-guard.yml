@@ -39,11 +39,13 @@ jobs:
           python-version: "3.11"
 
       - name: Validate workflow action pins
-        # The validator is pure standard library: this REQUIRED check must NOT install packages or
-        # reach PyPI on every PR — that is a needless network-failure surface on a gate whose whole
-        # value is being dependable. Keep this step network-free; it is asserted in
-        # tests/unit/test_action_pin_guard_workflow.py. (The forbidden token is deliberately not
-        # written here, so a whole-file grep for it stays meaningful.)
+        # The validator is pure standard library: this REQUIRED check must NOT bootstrap packages
+        # (no PyPI dependency at check time) — that is a needless failure surface on a gate whose
+        # whole value is being dependable. NB the job is not "network-free": Checkout and Setup
+        # Python legitimately use the network; the invariant is specifically no package bootstrap.
+        # Pinned by construction in tests/unit/test_action_pin_guard_workflow.py — the job's key
+        # set, the exact step list, and each step's allowed keys (so a `shell:`/`env:`/extra step
+        # cannot smuggle an install back in). Adding any of those must be a reviewed decision.
         run: |
           python scripts/ci/check_workflow_action_pins.py \
             --workflows-dir .github/workflows \

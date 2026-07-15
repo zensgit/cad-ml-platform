@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import copy
 from pathlib import Path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -53,15 +55,29 @@ def test_action_pin_guard_workflow_has_expected_triggers_and_steps() -> None:
     assert "--require-policy-for-all-external" in run_script
 
 
-# The ONLY command the job is allowed to run. This is an ALLOW-list, deliberately not a deny-list:
-# a forbidden-token check ("pip install" not in run) is a hand-enumerated list that misses
-# `pip  install` (extra space), `pip3 install`, `uv pip install`, `conda install`, `curl … | sh`, …
-# Asserting the exact command instead fails on ANY added command, whatever its spelling.
+# The pin-guard job pinned BY CONSTRUCTION: the step LIST, every step's KEY SET, and the JOB's key
+# set. Pinning only the `run` field was not enough — an earlier version of this test passed while
+#     shell: bash -c 'python -m pip install wheel >/dev/null; bash {0}'
+# reintroduced a PyPI install, because `shell:` is a second execution entry point. `env:`, an extra
+# `uses:` step, and a job-level `defaults.run.shell` are the same escape by other doors. Pinning the
+# allowed key sets closes the class instead of the demonstrated instance: anything added fails,
+# without this test predicting how a bootstrap might be smuggled in.
+#
+# SCOPE OF THE CLAIM (accurate — an earlier draft overclaimed): this asserts NO PACKAGE BOOTSTRAP /
+# NO PyPI DEPENDENCY *at check time*. It is NOT "no network dependency": actions/checkout and
+# actions/setup-python legitimately use the network. What must never come back is installing
+# packages when the gate runs.
 VALIDATOR_CMD = (
     "python scripts/ci/check_workflow_action_pins.py "
     "--workflows-dir .github/workflows "
     "--policy-json config/workflow_action_pin_policy.json "
     "--require-policy-for-all-external"
+)
+EXPECTED_JOB_KEYS = {"name", "runs-on", "timeout-minutes", "steps"}
+EXPECTED_STEPS = (
+    ("Checkout", {"name", "uses"}),
+    ("Setup Python", {"name", "uses", "with"}),
+    ("Validate workflow action pins", {"name", "run"}),
 )
 
 
@@ -70,31 +86,72 @@ def _shell_command(run: str | None) -> str:
     return " ".join((run or "").replace("\\\n", " ").split())
 
 
-def test_validation_step_has_no_network_dependency() -> None:
-    """The validator is pure stdlib, so this REQUIRED check must never install packages.
-
-    A package install here would make every PR depend on PyPI being reachable — a needless
-    network-failure surface on a gate whose entire value is being dependable.
-
-    Asserted BY CONSTRUCTION: exactly one step runs a command, and that command is exactly the
-    stdlib validator. Nothing has to predict how an installer might be spelled.
-    """
-    workflow = _load_workflow(WORKFLOW_PATH)
-    steps = workflow["jobs"]["action-pin-guard"]["steps"]
-
-    running = [
-        (step.get("name") or step.get("uses") or f"step {idx}", _shell_command(step.get("run")))
-        for idx, step in enumerate(steps)
-        if (step.get("run") or "").strip()
-    ]
-    assert len(running) == 1, (
-        "exactly one step may run a command (the pure-stdlib validator); found: "
-        f"{[name for name, _ in running]}"
+def _assert_no_package_bootstrap(job: dict) -> None:
+    """Raise AssertionError unless `job` is exactly the pinned, bootstrap-free pin-guard job."""
+    extra_job = set(job) - EXPECTED_JOB_KEYS
+    assert not extra_job, (
+        f"unexpected job-level key(s) {sorted(extra_job)} — e.g. `defaults.run.shell` or `env:` "
+        "bootstraps packages for every step; add only after deliberate review"
     )
-    name, cmd = running[0]
-    assert name == "Validate workflow action pins", f"unexpected command-running step: {name!r}"
+
+    steps = job["steps"]
+    assert [s.get("name") for s in steps] == [n for n, _ in EXPECTED_STEPS], (
+        f"the job must be exactly {[n for n, _ in EXPECTED_STEPS]}; found "
+        f"{[s.get('name') for s in steps]} — an extra step (even a policy-allowed `uses:`) is a new "
+        "execution entry point"
+    )
+    for (step, (exp_name, allowed)) in zip(steps, EXPECTED_STEPS):
+        extra = set(step) - allowed
+        assert not extra, (
+            f"step {exp_name!r} has unexpected key(s) {sorted(extra)} — `shell:` and `env:` are "
+            "additional execution entry points that can bootstrap packages; add only after review"
+        )
+
+    cmd = _shell_command(steps[-1]["run"])
     assert cmd == VALIDATOR_CMD, (
         "the Validate step must run ONLY the pure-stdlib validator — any extra command (a package "
-        "installer in any spelling, a curl, ...) is a network dependency on a REQUIRED check and "
-        f"must be reviewed deliberately:\n  got:      {cmd!r}\n  expected: {VALIDATOR_CMD!r}"
+        "installer in any spelling, a curl, ...) is a PyPI dependency on a REQUIRED check and must "
+        f"be reviewed deliberately:\n  got:      {cmd!r}\n  expected: {VALIDATOR_CMD!r}"
     )
+
+
+def test_pin_guard_job_has_no_package_bootstrap() -> None:
+    """The validator is pure stdlib, so this REQUIRED check must never bootstrap packages.
+
+    A package install here makes every PR depend on PyPI being reachable — a needless failure
+    surface on a gate whose entire value is being dependable. (Checkout/Setup-Python DO use the
+    network; the invariant is specifically NO PACKAGE BOOTSTRAP, not "no network".)
+    """
+    _assert_no_package_bootstrap(_load_workflow(WORKFLOW_PATH)["jobs"]["action-pin-guard"])
+
+
+@pytest.mark.parametrize("mutate", [
+    # the reported escape: `shell:` is a second execution entry point, so the run block stays pristine
+    pytest.param(
+        lambda j: j["steps"][2].update(
+            {"shell": "bash -c 'python -m pip install wheel >/dev/null; bash {0}'"}
+        ),
+        id="custom-shell-smuggles-an-install",
+    ),
+    # an extra step, even a policy-allowed `uses:`, is a new execution entry point
+    pytest.param(
+        lambda j: j["steps"].append({"name": "Extra", "uses": "actions/setup-node@abc123"}),
+        id="extra-uses-step",
+    ),
+    # same class, other doors — proven to escape the run-only assertion too
+    pytest.param(
+        lambda j: j["steps"][2].update({"env": {"PIP_INDEX_URL": "http://example.invalid"}}),
+        id="step-level-env",
+    ),
+    pytest.param(
+        lambda j: j.update({"defaults": {"run": {"shell": "bash -c 'pip install x; bash {0}'"}}}),
+        id="job-level-defaults-run-shell",
+    ),
+])
+def test_package_bootstrap_smuggling_is_red(mutate) -> None:
+    """observed-RED: every one of these passed the earlier run-only assertion while reintroducing a
+    PyPI install (the job still reported ok). Pinning the key sets makes each of them RED."""
+    job = copy.deepcopy(_load_workflow(WORKFLOW_PATH)["jobs"]["action-pin-guard"])
+    mutate(job)
+    with pytest.raises(AssertionError):
+        _assert_no_package_bootstrap(job)
