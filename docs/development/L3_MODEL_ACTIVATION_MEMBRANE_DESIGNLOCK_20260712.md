@@ -1,7 +1,7 @@
 # L3 Design-Lock — Model-Release & Activation Proof Membrane
 
 **Date**: 2026-07-12 (rev 2026-07-13 — review 4: **Phase A/B split**) · **Status**: PROPOSED (for-review; do NOT self-merge; owner ratifies)
-**Rigor**: L3 (`PRODUCT_STRATEGY.md` §7.1) · **Grounded on**: `origin/main@8ff94175`; activation map on `origin/main@f2ebe2fa` (2026-07-14; #516 enumerator + #519 hardening merged; the CI activation-surface enumerator — import-aware, the authority, NOT a hand-count — reports **38 `gated` loads across 11 families** (37 production-reachable + 1 **latent** — the `auto_remediation` rollback, conservatively gated so it must gain a guard before it is ever wired, §1.C); a hand-count has been wrong ≥4 times)
+**Rigor**: L3 (`PRODUCT_STRATEGY.md` §7.1) · **Grounded on**: `origin/main@8ff94175`; activation map on `origin/main@f2ebe2fa` (2026-07-14; #516 enumerator + #519 hardening merged; the CI activation-surface enumerator — import-aware, the authority, NOT a hand-count — reports **38 `gated` loads across 11 families** — a **conservative** classification: per-site logical reachability is a **Wave-1 audit**, NOT asserted here, and several sites are latent or not-yet-proven-reachable (§1.B(cont)); a hand-count has been wrong ≥4 times)
 **Authority**: `PRODUCT_STRATEGY.md` §4 (AI safety), §5.2 (evaluation integrity not release-grade),
 §8.1 (Track E). Scheduled deliverable for the 7/20–7/26 week; pulled forward because the runtime
 work is P0-blocked and a design-lock is a doc, not runtime.
@@ -43,8 +43,8 @@ this protocol but is not simulated in the meantime.
 #509 made `scripts/auto_retrain.sh` unconditionally fail-closed. That was correct **but narrow**, and
 an earlier claim that it "closed retraining on main" was **overstated**. Corrected here (second
 review): `auto_retrain.sh` is a **producer** (it prints a deploy command, it does not activate a
-running service), so #509 closes **none of the production-reachable activation points** (there are
-38 `gated` across 11 model families per the import-aware CI enumerator — 37 production-reachable + 1 latent (`auto_remediation`, §1.C) — see §1.B; a hand-count has been wrong ≥4 times, hence the
+running service), so #509 closes **none of the runtime activation points** (there are
+38 `gated` across 11 model families per the import-aware CI enumerator — a conservative classification whose per-site reachability is a **Wave-1 audit** (§1.B(cont)) — see §1.B; a hand-count has been wrong ≥4 times, hence the
 CI-enumerator contract). It is bleeding-control one layer upstream; the runtime membrane is unbuilt.
 
 Corrections from review, all load-bearing:
@@ -71,7 +71,7 @@ proposal is that the membrane ships in **two separately-ratifiable phases**.
 Phase A is cheap containment that needs **no** cryptographic proof store; Phase B is the full proof
 membrane and is **deferred until a real pilot needs dynamic model-swap**. Building the signed store now
 (Phase B) would spend ~2–3 weeks and add **no customer evidence**. The external `/model/reload` boundary is now **sealed (#516, 403)**; the remaining gap is
-the **37 internal `gated` loaders** still unpinned (the 38th `gated` is the latent `auto_remediation`, gated-before-wired — §1.C). Pin those first (owner decision (b)).
+the **internal `gated` loaders** still unpinned (of the 38 conservatively-`gated` sites; per-site reachability is a **Wave-1 audit** and several are latent/unproven — §1.B(cont)). Pin the reachable ones first (owner decision (b)).
 
 ### Phase A — Static-artifact activation (fixed-`SHA-256` pin; build next, after **this** lock ratifies — the internal fixed-hash loaders do NOT depend on caller identity; the production-identity gate only gates a future re-open of `/model/reload`)
 
@@ -94,8 +94,12 @@ is Phase B). Per the owner's decision (b), models still load from pinned server-
      the pinned value, and load **THOSE** bytes (TOCTOU-safe). This is the original contract.
    - **bundle / tree** (`from_pretrained` / `SentenceTransformer` / `PaddleOCR` — ocr, embedding —
      which load a **directory of many files**, and may otherwise fetch from a network hub): the pin is
-     a **deterministic tree digest** = `SHA-256` over the **sorted** list of `(posix-relpath,
-     SHA-256(file-bytes))` for **every** file under the artifact root. The site (a) resolves a
+     a **deterministic, versioned tree digest** (`tree-digest-v1`) = `SHA-256` over a **canonical
+     encoding** of the **sorted** list of `(posix-relpath, SHA-256(file-bytes))` for **every** file under
+     the artifact root — canonical encoding fixed by the version id: UTF-8 posix relpaths, each record
+     length-prefixed and NUL-delimited (`len(relpath)` · relpath · file-sha256-hex), records sorted
+     bytewise by relpath — so Phase A and Phase B compute the **identical** digest for the same tree (a
+     different encoding is a new version id, never a silent change). The site (a) resolves a
      server-owned artifact id to a controlled, **read-only** (access-control only — NOT a load-duration
      immutability guarantee, which is why (b) copies), **already-unpacked** local directory —
      **never** a hub id, and with `HF_HUB_OFFLINE=1` / `local_files_only=True` so no network load can
@@ -121,9 +125,11 @@ is Phase B). Per the owner's decision (b), models still load from pinned server-
    IMPORT-AWARE enumeration (f2ebe2fa): **128 load sites total, 38 `gated`** across 11 families
    (pickle-classifier, graph2d, pointnet, part, part-v16, hybrid, history, vision3d-uvnet, **ocr** —
    DeepSeek HF `from_pretrained`+PaddleOCR via mounted /ocr — **embedding** — SentenceTransformer — and
-   **anomaly-monitor** — the conservatively-gated production metrics model). Of the 38, **37 are
-   production-reachable and 1 is latent** — the `auto_remediation` in-process rollback `reload_model`
-   (family pickle-classifier), conservatively `gated` so it MUST gain a guard before it is ever wired (§1.C).
+   **anomaly-monitor** — the conservatively-gated production metrics model). The 38 is a **conservative
+   count of AST load sites**, NOT a proven-live count: several are latent or not-yet-proven-reachable
+   (the `auto_remediation` rollback; the `_reload_model_impl` hot-reload deserialization now that
+   `/model/reload` is sealed; the two `MetricsAnomalyDetector.load_models` sites with no `src/` caller).
+   **Per-site logical reachability is a Wave-1 audit**, not hand-asserted here (§1.B(cont)).
    A name-only matcher (review 5) missed the ocr/embedding families and
    import aliases entirely — the enumerator is now import-aware (+onnx/ort, review 6) and reds on any new un-annotated load matching a declared idiom.
 
@@ -154,7 +160,7 @@ is Phase B). Per the owner's decision (b), models still load from pinned server-
    - `guard_mode` ∈ `{ sealed | fixed-hash | bundle-digest | verify_and_load | unbuilt }` — what
      protects this activation. `sealed` = the route is 403 (`/model/reload`, #516); `fixed-hash` /
      `bundle-digest` = the Phase-A (b) single-file / tree wrapper; `verify_and_load` = Phase B;
-     `unbuilt` = no guard yet (all 38 `gated` sites today — the 37 internal loaders + the 1 latent).
+     `unbuilt` = no guard yet (all 38 conservatively-`gated` sites today).
 
    **The enumerator's Phase-A assertion:** for every `gated` `logical_activation_id`, `guard_mode` must
    be a real guard (not `unbuilt`) **and** the load must be structurally inside a canonical wrapper (or
@@ -174,7 +180,7 @@ refuses fail-closed; and the enumerator asserts every `gated` site is either fix
 > **What #516 actually delivers = Phase A0 only, not full Phase A.** #516 seals the external
 > `/model/reload` route (403), fail-closes the default `test` creds in a production posture, and ships
 > the enumerator as a *discovery/classification* gate. It does **NOT** yet **pin** (fixed-hash /
-> bundle-digest-check) the 37 internal `gated` loaders (they still load), and the enumerator does
+> bundle-digest-check) the internal `gated` loaders (of the 38 conservatively-`gated` sites; they still load), and the enumerator does
 > **NOT** yet assert each `gated` site is fixed-hash/bundle-digest-checked (Phase A, owner (b)) or
 > routed through `verify_and_load` (Phase B). So the middle exit criterion above (every gated
 > site fixed-hash/bundle-digest-checked, owner decision (b)) and the enumerator guard-assertion are **still unbuilt**. Honest #516 closeout: *external
@@ -232,9 +238,10 @@ define Phase B; §1 and the enumerator define Phase A.
 > fully off with a defined `degraded`/health contract — is recorded for the audit trail but NOT the
 > chosen path.
 >
-> #516 (Phase A0) prejudged neither: it sealed only the external `/model/reload` and left the 37
-> internal `gated` loaders loading as-is (the 38th `gated`, the latent `auto_remediation`, is not yet
-> wired — §1.C). Full Phase A implements (b) at each `gated` site.
+> #516 (Phase A0) prejudged neither: it sealed only the external `/model/reload` and left the internal
+> `gated` loaders loading as-is (the 38 conservatively-`gated` sites minus the sealed route; several
+> latent/unproven-reachable — §1.B(cont)). Full Phase A implements (b) at each `gated` site once its
+> reachability is confirmed (Wave-1 audit).
 
 ---
 
@@ -268,9 +275,9 @@ The first draft over-counted these as live "activation points". They are not:
   mounted routes (verified). Not a production boundary today; mark `inert` (or delete). If ever
   mounted it is promoted into 1.A and must gain a proof check first.
 
-### 1.B (cont.) MORE production-reachable loads — a hand-count kept missing these
+### 1.B (cont.) MORE `gated` loads — a hand-count kept missing these (reachability = Wave-1 audit)
 An earlier draft said "**exactly 3**". That was wrong (the fourth such miscount), because the model zoo
-is larger than two families. Verified additional production-reachable, proof-unbound loads:
+is larger than two families. Additional `gated`, proof-unbound loads (conservatively classified — per-site reachability is a **Wave-1 audit**; the ones flagged below are latent or not-yet-proven-reachable):
 | Point | Family | Evidence |
 |---|---|---|
 | PointNet via the **mounted** pointcloud router | pointnet | router imported+mounted `src/api/__init__.py:269,522`; the endpoint loads the point-cloud model |
@@ -281,7 +288,17 @@ is larger than two families. Verified additional production-reachable, proof-unb
 | Vision3D encoder (`UVNET_MODEL_PATH`) | vision3d/uvnet | `torch.load` `src/ml/vision_3d.py:196` (via `/analyze` on 3D/STEP/IGES inputs; format+cache-miss gated but real) |
 | DeepSeek OCR (HF) + PaddleOCR — **bundle/tree** | ocr | `from_pretrained` `src/core/ocr/providers/deepseek_hf.py:128,132` + `PaddleOCR` `:86,268`; **mounted** `/ocr` (a directory artifact — bundle-digest KIND) |
 | SentenceTransformer embedding — **bundle/tree** | embedding | `SentenceTransformer` `src/core/assistant/embedding_retriever.py:59` (also `semantic_retrieval.py`, `ml/embeddings/model.py`); via the assistant (a directory artifact — bundle-digest KIND) |
-| MetricsAnomalyDetector production metrics model | anomaly-monitor | `joblib.load` + `pickle.load` `src/ml/monitoring/anomaly_detector.py` (`load_models`); conservatively `gated` (production monitoring); **single-file KIND** — `load_models(path)` reads ONE file via a `joblib.load`-or-`pickle.load` **fallback** (verified: both idioms open the same `src`), so the two AST sites are ONE logical activation → one single-file pin |
+| MetricsAnomalyDetector production metrics model | anomaly-monitor | `joblib.load` + `pickle.load` `src/ml/monitoring/anomaly_detector.py` (`load_models`); conservatively `gated` (production monitoring) — **not-yet-proven-reachable**: no `.load_models(` caller exists in `src/` (only class def + exports); **single-file KIND** — `load_models(path)` reads ONE file via a `joblib.load`-or-`pickle.load` **fallback** (verified: both idioms open the same `src`), so the two AST sites are ONE logical activation → one single-file pin |
+
+**Reachability caveat (owner review, 2026-07-15).** The enumerator classifies **conservatively** — it
+flags any declared load idiom regardless of proven reachability, so the 38 `gated` are **AST load
+sites, not proven-live loaders**. Known latent / not-yet-proven-reachable among the 38: the
+`auto_remediation` rollback (§1.C — no live scheduler); the pickle-classifier `_reload_model_impl`
+hot-reload deserialization (`classifier.py:535`), reachable only via the now-sealed `/model/reload`,
+the latent `auto_remediation`, and offline `finetune_from_feedback`; and the two
+`MetricsAnomalyDetector.load_models` sites (no `.load_models(` caller in `src/`). **Per-site logical
+reachability is a Wave-1 audit** — the safe contract is *38 conservatively-`gated` AST entries / 11
+families, several latent/unproven, reachability confirmed in Wave 1* — never a hand-asserted live count.
 
 **The recurring lesson — a hand-enumerated count is the wrong contract.** It has been wrong ≥4
 times. The membrane's completeness must be enforced **by construction, not by a list**: ship a CI
@@ -294,7 +311,7 @@ That inverts the burden: a new activation surface reds CI until it is gated or e
 out. This §1 map is the *seed* of that enumerator, not the authority.
 
 **Coverage gap today:** **#509 closes NONE of the runtime activation points** — it closes the
-`auto_retrain` *producer* (necessary, but upstream of activation). Every `gated` load (**38 across 11 families** per the enumerator — 37 production-reachable internal loads (seeded in §1.B/§1.B(cont); the enumerator, not the map, is the authority) + the 1 latent §1.C `auto_remediation`) is proof-unbound. The runtime activation membrane is **entirely unbuilt**.
+`auto_retrain` *producer* (necessary, but upstream of activation). Every `gated` load (**38 across 11 families** per the enumerator — a conservative classification; per-site reachability is a **Wave-1 audit**, seeded in §1.B/§1.B(cont), the enumerator not the map being the authority) is proof-unbound. The runtime activation membrane is **entirely unbuilt**.
 
 ---
 
@@ -323,7 +340,7 @@ The evaluation result is bound, cryptographically, to the exact artifact being a
 ```
 proof = {
   artifact_kind     : "single-file" | "bundle-tree"       # §0.5 step-2 KIND — Phase B binds BOTH (a bundle is not one file)
-  artifact_digest   : sha256(file bytes) | tree-digest     # THE candidate — single-file byte-hash OR the deterministic tree digest
+  artifact_digest   : sha256(file bytes) | tree-digest-v1  # THE candidate — single-file byte-hash OR the versioned tree digest (§0.5 step 2)
   model_family      : "pickle-classifier" | "graph2d"     # families do not share a proof
   split_digest      : content+family+label+side digest    # §2.1
   manifest_digest   : sha256 over source + license + provenance + label-authority (§2.1)
@@ -575,13 +592,13 @@ Accurate post-#509 status, by threat actor (§3.1 — do not conflate them):
   protection is not a substitute for stopping it. No unattended routine may author or merge this L3
   runtime.
 - **A runtime API caller / operator** can still reach the `gated` AST load sites (**38 across 11 model
-  families** — 37 production-reachable + 1 latent `auto_remediation` gated-before-wired; these AST sites
-  group into fewer *logical* activations — §0.5 step 4 — the guard-coverage denominator) (the CI activation-surface enumerator, not a hand count, is the
+  families** — a conservative classification; per-site reachability is a **Wave-1 audit** and several are
+  latent/unproven (§1.B(cont)); these AST sites group into fewer *logical* activations — §0.5 step 4 — the guard-coverage denominator) (the CI activation-surface enumerator, not a hand count, is the
   authority — §1.B(cont)/§3). The external `/model/reload` is **now SEALED (403, #516)** and is no
-  longer reachable; the remaining live gap is the **37 internal `gated` loaders** (the 38th `gated` is the
-  latent `auto_remediation`, §1.C) — the pickle-classifier startup + `_reload_model_impl` deserialization
+  longer reachable; the remaining gap is the **internal `gated` loaders** (of the 38 conservatively-`gated`
+  sites minus the sealed route; several latent/unproven — §1.B(cont)) — the pickle-classifier startup load
   and the graph2d / hybrid-branch (stat, text) / pointnet / part / history-sequence / vision3d(uvnet) /
-  ocr / embedding / anomaly-monitor surfaces — which still load **unpinned** (no Phase-A fixed-hash check
+  ocr / embedding / anomaly-monitor surfaces (per-site reachability confirmed in the Wave-1 audit) — which still load **unpinned** (no Phase-A fixed-hash check
   yet). *That* is what full Phase A must close, and it is **unbuilt**.
 
 **So: strong bleeding-control on the code-gen actor; the runtime activation membrane is not built.**
