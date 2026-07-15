@@ -43,9 +43,11 @@ jobs:
         # (no PyPI dependency at check time) — that is a needless failure surface on a gate whose
         # whole value is being dependable. NB the job is not "network-free": Checkout and Setup
         # Python legitimately use the network; the invariant is specifically no package bootstrap.
-        # Pinned by construction in tests/unit/test_action_pin_guard_workflow.py — the job's key
-        # set, the exact step list, and each step's allowed keys (so a `shell:`/`env:`/extra step
-        # cannot smuggle an install back in). Adding any of those must be a reviewed decision.
+        # Pinned by construction in tests/unit/test_action_pin_guard_workflow.py by EXACT set equality
+        # at every level — workflow keys, jobs, job keys, step list, each step's keys — so a
+        # workflow- or job-level `defaults.run.shell`/`env:`, an extra step/job, or a step `shell:`
+        # cannot add an execution entry point that smuggles an install back in. Any such addition must
+        # be a reviewed decision.
         run: |
           python scripts/ci/check_workflow_action_pins.py \
             --workflows-dir .github/workflows \

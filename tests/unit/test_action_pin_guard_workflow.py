@@ -55,24 +55,28 @@ def test_action_pin_guard_workflow_has_expected_triggers_and_steps() -> None:
     assert "--require-policy-for-all-external" in run_script
 
 
-# The pin-guard job pinned BY CONSTRUCTION: the step LIST, every step's KEY SET, and the JOB's key
-# set. Pinning only the `run` field was not enough — an earlier version of this test passed while
-#     shell: bash -c 'python -m pip install wheel >/dev/null; bash {0}'
-# reintroduced a PyPI install, because `shell:` is a second execution entry point. `env:`, an extra
-# `uses:` step, and a job-level `defaults.run.shell` are the same escape by other doors. Pinning the
-# allowed key sets closes the class instead of the demonstrated instance: anything added fails,
-# without this test predicting how a bootstrap might be smuggled in.
+# The pin-guard WORKFLOW pinned BY CONSTRUCTION at EVERY level GitHub Actions can run or influence a
+# command: the WORKFLOW key set, the JOBS set, the JOB key set, the step LIST, and each STEP key set —
+# plus the exact validator command. Pinning less kept losing: a run-only check missed a step `shell:`;
+# a job-only check missed a WORKFLOW-level `defaults.run.shell` (the job dict cannot even see it). Exact
+# SET EQUALITY (not merely "no added keys") closes the class — any new key at any level (`defaults`,
+# `env`, an extra step or job, a `shell:`) fails, without this test predicting how a bootstrap is
+# smuggled in.
 #
-# SCOPE OF THE CLAIM (accurate — an earlier draft overclaimed): this asserts NO PACKAGE BOOTSTRAP /
-# NO PyPI DEPENDENCY *at check time*. It is NOT "no network dependency": actions/checkout and
-# actions/setup-python legitimately use the network. What must never come back is installing
-# packages when the gate runs.
+# SCOPE (accurate — earlier drafts overclaimed twice): the invariant is NO PACKAGE BOOTSTRAP / NO PyPI
+# DEPENDENCY *at check time*. It is NOT "no network dependency" — actions/checkout and setup-python
+# legitimately use the network. And this pins STRUCTURE: some additions (a `shell:` running
+# `pip install`) DIRECTLY reintroduce an install the pin-POLICY gate never inspects; others (an extra
+# policy-allowed PINNED step, an `env:`) are execution/config entry points that must be a reviewed
+# decision even when they do not install a package by themselves.
 VALIDATOR_CMD = (
     "python scripts/ci/check_workflow_action_pins.py "
     "--workflows-dir .github/workflows "
     "--policy-json config/workflow_action_pin_policy.json "
     "--require-policy-for-all-external"
 )
+EXPECTED_WORKFLOW_KEYS = {"name", "on", "permissions", "jobs"}
+EXPECTED_JOBS = {"action-pin-guard"}
 EXPECTED_JOB_KEYS = {"name", "runs-on", "timeout-minutes", "steps"}
 EXPECTED_STEPS = (
     ("Checkout", {"name", "uses"}),
@@ -86,27 +90,36 @@ def _shell_command(run: str | None) -> str:
     return " ".join((run or "").replace("\\\n", " ").split())
 
 
-def _assert_no_package_bootstrap(job: dict) -> None:
-    """Raise AssertionError unless `job` is exactly the pinned, bootstrap-free pin-guard job."""
-    extra_job = set(job) - EXPECTED_JOB_KEYS
-    assert not extra_job, (
-        f"unexpected job-level key(s) {sorted(extra_job)} — e.g. `defaults.run.shell` or `env:` "
-        "bootstraps packages for every step; add only after deliberate review"
-    )
+def _assert_pin_guard_pinned(workflow: dict) -> None:
+    """Raise AssertionError unless the WHOLE workflow is exactly the pinned, bootstrap-free pin guard.
 
+    Exact set equality at every level (workflow / jobs / job / step list / step keys) so nothing new —
+    a workflow- or job-level `defaults`/`env`, an extra step or job, a step `shell:`/`env:` — can add
+    an execution or config entry point unnoticed.
+    """
+    assert set(workflow) == EXPECTED_WORKFLOW_KEYS, (
+        f"workflow-level keys must be EXACTLY {sorted(EXPECTED_WORKFLOW_KEYS)}; got {sorted(workflow)} "
+        "— a top-level `defaults.run.shell` or `env:` runs for EVERY step and the job dict cannot see it"
+    )
+    assert set(workflow["jobs"]) == EXPECTED_JOBS, (
+        f"jobs must be EXACTLY {sorted(EXPECTED_JOBS)}; got {sorted(workflow['jobs'])} — a second job "
+        "is another execution surface"
+    )
+    job = workflow["jobs"]["action-pin-guard"]
+    assert set(job) == EXPECTED_JOB_KEYS, (
+        f"job keys must be EXACTLY {sorted(EXPECTED_JOB_KEYS)}; got {sorted(job)} — a job-level "
+        "`defaults.run.shell` or `env:` bootstraps for every step"
+    )
     steps = job["steps"]
     assert [s.get("name") for s in steps] == [n for n, _ in EXPECTED_STEPS], (
-        f"the job must be exactly {[n for n, _ in EXPECTED_STEPS]}; found "
-        f"{[s.get('name') for s in steps]} — an extra step (even a policy-allowed `uses:`) is a new "
-        "execution entry point"
+        f"steps must be EXACTLY {[n for n, _ in EXPECTED_STEPS]}; got {[s.get('name') for s in steps]} "
+        "— an extra step (even a policy-allowed pinned `uses:`) is a new execution entry point"
     )
-    for (step, (exp_name, allowed)) in zip(steps, EXPECTED_STEPS):
-        extra = set(step) - allowed
-        assert not extra, (
-            f"step {exp_name!r} has unexpected key(s) {sorted(extra)} — `shell:` and `env:` are "
-            "additional execution entry points that can bootstrap packages; add only after review"
+    for step, (exp_name, allowed) in zip(steps, EXPECTED_STEPS):
+        assert set(step) == allowed, (
+            f"step {exp_name!r} keys must be EXACTLY {sorted(allowed)}; got {sorted(step)} — `shell:` "
+            "and `env:` are extra execution/config entry points"
         )
-
     cmd = _shell_command(steps[-1]["run"])
     assert cmd == VALIDATOR_CMD, (
         "the Validate step must run ONLY the pure-stdlib validator — any extra command (a package "
@@ -115,43 +128,47 @@ def _assert_no_package_bootstrap(job: dict) -> None:
     )
 
 
-def test_pin_guard_job_has_no_package_bootstrap() -> None:
+def test_pin_guard_workflow_is_pinned_no_package_bootstrap() -> None:
     """The validator is pure stdlib, so this REQUIRED check must never bootstrap packages.
 
     A package install here makes every PR depend on PyPI being reachable — a needless failure
     surface on a gate whose entire value is being dependable. (Checkout/Setup-Python DO use the
-    network; the invariant is specifically NO PACKAGE BOOTSTRAP, not "no network".)
+    network; the invariant is specifically NO PACKAGE BOOTSTRAP at check time, not "no network".)
     """
-    _assert_no_package_bootstrap(_load_workflow(WORKFLOW_PATH)["jobs"]["action-pin-guard"])
+    _assert_pin_guard_pinned(_load_workflow(WORKFLOW_PATH))
 
 
+# Each mutation was MISSED by an earlier, less-complete assertion (run-only, then job-only). They fall
+# in two honest categories:
+#   * DIRECT bootstrap — runs `pip install`; the pin-POLICY gate does NOT inspect shell content, so it
+#     would pass THAT gate. Only this structural test stops it.
+#   * STRUCTURAL entry point — not a package install by itself, but a new execution/config surface that
+#     must be a reviewed decision. The extra step uses a REAL policy-allowed PINNED action, so the
+#     pin-policy gate accepts it; only this test rejects it.
 @pytest.mark.parametrize("mutate", [
-    # the reported escape: `shell:` is a second execution entry point, so the run block stays pristine
-    pytest.param(
-        lambda j: j["steps"][2].update(
-            {"shell": "bash -c 'python -m pip install wheel >/dev/null; bash {0}'"}
-        ),
-        id="custom-shell-smuggles-an-install",
-    ),
-    # an extra step, even a policy-allowed `uses:`, is a new execution entry point
-    pytest.param(
-        lambda j: j["steps"].append({"name": "Extra", "uses": "actions/setup-node@abc123"}),
-        id="extra-uses-step",
-    ),
-    # same class, other doors — proven to escape the run-only assertion too
-    pytest.param(
-        lambda j: j["steps"][2].update({"env": {"PIP_INDEX_URL": "http://example.invalid"}}),
-        id="step-level-env",
-    ),
-    pytest.param(
-        lambda j: j.update({"defaults": {"run": {"shell": "bash -c 'pip install x; bash {0}'"}}}),
-        id="job-level-defaults-run-shell",
-    ),
+    pytest.param(lambda w: w["jobs"]["action-pin-guard"]["steps"][2].update(
+        {"shell": "bash -c 'python -m pip install wheel >/dev/null; bash {0}'"}),
+        id="direct-bootstrap:step-shell"),
+    pytest.param(lambda w: w["jobs"]["action-pin-guard"].update(
+        {"defaults": {"run": {"shell": "bash -c 'pip install x; bash {0}'"}}}),
+        id="direct-bootstrap:job-defaults-run-shell"),
+    pytest.param(lambda w: w.update(
+        {"defaults": {"run": {"shell": "bash -c 'pip install x; bash {0}'"}}}),
+        id="direct-bootstrap:workflow-defaults-run-shell"),  # the review-3 escape: invisible to the job dict
+    pytest.param(lambda w: w["jobs"]["action-pin-guard"]["steps"].append(
+        {"name": "Extra", "uses": f"actions/checkout@{CHECKOUT_SHA}"}),
+        id="structural:extra-policy-allowed-pinned-step"),
+    pytest.param(lambda w: w["jobs"]["action-pin-guard"]["steps"][2].update(
+        {"env": {"PIP_INDEX_URL": "http://example.invalid"}}),
+        id="structural:step-env"),
+    pytest.param(lambda w: w["jobs"]["action-pin-guard"].update({"env": {"X": "1"}}),
+        id="structural:job-env"),
+    pytest.param(lambda w: w.update({"env": {"X": "1"}}), id="structural:workflow-env"),
 ])
-def test_package_bootstrap_smuggling_is_red(mutate) -> None:
-    """observed-RED: every one of these passed the earlier run-only assertion while reintroducing a
-    PyPI install (the job still reported ok). Pinning the key sets makes each of them RED."""
-    job = copy.deepcopy(_load_workflow(WORKFLOW_PATH)["jobs"]["action-pin-guard"])
-    mutate(job)
+def test_added_execution_entry_point_is_red(mutate) -> None:
+    """observed-RED: each of these was MISSED by an earlier assertion. Exact set-equality on the FULL
+    workflow makes every one RED — direct bootstraps and structural entry points alike."""
+    workflow = copy.deepcopy(_load_workflow(WORKFLOW_PATH))
+    mutate(workflow)
     with pytest.raises(AssertionError):
-        _assert_no_package_bootstrap(job)
+        _assert_pin_guard_pinned(workflow)
