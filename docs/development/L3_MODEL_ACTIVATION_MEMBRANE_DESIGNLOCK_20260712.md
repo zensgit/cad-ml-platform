@@ -113,10 +113,15 @@ a model-promotion path.
      which load a **directory of many files**, and may otherwise fetch from a network hub): the pin is
      a **deterministic, versioned tree digest** (`tree-digest-v1`) = `SHA-256` over a **canonical
      encoding** of the **sorted** list of `(posix-relpath, SHA-256(file-bytes))` for **every** file under
-     the artifact root — canonical encoding fixed by the version id: UTF-8 posix relpaths, each record
-     length-prefixed and NUL-delimited (`len(relpath)` · relpath · file-sha256-hex), records sorted
-     bytewise by relpath — so Phase A and Phase B compute the **identical** digest for the same tree (a
-     different encoding is a new version id, never a silent change). The site (a) resolves a
+     the artifact root — **`tree-digest-v1` canonical encoding (fully pinned, no implementation freedom):**
+     include **only regular files** (symlinks and directories excluded; zero-byte files included); each
+     path is its **POSIX relpath from the artifact root, UTF-8-encoded**; `len` = the **byte length of that
+     UTF-8 relpath, written as ASCII decimal**; each record = `len` · byte `0x1F` · relpath-bytes · byte
+     `0x1F` · **lowercase-hex** `SHA-256(file-bytes)`; records are **sorted bytewise by the UTF-8 relpath**
+     and **joined by byte `0x00`**; the tree digest is `SHA-256` of that whole byte string. Two independent
+     implementations (the Phase-A fixed-hash body and Phase-B `verify_and_load`) therefore compute the
+     **identical** digest for the same tree; a different encoding is a new version id (`tree-digest-v2`),
+     never a silent change. The site (a) resolves a
      server-owned artifact id to a controlled, **read-only** (access-control only — NOT a load-duration
      immutability guarantee, which is why (b) copies), **already-unpacked** local directory that has
      passed the file-count / per-file / aggregate-byte pre-read bounds —
@@ -318,7 +323,7 @@ is larger than two families. Additional `gated`, proof-unbound loads (conservati
 | Point | Family | Evidence |
 |---|---|---|
 | PointNet via the **mounted** pointcloud router | pointnet | router imported+mounted `src/api/__init__.py:269,522`; the endpoint loads the point-cloud model |
-| V16 part-classifier ensemble | cad-ensemble | `torch.load` `src/ml/part_classifier.py:62`; reachable via classify / health routes |
+| V16Classifier ensemble (mounted `/health`) | part-v16 | `torch.load`+`load_state_dict` `src/inference/classifier_api.py::V16Classifier.load` (`:613,615,627,630`); manifest family `part-v16` (4 sites) — the distinct file from `part` below |
 | HybridClassifier branch checkpoints | hybrid(stat/text) | `torch.load` `src/ml/hybrid_classifier.py:448,476` |
 | PartClassifier / V16 / V14 | part | `torch.load` `src/ml/part_classifier.py:62,655,695` (via `/analyze`, `/health`) |
 | HistorySequence | history | `torch.load` `src/ml/history_sequence_classifier.py:162` (via `/analyze`) |
@@ -475,7 +480,8 @@ Phase B, `verify_and_load`) **before** the load and shipping its own enumerator 
 - **hybrid** (its own container auto-enables on file presence, same footing as graph2d) —
   `hybrid_classifier.py:448` (stat branch) and `:476` (text branch).
 - **pointnet** — the **mounted** `/pointcloud` router → `pointnet/inference.py:108`.
-- **part / v16 / v14** — `part_classifier.py:62,655,695` (reached via `/analyze`, `/health`).
+- **part** (`PartClassifier` + `PartClassifierV16` + V14, all in `part_classifier.py`, manifest family `part`) — `:62,655,695` (reached via `/analyze`, `/health`).
+- **part-v16** (`V16Classifier` in `src/inference/classifier_api.py`, manifest family `part-v16`) — `torch.load` `:613,627` + `load_state_dict` `:615,630`; imported by the **mounted** `/health` route.
 - **history-sequence** — `history_sequence_classifier.py:162` (reached via `/analyze`).
 - **vision3d / uvnet** — `vision_3d.py:196` (`UVNET_MODEL_PATH`, reached via `/analyze` on 3D inputs).
 - **ocr** (bundle-digest KIND) — DeepSeek HF `from_pretrained` (`deepseek_hf.py:128,132`) + PaddleOCR (`:86,268`), **mounted** `/ocr`; a directory artifact → tree-digest, offline-only, no silent stub (§0.5 step 2 + failure-semantics).
@@ -496,8 +502,10 @@ Per owner decision (b), the **Phase-A body at each `gated` site is the per-KIND 
 step 2** — **single-file** (read once → `SHA-256(bytes)` == the pinned value → load THOSE bytes) or
 **bundle/tree** (recompute the deterministic tree-digest over the offline, per-file `resolve()`-contained
 **frozen** unpacked snapshot → == the pinned tree-digest → hand the framework the **frozen snapshot's** local path), else refuse to a
-defined `degraded`/503 — models load, but **only** from pinned server-owned
-artifacts, with no caller path, no env path-swap, no runtime hot-swap. The external `/model/reload`
+defined `degraded`/503 — models load, but **only** from pinned server-owned artifacts, and **before
+Track E only the exact owner-reviewed already-in-service `(logical_activation_id, artifact_id, kind,
+digest)` baseline tuple** (§0.5 pin-authority; any tuple-field change is a refused promotion, not a
+deploy-time re-pin) — with no caller path, no env path-swap, no runtime hot-swap. The external `/model/reload`
 route is the exception: it stays **sealed (403, done by #516)**, re-opened only under Phase B + the
 identity gate (§3.2). Once **Track E** and the signed proof store exist, Phase B **replaces** the
 fixed-hash body with the signed-proof `verify_and_load` — re-enablement is replacing the body, not
@@ -569,7 +577,7 @@ revocation and incident review possible after the fact.
   `dependencies.py:8` default `test`, `src/api/middleware/integration_auth.py:104` header-overrides-subject). Cross-ref,
   don't merge the two.
 - Not covering offline training/quantization (§1.D) — they don't activate.
-- Customer corrections are **isolated until Track E lands**; after it, they may enter a
+- Customer corrections are **isolated until Track E's exit condition is satisfied**; after it, they may enter a
   training-readable store **only** under explicit customer authorization, single-customer isolation,
   and with cross-customer training default-off. (The earlier "never enter a training-readable store"
   overstated the canonical strategy — the rule is conditional, not absolute.)
@@ -643,7 +651,7 @@ Accurate post-#509 status, by threat actor (§3.1 — do not conflate them):
   authority — §1.B(cont)/§3). The external `/model/reload` is **now SEALED (403, #516)** and is no
   longer reachable; the remaining gap is the **internal `gated` loaders** (of the 38 conservatively-`gated`
   sites (the sealed external `/model/reload` route is separate — NOT among the 38, §3 shard); several latent/unproven — §1.B(cont)) — the pickle-classifier startup load
-  and the graph2d / hybrid-branch (stat, text) / pointnet / part / history-sequence / vision3d(uvnet) /
+  and the graph2d / hybrid-branch (stat, text) / pointnet / part / part-v16 / history-sequence / vision3d(uvnet) /
   ocr / embedding / anomaly-monitor surfaces (per-site reachability confirmed in the Wave-1 audit) — which still load **unpinned** (no Phase-A fixed-hash check
   yet). *That* is what full Phase A must close, and it is **unbuilt**.
 
