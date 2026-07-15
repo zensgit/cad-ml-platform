@@ -99,7 +99,9 @@ is Phase B). Per the owner's decision (b), models still load from pinned server-
      server-owned artifact id to a controlled, **read-only, already-unpacked** local directory —
      **never** a hub id, and with `HF_HUB_OFFLINE=1` / `local_files_only=True` so no network load can
      occur; (b) **freezes an immutable snapshot** of that directory that nothing else can mutate for
-     the load's duration — a per-process read-only bind / copy into a service-private freeze dir — so the
+     the load's duration — a per-process **copy** (or an FS-level read-only snapshot) into a
+     service-private freeze dir, **never a bind-mount of the still-mutable source** (a bind re-exposes
+     the source, so a mid-load mutation would show through and NOT close the TOCTOU) — so the
      bytes that are digested are the SAME bytes the framework later reads (the tree analog of the
      single-file "hash and load the same bytes"; this is what closes the **bundle TOCTOU** — a file
      changing between digest and the framework's read is impossible on the frozen snapshot);
@@ -278,7 +280,7 @@ is larger than two families. Verified additional production-reachable, proof-unb
 | Vision3D encoder (`UVNET_MODEL_PATH`) | vision3d/uvnet | `torch.load` `src/ml/vision_3d.py:196` (via `/analyze` on 3D/STEP/IGES inputs; format+cache-miss gated but real) |
 | DeepSeek OCR (HF) + PaddleOCR — **bundle/tree** | ocr | `from_pretrained` `src/core/ocr/providers/deepseek_hf.py:128,132` + `PaddleOCR` `:86,268`; **mounted** `/ocr` (a directory artifact — bundle-digest KIND) |
 | SentenceTransformer embedding — **bundle/tree** | embedding | `SentenceTransformer` `src/core/assistant/embedding_retriever.py:59` (also `semantic_retrieval.py`, `ml/embeddings/model.py`); via the assistant (a directory artifact — bundle-digest KIND) |
-| MetricsAnomalyDetector production metrics model | anomaly-monitor | `joblib.load` + `pickle.load` `src/ml/monitoring/anomaly_detector.py` (`load_models`); conservatively `gated` (production monitoring); loads two artifacts (joblib + pickle) → **two single-file pins**, one per file |
+| MetricsAnomalyDetector production metrics model | anomaly-monitor | `joblib.load` + `pickle.load` `src/ml/monitoring/anomaly_detector.py` (`load_models`); conservatively `gated` (production monitoring); **single-file KIND** — `load_models(path)` reads ONE file via a `joblib.load`-or-`pickle.load` **fallback** (verified: both idioms open the same `src`), so the two AST sites are ONE logical activation → one single-file pin |
 
 **The recurring lesson — a hand-enumerated count is the wrong contract.** It has been wrong ≥4
 times. The membrane's completeness must be enforced **by construction, not by a list**: ship a CI
@@ -421,7 +423,7 @@ Phase B, `verify_and_load`) **before** the load and shipping its own enumerator 
 - **vision3d / uvnet** — `vision_3d.py:196` (`UVNET_MODEL_PATH`, reached via `/analyze` on 3D inputs).
 - **ocr** (bundle-digest KIND) — DeepSeek HF `from_pretrained` (`deepseek_hf.py:128,132`) + PaddleOCR (`:86,268`), **mounted** `/ocr`; a directory artifact → tree-digest, offline-only, no silent stub (§0.5 step 2 + failure-semantics).
 - **embedding** (bundle-digest KIND) — SentenceTransformer (`embedding_retriever.py:59`, `semantic_retrieval.py`, `ml/embeddings/model.py`), via the assistant; directory artifact → tree-digest.
-- **anomaly-monitor** — `anomaly_detector.py` `load_models` (`joblib.load` + `pickle.load`); the conservatively-gated production metrics model; its two artifacts (joblib + pickle) each get a single-file fixed-hash pin.
+- **anomaly-monitor** — `anomaly_detector.py` `load_models(path)`; the conservatively-gated production metrics model. **single-file KIND** — one `path`, read via a joblib-or-pickle **fallback** (both open the same file; one logical activation → one fixed-hash pin).
 - any surface the enumerator later discovers → its own shard before it can go live.
 
 The §1.C producer/latent points gain the same check **before they are wired to activate**:
