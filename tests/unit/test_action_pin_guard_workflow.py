@@ -53,21 +53,48 @@ def test_action_pin_guard_workflow_has_expected_triggers_and_steps() -> None:
     assert "--require-policy-for-all-external" in run_script
 
 
+# The ONLY command the job is allowed to run. This is an ALLOW-list, deliberately not a deny-list:
+# a forbidden-token check ("pip install" not in run) is a hand-enumerated list that misses
+# `pip  install` (extra space), `pip3 install`, `uv pip install`, `conda install`, `curl … | sh`, …
+# Asserting the exact command instead fails on ANY added command, whatever its spelling.
+VALIDATOR_CMD = (
+    "python scripts/ci/check_workflow_action_pins.py "
+    "--workflows-dir .github/workflows "
+    "--policy-json config/workflow_action_pin_policy.json "
+    "--require-policy-for-all-external"
+)
+
+
+def _shell_command(run: str | None) -> str:
+    """Join shell line-continuations and normalise whitespace -> the single command line."""
+    return " ".join((run or "").replace("\\\n", " ").split())
+
+
 def test_validation_step_has_no_network_dependency() -> None:
     """The validator is pure stdlib, so this REQUIRED check must never install packages.
 
-    A `pip install` here would make every PR depend on PyPI being reachable — a needless
+    A package install here would make every PR depend on PyPI being reachable — a needless
     network-failure surface on a gate whose entire value is being dependable.
+
+    Asserted BY CONSTRUCTION: exactly one step runs a command, and that command is exactly the
+    stdlib validator. Nothing has to predict how an installer might be spelled.
     """
     workflow = _load_workflow(WORKFLOW_PATH)
-    validate_step = _find_step_by_name(
-        workflow, "action-pin-guard", "Validate workflow action pins"
-    )
-    run_script = validate_step["run"]
-    assert "pip install" not in run_script, (
-        f"validation step must not install packages (pure stdlib; no PyPI per PR): {run_script!r}"
-    )
-    # nothing else in the job may reach the network either (only checkout + setup-python + validate).
     steps = workflow["jobs"]["action-pin-guard"]["steps"]
-    for step in steps:
-        assert "pip install" not in (step.get("run") or ""), f"network dep in step {step.get('name')!r}"
+
+    running = [
+        (step.get("name") or step.get("uses") or f"step {idx}", _shell_command(step.get("run")))
+        for idx, step in enumerate(steps)
+        if (step.get("run") or "").strip()
+    ]
+    assert len(running) == 1, (
+        "exactly one step may run a command (the pure-stdlib validator); found: "
+        f"{[name for name, _ in running]}"
+    )
+    name, cmd = running[0]
+    assert name == "Validate workflow action pins", f"unexpected command-running step: {name!r}"
+    assert cmd == VALIDATOR_CMD, (
+        "the Validate step must run ONLY the pure-stdlib validator — any extra command (a package "
+        "installer in any spelling, a curl, ...) is a network dependency on a REQUIRED check and "
+        f"must be reviewed deliberately:\n  got:      {cmd!r}\n  expected: {VALIDATOR_CMD!r}"
+    )
