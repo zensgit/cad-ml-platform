@@ -239,8 +239,9 @@ define Phase B; §1 and the enumerator define Phase A.
 > chosen path.
 >
 > #516 (Phase A0) prejudged neither: it sealed only the external `/model/reload` and left the internal
-> `gated` loaders loading as-is (the 38 conservatively-`gated` sites minus the sealed route; several
-> latent/unproven-reachable — §1.B(cont)). Full Phase A implements (b) at each `gated` site once its
+> `gated` loaders loading as-is (the 38 conservatively-`gated` sites; the sealed external `/model/reload`
+> route is separate — NOT among the 38, §3 shard; several of the 38 latent/unproven-reachable — §1.B(cont)).
+> Full Phase A implements (b) at each `gated` site once its
 > reachability is confirmed (Wave-1 audit).
 
 ---
@@ -596,7 +597,7 @@ Accurate post-#509 status, by threat actor (§3.1 — do not conflate them):
   latent/unproven (§1.B(cont)); these AST sites group into fewer *logical* activations — §0.5 step 4 — the guard-coverage denominator) (the CI activation-surface enumerator, not a hand count, is the
   authority — §1.B(cont)/§3). The external `/model/reload` is **now SEALED (403, #516)** and is no
   longer reachable; the remaining gap is the **internal `gated` loaders** (of the 38 conservatively-`gated`
-  sites minus the sealed route; several latent/unproven — §1.B(cont)) — the pickle-classifier startup load
+  sites (the sealed external `/model/reload` route is separate — NOT among the 38, §3 shard); several latent/unproven — §1.B(cont)) — the pickle-classifier startup load
   and the graph2d / hybrid-branch (stat, text) / pointnet / part / history-sequence / vision3d(uvnet) /
   ocr / embedding / anomaly-monitor surfaces (per-site reachability confirmed in the Wave-1 audit) — which still load **unpinned** (no Phase-A fixed-hash check
   yet). *That* is what full Phase A must close, and it is **unbuilt**.
