@@ -293,8 +293,8 @@ def main(argv=None) -> int:
     print(f"[activation-enumerator] {gated} `gated` AST load site(s) — a CONSERVATIVE classification "
           "that may include latent / not-yet-proven-reachable sites; per-site logical reachability is "
           "audited separately, NOT asserted here. These are DISCOVERED + classified only; Phase A0 does "
-          "NOT pin them (they still load). Full Phase A must fixed-hash / bundle-digest-check each "
-          "(owner decision (b)) or route it through verify_and_load (Phase B).")
+          "NOT pin them (they still load). Under full Phase A each MUST be fixed-hash- or "
+          "bundle-digest-checked (owner decision (b)) or routed through verify_and_load (Phase B).")
     return EXIT_OK
 
 
