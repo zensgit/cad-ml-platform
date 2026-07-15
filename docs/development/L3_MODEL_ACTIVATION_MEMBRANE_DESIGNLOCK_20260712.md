@@ -1,7 +1,7 @@
 # L3 Design-Lock — Model-Release & Activation Proof Membrane
 
-**Date**: 2026-07-12 (rev 2026-07-13 — review 4: **Phase A/B split**) · **Status**: PROPOSED (for-review; do NOT self-merge; owner ratifies)
-**Rigor**: L3 (`PRODUCT_STRATEGY.md` §7.1) · **Grounded on**: `origin/main@8ff94175`; activation map on `origin/main@f2ebe2fa` (2026-07-14; #516 enumerator + #519 hardening merged; the CI activation-surface enumerator — import-aware, the authority, NOT a hand-count — reports **38 `gated` loads across 11 families** — a **conservative** classification: per-site logical reachability is a **Wave-1 audit**, NOT asserted here, and several sites are latent or not-yet-proven-reachable (§1.B(cont)); a hand-count has been wrong ≥4 times)
+**Date**: 2026-07-12 (rev 2026-07-15 — canonical-strategy alignment) · **Status**: PROPOSED (for-review; do NOT self-merge; owner ratifies)
+**Rigor**: L3 (`PRODUCT_STRATEGY.md` §7.1) · **Grounded on**: `origin/main@e84fea2d`; activation-map count on `origin/main@f2ebe2fa` (2026-07-14; #516 enumerator + #519 hardening merged). The import-aware CI enumerator — the count authority, NOT a hand-count — executes on current `main` as **128 sites / 38 marked `gated` / 11 families**. Its current summary still calls those 38 "production-reachable" and presents rejected option (a), blanket hard-refuse, as valid; those labels are stale and are **not** inherited here. #521 is the open, unmerged output-truth correction. This lock uses the executed count while treating `gated` as a conservative AST classification: per-site logical reachability is a **Wave-1 audit**, NOT asserted here, and several sites are latent or not-yet-proven-reachable (§1.B(cont)); a hand-count has been wrong ≥4 times.
 **Authority**: `PRODUCT_STRATEGY.md` §4 (AI safety), §5.2 (evaluation integrity not release-grade),
 §8.1 (Track E). Scheduled deliverable for the 7/20–7/26 week; pulled forward because the runtime
 work is P0-blocked and a design-lock is a doc, not runtime.
@@ -28,8 +28,10 @@ unavailable; it does **not** justify fabricating one or silently lowering L3 rig
    person is not independent review.
 4. Merge, deployment, and enablement are separate decisions. The implementation lands default-off.
    **Dynamic** activation and any **re-enablement** of `/model/reload` remain blocked on the proof
-   membrane, the production-identity gate, and the Track E evidence; the **Phase-A static fixed-`SHA-256`
-   activation (owner (b))** needs none of those — only this lock ratifying (§0.5).
+   membrane, the production-identity gate, and the Track E evidence. Ratifying this lock authorizes
+   building **Phase-A baseline containment**, not enabling it and not promoting a model: before Track E,
+   Phase A may load only the exact already-in-service
+   `(logical_activation_id, artifact_id, kind, digest)` tuple (§0.5/§5).
 
 `.github/CODEOWNERS` may inventory this surface, but `require_code_owner_reviews` remains false while
 the repository has only one developer; enabling it would create an impossible approval gate, not an
@@ -43,9 +45,11 @@ this protocol but is not simulated in the meantime.
 #509 made `scripts/auto_retrain.sh` unconditionally fail-closed. That was correct **but narrow**, and
 an earlier claim that it "closed retraining on main" was **overstated**. Corrected here (second
 review): `auto_retrain.sh` is a **producer** (it prints a deploy command, it does not activate a
-running service), so #509 closes **none of the runtime activation points** (there are
-38 `gated` across 11 model families per the import-aware CI enumerator — a conservative classification whose per-site reachability is a **Wave-1 audit** (§1.B(cont)) — see §1.B; a hand-count has been wrong ≥4 times, hence the
-CI-enumerator contract). It is bleeding-control one layer upstream; the runtime membrane is unbuilt.
+running service), so #509 closes **none of the runtime activation points** (the import-aware CI
+enumerator executes as 38 entries marked `gated` across 11 model families; this lock does not inherit
+its current, stale "production-reachable" label — reachability is a **Wave-1 audit** (§1.B(cont)) —
+see §1.B; a hand-count has been wrong ≥4 times, hence the CI-enumerator contract). It is
+bleeding-control one layer upstream; the runtime membrane is unbuilt.
 
 Corrections from review, all load-bearing:
 
@@ -77,7 +81,10 @@ the **internal `gated` loaders** still unpinned (of the 38 conservatively-`gated
 
 **Goal:** no arbitrary, caller-path, or hot-swapped model activation can occur in production — with
 **no signing keys / no signed proof store** (a plain content-hash comparison only; the signed proof
-is Phase B). Per the owner's decision (b), models still load from pinned server-owned artifacts.
+is Phase B). Per the owner's decision (b), models still load from pinned server-owned artifacts, but
+before Track E that means **only the exact already-in-service
+`(logical_activation_id, artifact_id, kind, digest)` tuple**. Phase A is a containment migration, not
+a model-promotion path.
 1. **Production-disable the external `POST /api/v1/model/reload` route — no environment-variable bypass.**
    It was LIVE (§1.A/§3.2); **#516 has already sealed it (403)**. It refuses unconditionally; **no flag or env var re-opens it** (re-opening is a Phase B + identity-gate
    decision, §3.2). A request carrying a valid `path`+`force`+default `test` creds must not reach
@@ -86,12 +93,22 @@ is Phase B). Per the owner's decision (b), models still load from pinned server-
    loader may activate a model **only** from a *server-owned* artifact resolved from a controlled store:
    **no caller-influenced path, no env-var path-swap, no dynamic replacement, and no network fetch at
    load** (offline-only). An unclassified/unpinned load cannot activate. This is a subset of §3's
-   `verify_and_load` **without** the signed proof store (Phase B). Two artifact KINDS — because several
-   `gated` families are NOT single files (review 7c):
+   `verify_and_load` **without** the signed proof store (Phase B).
+
+   **Shared bounded pre-read (Phase A AND Phase B).** Before a full file read, bundle copy, digest, or
+   framework loader runs, reject an artifact whose declared KIND/type is wrong, whose single-file size
+   exceeds its family limit, or whose bundle exceeds a bounded file-count, per-file-size, or aggregate-
+   byte limit. Validate file type / a bounded magic prefix where the family has one; for an unpacked
+   bundle, use `lstat` metadata plus only bounded prefixes, never read the full tree to decide whether it
+   is safe to copy. A malformed/unreadable entry or metadata overflow is a refusal, not a best-effort
+   skip. These limits are server policy, not caller or environment input.
+
+   Two artifact KINDS — because several `gated` families are NOT single files (review 7c):
 
    - **single-file** (`torch.load`/`pickle.load`/`joblib.load`/`onnx.load` of one file — graph2d, part,
-     hybrid, history, vision3d, pickle-classifier, anomaly-monitor): read the resolved bytes **once**, `SHA-256(bytes) ==`
-     the pinned value, and load **THOSE** bytes (TOCTOU-safe). This is the original contract.
+     hybrid, history, vision3d, pickle-classifier, anomaly-monitor): after the bounded pre-read passes,
+     read the resolved bytes **once**, `SHA-256(bytes) ==` the pinned value, and load **THOSE** bytes
+     (TOCTOU-safe). This is the original contract.
    - **bundle / tree** (`from_pretrained` / `SentenceTransformer` / `PaddleOCR` — ocr, embedding —
      which load a **directory of many files**, and may otherwise fetch from a network hub): the pin is
      a **deterministic, versioned tree digest** (`tree-digest-v1`) = `SHA-256` over a **canonical
@@ -101,7 +118,8 @@ is Phase B). Per the owner's decision (b), models still load from pinned server-
      bytewise by relpath — so Phase A and Phase B compute the **identical** digest for the same tree (a
      different encoding is a new version id, never a silent change). The site (a) resolves a
      server-owned artifact id to a controlled, **read-only** (access-control only — NOT a load-duration
-     immutability guarantee, which is why (b) copies), **already-unpacked** local directory —
+     immutability guarantee, which is why (b) copies), **already-unpacked** local directory that has
+     passed the file-count / per-file / aggregate-byte pre-read bounds —
      **never** a hub id, and with `HF_HUB_OFFLINE=1` / `local_files_only=True` so no network load can
      occur; (b) **freezes an immutable snapshot** of that directory that nothing else can mutate for
      the load's duration — a per-process **copy** (or an FS-level read-only snapshot) into a
@@ -117,7 +135,8 @@ is Phase B). Per the owner's decision (b), models still load from pinned server-
      the archive digest first and unpacks into the store with path-traversal rejection, before the
      frozen snapshot and its tree digest are taken.
 
-   Either KIND refuses fail-closed on mismatch / unknown-id / missing / any containment escape.
+   Either KIND refuses fail-closed on mismatch / unknown-id / missing / any containment escape or
+   shared bounded-pre-read failure.
 3. **CI activation-surface enumerator (§1/§3) — the completeness authority FOR DECLARED loader idioms** (import-aware torch/pickle/joblib/onnx `.load`, `load_state_dict`, `from_pretrained`, curated constructors, `reload_model(`; NOT a proof of every possible Python load — a novel framework escapes until its pattern is added). Marks every
    `torch.load`/`pickle.load(s)`/`joblib.load` (import-alias-aware) / `load_state_dict` / `from_pretrained` (HF) / model constructors (`SentenceTransformer`/`PaddleOCR`/…) / `reload_model(` site `gated|producer|offline|unmounted|infra` and
    REDS when a new un-annotated load MATCHING A DECLARED IDIOM appears, or a `gated` site is neither fixed-hash-checked (Phase A, owner decision (b)) nor routed through
@@ -129,7 +148,11 @@ is Phase B). Per the owner's decision (b), models still load from pinned server-
    count of AST load sites**, NOT a proven-live count: several are latent or not-yet-proven-reachable
    (the `auto_remediation` rollback; the `_reload_model_impl` hot-reload deserialization now that
    `/model/reload` is sealed; the two `MetricsAnomalyDetector.load_models` sites with no `src/` caller).
-   **Per-site logical reachability is a Wave-1 audit**, not hand-asserted here (§1.B(cont)).
+   **Per-site logical reachability is a Wave-1 audit**, not hand-asserted here (§1.B(cont)). The
+   current merged script's final summary still says "production-reachable" and offers blanket
+   hard-refuse; those are known output-truth defects, not this lock's contract. #521 proposes the
+   wording correction but is open and unmerged, so this document relies on current `main` only for
+   the executable count/classification data.
    A name-only matcher (review 5) missed the ocr/embedding families and
    import aliases entirely — the enumerator is now import-aware (+onnx/ort, review 6) and reds on any new un-annotated load matching a declared idiom.
 
@@ -173,8 +196,10 @@ is Phase B). Per the owner's decision (b), models still load from pinned server-
 **Phase A exit criteria (observed-RED, REQUIRED — NOT claimed executed here):** external
 `/model/reload` refuses in prod with no env bypass; a new un-annotated prod loader REDS CI; **every**
 `gated` §1.A/1.B site activates ONLY via the §0.5 step-2 per-KIND check (single-file fixed-`SHA-256` / bundle tree-digest) over a server-owned artifact (owner
-decision (b)) — no caller path, no env path-swap, no dynamic replacement; a mismatch/unknown-id
-refuses fail-closed; and the enumerator asserts every `gated` site is either fixed-hash-checked
+decision (b)) — no caller path, no env path-swap, no dynamic replacement; before Track E, only the
+exact already-in-service `(logical_activation_id, artifact_id, kind, digest)` tuple may load; any
+tuple-field change, mismatch, unknown-id, or bounded-pre-read failure refuses fail-closed; and the
+enumerator asserts every `gated` site is either fixed-hash-checked
 (Phase A) or routed through `verify_and_load` (Phase B).
 
 > **What #516 actually delivers = Phase A0 only, not full Phase A.** #516 seals the external
@@ -199,10 +224,19 @@ or the append-only activation audit (§3.3). All of those are Phase B.
   pin is a separate owner/deployment decision — a controlled release asset, not a code flag** (there
   is no `ENABLE_PIN=1`; a pin exists or it does not). `merged != enabled != safe`.
 - **Pin authority & immutability.** The pin manifest (`logical_activation_id / artifact_id → {kind,
-  SHA-256 | tree-digest}`) lives in a **controlled release asset that the running service cannot
+  SHA-256 | tree-digest-v1}`) lives in a **controlled release asset that the running service cannot
   modify** (read-only mount / signed release bundle / deploy-time-baked config). It is **not**
-  runtime-writable and **not** env-swappable; a new pin is a **deploy**, never a request or a hot
-  refresh. The service reads it once at startup into immutable state.
+  runtime-writable and **not** env-swappable. The service reads it once at startup into immutable state.
+- **Pre-Track-E baseline lock — model promotion stays fail-closed.** Phase A accepts only the exact
+  `(logical_activation_id, artifact_id, kind, digest)` tuple captured from the already-in-service target
+  deployment and explicitly owner-reviewed as the migration baseline. The baseline record contains no
+  filesystem path. **Any change to `logical_activation_id`, `artifact_id`, `kind`, or `digest` is a
+  model promotion (or contract migration) and is REFUSED before Track E**; there is no "re-pin the same
+  baseline" concept and no generic "new pin = deploy" permission. If
+  the target environment cannot prove the exact baseline tuple, no pin is issued and the family remains
+  `degraded`/503. After Track E exits, changing the tuple requires a separately ratified model-promotion
+  contract bound to its versioned reproducible evaluation artifact; this design-lock does not authorize
+  that promotion merely because a deployment can replace a file.
 - **Failure = an explicit, defined product state — NO silent stub.** On missing pin / hash-miss /
   bundle-digest-miss / containment-escape, each family MUST enter a **defined `degraded` state with a
   `503` (or family-appropriate) health/readiness contract** — the endpoint tells the client the model
@@ -229,7 +263,9 @@ define Phase B; §1 and the enumerator define Phase A.
 > Phase A is therefore **static fixed-hash artifact activation**, NOT a blanket hard-refuse of all
 > ML: a `gated` loader may load **only** from a *server-owned* artifact resolved from a controlled
 > store — **no caller path, no env-var-swap of the path, and dynamic replacement is forbidden**. Models
-> work; hot-swap does not. Each `gated` site gains a minimal static check per its §0.5-step-2 **KIND**
+> work; hot-swap does not. **Before Track E, "models work" is limited to the exact owner-reviewed
+> already-in-service baseline tuple; any changed tuple field is a refused promotion/contract migration.** Each
+> `gated` site first applies the shared bounded pre-read and then the static check for its §0.5-step-2 **KIND**
 > (a subset of §3's `verify_and_load`, with **no signed proof store and no signing keys** — that is
 > Phase B): **single-file** — resolve a server-owned artifact id → read once → `SHA-256(bytes)` == the
 > pinned value → load THOSE bytes, or refuse; **bundle/tree** — recompute the deterministic tree digest
@@ -253,7 +289,7 @@ Classified by reachability, per the review's taxonomy.
 ### 1.A External-reachable activation (highest risk)
 | Point | Family | Evidence | Current guard |
 |---|---|---|---|
-| `POST /api/v1/model/reload` (was `reload_model(payload.path, force=…)`) | pickle classifier | `src/api/v1/model.py` | **SEALED 403 by #516.** The reproduced RCE (arbitrary caller `path`; `api_key`+`admin_token` both default `"test"`; no proof binding) is CLOSED. Re-open only under Phase B + the identity gate (§3.2). |
+| `POST /api/v1/model/reload` (was `reload_model(payload.path, force=…)`) | pickle classifier | `src/api/v1/model.py` | **SEALED 403 by #516.** The externally reachable arbitrary-deserialization / code-execution risk (arbitrary caller `path`; `api_key`+`admin_token` both default `"test"`; no proof binding) is CLOSED. No execution PoC is claimed. Re-open only under Phase B + the identity gate (§3.2). |
 
 ### 1.B Startup / runtime-config activation (mutates a RUNNING service)
 | Point | Family | Evidence | Current guard |
@@ -291,9 +327,10 @@ is larger than two families. Additional `gated`, proof-unbound loads (conservati
 | SentenceTransformer embedding — **bundle/tree** | embedding | `SentenceTransformer` `src/core/assistant/embedding_retriever.py:59` (also `semantic_retrieval.py`, `ml/embeddings/model.py`); via the assistant (a directory artifact — bundle-digest KIND) |
 | MetricsAnomalyDetector production metrics model | anomaly-monitor | `joblib.load` + `pickle.load` `src/ml/monitoring/anomaly_detector.py` (`load_models`); conservatively `gated` (production monitoring) — **not-yet-proven-reachable**: no `.load_models(` caller exists in `src/` (only class def + exports); **single-file KIND** — `load_models(path)` reads ONE file via a `joblib.load`-or-`pickle.load` **fallback** (verified: both idioms open the same `src`), so the two AST sites are ONE logical activation → one single-file pin |
 
-**Reachability caveat (owner review, 2026-07-15).** The enumerator classifies **conservatively** — it
-flags any declared load idiom regardless of proven reachability, so the 38 `gated` are **AST load
-sites, not proven-live loaders**. Known latent / not-yet-proven-reachable among the 38: the
+**Reachability caveat (owner review, 2026-07-15).** The evidence requires `gated` to be interpreted
+**conservatively**, not as the current script's stale "production-reachable" summary: the 38 entries
+are **AST load sites, not proven-live loaders**. #521 is the open, unmerged output-truth correction.
+Known latent / not-yet-proven-reachable among the 38: the
 `auto_remediation` rollback (§1.C — no live scheduler); the pickle-classifier `_reload_model_impl`
 hot-reload deserialization (`classifier.py:535`), reachable only via the now-sealed `/model/reload`,
 the latent `auto_remediation`, and offline `finetune_from_feedback`; and the two
@@ -403,8 +440,9 @@ that path*, creating a path-probe / arbitrary-file-read / memory-IO-DoS surface 
 it at `/etc/shadow` or a 50 GB file). Instead:
 1. **Resolve `artifact_id` in a controlled, read-only, content-addressed store.** The caller names
    *which approved artifact*, the server owns *where its bytes are*. Reject an unknown id.
-2. **Cheap guards before reading the whole thing:** file type / magic-number and a max-size cap, so a
-   hostile or corrupt object is rejected before it is fully loaded.
+2. **Apply the shared bounded pre-read from Phase A (§0.5 step 2):** KIND/type and bounded magic-prefix,
+   single-file size, and bundle file-count / per-file / aggregate-byte caps. A hostile, corrupt, or
+   oversized object is rejected before a full read/copy or framework load.
 3. **One immutable read (per KIND):** for a **single-file** artifact, read the resolved bytes into
    memory (or an fd) ONCE and **hash THOSE bytes and load the model from THE SAME bytes**; for a
    **bundle/tree** artifact, **freeze an immutable snapshot** of the directory, take the tree digest
@@ -445,11 +483,14 @@ Phase B, `verify_and_load`) **before** the load and shipping its own enumerator 
 - **anomaly-monitor** — `anomaly_detector.py` `load_models(path)`; the conservatively-gated production metrics model. **single-file KIND** — one `path`, read via a joblib-or-pickle **fallback** (both open the same file; one logical activation → one fixed-hash pin).
 - any surface the enumerator later discovers → its own shard before it can go live.
 
-The §1.C producer/latent points gain the same check **before they are wired to activate**:
-`auto_remediation.py:301` (before it is ever scheduled), and `auto_retrain.sh` (swap #509's
-unconditional block for the membrane call — the *only* place the permanent-closed logic changes, and
-only once the signed store exists). The **unmounted serving scaffold** (`src/ml/serving/*`) is promoted
-into a shard automatically if it is ever mounted (the enumerator reds until it is).
+The §1.C **latent activator** `auto_remediation.py:301` gains the same activation guard before it is
+ever scheduled. `auto_retrain.sh` is different: it is a **producer, never an activator**, and it MUST
+NOT call the runtime activation membrane. #509's unconditional block remains until Track E's exit
+condition is satisfied; only then may a separately reviewed **Track E model-promotion gate** produce a
+candidate plus its versioned evaluation-integrity artifact for an explicit owner promotion decision.
+Producing that evidence does not load or activate the candidate; every later runtime load still passes
+the phase-appropriate activation guard. The **unmounted serving scaffold** (`src/ml/serving/*`) is
+promoted into a shard automatically if it is ever mounted (the enumerator reds until it is).
 
 Per owner decision (b), the **Phase-A body at each `gated` site is the per-KIND static check of §0.5
 step 2** — **single-file** (read once → `SHA-256(bytes)` == the pinned value → load THOSE bytes) or
@@ -535,26 +576,30 @@ revocation and incident review possible after the fact.
 
 ## 5. Golden matrix the implementation must ship (observed-RED, REQUIRED — not yet executed; the membrane is unbuilt)
 
-**Phasing of this matrix (owner decision (b)).** **Phase A** is *static fixed-`SHA-256` activation* — a
-`gated` site loads ONLY from a server-owned pinned artifact, **no proof store, no signing keys**; its
+**Phasing of this matrix (owner decision (b)).** **Phase A** is *baseline-only static fixed-`SHA-256`
+activation* — before Track E, a `gated` site loads ONLY the exact owner-reviewed already-in-service
+server-owned artifact tuple, **no proof store, no signing keys**; its
 golden cases are the first table. **Phase B** adds the signed-proof binding (the second table); any row
 needing a proof store / signature / evaluator / revocation is Phase B **by definition**. Phase B depends
 on **Track E** existing, so the build order is **Phase A → Track E → Phase B → enablement**.
 
-### Phase A (b) — static fixed-hash activation (no proof store, no signing keys)
+### Phase A (b) — baseline-only static fixed-hash activation (no proof store, no signing keys)
 | Case | Required result |
 |---|---|
 | a `gated` site loads a **server-owned** artifact whose bytes' `SHA-256` **== the pinned value** | **GREEN — the Phase-A green** (this is the fixed-hash success case; models work) |
+| **pre-Track-E:** any configured tuple field differs from the owner-reviewed already-in-service baseline | RED → REFUSED / `degraded`/503; any difference is a model promotion/contract migration, not a deploy-time re-pin |
 | bytes' `SHA-256` **≠** the pinned value, or the pinned artifact is missing/unknown-id | RED → the site enters a defined **`degraded`/503** state (never loads the mismatched bytes) |
 | caller supplies a filesystem `path`, or an env var swaps the artifact path | REJECTED — no caller-influenced path is ever opened |
-| attempt to **hot-swap / re-point the pinned manifest at runtime** | REJECTED — the pin manifest is **immutable at runtime**; a new pin is a deploy, not a request/env-swap |
+| attempt to **hot-swap / re-point the pinned manifest at runtime** | REJECTED — the baseline manifest is **immutable at runtime**; before Track E, any changed tuple field is refused even across a deploy |
 | the resolved artifact **escapes the store root** (symlink / `..` / absolute outside root) | RED — `resolve()`-contained to the store root (same containment discipline as the Track E manifest) |
+| single-file exceeds its family size cap or has the wrong KIND/type/magic | REJECTED before full read or framework load |
+| bundle exceeds file-count, per-file-size, or aggregate-byte cap, or contains a malformed/unreadable entry | REJECTED during bounded metadata/prefix scan, before freeze/copy/digest/framework load |
 | **bundle/tree** family (HF/SentenceTransformer/PaddleOCR): the deterministic tree digest over the **frozen** unpacked snapshot **== the pinned tree-digest** | **GREEN** (bundle Phase-A green; loads from the **frozen snapshot's** local path) |
 | a file is added/removed/changed inside the bundle dir | RED — the tree digest changes → `degraded`/503 |
 | the loader would **fetch from a network hub** (hub id / online) | REJECTED — offline-only (`HF_HUB_OFFLINE`/`local_files_only`); a hub id is never a valid artifact id |
 | any file in the bundle **escapes the store root** (per-file symlink/`..`/absolute) | RED — per-file `resolve()`-containment |
 | load fails and the provider tries a **silent stub / best-effort fallback** (e.g. deepseek_hf.py:93) | FORBIDDEN — must enter the explicit `degraded`/503, never serve a stub |
-| **no pin configured** at land (default-off) | the guard refuses → `degraded`/503 (a pin is a deploy decision, not a code flag) |
+| **no provable exact baseline pin** at land (default-off) | the guard refuses → `degraded`/503 (baseline capture + owner review is separate from merge; no code flag opens it) |
 | **swap a single-file artifact between hash and load** (TOCTOU) | RED — read once, hash and load THE SAME bytes |
 | **change a bundle file AFTER the tree digest, before/during the framework's read** (bundle TOCTOU) | RED — the digested tree is a **frozen immutable snapshot**; the framework reads the digested files, never the mutable original (§0.5 step 2) |
 | a new **un-annotated** prod loader appears | CI RED (the enumerator, §1/§3) |
@@ -568,7 +613,7 @@ on **Track E** existing, so the build order is **Phase A → Track E → Phase B
 | **expired / revoked** proof (`not_after` passed, or policy revoked) | RED (stale proof is not valid) |
 | requester supplies `family` or `environment=staging` to dodge policy | IGNORED — both are server-owned (§2.3) |
 | caller supplies a filesystem `path` (not a server-owned artifact id) | REJECTED — no caller path is opened (§3) |
-| artifact exceeds max-size / wrong file type | REJECTED before full load (§3) |
+| shared bounded pre-read fails (wrong KIND/type/magic, oversized file/bundle, malformed entry) | REJECTED before full read/copy or framework load (§0.5/§3) |
 | fall back to a last-known-good model whose proof is REVOKED/EXPIRED | RED — readiness refuses; LKG needs a valid proof (§2.3) |
 | complete the proof membrane but leave `ADMIN_TOKEN=test` on `/model/reload` | route stays DISABLED — needs the identity gate too (§3.2) |
 | proof for family A, activate a family-B model of same bytes-len | RED (family mismatch) |
