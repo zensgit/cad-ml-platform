@@ -251,10 +251,10 @@ is larger than two families. Verified additional production-reachable, proof-unb
 | PartClassifier / V16 / V14 | part | `torch.load` `src/ml/part_classifier.py:62,655,695` (via `/analyze`, `/health`) |
 | HistorySequence | history | `torch.load` `src/ml/history_sequence_classifier.py:162` (via `/analyze`) |
 | Vision3D encoder (`UVNET_MODEL_PATH`) | vision3d/uvnet | `torch.load` `src/ml/vision_3d.py:196` (via `/analyze` on 3D/STEP/IGES inputs; format+cache-miss gated but real) |
-| DeepSeek OCR (HF) + PaddleOCR — **bundle/tree** | ocr | `from_pretrained` `src/core/ocr/providers/deepseek_hf.py:93` + `PaddleOCR` `:47`; **mounted** `/ocr` (a directory artifact — bundle-digest KIND) |
+| DeepSeek OCR (HF) + PaddleOCR — **bundle/tree** | ocr | `from_pretrained` `src/core/ocr/providers/deepseek_hf.py:128,132` + `PaddleOCR` `:86,268`; **mounted** `/ocr` (a directory artifact — bundle-digest KIND) |
 | SentenceTransformer embedding — **bundle/tree** | embedding | `SentenceTransformer` `src/core/assistant/embedding_retriever.py:59` (also `semantic_retrieval.py`, `ml/embeddings/model.py`); via the assistant (a directory artifact — bundle-digest KIND) |
 
-**The recurring lesson — a hand-enumerated count is the wrong contract.** It has been wrong three
+**The recurring lesson — a hand-enumerated count is the wrong contract.** It has been wrong ≥4
 times. The membrane's completeness must be enforced **by construction, not by a list**: ship a CI
 **activation-surface enumerator** that AST-parses (import-aware) every `torch.load` / `pickle.load(s)` /
 `joblib.load` / `onnx.load` / `load_state_dict` / `from_pretrained` / model-constructor / `reload_model(`
@@ -389,7 +389,7 @@ Phase B, `verify_and_load`) **before** the load and shipping its own enumerator 
 - **part / v16 / v14** — `part_classifier.py:62,655,695` (reached via `/analyze`, `/health`).
 - **history-sequence** — `history_sequence_classifier.py:162` (reached via `/analyze`).
 - **vision3d / uvnet** — `vision_3d.py:196` (`UVNET_MODEL_PATH`, reached via `/analyze` on 3D inputs).
-- **ocr** (bundle-digest KIND) — DeepSeek HF `from_pretrained` (`deepseek_hf.py:93`) + PaddleOCR (`:47`), **mounted** `/ocr`; a directory artifact → tree-digest, offline-only, no silent stub (§0.5 step 2 + failure-semantics).
+- **ocr** (bundle-digest KIND) — DeepSeek HF `from_pretrained` (`deepseek_hf.py:128,132`) + PaddleOCR (`:86,268`), **mounted** `/ocr`; a directory artifact → tree-digest, offline-only, no silent stub (§0.5 step 2 + failure-semantics).
 - **embedding** (bundle-digest KIND) — SentenceTransformer (`embedding_retriever.py:59`, `semantic_retrieval.py`, `ml/embeddings/model.py`), via the assistant; directory artifact → tree-digest.
 - any surface the enumerator later discovers → its own shard before it can go live.
 
