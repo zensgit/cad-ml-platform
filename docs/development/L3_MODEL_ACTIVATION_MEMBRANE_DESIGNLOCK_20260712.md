@@ -89,14 +89,15 @@ is Phase B). Per the owner's decision (b), models still load from pinned server-
    `verify_and_load` **without** the signed proof store (Phase B). Two artifact KINDS — because several
    `gated` families are NOT single files (review 7c):
 
-   - **single-file** (`torch.load`/`pickle.load`/`onnx.load` of one file — graph2d, part, hybrid,
-     history, vision3d, pickle-classifier): read the resolved bytes **once**, `SHA-256(bytes) ==`
+   - **single-file** (`torch.load`/`pickle.load`/`joblib.load`/`onnx.load` of one file — graph2d, part,
+     hybrid, history, vision3d, pickle-classifier, anomaly-monitor): read the resolved bytes **once**, `SHA-256(bytes) ==`
      the pinned value, and load **THOSE** bytes (TOCTOU-safe). This is the original contract.
    - **bundle / tree** (`from_pretrained` / `SentenceTransformer` / `PaddleOCR` — ocr, embedding —
      which load a **directory of many files**, and may otherwise fetch from a network hub): the pin is
      a **deterministic tree digest** = `SHA-256` over the **sorted** list of `(posix-relpath,
      SHA-256(file-bytes))` for **every** file under the artifact root. The site (a) resolves a
-     server-owned artifact id to a controlled, **read-only, already-unpacked** local directory —
+     server-owned artifact id to a controlled, **read-only** (access-control only — NOT a load-duration
+     immutability guarantee, which is why (b) copies), **already-unpacked** local directory —
      **never** a hub id, and with `HF_HUB_OFFLINE=1` / `local_files_only=True` so no network load can
      occur; (b) **freezes an immutable snapshot** of that directory that nothing else can mutate for
      the load's duration — a per-process **copy** (or an FS-level read-only snapshot) into a
