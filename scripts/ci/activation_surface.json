@@ -1,5 +1,5 @@
 {
-  "_doc": "L3 activation-surface classification (import-aware; covers DECLARED loader idioms — see the enumerator docstring for scope). Every model-load site MUST have an entry; a NEW un-annotated site matching a declared idiom reds CI. class: gated|producer|offline|unmounted|infra. `gated` = production-reachable model activation; each MUST be frozen (Phase A) or route through the proof membrane (Phase B). Classifies only; enables nothing.",
+  "_doc": "L3 activation-surface classification (import-aware; covers DECLARED loader idioms — see the enumerator docstring for scope). Every model-load site MUST have an entry; a NEW un-annotated site matching a declared idiom reds CI. class: gated|producer|offline|unmounted|infra. `gated` = a conservatively-classified model-activation site (per-site logical reachability is a Wave-1 audit, NOT asserted by this classifier); each MUST be fixed-hash- or bundle-digest-checked (Phase A, owner decision (b)) or routed through the proof membrane (Phase B). Classifies only; enables nothing.",
   "sites": {
     "scripts/analyze_final_errors.py::main::load_state_dict#0": {
       "class": "offline",
@@ -307,32 +307,32 @@
     "src/inference/classifier_api.py::V16Classifier.load::load_state_dict#0": {
       "class": "gated",
       "family": "part-v16",
-      "reason": "V16Classifier — imported by the MOUNTED /health route"
+      "reason": "V16Classifier.load — NOT proven live via the mounted app (health.py imports only result_cache -> __init__, no load); load is lazy-on-predict()/standalone-app/CLI and no mounted route calls predict(); reachability = Wave-1 audit"
     },
     "src/inference/classifier_api.py::V16Classifier.load::load_state_dict#1": {
       "class": "gated",
       "family": "part-v16",
-      "reason": "V16Classifier — imported by the MOUNTED /health route"
+      "reason": "V16Classifier.load — NOT proven live via the mounted app (health.py imports only result_cache -> __init__, no load); load is lazy-on-predict()/standalone-app/CLI and no mounted route calls predict(); reachability = Wave-1 audit"
     },
     "src/inference/classifier_api.py::V16Classifier.load::torch.load#0": {
       "class": "gated",
       "family": "part-v16",
-      "reason": "V16Classifier — imported by the MOUNTED /health route"
+      "reason": "V16Classifier.load — NOT proven live via the mounted app (health.py imports only result_cache -> __init__, no load); load is lazy-on-predict()/standalone-app/CLI and no mounted route calls predict(); reachability = Wave-1 audit"
     },
     "src/inference/classifier_api.py::V16Classifier.load::torch.load#1": {
       "class": "gated",
       "family": "part-v16",
-      "reason": "V16Classifier — imported by the MOUNTED /health route"
+      "reason": "V16Classifier.load — NOT proven live via the mounted app (health.py imports only result_cache -> __init__, no load); load is lazy-on-predict()/standalone-app/CLI and no mounted route calls predict(); reachability = Wave-1 audit"
     },
     "src/ml/classifier.py::_reload_model_impl::pickle.loads#0": {
       "class": "gated",
       "family": "pickle-classifier",
-      "reason": "startup + hot-reload pickle (de)serialization of the classification model"
+      "reason": "hot-reload pickle deserialization (classifier.py _reload_model_impl) — reachable only via the now-sealed /model/reload (403), latent auto_remediation, and offline finetune; NOT a currently-live activation path"
     },
     "src/ml/classifier.py::load_model::pickle.load#0": {
       "class": "gated",
       "family": "pickle-classifier",
-      "reason": "startup + hot-reload pickle (de)serialization of the classification model"
+      "reason": "LIVE startup / lazy-first-predict pickle load of the classification model (classifier.py load_model)"
     },
     "src/ml/compression/export.py::ONNXExporter.export::onnx.load#0": {
       "class": "offline",
