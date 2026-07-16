@@ -18,7 +18,7 @@ Grounded on `origin/main@c6625831`. Model-routing key (owner directive): **fable
 | A0-1 | **#518** `4b421103` | Action Pin Guard runs on **every** PR | `.github/workflows/…` (required check) |
 | A0-2 | **#512** `e41528de` | CODEOWNERS L3 ownership inventory | `.github/CODEOWNERS` (inventory only — `require_code_owner_reviews=false`, solo-maintainer) |
 | A0-3a | **#516** `d4b200ba` | `POST /api/v1/model/reload` → **403 fail-closed** | `src/api/v1/model.py:48` (`status_code=403`), `:78-82` (`raise HTTPException(403, "…disabled (fail-closed)…")`) — the externally reachable arbitrary-deserialization / code-execution risk is **CLOSED**; no execution PoC is claimed |
-| A0-3b | **#516** | default `test` creds **fail-close in a production posture** | `src/api/dependencies.py:11` `_production_posture()` (true for `production/prod/staging`), `:29-32` refuse the `test` default in that posture |
+| A0-3b | **#516** | default `test` creds **fail-close in a production posture** | `src/api/dependencies.py:11` `_production_posture()` (true for `production/prod/staging`), `:35-39` (X-API-Key) and `:66-84` (admin token) refuse the `test` default in that posture |
 | A0-4 | **#516** | **activation-surface enumerator** = CI gate (AST/import-aware) | `scripts/ci/activation_surface_enumerator.py` + `activation_surface.json`; invoked in `.github/workflows/ci.yml` + `ci-tiered-tests.yml` — a new un-annotated load matching a declared idiom **reds CI** |
 | A0-5 | **#519** `f2ebe2fa` | enumerator **fail-closed on unparseable files (exit 2)** | same enumerator |
 
@@ -97,9 +97,14 @@ activation membrane; retraining not enabled.**
 | **Phase A** baseline-only static fixed-hash | C1 `assert_fixed_hash`/`load_pinned_*` core (**opus4.8**) ∥ C2 per-family wiring (**sonnet5**) ∥ C3 baseline manifest (**sonnet5**) ∥ C4 degraded/503 (**sonnet5**) ∥ C5 enumerator guard-assertion (**sonnet5**/opus AST) ∥ C6 golden matrix (**opus4.8**) | #513 ratified + Wave-1 audit | §5 Phase-A golden: exact baseline match GREEN; pre-Track-E tuple-field change RED; hash-miss→degraded/503; caller-path/env-swap/hot-swap REJECTED; shared size/type bounds RED; symlink/`..` escape RED; single-file & bundle TOCTOU RED; new un-annotated loader CI RED |
 | **Track E** rebuild | leakage-safe split + versioned manifest + real §8.1.4 metrics (**opus4.8** ∥ **sonnet5** ∥ **fable5** fixtures) | **real data + model-run environment** | tamper/containment/binding suite re-derived on `main` + real metrics reproduced on a holdout run |
 | **Phase B** signed-proof | `verify_and_load` + signed envelope + key custody + revocation/expiry + LKG re-validation + audit (**opus4.8**) | **Track E + signing-key custody (HSM / human-gated signer outside CI)** | §5 Phase-B golden: no-proof/unsigned/expired-revoked/TOCTOU/family-env-mismatch RED; single signed match GREEN |
-| **§8.1.7 + enablement** | full tamper observed-RED, cross-family matrix, staging replay; **separate enablement PR** | **A–E done + owner enablement decision** | staging replay + complete cross-family matrix green; re-enable = replacing a body, never a flag |
+| **§8.1.7 + Phase-B dynamic-swap/retraining enablement (gate 2)** | full tamper observed-RED, cross-family matrix, staging replay; **separate enablement PR** | **A–E done + owner (gate-2) enablement decision** (distinct from the earlier Phase-A baseline-pin activation gate-1, which rides on Phase A) | staging replay + complete cross-family matrix green; re-enable = replacing a body, never a flag |
 
-**Macro-order (reviewer-locked):** Phase A → Track E → Phase B → enablement.
+**Macro-order (reviewer-locked):** Phase A → Track E → Phase B. **Two distinct owner enablement gates ride
+on this order (do not conflate):** **(1) Phase-A baseline-pin activation** — after Wave-1 + Phase A, its own
+owner gate supplying the environment-owner-reviewed already-in-service baseline tuple (no `/model/reload`
+re-open; go-evidence = staging replay + observed-RED + rollback + kill switch + non-sensitive family/reason
+counters, no paths in logs); **(2) Phase-B dynamic-swap/retraining enablement** — only after Track E + Phase
+B (replace-the-body). Gate (1) activates a static in-service baseline; it does NOT enable dynamic swap.
 
 **Two hard external constraints that cannot be manufactured around:** Track E's five metrics need
 **real data + a model-run environment** (producing them without = fabricated metrics); Phase B's proofs
