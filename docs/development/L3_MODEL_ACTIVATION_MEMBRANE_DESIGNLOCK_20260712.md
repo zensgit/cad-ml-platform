@@ -1,7 +1,7 @@
 # L3 Design-Lock — Model-Release & Activation Proof Membrane
 
 **Date**: 2026-07-12 (rev 2026-07-15 — canonical-strategy alignment) · **Status**: PROPOSED (for-review; do NOT self-merge; owner ratifies)
-**Rigor**: L3 (`PRODUCT_STRATEGY.md` §7.1) · **Grounded on**: `origin/main@e84fea2d`; activation-map count on `origin/main@f2ebe2fa` (2026-07-14; #516 enumerator + #519 hardening merged). The import-aware CI enumerator — the count authority, NOT a hand-count — executes on current `main` as **128 sites / 38 marked `gated` / 11 families**. Its current summary still calls those 38 "production-reachable" and presents rejected option (a), blanket hard-refuse, as valid; those labels are stale and are **not** inherited here. #521 is the open, unmerged output-truth correction. This lock uses the executed count while treating `gated` as a conservative AST classification: per-site logical reachability is a **Wave-1 audit**, NOT asserted here, and several sites are latent or not-yet-proven-reachable (§1.B(cont)); a hand-count has been wrong ≥4 times.
+**Rigor**: L3 (`PRODUCT_STRATEGY.md` §7.1) · **Grounded on**: `origin/main@a0e517e8`; activation-map count on `origin/main@f2ebe2fa` (2026-07-14; #516 enumerator + #519 hardening merged). The import-aware CI enumerator — the count authority, NOT a hand-count — executes on current `main` as **128 sites / 38 marked `gated` / 11 families**. Its summary was corrected to the conservative-AST / (b) wording by #521 (merged `a0e517e8`), so the earlier "production-reachable" / rejected-(a) blanket-hard-refuse labels are no longer emitted. This lock uses the executed count while treating `gated` as a conservative AST classification: per-site logical reachability is a **Wave-1 audit**, NOT asserted here, and several sites are latent or not-yet-proven-reachable (§1.B(cont)); a hand-count has been wrong ≥4 times.
 **Authority**: `PRODUCT_STRATEGY.md` §4 (AI safety), §5.2 (evaluation integrity not release-grade),
 §8.1 (Track E). Scheduled deliverable for the 7/20–7/26 week; pulled forward because the runtime
 work is P0-blocked and a design-lock is a doc, not runtime.
@@ -54,7 +54,7 @@ bleeding-control one layer upstream; the runtime membrane is unbuilt.
 Corrections from review, all load-bearing:
 
 1. **Model families are distinct release paths, not one path's bypasses.** `POST /api/v1/model/reload`
-   hot-reloads the **pickle classifier** (`CLASSIFICATION_MODEL_PATH`, `src/ml/classifier.py:227,85`).
+   hot-reloads the **pickle classifier** (`CLASSIFICATION_MODEL_PATH` at `src/ml/classifier.py:22`, loaded at `:85`; the hot-reload path is `reload_model` at `:227` → `pickle.loads` at `:535`).
    `auto_retrain.sh`/#509 promotes the **Graph2D checkpoint** (`GRAPH2D_MODEL_PATH`, resolved in
    `Graph2DClassifier.__init__` (`src/ml/vision_2d.py:40-41`) and loaded via `torch.load` at
    `src/ml/vision_2d.py:136`). These are **different models with
@@ -154,10 +154,8 @@ a model-promotion path.
    (the `auto_remediation` rollback; the `_reload_model_impl` hot-reload deserialization now that
    `/model/reload` is sealed; the two `MetricsAnomalyDetector.load_models` sites with no `src/` caller).
    **Per-site logical reachability is a Wave-1 audit**, not hand-asserted here (§1.B(cont)). The
-   current merged script's final summary still says "production-reachable" and offers blanket
-   hard-refuse; those are known output-truth defects, not this lock's contract. #521 proposes the
-   wording correction but is open and unmerged, so this document relies on current `main` only for
-   the executable count/classification data.
+   enumerator summary was corrected to the conservative-AST / (b) wording by #521 (merged
+   `a0e517e8`); this document relies on current `main` for the executable count/classification data.
    A name-only matcher (review 5) missed the ocr/embedding families and
    import aliases entirely — the enumerator is now import-aware (+onnx/ort, review 6) and reds on any new un-annotated load matching a declared idiom.
 
@@ -240,8 +238,10 @@ or the append-only activation audit (§3.3). All of those are Phase B.
   baseline" concept and no generic "new pin = deploy" permission. If
   the target environment cannot prove the exact baseline tuple, no pin is issued and the family remains
   `degraded`/503. After Track E exits, changing the tuple requires a separately ratified model-promotion
-  contract bound to its versioned reproducible evaluation artifact; this design-lock does not authorize
-  that promotion merely because a deployment can replace a file.
+  contract bound to its versioned reproducible evaluation artifact **and satisfying `PRODUCT_STRATEGY.md`
+  §4.5's governed-model-change requirements (customer-holdout shadow evaluation, calibrated thresholds,
+  canary evidence, rollback)**; this design-lock does not authorize that promotion merely because a
+  deployment can replace a file.
 - **Failure = an explicit, defined product state — NO silent stub.** On missing pin / hash-miss /
   bundle-digest-miss / containment-escape, each family MUST enter a **defined `degraded` state with a
   `503` (or family-appropriate) health/readiness contract** — the endpoint tells the client the model
@@ -323,20 +323,21 @@ is larger than two families. Additional `gated`, proof-unbound loads (conservati
 | Point | Family | Evidence |
 |---|---|---|
 | PointNet via the **mounted** pointcloud router | pointnet | router imported+mounted `src/api/__init__.py:269,522`; the endpoint loads the point-cloud model |
-| V16Classifier ensemble (mounted `/health`) | part-v16 | `torch.load`+`load_state_dict` `src/inference/classifier_api.py::V16Classifier.load` (`:613,615,627,630`); manifest family `part-v16` (4 sites) — the distinct file from `part` below |
+| V16Classifier ensemble | part-v16 | `torch.load`+`load_state_dict` `src/inference/classifier_api.py::V16Classifier.load` (`:613,615,627,630`); manifest family `part-v16` (4 sites), distinct file from `part`. **Reachability = Wave-1 audit** — `.load()` is lazy (on `predict()`) / standalone-app / CLI; the mounted app imports only `result_cache` (`__init__`, no load) and no mounted route calls `predict()` → not proven live |
 | HybridClassifier branch checkpoints | hybrid(stat/text) | `torch.load` `src/ml/hybrid_classifier.py:448,476` |
 | PartClassifier / V16 / V14 | part | `torch.load` `src/ml/part_classifier.py:62,655,695` (via `/analyze`, `/health`) |
 | HistorySequence | history | `torch.load` `src/ml/history_sequence_classifier.py:162` (via `/analyze`) |
-| Vision3D encoder (`UVNET_MODEL_PATH`) | vision3d/uvnet | `torch.load` `src/ml/vision_3d.py:196` (via `/analyze` on 3D/STEP/IGES inputs; format+cache-miss gated but real) |
+| Vision3D encoder (`UVNET_MODEL_PATH`) | vision3d-uvnet | `torch.load` `src/ml/vision_3d.py:196` (via `/analyze` on 3D/STEP/IGES inputs; format+cache-miss gated but real) |
 | DeepSeek OCR (HF) + PaddleOCR — **bundle/tree** | ocr | `from_pretrained` `src/core/ocr/providers/deepseek_hf.py:128,132` + `PaddleOCR` `:86,268`; **mounted** `/ocr` (a directory artifact — bundle-digest KIND) |
 | SentenceTransformer embedding — **bundle/tree** | embedding | `SentenceTransformer` `src/core/assistant/embedding_retriever.py:59` (also `semantic_retrieval.py`, `ml/embeddings/model.py`); via the assistant (a directory artifact — bundle-digest KIND) |
 | MetricsAnomalyDetector production metrics model | anomaly-monitor | `joblib.load` + `pickle.load` `src/ml/monitoring/anomaly_detector.py` (`load_models`); conservatively `gated` (production monitoring) — **not-yet-proven-reachable**: no `.load_models(` caller exists in `src/` (only class def + exports); **single-file KIND** — `load_models(path)` reads ONE file via a `joblib.load`-or-`pickle.load` **fallback** (verified: both idioms open the same `src`), so the two AST sites are ONE logical activation → one single-file pin |
 
 **Reachability caveat (owner review, 2026-07-15).** The evidence requires `gated` to be interpreted
 **conservatively**, not as the current script's stale "production-reachable" summary: the 38 entries
-are **AST load sites, not proven-live loaders**. #521 is the open, unmerged output-truth correction.
+are **AST load sites, not proven-live loaders** (the enumerator summary was corrected to this framing by #521, merged `a0e517e8`).
 Known latent / not-yet-proven-reachable among the 38: the
-`auto_remediation` rollback (§1.C — no live scheduler); the pickle-classifier `_reload_model_impl`
+`auto_remediation` rollback (§1.C — no live scheduler); the **part-v16 `V16Classifier.load`** (lazy on
+`predict()` / standalone-app / CLI — no mounted route calls `predict()`); the pickle-classifier `_reload_model_impl`
 hot-reload deserialization (`classifier.py:535`), reachable only via the now-sealed `/model/reload`,
 the latent `auto_remediation`, and offline `finetune_from_feedback`; and the two
 `MetricsAnomalyDetector.load_models` sites (no `.load_models(` caller in `src/`). **Per-site logical
@@ -370,7 +371,7 @@ Bind the training/evaluation split to **content**, not paths:
 - **canonical split digest over `content_hash + family + label + side`** — NOT `(file_path → side)`.
   The split digest on the (unmerged) Track E branch `claude/track-e-eval-integrity-splitter-...`
   hashed only `(file_path → side)` — blind to *same-path-changed-bytes* / *same-path-changed-label*,
-  the 262/914 content-overlap class it must catch. (That file is NOT on `origin/main@8ff94175`; this
+  the 262/914 content-overlap class it must catch. (That file is NOT on current `origin/main@a0e517e8` — re-verified; this
   requirement is what the Track E digest MUST satisfy, not a description of current main.)
 - **non-empty both sides** + **largest-component share** reported and bounded (real data: `file:syn`
   is a single dominant component (~50%+ of assignable rows — a PR #510-review figure, not a
@@ -471,7 +472,7 @@ through `verify_and_load` (Phase B)**. The §1 map is that enumerator's *seed*, 
 Implementation is **sharded per model family**, each shard wiring the Phase-A fixed-hash check (in
 Phase B, `verify_and_load`) **before** the load and shipping its own enumerator entry + golden:
 
-- **pickle-classifier** — the external `/model/reload` route (`model.py:71`) stays **sealed 403** (#516, not fixed-hash-wired; not one of the 38 `gated` load sites); the Phase-A body wires `classifier.py:85` (the lazy
+- **pickle-classifier** — the external `/model/reload` route (`model.py:48`) stays **sealed 403** (#516, not fixed-hash-wired; not one of the 38 `gated` load sites); the Phase-A body wires `classifier.py:85` (the lazy
   first-`predict()` `pickle.load`, which today has NO magic/hash/opcode check). The current hot-reload
   path deserializes **before** it checks (`classifier.py:535` `pickle.loads` runs ahead of the
   whitelist/hash check, and the hash is truncated to 16 hex) — `verify_and_load`'s "cheap guards +
@@ -481,9 +482,9 @@ Phase B, `verify_and_load`) **before** the load and shipping its own enumerator 
   `hybrid_classifier.py:448` (stat branch) and `:476` (text branch).
 - **pointnet** — the **mounted** `/pointcloud` router → `pointnet/inference.py:108`.
 - **part** (`PartClassifier` + `PartClassifierV16` + V14, all in `part_classifier.py`, manifest family `part`) — `:62,655,695` (reached via `/analyze`, `/health`).
-- **part-v16** (`V16Classifier` in `src/inference/classifier_api.py`, manifest family `part-v16`) — `torch.load` `:613,627` + `load_state_dict` `:615,630`; imported by the **mounted** `/health` route.
-- **history-sequence** — `history_sequence_classifier.py:162` (reached via `/analyze`).
-- **vision3d / uvnet** — `vision_3d.py:196` (`UVNET_MODEL_PATH`, reached via `/analyze` on 3D inputs).
+- **part-v16** (`V16Classifier` in `src/inference/classifier_api.py`, manifest family `part-v16`) — `torch.load` `:613,627` + `load_state_dict` `:615,630`; **reachability is a Wave-1 audit** (load is lazy-on-`predict()` / standalone-app / CLI; no mounted route calls `predict()` — not proven live via the mounted app).
+- **history** — `history_sequence_classifier.py:162` (reached via `/analyze`).
+- **vision3d-uvnet** — `vision_3d.py:196` (`UVNET_MODEL_PATH`, reached via `/analyze` on 3D inputs).
 - **ocr** (bundle-digest KIND) — DeepSeek HF `from_pretrained` (`deepseek_hf.py:128,132`) + PaddleOCR (`:86,268`), **mounted** `/ocr`; a directory artifact → tree-digest, offline-only, no silent stub (§0.5 step 2 + failure-semantics).
 - **embedding** (bundle-digest KIND) — SentenceTransformer (`embedding_retriever.py:59`, `semantic_retrieval.py`, `ml/embeddings/model.py`), via the assistant; directory artifact → tree-digest.
 - **anomaly-monitor** — `anomaly_detector.py` `load_models(path)`; the conservatively-gated production metrics model. **single-file KIND** — one `path`, read via a joblib-or-pickle **fallback** (both open the same file; one logical activation → one fixed-hash pin).
@@ -566,8 +567,8 @@ previous_artifact_digest, new_artifact_digest (== candidate on 'activated', null
 failure_reason }` (drop the ambiguous bare `model_hash`; the digest is the single-file SHA or the tree
 digest per `artifact_kind`; `candidate_artifact_digest` is what was attempted, `new_artifact_digest`
 what is now serving).
-**No filesystem paths or other sensitive strings** (per the redaction discipline the strategy applies
-to logs). The ledger is append-only so a bad activation cannot be erased, and it is what makes
+**No filesystem paths or other sensitive strings** (per `PRODUCT_STRATEGY.md` §4.4's
+redacted-where-possible customer-data discipline). The ledger is append-only so a bad activation cannot be erased, and it is what makes
 revocation and incident review possible after the fact.
 
 ## 4. Non-goals / explicit exclusions
@@ -577,10 +578,13 @@ revocation and incident review possible after the fact.
   `dependencies.py:8` default `test`, `src/api/middleware/integration_auth.py:104` header-overrides-subject). Cross-ref,
   don't merge the two.
 - Not covering offline training/quantization (§1.D) — they don't activate.
-- Customer corrections are **isolated until Track E's exit condition is satisfied**; after it, they may enter a
-  training-readable store **only** under explicit customer authorization, single-customer isolation,
-  and with cross-customer training default-off. (The earlier "never enter a training-readable store"
-  overstated the canonical strategy — the rule is conditional, not absolute.)
+- Customer corrections are **isolated until Track E's exit condition is satisfied** (`PRODUCT_STRATEGY.md`
+  §8.2: pre-Track-E corrections stay **quarantined** — not appended to a training manifest, not used to
+  promote a model). After it, **admission to a training-readable store is a separate owner decision**
+  under the model-promotion contract — and only under explicit customer authorization, single-customer
+  isolation, and with cross-customer training default-off; this design-lock does not itself grant it.
+  (The earlier "never enter a training-readable store" was too absolute, but the permission is the
+  owner's to grant, not this doc's.)
 
 ## 5. Golden matrix the implementation must ship (observed-RED, REQUIRED — not yet executed; the membrane is unbuilt)
 
@@ -651,7 +655,7 @@ Accurate post-#509 status, by threat actor (§3.1 — do not conflate them):
   authority — §1.B(cont)/§3). The external `/model/reload` is **now SEALED (403, #516)** and is no
   longer reachable; the remaining gap is the **internal `gated` loaders** (of the 38 conservatively-`gated`
   sites (the sealed external `/model/reload` route is separate — NOT among the 38, §3 shard); several latent/unproven — §1.B(cont)) — the pickle-classifier startup load
-  and the graph2d / hybrid-branch (stat, text) / pointnet / part / part-v16 / history-sequence / vision3d(uvnet) /
+  and the graph2d / hybrid-branch (stat, text) / pointnet / part / part-v16 / history / vision3d-uvnet /
   ocr / embedding / anomaly-monitor surfaces (per-site reachability confirmed in the Wave-1 audit) — which still load **unpinned** (no Phase-A fixed-hash check
   yet). *That* is what full Phase A must close, and it is **unbuilt**.
 

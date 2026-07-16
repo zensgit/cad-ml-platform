@@ -6,7 +6,7 @@
 > an unattended loop once built a gate ahead of ratification and produced a fake-green; gated
 > implementation is listed as **gated**, never as done. `merged != enabled != safe`.
 
-Grounded on `origin/main@e84fea2d`. Model-routing key (owner directive): **fable5** low/mechanical ·
+Grounded on `origin/main@a0e517e8`. Model-routing key (owner directive): **fable5** low/mechanical ·
 **sonnet5** medium pattern-following · **opus4.8** high/security-critical.
 
 ---
@@ -22,19 +22,17 @@ Grounded on `origin/main@e84fea2d`. Model-routing key (owner directive): **fable
 | A0-4 | **#516** | **activation-surface enumerator** = CI gate (AST/import-aware) | `scripts/ci/activation_surface_enumerator.py` + `activation_surface.json`; invoked in `.github/workflows/ci.yml` + `ci-tiered-tests.yml` — a new un-annotated load matching a declared idiom **reds CI** |
 | A0-5 | **#519** `f2ebe2fa` | enumerator **fail-closed on unparseable files (exit 2)** | same enumerator |
 
-**Pending A0 correction — NOT delivered:** #521 is open for owner review. It changes only the
-enumerator's output truth to "conservatively-classified AST load site(s), reachability audited
-separately" and owner-selected (b), fixed-hash/bundle-digest-check or `verify_and_load`; it replaces
-the current "production-reachable" plus rejected-(a) blanket-hard-refuse wording without changing the
-counts.
+**A0-6 — #521 `a0e517e8` (MERGED):** the enumerator output-truth correction is now on `main`. Its
+summary emits "conservatively-classified AST load site(s), reachability audited separately" and
+owner-selected (b), fixed-hash/bundle-digest-check or `verify_and_load` — replacing the earlier
+"production-reachable" plus rejected-(a) blanket-hard-refuse wording; counts unchanged.
 
 **Manifest/count ground truth (executed on `main`):** 128 sites = `gated` 38, `producer` 44,
 `offline` 39, `infra` 4, `unmounted` 3. The 38 `gated` across 11 families: pickle-classifier, graph2d, pointnet,
 part, part-v16, hybrid, history, vision3d-uvnet, ocr, embedding, anomaly-monitor.
 
-**Reachability is a Wave-1 audit — NOT a hand-asserted live count.** The merged enumerator currently
-prints "production-reachable" and a rejected blanket-hard-refuse option; those labels are stale and
-#521's correction is still open/unmerged. The delivered fact here is the executed count and manifest
+**Reachability is a Wave-1 audit — NOT a hand-asserted live count.** The merged enumerator now prints
+the conservative-AST / (b) wording (#521, merged `a0e517e8`). The delivered fact here is the executed count and manifest
 classification. The design interprets `gated` **conservatively**, because known latent /
 not-yet-proven-reachable among the 38: the `auto_remediation` rollback (no live scheduler); the
 pickle-classifier `_reload_model_impl` hot-reload deserialization (reachable only via the now-sealed
@@ -108,7 +106,7 @@ literal fake-green.
 
 1. Complete and record #513's fresh **three-lens review on the exact closing head**, then owner-ratify
    that green head → unblocks Wave-1 audit + **Phase A baseline containment**.
-2. **Merge #521** (enumerator output-truth; A0 CI-truth, no runtime) → Part-1 evidence is caliber-accurate.
+2. ~~Merge #521~~ **DONE** (`a0e517e8`) — enumerator output-truth on `main`; Part-1 evidence is caliber-accurate.
 3. Provision **real data + model-run env** → unblocks **Track E**.
 4. Provision **signing-key custody (HSM/human-gated)** → unblocks **Phase B** (after Track E).
 5. **Owner enablement decision** (post A–E) → §8.1.7 + the separate enablement PR.
