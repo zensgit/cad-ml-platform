@@ -114,7 +114,12 @@ a model-promotion path.
      a **deterministic, versioned tree digest** (`tree-digest-v1`) = `SHA-256` over a **canonical
      encoding** of the **sorted** list of `(posix-relpath, SHA-256(file-bytes))` for **every** file under
      the artifact root — **`tree-digest-v1` canonical encoding (fully pinned, no implementation freedom):**
-     include **only regular files** (symlinks and directories excluded; zero-byte files included); each
+     the digest covers **only regular files** (zero-byte files included); the directory is **traversal-only**.
+     **Input-domain lock (no implementation freedom): the whole activation is REJECTED fail-closed
+     (`degraded`/503) BEFORE any copy or digest — never silently "excluded"/"skipped" (an "exclude" would let
+     two implementations diverge: one skips, one rejects) — on ANY symlink, ANY other non-regular entry
+     (FIFO / socket / block- or char-device), OR ANY path whose POSIX relpath fails UTF-8 encoding.** For
+     each surviving regular file, the record's
      path is its **POSIX relpath from the artifact root, UTF-8-encoded**; `len` = the **byte length of that
      UTF-8 relpath, written as ASCII decimal**; each record = `len` · byte `0x1F` · relpath-bytes · byte
      `0x1F` · **lowercase-hex** `SHA-256(file-bytes)`; records are **sorted bytewise by the UTF-8 relpath**
@@ -134,7 +139,8 @@ a model-promotion path.
      single-file "hash and load the same bytes"; this is what closes the **bundle TOCTOU** — a file
      changing between digest and the framework's read is impossible on the frozen snapshot);
      (c) recomputes the tree digest over that **frozen** directory, `resolve()`-contained to the store
-     root (reject any symlink/`..`/absolute escaping the root, per-file); (d) `== the pinned tree
+     root (reject any `..`/absolute escaping the root, per-file — symlinks and other non-regular entries are
+     ALREADY refused by the input-domain lock above, not merely those that escape); (d) `== the pinned tree
      digest`, then hands the framework loader the **frozen snapshot's local path** (never the mutable
      original); else refuses fail-closed. A controlled unpack (if the release ships an archive) verifies
      the archive digest first and unpacks into the store with path-traversal rejection, before the
@@ -610,6 +616,9 @@ on **Track E** existing, so the build order is **Phase A → Track E → Phase B
 | a file is added/removed/changed inside the bundle dir | RED — the tree digest changes → `degraded`/503 |
 | the loader would **fetch from a network hub** (hub id / online) | REJECTED — offline-only (`HF_HUB_OFFLINE`/`local_files_only`); a hub id is never a valid artifact id |
 | any file in the bundle **escapes the store root** (per-file symlink/`..`/absolute) | RED — per-file `resolve()`-containment |
+| **[input-domain lock]** a **symlink** anywhere under the bundle root — even one that does NOT escape | RED — rejected BEFORE copy/digest → `degraded`/503 (ALL symlinks refused, not only escaping ones) |
+| **[input-domain lock]** a **non-regular entry** (FIFO / socket / block- or char-**device**) under the bundle root | RED — rejected BEFORE copy/digest → `degraded`/503 |
+| **[input-domain lock]** a bundle path whose **POSIX relpath fails UTF-8 encoding** | RED — rejected BEFORE copy/digest → `degraded`/503 (positive control: an all-regular-file, UTF-8-clean bundle → GREEN, above) |
 | load fails and the provider tries a **silent stub / best-effort fallback** (e.g. deepseek_hf.py:93) | FORBIDDEN — must enter the explicit `degraded`/503, never serve a stub |
 | **no provable exact baseline pin** at land (default-off) | the guard refuses → `degraded`/503 (baseline capture + owner review is separate from merge; no code flag opens it) |
 | **swap a single-file artifact between hash and load** (TOCTOU) | RED — read once, hash and load THE SAME bytes |
