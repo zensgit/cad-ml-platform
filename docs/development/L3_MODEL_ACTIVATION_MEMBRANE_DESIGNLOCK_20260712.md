@@ -685,7 +685,7 @@ Accurate post-#509 status, by threat actor (§3.1 — do not conflate them):
   longer reachable; the remaining gap is the **internal `gated` loaders** (of the 38 conservatively-`gated`
   sites (the sealed external `/model/reload` route is separate — NOT among the 38, §3 shard); several latent/unproven — §1.B(cont)) — the pickle-classifier startup load
   and the graph2d / hybrid-branch (stat, text) / pointnet / part / part-v16 / history / vision3d-uvnet /
-  ocr / embedding / anomaly-monitor surfaces (per-site reachability confirmed in the Wave-1 audit) — which still load **unpinned** (no Phase-A fixed-hash check
+  ocr / embedding / anomaly-monitor surfaces (per-site reachability **to be** confirmed in the Wave-1 audit — not yet run) — which still load **unpinned** (no Phase-A fixed-hash check
   yet). *That* is what full Phase A must close, and it is **unbuilt**.
 
 **So: strong bleeding-control on the code-gen actor; the runtime activation membrane is not built.**
