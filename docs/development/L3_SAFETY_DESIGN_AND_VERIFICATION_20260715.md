@@ -6,7 +6,7 @@
 > an unattended loop once built a gate ahead of ratification and produced a fake-green; gated
 > implementation is listed as **gated**, never as done. `merged != enabled != safe`.
 
-Grounded on `origin/main@a0e517e8`. Model-routing key (owner directive): **fable5** low/mechanical ·
+Grounded on `origin/main@c6625831`. Model-routing key (owner directive): **fable5** low/mechanical ·
 **sonnet5** medium pattern-following · **opus4.8** high/security-critical.
 
 ---
@@ -26,6 +26,12 @@ Grounded on `origin/main@a0e517e8`. Model-routing key (owner directive): **fable
 summary emits "conservatively-classified AST load site(s), reachability audited separately" and
 owner-selected (b), fixed-hash/bundle-digest-check or `verify_and_load` — replacing the earlier
 "production-reachable" plus rejected-(a) blanket-hard-refuse wording; counts unchanged.
+
+**A0-7 — #522 `c6625831` (MERGED 2026-07-16):** the manifest-truth CI fix is now on `main`. The LIVE
+pickle-classifier `load_model` reason was corrected from "startup" to **lazy-first-predict**
+(`classifier.py load_model:47`, called only from `predict:124`), with a pinpoint regression guard
+forbidding the "startup" over-claim from returning to that site; enumerator counts unchanged
+(128/38/11); no runtime change.
 
 **Manifest/count ground truth (executed on `main`):** 128 sites = `gated` 38, `producer` 44,
 `offline` 39, `infra` 4, `unmounted` 3. The 38 `gated` across 11 families: pickle-classifier, graph2d, pointnet,
@@ -106,7 +112,7 @@ literal fake-green.
 
 1. Complete and record #513's fresh **three-lens review on the exact closing head**, then owner-ratify
    that green head → unblocks Wave-1 audit + **Phase A baseline containment**.
-2. ~~Merge #521~~ **DONE** (`a0e517e8`) — enumerator output-truth on `main`; Part-1 evidence is caliber-accurate.
+2. ~~Merge #521~~ **DONE** (`a0e517e8`); ~~land #522 manifest-truth~~ **DONE** (`c6625831`) — enumerator output-truth + corrected LIVE-load reason on `main`; Part-1 evidence is caliber-accurate.
 3. Provision **real data + model-run env** → unblocks **Track E**.
 4. Provision **signing-key custody (HSM/human-gated)** → unblocks **Phase B** (after Track E).
 5. **Owner enablement decision** (post A–E) → §8.1.7 + the separate enablement PR.

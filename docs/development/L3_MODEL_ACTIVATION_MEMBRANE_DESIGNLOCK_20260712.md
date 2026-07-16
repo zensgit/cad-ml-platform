@@ -318,7 +318,7 @@ Classified by reachability, per the review's taxonomy.
 ### 1.B Startup / runtime-config activation (mutates a RUNNING service)
 | Point | Family | Evidence | Current guard |
 |---|---|---|---|
-| `CLASSIFICATION_MODEL_PATH` → `pickle.load` on **first `predict()`** (lazy, not at startup: `load_model()` is the loader (`classifier.py:47`); `load_models()`-style readiness only builds a snapshot) | pickle classifier | `src/ml/classifier.py:22,85` (load fires via `classifier.py:124`) | **none — no magic-number check and no proof binding.** (The magic-number check is only in the *hot-reload* path `reload_model`, `classifier.py:313`, NOT this startup load — corrected from the first draft.) |
+| `CLASSIFICATION_MODEL_PATH` → `pickle.load` on **first `predict()`** (lazy, not at startup: `load_model()` is the loader (`classifier.py:47`); `load_models()`-style readiness only builds a snapshot) | pickle classifier | `src/ml/classifier.py:22,85` (load fires via `classifier.py:124`) | **none — no magic-number check and no proof binding.** (The magic-number check is only in the *hot-reload* path `reload_model`, `classifier.py:313`, NOT this lazy-first-predict load — corrected from the first draft.) |
 | `GRAPH2D_MODEL_PATH` → `torch.load` in `Graph2DClassifier` | Graph2D | path `src/ml/vision_2d.py:41`, load `src/ml/vision_2d.py:136`; `src/main.py:61` only *reads the flag*, does not load | **no proof binding** |
 
 ### 1.C NOT production-reachable — reclassified (corrected from the first draft)
@@ -683,7 +683,7 @@ Accurate post-#509 status, by threat actor (§3.1 — do not conflate them):
   latent/unproven (§1.B(cont)); these AST sites group into fewer *logical* activations — §0.5 step 4 — the guard-coverage denominator) (the CI activation-surface enumerator, not a hand count, is the
   authority — §1.B(cont)/§3). The external `/model/reload` is **now SEALED (403, #516)** and is no
   longer reachable; the remaining gap is the **internal `gated` loaders** (of the 38 conservatively-`gated`
-  sites (the sealed external `/model/reload` route is separate — NOT among the 38, §3 shard); several latent/unproven — §1.B(cont)) — the pickle-classifier startup load
+  sites (the sealed external `/model/reload` route is separate — NOT among the 38, §3 shard); several latent/unproven — §1.B(cont)) — the pickle-classifier lazy-first-predict load
   and the graph2d / hybrid-branch (stat, text) / pointnet / part / part-v16 / history / vision3d-uvnet /
   ocr / embedding / anomaly-monitor surfaces (per-site reachability **to be** confirmed in the Wave-1 audit — not yet run) — which still load **unpinned** (no Phase-A fixed-hash check
   yet). *That* is what full Phase A must close, and it is **unbuilt**.
