@@ -47,7 +47,8 @@ an earlier claim that it "closed retraining on main" was **overstated**. Correct
 review): `auto_retrain.sh` is a **producer** (it prints a deploy command, it does not activate a
 running service), so #509 closes **none of the runtime activation points** (the import-aware CI
 enumerator executes as 38 entries marked `gated` across 11 model families; this lock does not inherit
-its current, stale "production-reachable" label — reachability is a **Wave-1 audit** (§1.B(cont)) —
+the **pre-#521** "production-reachable" label (REMOVED when #521 merged `a0e517e8` — the current
+     enumerator summary emits the conservative-AST framing, not "production-reachable") — reachability is a **Wave-1 audit** (§1.B(cont)) —
 see §1.B; a hand-count has been wrong ≥4 times, hence the CI-enumerator contract). It is
 bleeding-control one layer upstream; the runtime membrane is unbuilt.
 
@@ -106,9 +107,15 @@ a model-promotion path.
    Two artifact KINDS — because several `gated` families are NOT single files (review 7c):
 
    - **single-file** (`torch.load`/`pickle.load`/`joblib.load`/`onnx.load` of one file — graph2d, part,
-     hybrid, history, vision3d, pickle-classifier, anomaly-monitor): after the bounded pre-read passes,
-     read the resolved bytes **once**, `SHA-256(bytes) ==` the pinned value, and load **THOSE** bytes
-     (TOCTOU-safe). This is the original contract.
+     hybrid, history, vision3d, pickle-classifier, anomaly-monitor): **the leaf MUST be a regular file**
+     (same input-domain lock as bundle) — open it with **`O_NOFOLLOW`** (which fails on a symlink) and
+     **`fstat` the opened fd** to reject ANY non-regular entry (symlink / FIFO / socket / block- or
+     char-device) → `degraded`/503, **even when it does NOT escape the store root**; then **read the bytes
+     ONCE from THAT SAME fd** (bounded by the size cap), `SHA-256(bytes) ==` the pinned value, and load
+     **THOSE** bytes. **Never re-open by path** between the `fstat` check and the read/load — that single
+     open+fstat+read on one fd closes BOTH the hash→load race AND the **inode-swap-after-check** TOCTOU (a
+     path re-opened after the check could resolve to a different inode). This is the original contract,
+     input-domain-locked.
    - **bundle / tree** (`from_pretrained` / `SentenceTransformer` / `PaddleOCR` — ocr, embedding —
      which load a **directory of many files**, and may otherwise fetch from a network hub): the pin is
      a **deterministic, versioned tree digest** (`tree-digest-v1`) = `SHA-256` over a **canonical
@@ -131,13 +138,19 @@ a model-promotion path.
      immutability guarantee, which is why (b) copies), **already-unpacked** local directory that has
      passed the file-count / per-file / aggregate-byte pre-read bounds —
      **never** a hub id, and with `HF_HUB_OFFLINE=1` / `local_files_only=True` so no network load can
-     occur; (b) **freezes an immutable snapshot** of that directory that nothing else can mutate for
-     the load's duration — a per-process **copy** (or an FS-level read-only snapshot) into a
-     service-private freeze dir, **never a bind-mount of the still-mutable source** (a bind re-exposes
-     the source, so a mid-load mutation would show through and NOT close the TOCTOU) — so the
-     bytes that are digested are the SAME bytes the framework later reads (the tree analog of the
-     single-file "hash and load the same bytes"; this is what closes the **bundle TOCTOU** — a file
-     changing between digest and the framework's read is impossible on the frozen snapshot);
+     occur; (b) **freezes an immutable snapshot** of that directory by ONE of two pinned implementations
+     (no freedom to path-copy): **(b-i)** an **atomic read-only FS snapshot** taken BEFORE any scan, so the
+     input-domain check, the file-count / per-file / aggregate-byte bounds, the digest, AND the framework
+     load ALL read that one snapshot; or **(b-ii) descriptor-relative freeze** — walk with
+     **`openat(dir_fd, name, O_NOFOLLOW)` + `fstat`** per entry (rejecting ANY symlink / non-regular entry
+     BEFORE it is copied) and **bounded-copy each entry's bytes from THAT SAME opened fd** into a
+     service-private freeze dir. **A path-based copy is FORBIDDEN**: a `shutil.copytree` / re-open-by-path
+     re-reads the *still-mutable* source and re-exposes the **pre-scan → copy TOCTOU** — an entry swapped
+     from a regular file to a symlink / FIFO / oversized file AFTER the pre-scan but BEFORE the copy would
+     be followed, block, or over-read; a **bind-mount** re-exposes the source the same way. So the entry
+     that is input-domain- and bounds-checked IS the entry that is copied and digested — a swap between
+     pre-scan and copy is impossible, closing BOTH the **pre-scan→copy race** AND the **digest→framework-read
+     race** (the tree analog of the single-file "one fd, never re-open by path");
      (c) recomputes the tree digest over that **frozen** directory, `resolve()`-contained to the store
      root (reject any `..`/absolute escaping the root, per-file — symlinks and other non-regular entries are
      ALREADY refused by the input-domain lock above, not merely those that escape); (d) `== the pinned tree
@@ -339,7 +352,7 @@ is larger than two families. Additional `gated`, proof-unbound loads (conservati
 | MetricsAnomalyDetector production metrics model | anomaly-monitor | `joblib.load` + `pickle.load` `src/ml/monitoring/anomaly_detector.py` (`load_models`); conservatively `gated` (production monitoring) — **not-yet-proven-reachable**: no `.load_models(` caller exists in `src/` (only class def + exports); **single-file KIND** — `load_models(path)` reads ONE file via a `joblib.load`-or-`pickle.load` **fallback** (verified: both idioms open the same `src`), so the two AST sites are ONE logical activation → one single-file pin |
 
 **Reachability caveat (owner review, 2026-07-15).** The evidence requires `gated` to be interpreted
-**conservatively**, not as the current script's stale "production-reachable" summary: the 38 entries
+**conservatively**, not as the **pre-#521** "production-reachable" summary (removed when #521 merged `a0e517e8`): the 38 entries
 are **AST load sites, not proven-live loaders** (the enumerator summary was corrected to this framing by #521, merged `a0e517e8`).
 Known latent / not-yet-proven-reachable among the 38: the
 `auto_remediation` rollback (§1.C — no live scheduler); the **part-v16 `V16Classifier.load`** (lazy on
@@ -455,12 +468,15 @@ it at `/etc/shadow` or a 50 GB file). Instead:
 2. **Apply the shared bounded pre-read from Phase A (§0.5 step 2):** KIND/type and bounded magic-prefix,
    single-file size, and bundle file-count / per-file / aggregate-byte caps. A hostile, corrupt, or
    oversized object is rejected before a full read/copy or framework load.
-3. **One immutable read (per KIND):** for a **single-file** artifact, read the resolved bytes into
-   memory (or an fd) ONCE and **hash THOSE bytes and load the model from THE SAME bytes**; for a
-   **bundle/tree** artifact, **freeze an immutable snapshot** of the directory, take the tree digest
-   over the frozen snapshot, and hand the framework **that frozen path** (§0.5 step 2). Either way the
-   digested bytes ARE the loaded bytes — no re-open-by-path between check and load, so "verified A,
-   loaded B" is impossible (closes both the single-file and the bundle TOCTOU).
+3. **One immutable read (per KIND) — input-domain-locked, per §0.5 step 2:** for a **single-file**
+   artifact, **`O_NOFOLLOW`-open + `fstat` the fd** (regular-file-only; reject any symlink / FIFO / socket /
+   device), then read the bytes ONCE from THAT fd and **hash + load from THE SAME bytes**; for a
+   **bundle/tree** artifact, **freeze an immutable snapshot** by the atomic-snapshot **or** descriptor-relative
+   method of §0.5 (`openat`+`O_NOFOLLOW`+`fstat`, same-fd bounded-copy — **never a path-copy / bind-mount**),
+   take the tree digest over the frozen snapshot, and hand the framework **that frozen path**. Either way the
+   entry that is checked IS the entry that is digested and loaded — **no re-open-by-path between check and
+   load** — so "verified A, loaded B", the **pre-scan→copy** race, and the **inode-swap-after-check** race are
+   all impossible (closes the single-file and the bundle TOCTOUs).
 4. Look up a **signed** proof for `(artifact_digest, server-owned family, server-owned env)` in a **read-only,
    out-of-band proof store** (a model may not carry its own passing proof — self-attestation again).
    **Store UNREACHABLE ≠ proof ABSENT:** a store timeout/outage is NOT a transient "keep serving" —
@@ -614,6 +630,7 @@ on **Track E** existing, so the build order is **Phase A → Track E → Phase B
 | bundle exceeds file-count, per-file-size, or aggregate-byte cap, or contains a malformed/unreadable entry | REJECTED during bounded metadata/prefix scan, before freeze/copy/digest/framework load |
 | **bundle/tree** family (HF/SentenceTransformer/PaddleOCR): the deterministic tree digest over the **frozen** unpacked snapshot **== the pinned tree-digest** | **GREEN** (bundle Phase-A green; loads from the **frozen snapshot's** local path) |
 | a file is added/removed/changed inside the bundle dir | RED — the tree digest changes → `degraded`/503 |
+| **[pre-scan→copy TOCTOU]** a bundle entry is **swapped from a regular file to a symlink / FIFO / oversized file AFTER the pre-scan, BEFORE the copy** | RED — the freeze reads the SAME `openat`+`O_NOFOLLOW` fd (or an atomic snapshot taken before the scan); a path-based copy that would follow / block / over-read is FORBIDDEN |
 | the loader would **fetch from a network hub** (hub id / online) | REJECTED — offline-only (`HF_HUB_OFFLINE`/`local_files_only`); a hub id is never a valid artifact id |
 | any file in the bundle **escapes the store root** (per-file symlink/`..`/absolute) | RED — per-file `resolve()`-containment |
 | **[input-domain lock]** a **symlink** anywhere under the bundle root — even one that does NOT escape | RED — rejected BEFORE copy/digest → `degraded`/503 (ALL symlinks refused, not only escaping ones) |
@@ -622,6 +639,9 @@ on **Track E** existing, so the build order is **Phase A → Track E → Phase B
 | load fails and the provider tries a **silent stub / best-effort fallback** (e.g. deepseek_hf.py:93) | FORBIDDEN — must enter the explicit `degraded`/503, never serve a stub |
 | **no provable exact baseline pin** at land (default-off) | the guard refuses → `degraded`/503 (baseline capture + owner review is separate from merge; no code flag opens it) |
 | **swap a single-file artifact between hash and load** (TOCTOU) | RED — read once, hash and load THE SAME bytes |
+| **[input-domain, single-file]** the leaf is a **symlink** inside the store root (even non-escaping) | RED — `O_NOFOLLOW`-open fails / `fstat` rejects → `degraded`/503 |
+| **[input-domain, single-file]** the leaf is a **non-regular** entry (FIFO / socket / block- or char-device) | RED — `fstat` rejects non-`S_ISREG` → `degraded`/503 |
+| **[input-domain, single-file]** the leaf's **inode is swapped AFTER the `fstat` check, before the read** | RED — the read is from the SAME already-open fd; re-open-by-path is forbidden (positive control: a stable regular-file leaf → GREEN) |
 | **change a bundle file AFTER the tree digest, before/during the framework's read** (bundle TOCTOU) | RED — the digested tree is a **frozen immutable snapshot**; the framework reads the digested files, never the mutable original (§0.5 step 2) |
 | a new **un-annotated** prod loader appears | CI RED (the enumerator, §1/§3) |
 
