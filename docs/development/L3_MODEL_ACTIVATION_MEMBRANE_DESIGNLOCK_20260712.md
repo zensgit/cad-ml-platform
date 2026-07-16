@@ -361,7 +361,7 @@ hot-reload deserialization (`classifier.py:535`), reachable only via the now-sea
 the latent `auto_remediation`, and offline `finetune_from_feedback`; and the two
 `MetricsAnomalyDetector.load_models` sites (no `.load_models(` caller in `src/`). **Per-site logical
 reachability is a Wave-1 audit** — the safe contract is *38 conservatively-`gated` AST entries / 11
-families, several latent/unproven, reachability confirmed in Wave 1* — never a hand-asserted live count.
+families, several latent/unproven, reachability to be confirmed in Wave 1* — never a hand-asserted live count.
 
 **The recurring lesson — a hand-enumerated count is the wrong contract.** It has been wrong ≥4
 times. The membrane's completeness must be enforced **by construction, not by a list**: ship a CI
@@ -632,7 +632,7 @@ on **Track E** existing, so the build order is **Phase A → Track E → Phase B
 | a file is added/removed/changed inside the bundle dir | RED — the tree digest changes → `degraded`/503 |
 | **[pre-scan→copy TOCTOU]** a bundle entry is **swapped from a regular file to a symlink / FIFO / oversized file AFTER the pre-scan, BEFORE the copy** | RED — the freeze reads the SAME `openat`+`O_NOFOLLOW` fd (or an atomic snapshot taken before the scan); a path-based copy that would follow / block / over-read is FORBIDDEN |
 | the loader would **fetch from a network hub** (hub id / online) | REJECTED — offline-only (`HF_HUB_OFFLINE`/`local_files_only`); a hub id is never a valid artifact id |
-| any file in the bundle **escapes the store root** (per-file symlink/`..`/absolute) | RED — per-file `resolve()`-containment |
+| any file in the bundle **escapes the frozen root** (`..`/absolute) | RED — per-file `resolve()`-containment against the frozen snapshot root; **symlinks (escaping or not) are already REFUSED by the input-domain lock (next row)**, not caught here (§0.5 step-2 (c)) |
 | **[input-domain lock]** a **symlink** anywhere under the bundle root — even one that does NOT escape | RED — rejected BEFORE copy/digest → `degraded`/503 (ALL symlinks refused, not only escaping ones) |
 | **[input-domain lock]** a **non-regular entry** (FIFO / socket / block- or char-**device**) under the bundle root | RED — rejected BEFORE copy/digest → `degraded`/503 |
 | **[input-domain lock]** a bundle path whose **POSIX relpath fails UTF-8 encoding** | RED — rejected BEFORE copy/digest → `degraded`/503 (positive control: an all-regular-file, UTF-8-clean bundle → GREEN, above) |

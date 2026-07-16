@@ -38,8 +38,8 @@ not-yet-proven-reachable among the 38: the `auto_remediation` rollback (no live 
 pickle-classifier `_reload_model_impl` hot-reload deserialization (reachable only via the now-sealed
 `/model/reload`, the latent `auto_remediation`, and offline `finetune_from_feedback`); the two
 `MetricsAnomalyDetector.load_models` sites (no `.load_models(` caller in `src/`). The safe contract is
-**38 conservatively-`gated` AST entries / 11 families, several latent/unproven, reachability confirmed
-in Wave 1.**
+**38 conservatively-`gated` AST entries / 11 families, several latent/unproven, reachability to be
+confirmed in Wave 1.**
 
 **Honest production posture today:** external `/model/reload` **sealed (403)**; the `auto_retrain`
 **producer disabled (#509)**; the internal `gated` loaders still load **UNPINNED** (proof-unbound); **no
