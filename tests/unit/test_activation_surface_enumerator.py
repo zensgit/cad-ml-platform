@@ -64,7 +64,7 @@ def test_invalid_class_is_rejected(tmp_path, monkeypatch, capsys) -> None:
 
 
 def test_every_gated_site_carries_a_family() -> None:
-    # a gated (production-reachable) site must name its model family, so the membrane can bind it.
+    # a gated (conservatively-classified) site must name its model family, so the membrane can bind it.
     manifest = enum.load_manifest()
     missing = [k for k, e in manifest.items() if e["class"] == "gated" and not e.get("family")]
     assert not missing, f"gated sites without a family: {missing}"

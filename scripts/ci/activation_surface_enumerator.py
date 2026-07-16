@@ -18,8 +18,10 @@ CAD/OCR platform actually uses beyond raw ``torch.load``:
     (``SentenceTransformer`` / ``CrossEncoder`` / ``PaddleOCR`` / …), import-aware;
   * a ``reload_model(`` call.
 
-Classes (per the L3 design-lock §1): ``gated`` (production-reachable activation; MUST pass the proof
-membrane / be frozen), ``producer`` (offline artifact emitter), ``offline`` (a CLI/tool load),
+Classes (per the L3 design-lock §1): ``gated`` (a conservatively-classified activation site —
+per-site logical reachability is audited separately, NOT asserted by this classifier; MUST be
+fixed-hash / bundle-digest-checked (Phase A, owner decision (b)) or routed through the proof membrane
+(Phase B)), ``producer`` (offline artifact emitter), ``offline`` (a CLI/tool load),
 ``unmounted`` (0-route scaffold; auto-promotes to gated if mounted), ``infra`` (non-model
 deserialization — calibrator / vector-store / cache).
 
@@ -288,9 +290,11 @@ def main(argv=None) -> int:
     summary = ", ".join(f"{c}={by_class.get(c, 0)}" for c in sorted(VALID_CLASSES))
     print(f"[activation-enumerator] OK — {len(found)} load sites, all classified ({summary}).")
     gated = sum(1 for e in manifest.values() if e["class"] == "gated")
-    print(f"[activation-enumerator] {gated} `gated` production-reachable activation point(s). These "
-          "are DISCOVERED + classified only; Phase A0 does NOT freeze them (they still load). Full "
-          "Phase A must freeze each (hard-refuse) or route it through verify_and_load (Phase B).")
+    print(f"[activation-enumerator] {gated} `gated` AST load site(s) — a CONSERVATIVE classification "
+          "that may include latent / not-yet-proven-reachable sites; per-site logical reachability is "
+          "audited separately, NOT asserted here. These are DISCOVERED + classified only; Phase A0 does "
+          "NOT pin them (they still load). Under full Phase A each MUST be fixed-hash- or "
+          "bundle-digest-checked (owner decision (b)) or routed through verify_and_load (Phase B).")
     return EXIT_OK
 
 
