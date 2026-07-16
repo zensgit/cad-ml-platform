@@ -332,7 +332,7 @@
     "src/ml/classifier.py::load_model::pickle.load#0": {
       "class": "gated",
       "family": "pickle-classifier",
-      "reason": "LIVE startup / lazy-first-predict pickle load of the classification model (classifier.py load_model)"
+      "reason": "LIVE lazy-first-predict pickle load of the classification model (classifier.py load_model:47, called only from predict:124)"
     },
     "src/ml/compression/export.py::ONNXExporter.export::onnx.load#0": {
       "class": "offline",
