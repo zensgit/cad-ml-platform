@@ -59,7 +59,7 @@ def _raise_unsupported_raw_dwg(file_name: str) -> None:
 def _is_empty_parser_stub_for_non_dxf_payload(doc: CadDocument, content: bytes) -> bool:
     head = content[:4096].upper()
     return (
-        doc.metadata.get("parser") == "stub"
+        doc.metadata.get("parser", "stub") == "stub"
         and doc.entity_count() == 0
         and not doc.layers
         and b"SECTION" not in head
