@@ -98,8 +98,10 @@ a model-promotion path.
 
    **Shared bounded pre-read (Phase A AND Phase B).** Before a full file read, bundle copy, digest, or
    framework loader runs, reject an artifact whose declared KIND/type is wrong, whose single-file size
-   exceeds its family limit, or whose bundle exceeds a bounded file-count, per-file-size, or aggregate-
-   byte limit. Validate file type / a bounded magic prefix where the family has one; for an unpacked
+   exceeds its family limit, or whose bundle exceeds a bounded **file-count, per-file-size, aggregate-byte,
+   total-entry-count (ALL dirents — files, directories, AND any other entry type), directory-count,
+   traversal-depth, or per-entry relpath byte-length** limit (the relpath byte-length cap also bounds the
+   `tree-digest-v1` record encoding — §0.5 step-2 — since each record embeds the UTF-8 relpath). Validate file type / a bounded magic prefix where the family has one; for an unpacked
    bundle, use `lstat` metadata plus only bounded prefixes, never read the full tree to decide whether it
    is safe to copy — so metadata-detectable violations are refused **before any copy**. A
    malformed/unreadable entry or metadata overflow is a refusal, not a best-effort
@@ -115,13 +117,21 @@ a model-promotion path.
    `O_NOFOLLOW` protects ONLY the final path component, so a leaf-only `O_NOFOLLOW` is insufficient — a
    symlink at an **intermediate** directory (e.g. `store/family` → outside the store) is silently
    followed and the external file is read (owner-verified). **Pinned-relpath precondition (enforced
-   in-process BEFORE any `openat`):** the pin MUST be a **relative** path with **no absolute prefix** and
-   **no `.`, `..`, or empty component**; ANY absolute pin or ANY `.`/`..`/empty component is REJECTED
-   fail-closed (`degraded`/503) before the walk starts. This precondition is REQUIRED, not decorative,
+   in-process on the RAW POSIX pin string, BEFORE any `openat` AND BEFORE any
+   `Path()`/`PurePosixPath`/`os.path` normalization):** the check operates on the **raw pin bytes split on
+   `/`** — running ANY path normalization first is **FORBIDDEN**, because normalization silently swallows
+   the illegal components this check exists to catch (`Path("a//b")` and `Path("a/./b")` both collapse to
+   `a/b`, so an `//`, `.`, or `..` component would never be seen). On that raw split the pin MUST be a
+   **relative** path with **no absolute prefix** and **no `.`, `..`, or empty component** (an empty
+   component is exactly what a `//`, a leading `/`, or a trailing `/` produces in the raw split), and the
+   raw pin MUST contain **no NUL (`0x00`) byte anywhere** — the NUL rejection applies to the whole pin
+   string here, not only to readdir entry names (which §0.5-below covers separately). ANY absolute pin,
+   ANY `.`/`..`/empty component, or ANY NUL byte is REJECTED fail-closed (`degraded`/503) before the walk
+   starts. This precondition is REQUIRED, not decorative,
    because **`O_NOFOLLOW` does NOT stop `..`**: a `..` component is not a symlink, so
    `openat(dir_fd, "..", O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC)` **succeeds** and walks ABOVE the store root
    (owner-verified escape) — the per-component walk cannot rely on `O_NOFOLLOW` alone to stay contained,
-   so the `..`/`.`/absolute components must be rejected up front. Both the single-file leaf and the
+   so the `..`/`.`/absolute/empty/NUL components must be rejected up front on the raw split. Both the single-file leaf and the
    bundle root are then opened by walking the validated pinned **relative** path
    **component-by-component from a trusted, pre-opened store-root directory fd**: each **intermediate
    directory** via `openat(dir_fd, name, O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC)` (a symlink or non-directory
@@ -136,10 +146,17 @@ a model-promotion path.
    `openat(root_fd, name, O_RDONLY|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC)` + `fstat`(`S_ISREG`) per entry,
    §0.5 step-2 (b-ii)). **`O_NONBLOCK` on the single-file leaf / each bundle-entry-file open is
    REQUIRED**: opening a FIFO WITHOUT it blocks waiting for a writer BEFORE `fstat` can run, so the
-   special-file rejection would be unreachable. On Linux prefer a single
-   `openat2(store_root_fd, relpath, RESOLVE_BENEATH|RESOLVE_NO_SYMLINKS)` — `RESOLVE_BENEATH` also
-   rejects the `..`/absolute escape above; where `openat2` is unavailable, fall back to the
-   component-by-component `openat` walk **with the pinned-relpath precondition enforced in-process**.
+   special-file rejection would be unreachable. **The raw-pin precondition above is a SHARED pre-gate that
+   runs FIRST on the raw pin for BOTH resolver implementations — it is NOT a property of the fallback
+   alone.** On Linux prefer a single `openat2(store_root_fd, relpath, RESOLVE_BENEATH|RESOLVE_NO_SYMLINKS)`
+   for the walk; where `openat2` is unavailable, fall back to the component-by-component `openat` walk.
+   **`RESOLVE_BENEATH`/`RESOLVE_NO_SYMLINKS` is NOT a substitute for the raw-pin precondition:** the kernel
+   *collapses* `//` and `.` during `openat2` path resolution, and `RESOLVE_BENEATH` only blocks an
+   *escape* — so a bare `openat2` would silently ACCEPT `a//b` / `a/./b` and never see an empty component.
+   Therefore the raw split-on-`/` rejection of `.`/`..`/empty/NUL/absolute MUST run on the raw pin BEFORE
+   either walk, so the two implementations reject the IDENTICAL input set (`RESOLVE_BENEATH` additionally
+   rejects the `..`/absolute escape at resolution time, but the raw precondition — not `openat2` alone — is
+   what makes the openat2 path and the component-walk fallback agree; a divergence is itself a RED, §5).
    **Falling back to `resolve()` + `open(path)` is FORBIDDEN** — it follows intermediate symlinks AND
    re-introduces a resolve→open TOCTOU. This resolver IS the containment mechanism (not a leaf flag); it
    supersedes every earlier leaf-only-`O_NOFOLLOW` / `resolve()`-containment phrasing below.
@@ -183,13 +200,13 @@ a model-promotion path.
      never a silent change. The site (a) resolves a
      server-owned artifact id to a controlled, **read-only** (access-control only — NOT a load-duration
      immutability guarantee, which is why (b) copies), **already-unpacked** local directory that has
-     passed the file-count / per-file / aggregate-byte pre-read bounds —
+     passed the file-count / per-file / aggregate-byte / total-entries / directory-count / depth / relpath-length pre-read bounds —
      **never** a hub id, and with `HF_HUB_OFFLINE=1` / `local_files_only=True` so no network load can
      occur; the bundle root and every entry are opened through the **store-root-anchored resolver above**
      (per-component from the store-root fd; `resolve()` forbidden), so an intermediate-directory symlink
      cannot redirect the root outside the store; (b) **freezes an immutable snapshot** of that directory by ONE of two pinned implementations
      (no freedom to path-copy): **(b-i)** an **atomic read-only FS snapshot** taken BEFORE any scan, so the
-     input-domain check, the file-count / per-file / aggregate-byte bounds, the digest, AND the framework
+     input-domain check, the file-count / per-file / aggregate-byte / total-entries / directory-count / depth / relpath-length bounds, the digest, AND the framework
      load ALL read that one snapshot; or **(b-ii) descriptor-relative freeze** — walk from the store-root fd
      via the **store-root-anchored resolver above** (intermediate dirs `openat(…, O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC)`;
      each file entry `openat(dir_fd, name, O_RDONLY|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC)` — `O_NONBLOCK` so a FIFO
@@ -199,7 +216,14 @@ a model-promotion path.
      members, and `..` is a **real directory** that `openat(dir_fd, "..", O_DIRECTORY|O_NOFOLLOW)` would follow
      ABOVE the artifact root (`O_NOFOLLOW` does NOT stop `..`, and it is a legitimate directory so neither
      `fstat`(`S_ISDIR`) nor the symlink check catches it); any entry name that is empty or contains a `/` or a
-     NUL byte is likewise REJECTED fail-closed (`degraded`/503). Only the surviving in-tree regular-file entries
+     NUL byte is likewise REJECTED fail-closed (`degraded`/503). **Resource-bound lock (total-entry-count /
+     directory-count / traversal-depth / relpath byte-length; no implementation freedom):** the walk also
+     enforces the total-dirent, directory-count, traversal-depth, and per-entry relpath-length caps DURING
+     descent. A cap that is metadata-detectable in the pre-scan is refused there before any copy; a cap
+     crossable only mid-walk/mid-freeze — a directory added between the pre-scan and the walk, or a depth
+     threshold crossed as descent proceeds — refuses IMMEDIATELY and **DESTROYS the partial freeze** (same
+     contract as the per-file/aggregate caps; nothing partially-frozen is digested or handed to the loader).
+     Only the surviving in-tree regular-file entries
      are copied — each via **bounded-copy of its bytes from THAT SAME opened
      fd** into a **service-private freeze dir**. **Invariant (design-level; the concrete filesystem
      mechanism — creation mode, snapshot vs copy, how a path re-open is anchored — is Phase-A's, and
@@ -222,7 +246,7 @@ a model-promotion path.
      race** (the tree analog of the single-file "one fd, never re-open by path");
      (c) recomputes the tree digest over that **frozen**, service-private directory (an immutable
      service-owned copy — source containment was ALREADY enforced by the store-root-anchored resolver during
-     (a)/(b): the pinned-relpath precondition rejects an absolute pin or any `.`/`..`/empty component before the
+     (a)/(b): the pinned-relpath precondition (on the RAW pin split-on-`/`, before any normalization) rejects an absolute pin, a NUL byte, or any `.`/`..`/empty component before the
      walk, the traversal never descends the `.`/`..` dirents, per-component `O_NOFOLLOW` from the store-root fd
      rejects symlinks, and `resolve()` is forbidden — so symlink / non-regular / `..`-or-absolute root-escaping
      entries are all refused up front, never post-hoc); (d) `== the pinned tree
@@ -349,9 +373,12 @@ or the append-only activation audit (§3.3). All of those are Phase B.
   the guard defaults to *refuse* (`degraded`, §below) until a pin manifest is supplied. **Enabling a
   pin is a separate owner/deployment decision — a controlled release asset, not a code flag** (there
   is no `ENABLE_PIN=1`; a pin exists or it does not) — this is the **Phase-A baseline-pin activation gate
-  (1)** (§3 build order): environment-owner-reviewed, no `/model/reload` re-open, go-evidence = staging
-  replay + observed-RED matrix + rollback + kill switch + non-sensitive family/reason counters, no paths
-  in logs. `merged != enabled != safe`.
+  (1)** (§3 build order): environment-owner-reviewed, no `/model/reload` re-open, go-evidence (canonical
+  `PRODUCT_STRATEGY.md` §7.2 "Definition of done") = **the enablement date** + **the named product owner
+  AND intended user** + staging replay + observed-RED matrix + rollback + kill switch + **user-outcome
+  telemetry** (§7.2: "telemetry measures user outcome, not only service health" — the non-sensitive
+  family/reason activation counters are *service-health* telemetry, necessary but NOT sufficient), no
+  filesystem paths in logs or telemetry. `merged != enabled != safe`.
 - **Pin authority & immutability.** The pin manifest (`logical_activation_id / artifact_id → {kind,
   SHA-256 | tree-digest-v1}`) lives in a **controlled release asset that the running service cannot
   modify** (read-only mount / signed release bundle / deploy-time-baked config). It is **not**
@@ -573,11 +600,13 @@ it at `/etc/shadow` or a 50 GB file). Instead:
 1. **Resolve `artifact_id` in a controlled, read-only, content-addressed store.** The caller names
    *which approved artifact*, the server owns *where its bytes are*. Reject an unknown id.
 2. **Apply the shared bounded pre-read from Phase A (§0.5 step 2):** KIND/type and bounded magic-prefix,
-   single-file size, and bundle file-count / per-file / aggregate-byte caps. A hostile, corrupt, or
+   single-file size, and bundle file-count / per-file / aggregate-byte / total-entries / directory-count / depth / relpath-length caps. A hostile, corrupt, or
    oversized object is rejected before a full read/copy or framework load.
 3. **One immutable read (per KIND) — input-domain-locked, per §0.5 step 2:** for a **single-file**
    artifact, open the leaf **via §0.5's store-root-anchored resolver** (its **pinned-relpath precondition**
-   first rejects an absolute pin or any `.`/`..`/empty component — `O_NOFOLLOW` does NOT stop `..` — then a
+   runs on the RAW pin split-on-`/` BEFORE any `Path()`/`PurePosixPath`/`os.path` normalization and first
+   rejects an absolute pin, a NUL byte, or any `.`/`..`/empty component — `O_NOFOLLOW` does NOT stop `..`,
+   and `openat2`'s `RESOLVE_BENEATH` is NOT a substitute since the kernel collapses `//`/`.` — then a
    per-component `O_NOFOLLOW` walk from
    the store-root fd — intermediate dirs `O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC`, leaf
    `O_RDONLY|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC`, or one `openat2(RESOLVE_BENEATH|RESOLVE_NO_SYMLINKS)` that
@@ -652,9 +681,12 @@ this order — do NOT conflate them:
 - **(1) Phase-A baseline-pin activation** — after Wave-1 + Phase A, a **separate owner gate** that supplies
   the **environment-owner-reviewed** baseline pin: the exact already-in-service `(logical_activation_id,
   artifact_id, kind, digest)` tuple (§0.5 — an activation of the in-service tuple, **never** a promotion). It
-  does **NOT** re-open `/model/reload` (that stays sealed 403 until Phase B), and its go-evidence is **staging
-  replay + the observed-RED attack matrix + rollback + a kill switch + non-sensitive family/reason activation
-  counters** (canonical `PRODUCT_STRATEGY.md` §7.2), with **no filesystem paths in logs or telemetry**.
+  does **NOT** re-open `/model/reload` (that stays sealed 403 until Phase B), and its go-evidence
+  (canonical `PRODUCT_STRATEGY.md` §7.2 "Definition of done") is **the enablement date + the named product
+  owner AND intended user + staging replay + the observed-RED attack matrix + rollback + a kill switch +
+  user-outcome telemetry** (§7.2: "telemetry measures user outcome, not only service health" — the
+  non-sensitive family/reason activation counters are *service-health* telemetry, necessary but NOT
+  sufficient), with **no filesystem paths in logs or telemetry**.
 - **(2) Phase-B dynamic-swap / retraining enablement** — only after **Track E + Phase B**, replacing the
   fixed-hash body with the signed-proof `verify_and_load`. This is what re-opens dynamic activation.
 
@@ -691,8 +723,9 @@ elsewhere. Keeping them separate keeps the design honest.
 
 The proof membrane authorizes *which model* may activate; it does **not** authenticate *who* is
 asking. `POST /model/reload` is **now SEALED (403, #516)**; before the seal it was guarded only by `api_key` +
-`admin_token` **both defaulting to `test`** (`dependencies.py:8,38` — #516 also fail-closes that default
-in a production posture). Completing the proof membrane must **not** re-open the route while identity is
+`admin_token` **both defaulting to `test`** (`dependencies.py`: the `X-API-Key` default `"test"` at `:29`
+and the admin-token default fallback at `:68-81` — #516 also fail-closes both defaults in a production
+posture, evidence at `:35-39` (API-key refusal) and `:66-84` (admin-token refusal)). Completing the proof membrane must **not** re-open the route while identity is
 fail-open — a trusted-but-defaulted caller passing a valid proof would still be an anonymous activation.
 
 **Ordering lock:** the external `/model/reload` route may be enabled **only when BOTH gates hold**:
@@ -723,7 +756,7 @@ revocation and incident review possible after the fact.
 
 - Not building the proof store or Track E here — this locks their **contract**.
 - Not touching auth defaults here — that is a **separate** L3 design-lock (production-identity model:
-  `dependencies.py:8` default `test`, `src/api/middleware/integration_auth.py:104` header-overrides-subject). Cross-ref,
+  `dependencies.py:8,29` default `test` (the `:8` constant definition + its `:29` `X-API-Key` usage), `src/api/middleware/integration_auth.py:104` header-overrides-subject). Cross-ref,
   don't merge the two.
 - Not covering offline training/quantization (§1.D) — they don't activate.
 - Customer corrections are **isolated until Track E's exit condition is satisfied** (`PRODUCT_STRATEGY.md`
@@ -753,17 +786,20 @@ gate, which rides on Phase A (§3 build order; two distinct owner gates, do not 
 | bytes' `SHA-256` **≠** the pinned value, or the pinned artifact is missing/unknown-id | RED → the site enters a defined **`degraded`/503** state (never loads the mismatched bytes) |
 | caller supplies a filesystem `path`, or an env var swaps the artifact path | REJECTED — no caller-influenced path is ever opened |
 | attempt to **hot-swap / re-point the pinned manifest at runtime** | REJECTED — the baseline manifest is **immutable at runtime**; before Track E, any changed tuple field is refused even across a deploy |
-| the resolved artifact **escapes the store root** via an intermediate-directory symlink, `..`, or an absolute path (e.g. `store/family` → outside) | RED — the **store-root-anchored resolver** rejects it up front: the **pinned-relpath precondition** refuses an absolute pin or any `.`/`..`/empty component BEFORE the walk (`O_NOFOLLOW` does NOT stop `..` — it is not a symlink), and per-component `openat(O_DIRECTORY\|O_NOFOLLOW)` from the store-root fd refuses a symlink at ANY component (or one `openat2(RESOLVE_BENEATH\|RESOLVE_NO_SYMLINKS)` covers both vectors); a `resolve()`+`open(path)` fallback is FORBIDDEN |
+| the resolved artifact **escapes the store root** via an intermediate-directory symlink, `..`, or an absolute path (e.g. `store/family` → outside) | RED — the **store-root-anchored resolver** rejects it up front: the **pinned-relpath precondition** (on the RAW pin split-on-`/`, BEFORE any normalization) refuses an absolute pin, a NUL byte, or any `.`/`..`/empty component BEFORE the walk (`O_NOFOLLOW` does NOT stop `..` — it is not a symlink), and per-component `openat(O_DIRECTORY\|O_NOFOLLOW)` from the store-root fd refuses a symlink at ANY component (or one `openat2(RESOLVE_BENEATH\|RESOLVE_NO_SYMLINKS)`, which rejects the escape but does NOT catch `//`/`.`/empty — the raw precondition does); a `resolve()`+`open(path)` fallback is FORBIDDEN |
 | single-file exceeds its family size cap or has the wrong KIND/type/magic | REJECTED before full read or framework load |
-| bundle exceeds file-count, per-file-size, or aggregate-byte cap, or contains a malformed/unreadable entry | REJECTED — metadata-detectable violations (file-count, per-file-size via `lstat`, aggregate-byte) are refused during the bounded metadata/prefix pre-scan **before any copy**; a violation that can only surface mid-freeze under (b-ii) per-entry copy (a read error, or a cap crossed only as bytes are copied) refuses immediately and **DESTROYS the partial freeze** — nothing partially-frozen is EVER digested or handed to the framework loader (the invariant is "no partially-frozen tree is digested/loaded", NOT "zero bytes were copied"; §0.5 step-2 (b-ii)). The (b-i) atomic snapshot checks all bounds on the snapshot before any digest |
+| bundle exceeds file-count, per-file-size, aggregate-byte, **total-entry-count, directory-count, depth, or relpath-length** cap, or contains a malformed/unreadable entry | REJECTED — metadata-detectable violations (file-count, per-file-size via `lstat`, aggregate-byte, total-entry-count, directory-count, relpath-length) are refused during the bounded metadata/prefix pre-scan **before any copy**; a violation that can only surface mid-walk/mid-freeze under (b-ii) per-entry copy (a read error, a byte-cap crossed only as bytes are copied, a directory added between pre-scan and walk, or a depth threshold crossed during descent) refuses immediately and **DESTROYS the partial freeze** — nothing partially-frozen is EVER digested or handed to the framework loader (the invariant is "no partially-frozen tree is digested/loaded", NOT "zero bytes were copied"; §0.5 step-2 (b-ii)). The (b-i) atomic snapshot checks all bounds on the snapshot before any digest |
+| **[resource-bound, P1-2]** a **directory-bomb** bundle — a huge number of (empty) directories / dirents at near-zero file bytes | RED — the total-entry-count and directory-count caps refuse it (the aggregate FILE-byte and file-count caps alone do NOT catch a near-zero-byte directory/dirent explosion); metadata-detectable in the pre-scan → refused before any copy, or if only crossable mid-walk → immediate refuse + DESTROY partial freeze → `degraded`/503 |
+| **[resource-bound, P1-2]** a **depth-bomb** bundle — pathologically deep nesting | RED — the traversal-depth cap refuses it; a depth threshold crossed during descent refuses immediately and DESTROYS the partial freeze → `degraded`/503 |
+| **[resource-bound, P1-2]** a bundle entry with an **over-long relpath** (exceeds the per-entry relpath byte-length cap) | RED — the relpath byte-length cap refuses it (this cap also bounds the `tree-digest-v1` record encoding, §0.5 step-2) → `degraded`/503 |
 | **bundle/tree** family (HF/SentenceTransformer/PaddleOCR): the deterministic tree digest over the **frozen** unpacked snapshot **== the pinned tree-digest** | **GREEN** (bundle Phase-A green; loads from the **frozen snapshot's** local path) |
 | a file is added/removed/changed inside the bundle dir | RED — the tree digest changes → `degraded`/503 |
 | **[pre-scan→copy TOCTOU]** a bundle entry is **swapped from a regular file to a symlink / FIFO / oversized file AFTER the pre-scan, BEFORE the copy** | RED — the freeze reads the SAME `openat(O_NOFOLLOW\|O_NONBLOCK)` fd (or an atomic snapshot taken before the scan); a path-based copy that would follow / block / over-read is FORBIDDEN; on any such rejection the partial freeze is destroyed and nothing is digested or loaded |
 | the loader would **fetch from a network hub** (hub id / online) | REJECTED — offline-only (`HF_HUB_OFFLINE`/`local_files_only`); a hub id is never a valid artifact id |
-| any file in the bundle **escapes the store root** via a symlink or `..`/absolute at ANY path component | RED — refused up front by the **store-root-anchored resolver**: per-component `O_NOFOLLOW` from the store-root fd rejects a symlink, and the **pinned-relpath precondition** plus the traversal's `.`/`..`-dirent rejection refuse a `..`/absolute/empty component (`O_NOFOLLOW` does NOT stop `..`, and the `readdir` walk never descends `.`/`..`), not post-hoc; the frozen snapshot is a service-private copy, so its own root cannot escape (§0.5 step-2 (b)/(c)) |
-| **[input-domain lock]** a **symlink** anywhere under the bundle root — even one that does NOT escape | RED — rejected BEFORE copy/digest → `degraded`/503 (ALL symlinks refused, not only escaping ones) |
-| **[input-domain lock]** a **non-regular entry** (FIFO / socket / block- or char-**device**) under the bundle root | RED — rejected BEFORE copy/digest → `degraded`/503 |
-| **[input-domain lock]** a bundle path whose **POSIX relpath fails UTF-8 encoding** | RED — rejected BEFORE copy/digest → `degraded`/503 (positive control: an all-regular-file, UTF-8-clean bundle → GREEN, above) |
+| any file in the bundle **escapes the store root** via a symlink or `..`/absolute at ANY path component | RED — refused up front by the **store-root-anchored resolver**: per-component `O_NOFOLLOW` from the store-root fd rejects a symlink, and the **pinned-relpath precondition** (RAW pin split-on-`/`, before normalization) plus the traversal's `.`/`..`-dirent rejection refuse a `..`/absolute/empty component or a NUL byte (`O_NOFOLLOW` does NOT stop `..`, and the `readdir` walk never descends `.`/`..`), not post-hoc; the frozen snapshot is a service-private copy, so its own root cannot escape (§0.5 step-2 (b)/(c)) |
+| **[input-domain lock]** a **symlink** anywhere under the bundle root — even one that does NOT escape | RED — the violating entry is itself never copied (its per-entry `fstat`/name check precedes its own copy); any previously-copied partial output is DESTROYED; nothing partially-frozen is ever digested or loaded → `degraded`/503 (ALL symlinks refused, not only escaping ones; under (b-i) the atomic snapshot is checked before any digest) |
+| **[input-domain lock]** a **non-regular entry** (FIFO / socket / block- or char-**device**) under the bundle root | RED — the violating entry is itself never copied (its per-entry `fstat`/name check precedes its own copy); any previously-copied partial output is DESTROYED; nothing partially-frozen is ever digested or loaded → `degraded`/503 |
+| **[input-domain lock]** a bundle path whose **POSIX relpath fails UTF-8 encoding** | RED — the violating entry is itself never copied (its per-entry `fstat`/name check precedes its own copy); any previously-copied partial output is DESTROYED; nothing partially-frozen is ever digested or loaded → `degraded`/503 (positive control: an all-regular-file, UTF-8-clean bundle → GREEN, above) |
 | load fails and the provider tries a **silent stub / best-effort fallback** (e.g. deepseek_hf.py:93) | FORBIDDEN — must enter the explicit `degraded`/503, never serve a stub |
 | **no provable exact baseline pin** at land (default-off) | the guard refuses → `degraded`/503 (baseline capture + owner review is separate from merge; no code flag opens it) |
 | **swap a single-file artifact between hash and load** (TOCTOU) | RED — read once, hash and load THE SAME bytes |
@@ -772,6 +808,12 @@ gate, which rides on Phase A (§3 build order; two distinct owner gates, do not 
 | **[input-domain, single-file]** the leaf's **inode is swapped AFTER the `fstat` check, before the read** | RED — the read is from the SAME already-open fd; re-open-by-path is forbidden (positive control: a stable regular-file leaf → GREEN) |
 | **[input-domain, resolver]** an **intermediate directory** on the pinned path is a **symlink** (e.g. `store/family` → outside), single-file OR bundle | RED — leaf-only `O_NOFOLLOW` would follow it; the store-root-anchored per-component resolver refuses a symlink at ANY component → `degraded`/503 (owner-verified escape) |
 | **[input-domain, resolver]** a **parent directory** of the leaf is **swapped to a symlink mid-walk** (parent-dir race) | RED — each component is opened `O_NOFOLLOW` relative to the previous fd (or one `openat2(RESOLVE_BENEATH\|RESOLVE_NO_SYMLINKS)`), so a mid-walk symlink swap is refused, never followed |
+| **[raw input-domain, P1-1]** a pin with an empty component from a **`//`**, e.g. `family/model//weights.pt` | RED — the RAW split-on-`/` precondition sees the empty component and refuses (`degraded`/503) BEFORE any `Path()`/`PurePosixPath`/`os.path` normalization could collapse the `//`; normalization before the check is FORBIDDEN |
+| **[raw input-domain, P1-1]** a pin with a **`/./`** component, e.g. `family/./model.pt` | RED — the RAW split refuses the `.` component up front, BEFORE normalization (which would silently collapse `a/./b` → `a/b` and hide it) → `degraded`/503 |
+| **[raw input-domain, P1-1]** a pin with a **`/../`** component, e.g. `family/../secret.pt` | RED — the RAW split refuses the `..` component up front (`O_NOFOLLOW` does NOT stop `..`); rejected before any walk → `degraded`/503 |
+| **[raw input-domain, P1-1]** a pin containing a **NUL (`0x00`) byte** anywhere | RED — the raw-pin NUL rejection fires on the whole pin string (not only readdir entry names) → `degraded`/503 |
+| **[raw input-domain, P1-1]** an **absolute** pin (leading `/`), e.g. `/etc/model.pt` | RED — the precondition refuses any absolute prefix (the leading `/` is also an empty first component in the raw split) → `degraded`/503 |
+| **[raw input-domain, P1-1 CONSISTENCY]** each raw-invalid pin above (`a//b`, `a/./b`, `a/../b`, a NUL pin, an absolute pin) is fed to BOTH the `openat2(RESOLVE_BENEATH\|RESOLVE_NO_SYMLINKS)` implementation AND the component-walk fallback | RED — BOTH MUST reject IDENTICALLY to the same fail-closed `degraded`/503; because `openat2` collapses `//`/`.` and `RESOLVE_BENEATH` only blocks escapes, the shared RAW split-on-`/` precondition (NOT `openat2` alone) is what enforces identical rejection — an implementation divergence (one accepts, one rejects) is ITSELF a RED |
 | **[input-domain, FIFO-block]** the leaf/entry is a **FIFO** (would a plain `O_NOFOLLOW` open block before `fstat`?) | handled — the open carries `O_NONBLOCK`, so it returns and `fstat` rejects the non-`S_ISREG` FIFO instead of hanging for a writer → `degraded`/503 |
 | **change a bundle file AFTER the tree digest, before/during the framework's read** (bundle TOCTOU) | RED — the digested tree is a **frozen immutable snapshot**; the framework reads the digested files, never the mutable original (§0.5 step 2) |
 | a new **un-annotated** prod loader appears | CI RED (the enumerator, §1/§3) |

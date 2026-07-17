@@ -69,7 +69,7 @@ activation membrane; retraining not enabled.**
   passes. Any tuple-field change is a promotion/contract migration and is refused; an unprovable
   baseline stays degraded.
 - **Shared bounded pre-read.** Phase A and Phase B reject wrong KIND/type/magic, an oversized single
-  file, or a bundle exceeding file-count / per-file / aggregate-byte limits before full read/copy/load
+  file, or a bundle exceeding file-count / per-file / aggregate-byte / total-entries / directory-count / depth / relpath-length limits before full read/copy/load
   (metadata-detectable violations before any copy; a cap crossable only mid-freeze destroys the partial
   freeze — nothing partially-frozen is digested/loaded).
 - **Producer/activator separation.** `auto_retrain.sh` stays #509 fail-closed until Track E and never
@@ -98,7 +98,7 @@ activation membrane; retraining not enabled.**
 | Phase | Items (model routing) | **Gate** | Verification-to-ship (observed-RED) |
 |---|---|---|---|
 | **Wave 1 (audit + build prep)** | Per-site **logical-reachability audit** of the 38 conservatively-`gated` sites (confirm live vs latent/unproven) (**sonnet5** ∥ **opus4.8** for the auth-adjacent ones) | #513 ratified | each `gated` site labelled live/latent/unreachable with the caller path; latent/unreachable ones gated-before-wired |
-| **Phase A** baseline-only static fixed-hash | C1 `assert_fixed_hash`/`load_pinned_*` core (**opus4.8**) ∥ C2 per-family wiring (**sonnet5**) ∥ C3 baseline manifest (**sonnet5**) ∥ C4 degraded/503 (**sonnet5**) ∥ C5 enumerator guard-assertion (**sonnet5**/opus AST) ∥ C6 golden matrix (**opus4.8**) | #513 ratified + Wave-1 audit | §5 Phase-A golden: exact baseline match GREEN; pre-Track-E tuple-field change RED; hash-miss→degraded/503; caller-path/env-swap/hot-swap REJECTED; shared size/type bounds RED; symlink/`..` escape RED; single-file & bundle TOCTOU RED; new un-annotated loader CI RED |
+| **Phase A** baseline-only static fixed-hash | C1 `assert_fixed_hash`/`load_pinned_*` core (**opus4.8**) ∥ C2 per-family wiring (**sonnet5**) ∥ C3 baseline manifest (**sonnet5**) ∥ C4 degraded/503 (**sonnet5**) ∥ C5 enumerator guard-assertion (**sonnet5**/opus AST) ∥ C6 golden matrix (**opus4.8**) | #513 ratified + Wave-1 audit | §5 Phase-A golden: exact baseline match GREEN; pre-Track-E tuple-field change RED; hash-miss→degraded/503; caller-path/env-swap/hot-swap REJECTED; shared size/type bounds RED; bundle resource bounds (total-entries / directory-count / depth / relpath-length — directory-bomb, depth-bomb, over-long relpath) RED; raw-pin domain (`a//b`, `a/./b`, `a/../b`, NUL, absolute — split before normalization, openat2 and component-walk reject identically) RED; symlink/`..` escape RED; single-file & bundle TOCTOU RED; new un-annotated loader CI RED |
 | **Track E** rebuild | leakage-safe split + versioned manifest + real §8.1.4 metrics (**opus4.8** ∥ **sonnet5** ∥ **fable5** fixtures) | **real data + model-run environment** | tamper/containment/binding suite re-derived on `main` + real metrics reproduced on a holdout run |
 | **Phase B** signed-proof | `verify_and_load` + signed envelope + key custody + revocation/expiry + LKG re-validation + audit (**opus4.8**) | **Track E + signing-key custody (HSM / human-gated signer outside CI)** | §5 Phase-B golden: no-proof/unsigned/expired-revoked/TOCTOU/family-env-mismatch RED; single signed match GREEN |
 | **§8.1.7 + Phase-B dynamic-swap/retraining enablement (gate 2)** | full tamper observed-RED, cross-family matrix, staging replay; **separate enablement PR** | **A–E done + owner (gate-2) enablement decision** (distinct from the earlier Phase-A baseline-pin activation gate-1, which rides on Phase A) | staging replay + complete cross-family matrix green; re-enable = replacing a body, never a flag |
@@ -106,8 +106,11 @@ activation membrane; retraining not enabled.**
 **Macro-order (reviewer-locked):** Phase A → Track E → Phase B. **Two distinct owner enablement gates ride
 on this order (do not conflate):** **(1) Phase-A baseline-pin activation** — after Wave-1 + Phase A, its own
 owner gate supplying the environment-owner-reviewed already-in-service baseline tuple (no `/model/reload`
-re-open; go-evidence = staging replay + observed-RED + rollback + kill switch + non-sensitive family/reason
-counters, no paths in logs); **(2) Phase-B dynamic-swap/retraining enablement** — only after Track E + Phase
+re-open; go-evidence, canonical §7.2 "Definition of done" = the enablement date + the named product owner
+AND intended user + staging replay + observed-RED + rollback + kill switch + user-outcome telemetry (§7.2:
+"telemetry measures user outcome, not only service health" — the non-sensitive family/reason activation
+counters are service-health telemetry, necessary but NOT sufficient), no paths in logs or telemetry);
+**(2) Phase-B dynamic-swap/retraining enablement** — only after Track E + Phase
 B (replace-the-body). Gate (1) activates a static in-service baseline; it does NOT enable dynamic swap.
 
 **Two hard external constraints that cannot be manufactured around:** Track E's five metrics need
