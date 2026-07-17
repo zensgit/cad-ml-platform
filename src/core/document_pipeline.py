@@ -56,11 +56,13 @@ def _raise_unsupported_raw_dwg(file_name: str) -> None:
     raise HTTPException(status_code=415, detail=err)
 
 
-def _is_empty_parser_stub(doc: CadDocument) -> bool:
+def _is_empty_parser_stub_for_non_dxf_payload(doc: CadDocument, content: bytes) -> bool:
+    head = content[:4096].upper()
     return (
         doc.metadata.get("parser") == "stub"
         and doc.entity_count() == 0
         and not doc.layers
+        and b"SECTION" not in head
     )
 
 
@@ -159,7 +161,7 @@ async def run_document_pipeline(
         doc = CadDocument(file_name=file_name, format=file_format)
         unified_data = doc.to_unified_dict()
 
-    if file_format == "dxf" and _is_empty_parser_stub(doc):
+    if file_format == "dxf" and _is_empty_parser_stub_for_non_dxf_payload(doc, content):
         analysis_requests_total.labels(status="error").inc()
         analysis_errors_total.labels(stage="parse", code="empty_parser_stub").inc()
         err = build_error(
