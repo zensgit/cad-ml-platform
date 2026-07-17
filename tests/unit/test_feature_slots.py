@@ -1,18 +1,21 @@
 from fastapi.testclient import TestClient
 
+from conftest import valid_dxf_bytes
 from src.main import app
 
 client = TestClient(app)
 
 
 def test_feature_slots_presence(monkeypatch):
-    # Minimal fake DXF content satisfying lenient checks
-    content = b"0\nSECTION\n" + b"A" * 120
+    content = valid_dxf_bytes("feature-slots")
     files = {"file": ("fs_test.dxf", content, "application/octet-stream")}
     r = client.post(
         "/api/v1/analyze",
         data={
-            "options": '{"extract_features": true, "classify_parts": false, "process_recommendation": false}'
+            "options": (
+                '{"extract_features": true, "classify_parts": false, '
+                '"process_recommendation": false}'
+            )
         },
         files=files,
         headers={"x-api-key": "test"},

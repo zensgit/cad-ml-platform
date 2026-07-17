@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from conftest import valid_dxf_bytes
 from src.main import app
 
 client = TestClient(app)
@@ -9,7 +10,13 @@ def test_vector_update_dimension_conflict_replace():
     # Create base analysis (vector dimension determined by features: geometric(5)+semantic(2)=7)
     r = client.post(
         "/api/v1/analyze",
-        files={"file": ("sample.dxf", b"0" * 20, "application/octet-stream")},
+        files={
+            "file": (
+                "sample.dxf",
+                valid_dxf_bytes("vector-replace"),
+                "application/octet-stream",
+            )
+        },
         data={"options": '{"extract_features": true, "classify_parts": false}'},
         headers={"X-API-Key": "test"},
     )
@@ -32,7 +39,13 @@ def test_vector_update_dimension_conflict_replace():
 def test_vector_update_dimension_conflict_append():
     r = client.post(
         "/api/v1/analyze",
-        files={"file": ("sample2.dxf", b"1" * 30, "application/octet-stream")},
+        files={
+            "file": (
+                "sample2.dxf",
+                valid_dxf_bytes("vector-append"),
+                "application/octet-stream",
+            )
+        },
         data={"options": '{"extract_features": true, "classify_parts": false}'},
         headers={"X-API-Key": "test"},
     )

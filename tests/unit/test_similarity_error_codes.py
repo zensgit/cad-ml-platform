@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 from unittest.mock import patch
 
+from conftest import valid_dxf_bytes
 from src.main import app
 
 client = TestClient(app)
@@ -22,13 +23,13 @@ def test_similarity_dimension_mismatch():
     # Force a mismatch by mutating one stored vector after registration.
     r1 = client.post(
         "/api/v1/analyze",
-        files={"file": ("a.dxf", b"1", "application/octet-stream")},
+        files={"file": ("a.dxf", valid_dxf_bytes("dimension-a"), "application/octet-stream")},
         data={"options": '{"extract_features": true, "classify_parts": false}'},
         headers={"X-API-Key": "test"},
     )
     r2 = client.post(
         "/api/v1/analyze",
-        files={"file": ("b.dxf", b"2", "application/octet-stream")},
+        files={"file": ("b.dxf", valid_dxf_bytes("dimension-b"), "application/octet-stream")},
         data={"options": '{"extract_features": true, "classify_parts": false}'},
         headers={"X-API-Key": "test"},
     )

@@ -19,6 +19,24 @@ if SRC_DIR.exists():
 if TYPE_CHECKING:
     from fastapi.testclient import TestClient
 
+
+def valid_dxf_bytes(marker: str = "fixture", *, include_header: bool = False) -> bytes:
+    """Return a tiny syntactically valid DXF payload for analyze success-path tests."""
+    marker_text = str(marker)
+    x2 = (sum(ord(ch) for ch in marker_text) % 1000) + 1
+    header = "0\nSECTION\n2\nHEADER\n0\nENDSEC\n" if include_header else ""
+    return (
+        f"{header}"
+        "0\nSECTION\n2\nENTITIES\n"
+        "0\nLINE\n"
+        "8\n0\n"
+        "10\n0\n20\n0\n30\n0\n"
+        f"11\n{x2}\n21\n0\n31\n0\n"
+        "0\nENDSEC\n"
+        "0\nEOF\n"
+    ).encode("ascii")
+
+
 # List of environment variables that may be modified by tests
 _ENV_VARS_TO_ISOLATE = [
     "ADMIN_TOKEN",
