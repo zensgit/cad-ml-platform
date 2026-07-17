@@ -20,6 +20,7 @@ class ErrorCode(str, Enum):
     INPUT_FORMAT_INVALID = "INPUT_FORMAT_INVALID"  # 输入格式无效
     INPUT_CORRUPTED = "INPUT_CORRUPTED"  # 输入数据损坏
     UNSUPPORTED_FORMAT = "UNSUPPORTED_FORMAT"  # 不支持的格式
+    UNSUPPORTED_INPUT_DWG = "UNSUPPORTED_INPUT_DWG"  # /analyze does not accept raw DWG
     MISSING_REQUIRED_FIELD = "MISSING_REQUIRED_FIELD"  # 缺少必填字段
 
     # ========== 网络相关错误 ==========
@@ -176,6 +177,7 @@ ERROR_SOURCE_MAPPING: Dict[ErrorCode, ErrorSource] = {
     ErrorCode.INPUT_FORMAT_INVALID: ErrorSource.INPUT,
     ErrorCode.INPUT_CORRUPTED: ErrorSource.INPUT,
     ErrorCode.UNSUPPORTED_FORMAT: ErrorSource.INPUT,
+    ErrorCode.UNSUPPORTED_INPUT_DWG: ErrorSource.INPUT,
     ErrorCode.MISSING_REQUIRED_FIELD: ErrorSource.INPUT,
     ErrorCode.JSON_PARSE_ERROR: ErrorSource.INPUT,
     # 网络错误
@@ -253,6 +255,7 @@ ERROR_SEVERITY_MAPPING: Dict[ErrorCode, ErrorSeverity] = {
     ErrorCode.INPUT_ERROR: ErrorSeverity.INFO,
     ErrorCode.VALIDATION_FAILED: ErrorSeverity.INFO,
     ErrorCode.UNSUPPORTED_FORMAT: ErrorSeverity.INFO,
+    ErrorCode.UNSUPPORTED_INPUT_DWG: ErrorSeverity.INFO,
     ErrorCode.JSON_PARSE_ERROR: ErrorSeverity.INFO,
     ErrorCode.GONE: ErrorSeverity.INFO,
     ErrorCode.MOVED_PERMANENTLY: ErrorSeverity.INFO,
