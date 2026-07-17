@@ -168,7 +168,11 @@ a model-promotion path.
      the (b-ii) per-entry freeze the rejection may occur mid-walk after earlier entries were already
      copied — in that case the service-private partial freeze is DESTROYED and NOTHING is digested or
      handed to the framework loader. The security property does NOT depend on "zero bytes were ever
-     copied", only that no partially-frozen tree is ever digested or loaded.** For
+     copied", only that no partially-frozen tree is ever digested or loaded. (Deliberate, owner-locked:
+     an implementation MUST NOT try to restore a "reject before ANY copy" property by first opening and
+     HOLDING a descriptor for EVERY entry before copying — the held-descriptor count would scale with
+     bundle size and can exhaust the process file-descriptor limit; the locked shape is per-entry
+     same-fd bounded-copy with destroy-partial-freeze on any failure.)** For
      each surviving regular file, the record's
      path is its **POSIX relpath from the artifact root, UTF-8-encoded**; `len` = the **byte length of that
      UTF-8 relpath, written as ASCII decimal**; each record = `len` · byte `0x1F` · relpath-bytes · byte
