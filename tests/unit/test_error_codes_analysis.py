@@ -1,4 +1,6 @@
 import json
+import os
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -29,31 +31,27 @@ def test_options_json_parse_error():
 def test_entity_limit_violation():
     # Force limit 0 with a valid one-entity DXF so the test exercises
     # entity-limit validation instead of parser stub behavior.
-    import os
-
-    os.environ["ANALYSIS_MAX_ENTITIES"] = "0"
-    r = client.post(
-        "/api/v1/analyze",
-        files={"file": ("g.dxf", VALID_LINE_DXF, "application/octet-stream")},
-        data={"options": '{"extract_features": false, "classify_parts": false}'},
-        headers={"X-API-Key": "test"},
-    )
+    with patch.dict(os.environ, {"ANALYSIS_MAX_ENTITIES": "0"}):
+        r = client.post(
+            "/api/v1/analyze",
+            files={"file": ("g.dxf", VALID_LINE_DXF, "application/octet-stream")},
+            data={"options": '{"extract_features": false, "classify_parts": false}'},
+            headers={"X-API-Key": "test"},
+        )
     assert r.status_code == 422
     detail = r.json()["detail"]
     assert detail["code"] == "VALIDATION_FAILED"
 
 
 def test_file_size_exceeded():
-    import os
-
-    os.environ["ANALYSIS_MAX_FILE_MB"] = "0.00001"  # very small
     big_content = b"0" * 50000  # ~50KB
-    r = client.post(
-        "/api/v1/analyze",
-        files={"file": ("big.dxf", big_content, "application/octet-stream")},
-        data={"options": '{"extract_features": false}'},
-        headers={"X-API-Key": "test"},
-    )
+    with patch.dict(os.environ, {"ANALYSIS_MAX_FILE_MB": "0.00001"}):
+        r = client.post(
+            "/api/v1/analyze",
+            files={"file": ("big.dxf", big_content, "application/octet-stream")},
+            data={"options": '{"extract_features": false}'},
+            headers={"X-API-Key": "test"},
+        )
     assert r.status_code == 413
     detail = r.json()["detail"]
     assert detail["code"] == "INPUT_SIZE_EXCEEDED"
