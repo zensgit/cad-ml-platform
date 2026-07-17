@@ -69,13 +69,17 @@ activation membrane; retraining not enabled.**
   passes. Any tuple-field change is a promotion/contract migration and is refused; an unprovable
   baseline stays degraded.
 - **Shared bounded pre-read.** Phase A and Phase B reject wrong KIND/type/magic, an oversized single
-  file, or a bundle exceeding file-count / per-file / aggregate-byte limits before full read/copy/load.
+  file, or a bundle exceeding file-count / per-file / aggregate-byte limits before full read/copy/load
+  (metadata-detectable violations before any copy; a cap crossable only mid-freeze destroys the partial
+  freeze — nothing partially-frozen is digested/loaded).
 - **Producer/activator separation.** `auto_retrain.sh` stays #509 fail-closed until Track E and never
   calls the activation membrane; Track E may produce a candidate + versioned evaluation artifact,
   while runtime activation remains a separate guarded action.
 - **Guard-verification is a mechanically-checkable structure** (not AST-unverifiable call-graph
   domination): every `gated` raw load lives ONLY inside a canonical `load_pinned_file`/`load_pinned_bundle`
-  wrapper (or a same-function lexical assert); deleting the wrapper is **observed-RED**.
+  wrapper (or a same-function lexical assert that **consumes the verified bytes, never a re-opened path**);
+  deleting the wrapper **MUST red CI — a REQUIRED Phase-A acceptance (observed-RED), NOT yet built or
+  executed** (this docs-only design-lock claims no runtime evidence for it).
 - **Phase B** binds a versioned `artifact_kind`+`artifact_digest` (single-file SHA or `tree-digest-v1`)
   so ocr/embedding keep coverage; signed proof envelope + key-custody (HSM/human-gated, outside CI) +
   revocation/expiry + LKG re-validation + append-only audit.
