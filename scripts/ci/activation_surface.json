@@ -261,6 +261,10 @@
       "class": "offline",
       "reason": "offline analysis/eval CLI"
     },
+    "scripts/uvnet_checkpoint_inspect.py::main::load_state_dict#0": {
+      "class": "offline",
+      "reason": "offline analysis/eval CLI"
+    },
     "src/core/assembly/confidence_calibrator.py::ConfidenceCalibrationSystem.load_calibrator::pickle.load#0": {
       "class": "infra",
       "reason": "confidence calibrator (pickle) — not a classifier; tracked"

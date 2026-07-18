@@ -39,12 +39,16 @@
 
 # 变量定义
 # Prefer the repo's compatible local env when available to match 3.10/3.11 expectations.
-PYTHON ?= $(shell if [ -x .venv311/bin/python ]; then echo .venv311/bin/python; \
+PYTHON ?= $(shell if [ -n "$$pythonLocation" ] && [ -x "$$pythonLocation/bin/python" ]; then echo "$$pythonLocation/bin/python"; \
+	elif [ -x .venv311/bin/python ]; then echo .venv311/bin/python; \
 	elif [ -x .venv/bin/python ]; then echo .venv/bin/python; \
 	elif command -v python3.11 >/dev/null 2>&1; then command -v python3.11; \
 	elif command -v python3.10 >/dev/null 2>&1; then command -v python3.10; \
 	elif command -v python3 >/dev/null 2>&1; then command -v python3; \
 	else echo python3; fi)
+# The $pythonLocation branch keys on actions/setup-python's marker env: in CI, make must use the
+# job's toolcache interpreter (where deps were pip-installed), never a system python3.11 that
+# happens to exist on a self-hosted runner (no pytest there — "No module named pytest").
 PIP := $(PYTHON) -m pip
 PYTEST := $(PYTHON) -m pytest
 BLACK := $(PYTHON) -m black

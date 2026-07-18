@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 """
 Inspect a UV-Net checkpoint and run a minimal forward pass.
+
+Contract: this tool reports ONLY what the current ``UVNetGraphModel`` actually
+is — the real constructor config, the result of a STRICT ``load_state_dict``,
+and the observed forward shapes. It must not claim model capabilities that do
+not exist in ``src/ml/train/model.py`` (see PR #523 diagnosis: commit 33cb0f65
+added imports of never-implemented grid APIs, false-green wherever torch was
+absent). A checkpoint that does not strictly match the current architecture is
+reported as an ERROR with a non-zero exit — that mismatch is the finding, not
+something to paper over with a compat shim.
 """
 
 import argparse
@@ -18,12 +27,7 @@ except ImportError as exc:  # pragma: no cover - environment dependent
 
 sys.path.append(".")
 
-from src.ml.train.model import (  # noqa: E402
-    UVNetGraphModel,
-    load_uvnet_state_dict_compatibly,
-    resolve_uvnet_grid_branch_surface_kind,
-    resolve_uvnet_grid_tower_topology_kind,
-)
+from src.ml.train.model import UVNetGraphModel  # noqa: E402
 
 
 def _load_checkpoint(path: str) -> Dict[str, Any]:
@@ -33,9 +37,10 @@ def _load_checkpoint(path: str) -> Dict[str, Any]:
 
 
 def _build_model(config: Dict[str, Any]) -> UVNetGraphModel:
+    # Exactly the current UVNetGraphModel constructor surface — nothing else.
     return UVNetGraphModel(
-        node_input_dim=config.get("node_input_dim", 12),
-        edge_input_dim=config.get("edge_input_dim", 2),
+        node_input_dim=config.get("node_input_dim"),
+        edge_input_dim=config.get("edge_input_dim"),
         hidden_dim=config.get("hidden_dim", 64),
         embedding_dim=config.get("embedding_dim", 1024),
         num_classes=config.get("num_classes", 11),
@@ -43,12 +48,6 @@ def _build_model(config: Dict[str, Any]) -> UVNetGraphModel:
         node_schema=config.get("node_schema"),
         edge_schema=config.get("edge_schema"),
         use_edge_attr=bool(config.get("use_edge_attr", True)),
-        use_face_grid_features=bool(config.get("use_face_grid_features", False)),
-        use_edge_grid_features=bool(config.get("use_edge_grid_features", False)),
-        face_grid_channels=int(config.get("face_grid_channels", 8)),
-        edge_grid_channels=int(config.get("edge_grid_channels", 13)),
-        grid_fusion_mode=str(config.get("grid_fusion_mode", "residual")),
-        grid_encoder_kind=str(config.get("grid_encoder_kind", "summary_projection")),
     )
 
 
@@ -57,8 +56,7 @@ def _build_chain_edges(node_count: int) -> torch.Tensor:
         return torch.zeros((2, 0), dtype=torch.long)
     src = torch.arange(0, node_count - 1, dtype=torch.long)
     dst = torch.arange(1, node_count, dtype=torch.long)
-    edge_index = torch.stack([torch.cat([src, dst]), torch.cat([dst, src])], dim=0)
-    return edge_index
+    return torch.stack([torch.cat([src, dst]), torch.cat([dst, src])], dim=0)
 
 
 def _build_edge_attr(
@@ -77,28 +75,16 @@ def _build_summary_payload(
     *,
     path: str,
     config: Dict[str, Any],
-    configured_grid_branch_surface_kind: str,
-    resolved_grid_branch_surface_kind: str,
-    configured_grid_tower_topology_kind: str,
-    resolved_grid_tower_topology_kind: str,
-    load_result: Dict[str, Any],
     logits: torch.Tensor,
     embedding: torch.Tensor,
 ) -> Dict[str, Any]:
+    # Only real, observed facts: config as stored, strict-load outcome (writing
+    # this payload at all means strict load succeeded), forward shapes.
     return {
         "status": "ok",
-        "surface_kind": "uvnet_checkpoint_inspect_summary",
         "path": str(path),
-        "config": dict(config),
-        "model_surface_contract": {
-            "configured_grid_branch_surface_kind": str(configured_grid_branch_surface_kind),
-            "resolved_grid_branch_surface_kind": str(resolved_grid_branch_surface_kind),
-            "configured_grid_tower_topology_kind": str(configured_grid_tower_topology_kind),
-            "resolved_grid_tower_topology_kind": str(resolved_grid_tower_topology_kind),
-            "checkpoint_load_mode": str(load_result.get("load_mode") or ""),
-            "missing_keys": list(load_result.get("missing_keys") or []),
-            "unexpected_keys": list(load_result.get("unexpected_keys") or []),
-        },
+        "config": {key: config[key] for key in sorted(config)},
+        "strict_load": {"mode": "strict", "ok": True},
         "forward_shapes": {
             "logits": [int(dim) for dim in logits.shape],
             "embedding": [int(dim) for dim in embedding.shape],
@@ -127,22 +113,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(f"ERROR: {exc}")
         return 1
 
+    if not isinstance(checkpoint, dict):
+        print(
+            f"ERROR: checkpoint is not a dict (got {type(checkpoint).__name__}); "
+            "expected {'config', 'model_state_dict'}."
+        )
+        return 1
+
     config = checkpoint.get("config", {})
     if not config:
         print("WARNING: checkpoint config missing; using defaults.")
-    configured_grid_branch_surface_kind = str(config.get("grid_branch_surface_kind") or "")
-    configured_grid_tower_topology_kind = str(config.get("grid_tower_topology_kind") or "")
-    resolved_grid_branch_surface_kind = resolve_uvnet_grid_branch_surface_kind(
-        use_face_grid_features=bool(config.get("use_face_grid_features", False)),
-        use_edge_grid_features=bool(config.get("use_edge_grid_features", False)),
-        grid_encoder_kind=str(config.get("grid_encoder_kind", "summary_projection")),
-        grid_fusion_mode=str(config.get("grid_fusion_mode", "residual")),
-    )
-    resolved_grid_tower_topology_kind = resolve_uvnet_grid_tower_topology_kind(
-        use_face_grid_features=bool(config.get("use_face_grid_features", False)),
-        use_edge_grid_features=bool(config.get("use_edge_grid_features", False)),
-        grid_fusion_mode=str(config.get("grid_fusion_mode", "residual")),
-    )
 
     model = _build_model(config)
     state_dict = checkpoint.get("model_state_dict")
@@ -151,9 +131,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 1
 
     try:
-        load_result = load_uvnet_state_dict_compatibly(model, state_dict)
+        model.load_state_dict(state_dict)  # strict by default — mismatches are findings
     except Exception as exc:
-        print(f"ERROR: failed to load state_dict: {exc}")
+        print(f"ERROR: failed to load state_dict strictly: {exc}")
         return 1
 
     model.eval()
@@ -175,29 +155,20 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     print("UV-Net Checkpoint Inspect")
     print(f"Path: {args.path}")
     print(f"Config: {config}")
-    print(f"Configured grid branch surface: {configured_grid_branch_surface_kind}")
-    print(f"Resolved grid branch surface: {resolved_grid_branch_surface_kind}")
-    print(f"Configured grid tower topology: {configured_grid_tower_topology_kind}")
-    print(f"Resolved grid tower topology: {resolved_grid_tower_topology_kind}")
-    print(f"Checkpoint load mode: {load_result.get('load_mode')}")
+    print("Strict load: ok")
     print(f"Logits shape: {tuple(logits.shape)}")
     print(f"Embedding shape: {tuple(embedding.shape)}")
     if str(args.summary_json).strip():
         summary_path = Path(str(args.summary_json)).expanduser()
         summary_path.parent.mkdir(parents=True, exist_ok=True)
-        summary_payload = _build_summary_payload(
-            path=args.path,
-            config=config,
-            configured_grid_branch_surface_kind=configured_grid_branch_surface_kind,
-            resolved_grid_branch_surface_kind=resolved_grid_branch_surface_kind,
-            configured_grid_tower_topology_kind=configured_grid_tower_topology_kind,
-            resolved_grid_tower_topology_kind=resolved_grid_tower_topology_kind,
-            load_result=load_result,
-            logits=logits,
-            embedding=embedding,
-        )
         summary_path.write_text(
-            json.dumps(summary_payload, ensure_ascii=False, indent=2),
+            json.dumps(
+                _build_summary_payload(
+                    path=args.path, config=config, logits=logits, embedding=embedding
+                ),
+                ensure_ascii=False,
+                indent=2,
+            ),
             encoding="utf-8",
         )
         print(f"Summary JSON: {summary_path}")
