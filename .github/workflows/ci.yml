@@ -11,9 +11,13 @@ permissions:
   contents: read
   packages: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint-type:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: Set up Python
@@ -78,7 +82,7 @@ jobs:
           if-no-files-found: ignore
   openapi-fast:
     needs: [lint-type]
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: Set up Python
@@ -103,7 +107,7 @@ jobs:
           echo "- command: \`make validate-openapi\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- status: ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
   lint-all-report:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
     needs: lint-type
     if: always()
     steps:
@@ -134,6 +138,8 @@ jobs:
           path: flake8-full.txt
   tests:
     needs: [lint-type, openapi-fast]
+    # Hosted for now: box 3.11 toolcache has ambient torch → `make test` unmasks the
+    # torch-skip-hidden seam (see PR #526 findings). Route after the seam is fixed.
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -737,7 +743,7 @@ jobs:
 
   e2e-smoke:
     needs: [lint-type]
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
     env:
       DEDUPCAD_VISION_IMAGE: ${{ vars.DEDUPCAD_VISION_IMAGE || 'ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251' }}
     steps:

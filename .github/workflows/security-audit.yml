@@ -21,10 +21,14 @@ on:
           - medium
           - low
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   security-audit:
     name: Security Audit
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
     strategy:
       matrix:
         python-version: ['3.10', '3.11']

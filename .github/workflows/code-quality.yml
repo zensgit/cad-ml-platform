@@ -13,13 +13,17 @@ permissions:
   security-events: write
   pull-requests: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # ============================================
   # SonarQube-style analysis (using SonarCloud or local)
   # ============================================
   sonar-analysis:
     name: Code Quality Analysis
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
@@ -106,7 +110,7 @@ jobs:
   # ============================================
   duplicate-detection:
     name: Duplicate Code Detection
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
@@ -127,7 +131,7 @@ jobs:
   # ============================================
   doc-coverage:
     name: Documentation Coverage
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
@@ -148,7 +152,7 @@ jobs:
   # ============================================
   dead-code:
     name: Dead Code Detection
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
@@ -169,7 +173,7 @@ jobs:
   # ============================================
   type-check:
     name: Type Checking (mypy)
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 

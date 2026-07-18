@@ -15,6 +15,10 @@ on:
       - 'grafana/dashboards/**'
       - '.github/workflows/*.yml'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   workflow-file-health:
     runs-on: ubuntu-latest

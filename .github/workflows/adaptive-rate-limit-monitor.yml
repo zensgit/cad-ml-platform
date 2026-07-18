@@ -35,10 +35,14 @@ on:
           - load-test
           - rollback
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   analyze-traffic-patterns:
     name: Analyze Traffic Patterns
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
 
     steps:
       - name: Checkout code
@@ -82,7 +86,7 @@ jobs:
 
   check-performance-impact:
     name: Check Performance Impact
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
     needs: analyze-traffic-patterns
 
     steps:
@@ -141,7 +145,7 @@ jobs:
 
   calibrate-parameters:
     name: Auto-Calibrate Parameters
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
     needs: [analyze-traffic-patterns, check-performance-impact]
     if: |
       github.event_name == 'schedule' ||
@@ -219,7 +223,7 @@ jobs:
 
   load-test-validation:
     name: Load Test Validation
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
     needs: calibrate-parameters
     if: |
       github.event_name == 'workflow_dispatch' &&
@@ -263,7 +267,7 @@ jobs:
 
   monitor-dashboard:
     name: Update Monitoring Dashboard
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
     needs: [analyze-traffic-patterns, check-performance-impact]
     if: github.event_name == 'schedule'
 
@@ -335,7 +339,7 @@ jobs:
 
   rollback-on-failure:
     name: Rollback on Failure
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
     needs: [check-performance-impact]
     if: |
       failure() ||
@@ -383,7 +387,7 @@ jobs:
 
   post-pr-comment:
     name: Post PR Comment
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
     needs: [analyze-traffic-patterns, check-performance-impact]
     if: github.event_name == 'pull_request'
     permissions:
@@ -459,7 +463,7 @@ jobs:
 
   notify-alerts:
     name: Send Alert Notifications
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
     needs: [check-performance-impact]
     if: failure()
 

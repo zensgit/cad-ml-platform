@@ -539,10 +539,14 @@ env:
   ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_OUTPUT_CSV: ${{ vars.ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_OUTPUT_CSV || 'reports/history_sequence_eval/active_learning_review_queue_report.csv' }}
   ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_TOP_K: ${{ vars.ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_TOP_K || '20' }}
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   evaluate:
     name: Run Evaluation and Generate Report
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
     permissions:
       actions: read
       contents: read
@@ -6217,7 +6221,7 @@ jobs:
 
   deploy-pages:
     name: Deploy Report to GitHub Pages
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
     needs: evaluate
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     # Pages deployment is optional - don't fail workflow if Pages not enabled

@@ -15,10 +15,14 @@ on:
         required: false
         default: 'main'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   risk-assessment:
     name: Assess Release Risk
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
 
     permissions:
       contents: read
@@ -271,7 +275,7 @@ jobs:
   slack-notification:
     name: Slack Notification
     needs: risk-assessment
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
     if: always() && github.event_name == 'pull_request'
 
     steps:
