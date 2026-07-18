@@ -120,8 +120,10 @@ a model-promotion path.
    in-process on the RAW POSIX pin string, BEFORE any `openat` AND BEFORE any
    `Path()`/`PurePosixPath`/`os.path` normalization):** the check operates on the **raw pin bytes split on
    `/`** — running ANY path normalization first is **FORBIDDEN**, because normalization silently swallows
-   the illegal components this check exists to catch (`Path("a//b")` and `Path("a/./b")` both collapse to
-   `a/b`, so an `//`, `.`, or `..` component would never be seen). On that raw split the pin MUST be a
+   illegal components this check exists to catch (empirically verified: `Path("a//b")` and `Path("a/./b")`
+   both collapse to `a/b`, so an `//` or `.` component would never be seen; `Path`/`PurePosixPath` DO
+   preserve `..`, but `os.path.normpath("a/../b")` collapses it to `b` — so no normalizer of ANY kind may
+   run before the check). On that raw split the pin MUST be a
    **relative** path with **no absolute prefix** and **no `.`, `..`, or empty component** (an empty
    component is exactly what a `//`, a leading `/`, or a trailing `/` produces in the raw split), and the
    raw pin MUST contain **no NUL (`0x00`) byte anywhere** — the NUL rejection applies to the whole pin
@@ -374,7 +376,10 @@ or the append-only activation audit (§3.3). All of those are Phase B.
   pin is a separate owner/deployment decision — a controlled release asset, not a code flag** (there
   is no `ENABLE_PIN=1`; a pin exists or it does not) — this is the **Phase-A baseline-pin activation gate
   (1)** (§3 build order): environment-owner-reviewed, no `/model/reload` re-open, go-evidence (canonical
-  `PRODUCT_STRATEGY.md` §7.2 "Definition of done") = **the enablement date** + **the named product owner
+  `PRODUCT_STRATEGY.md` §7.2 "Definition of done") = **the named target environment (deployment identity)
+  this enablement binds to** ("environment-owner-reviewed" names the *reviewer*, NOT the binding — §7.2's
+  "environment" item requires recording *which* environment this enablement targets) + **the enablement
+  date** + **the named product owner
   AND intended user** + staging replay + observed-RED matrix + rollback + kill switch + **user-outcome
   telemetry** (§7.2: "telemetry measures user outcome, not only service health" — the non-sensitive
   family/reason activation counters are *service-health* telemetry, necessary but NOT sufficient), no
@@ -682,7 +687,8 @@ this order — do NOT conflate them:
   the **environment-owner-reviewed** baseline pin: the exact already-in-service `(logical_activation_id,
   artifact_id, kind, digest)` tuple (§0.5 — an activation of the in-service tuple, **never** a promotion). It
   does **NOT** re-open `/model/reload` (that stays sealed 403 until Phase B), and its go-evidence
-  (canonical `PRODUCT_STRATEGY.md` §7.2 "Definition of done") is **the enablement date + the named product
+  (canonical `PRODUCT_STRATEGY.md` §7.2 "Definition of done") is **the named target environment (deployment
+  identity) this enablement binds to + the enablement date + the named product
   owner AND intended user + staging replay + the observed-RED attack matrix + rollback + a kill switch +
   user-outcome telemetry** (§7.2: "telemetry measures user outcome, not only service health" — the
   non-sensitive family/reason activation counters are *service-health* telemetry, necessary but NOT

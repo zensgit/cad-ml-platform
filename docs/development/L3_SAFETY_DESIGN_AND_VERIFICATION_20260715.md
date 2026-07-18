@@ -106,7 +106,8 @@ activation membrane; retraining not enabled.**
 **Macro-order (reviewer-locked):** Phase A → Track E → Phase B. **Two distinct owner enablement gates ride
 on this order (do not conflate):** **(1) Phase-A baseline-pin activation** — after Wave-1 + Phase A, its own
 owner gate supplying the environment-owner-reviewed already-in-service baseline tuple (no `/model/reload`
-re-open; go-evidence, canonical §7.2 "Definition of done" = the enablement date + the named product owner
+re-open; go-evidence, canonical §7.2 "Definition of done" = the named target environment (deployment
+identity) this enablement binds to + the enablement date + the named product owner
 AND intended user + staging replay + observed-RED + rollback + kill switch + user-outcome telemetry (§7.2:
 "telemetry measures user outcome, not only service health" — the non-sensitive family/reason activation
 counters are service-health telemetry, necessary but NOT sufficient), no paths in logs or telemetry);
