@@ -113,6 +113,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(f"ERROR: {exc}")
         return 1
 
+    if not isinstance(checkpoint, dict):
+        print(
+            f"ERROR: checkpoint is not a dict (got {type(checkpoint).__name__}); "
+            "expected {'config', 'model_state_dict'}."
+        )
+        return 1
+
     config = checkpoint.get("config", {})
     if not config:
         print("WARNING: checkpoint config missing; using defaults.")

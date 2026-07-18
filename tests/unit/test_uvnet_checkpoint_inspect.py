@@ -134,3 +134,13 @@ def test_missing_file_nonzero(tmp_path: Path) -> None:
     rc = uvnet_checkpoint_inspect_main(["--path", str(tmp_path / "does_not_exist.pth")])
 
     assert rc == 1
+
+
+def test_non_dict_checkpoint_nonzero(tmp_path: Path) -> None:
+    # A .pth that is not a dict (e.g. a bare tensor) must fail cleanly, not traceback.
+    checkpoint_path = tmp_path / "uvnet_inspect_nondict.pth"
+    torch.save(torch.zeros(3), checkpoint_path)
+
+    rc = uvnet_checkpoint_inspect_main(["--path", str(checkpoint_path)])
+
+    assert rc == 1
