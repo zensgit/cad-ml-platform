@@ -53,7 +53,9 @@ jobs:
             >> "$GITHUB_STEP_SUMMARY"
 
   unit-tier:
-    runs-on: ubuntu-latest
+    # Routed to the self-hosted lane (falls back to hosted when the var is unset)
+    # so the uvnet inspector anti-skip gate below runs where torch is importable.
+    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
     needs: [core-fast-gate]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -72,6 +74,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+
+      # Anti-skip gate (owner-ratified, 2026-07-17): the inspector test previously
+      # false-greened for months because `pytest.importorskip("torch")` silently
+      # skipped it on every torch-less runner while its imports were broken
+      # (33cb0f65 — see PR #523 diagnosis). This lane must PROVE torch is
+      # importable and then EXECUTE the test — a skip here is a failure.
+      - name: Assert torch importable (inspector test must execute, not skip)
+        run: python -c "import torch; print('torch', torch.__version__)"
+
+      - name: Run uvnet checkpoint inspector tests (skip-proof)
+        run: python -m pytest tests/unit/test_uvnet_checkpoint_inspect.py -v -rs
 
       - name: Run eval_with_history regression unit tests
         run: |
