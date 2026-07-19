@@ -540,13 +540,15 @@ env:
   ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_TOP_K: ${{ vars.ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_TOP_K || '20' }}
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Event-scoped: same-PR updates cancel older runs; push/schedule/dispatch never
+  # cancel each other merely by sharing a branch/ref (run_id is unique per run).
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
   evaluate:
     name: Run Evaluation and Generate Report
-    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'schedule') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && (vars.CADML_LINUX_RUNNER || 'ubuntu-latest') || 'ubuntu-latest' }}
     permissions:
       actions: read
       contents: read
@@ -6221,7 +6223,7 @@ jobs:
 
   deploy-pages:
     name: Deploy Report to GitHub Pages
-    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'schedule') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && (vars.CADML_LINUX_RUNNER || 'ubuntu-latest') || 'ubuntu-latest' }}
     needs: evaluate
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     # Pages deployment is optional - don't fail workflow if Pages not enabled

@@ -11,12 +11,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Event-scoped: same-PR updates cancel older runs; push/schedule/dispatch never
+  # cancel each other merely by sharing a branch/ref (run_id is unique per run).
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
   core-fast-gate:
-    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'schedule') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && (vars.CADML_LINUX_RUNNER || 'ubuntu-latest') || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
@@ -56,19 +58,21 @@ jobs:
             --title "Core Fast Gate (Tiered CI)" \
             >> "$GITHUB_STEP_SUMMARY"
 
-  # Anti-skip gate (owner-ratified, 2026-07-17): the inspector test previously
-  # false-greened for months because `pytest.importorskip("torch")` silently
-  # skipped it on every torch-less runner while its imports were broken
-  # (33cb0f65 — see PR #523 diagnosis). This dedicated job runs on the
-  # self-hosted lane (where torch is importable), PROVES torch imports, then
-  # EXECUTES the inspector tests — a skip or missing torch here is a failure.
-  # Deliberately a separate job: routing all of unit-tier to the self-hosted
-  # lane unmasks unrelated environment-coupled debt (h5py-behind-torch-skips,
-  # persistent-workspace checkpoint presence, mtime cache-key granularity) —
-  # that migration belongs to the runner-routing PR (#523), not this gate.
+  # Anti-skip gate (owner-ratified, 2026-07-17; hardened PR #523): the inspector
+  # test previously false-greened for months because `pytest.importorskip("torch")`
+  # silently skipped on every torch-less runner while its imports were broken
+  # (33cb0f65). This dedicated job MUST:
+  #   1) run on GitHub-hosted (public repo: never route PR work to self-hosted),
+  #   2) install an explicit, reproducible torch (never depend on ambient toolcache
+  #      torch on a persistent self-hosted runner),
+  #   3) PROVE torch imports, then EXECUTE the inspector tests — a skip or missing
+  #      torch here is a failure.
+  # Deliberately a separate job from unit-tier: broad suite ambient-torch debt is
+  # out of scope for this skip-proof gate.
+  # No `needs:` — a skipped/failed upstream must never skip this security proof
+  # (required-context skip-success class).
   uvnet-inspector-gate:
-    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
-    needs: [core-fast-gate]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
@@ -86,6 +90,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+
+      # Dedicated skip-proof step: exact standalone command (no trailing maskers).
+      # Do NOT fold into Install dependencies — security tests require equality.
+      - name: Install pinned torch (skip-proof)
+        run: python -m pip install "torch==2.1.0"
 
       - name: Assert torch importable (inspector test must execute, not skip)
         run: python -c "import torch; print('torch', torch.__version__)"

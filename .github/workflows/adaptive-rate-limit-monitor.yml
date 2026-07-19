@@ -36,13 +36,15 @@ on:
           - rollback
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Event-scoped: same-PR updates cancel older runs; push/schedule/dispatch never
+  # cancel each other merely by sharing a branch/ref (run_id is unique per run).
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
   analyze-traffic-patterns:
     name: Analyze Traffic Patterns
-    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'schedule') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && (vars.CADML_LINUX_RUNNER || 'ubuntu-latest') || 'ubuntu-latest' }}
 
     steps:
       - name: Checkout code
@@ -86,7 +88,7 @@ jobs:
 
   check-performance-impact:
     name: Check Performance Impact
-    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'schedule') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && (vars.CADML_LINUX_RUNNER || 'ubuntu-latest') || 'ubuntu-latest' }}
     needs: analyze-traffic-patterns
 
     steps:
@@ -145,7 +147,7 @@ jobs:
 
   calibrate-parameters:
     name: Auto-Calibrate Parameters
-    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'schedule') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && (vars.CADML_LINUX_RUNNER || 'ubuntu-latest') || 'ubuntu-latest' }}
     needs: [analyze-traffic-patterns, check-performance-impact]
     if: |
       github.event_name == 'schedule' ||
@@ -223,7 +225,7 @@ jobs:
 
   load-test-validation:
     name: Load Test Validation
-    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'schedule') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && (vars.CADML_LINUX_RUNNER || 'ubuntu-latest') || 'ubuntu-latest' }}
     needs: calibrate-parameters
     if: |
       github.event_name == 'workflow_dispatch' &&
@@ -267,7 +269,7 @@ jobs:
 
   monitor-dashboard:
     name: Update Monitoring Dashboard
-    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'schedule') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && (vars.CADML_LINUX_RUNNER || 'ubuntu-latest') || 'ubuntu-latest' }}
     needs: [analyze-traffic-patterns, check-performance-impact]
     if: github.event_name == 'schedule'
 
@@ -339,7 +341,7 @@ jobs:
 
   rollback-on-failure:
     name: Rollback on Failure
-    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'schedule') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && (vars.CADML_LINUX_RUNNER || 'ubuntu-latest') || 'ubuntu-latest' }}
     needs: [check-performance-impact]
     if: |
       failure() ||
@@ -387,7 +389,7 @@ jobs:
 
   post-pr-comment:
     name: Post PR Comment
-    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'schedule') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && (vars.CADML_LINUX_RUNNER || 'ubuntu-latest') || 'ubuntu-latest' }}
     needs: [analyze-traffic-patterns, check-performance-impact]
     if: github.event_name == 'pull_request'
     permissions:
@@ -463,7 +465,7 @@ jobs:
 
   notify-alerts:
     name: Send Alert Notifications
-    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'schedule') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && (vars.CADML_LINUX_RUNNER || 'ubuntu-latest') || 'ubuntu-latest' }}
     needs: [check-performance-impact]
     if: failure()
 

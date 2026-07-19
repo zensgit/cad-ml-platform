@@ -12,12 +12,14 @@ permissions:
   packages: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Event-scoped: same-PR updates cancel older runs; push/schedule/dispatch never
+  # cancel each other merely by sharing a branch/ref (run_id is unique per run).
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
   lint-type:
-    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'schedule') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && (vars.CADML_LINUX_RUNNER || 'ubuntu-latest') || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: Set up Python
@@ -82,7 +84,7 @@ jobs:
           if-no-files-found: ignore
   openapi-fast:
     needs: [lint-type]
-    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'schedule') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && (vars.CADML_LINUX_RUNNER || 'ubuntu-latest') || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: Set up Python
@@ -107,7 +109,7 @@ jobs:
           echo "- command: \`make validate-openapi\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- status: ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
   lint-all-report:
-    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'schedule') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && (vars.CADML_LINUX_RUNNER || 'ubuntu-latest') || 'ubuntu-latest' }}
     needs: lint-type
     if: always()
     steps:
@@ -743,7 +745,7 @@ jobs:
 
   e2e-smoke:
     needs: [lint-type]
-    runs-on: ${{ vars.CADML_LINUX_RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'schedule') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && (vars.CADML_LINUX_RUNNER || 'ubuntu-latest') || 'ubuntu-latest' }}
     env:
       DEDUPCAD_VISION_IMAGE: ${{ vars.DEDUPCAD_VISION_IMAGE || 'ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251' }}
     steps:
