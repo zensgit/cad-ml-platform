@@ -609,6 +609,7 @@ test-training-governance: ## 运行训练数据治理相关快速回归测试
 		$(TEST_DIR)/test_active_learning_api.py \
 		$(TEST_DIR)/unit/test_low_conf_queue.py \
 		$(TEST_DIR)/unit/test_finetune_from_feedback.py \
+		$(TEST_DIR)/unit/test_finetune_from_feedback_failclosed.py \
 		$(TEST_DIR)/unit/test_training_scripts.py \
 		$(TEST_DIR)/unit/test_training_data_governance.py \
 		$(TEST_DIR)/unit/test_auto_retrain_governance.py \
