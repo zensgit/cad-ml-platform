@@ -134,7 +134,8 @@ jobs:
           python scripts/ci/activation_surface_enumerator.py
           pytest -q \
             tests/unit/test_activation_surface_enumerator.py \
-            tests/unit/test_l3_phase_a_runtime_bleeding_control.py
+            tests/unit/test_l3_phase_a_runtime_bleeding_control.py \
+            tests/unit/test_model_activation_c1_core.py
 
       - name: Run unit tier
         run: bash scripts/test_with_local_api.sh --suite unit
