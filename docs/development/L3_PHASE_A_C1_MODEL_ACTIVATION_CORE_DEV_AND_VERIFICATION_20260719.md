@@ -46,6 +46,7 @@ Authority: `docs/development/L3_MODEL_ACTIVATION_MEMBRANE_DESIGNLOCK_20260712.md
 
 - **No default temp directory.** Bundle activation requires an explicit trusted service-private freeze parent: absolute, non-symlink, owned by euid, `mode & 0o077 == 0` before `mkdtemp`.
 - Lease starts **empty**. Protocol for every create: **reserve** ledger capacity → mkdir/O_CREAT → **adopt** fd into lease **before** fstat/finalize → finalize identity into the **creation-time** ledger. On fstat failure the pending fd remains owned; release retries fstat, records identity when possible, closes once, and scrubs.
+- **Pending parent-dir fd ownership:** every `_PendingNode` owns a **CLOEXEC dup** of the parent directory fd at adopt time (not a borrow of the caller's nested dir fd). This survives freeze-walk recursive unwind that closes the caller's `mkdir_owned` / parent fd after a nested create leaves a pending node. Successful finalize or successful scrub closes the owned parent dup; mismatch / fstat failure retains both child and parent dups for honest retry. Parent-fd dup failure: best-effort destroy the just-created child via the still-live caller parent; if destroy fails, retain the child on pending without claiming `cleanup_complete` (never orphan).
 - Dest-dir open failure after mkdir: **cancel reservation only** — never name-stat/commit whatever now sits at the name (may be foreign after a rename race).
 - Cleanup is **descriptor-relative** (`unlinkat` / `rmdir` via dir fds + lazy `os.scandir` with cap+1 discrimination). **Never** `shutil.rmtree(path)`. Cleanup **never adopts** cleanup-time objects into the ledger.
 - `reconcile_observed_against_owned_ledger` requires **exact equality**: observed−ledger (foreign) refuses without delete; ledger−observed (owned missing/moved) refuses.
@@ -87,7 +88,7 @@ python3.11 -m mypy src/core/model_activation --config-file mypy.ini
 git diff --check
 ```
 
-**Result (local, this worktree, post authority-fix + audit fixes):** **104 passed, 11 skipped, 0 failed.** flake8 clean on the seven source files + test; mypy clean (7 source files); `git diff --check` clean.
+**Result (local, this worktree, post authority-fix + audit fixes + nested-pending parent-fd ownership):** **109 passed, 11 skipped, 0 failed.** flake8 clean on the seven source files + test; mypy clean (7 source files); `git diff --check` clean.
 
 **Docker:** daemon unavailable on the verification host (`Cannot connect to the Docker daemon at unix:///Users/chouhua/.docker/run/docker.sock`). Linux root / uid `65534` suite **not** re-run here.
 
@@ -103,8 +104,13 @@ git diff --check
 | `test_reconcile_foreign_dir_refuses_before_descent_no_recursion` | P1: foreign dir (80-deep under `setrecursionlimit(50)`) → typed `FREEZE_MUTATED` before descent; no `RecursionError` |
 | `test_reconcile_owned_missing_refuses` | ledger−observed missing/moved refuses |
 | `test_retained_lease_release_serialized_two_threads` | P1: concurrent `release()` max body concurrency 1; both results honest |
-| `test_scrub_pending_success_pops_ledger_reaches_complete` | P1: pending remove pops ledger; `cleanup_complete=True`; zero model residual |
-| `test_scrub_pending_mismatch_retains_pending_incomplete` | pending name mismatch keeps same fd; foreign untouched; incomplete |
+| `test_scrub_pending_success_pops_ledger_reaches_complete` | P1: pending remove pops ledger; closes child + owned parent dup; `cleanup_complete=True`; zero model residual |
+| `test_scrub_pending_mismatch_retains_pending_incomplete` | pending name mismatch keeps same child + owned parent fd; foreign untouched; incomplete |
+| `test_nested_pending_file_survives_parent_dir_fd_close` | P1: nested `sub/m.bin` pending after closing `sub_fd` still scrubs; sibling `already.bin` MODEL-BYTES destroyed; pending/ledger empty; all owned fds closed |
+| `test_nested_pending_dir_survives_parent_dir_fd_close` | P1: nested pending directory under closed mid parent still scrubs; sibling model bytes destroyed; complete |
+| `test_nested_pending_mismatch_retains_ownership_and_foreign` | nested pending mismatch retains child+parent dups and sibling ownership; foreign at name untouched; honest incomplete |
+| `test_adopt_pending_parent_dup_failure_no_orphan_no_claim` | parent-fd dup failure: best-effort destroy via live parent; no orphan; no cleanup claim |
+| `test_adopt_pending_parent_dup_failure_retains_when_destroy_fails` | parent-fd dup + destroy both fail: child retained on pending (`parent_fd=-1`); `cleanup_complete=False` |
 | `test_pending_leases_retained_by_identity_not_value_eq` | store pending list uses identity (`eq=False` leases) |
 | `test_ast_refusal_mapping_completeness_guard` | no `raise … from` inside OSError handlers; mapper surfaces present |
 | `test_refusal_no_oserror_context_*` / `test_list_dir_fd_oserror_no_context` / `test_read_fd_oserror_no_context` | `__cause__`/`__context__` None; no hostile path in traceback |
@@ -135,6 +141,7 @@ Would-fail-against-old notes (practical):
 - Old path closed O_CREAT fd without lease adopt-before-fstat (fstat-failure residual test targets that window).
 - Old path had no inventory reserve-before-create (max=1 residual test).
 - Old path had no dest-dir open cancel-only race handling (foreign could be name-stat committed or deleted).
+- Old path borrowed the caller's parent dir fd on `_PendingNode` (nested freeze-walk close of `sub_fd` after create fstat failure → `release()` forever False; sibling `already.bin` MODEL-BYTES residual — nested-pending parent-fd ownership tests target that window).
 
 | Area | Positive (GREEN) | Observed-RED / discriminators |
 |---|---|---|
@@ -147,7 +154,7 @@ Would-fail-against-old notes (practical):
 | DFS / RLIMIT | 200 sibling empty dirs with `RLIMIT_NOFILE=128` | — (would UNREADABLE under O(n) stack) |
 | Bundle digest | exact + determinism; source mutation after freeze | digest mismatch; **freeze-write corruption → DIGEST_MISMATCH** |
 | Freeze handle | `read_member` / `dup_dir_fd`; no public `path` / borrowed `dir_fd` | sealed mode **0400** always; in-place write OSError when DAC applies (`euid!=0`); path-redirect still reads good |
-| Lease / ledger | trusted parent; reserve/adopt/finalize | fstat-after-O_CREAT residual closed; inventory max=1; dest-dir race foreign survives; reconcile exact equality |
+| Lease / ledger | trusted parent; reserve/adopt/finalize; pending owns parent-dir dup | fstat-after-O_CREAT residual closed; inventory max=1; dest-dir race foreign survives; nested pending survives parent close + scrubs sibling model bytes; parent-dup failure no-orphan; reconcile exact equality |
 | fd_dir | `os.listdir(dir_fd)` happy | OSError → `UNREADABLE` fail-closed; no context leak |
 | Bounds bombs | — | dirent/dir/depth/relpath/file-count |
 | Path-safe refusals | — | AST guard; traceback contains no hostile path |

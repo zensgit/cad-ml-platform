@@ -2585,6 +2585,10 @@ def test_scrub_pending_success_pops_ledger_reaches_complete(
     node = lease._adopt_pending(fd, root_fd, "m.bin", is_dir=False)  # noqa: SLF001
     assert node in lease._pending  # noqa: SLF001
     assert node.fd == fd
+    # Pending owns a stable parent-dir dup (not a borrow of caller's root_fd).
+    assert node.parent_fd >= 0
+    assert node.parent_fd != root_fd
+    owned_parent = int(node.parent_fd)
 
     assert lease.release() is True
     assert lease.cleanup_complete is True
@@ -2592,10 +2596,13 @@ def test_scrub_pending_success_pops_ledger_reaches_complete(
     assert lease._ledger == {}  # noqa: SLF001
     assert int(lease._root_fd) < 0  # noqa: SLF001
     assert int(lease._parent_fd) < 0  # noqa: SLF001
-    # Pending fd closed.
+    # Pending child fd + owned parent dup closed on success.
     with pytest.raises(OSError) as ei:
         os.fstat(fd)
     assert ei.value.errno == errno.EBADF
+    with pytest.raises(OSError) as ei_p:
+        os.fstat(owned_parent)
+    assert ei_p.value.errno == errno.EBADF
     # Zero model-byte residual under freeze parent.
     for p in freeze_parent.rglob("m.bin"):
         pytest.fail(f"model byte residual {p}")
@@ -2624,6 +2631,7 @@ def test_scrub_pending_mismatch_retains_pending_incomplete(
     )
     os.write(fd, b"owned-pending")
     node = lease._adopt_pending(fd, root_fd, "m.bin", is_dir=False)  # noqa: SLF001
+    owned_parent = int(node.parent_fd)
 
     backing = Path(lease.backing_path)
     # Rename owned file away; plant foreign empty name (no model bytes at name).
@@ -2636,6 +2644,7 @@ def test_scrub_pending_mismatch_retains_pending_incomplete(
     assert lease.cleanup_complete is False
     assert node in lease._pending  # noqa: SLF001
     assert node.fd == fd  # not closed
+    assert node.parent_fd == owned_parent  # owned parent retained on mismatch
     # Ledger still tracks owned pending identity.
     assert any(True for _ in lease._ledger)  # noqa: SLF001
     # Foreign name untouched (same inode).
@@ -2647,13 +2656,19 @@ def test_scrub_pending_mismatch_retains_pending_incomplete(
     # Honest retry still incomplete while mismatch remains.
     assert lease.release() is False
     assert node.fd == fd
+    assert node.parent_fd == owned_parent
 
-    # Cleanup: close pending fd ourselves and drop node so suite doesn't leak.
+    # Cleanup: close pending child + owned parent and drop node so suite doesn't leak.
     try:
         os.close(fd)
     except OSError:
         pass
     node.fd = -1
+    try:
+        os.close(owned_parent)
+    except OSError:
+        pass
+    node.parent_fd = -1
     try:
         lease._pending.remove(node)  # noqa: SLF001
     except ValueError:
@@ -2703,6 +2718,7 @@ def test_pending_fstat_failure_retains_pending_no_name_delete(
     )
     node = lease._adopt_pending(pfd, root_fd, "pend", is_dir=True)  # noqa: SLF001
     assert node in lease._pending  # noqa: SLF001
+    owned_parent = int(node.parent_fd)
 
     backing = Path(lease.backing_path)
     (backing / "pend").rename(tmp_path / "owned-pend-moved")
@@ -2722,6 +2738,7 @@ def test_pending_fstat_failure_retains_pending_no_name_delete(
 
     assert ok is False
     assert node.fd == pfd  # not closed/dropped
+    assert node.parent_fd == owned_parent  # parent dup retained
     assert node in lease._pending  # noqa: SLF001
     assert (backing / "pend").is_dir()
     st2 = os.lstat(backing / "pend")
@@ -2734,9 +2751,295 @@ def test_pending_fstat_failure_retains_pending_no_name_delete(
         pass
     node.fd = -1
     try:
+        os.close(owned_parent)
+    except OSError:
+        pass
+    node.parent_fd = -1
+    try:
         lease._pending.remove(node)  # noqa: SLF001
     except ValueError:
         pass
+    lease.release()
+
+
+def test_nested_pending_file_survives_parent_dir_fd_close(
+    tmp_path: Path,
+) -> None:
+    """P1 nested-file: pending under closed sub_fd must still scrub siblings.
+
+    Repro (would fail when pending borrowed the caller's parent fd):
+      bind root → finalize already.bin with MODEL-BYTES → mkdir_owned sub →
+      O_CREAT sub/m.bin → adopt_pending(fd, sub_fd, ...) → close sub_fd
+      (simulate recursive unwind after create_file_owned fstat failure) →
+      release() returned False forever and already.bin kept model bytes.
+
+    Fixed: pending owns a stable parent-dir dup; successful retry scrubs
+    prior sibling model bytes, empties pending/ledger, closes all owned fds.
+    """
+    model_bytes = b"MODEL-BYTES"
+    freeze_parent = _trusted_freeze_parent(tmp_path / "freeze")
+    lease = FreezeResourceLease()
+    lease.bind_root(str(freeze_parent))
+    root_fd = lease.root_dir_fd()
+
+    already_fd = lease.create_file_owned(root_fd, "already.bin")
+    os.write(already_fd, model_bytes)
+    os.close(already_fd)
+
+    sub_fd = lease.mkdir_owned(root_fd, "sub")
+    lease.reserve_identity_slot()
+    mfd = os.open(
+        "m.bin",
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC,
+        0o600,
+        dir_fd=sub_fd,
+    )
+    os.write(mfd, b"nested-pending")
+    node = lease._adopt_pending(mfd, sub_fd, "m.bin", is_dir=False)  # noqa: SLF001
+    assert node in lease._pending  # noqa: SLF001
+    assert node.fd == mfd
+    owned_parent = int(node.parent_fd)
+    assert owned_parent >= 0
+    assert owned_parent != sub_fd  # stable dup, not borrow
+
+    # Simulate freeze-walk recursive unwind closing the nested dest dir fd.
+    os.close(sub_fd)
+
+    assert lease.release() is True
+    assert lease.cleanup_complete is True
+    assert lease._pending == []  # noqa: SLF001
+    assert lease._ledger == {}  # noqa: SLF001
+    assert int(lease._root_fd) < 0  # noqa: SLF001
+    assert int(lease._parent_fd) < 0  # noqa: SLF001
+    with pytest.raises(OSError) as ei:
+        os.fstat(mfd)
+    assert ei.value.errno == errno.EBADF
+    with pytest.raises(OSError) as ei_p:
+        os.fstat(owned_parent)
+    assert ei_p.value.errno == errno.EBADF
+    # Prior sibling model bytes scrubbed — destroy-partial-freeze.
+    for p in freeze_parent.rglob("already.bin"):
+        pytest.fail(f"model byte residual {p}")
+    for p in freeze_parent.rglob("m.bin"):
+        pytest.fail(f"pending residual {p}")
+    leftovers = [
+        p
+        for p in freeze_parent.iterdir()
+        if p.is_dir() and p.name.startswith("cadml-freeze-")
+    ]
+    assert leftovers == []
+
+
+def test_nested_pending_dir_survives_parent_dir_fd_close(
+    tmp_path: Path,
+) -> None:
+    """P1 nested-directory: pending subdir under closed parent still scrubs.
+
+    Same unwind pattern as the nested-file case, but the pending object is a
+    directory created under a nested parent that the walk then closes.
+    """
+    model_bytes = b"MODEL-BYTES"
+    freeze_parent = _trusted_freeze_parent(tmp_path / "freeze")
+    lease = FreezeResourceLease()
+    lease.bind_root(str(freeze_parent))
+    root_fd = lease.root_dir_fd()
+
+    already_fd = lease.create_file_owned(root_fd, "already.bin")
+    os.write(already_fd, model_bytes)
+    os.close(already_fd)
+
+    mid_fd = lease.mkdir_owned(root_fd, "mid")
+    lease.reserve_identity_slot()
+    os.mkdir("pend", 0o700, dir_fd=mid_fd)
+    pfd = os.open(
+        "pend",
+        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+        dir_fd=mid_fd,
+    )
+    node = lease._adopt_pending(pfd, mid_fd, "pend", is_dir=True)  # noqa: SLF001
+    assert node in lease._pending  # noqa: SLF001
+    owned_parent = int(node.parent_fd)
+    assert owned_parent >= 0
+    assert owned_parent != mid_fd
+
+    os.close(mid_fd)
+
+    assert lease.release() is True
+    assert lease.cleanup_complete is True
+    assert lease._pending == []  # noqa: SLF001
+    assert lease._ledger == {}  # noqa: SLF001
+    assert int(lease._root_fd) < 0  # noqa: SLF001
+    assert int(lease._parent_fd) < 0  # noqa: SLF001
+    with pytest.raises(OSError) as ei:
+        os.fstat(pfd)
+    assert ei.value.errno == errno.EBADF
+    with pytest.raises(OSError) as ei_p:
+        os.fstat(owned_parent)
+    assert ei_p.value.errno == errno.EBADF
+    for p in freeze_parent.rglob("already.bin"):
+        pytest.fail(f"model byte residual {p}")
+    leftovers = [
+        p
+        for p in freeze_parent.iterdir()
+        if p.is_dir() and p.name.startswith("cadml-freeze-")
+    ]
+    assert leftovers == []
+
+
+def test_nested_pending_mismatch_retains_ownership_and_foreign(
+    tmp_path: Path,
+) -> None:
+    """Nested pending name mismatch: retain child+parent dups; foreign survives."""
+    freeze_parent = _trusted_freeze_parent(tmp_path / "freeze")
+    lease = FreezeResourceLease()
+    lease.bind_root(str(freeze_parent))
+    root_fd = lease.root_dir_fd()
+
+    already_fd = lease.create_file_owned(root_fd, "already.bin")
+    os.write(already_fd, b"MODEL-BYTES")
+    os.close(already_fd)
+
+    sub_fd = lease.mkdir_owned(root_fd, "sub")
+    lease.reserve_identity_slot()
+    mfd = os.open(
+        "m.bin",
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC,
+        0o600,
+        dir_fd=sub_fd,
+    )
+    os.write(mfd, b"owned-nested")
+    node = lease._adopt_pending(mfd, sub_fd, "m.bin", is_dir=False)  # noqa: SLF001
+    owned_parent = int(node.parent_fd)
+    os.close(sub_fd)
+
+    backing = Path(lease.backing_path)
+    (backing / "sub" / "m.bin").rename(tmp_path / "owned-nested-moved.bin")
+    (backing / "sub" / "m.bin").write_bytes(b"")  # foreign at name
+    foreign_st = os.lstat(backing / "sub" / "m.bin")
+    foreign_id = (foreign_st.st_dev, foreign_st.st_ino)
+
+    assert lease.release() is False
+    assert lease.cleanup_complete is False
+    assert node in lease._pending  # noqa: SLF001
+    assert node.fd == mfd
+    assert node.parent_fd == owned_parent
+    st2 = os.lstat(backing / "sub" / "m.bin")
+    assert (st2.st_dev, st2.st_ino) == foreign_id
+    # Sibling model bytes retained until pending can complete (honest incomplete).
+    assert (backing / "already.bin").read_bytes() == b"MODEL-BYTES"
+    st_fd = os.fstat(mfd)
+    assert st_fd.st_size == len(b"owned-nested")
+    assert lease.release() is False
+    assert node.fd == mfd
+    assert node.parent_fd == owned_parent
+
+    # Manual teardown for suite hygiene.
+    try:
+        os.close(mfd)
+    except OSError:
+        pass
+    node.fd = -1
+    try:
+        os.close(owned_parent)
+    except OSError:
+        pass
+    node.parent_fd = -1
+    try:
+        lease._pending.remove(node)  # noqa: SLF001
+    except ValueError:
+        pass
+    lease._ledger.clear()  # noqa: SLF001
+    lease.release()
+
+
+def test_adopt_pending_parent_dup_failure_no_orphan_no_claim(
+    tmp_path: Path,
+) -> None:
+    """Parent-fd dup failure: destroy child via live parent or retain; no claim."""
+    freeze_parent = _trusted_freeze_parent(tmp_path / "freeze")
+    lease = FreezeResourceLease()
+    lease.bind_root(str(freeze_parent))
+    root_fd = lease.root_dir_fd()
+    lease.reserve_identity_slot()
+    fd = os.open(
+        "m.bin",
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC,
+        0o600,
+        dir_fd=root_fd,
+    )
+    os.write(fd, b"dup-fail-bytes")
+
+    with mock.patch.object(
+        store_mod, "_dup_dir_fd_cloexec", side_effect=OSError(errno.EMFILE, "dup")
+    ):
+        with pytest.raises(ActivationRefusal) as ei:
+            lease._adopt_pending(fd, root_fd, "m.bin", is_dir=False)  # noqa: SLF001
+    assert ei.value.reason is RefusalReason.FREEZE_FAILED
+    assert "parent fd dup" in ei.value.detail
+    # Must not claim cleanup complete after a failed adopt.
+    assert lease.cleanup_complete is False
+    # Best-effort destroy succeeded via still-live root_fd → not pending.
+    assert lease._pending == []  # noqa: SLF001
+    with pytest.raises(OSError) as ei_fd:
+        os.fstat(fd)
+    assert ei_fd.value.errno == errno.EBADF
+    # No model-byte residual at the create name.
+    backing = Path(lease.backing_path)
+    assert not (backing / "m.bin").exists()
+
+    assert lease.release() is True
+    assert lease.cleanup_complete is True
+
+
+def test_adopt_pending_parent_dup_failure_retains_when_destroy_fails(
+    tmp_path: Path,
+) -> None:
+    """If parent dup fails and immediate destroy also fails: retain child, no claim."""
+    freeze_parent = _trusted_freeze_parent(tmp_path / "freeze")
+    lease = FreezeResourceLease()
+    lease.bind_root(str(freeze_parent))
+    root_fd = lease.root_dir_fd()
+    lease.reserve_identity_slot()
+    fd = os.open(
+        "m.bin",
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC,
+        0o600,
+        dir_fd=root_fd,
+    )
+    os.write(fd, b"retain-on-dup-fail")
+
+    with mock.patch.object(
+        store_mod, "_dup_dir_fd_cloexec", side_effect=OSError(errno.EMFILE, "dup")
+    ):
+        with mock.patch.object(
+            FreezeResourceLease, "_remove_owned_name", return_value=False
+        ):
+            with pytest.raises(ActivationRefusal) as ei:
+                lease._adopt_pending(  # noqa: SLF001
+                    fd, root_fd, "m.bin", is_dir=False
+                )
+    assert ei.value.reason is RefusalReason.FREEZE_FAILED
+    assert lease.cleanup_complete is False
+    assert len(lease._pending) == 1  # noqa: SLF001
+    node = lease._pending[0]  # noqa: SLF001
+    assert node.fd == fd  # child not orphaned
+    assert node.parent_fd < 0  # no usable parent for name scrub
+    st_fd = os.fstat(fd)
+    assert st_fd.st_size == len(b"retain-on-dup-fail")
+    # Honest incomplete: release cannot finish while pending lacks parent.
+    assert lease.release() is False
+    assert node.fd == fd
+
+    try:
+        os.close(fd)
+    except OSError:
+        pass
+    node.fd = -1
+    try:
+        lease._pending.remove(node)  # noqa: SLF001
+    except ValueError:
+        pass
+    lease._ledger.clear()  # noqa: SLF001
     lease.release()
 
 

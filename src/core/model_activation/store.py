@@ -96,13 +96,39 @@ class _FileId:
 
 @dataclass
 class _PendingNode:
-    """Adopted fd not yet finalized into the creation-time ledger."""
+    """Adopted fd not yet finalized into the creation-time ledger.
+
+    ``parent_fd`` is a **lease-owned** CLOEXEC duplicate of the parent directory
+    fd at adopt time (not a borrow of the caller's fd). This survives recursive
+    freeze-walk unwind that closes the caller's nested dir fd after a create
+    path leaves a pending node. Closed on successful finalize or successful
+    scrub; retained honestly on failure for retry.
+    """
 
     fd: int
     parent_fd: int
     name: str
     is_dir: bool
     reserved: bool = True
+
+
+def _dup_dir_fd_cloexec(fd: int) -> int:
+    """Return a CLOEXEC duplicate of ``fd``. Raises OSError on failure."""
+    try:
+        import fcntl
+
+        return int(fcntl.fcntl(fd, fcntl.F_DUPFD_CLOEXEC, 0))
+    except AttributeError:
+        # No F_DUPFD_CLOEXEC (unusual on modern Unix); fall through to os.dup.
+        pass
+    except OSError:
+        raise
+    dup = os.dup(fd)
+    try:
+        os.set_inheritable(dup, False)
+    except (AttributeError, OSError):
+        pass
+    return dup
 
 
 @dataclass(eq=False)
@@ -123,14 +149,23 @@ class FreezeResourceLease:
     Protocol for every create (file or directory):
       1. reserve ledger capacity;
       2. mkdir / O_CREAT (descriptor-relative);
-      3. adopt the newly created fd into the lease **before** fstat/finalize;
-      4. fstat and commit identity into the creation-time ledger;
-      5. on fstat failure the pending fd remains owned; release retries fstat
-         without name-delete or closing the pending fd until fstat succeeds
-         and name identity is proven equal, then closes once and scrubs.
+      3. adopt the newly created fd into the lease **before** fstat/finalize
+         (pending node owns a **stable parent-dir fd dup** for name scrub
+         across recursive unwind that may close the caller's parent fd);
+      4. fstat and commit identity into the creation-time ledger (finalize
+         closes the owned parent dup — scrub of finalized entries uses the
+         lease root walk, not pending parent);
+      5. on fstat failure the pending child + owned parent dups remain; release
+         retries fstat without name-delete or closing either until fstat
+         succeeds and name identity is proven equal, then closes both once.
 
     On dest-dir open failure after mkdir: **cancel reservation only** — never
     name-stat/commit the object currently at the name (it may be foreign).
+
+    On parent-fd dup failure at adopt: best-effort destroy the just-created
+    child via the still-live caller parent fd; if destroy fails, retain the
+    child on pending without claiming cleanup (never orphan, never
+    ``cleanup_complete=True``).
 
     Cleanup is descriptor-relative (``unlinkat`` / ``rmdir`` via dir fds and
     lazy ``os.scandir``), never ``shutil.rmtree(path)``. Cleanup never adopts
@@ -174,15 +209,70 @@ class FreezeResourceLease:
         if self._reservations > 0:
             self._reservations -= 1
 
+    @staticmethod
+    def _close_pending_parent(node: _PendingNode) -> None:
+        """Close lease-owned parent-dir dup on finalize/scrub success."""
+        if node.parent_fd >= 0:
+            try:
+                os.close(node.parent_fd)
+            except OSError:
+                pass
+            node.parent_fd = -1
+
     def _adopt_pending(
         self, fd: int, parent_fd: int, name: str, *, is_dir: bool
     ) -> _PendingNode:
-        """Adopt fd under an existing reservation (reservation → pending)."""
+        """Adopt fd under an existing reservation (reservation → pending).
+
+        Duplicates ``parent_fd`` so the pending node owns a stable parent
+        directory descriptor for name-based scrub across recursive unwind
+        (callers may close their parent fd after create returns/raises).
+        """
         if self._reservations <= 0:
             # Defensive: adopt still takes a slot.
             self.reserve_identity_slot()
         self._reservations -= 1
-        node = _PendingNode(fd=fd, parent_fd=parent_fd, name=name, is_dir=is_dir)
+
+        owned_parent = -1
+        mapped_dup: Optional[ActivationRefusal] = None
+        try:
+            owned_parent = _dup_dir_fd_cloexec(parent_fd)
+        except OSError:
+            mapped_dup = ActivationRefusal(
+                RefusalReason.FREEZE_FAILED, "parent fd dup"
+            )
+        if mapped_dup is not None:
+            # Parent-fd dup failed. Never orphan the created child or claim
+            # cleanup complete. Best-effort destroy via still-live caller parent.
+            self._cleanup_complete = False
+            destroyed = False
+            st: Optional[os.stat_result] = None
+            try:
+                st = os.fstat(fd)
+            except OSError:
+                st = None
+            if st is not None:
+                fid = _FileId(int(st.st_dev), int(st.st_ino))
+                if self._remove_owned_name(
+                    parent_fd, name, fid, is_dir=is_dir
+                ):
+                    try:
+                        os.close(fd)
+                    except OSError:
+                        pass
+                    destroyed = True
+            if not destroyed:
+                # Retain child ownership without a usable parent for name scrub.
+                # Honest incomplete: release cannot claim complete while pending.
+                node = _PendingNode(
+                    fd=fd, parent_fd=-1, name=name, is_dir=is_dir
+                )
+                self._pending.append(node)
+            raise mapped_dup
+
+        node = _PendingNode(
+            fd=fd, parent_fd=owned_parent, name=name, is_dir=is_dir
+        )
         self._pending.append(node)
         return node
 
@@ -198,6 +288,8 @@ class FreezeResourceLease:
             self._pending.remove(node)
         except ValueError:
             pass
+        # Parent dup only needed while pending; ledger scrub walks root fd.
+        self._close_pending_parent(node)
         return fid
 
     def _map_identity_oserror(self) -> ActivationRefusal:
@@ -684,14 +776,16 @@ class FreezeResourceLease:
         """Retry fstat; remove only on proven identity match; then pop+close.
 
         On release-time fstat failure: do **not** delete by name (foreign may
-        sit there) and do **not** close/drop the pending fd — return False so
-        the node remains pending for a later retry.
+        sit there) and do **not** close/drop the pending child or owned parent
+        fd — return False so the node remains pending for a later retry.
 
-        On successful fstat: record identity, attempt identity-checked remove.
+        On successful fstat: record identity, attempt identity-checked remove
+        via the **lease-owned parent-dir dup** (stable across caller unwind).
         **Only if** the name was proven same and removed: pop that fid from the
-        ledger, close the pending fd once, and return True. If removal fails or
-        mismatches, leave the pending node/fd (and ledger entry) for honest
-        retry — never silently drop ownership after a failed remove.
+        ledger, close the pending child fd and owned parent dup once, and return
+        True. If removal fails or mismatches, leave the pending node (both fds
+        and ledger entry) for honest retry — never silently drop ownership
+        after a failed remove.
         """
         st: Optional[os.stat_result] = None
         try:
@@ -701,20 +795,25 @@ class FreezeResourceLease:
             return False
         fid = _FileId(int(st.st_dev), int(st.st_ino))
         self._ledger.setdefault(fid, node.is_dir)
+        if node.parent_fd < 0:
+            # Adopt-time parent dup failed and immediate destroy also failed —
+            # cannot name-scrub; retain child ownership honestly.
+            return False
         # Unlink by name only when name still refers to this identity.
         removed = self._remove_owned_name(
             node.parent_fd, node.name, fid, is_dir=node.is_dir
         )
         if not removed:
-            # Foreign/mismatch or unproven absence — keep pending fd for retry.
+            # Foreign/mismatch or unproven absence — keep pending fds for retry.
             return False
-        # Proven same-identity remove: drop ledger ownership, close once.
+        # Proven same-identity remove: drop ledger ownership, close both once.
         self._ledger.pop(fid, None)
         try:
             os.close(node.fd)
         except OSError:
             pass
         node.fd = -1
+        self._close_pending_parent(node)
         return True
 
     def _remove_owned_name(
