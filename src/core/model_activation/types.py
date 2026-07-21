@@ -2,16 +2,19 @@
 
 Path-safe refusal reasons suitable for later degraded/503 mapping.
 Filesystem paths must never appear in messages, logs, or telemetry.
+
+Public ActivationRefusal mapping must never preserve a path-bearing OSError in
+``__context__`` / ``__cause__``: map inside ``except``, raise outside.
 """
 
 from __future__ import annotations
 
 import errno
 import os
-import shutil
 import stat
+import threading
 from enum import Enum
-from typing import Final, Optional
+from typing import Callable, Final, Optional
 
 
 class ArtifactKind(str, Enum):
@@ -157,6 +160,20 @@ class BoundPolicy:
         raise AttributeError("BoundPolicy is immutable")
 
 
+# ---------------------------------------------------------------------------
+# Freeze handle
+# ---------------------------------------------------------------------------
+
+# Member / freeze-leaf opens that may hit a FIFO must include O_NONBLOCK so
+# fstat can reject SPECIAL_FILE without blocking for a writer.
+_FREEZE_LEAF_FLAGS = (
+    os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC
+)
+_FREEZE_DIR_FLAGS = (
+    os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+)
+
+
 class FrozenBundle:
     """Service-private sealed freeze handle for a BUNDLE activation.
 
@@ -164,35 +181,63 @@ class FrozenBundle:
     There is **no** public mutable ``path`` attribute — a path string is
     re-openable / renamable / repointable and is not the immutability mechanism.
 
+    The raw freeze dir fd is **not** exposed as a borrowed public attribute.
+    Callers that need a directory fd must take a caller-owned duplicate via
+    :meth:`dup_dir_fd` and close it themselves.
+
     Reads go through ``open_member`` / ``read_member`` relative to the freeze
-    dir fd. ``cleanup()`` closes the fd and destroys the private backing tree.
+    dir fd. ``cleanup()`` destroys owned freeze resources via the creation-time
+    identity ledger (descriptor-relative; never ``shutil.rmtree(path)``).
+
+    Concurrency: ``dup_dir_fd`` / ``open_member`` / ``cleanup`` share an internal
+    lock and in-flight counter. Validation + ``os.dup`` of the bundle root run
+    only while the root fd is protected from close, so concurrent cleanup cannot
+    expose a recycled unrelated fd number to dup/open.
     """
 
     __slots__ = (
         "_dir_fd",
-        "_backing_path",
+        "_lease",
         "_digest",
         "_file_count",
         "_aggregate_bytes",
         "_closed",
+        "_lock",
+        "_cond",
+        "_in_flight",
+        # True while a single serialized lease.release() is in progress.
+        "_releasing",
+        # Optional test hook: called after validate/in_flight++, before os.dup.
+        "_after_validate_hook",
+        # Test-only private residual name for path-redirect RED (not public API).
+        "_backing_path",
     )
 
     def __init__(
         self,
         dir_fd: int,
-        backing_path: str,
+        lease: object,
         digest: str,
         file_count: int,
         aggregate_bytes: int,
+        *,
+        backing_path: str = "",
     ) -> None:
         if dir_fd < 0:
             raise ValueError("dir_fd must be open")
+        lock = threading.Lock()
         object.__setattr__(self, "_dir_fd", dir_fd)
-        object.__setattr__(self, "_backing_path", backing_path)
+        object.__setattr__(self, "_lease", lease)
         object.__setattr__(self, "_digest", digest)
         object.__setattr__(self, "_file_count", file_count)
         object.__setattr__(self, "_aggregate_bytes", aggregate_bytes)
         object.__setattr__(self, "_closed", False)
+        object.__setattr__(self, "_lock", lock)
+        object.__setattr__(self, "_cond", threading.Condition(lock))
+        object.__setattr__(self, "_in_flight", 0)
+        object.__setattr__(self, "_releasing", False)
+        object.__setattr__(self, "_after_validate_hook", None)
+        object.__setattr__(self, "_backing_path", backing_path)
 
     def __setattr__(self, name: str, value: object) -> None:
         raise AttributeError("FrozenBundle fields are immutable")
@@ -209,73 +254,133 @@ class FrozenBundle:
     def aggregate_bytes(self) -> int:
         return self._aggregate_bytes
 
-    @property
-    def dir_fd(self) -> int:
-        """Borrowed freeze root directory fd. Do not close; use cleanup()."""
-        if self._closed or self._dir_fd < 0:
-            raise ActivationRefusal(RefusalReason.FREEZE_FAILED, "closed")
-        return self._dir_fd
+    def _stable_root_dup(self) -> int:
+        """Validate under lock, protect root from close, return caller-owned dup.
+
+        ``cleanup`` waits for ``_in_flight == 0`` before closing the bundle root
+        fd, so the number passed to ``os.dup`` cannot be recycled mid-call.
+        """
+        lock: threading.Lock = self._lock
+        cond: threading.Condition = self._cond
+        with lock:
+            if self._closed or self._dir_fd < 0:
+                raise ActivationRefusal(RefusalReason.FREEZE_FAILED, "closed")
+            object.__setattr__(self, "_in_flight", int(self._in_flight) + 1)
+            root = int(self._dir_fd)
+        # in_flight > 0: cleanup will not close ``root`` until we release.
+        try:
+            hook: Optional[Callable[[], None]] = self._after_validate_hook
+            if hook is not None:
+                hook()
+            # Cleanup may have set _closed and be waiting on in_flight; the root
+            # number remains live until in_flight drains, so only re-check that
+            # the bundle still owns this exact fd number (not yet closed/recycled).
+            with lock:
+                if self._dir_fd < 0 or int(self._dir_fd) != root:
+                    raise ActivationRefusal(RefusalReason.FREEZE_FAILED, "closed")
+            mapped: Optional[ActivationRefusal] = None
+            dup = -1
+            try:
+                dup = os.dup(root)
+            except OSError:
+                mapped = ActivationRefusal(RefusalReason.FREEZE_FAILED, "dup failed")
+            if mapped is not None:
+                raise mapped
+            return dup
+        finally:
+            with lock:
+                object.__setattr__(
+                    self, "_in_flight", max(0, int(self._in_flight) - 1)
+                )
+                cond.notify_all()
+
+    def dup_dir_fd(self) -> int:
+        """Return a caller-owned duplicate of the freeze root directory fd.
+
+        The caller must ``os.close`` the returned fd. Concurrent ``cleanup()``
+        closes only the bundle-owned fd after in-flight dups finish; a live
+        duplicate remains valid until the caller closes it (inode stays alive).
+        After cleanup, further ``dup_dir_fd`` calls refuse.
+        """
+        return self._stable_root_dup()
 
     def open_member(self, relpath: str) -> int:
         """Open a regular file under the freeze via the held dir fd.
 
         ``relpath`` is a relative POSIX path with no ``.`` / ``..`` / empty /
         absolute components (same raw domain as pins). Returns an owned fd.
+
+        Acquires a stable root duplicate under the concurrency protocol so
+        concurrent ``cleanup()`` cannot redirect opens to a recycled fd.
         """
         from src.core.model_activation.pin_domain import validate_raw_pin
 
-        if self._closed or self._dir_fd < 0:
-            raise ActivationRefusal(RefusalReason.FREEZE_FAILED, "closed")
         components = validate_raw_pin(relpath)
-        dir_fd = self._dir_fd
+        base = self._stable_root_dup()
         owned: list[int] = []
+        dir_fd = base
         try:
             for i, name in enumerate(components):
                 is_last = i == len(components) - 1
                 if not is_last:
+                    mapped: Optional[ActivationRefusal] = None
+                    next_fd = -1
                     try:
-                        next_fd = os.open(
-                            name,
-                            os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
-                            dir_fd=dir_fd,
-                        )
-                    except OSError as exc:
-                        raise ActivationRefusal(
+                        next_fd = os.open(name, _FREEZE_DIR_FLAGS, dir_fd=dir_fd)
+                    except OSError:
+                        mapped = ActivationRefusal(
                             RefusalReason.UNREADABLE, "freeze open"
-                        ) from exc
+                        )
+                    if mapped is not None:
+                        raise mapped
                     owned.append(next_fd)
                     dir_fd = next_fd
                     continue
+                mapped_leaf: Optional[ActivationRefusal] = None
+                leaf = -1
                 try:
-                    leaf = os.open(
-                        name,
-                        os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC,
-                        dir_fd=dir_fd,
-                    )
-                except OSError as exc:
-                    raise ActivationRefusal(
+                    leaf = os.open(name, _FREEZE_LEAF_FLAGS, dir_fd=dir_fd)
+                except OSError:
+                    mapped_leaf = ActivationRefusal(
                         RefusalReason.UNREADABLE, "freeze open"
-                    ) from exc
+                    )
+                if mapped_leaf is not None:
+                    raise mapped_leaf
+                mapped_st: Optional[ActivationRefusal] = None
+                st: Optional[os.stat_result] = None
                 try:
                     st = os.fstat(leaf)
-                except OSError as exc:
-                    os.close(leaf)
-                    raise ActivationRefusal(
+                except OSError:
+                    mapped_st = ActivationRefusal(
                         RefusalReason.UNREADABLE, "freeze fstat"
-                    ) from exc
+                    )
+                if mapped_st is not None:
+                    try:
+                        os.close(leaf)
+                    except OSError:
+                        pass
+                    raise mapped_st
+                assert st is not None
                 if not stat.S_ISREG(st.st_mode):
-                    os.close(leaf)
+                    try:
+                        os.close(leaf)
+                    except OSError:
+                        pass
                     raise ActivationRefusal(
                         RefusalReason.NOT_REGULAR_FILE, "freeze member"
                     )
                 return leaf
+            raise ActivationRefusal(RefusalReason.INTERNAL, "freeze open empty")
         finally:
             for fd in reversed(owned):
                 try:
                     os.close(fd)
                 except OSError:
                     pass
-        raise ActivationRefusal(RefusalReason.INTERNAL, "freeze open empty")
+            try:
+                os.close(base)
+            except OSError:
+                pass
 
     def read_member(self, relpath: str) -> bytes:
         """Read a freeze member fully via the held dir fd (same-fd)."""
@@ -283,8 +388,15 @@ class FrozenBundle:
 
         fd = self.open_member(relpath)
         try:
-            st = os.fstat(fd)
-            # Freeze already size-bounded; allow empty files (expect_size=0).
+            mapped: Optional[ActivationRefusal] = None
+            st: Optional[os.stat_result] = None
+            try:
+                st = os.fstat(fd)
+            except OSError:
+                mapped = ActivationRefusal(RefusalReason.UNREADABLE, "freeze fstat")
+            if mapped is not None:
+                raise mapped
+            assert st is not None
             return read_fd_bounded_once(
                 fd,
                 max(int(st.st_size), 1),
@@ -296,23 +408,72 @@ class FrozenBundle:
             except OSError:
                 pass
 
-    def cleanup(self) -> None:
-        """Close the freeze dir fd and destroy the private backing tree."""
-        if self._closed:
-            return
-        object.__setattr__(self, "_closed", True)
-        fd = self._dir_fd
-        object.__setattr__(self, "_dir_fd", -1)
-        if fd >= 0:
-            try:
-                os.close(fd)
-            except OSError:
-                pass
-        path = self._backing_path
-        if path:
-            # May need write bits to rmtree a sealed tree.
-            make_tree_deletable(path)
-            shutil.rmtree(path, ignore_errors=True)
+    def cleanup(self) -> bool:
+        """Close the freeze dir fd and destroy owned freeze resources.
+
+        Waits for in-flight ``dup_dir_fd`` / ``open_member`` root dups, then
+        closes the bundle root under the lock so the fd number cannot be
+        recycled into a concurrent dup/open.
+
+        The freeze lease is **retained until** ``lease.release()`` returns
+        True. Incomplete release (``False``) leaves the lease installed so a
+        later ``cleanup()`` retries the same object. Concurrent ``cleanup``
+        callers serialize on a single in-flight release — none returns True
+        while release is still running, and release is never invoked
+        concurrently.
+
+        Returns True only when cleanup completed (no owned residual requiring
+        retry). Descriptor-relative scrub only; never ``shutil.rmtree(path)``.
+        """
+        lock: threading.Lock = self._lock
+        cond: threading.Condition = self._cond
+        lease: object = None
+        with lock:
+            # Serialize release attempts: wait out any in-flight release.
+            while bool(self._releasing):
+                cond.wait(timeout=0.05)
+
+            # Fully done: closed and no lease left to retry.
+            if self._closed and self._lease is None:
+                return True
+
+            if not self._closed:
+                object.__setattr__(self, "_closed", True)
+                # Drain in-flight stable dups before closing the *bundle* root
+                # dup. The lease retains its original root fd and is responsible
+                # for scrubbing/closing it in lease.release() — never detach
+                # the lease root without close (that leaked the freeze tree).
+                while int(self._in_flight) > 0:
+                    cond.wait(timeout=0.05)
+                fd = int(self._dir_fd)
+                object.__setattr__(self, "_dir_fd", -1)
+                if fd >= 0:
+                    try:
+                        os.close(fd)
+                    except OSError:
+                        pass
+
+            lease = self._lease
+            if lease is None:
+                return True
+            # Claim exclusive release slot; lease stays installed until success.
+            object.__setattr__(self, "_releasing", True)
+
+        done = False
+        try:
+            if hasattr(lease, "release"):
+                done = bool(lease.release())  # type: ignore[no-any-return]
+            else:
+                done = True
+        finally:
+            with lock:
+                if done:
+                    # Only drop the lease after proven successful release.
+                    if self._lease is lease:
+                        object.__setattr__(self, "_lease", None)
+                object.__setattr__(self, "_releasing", False)
+                cond.notify_all()
+        return done
 
     def __del__(self) -> None:  # pragma: no cover - best-effort
         try:
@@ -321,55 +482,121 @@ class FrozenBundle:
             pass
 
 
-def make_tree_deletable(root: str) -> None:
-    """Best-effort restore write bits so rmtree can unlink a sealed freeze."""
-    try:
-        for dirpath, dirnames, filenames in os.walk(root, topdown=False):
-            for name in filenames:
-                p = os.path.join(dirpath, name)
-                try:
-                    os.chmod(p, 0o600)
-                except OSError:
-                    pass
-            for name in dirnames:
-                p = os.path.join(dirpath, name)
-                try:
-                    os.chmod(p, 0o700)
-                except OSError:
-                    pass
+def seal_freeze_tree_fd(dir_fd: int) -> None:
+    """Make freeze tree owner-read-only via descriptor-relative fchmod.
+
+    Files ``0400``, directories ``0500``. Walk is descriptor-relative from
+    ``dir_fd`` (no path re-open of the freeze root).
+    """
+    if dir_fd < 0:
+        raise ActivationRefusal(RefusalReason.FREEZE_FAILED, "seal bad fd")
+
+    def _seal_dir(cur_fd: int) -> None:
+        from src.core.model_activation.fd_dir import dirent_name_str, scandir_dir_fd
+
+        it = scandir_dir_fd(cur_fd)
         try:
-            os.chmod(root, 0o700)
+            for entry in it:
+                name = dirent_name_str(entry.name)
+                if name in (".", ".."):
+                    continue
+                mapped_open: Optional[ActivationRefusal] = None
+                child = -1
+                is_dir = False
+                try:
+                    child = os.open(name, _FREEZE_DIR_FLAGS, dir_fd=cur_fd)
+                    is_dir = True
+                except OSError:
+                    try:
+                        child = os.open(name, _FREEZE_LEAF_FLAGS, dir_fd=cur_fd)
+                    except OSError:
+                        mapped_open = ActivationRefusal(
+                            RefusalReason.FREEZE_FAILED, "seal open"
+                        )
+                if mapped_open is not None:
+                    raise mapped_open
+                try:
+                    mapped_st: Optional[ActivationRefusal] = None
+                    st: Optional[os.stat_result] = None
+                    try:
+                        st = os.fstat(child)
+                    except OSError:
+                        mapped_st = ActivationRefusal(
+                            RefusalReason.FREEZE_FAILED, "seal fstat"
+                        )
+                    if mapped_st is not None:
+                        raise mapped_st
+                    assert st is not None
+                    if is_dir or stat.S_ISDIR(st.st_mode):
+                        _seal_dir(child)
+                        mapped_ch: Optional[ActivationRefusal] = None
+                        try:
+                            os.fchmod(child, 0o500)
+                        except OSError as exc:
+                            if exc.errno != errno.ENOENT:
+                                mapped_ch = ActivationRefusal(
+                                    RefusalReason.FREEZE_FAILED, "seal dir"
+                                )
+                        if mapped_ch is not None:
+                            raise mapped_ch
+                    elif stat.S_ISREG(st.st_mode):
+                        mapped_cf: Optional[ActivationRefusal] = None
+                        try:
+                            os.fchmod(child, 0o400)
+                        except OSError as exc:
+                            if exc.errno != errno.ENOENT:
+                                mapped_cf = ActivationRefusal(
+                                    RefusalReason.FREEZE_FAILED, "seal file"
+                                )
+                        if mapped_cf is not None:
+                            raise mapped_cf
+                    else:
+                        raise ActivationRefusal(
+                            RefusalReason.SPECIAL_FILE, "seal non-regular"
+                        )
+                finally:
+                    try:
+                        os.close(child)
+                    except OSError:
+                        pass
+        finally:
+            try:
+                it.close()
+            except Exception:
+                pass
+
+        mapped_root: Optional[ActivationRefusal] = None
+        try:
+            os.fchmod(cur_fd, 0o500)
+        except OSError as exc:
+            if exc.errno != errno.ENOENT:
+                mapped_root = ActivationRefusal(
+                    RefusalReason.FREEZE_FAILED, "seal root"
+                )
+        if mapped_root is not None:
+            raise mapped_root
+
+    _seal_dir(dir_fd)
+
+
+# Back-compat name used by older call sites; path-based seal is removed.
+def seal_freeze_tree(root: str) -> None:
+    """Open ``root`` and seal descriptor-relatively (no path walk chmod)."""
+    mapped: Optional[ActivationRefusal] = None
+    fd = -1
+    try:
+        fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+    except OSError:
+        mapped = ActivationRefusal(RefusalReason.FREEZE_FAILED, "seal open root")
+    if mapped is not None:
+        raise mapped
+    try:
+        seal_freeze_tree_fd(fd)
+    finally:
+        try:
+            os.close(fd)
         except OSError:
             pass
-    except OSError:
-        pass
-
-
-def seal_freeze_tree(root: str) -> None:
-    """Make freeze tree owner-read-only (files 0400, dirs 0500)."""
-    for dirpath, dirnames, filenames in os.walk(root, topdown=False):
-        for name in filenames:
-            p = os.path.join(dirpath, name)
-            try:
-                os.chmod(p, 0o400)
-            except OSError as exc:
-                if exc.errno != errno.ENOENT:
-                    raise ActivationRefusal(
-                        RefusalReason.FREEZE_FAILED, "seal file"
-                    ) from exc
-        for name in dirnames:
-            p = os.path.join(dirpath, name)
-            try:
-                os.chmod(p, 0o500)
-            except OSError as exc:
-                if exc.errno != errno.ENOENT:
-                    raise ActivationRefusal(
-                        RefusalReason.FREEZE_FAILED, "seal dir"
-                    ) from exc
-    try:
-        os.chmod(root, 0o500)
-    except OSError as exc:
-        raise ActivationRefusal(RefusalReason.FREEZE_FAILED, "seal root") from exc
 
 
 __all__ = [
@@ -380,6 +607,6 @@ __all__ = [
     "PinRecord",
     "RefusalReason",
     "TerminalKind",
-    "make_tree_deletable",
     "seal_freeze_tree",
+    "seal_freeze_tree_fd",
 ]

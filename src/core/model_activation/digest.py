@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import os
-from typing import Iterable, List, Sequence, Tuple
+from typing import Iterable, List, Optional, Sequence, Tuple
 
 from src.core.model_activation.types import ActivationRefusal, RefusalReason
 
@@ -37,10 +37,14 @@ def read_fd_bounded_once(fd: int, max_bytes: int, *, expect_size: int | None = N
     # Read in chunks; never exceed max_bytes.
     while total < target:
         to_read = min(1024 * 1024, target - total)
+        mapped: Optional[ActivationRefusal] = None
+        chunk = b""
         try:
             chunk = os.read(fd, to_read)
-        except OSError as exc:
-            raise ActivationRefusal(RefusalReason.UNREADABLE, "read failed") from exc
+        except OSError:
+            mapped = ActivationRefusal(RefusalReason.UNREADABLE, "read failed")
+        if mapped is not None:
+            raise mapped
         if not chunk:
             break
         total += len(chunk)
@@ -56,10 +60,14 @@ def read_fd_bounded_once(fd: int, max_bytes: int, *, expect_size: int | None = N
                 RefusalReason.GROWING_FILE, "size changed during read"
             )
         # One more probe: if the file grew past fstat size, refuse.
+        mapped_p: Optional[ActivationRefusal] = None
+        extra = b""
         try:
             extra = os.read(fd, 1)
-        except OSError as exc:
-            raise ActivationRefusal(RefusalReason.UNREADABLE, "read probe") from exc
+        except OSError:
+            mapped_p = ActivationRefusal(RefusalReason.UNREADABLE, "read probe")
+        if mapped_p is not None:
+            raise mapped_p
         if extra:
             raise ActivationRefusal(RefusalReason.GROWING_FILE, "grew past fstat")
     else:
@@ -77,18 +85,22 @@ def tree_digest_v1_records(entries: Sequence[Tuple[str, str]]) -> bytes:
     bytewise by UTF-8 relpath and joined by ``0x00``.
 
     Each record::
+
         ascii_decimal(len(utf8_relpath)) · 0x1F · relpath_bytes · 0x1F · hex_digest
     """
     records: List[Tuple[bytes, bytes]] = []
     for relpath, hex_digest in entries:
         if not isinstance(relpath, str) or not isinstance(hex_digest, str):
             raise ActivationRefusal(RefusalReason.INTERNAL, "bad digest entry")
+        mapped: Optional[ActivationRefusal] = None
+        rel_b: Optional[bytes] = None
         try:
             rel_b = relpath.encode("utf-8")
-        except UnicodeEncodeError as exc:
-            raise ActivationRefusal(
-                RefusalReason.NON_UTF8_ENTRY, "relpath not utf-8"
-            ) from exc
+        except UnicodeEncodeError:
+            mapped = ActivationRefusal(RefusalReason.NON_UTF8_ENTRY, "relpath not utf-8")
+        if mapped is not None:
+            raise mapped
+        assert rel_b is not None
         dig = hex_digest.lower()
         if len(dig) != 64 or any(c not in "0123456789abcdef" for c in dig):
             raise ActivationRefusal(RefusalReason.DIGEST_INVALID, "entry digest")
