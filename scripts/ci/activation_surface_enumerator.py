@@ -38,11 +38,22 @@ FINDING; exit 2 = MALFUNCTION — the gate could not complete its own check (an 
 read/parsed, or the manifest is missing/unreadable/undecodable/invalid-JSON/schema-invalid), so
 completeness CANNOT be asserted → fail-closed, never a silent skip. A malfunction is NOT a finding, and
 never wears a finding's exit code. Stdlib only.
+
+**C5 structural wiring check (added in Phase-A):** beyond discovery+classification, each ``gated`` site
+carries a ``wiring`` lifecycle (``wired`` / ``gate-before-wired`` / ``latent``) and a raw deserializer
+(``torch.load`` / ``pickle.load`` / ``pickle.loads`` / ``joblib.load``) declared ``wired`` must actually
+reconstruct from ``activate_file`` / ``activate_bundle`` bytes — its enclosing function must delegate to
+the gateway. A ``wired`` raw loader that still reads bytes straight off a path (the wrapper was removed)
+is a structural inconsistency. Per the ratified W4 this is BLOCKING only once ``ACTIVATION_ENFORCE_WIRING``
+is set (after all in-scope live activations are wired); until the owner flips it the structural check is
+present-but-advisory (printed, exit code unchanged) so it cannot red CI on families that are still
+``gate-before-wired``. See :func:`structural_findings`.
 """
 from __future__ import annotations
 
 import ast
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -51,6 +62,27 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = REPO_ROOT / "scripts" / "ci" / "activation_surface.json"
 SCAN_DIRS = ("src", "scripts")
 VALID_CLASSES = {"gated", "producer", "offline", "unmounted", "infra"}
+
+# --- C5 structural wiring check ---------------------------------------------------------------------
+# A raw deserializer (torch.load / pickle.load / pickle.loads / joblib.load) that lands a model into a
+# LIVE serving path must not read bytes straight off a path — it must reconstruct from the verified,
+# digest-pinned bytes returned by the activation gateway. The gateway functions whose result the
+# reconstruction must come from (or whose enclosing function must delegate to):
+_ACTIVATION_FUNCS = {"activate_file", "activate_bundle"}
+# The raw deserializer idioms the wrap check governs (a subset of the enumerated kinds — NOT
+# load_state_dict/from_pretrained/ctor:*, which consume bytes/paths the raw loader already produced).
+RAW_LOADER_KINDS = {"torch.load", "pickle.load", "pickle.loads", "joblib.load"}
+# Every `gated` site carries a wiring lifecycle so the structural check knows its intended posture:
+#   wired             — routed through the gateway; its enclosing function MUST delegate to activate_*.
+#   gate-before-wired — a LIVE gated site not yet routed through the gateway (deferred to a later wave,
+#                       e.g. the OCR/embedding families that need C1 bundle-path support); still a raw
+#                       load today, tracked so it cannot be forgotten.
+#   latent            — a sealed / not-currently-live path (e.g. the 403-sealed hot-reload); raw, exempt.
+VALID_WIRING = {"wired", "gate-before-wired", "latent"}
+# W4 (ratified): the structural wrap check is BLOCKING only after all in-scope live activations are
+# wired. Until the owner flips it, it is present-but-advisory; setting this env truthy makes a
+# structural inconsistency a FINDING (exit 1). See main().
+ENV_ENFORCE_WIRING = "ACTIVATION_ENFORCE_WIRING"
 
 # Deserializer / model-loader modules and their load attributes.
 _MODULE_LOADERS = {"torch": {"load"}, "pickle": {"load", "loads"}, "joblib": {"load"}, "onnx": {"load"}}
@@ -120,28 +152,51 @@ class _LoadVisitor(ast.NodeVisitor):
         self.mod_alias = mod_alias
         self.imported = imported
         self.stack: List[str] = []
-        self.sites: List[Tuple[str, str, int]] = []  # (qualname, kind, lineno)
+        # full-qualname of every enclosing FUNCTION scope (class scopes excluded) — used to attribute
+        # each load site to its enclosing function(s) and to know which functions delegate to the gateway.
+        self.func_qual: List[str] = []
+        # (qualname, kind, lineno, func_ctx) — func_ctx = tuple of enclosing function qualnames.
+        self.sites: List[Tuple[str, str, int, Tuple[str, ...]]] = []
+        # function qualnames whose body contains a call to activate_file / activate_bundle. A raw load
+        # inside such a function reconstructs from gateway-verified bytes (canonical activation path).
+        self.delegating: set = set()
 
-    def _scoped(self, name: str, node: ast.AST) -> None:
+    def _scoped(self, name: str, node: ast.AST, is_func: bool) -> None:
         self.stack.append(name)
+        if is_func:
+            self.func_qual.append(".".join(self.stack))
         self.generic_visit(node)
+        if is_func:
+            self.func_qual.pop()
         self.stack.pop()
 
     def visit_FunctionDef(self, node):  # noqa: D401
-        self._scoped(node.name, node)
+        self._scoped(node.name, node, True)
 
     def visit_AsyncFunctionDef(self, node):
-        self._scoped(node.name, node)
+        self._scoped(node.name, node, True)
 
     def visit_ClassDef(self, node):
-        self._scoped(node.name, node)
+        self._scoped(node.name, node, False)
 
     def visit_Call(self, node: ast.Call) -> None:
+        if self._is_activation_call(node.func):
+            # every enclosing function of an activate_* call is a delegating (canonical-path) function.
+            for fq in self.func_qual:
+                self.delegating.add(fq)
         kind = self._classify(node.func)
         if kind:
             qual = ".".join(self.stack) if self.stack else "<module>"
-            self.sites.append((qual, kind, node.lineno))
+            self.sites.append((qual, kind, node.lineno, tuple(self.func_qual)))
         self.generic_visit(node)
+
+    @staticmethod
+    def _is_activation_call(func: ast.AST) -> bool:
+        if isinstance(func, ast.Name):
+            return func.id in _ACTIVATION_FUNCS
+        if isinstance(func, ast.Attribute):
+            return func.attr in _ACTIVATION_FUNCS
+        return False
 
     def _classify(self, func: ast.AST):
         if isinstance(func, ast.Attribute):
@@ -195,11 +250,16 @@ def enumerate_sites() -> Dict[str, dict]:
             v = _LoadVisitor(mod_alias, imported)
             v.visit(tree)
             per_key: Dict[str, int] = {}
-            for qual, kind, lineno in v.sites:
+            for qual, kind, lineno, func_ctx in v.sites:
                 base = f"{rel}::{qual}::{kind}"
                 n = per_key.get(base, 0)
                 per_key[base] = n + 1
-                found[f"{base}#{n}"] = {"file": rel, "symbol": qual, "kind": kind, "lineno": lineno}
+                # `wrapped`: does the load reconstruct from gateway-verified bytes? True iff any enclosing
+                # function delegates to activate_file / activate_bundle. A module-level load is never wrapped.
+                wrapped = any(fq in v.delegating for fq in func_ctx)
+                found[f"{base}#{n}"] = {
+                    "file": rel, "symbol": qual, "kind": kind, "lineno": lineno, "wrapped": wrapped,
+                }
     if malfunctions:
         raise EnumeratorMalfunction(malfunctions)
     return found
@@ -253,6 +313,63 @@ def load_manifest() -> Dict[str, dict]:
     return entries
 
 
+def structural_findings(
+    found: Dict[str, dict], manifest: Dict[str, dict]
+) -> List[Tuple[str, str, str]]:
+    """Wiring-consistency findings for `gated` sites — the C5 structural proof.
+
+    Returns ``(key, code, message)`` for each inconsistency between a gated site's declared ``wiring``
+    lifecycle and what the source AST actually shows:
+
+    * a gated site with no valid ``wiring`` value — the lifecycle must be declared, else a new gated
+      load could hide unrouted;
+    * a raw deserializer (``RAW_LOADER_KINDS``) marked ``wiring="wired"`` whose enclosing function does
+      NOT delegate to ``activate_file``/``activate_bundle`` — i.e. it can still read bytes straight off a
+      path, so a missing/tampered artifact could load UNVERIFIED (this is the remove-the-wrapper regression);
+    * a raw deserializer marked ``gate-before-wired``/``latent`` that IS wrapped — the marker is stale, it
+      has been routed through the gateway and should be reclassified ``wired``.
+
+    Sites of class other than ``gated`` (producer / offline / unmounted / infra) are not serving-path
+    activations and are out of scope here. Non-raw gated kinds (``load_state_dict`` / ``from_pretrained`` /
+    ``ctor:*``) still require a ``wiring`` value but are not subject to the wrap requirement — they consume
+    what a raw loader already produced. Whether these findings are BLOCKING is decided by the caller
+    (per the ratified W4): advisory until ``ENV_ENFORCE_WIRING`` is set.
+    """
+    findings: List[Tuple[str, str, str]] = []
+    for key, site in found.items():
+        entry = manifest.get(key)
+        if entry is None or entry.get("class") != "gated":
+            continue  # unclassified sites are caught by the completeness check; non-gated is out of scope
+        wiring = entry.get("wiring")
+        if wiring not in VALID_WIRING:
+            findings.append(
+                (key, "missing-wiring",
+                 f"gated site needs a `wiring` in {sorted(VALID_WIRING)}, got {wiring!r}")
+            )
+            continue
+        if site["kind"] not in RAW_LOADER_KINDS:
+            continue  # the wrap requirement governs raw deserializers only
+        wrapped = bool(site.get("wrapped"))
+        if wiring == "wired" and not wrapped:
+            findings.append(
+                (key, "wired-but-unwrapped",
+                 "marked wiring=wired but its enclosing function does not delegate to "
+                 "activate_file/activate_bundle — a raw load-by-path can load UNVERIFIED bytes")
+            )
+        elif wiring in {"gate-before-wired", "latent"} and wrapped:
+            findings.append(
+                (key, "unwired-but-wrapped",
+                 f"marked wiring={wiring} but the site IS routed through the activation gateway — "
+                 "reclassify to wiring=wired")
+            )
+    return findings
+
+
+def _enforce_wiring_enabled() -> bool:
+    """Whether the structural wrap check is BLOCKING (per ratified W4). Default: advisory-only."""
+    return os.environ.get(ENV_ENFORCE_WIRING, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def main(argv=None) -> int:
     try:
         found = enumerate_sites()
@@ -281,7 +398,29 @@ def main(argv=None) -> int:
         sys.stderr.write("[activation-enumerator] RED — STALE manifest entr(y/ies) (re-key/remove):\n")
         for k in stale:
             sys.stderr.write(f"  - {k}  (was: {manifest[k].get('class')})\n")
-    if unclassified or stale:
+
+    # C5 structural wiring check. Per the ratified W4 it is BLOCKING only once ENV_ENFORCE_WIRING is
+    # set (after all in-scope live activations are wired); until then it is present-but-advisory so it
+    # cannot red CI on account of families that are still gate-before-wired.
+    struct = structural_findings(found, manifest)
+    enforce = _enforce_wiring_enabled()
+    if struct:
+        if enforce:
+            sys.stderr.write(
+                "[activation-enumerator] RED (structural wiring, ENFORCED) — gated raw-loader routing "
+                "inconsistenc(y/ies); a LIVE raw loader must reconstruct from activate_file/activate_bundle "
+                "bytes:\n"
+            )
+        else:
+            sys.stderr.write(
+                "[activation-enumerator] ADVISORY (structural wiring, non-blocking — set "
+                f"{ENV_ENFORCE_WIRING}=1 to enforce per ratified W4) — gated raw-loader routing "
+                "inconsistenc(y/ies):\n"
+            )
+        for k, code, msg in struct:
+            sys.stderr.write(f"  * {k}  [{code}]  {msg}\n")
+
+    if unclassified or stale or (struct and enforce):
         return EXIT_FINDING
 
     by_class: Dict[str, int] = {}

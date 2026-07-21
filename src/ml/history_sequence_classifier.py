@@ -9,6 +9,7 @@ The classifier supports:
 
 from __future__ import annotations
 
+import io
 import json
 import logging
 import math
@@ -17,6 +18,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from src.core.model_activation.activation_gateway import activate_file
 from src.ml.history_sequence_tools import (
     load_command_tokens_from_h5,
     sequence_statistics,
@@ -153,13 +155,18 @@ class HistorySequenceClassifier:
         self.prototype_bias = parsed_bias
 
     def _load_model(self) -> None:
-        if not HAS_TORCH or not self.model_path:
+        if not HAS_TORCH:
             return
-        model_path = Path(self.model_path).expanduser()
-        if not model_path.exists():
+        # Model bytes are only ever obtained through the model-activation
+        # gateway's verified-artifact contract: `None` means "unconfigured or
+        # refused" and the family MUST degrade to the prototype fallback
+        # below, never fall back to a raw path-based load of an
+        # unverified/tampered artifact.
+        data = activate_file("history/sequence", "main")
+        if data is None:
             return
         try:
-            checkpoint = torch.load(str(model_path), map_location="cpu")
+            checkpoint = torch.load(io.BytesIO(data), map_location="cpu")
             raw_label_map = checkpoint.get("label_map", {})
             if not isinstance(raw_label_map, dict) or not raw_label_map:
                 raise ValueError("missing label_map in checkpoint")
@@ -207,7 +214,9 @@ class HistorySequenceClassifier:
             self._loaded_model = True
         except Exception as exc:
             logger.warning(
-                "Failed loading history sequence model %s: %s", model_path, exc
+                "Failed loading history sequence model (logical_activation_id=%s): %s",
+                "history/sequence",
+                exc,
             )
             self.model = None
             self.label_map = {}

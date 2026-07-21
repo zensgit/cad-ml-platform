@@ -76,13 +76,23 @@ def load_model() -> None:
             classification_model_version_total,
         )
 
-        if not _MODEL_PATH.exists():
+        # L3 Phase-A C2 wiring: activate the pinned classifier through the
+        # controlled store instead of raw-loading by path. ``activate_file``
+        # returns verified bytes on success, or ``None`` on ANY refusal (pin
+        # absent, store unconfigured, digest mismatch, ...). ``None`` is the
+        # universal degrade signal: leave ``_MODEL`` None so ``predict`` reports
+        # the existing ``model_unavailable`` contract. There is deliberately NO
+        # raw-load-by-path fallback — a missing/tampered artifact must never load
+        # unverified.
+        from src.core.model_activation.activation_gateway import activate_file
+
+        data = activate_file("pickle-classifier/main", "main")
+        if data is None:
             classification_model_load_total.labels(status="absent", version=_MODEL_VERSION).inc()
             return
         try:
-            with _MODEL_PATH.open("rb") as f:
-                # Trusted local model file only; guarded by hash + opcode checks.
-                _MODEL = pickle.load(f)  # nosec B301
+            # Verified, digest-pinned bytes from the controlled store.
+            _MODEL = pickle.loads(data)  # nosec B301
 
             import time as _t
 
@@ -95,7 +105,7 @@ def load_model() -> None:
             try:
                 import hashlib
 
-                _MODEL_HASH = hashlib.sha256(_MODEL_PATH.read_bytes()).hexdigest()[:16]
+                _MODEL_HASH = hashlib.sha256(data).hexdigest()[:16]
             except Exception:
                 _MODEL_HASH = None
 

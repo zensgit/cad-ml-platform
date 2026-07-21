@@ -97,11 +97,12 @@ def _get_ml_classifier() -> Optional[Any]:
     try:
         from src.ml.part_classifier import PartClassifier
         model_path = os.getenv("CAD_CLASSIFIER_MODEL", "models/cad_classifier_v6.pt")
-        if os.path.exists(model_path):
-            _ml_classifier = PartClassifier(model_path)
-            logger.info(f"ML分类器加载成功: {model_path}")
-        else:
-            logger.warning(f"ML分类器模型不存在: {model_path}，将使用规则分类")
+        # No raw os.path.exists precheck: the activation gateway (part/v6, "main")
+        # is now the sole load path inside PartClassifier._load_model, and its
+        # `None` degrade signal is the thing that decides availability — a
+        # path-existence check here would be a stale/bypassable proxy for it.
+        _ml_classifier = PartClassifier(model_path)
+        logger.info(f"ML分类器加载成功: {model_path}")
     except Exception as e:
         logger.warning(f"ML分类器加载失败: {e}，将使用规则分类")
     return _ml_classifier

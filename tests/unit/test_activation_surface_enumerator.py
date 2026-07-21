@@ -221,3 +221,129 @@ def test_real_hf_and_embedding_loaders_are_gated() -> None:
         assert hits, f"{f} not enumerated (blind spot regressed)"
         assert all(e["class"] == "gated" and e.get("family") for e in hits), \
             f"{f} must be gated with a family: {hits}"
+
+
+# --- C5 structural wiring check --------------------------------------------------------------------
+# A `wired` raw deserializer (torch.load/pickle.load[s]/joblib.load) MUST reconstruct from
+# activate_file/activate_bundle bytes; if the wrapper is removed and it reads bytes straight off a
+# path again, the structural check must go RED (under enforce) — the remove-the-wrapper discriminator.
+# Per the ratified W4 the check is present-but-advisory by default and BLOCKING only under
+# ACTIVATION_ENFORCE_WIRING; both directions are exercised below.
+
+# A LIVE gated raw loader that reconstructs from gateway-verified bytes (enclosing function delegates).
+_WRAPPED_SRC = (
+    "import io, torch\n"
+    "from src.core.model_activation.activation_gateway import activate_file\n"
+    "class M:\n"
+    "    def load(self):\n"
+    "        data = activate_file('fam/main', 'main')\n"
+    "        if data is None:\n"
+    "            return None\n"
+    "        return torch.load(io.BytesIO(data), map_location='cpu')\n"
+)
+# The SAME site with the gateway wrapper REMOVED — a raw load straight off a path (unverified).
+_UNWRAPPED_SRC = (
+    "import torch\n"
+    "class M:\n"
+    "    def load(self, path):\n"
+    "        return torch.load(path, map_location='cpu')\n"
+)
+_SITE_KEY = "src/fam.py::M.load::torch.load#0"
+
+
+def _scan_with_manifest(tmp_path, monkeypatch, src: str, entry: dict, key: str = _SITE_KEY) -> None:
+    """Point the enumerator at a one-file `src/` tree + a manifest classifying its single load site."""
+    p = tmp_path / "src" / "fam.py"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(src, encoding="utf-8")
+    mani = tmp_path / "manifest.json"
+    mani.write_text(json.dumps({"sites": {key: entry}}), encoding="utf-8")
+    monkeypatch.setattr(enum, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(enum, "SCAN_DIRS", ("src",))
+    monkeypatch.setattr(enum, "MANIFEST", mani)
+
+
+_WIRED_ENTRY = {"class": "gated", "family": "fam", "wiring": "wired", "reason": "live"}
+
+
+def test_wrapped_wired_site_detected_as_wrapped(tmp_path, monkeypatch) -> None:
+    # unit-level: the AST wrap detector sees the enclosing function delegate to activate_file.
+    _scan_with_manifest(tmp_path, monkeypatch, _WRAPPED_SRC, _WIRED_ENTRY)
+    found = enum.enumerate_sites()
+    assert found[_SITE_KEY]["wrapped"] is True
+    assert enum.structural_findings(found, enum.load_manifest()) == []
+
+
+def test_wired_site_with_wrapper_present_is_green_even_enforced(tmp_path, monkeypatch) -> None:
+    # positive control for the discriminator: wrapper present -> no finding, exit 0 even under enforce.
+    _scan_with_manifest(tmp_path, monkeypatch, _WRAPPED_SRC, _WIRED_ENTRY)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_OK == 0
+
+
+def test_remove_the_wrapper_is_observed_RED_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # THE discriminator: same wired-marked site but the activate_file wrapper is REMOVED -> the raw
+    # torch.load reads straight off a path -> structural inconsistency -> RED (exit 1) under enforce.
+    _scan_with_manifest(tmp_path, monkeypatch, _UNWRAPPED_SRC, _WIRED_ENTRY)
+    found = enum.enumerate_sites()
+    assert found[_SITE_KEY]["wrapped"] is False  # detector no longer sees the gateway delegation
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_FINDING == 1
+    err = capsys.readouterr().err
+    assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _SITE_KEY in err
+
+
+def test_remove_the_wrapper_is_advisory_only_by_default(tmp_path, monkeypatch, capsys) -> None:
+    # W4: without the enforce flag the SAME inconsistency is advisory — printed, but exit 0 (non-blocking),
+    # so it cannot red CI while in-scope families are still being wired.
+    _scan_with_manifest(tmp_path, monkeypatch, _UNWRAPPED_SRC, _WIRED_ENTRY)
+    monkeypatch.delenv(enum.ENV_ENFORCE_WIRING, raising=False)
+    assert enum.main() == enum.EXIT_OK == 0
+    err = capsys.readouterr().err
+    assert "ADVISORY (structural wiring, non-blocking" in err and "wired-but-unwrapped" in err
+
+
+def test_gate_before_wired_unwrapped_raw_loader_is_consistent(tmp_path, monkeypatch) -> None:
+    # a LIVE gated raw loader not yet routed (gate-before-wired) is a raw load today -> consistent,
+    # green even under enforce (this is why enforce can be flipped without redding deferred families).
+    entry = {"class": "gated", "family": "fam", "wiring": "gate-before-wired", "reason": "deferred"}
+    _scan_with_manifest(tmp_path, monkeypatch, _UNWRAPPED_SRC, entry)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_OK == 0
+
+
+def test_gate_before_wired_but_actually_wrapped_reds_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # the inverse lie: a site marked gate-before-wired that IS routed through the gateway -> stale
+    # marker -> RED under enforce (forces reclassification to wired, so the manifest cannot under-claim).
+    entry = {"class": "gated", "family": "fam", "wiring": "gate-before-wired", "reason": "stale"}
+    _scan_with_manifest(tmp_path, monkeypatch, _WRAPPED_SRC, entry)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_FINDING == 1
+    assert "unwired-but-wrapped" in capsys.readouterr().err
+
+
+def test_gated_raw_loader_missing_wiring_reds_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # a gated site with no wiring lifecycle is itself a finding under enforce — the lifecycle must be
+    # declared so a new gated load cannot slip in unrouted-and-unmarked.
+    entry = {"class": "gated", "family": "fam", "reason": "no wiring field"}
+    _scan_with_manifest(tmp_path, monkeypatch, _WRAPPED_SRC, entry)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_FINDING == 1
+    assert "missing-wiring" in capsys.readouterr().err
+
+
+def test_real_tree_is_structurally_consistent_under_enforce() -> None:
+    # integration: the real source tree + manifest carry NO structural inconsistency — every `wired`
+    # raw loader actually reconstructs from activate_file/activate_bundle bytes, and every
+    # gate-before-wired/latent raw loader is still a raw load. So the owner can flip enforce ON safely.
+    found = enum.enumerate_sites()
+    manifest = enum.load_manifest()
+    assert enum.structural_findings(found, manifest) == []
+
+
+def test_every_gated_site_carries_a_valid_wiring() -> None:
+    # manifest self-consistency: all 38 gated sites declare a wiring lifecycle in the valid set.
+    manifest = enum.load_manifest()
+    bad = {k: e.get("wiring") for k, e in manifest.items()
+           if e["class"] == "gated" and e.get("wiring") not in enum.VALID_WIRING}
+    assert not bad, f"gated sites with missing/invalid wiring: {bad}"

@@ -7,9 +7,12 @@ Supports ensemble voting with multiple models.
 
 from __future__ import annotations
 
+import io
 import logging
 import os
 from typing import Any, Dict, List, Optional
+
+from src.core.model_activation.activation_gateway import activate_file
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +62,12 @@ class Graph2DClassifier:
 
         self._load_temperature()
 
-        if HAS_TORCH and os.path.exists(self.model_path):
+        if HAS_TORCH:
+            # Model bytes now come exclusively from the C1 activation gateway
+            # (pin + digest verified), not a raw filesystem read of
+            # ``self.model_path`` — so the load is attempted regardless of
+            # whether that path exists locally; the gateway degrades to
+            # ``None`` (never raw-loads) when unpinned/unconfigured/tampered.
             try:
                 self._load_model()
             except Exception as exc:  # noqa: BLE001
@@ -133,7 +141,20 @@ class Graph2DClassifier:
     def _load_model(self) -> None:
         if not HAS_TORCH or torch is None:
             return
-        checkpoint = torch.load(self.model_path, map_location=self.device, weights_only=False)
+        data = activate_file("graph2d/main", "main")
+        if data is None:
+            # Universal C4 degraded signal: pin absent, artifact missing,
+            # digest mismatch, or store unconfigured. Never fall back to a
+            # raw filesystem load of ``self.model_path``. This is a graceful
+            # FALLBACK (readiness reports "graph2d:fallback"), NOT a load error —
+            # it mirrors the pre-wiring "missing model file" contract. A genuine
+            # framework-load failure on verified bytes is still caught in
+            # ``__init__`` and recorded as ``_load_error``.
+            self.model = None
+            self._loaded = False
+            self._load_error = None
+            return
+        checkpoint = torch.load(io.BytesIO(data), map_location=self.device, weights_only=False)
         self.label_map = checkpoint.get("label_map", {})
         self.node_dim = int(checkpoint.get("node_dim", DXF_NODE_DIM))
         self.edge_dim = int(checkpoint.get("edge_dim", DXF_EDGE_DIM))

@@ -5,10 +5,13 @@ Handles Deep Geometric Learning inference.
 Designed to interface with UV-Net Graph Models.
 """
 
+import io
 import logging
 import os
 import time
 from typing import Any, Dict, List, Optional, Union
+
+from src.core.model_activation.activation_gateway import activate_file
 
 logger = logging.getLogger(__name__)
 
@@ -180,20 +183,27 @@ class UVNetEncoder:
             self._load_model()
 
     def _load_model(self):
-        """Load the pre-trained model."""
+        """Load the pre-trained model via the C4 activation gateway.
+
+        The gateway returns verified bytes on success, or ``None`` on ANY
+        refusal (pin absent, digest mismatch, unconfigured store, ...). ``None``
+        means this family must degrade to the mock encoder — there is no raw
+        path-based load fallback.
+        """
         if not HAS_TORCH:
             return
 
-        if not os.path.exists(self.model_path):
+        data = activate_file("vision3d-uvnet/main", "main")
+        if data is None:
             logger.info(
-                "UV-Net model not found at %s. Will use mock encoder until model is trained.",
-                self.model_path,
+                "UV-Net model activation degraded (pin absent/refused/unconfigured "
+                "store); using mock encoder until a pinned model is available."
             )
             return
 
         try:
             # Load state dict and config
-            checkpoint = torch.load(self.model_path, map_location=self.device)
+            checkpoint = torch.load(io.BytesIO(data), map_location=self.device)
 
             # Initialize model architecture (Config-driven if available)
             config = checkpoint.get("config", {})
@@ -222,7 +232,7 @@ class UVNetEncoder:
             self.model.eval()
 
             self._loaded = True
-            logger.info(f"UV-Net GNN model loaded from {self.model_path}")
+            logger.info("UV-Net GNN model activated via gateway (id=vision3d-uvnet/main)")
         except Exception as e:
             logger.error(f"Failed to load UV-Net model: {e}")
             self._load_error = f"Failed to load UV-Net model: {e}"
