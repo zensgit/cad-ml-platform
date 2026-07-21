@@ -49,10 +49,16 @@ heuristic is a **fail-safe fallback**, never an override.
 
 ### A. Split integrity — content-hash + normalized-family, not path-only (§8.1.1, §8.1.3)
 - **Family key** = the manifest `family`/`source_id` column when present (**authoritative**, §8.1.6). Absent →
-  `normalized_family(path)`: Unicode-NFC, then strip augmentation/revision/copy/OS-duplicate markers
-  (`_aug*`, `_rot*`, `_flip*`, `_scale*`, `_v\d+`, `_rev\d+`, `_copy`/`- Copy`, `(1)`, bare trailing digits).
+  `normalized_family(path)`: Unicode-NFC, then strip augmentation/revision/copy/OS-duplicate markers. The
+  markers below are the **intent** (a variant suffix on the stem); E1 must implement each as a **properly
+  anchored** matcher — literal parentheses, `_aug` as a stem suffix not `_au` + `g*`, alternation not a `/`
+  separator — and the exact matchers are pinned by discriminator #4, not by this notation:
+  `_aug.*`, `_rot.*`, `_flip.*`, `_scale.*`, `_v\d+`, `_rev\d+`, `(_copy|- Copy)`, literal `\(1\)`, and bare
+  trailing digits on the stem (`gear2` → `gear`).
   The fallback must **err toward over-collapse**: for a leakage guard, over-collapse (keeping a drawing's
-  variants together) is safe; under-collapse leaks. A real `family` column is strictly preferred.
+  variants together) is safe; under-collapse leaks. A real `family` column is strictly preferred. (An
+  over-broad matcher only over-collapses — safe for leakage; but it must not match *unrelated* stems, e.g.
+  `plate_aux` must not lose `_aux` — hence anchoring, verified by #4.)
 - **Split unit** = a **union-find component** of `(family ∪ byte-identical-content)`. Two differently-named
   byte-identical files merge into one unit and **cannot straddle** train/holdout. Assignment is deterministic
   by hashing `"evaluation-integrity-v2|<component>"` — **no RNG, no dict-order dependence**.
@@ -135,7 +141,10 @@ regressed implementation; a green run of these is the acceptance evidence, and e
 
 **Leakage discriminators (§8.1.1–.3):**
 4. Family variant collapse: `gear2` / `gear (1)` / `gear - Copy` / NFC-vs-NFD all land in one unit and never
-   straddle (the #510 audit HIGH — under-collapse straddle — must stay closed).
+   straddle (the #510 audit HIGH — under-collapse straddle — must stay closed). **Negative half (anchoring):**
+   an unrelated stem sharing a prefix — `plate_aux` vs `plate` — must **not** collapse (proves the marker
+   matchers are anchored, not `_au` + `g*`); this discriminator fails if either the straddle reappears or the
+   negative pair wrongly merges.
 5. Byte-identical content across differently-named families lands on **one** side.
 6. Identical content + inconsistent labels → **quarantined**, not split.
 7. Fail-closed content: unreadable bytes **and** a NUL-byte path → **quarantined**, not "distinct"/crash
