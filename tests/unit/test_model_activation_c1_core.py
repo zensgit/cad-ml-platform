@@ -1301,7 +1301,14 @@ def test_openat2_bundle_intermediate_symlink_refused(tmp_path: Path) -> None:
     pin = _bundle_pin(
         "act.o2s", "art.o2s", "family/bundle", [("m.bin", b"evil")]
     )
-    store = _store(root, [pin], impl=ResolverImpl.OPENAT2)
+    # freeze_parent required since the no-default-temp contract; the refusal
+    # under test must come from the OPENAT2 resolver, not the freeze pre-gate.
+    store = _store(
+        root,
+        [pin],
+        impl=ResolverImpl.OPENAT2,
+        freeze_parent=tmp_path / "freeze",
+    )
     try:
         # last_open_impl is set only on successful open; on refusal, prove the
         # OPENAT2 path ran (and COMPONENT did not) via spy — equivalent guard
