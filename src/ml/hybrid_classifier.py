@@ -1103,6 +1103,33 @@ class HybridClassifier:
         history_conf = (
             float(history_pred.get("confidence", 0.0)) if history_pred else 0.0
         )
+        # F4 (L3 design-lock §403–410): a degraded / model-unavailable history
+        # prediction MUST EXIT MODEL FUSION. history_sequence_classifier keeps
+        # status="ok" for legacy compat but stamps degraded=True /
+        # model_available=False when the pinned model is unavailable and only the
+        # rule-based prototype answered. Such a prediction may NOT win as a
+        # DecisionSource.HISTORY model vote nor be fused as a model signal; it is
+        # only retained as an explicit rule/fallback-labeled auxiliary result in
+        # decision_path / metadata. (Payload shape is untouched — read-only here.)
+        history_degraded = bool(history_pred) and (
+            history_pred.get("degraded") is True
+            or history_pred.get("model_available") is False
+        )
+        if history_degraded and history_label:
+            result.decision_path.append("history_degraded_excluded_from_fusion")
+            if result.history_prediction is not None:
+                result.history_prediction = dict(result.history_prediction)
+                result.history_prediction["used_for_fusion"] = False
+                result.history_prediction["fusion_excluded_reason"] = (
+                    "degraded_model_unavailable"
+                )
+                # Auxiliary rule/fallback record — NOT a model-fusion vote.
+                result.history_prediction["auxiliary_role"] = "rule_fallback"
+                result.history_prediction["auxiliary_label"] = history_label
+            # Remove it from every downstream model-fusion selection path.
+            history_label = None
+            history_label_raw = None
+            history_conf = 0.0
         history_shadow_mode = bool(history_pred) and self.history_shadow_only
         if history_shadow_mode and result.history_prediction is not None:
             result.history_prediction = dict(result.history_prediction)

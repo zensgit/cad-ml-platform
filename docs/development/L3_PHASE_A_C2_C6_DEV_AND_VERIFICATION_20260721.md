@@ -51,9 +51,9 @@ existing degraded branch; otherwise it reconstructs from bytes
 (`torch.load(io.BytesIO(data), …)` / `pickle.loads(data)`). No family reads a
 model path directly any more (Phase-A decision #3).
 
-## 3. Per-family C2 wiring table (the 7 in-scope activations / 8 pins)
+## 3. Per-family C2 wiring table (the 7 in-scope activations / 9 pins)
 
-Denominator = **7 logical activations / 8 pins** wired. Degrade = the `None`
+Denominator = **7 logical activations / 9 pins** wired. Degrade = the `None`
 path routes into the family's pre-existing unavailable branch; a
 missing/tampered/unpinned artifact can never load unverified.
 
@@ -74,9 +74,11 @@ Notes: `part/v16-v6pt` is **three SINGLE_FILE pins sharing one logical id**
 pin. The config json sets `self.v6_weight`/`self.v14_weight` (it combines the V6
 and V14 predictions), so even with both checkpoints pinned, editing it changes
 outputs — it is itself a weight-bearing artifact and is pinned as a third
-SINGLE_FILE artifact (owner two-pins-one-id shape extended to three; **needs an
-owner nod** since it extends decision-1's two-pin count). Absent/tampered config
-degrades the WHOLE V16 family — never a silent proceed with the default weights
+SINGLE_FILE artifact. **Ratified this review round:** decision-1's two-pins-one-id
+shape is extended to three (`v6pt`, `v14ens`, `v16config`) under the same
+logical activation id, all-or-nothing, NOT a bundle — this is the owner ruling
+that also moves the family/pin denominator from 8 to **9 pins** (§3). Absent/tampered
+config degrades the WHOLE V16 family — never a silent proceed with the default weights
 (consistent with F4, design-lock line 403). The `pickle-classifier/reload`
 pathway is **latent, sealed 403, register-only, not wired, not in the
 denominator** (owner decision 2).
@@ -408,13 +410,28 @@ EXPLICITLY labeled degraded.**
 - `src/ml/history_sequence_classifier.py::predict_from_tokens` — when the pinned
   model is unavailable and the prototype (rule-based) scorer answers, the payload
   is stamped `model_available=False`, `degraded=True`,
-  `degraded_reason="pinned_model_unavailable"`. The functional `status="ok"` /
-  `source="history_sequence_prototype"` is retained (the hybrid consumer and the
-  prototype contract read it), so this is the owner-approved "rule-based result,
-  explicitly labeled" shape — *not a bare silent ok*.
+  `degraded_reason="pinned_model_unavailable"`. **Ratified this review round:**
+  the functional `status="ok"` / `source="history_sequence_prototype"` is kept
+  only for legacy compat (the pre-existing prototype contract reads it), but a
+  `degraded=True` history prediction now **EXITS model fusion** —
+  `src/ml/hybrid_classifier.py` detects `degraded`/`model_available=False` and
+  excludes it from every downstream model-vote/fusion path
+  (`decision_path` gets `history_degraded_excluded_from_fusion`; the retained
+  record is stamped `used_for_fusion=False`, `fusion_excluded_reason=
+  "degraded_model_unavailable"`, `auxiliary_role="rule_fallback"`). It survives
+  only as an explicit rule/fallback auxiliary result, never as a model signal.
+  Covered by the new `tests/unit/test_hybrid_history_degraded.py`.
 - `src/ml/vision_3d.py` — the mock B-Rep embedding path is now non-silent: it
   logs a WARNING and sets `last_encode_degraded=True`, and the encoder exposes a
   `model_available` property (mirrors gateway activation) for callers/health.
+  `src/core/feature_pipeline.py` propagates that marker with the 3D embedding
+  result as `embedding_degraded`/`embedding_provenance` (`"mock_heuristic"` vs
+  `"uvnet_model"`), fail-closed (an encoder with no marker defaults to
+  degraded). A degraded embedding IS still cached, but TAGGED degraded — the
+  cache key bumped `l4_v1` -> `l4_v2` to invalidate any pre-fix entries that
+  predate the marker, so a later cache HIT can never re-surface an untagged
+  mock as if it were verified. Covered by the new cases in
+  `tests/unit/test_feature_pipeline.py`.
 - `src/models/readiness_registry.py::_status_from_evidence` — for gateway-wired
   families (v16, graph2d, uvnet, pointnet) readiness is judged on **ACTIVATION**,
   not legacy checkpoint-file presence: an enabled family that is not `loaded` is
@@ -436,26 +453,39 @@ the wired impl raises the gateway degrade
 `test_v6_not_found_degrades_via_activation_gateway` and re-pointed at the new
 safety contract.
 
-**Residual (scoped, not fixed here):** `config.ml.classification` in the health
-payload still echoes operator-configured *config* paths (`hybrid_config_path`,
-`graph2d_model_path`, `graph2d_temperature_calibration_path`) and basename model
-filenames. These are configuration echo, distinct from readiness/health-state
-telemetry (the design-lock line-403 target, now path-free). A broader config-echo
-path scrub is a separate change with wider (ops-dashboard) blast radius.
-`history/sequence` is a wired family with **no `readiness_registry` item** yet;
-adding one is an owner-scoped follow-up, not an omission in this unit.
+**Completed this review round (was residual): config-echo path scrub.**
+`config.ml.classification` in the health payload previously echoed operator-configured
+*config* paths (`hybrid_config_path`, `graph2d_model_path`,
+`graph2d_temperature_calibration_path`). These are now folded into the same
+path-free C4/telemetry contract as the readiness/health-state surface (design-lock
+line 403): `src/api/health_models.py` renames the fields to
+`hybrid_config_name` / `graph2d_model_name` / `graph2d_temperature_calibration_name`,
+and `src/api/health_utils.py` emits `os.path.basename(...)` (never the resolved
+path), collapsing any calibration-path-bearing `graph2d_temperature_source` to
+the fixed token `"calibration"`. Covered by the new
+`tests/unit/test_p2_path_scrub.py`. `history/sequence` is a wired family with
+**no `readiness_registry` item** yet; adding one is an owner-scoped follow-up,
+not an omission in this unit.
 
-**Residual (test coverage of the new marker FIELDS).** The degrade *behavior* is
-tested — `test_c2_history_sequence` proves the pinned-model-unavailable path
-answers with `source != "history_sequence_model"`, and the readiness suite proves
-`uvnet:fallback` — so design-lock line 410 ("degraded contract is tested") is
-behaviorally satisfied. But the specific new marker fields
-(`history_sequence` payload `model_available`/`degraded`/`degraded_reason`;
-`vision_3d` `last_encode_degraded`/`model_available`) have **no positive
-assertion**, and none of this unit's three owned test files import those modules,
-so there is no clean home to add one here. The fields are **additive and
-unlocked** — a candidate follow-up (a `test_c2_history_sequence` positive-marker
-case and a `vision_3d` mock-path flag case), not existing coverage.
+**Completed this review round (was residual): test coverage of the new marker
+FIELDS.** The degrade *behavior* was already tested — `test_c2_history_sequence`
+proves the pinned-model-unavailable path answers with
+`source != "history_sequence_model"`, and the readiness suite proves
+`uvnet:fallback` — so design-lock line 410 ("degraded contract is tested") was
+already behaviorally satisfied. The specific new marker fields now have positive
+assertions too:
+- `history_sequence` `model_available`/`degraded`/`degraded_reason` **and** its
+  fusion-exit consequence (`used_for_fusion=False`,
+  `fusion_excluded_reason="degraded_model_unavailable"`,
+  `auxiliary_role="rule_fallback"`) are asserted in the new
+  `tests/unit/test_hybrid_history_degraded.py`.
+- `vision_3d` `last_encode_degraded`/`model_available` and its
+  `embedding_degraded`/`embedding_provenance` propagation + cache-tagging
+  through `src/core/feature_pipeline.py` are asserted in the new cases in
+  `tests/unit/test_feature_pipeline.py`
+  (`test_degraded_embedding_is_marked_and_not_cached_as_verified`,
+  `test_absent_marker_defaults_to_degraded_fail_closed`,
+  `test_cache_hit_preserves_degraded_marker`).
 
 **Residual (F3(a) success side) — NOW FILLED by F5.** The degrade side of the
 analyzer gate removal was already proven (F1 test → gateway `RuntimeError` →
@@ -487,7 +517,8 @@ Discriminating tests (`test_c2_part.py`):
 - `test_v16_valid_config_pin_loads_weights` — valid config pin → weights applied
   (0.4/0.6, distinct from defaults) and the full family activates.
 
-**Owner nod needed:** adding `v16config` extends decision-1's *two-pins-one-id*
-shape to **three** pins under `part/v16-v6pt`. Mechanically identical (another
-SINGLE_FILE pin, same logical id), but the artifact **count** for this logical
-activation changes 2→3, so it should get an explicit owner acknowledgement.
+**Owner-ratified this review round:** adding `v16config` extends decision-1's
+*two-pins-one-id* shape to **three** pins under `part/v16-v6pt`. Mechanically
+identical (another SINGLE_FILE pin, same logical id), and the artifact **count**
+for this logical activation (2→3) — and the resulting 9-pin denominator (§3) —
+is now ratified, not pending.

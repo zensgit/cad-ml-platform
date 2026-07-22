@@ -152,6 +152,13 @@ def build_health_payload(
         except Exception:
             graph2d_temperature, graph2d_temperature_source = 1.0, None
 
+        # Design lock: no filesystem paths in telemetry. The temperature source
+        # is "env" or None for those cases, but becomes ``str(<calibration path>)``
+        # when loaded from a calibration file (see load_graph2d_temperature_settings).
+        # Collapse that path-bearing branch to a fixed, path-free token.
+        if graph2d_temperature_source not in (None, "env"):
+            graph2d_temperature_source = "calibration"
+
         graph2d_ensemble_enabled = (
             os.getenv("GRAPH2D_ENSEMBLE_ENABLED", "false").strip().lower() == "true"
         )
@@ -184,6 +191,13 @@ def build_health_payload(
             "models/graph2d_training_dxf_oda_titleblock_distill_20260210.pth",
         )
         graph2d_model_present = os.path.exists(graph2d_model_path)
+        # Design lock: name-only in telemetry, never the resolved path (may be None).
+        _graph2d_temp_calibration = os.getenv("GRAPH2D_TEMPERATURE_CALIBRATION_PATH")
+        graph2d_temperature_calibration_name = (
+            os.path.basename(_graph2d_temp_calibration)
+            if _graph2d_temp_calibration
+            else None
+        )
         v16_disabled = os.getenv("DISABLE_V16_CLASSIFIER", "").lower() in (
             "1",
             "true",
@@ -240,13 +254,15 @@ def build_health_payload(
             "classification": {
                 "hybrid_enabled": bool(hybrid_cfg.enabled),
                 "hybrid_version": str(hybrid_cfg.version),
-                "hybrid_config_path": os.getenv(
-                    "HYBRID_CONFIG_PATH", "config/hybrid_classifier.yaml"
+                # Design lock: emit model/config NAME only, never the resolved
+                # filesystem path. The previous ``hybrid_config_path`` /
+                # ``graph2d_model_path`` keys leaked store/artifact locations into
+                # telemetry; presence/degraded state is carried path-free by the
+                # readiness payload (``graph2d_model_present``, model_registry).
+                "hybrid_config_name": os.path.basename(
+                    os.getenv("HYBRID_CONFIG_PATH", "config/hybrid_classifier.yaml")
                 ),
-                "graph2d_model_path": os.getenv(
-                    "GRAPH2D_MODEL_PATH",
-                    "models/graph2d_training_dxf_oda_titleblock_distill_20260210.pth",
-                ),
+                "graph2d_model_name": os.path.basename(graph2d_model_path),
                 "filename_enabled": bool(hybrid_cfg.filename.enabled),
                 "graph2d_enabled": bool(hybrid_cfg.graph2d.enabled),
                 "titleblock_enabled": bool(hybrid_cfg.titleblock.enabled),
@@ -257,8 +273,9 @@ def build_health_payload(
                 "graph2d_allow_labels": str(hybrid_cfg.graph2d.allow_labels),
                 "graph2d_temperature": float(graph2d_temperature),
                 "graph2d_temperature_source": graph2d_temperature_source,
-                "graph2d_temperature_calibration_path": os.getenv(
-                    "GRAPH2D_TEMPERATURE_CALIBRATION_PATH"
+                # Design lock: name-only, never the resolved calibration path.
+                "graph2d_temperature_calibration_name": (
+                    graph2d_temperature_calibration_name
                 ),
                 "graph2d_ensemble_enabled": bool(graph2d_ensemble_enabled),
                 "graph2d_ensemble_models_configured": len(graph2d_ensemble_paths),

@@ -329,6 +329,44 @@ def test_f2_discard_case_is_observed_RED_under_enforce(tmp_path, monkeypatch, ca
     assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _SITE_KEY in err
 
 
+# F2 ROUND-2 — GATEWAY-CALLED-AFTER-THE-LOADER. The wrap check must be DOMINANCE / lexical-order aware:
+# a gateway-derived binding counts for a load site ONLY if it lexically precedes (dominates) that site.
+# Here the raw torch.load reads the raw `path` PARAM, and the gateway rebind of `path` happens on the
+# line AFTER the loader — so the value the loader deserializes is the unverified param, not gateway bytes.
+# observed-RED against the OLD order-blind rule: _collect_gateway_vars scanned the WHOLE function body and
+# admitted `path` as a gateway var regardless of position, scoring wrapped=True (a false green). The
+# dominance rule rejects a binding at a lineno >= the load site -> wrapped=False -> a wired-but-unwrapped
+# finding (exit 1 under enforce).
+_GATEWAY_AFTER_LOADER_SRC = (
+    "import io, torch\n"
+    "from src.core.model_activation.activation_gateway import activate_file\n"
+    "class M:\n"
+    "    def load(self, path):\n"
+    "        loaded = torch.load(path, map_location='cpu')  # unverified raw-path load\n"
+    "        path = activate_file('x', 'main')  # gateway binding AFTER the loader -> must NOT count\n"
+    "        return loaded\n"
+)
+
+
+def test_gateway_bound_after_loader_is_unwrapped(tmp_path, monkeypatch) -> None:
+    # unit-level: the loaded arg (`path`) has its only gateway binding on a LATER line, so the
+    # dominance-aware detector scores it wrapped=False and structural_findings flags it.
+    _scan_with_manifest(tmp_path, monkeypatch, _GATEWAY_AFTER_LOADER_SRC, _WIRED_ENTRY)
+    found = enum.enumerate_sites()
+    assert found[_SITE_KEY]["wrapped"] is False
+    findings = enum.structural_findings(found, enum.load_manifest())
+    assert [f for f in findings if f[0] == _SITE_KEY and f[1] == "wired-but-unwrapped"], findings
+
+
+def test_gateway_bound_after_loader_is_observed_RED_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # end-to-end: under enforce the gateway-after-loader case reds CI (exit 1) with wired-but-unwrapped.
+    _scan_with_manifest(tmp_path, monkeypatch, _GATEWAY_AFTER_LOADER_SRC, _WIRED_ENTRY)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_FINDING == 1
+    err = capsys.readouterr().err
+    assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _SITE_KEY in err
+
+
 def test_remove_the_wrapper_is_advisory_only_by_default(tmp_path, monkeypatch, capsys) -> None:
     # W4: without the enforce flag the SAME inconsistency is advisory — printed, but exit 0 (non-blocking),
     # so it cannot red CI while in-scope families are still being wired.

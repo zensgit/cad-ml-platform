@@ -236,8 +236,14 @@ class TestEdgeCases:
     """边界情况测试"""
 
     def test_model_file_not_found(self):
-        """测试模型文件不存在"""
-        with pytest.raises(FileNotFoundError):
+        """Phase-A decision #3: raw-load-by-path removed. A missing model path no
+        longer raises FileNotFoundError — the load is gated by the activation
+        manifest (part/v6). With the gateway unconfigured/unpinned, activation is
+        unavailable and ``_load_model`` raises the explicit activation-degraded
+        RuntimeError (caught upstream by the analyzer, which then falls back to the
+        rule-based classifier — never an unverified raw load of the path).
+        """
+        with pytest.raises(RuntimeError, match="activation unavailable"):
             PartClassifier("/nonexistent/model.pt")
 
     @pytest.mark.skipif(

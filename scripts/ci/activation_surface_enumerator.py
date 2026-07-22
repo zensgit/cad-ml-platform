@@ -158,13 +158,34 @@ def _collect_imports(tree: ast.AST) -> Tuple[Dict[str, str], Dict[str, Tuple[str
     return mod_alias, imported
 
 
+# A block path is a tuple of ``(id(compound_node), field)`` pairs from the enclosing function body
+# (root = ``()``) down to the block a statement lives in. Using the AST node's identity (NOT an
+# incrementing counter) makes paths computed by two independent traversals COMPARABLE by prefix, and
+# keeps sibling blocks distinct — an ``if``'s ``body`` and ``orelse`` never share a prefix, so a binding
+# in one branch cannot dominate a load in the other. Statement-list fields that open a new block:
+_BLOCK_FIELDS = ("body", "orelse", "finalbody")
+
+
 class _GatewayAssignScan(ast.NodeVisitor):
     """Collect ``name = <expr>`` bindings in ONE function body, NOT descending into nested function
     scopes (a nested function's locals are not the enclosing function's). Used to resolve which local
-    names carry gateway-derived bytes. Handles plain assign, annotated assign, and walrus."""
+    names carry gateway-derived bytes. Handles plain assign, annotated assign, and walrus.
+
+    Records each binding's ``(lineno, block_path)`` and a ``block_of`` map ``id(node) -> block_path`` for
+    EVERY visited node so the load site's block can be looked up later — this is what makes the wrap
+    decision DOMINANCE/lexical-order aware (F2 round-2): a gateway binding counts for a load site only if
+    it lexically precedes AND its block dominates (is the same block or an ancestor block of) the load."""
 
     def __init__(self) -> None:
-        self.assigns: List[Tuple[str, ast.AST]] = []  # (target name, RHS value node), in source order
+        # (target name, RHS value node, lineno, block_path), in source order:
+        self.assigns: List[Tuple[str, ast.AST, int, tuple]] = []
+        # id(node) -> block_path, for every node reached in this scope (load sites are looked up here):
+        self.block_of: Dict[int, tuple] = {}
+        self._path: tuple = ()
+
+    def visit(self, node):  # tag every node with the block active when it is reached, then dispatch.
+        self.block_of[id(node)] = self._path
+        return super().visit(node)
 
     def visit_FunctionDef(self, node):  # a nested def — its body is a different scope; do not descend.
         return
@@ -177,18 +198,59 @@ class _GatewayAssignScan(ast.NodeVisitor):
     def visit_Assign(self, node):
         for t in node.targets:
             if isinstance(t, ast.Name):
-                self.assigns.append((t.id, node.value))
+                self.assigns.append((t.id, node.value, node.lineno, self._path))
         self.generic_visit(node)
 
     def visit_AnnAssign(self, node):
         if isinstance(node.target, ast.Name) and node.value is not None:
-            self.assigns.append((node.target.id, node.value))
+            self.assigns.append((node.target.id, node.value, node.lineno, self._path))
         self.generic_visit(node)
 
     def visit_NamedExpr(self, node):  # (data := activate_file(...))
         if isinstance(node.target, ast.Name):
-            self.assigns.append((node.target.id, node.value))
+            self.assigns.append((node.target.id, node.value, node.lineno, self._path))
         self.generic_visit(node)
+
+    def _visit_compound(self, node):
+        """A statement that opens sub-blocks (if/for/while/with/try/class/match). Visit its header
+        (non-block) parts at the CURRENT block, then recurse into each sub-statement-list with a fresh,
+        DISTINCT block path keyed by ``(id(node), field)`` so branches never share a dominating prefix."""
+        for field, value in ast.iter_fields(node):
+            if field in _BLOCK_FIELDS:
+                continue
+            if field == "handlers":  # try/except: each handler body is its own block
+                for h in value or []:
+                    self._descend(h.body, (id(h), "body"))
+                continue
+            if field == "cases":  # match/case (3.10+): each case body is its own block
+                for c in value or []:
+                    self._descend(c.body, (id(c), "body"))
+                continue
+            for child in (value if isinstance(value, list) else [value]):
+                if isinstance(child, ast.AST):
+                    self.visit(child)
+        for field in _BLOCK_FIELDS:
+            body = getattr(node, field, None)
+            if isinstance(body, list):
+                self._descend(body, (id(node), field))
+
+    def _descend(self, stmts, key) -> None:
+        saved = self._path
+        self._path = saved + (key,)
+        for s in stmts:
+            self.visit(s)
+        self._path = saved
+
+    visit_If = _visit_compound
+    visit_For = _visit_compound
+    visit_AsyncFor = _visit_compound
+    visit_While = _visit_compound
+    visit_With = _visit_compound
+    visit_AsyncWith = _visit_compound
+    visit_Try = _visit_compound
+    visit_TryStar = _visit_compound          # 3.11+ (harmless if ast has no TryStar)
+    visit_ClassDef = _visit_compound         # descend class body as a block; its methods are skipped
+    visit_Match = _visit_compound            # 3.10+
 
 
 class _LoadVisitor(ast.NodeVisitor):
@@ -202,19 +264,33 @@ class _LoadVisitor(ast.NodeVisitor):
         # (qualname, kind, lineno, wrapped) — wrapped = the loaded value derives (data-flow) from the
         # activation gateway (only meaningful, and only computed, for RAW_LOADER_KINDS).
         self.sites: List[Tuple[str, str, int, bool]] = []
-        # Per enclosing function: the set of local names bound to gateway-derived bytes, cumulative down
-        # the nesting chain (outer names are visible to inner closures). Top of stack = current scope.
-        self.func_gwvars: List[set] = []
+        # Per enclosing function: name -> list of (lineno, block_path) for each gateway-derived binding
+        # of that name, cumulative down the nesting chain (outer names are visible to inner closures).
+        # Top of stack = current scope.
+        self.func_gwvars: List[Dict[str, List[Tuple[int, tuple]]]] = []
+        # Per enclosing function: id(node) -> block_path, so a load site's block can be looked up to
+        # decide dominance. Parallel to func_gwvars.
+        self.func_blockof: List[Dict[int, tuple]] = []
 
     def _scoped(self, name: str, node: ast.AST, is_func: bool) -> None:
         self.stack.append(name)
         if is_func:
             self.func_qual.append(".".join(self.stack))
-            parent = self.func_gwvars[-1] if self.func_gwvars else set()
-            self.func_gwvars.append(parent | self._collect_gateway_vars(node))
+            gwvars, block_of = self._collect_gateway_vars(node)
+            # Outer names remain visible to an inner closure, but their block paths belong to the OUTER
+            # function's AST — incomparable to this scope's. Relax each inherited binding to (0, ()) so it
+            # always dominates (matches the prior "outer names visible" semantics); this scope's OWN
+            # bindings keep their real positions, which is where the F2 ordering bug lived.
+            parent = self.func_gwvars[-1] if self.func_gwvars else {}
+            merged: Dict[str, List[Tuple[int, tuple]]] = {k: [(0, ())] for k in parent}
+            for k, v in gwvars.items():
+                merged.setdefault(k, []).extend(v)
+            self.func_gwvars.append(merged)
+            self.func_blockof.append(block_of)
         self.generic_visit(node)
         if is_func:
             self.func_gwvars.pop()
+            self.func_blockof.pop()
             self.func_qual.pop()
         self.stack.pop()
 
@@ -237,48 +313,100 @@ class _LoadVisitor(ast.NodeVisitor):
             # / ctor:*) the wrap requirement does not apply and `wrapped` is left False (unused downstream).
             wrapped = False
             if kind in RAW_LOADER_KINDS and node.args:
-                gwvars = self.func_gwvars[-1] if self.func_gwvars else set()
-                wrapped = self._derives_from_gateway(node.args[0], gwvars)
+                gwvars = self.func_gwvars[-1] if self.func_gwvars else {}
+                block_of = self.func_blockof[-1] if self.func_blockof else {}
+                site_block = block_of.get(id(node), ())
+                wrapped = self._derives_from_gateway(node.args[0], gwvars, node.lineno, site_block)
             self.sites.append((qual, kind, node.lineno, wrapped))
         self.generic_visit(node)
 
-    def _collect_gateway_vars(self, func_node: ast.AST) -> set:
-        """Local names in ``func_node``'s body that carry gateway-derived bytes.
+    def _collect_gateway_vars(
+        self, func_node: ast.AST
+    ) -> Tuple[Dict[str, List[Tuple[int, tuple]]], Dict[int, tuple]]:
+        """(gwvars, block_of) for ``func_node``'s body.
 
-        Fail-closed under reassignment: a name counts ONLY if it is bound at least once and EVERY one of
-        its bindings derives from the gateway — so ``data = activate_file(...); data = open(p).read()``
-        does NOT launder ``data`` into a gateway var. Fixpoint so buffer/name chains resolve
-        (``data = activate_file(...); buf = io.BytesIO(data)`` -> both gateway-derived)."""
+        ``gwvars`` maps each local name that carries gateway-derived bytes to the list of
+        ``(lineno, block_path)`` of its bindings; ``block_of`` maps ``id(node) -> block_path`` for load-site
+        lookup.
+
+        Membership is position-INSENSITIVE and fail-closed under reassignment: a name counts ONLY if it is
+        bound at least once and EVERY one of its bindings derives from the gateway — so
+        ``data = activate_file(...); data = open(p).read()`` does NOT launder ``data`` into a gateway var.
+        Fixpoint so buffer/name chains resolve (``data = activate_file(...); buf = io.BytesIO(data)`` ->
+        both gateway-derived). Whether a binding actually counts FOR A GIVEN load site is decided later by
+        dominance (:meth:`_derives_from_gateway`) using the recorded ``(lineno, block_path)`` — a binding
+        that lexically follows or does not dominate the load does not count (F2 round-2 ordering fix)."""
         scan = _GatewayAssignScan()
         for stmt in getattr(func_node, "body", []):
             scan.visit(stmt)
-        by_name: Dict[str, List[ast.AST]] = {}
-        for name, val in scan.assigns:
-            by_name.setdefault(name, []).append(val)
-        gwvars: set = set()
+        by_name: Dict[str, List[Tuple[ast.AST, int, tuple]]] = {}
+        for name, val, lineno, block in scan.assigns:
+            by_name.setdefault(name, []).append((val, lineno, block))
+        gwnames: set = set()
         changed = True
         while changed:
             changed = False
-            for name, vals in by_name.items():
-                if name in gwvars:
+            for name, binds in by_name.items():
+                if name in gwnames:
                     continue
-                if vals and all(self._derives_from_gateway(v, gwvars) for v in vals):
-                    gwvars.add(name)
+                if binds and all(self._expr_is_gateway(v, gwnames) for (v, _, _) in binds):
+                    gwnames.add(name)
                     changed = True
-        return gwvars
+        # Every binding of a gwname is gateway-derived (all-bindings rule), so all its positions admit;
+        # dominance at the load site picks the ones that actually reach it.
+        gwvars = {name: [(ln, blk) for (_, ln, blk) in by_name[name]] for name in gwnames}
+        return gwvars, scan.block_of
 
-    def _derives_from_gateway(self, expr: ast.AST, gwvars: set) -> bool:
-        """True iff ``expr`` is (transitively) the bytes returned by activate_file / activate_bundle:
-        the gateway call itself, a local name proven gateway-derived, or an in-memory buffer wrapping
-        such a value. A filesystem path/str/Path/attribute (e.g. ``self.model_path``) is NOT."""
+    def _expr_is_gateway(self, expr: ast.AST, gwnames: set) -> bool:
+        """Position-insensitive membership check used by the fixpoint: does ``expr`` derive from the
+        gateway given the set of names already proven gateway-derived? (No dominance here — this only
+        establishes which NAMES can ever be gateway-derived; dominance is applied per load site.)"""
         if isinstance(expr, ast.Name):
-            return expr.id in gwvars
+            return expr.id in gwnames
         if isinstance(expr, ast.Call):
             if self._is_activation_call(expr.func):
                 return True
             if self._is_buffer_wrapper(expr.func):
-                return any(self._derives_from_gateway(a, gwvars) for a in expr.args)
+                return any(self._expr_is_gateway(a, gwnames) for a in expr.args)
         return False
+
+    def _derives_from_gateway(
+        self, expr: ast.AST, gwvars: Dict[str, List[Tuple[int, tuple]]], site_lineno: int, site_block: tuple
+    ) -> bool:
+        """True iff ``expr`` is (transitively) the gateway bytes AT this load site — i.e. reconstructed
+        from a gateway binding that DOMINATES the site. Three cases:
+
+        * an inline gateway call (``torch.load(activate_file(...))``) — always counts, regardless of line;
+        * an in-memory buffer wrapping such a value (``io.BytesIO(...)``) — recurse into its args;
+        * a local name proven gateway-derived AND bound by at least one binding that dominates the site.
+
+        A name whose only gateway binding LEXICALLY FOLLOWS the load (F2 round-2: the gateway is called
+        AFTER the loader) does NOT count — the reaching value at the loader is not the gateway bytes. A
+        filesystem path/str/Path/attribute (e.g. ``self.model_path``) never counts. Fail-closed: an
+        ``ANY``-dominating binding suffices because membership already guarantees EVERY binding of the name
+        is gateway-derived, so any binding that dominates proves the reaching definition is gateway-verified
+        (requiring ALL would false-RED legitimately-wrapped multi-binding sites; on the real tree every
+        gwvar is bound exactly once, so ANY and ALL coincide)."""
+        if isinstance(expr, ast.Name):
+            return any(self._dominates(bl, bp, site_lineno, site_block) for bl, bp in gwvars.get(expr.id, ()))
+        if isinstance(expr, ast.Call):
+            if self._is_activation_call(expr.func):
+                return True
+            if self._is_buffer_wrapper(expr.func):
+                return any(
+                    self._derives_from_gateway(a, gwvars, site_lineno, site_block) for a in expr.args
+                )
+        return False
+
+    @staticmethod
+    def _dominates(bind_lineno: int, bind_block: tuple, site_lineno: int, site_block: tuple) -> bool:
+        """A gateway binding counts for a load site only if it lexically PRECEDES the site AND its block
+        DOMINATES the site's block (same block or an ancestor — ``bind_block`` is a prefix of
+        ``site_block``). A binding at/after the load line, or in a sibling branch/loop that does not enclose
+        the load, does NOT count. Conservative / fail-closed."""
+        if bind_lineno >= site_lineno:
+            return False
+        return site_block[: len(bind_block)] == bind_block
 
     @staticmethod
     def _is_buffer_wrapper(func: ast.AST) -> bool:

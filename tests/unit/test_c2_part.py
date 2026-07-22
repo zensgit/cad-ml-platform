@@ -20,9 +20,10 @@ Covers TWO activations (this unit owns both files):
 * ``part/v6`` (artifact "main") -> ``PartClassifier._load_model``
   (src/ml/part_classifier.py) gated live by
   ``src/core/analyzer.py:_get_ml_classifier``.
-* ``part/v16-v6pt`` (TWO artifacts, "v6pt" and "v14ens", sharing one logical
-  id per owner decision 1) -> ``PartClassifierV16._load_models``
-  (src/ml/part_classifier.py).
+* ``part/v16-v6pt`` (THREE artifacts, "v6pt", "v14ens", and the F5
+  ensemble-config "v16config", all sharing one logical id — owner decision 1's
+  two-pin shape extended to three and owner-ratified this review round) ->
+  ``PartClassifierV16._load_models`` (src/ml/part_classifier.py).
 
 Each activation is proven:
   * pin-absent (unconfigured store)     -> degrades (raises), no raw load.

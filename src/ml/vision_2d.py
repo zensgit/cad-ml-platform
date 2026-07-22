@@ -73,7 +73,13 @@ class Graph2DClassifier:
             except Exception as exc:  # noqa: BLE001
                 # Keep model loading best-effort so environments with torch installed
                 # but missing/incompatible checkpoints do not fail import-time.
-                logger.warning("Failed to load Graph2D model %s: %s", self.model_path, exc)
+                # Design lock: no filesystem paths in logs. Identify the model by
+                # its logical activation id, not ``self.model_path``. Bytes come
+                # from the gateway (BytesIO), so ``exc`` carries no filepath either.
+                logger.warning(
+                    "Failed to load Graph2D model (activation_id=graph2d/main): %s",
+                    exc,
+                )
                 self.model = None
                 self._loaded = False
                 self._load_error = str(exc)
@@ -165,9 +171,10 @@ class Graph2DClassifier:
             self.model_type = "edge_sage_v2"
             self.model.eval()
             self._loaded = True
+            # Design lock: no filesystem paths in logs. Identify by activation id.
             logger.info(
-                "Loaded GraphEncoderV2WithHead from %s (%d classes)",
-                self.model_path, len(self.label_map),
+                "Loaded GraphEncoderV2WithHead (activation_id=graph2d/main, %d classes)",
+                len(self.label_map),
             )
             return
 

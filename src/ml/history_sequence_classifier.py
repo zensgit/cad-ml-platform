@@ -101,7 +101,8 @@ class HistorySequenceClassifier:
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
         except Exception as exc:
-            logger.warning("Failed loading history prototypes %s: %s", path, exc)
+            # Design lock: no filesystem paths in logs; report the error only.
+            logger.warning("Failed loading history prototypes: %s", exc)
             return
 
         labels_payload = payload.get("labels", payload)

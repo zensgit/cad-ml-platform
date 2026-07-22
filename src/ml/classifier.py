@@ -284,7 +284,7 @@ def _reload_model_impl(
     logger.info(
         "Model reload started",
         extra={
-            "path": path,
+            # Design lock: no filesystem paths in logs/telemetry.
             "expected_version": expected_version,
             "current_version": _MODEL_VERSION,
             "current_load_seq": _MODEL_LOAD_SEQ,
@@ -611,7 +611,7 @@ def _reload_model_impl(
                 "version": _MODEL_VERSION,
                 "hash": _MODEL_HASH,
                 "load_seq": _MODEL_LOAD_SEQ,
-                "path": str(_MODEL_PATH),
+                # Design lock: no filesystem paths in logs/telemetry.
             },
         )
         model_reload_total.labels(status="success", version=_MODEL_VERSION).inc()
