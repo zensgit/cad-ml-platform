@@ -2147,6 +2147,90 @@ def test_successful_bundle_lifecycle_scrubs_lease_root_and_tree(
         store.close()
 
 
+def test_root_rmdir_ebusy_retains_lease_second_cleanup_succeeds(
+    tmp_path: Path,
+) -> None:
+    """Transient root rmdir EBUSY retains same lease; second cleanup finishes.
+
+    Would fail when release closed/detached the freeze root fd before root-name
+    rmdir was proven successful: first cleanup would return False with root/parent
+    already closed, and the second cleanup could not complete the rmdir.
+    """
+    root = tmp_path / "store"
+    freeze_parent = _trusted_freeze_parent(tmp_path / "freeze")
+    _write(root / "bundle" / "m.bin", b"ebusy-bytes")
+    pin = _bundle_pin(
+        "act.b", "art.b", "bundle", [("m.bin", b"ebusy-bytes")]
+    )
+    store = _store(root, [pin], freeze_parent=freeze_parent)
+    try:
+        frozen = store.assert_bundle_digest("act.b", "art.b")
+        lease = frozen._lease  # noqa: SLF001
+        assert lease is not None
+        lease_id = id(lease)
+        lease_root_fd = int(lease.root_dir_fd())
+        lease_parent_fd = int(lease._parent_fd)  # noqa: SLF001
+        assert lease_root_fd >= 0
+        assert lease_parent_fd >= 0
+        # Prove both fds live before first cleanup.
+        os.fstat(lease_root_fd)
+        os.fstat(lease_parent_fd)
+        assert len(lease._ledger) >= 1  # noqa: SLF001
+
+        real_rmdir = os.rmdir
+        fail_root_once = {"n": 0}
+
+        def rmdir_root_ebusy_once(name, *args, **kwargs):  # type: ignore[no-untyped-def]
+            # Inject EBUSY only for the freeze root name (children use other names).
+            if (
+                fail_root_once["n"] == 0
+                and isinstance(name, str)
+                and name.startswith("cadml-freeze-")
+            ):
+                fail_root_once["n"] += 1
+                raise OSError(errno.EBUSY, "Device or resource busy")
+            return real_rmdir(name, *args, **kwargs)
+
+        with mock.patch.object(os, "rmdir", side_effect=rmdir_root_ebusy_once):
+            assert frozen.cleanup() is False
+
+        # Same lease retained for retry (FrozenBundle.cleanup does not drop it).
+        assert frozen._lease is lease  # noqa: SLF001
+        assert id(frozen._lease) == lease_id  # noqa: SLF001
+        # Root + parent fds still live; ledger ownership retained.
+        os.fstat(lease_root_fd)
+        os.fstat(lease_parent_fd)
+        assert int(lease._root_fd) == lease_root_fd  # noqa: SLF001
+        assert int(lease._parent_fd) == lease_parent_fd  # noqa: SLF001
+        assert lease._ledger  # noqa: SLF001
+        assert lease.cleanup_complete is False
+        assert fail_root_once["n"] == 1
+
+        # Restore real rmdir path (patch exited); second cleanup must succeed.
+        assert frozen.cleanup() is True
+        assert frozen._lease is None  # noqa: SLF001
+        with pytest.raises(OSError) as ei_root:
+            os.fstat(lease_root_fd)
+        assert ei_root.value.errno == errno.EBADF
+        with pytest.raises(OSError) as ei_parent:
+            os.fstat(lease_parent_fd)
+        assert ei_parent.value.errno == errno.EBADF
+        assert int(lease._root_fd) < 0  # noqa: SLF001
+        assert int(lease._parent_fd) < 0  # noqa: SLF001
+        assert lease._ledger == {}  # noqa: SLF001
+        assert lease.cleanup_complete is True
+        leftovers = [
+            p
+            for p in freeze_parent.iterdir()
+            if p.is_dir() and p.name.startswith("cadml-freeze-")
+        ]
+        assert leftovers == [], f"freeze tree residual: {leftovers}"
+        # Idempotent after success.
+        assert frozen.cleanup() is True
+    finally:
+        store.close()
+
+
 def test_cleanup_retries_same_lease_until_release_succeeds(tmp_path: Path) -> None:
     """Incomplete lease.release() must not drop the lease; next cleanup retries it."""
     root = tmp_path / "store"
@@ -3331,6 +3415,18 @@ def test_constructor_lease_handoff_and_cleanup_retry(tmp_path: Path) -> None:
 def test_no_commit_reserved_identity_in_production() -> None:
     assert not hasattr(store_mod, "commit_reserved_identity")
     assert not hasattr(FreezeResourceLease, "commit_reserved_identity")
+
+
+def test_seal_freeze_tree_path_api_absent_fd_api_remains() -> None:
+    """Path-based seal_freeze_tree is forbidden (re-open + follows root symlink).
+
+    Ratified design: seal only via held dir fd (seal_freeze_tree_fd).
+    """
+    assert not hasattr(types_mod, "seal_freeze_tree")
+    assert hasattr(types_mod, "seal_freeze_tree_fd")
+    assert callable(types_mod.seal_freeze_tree_fd)
+    assert "seal_freeze_tree" not in types_mod.__all__
+    assert "seal_freeze_tree_fd" in types_mod.__all__
 
 
 def test_bundle_fifo_source_nonblock_member_flags(tmp_path: Path) -> None:

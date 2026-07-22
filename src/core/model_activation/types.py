@@ -579,26 +579,6 @@ def seal_freeze_tree_fd(dir_fd: int) -> None:
     _seal_dir(dir_fd)
 
 
-# Back-compat name used by older call sites; path-based seal is removed.
-def seal_freeze_tree(root: str) -> None:
-    """Open ``root`` and seal descriptor-relatively (no path walk chmod)."""
-    mapped: Optional[ActivationRefusal] = None
-    fd = -1
-    try:
-        fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
-    except OSError:
-        mapped = ActivationRefusal(RefusalReason.FREEZE_FAILED, "seal open root")
-    if mapped is not None:
-        raise mapped
-    try:
-        seal_freeze_tree_fd(fd)
-    finally:
-        try:
-            os.close(fd)
-        except OSError:
-            pass
-
-
 __all__ = [
     "ActivationRefusal",
     "ArtifactKind",
@@ -607,6 +587,5 @@ __all__ = [
     "PinRecord",
     "RefusalReason",
     "TerminalKind",
-    "seal_freeze_tree",
     "seal_freeze_tree_fd",
 ]

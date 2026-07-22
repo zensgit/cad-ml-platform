@@ -734,24 +734,31 @@ class FreezeResourceLease:
             if self._pending:
                 complete = False
             # 2) Scrub finalized ledger entries via the lease-owned root fd.
-            # The lease always retains this original root until it closes it here —
-            # FrozenBundle only holds a dup and must never "detach" this fd without
-            # close. On incomplete scrub, retain root/parent fds + ledger for retry.
+            # The lease always retains this original root until root-name rmdir
+            # is proven successful — FrozenBundle only holds a dup and must
+            # never "detach" this fd without close. On incomplete scrub or a
+            # transient root rmdir failure (e.g. EBUSY), retain root/parent
+            # fds + ledger so the same lease can retry release/cleanup.
             elif self._root_fd >= 0:
                 if not self._scrub_tree(self._root_fd):
                     complete = False
                 else:
-                    try:
-                        os.close(self._root_fd)
-                    except OSError:
-                        pass
-                    self._root_fd = -1
-                    self._root_detached = True
-
-                    # 3) rmdir root name under parent if empty and identity matches.
+                    # 3) rmdir root name under parent only after descendants
+                    # are gone. Close/detach root fd only when that rmdir is
+                    # proven successful (identity-checked remove).
                     if self._parent_fd >= 0 and self._root_name:
                         if not self._rmdir_root_if_owned():
                             complete = False
+                        else:
+                            try:
+                                os.close(self._root_fd)
+                            except OSError:
+                                pass
+                            self._root_fd = -1
+                            self._root_detached = True
+                    else:
+                        # Cannot prove root-name removal without parent+name.
+                        complete = False
             elif self._ledger:
                 # Root missing but ledger still has owned identities — incomplete.
                 complete = False
@@ -978,26 +985,29 @@ class FreezeResourceLease:
         """Rmdir freeze root only when the name still matches a ledger identity.
 
         Never best-effort rmdir an unproven root name (including when the ledger
-        is empty after prior pops or races). Foreign / unproven names are left
-        alone; return True only when gone-or-removed-as-owned.
+        is empty after prior pops or races). Missing, foreign, or unproven names
+        return False and **never** drop ownership — the caller must retain
+        root/parent fds and ledger for an honest retry. Return True only when
+        the owned root name was identity-checked and successfully removed.
         """
         if self._parent_fd < 0 or not self._root_name:
-            return True
+            # Cannot prove root-name removal — incomplete, keep ownership.
+            return False
         st: Optional[os.stat_result] = None
         try:
             st = os.stat(
                 self._root_name, dir_fd=self._parent_fd, follow_symlinks=False
             )
         except OSError:
-            # Already gone.
-            return True
+            # Missing / unreadable — do not claim success or drop ownership.
+            return False
         if st is None:
-            return True
+            return False
         fid = _FileId(int(st.st_dev), int(st.st_ino))
         if fid not in self._ledger:
-            # Unproven or foreign at root name — never delete by name alone.
-            # Empty-ledger residual shell is an honest non-atomic leftover.
-            return True
+            # Unproven or foreign at root name — never delete by name alone,
+            # never report success, never drop ledger ownership.
+            return False
         try:
             # Ensure mode allows rmdir of sealed root.
             rfd = os.open(
@@ -1015,6 +1025,7 @@ class FreezeResourceLease:
         if not self._remove_owned_name(
             self._parent_fd, self._root_name, fid, is_dir=True
         ):
+            # Transient failure (e.g. EBUSY) or post-stat replacement — retain.
             return False
         self._ledger.pop(fid, None)
         return True

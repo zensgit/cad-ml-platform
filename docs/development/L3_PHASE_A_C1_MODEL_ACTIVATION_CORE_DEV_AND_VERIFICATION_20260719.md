@@ -7,8 +7,8 @@
 > path-safe refusals, freeze lease/identity ledger, descriptor-relative cleanup, and P1 residual
 > windows. It does **NOT** wire any model family, create production pins, enable reload/retraining,
 > implement C2–C6, Track E, or Phase B. `merged != enabled != safe`. Grounded on
-> `origin/main@7160694d` (#513 design lock + #526) with PR #528 head
-> `17ebaee255a7450d5c3a06c7f4baf9e4922ba230` as the pre-fix base. Wave-1 audit evidence is
+> `origin/main@7160694d` (#513 design lock + #526), with reviewed PR #528 head
+> `6e645bc2d23b9ea54ae3f44504006511b6dc0525` as this review-fix candidate's parent. Wave-1 audit evidence is
 > read-only elsewhere and is **not** edited here.
 
 Authority: `docs/development/L3_MODEL_ACTIVATION_MEMBRANE_DESIGNLOCK_20260712.md` (ratified #513) and
@@ -25,7 +25,7 @@ Authority: `docs/development/L3_MODEL_ACTIVATION_MEMBRANE_DESIGNLOCK_20260712.md
 | Raw pin domain | `pin_domain.py` | Split-on-`/` **before** any `Path`/`os.path` normalization |
 | Resolver | `resolver.py` | Linux **`syscall(SYS_openat2, …)`** with `RESOLVE_BENEATH\|RESOLVE_NO_SYMLINKS` when available (ENOSYS / probe EPERM/EACCES → component walk); runtime ENOSYS after successful probe is INTERNAL (no same-request fallback); never `resolve()+open`; shared raw pre-gate; `ENOTDIR` → `NOT_DIRECTORY` |
 | Digests | `digest.py` | Single-file SHA-256; ratified `tree-digest-v1`; OSError mapped path-safe (raise outside `except`) |
-| Fd readdir | `fd_dir.py` | **`os.listdir(dir_fd)`** (Python 3.10+ Unix); OSError → fail-closed; no silent partial list |
+| Fd readdir | `fd_dir.py` | Security traversal: lazy fd-bound **`os.scandir`** via `scandir_dir_fd` (native dir fd, then `/dev/fd` / `/proc/self/fd`); OSError → fail-closed; never materialises unbounded `os.listdir` on bounded walks |
 | Store | `store.py` | Immutable pins; two-pass bundle; **`FreezeResourceLease`** (empty start, trusted freeze parent, creation-time identity ledger, reserve→create→adopt→finalize); digest from frozen snapshot; O(depth) source fds; ControlledStore close drains in-flight then pending leases |
 
 ### Required behavior — implemented (post authority-fix)
@@ -44,7 +44,7 @@ Authority: `docs/development/L3_MODEL_ACTIVATION_MEMBRANE_DESIGNLOCK_20260712.md
 
 ### Freeze lease & cleanup contract (authority-fix)
 
-- **No default temp directory.** Bundle activation requires an explicit trusted service-private freeze parent: absolute, non-symlink, owned by euid, `mode & 0o077 == 0` before `mkdtemp`.
+- **No default temp directory.** Bundle activation requires an explicit trusted service-private freeze parent: absolute, non-symlink, owned by euid, `mode & 0o077 == 0`. Freeze root creation is **`os.mkdir(name, dir_fd=parent_fd)`** (mkdirat-style) + openat — **never** `tempfile.mkdtemp` or pathname chmod of the parent path.
 - Lease starts **empty**. Protocol for every create: **reserve** ledger capacity → mkdir/O_CREAT → **adopt** fd into lease **before** fstat/finalize → finalize identity into the **creation-time** ledger. On fstat failure the pending fd remains owned; release retries fstat, records identity when possible, closes once, and scrubs.
 - **Pending parent-dir fd ownership:** every `_PendingNode` owns a **CLOEXEC dup** of the parent directory fd at adopt time (not a borrow of the caller's nested dir fd). This survives freeze-walk recursive unwind that closes the caller's `mkdir_owned` / parent fd after a nested create leaves a pending node. Successful finalize or successful scrub closes the owned parent dup; mismatch / fstat failure retains both child and parent dups for honest retry. Parent-fd dup failure: best-effort destroy the just-created child via the still-live caller parent; if destroy fails, retain the child on pending without claiming `cleanup_complete` (never orphan).
 - Dest-dir open failure after mkdir: **cancel reservation only** — never name-stat/commit whatever now sits at the name (may be foreign after a rename race).
@@ -79,6 +79,7 @@ python3.11 -m flake8 \
   src/core/model_activation/__init__.py \
   src/core/model_activation/digest.py \
   src/core/model_activation/fd_dir.py \
+  src/core/model_activation/pin_domain.py \
   src/core/model_activation/resolver.py \
   src/core/model_activation/store.py \
   src/core/model_activation/types.py \
@@ -88,7 +89,21 @@ python3.11 -m mypy src/core/model_activation --config-file mypy.ini
 git diff --check
 ```
 
-**Result (local, this worktree, post authority-fix + audit fixes + nested-pending parent-fd ownership):** **109 passed, 11 skipped, 0 failed.** flake8 clean on the seven source files + test; mypy clean (7 source files); `git diff --check` clean.
+**Result (local, this worktree, post authority-fix + audit fixes + nested-pending parent-fd ownership + review fixes):**
+
+- C1 core: **111 passed, 11 skipped, 0 failed**;
+- related activation-manifest, activation-surface, and Phase-A bleeding-control suites:
+  **40 passed, 0 failed**;
+- flake8 clean on the seven source files + C1 test; mypy clean (7 source files);
+  `git diff --check` clean.
+
+**Inherited formatting debt (P2, not introduced by this review fix):** `black --check` still reports
+the same six files and `isort --check-only --profile black` the same two files on both parent
+`6e645bc2` and this candidate. The repository CI treats those formatters as advisory for this path.
+This security fix does not mix in the resulting broad mechanical rewrite.
+
+These are local candidate-worktree results. They do not replace fresh Linux CI on the submitted
+candidate head.
 
 **Docker:** daemon unavailable on the verification host (`Cannot connect to the Docker daemon at unix:///Users/chouhua/.docker/run/docker.sock`). Linux root / uid `65534` suite **not** re-run here.
 
@@ -96,6 +111,8 @@ git diff --check
 
 | Test | Proves |
 |---|---|
+| `test_root_rmdir_ebusy_retains_lease_second_cleanup_succeeds` | Review P1: transient root-name `rmdir` failure retains the same lease, live root/parent fds, and ledger; retry succeeds, closes both fds, clears the ledger, and leaves no freeze root |
+| `test_seal_freeze_tree_path_api_absent_fd_api_remains` | Review P2: the unused path-reopen sealing API is absent; only the held-fd sealing API remains |
 | `test_finalize_fstat_failure_after_ocreat_leaves_no_model_byte` | P1: fstat fail after O_CREAT → no `cadml-freeze-*/m.bin` residual; path-safe refusal |
 | `test_inventory_max_1_leaves_no_model_byte` | P1: inventory max=1 reserves before create → no model-byte residual |
 | `test_dest_dir_open_failure_race_preserves_foreign_no_mbin` | mkdir nested dest + open race: foreign survives, zero `m.bin`, owned empty shell may remain |
@@ -136,6 +153,13 @@ git diff --check
 
 Would-fail-against-old notes (practical):
 
+- Review P1 on `6e645bc2`: injecting one `EBUSY` at freeze-root `rmdir` produced
+  `cleanup=False` twice and retained the freeze directory because the first call closed the root fd
+  before root-name removal was proven. This candidate produces `False` then `True`, retains the same
+  lease/fds/ledger for the retry, and leaves no freeze directory.
+- Review P2 on `6e645bc2`: `seal_freeze_tree(path)` followed a root symlink and changed an external
+  directory/file to modes `0500`/`0400`. The symbol had no repository callers and is removed; the
+  descriptor-only `seal_freeze_tree_fd` API remains.
 - Old path used `raise … from exc` → `__context__` held path-bearing OSError (AST + traceback tests).
 - Old path used `shutil.rmtree` + default `tempfile.gettempdir()` (parent validation / no-default-temp tests).
 - Old path closed O_CREAT fd without lease adopt-before-fstat (fstat-failure residual test targets that window).
@@ -155,7 +179,7 @@ Would-fail-against-old notes (practical):
 | Bundle digest | exact + determinism; source mutation after freeze | digest mismatch; **freeze-write corruption → DIGEST_MISMATCH** |
 | Freeze handle | `read_member` / `dup_dir_fd`; no public `path` / borrowed `dir_fd` | sealed mode **0400** always; in-place write OSError when DAC applies (`euid!=0`); path-redirect still reads good |
 | Lease / ledger | trusted parent; reserve/adopt/finalize; pending owns parent-dir dup | fstat-after-O_CREAT residual closed; inventory max=1; dest-dir race foreign survives; nested pending survives parent close + scrubs sibling model bytes; parent-dup failure no-orphan; reconcile exact equality |
-| fd_dir | `os.listdir(dir_fd)` happy | OSError → `UNREADABLE` fail-closed; no context leak |
+| fd_dir | lazy fd-bound `os.scandir` happy | OSError → `UNREADABLE` fail-closed; no context leak |
 | Bounds bombs | — | dirent/dir/depth/relpath/file-count |
 | Path-safe refusals | — | AST guard; traceback contains no hostile path |
 
@@ -165,7 +189,11 @@ Would-fail-against-old notes (practical):
 - `test_bundle_non_utf8_entry_red` — APFS rejects illegal byte sequence names at create.
 - **Privilege note (not a local skip under non-root):** `test_freeze_inplace_mutation_red` always asserts sealed file mode `0400`; the write-refusal portion is omitted only when `geteuid()==0` because root bypasses 0400 DAC.
 
-**CI-not-yet-run:** GitHub Actions (Linux + real `SYS_openat2` + non-UTF-8 dirents) has **not** been executed from this worktree. Curated L3 steps list this suite; this document does **not** claim CI green.
+**Linux CI evidence (prior head `6e645bc2` only — not this fix head):** GitHub Actions run
+[29815262555](https://github.com/zensgit/cad-ml-platform/actions/runs/29815262555) / job
+`88586366342` (Linux + real `SYS_openat2`): curated **L3 block 157 passed**; full job
+**9542 passed, 178 skipped**. That evidence applies to commit `6e645bc2` and is **not**
+re-used as proof for the current review-fix head — this head needs a fresh CI run.
 
 ### Linux Docker verification
 
