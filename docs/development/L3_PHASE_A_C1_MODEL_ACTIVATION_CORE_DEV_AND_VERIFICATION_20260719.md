@@ -89,9 +89,9 @@ python3.11 -m mypy src/core/model_activation --config-file mypy.ini
 git diff --check
 ```
 
-**Result (local, this worktree, post authority-fix + audit fixes + nested-pending parent-fd ownership + review fixes):**
+**Result (local, this worktree, post authority-fix + audit fixes + nested-pending parent-fd ownership + review fixes + root-cleanup honesty-branch discriminators):**
 
-- C1 core: **111 passed, 11 skipped, 0 failed**;
+- C1 core: **114 passed, 11 skipped, 0 failed**;
 - related activation-manifest, activation-surface, and Phase-A bleeding-control suites:
   **40 passed, 0 failed**;
 - flake8 clean on the seven source files + C1 test; mypy clean (7 source files);
@@ -111,7 +111,10 @@ candidate head.
 
 | Test | Proves |
 |---|---|
-| `test_root_rmdir_ebusy_retains_lease_second_cleanup_succeeds` | Review P1: transient root-name `rmdir` failure retains the same lease, live root/parent fds, and ledger; retry succeeds, closes both fds, clears the ledger, and leaves no freeze root |
+| `test_root_rmdir_ebusy_retains_lease_second_cleanup_succeeds` | Review P1(a): transient root-name `rmdir` failure retains the same lease, live root/parent fds, and ledger; retry succeeds, closes both fds, clears the ledger, and leaves no freeze root |
+| `test_root_name_renamed_away_retains_then_restore_completes` | Review-2 P1(b): root name gone (`os.stat` raises) → `_rmdir_root_if_owned` False + retain fds/ledger; restore → retry completes. Mutating the `except OSError` branch back to `return True` reds this test |
+| `test_foreign_root_replacement_not_deleted_retains_then_restore_completes` | Review-2 P1(b): foreign inode at the root name → not deleted, ownership kept, `cleanup_complete` False; restore → completes. Mutating the `fid not in ledger` branch back to `return True` reds this test |
+| `test_rmdir_root_if_owned_parent_or_name_unavailable_retains_ownership` | Review-2 P1(b): direct invariant — `_parent_fd < 0` / empty `_root_name` → False, ledger never dropped (release() guards the same condition, so this branch is only reachable by direct call). Mutating the guard back to `return True` reds this test |
 | `test_seal_freeze_tree_path_api_absent_fd_api_remains` | Review P2: the unused path-reopen sealing API is absent; only the held-fd sealing API remains |
 | `test_finalize_fstat_failure_after_ocreat_leaves_no_model_byte` | P1: fstat fail after O_CREAT → no `cadml-freeze-*/m.bin` residual; path-safe refusal |
 | `test_inventory_max_1_leaves_no_model_byte` | P1: inventory max=1 reserves before create → no model-byte residual |
@@ -160,6 +163,13 @@ Would-fail-against-old notes (practical):
 - Review P2 on `6e645bc2`: `seal_freeze_tree(path)` followed a root symlink and changed an external
   directory/file to modes `0500`/`0400`. The symbol had no repository callers and is removed; the
   descriptor-only `seal_freeze_tree_fd` API remains.
+- Review-2 P1(b) on `6bacf94d`: the `_rmdir_root_if_owned` honesty-failure branches (root-name
+  `os.stat` raises, foreign inode at the root name, `_parent_fd`/`_root_name` unavailable) return
+  `False` and never drop ownership, but the shipped suite guarded only the `EBUSY`/ordering half —
+  reverting any of the three `True→False` flips kept the suite green. Three discriminators now lock
+  them (each mutation-verified RED against its branch). The unreachable `if st is None` guard after
+  `os.stat` (which raises-or-returns, never `None`) is **removed** rather than covered by a fabricated
+  test.
 - Old path used `raise … from exc` → `__context__` held path-bearing OSError (AST + traceback tests).
 - Old path used `shutil.rmtree` + default `tempfile.gettempdir()` (parent validation / no-default-temp tests).
 - Old path closed O_CREAT fd without lease adopt-before-fstat (fstat-failure residual test targets that window).

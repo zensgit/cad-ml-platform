@@ -2231,6 +2231,181 @@ def test_root_rmdir_ebusy_retains_lease_second_cleanup_succeeds(
         store.close()
 
 
+def test_root_name_renamed_away_retains_then_restore_completes(
+    tmp_path: Path,
+) -> None:
+    """Root name temporarily gone (os.stat raises) → False + retain; restore → True.
+
+    Locks the `_rmdir_root_if_owned` `except OSError` honesty branch. Mutating
+    that branch back to `return True` makes the first cleanup wrongly close/detach
+    the root fd (this test's first `is False` assertion goes RED), and the restored
+    root can then never be reclaimed.
+    """
+    root = tmp_path / "store"
+    freeze_parent = _trusted_freeze_parent(tmp_path / "freeze")
+    _write(root / "bundle" / "m.bin", b"rename-away-bytes")
+    pin = _bundle_pin("act.b", "art.b", "bundle", [("m.bin", b"rename-away-bytes")])
+    store = _store(root, [pin], freeze_parent=freeze_parent)
+    try:
+        frozen = store.assert_bundle_digest("act.b", "art.b")
+        lease = frozen._lease  # noqa: SLF001
+        assert lease is not None
+        lease_root_fd = int(lease.root_dir_fd())
+        lease_parent_fd = int(lease._parent_fd)  # noqa: SLF001
+        root_name = lease._root_name  # noqa: SLF001
+        assert lease_root_fd >= 0 and lease_parent_fd >= 0 and root_name
+        assert len(lease._ledger) >= 1  # noqa: SLF001
+
+        # Rename the freeze root name away under the parent (fd survives rename).
+        moved = freeze_parent / "moved-root-away"
+        (freeze_parent / root_name).rename(moved)
+
+        # First cleanup: scrub via the held root fd works, but the root NAME is
+        # gone so `os.stat(root_name, dir_fd=parent)` raises → False + retain.
+        assert frozen.cleanup() is False
+        os.fstat(lease_root_fd)  # root fd still live (NOT detached)
+        os.fstat(lease_parent_fd)  # parent fd still live
+        assert int(lease._root_fd) == lease_root_fd  # noqa: SLF001
+        assert int(lease._parent_fd) == lease_parent_fd  # noqa: SLF001
+        assert lease._ledger  # ownership retained  # noqa: SLF001
+        assert lease.cleanup_complete is False
+
+        # Restore the root name (same inode → same ledger identity) and retry.
+        moved.rename(freeze_parent / root_name)
+        assert frozen.cleanup() is True
+        with pytest.raises(OSError) as ei_root:
+            os.fstat(lease_root_fd)
+        assert ei_root.value.errno == errno.EBADF
+        with pytest.raises(OSError) as ei_parent:
+            os.fstat(lease_parent_fd)
+        assert ei_parent.value.errno == errno.EBADF
+        assert int(lease._root_fd) < 0  # noqa: SLF001
+        assert int(lease._parent_fd) < 0  # noqa: SLF001
+        assert lease._ledger == {}  # noqa: SLF001
+        assert lease.cleanup_complete is True
+        leftovers = [
+            p
+            for p in freeze_parent.iterdir()
+            if p.is_dir() and p.name.startswith("cadml-freeze-")
+        ]
+        assert leftovers == [], f"freeze tree residual: {leftovers}"
+    finally:
+        store.close()
+
+
+def test_foreign_root_replacement_not_deleted_retains_then_restore_completes(
+    tmp_path: Path,
+) -> None:
+    """Foreign inode at the root name → not deleted, ownership kept; restore → True.
+
+    Locks the `_rmdir_root_if_owned` `fid not in ledger` honesty branch. Mutating
+    it back to `return True` makes the first cleanup wrongly detach the root fd
+    while the foreign directory survives (this test's first `is False` assertion
+    goes RED), reproducing the same class of cleanup-honesty fail-open as the P1.
+    """
+    root = tmp_path / "store"
+    freeze_parent = _trusted_freeze_parent(tmp_path / "freeze")
+    _write(root / "bundle" / "m.bin", b"foreign-repl-bytes")
+    pin = _bundle_pin("act.b", "art.b", "bundle", [("m.bin", b"foreign-repl-bytes")])
+    store = _store(root, [pin], freeze_parent=freeze_parent)
+    try:
+        frozen = store.assert_bundle_digest("act.b", "art.b")
+        lease = frozen._lease  # noqa: SLF001
+        assert lease is not None
+        lease_root_fd = int(lease.root_dir_fd())
+        lease_parent_fd = int(lease._parent_fd)  # noqa: SLF001
+        root_name = lease._root_name  # noqa: SLF001
+        assert lease_root_fd >= 0 and lease_parent_fd >= 0 and root_name
+
+        # Move the owned root aside; plant a FOREIGN empty dir at the root name.
+        stashed = freeze_parent / "owned-root-stashed"
+        (freeze_parent / root_name).rename(stashed)
+        (freeze_parent / root_name).mkdir(mode=0o700)
+        foreign_st = os.lstat(freeze_parent / root_name)
+        foreign_id = (foreign_st.st_dev, foreign_st.st_ino)
+
+        # First cleanup: scrub the owned tree via the held fd, but the root NAME
+        # now points to a foreign inode not in the ledger → False, never delete.
+        assert frozen.cleanup() is False
+        os.fstat(lease_root_fd)  # root fd still live (NOT detached)
+        os.fstat(lease_parent_fd)
+        assert lease._ledger  # ownership retained  # noqa: SLF001
+        assert lease.cleanup_complete is False
+        # Foreign directory untouched (same inode, still present).
+        st_after = os.lstat(freeze_parent / root_name)
+        assert (st_after.st_dev, st_after.st_ino) == foreign_id
+        assert (freeze_parent / root_name).is_dir()
+
+        # Remove the foreign, restore the owned root, retry → completes.
+        (freeze_parent / root_name).rmdir()
+        stashed.rename(freeze_parent / root_name)
+        assert frozen.cleanup() is True
+        with pytest.raises(OSError) as ei_root:
+            os.fstat(lease_root_fd)
+        assert ei_root.value.errno == errno.EBADF
+        assert int(lease._root_fd) < 0  # noqa: SLF001
+        assert int(lease._parent_fd) < 0  # noqa: SLF001
+        assert lease._ledger == {}  # noqa: SLF001
+        assert lease.cleanup_complete is True
+        leftovers = [
+            p
+            for p in freeze_parent.iterdir()
+            if p.is_dir() and p.name.startswith("cadml-freeze-")
+        ]
+        assert leftovers == [], f"freeze tree residual: {leftovers}"
+    finally:
+        store.close()
+
+
+def test_rmdir_root_if_owned_parent_or_name_unavailable_retains_ownership(
+    tmp_path: Path,
+) -> None:
+    """Direct invariant: parent fd or root name unavailable → False, keep ledger.
+
+    Locks the `_rmdir_root_if_owned` defensive guard `_parent_fd < 0 or not
+    _root_name`. release() guards the same condition before calling, so this
+    branch is only reachable by a direct call — mutating it back to `return True`
+    makes either direct assertion below go RED.
+    """
+    root = tmp_path / "store"
+    freeze_parent = _trusted_freeze_parent(tmp_path / "freeze")
+    _write(root / "bundle" / "m.bin", b"defensive-bytes")
+    pin = _bundle_pin("act.b", "art.b", "bundle", [("m.bin", b"defensive-bytes")])
+    store = _store(root, [pin], freeze_parent=freeze_parent)
+    try:
+        frozen = store.assert_bundle_digest("act.b", "art.b")
+        lease = frozen._lease  # noqa: SLF001
+        assert lease is not None
+        ledger_snapshot = dict(lease._ledger)  # noqa: SLF001
+        assert ledger_snapshot
+
+        # (i) parent fd unavailable.
+        saved_parent = int(lease._parent_fd)  # noqa: SLF001
+        lease._parent_fd = -1  # noqa: SLF001
+        assert lease._rmdir_root_if_owned() is False  # noqa: SLF001
+        assert lease._ledger == ledger_snapshot  # ownership never dropped  # noqa: SLF001
+        lease._parent_fd = saved_parent  # noqa: SLF001
+
+        # (ii) root name unavailable.
+        saved_name = lease._root_name  # noqa: SLF001
+        lease._root_name = ""  # noqa: SLF001
+        assert lease._rmdir_root_if_owned() is False  # noqa: SLF001
+        assert lease._ledger == ledger_snapshot  # noqa: SLF001
+        lease._root_name = saved_name  # noqa: SLF001
+
+        # State intact → normal cleanup still completes.
+        assert frozen.cleanup() is True
+        assert lease.cleanup_complete is True
+        leftovers = [
+            p
+            for p in freeze_parent.iterdir()
+            if p.is_dir() and p.name.startswith("cadml-freeze-")
+        ]
+        assert leftovers == [], f"freeze tree residual: {leftovers}"
+    finally:
+        store.close()
+
+
 def test_cleanup_retries_same_lease_until_release_succeeds(tmp_path: Path) -> None:
     """Incomplete lease.release() must not drop the lease; next cleanup retries it."""
     root = tmp_path / "store"

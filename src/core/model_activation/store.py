@@ -993,7 +993,6 @@ class FreezeResourceLease:
         if self._parent_fd < 0 or not self._root_name:
             # Cannot prove root-name removal — incomplete, keep ownership.
             return False
-        st: Optional[os.stat_result] = None
         try:
             st = os.stat(
                 self._root_name, dir_fd=self._parent_fd, follow_symlinks=False
@@ -1001,8 +1000,8 @@ class FreezeResourceLease:
         except OSError:
             # Missing / unreadable — do not claim success or drop ownership.
             return False
-        if st is None:
-            return False
+        # os.stat returns a stat_result or raises; it never returns None, so
+        # there is no unreachable None branch to guard here.
         fid = _FileId(int(st.st_dev), int(st.st_ino))
         if fid not in self._ledger:
             # Unproven or foreign at root name — never delete by name alone,
