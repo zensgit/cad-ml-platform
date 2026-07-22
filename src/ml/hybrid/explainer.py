@@ -252,6 +252,28 @@ class HybridExplainer:
 
         return explanation
 
+    @staticmethod
+    def _history_excluded_from_fusion(history_prediction: Any) -> bool:
+        """Return True when a history prediction was NOT used as a model signal.
+
+        Mirrors the F4 degrade contract enforced in ``hybrid_classifier`` (design-lock
+        §403–410): a degraded / model-unavailable history prediction keeps a
+        ``status="ok"`` payload for legacy compat but is stamped
+        ``used_for_fusion=False`` (with ``degraded=True`` / ``model_available=False``)
+        and MUST NOT be treated as a participating MODEL signal. When this returns
+        True the explainer must skip the model-statistics treatment for history:
+        no model FeatureContribution, no source contribution, not a candidate label,
+        and not counted as a disagreeing model source. Shadow-only history (which also
+        sets ``used_for_fusion=False``) is likewise excluded, by design.
+        """
+        if not isinstance(history_prediction, dict):
+            return False
+        return (
+            history_prediction.get("used_for_fusion") is False
+            or history_prediction.get("degraded") is True
+            or history_prediction.get("model_available") is False
+        )
+
     def _analyze_features(self, result: Any, explanation: Explanation) -> None:
         """Analyze feature contributions."""
         contributions = []
@@ -352,18 +374,36 @@ class HybridExplainer:
             label = hp.get("label")
             conf = hp.get("confidence", 0)
 
-            if label == result.label:
-                contrib = conf * result.fusion_weights.get("history_sequence", 0.2)
+            if self._history_excluded_from_fusion(hp):
+                # F4 degrade contract: this history prediction did NOT participate in
+                # model fusion (degraded / model-unavailable / shadow-only). It must
+                # NOT be treated as a MODEL signal — no signed model contribution and
+                # no source == "history_sequence". Surface it only as an explicit
+                # rule/fallback AUXILIARY evidence entry (zero contribution, so it never
+                # sorts as a positive/negative model factor), matching how
+                # hybrid_classifier records it (auxiliary_role="rule_fallback").
+                contributions.append(FeatureContribution(
+                    feature_name="history_sequence_auxiliary",
+                    feature_value=label,
+                    contribution=0.0,
+                    source="rule_fallback",
+                    description=(
+                        f"历史序列（规则回退，未参与模型融合）：{label}，置信度 {conf:.1%}"
+                    ),
+                ))
             else:
-                contrib = -conf * result.fusion_weights.get("history_sequence", 0.2)
+                if label == result.label:
+                    contrib = conf * result.fusion_weights.get("history_sequence", 0.2)
+                else:
+                    contrib = -conf * result.fusion_weights.get("history_sequence", 0.2)
 
-            contributions.append(FeatureContribution(
-                feature_name="history_sequence_label",
-                feature_value=label,
-                contribution=contrib,
-                source="history_sequence",
-                description=f"历史序列分类为 {label}，置信度 {conf:.1%}",
-            ))
+                contributions.append(FeatureContribution(
+                    feature_name="history_sequence_label",
+                    feature_value=label,
+                    contribution=contrib,
+                    source="history_sequence",
+                    description=f"历史序列分类为 {label}，置信度 {conf:.1%}",
+                ))
 
         # Sort by contribution magnitude
         contributions.sort(key=lambda x: abs(x.contribution), reverse=True)
@@ -487,7 +527,8 @@ class HybridExplainer:
 
         if getattr(result, "history_prediction", None):
             hp = result.history_prediction
-            if hp.get("label") == result.label:
+            # F4: a history prediction that exited model fusion contributes nothing.
+            if not self._history_excluded_from_fusion(hp) and hp.get("label") == result.label:
                 contributions["历史序列"] = hp.get("confidence", 0) * result.fusion_weights.get(
                     "history_sequence", 0.2
                 )
@@ -526,7 +567,10 @@ class HybridExplainer:
                 if label != result.label:
                     alternatives[label] = max(alternatives.get(label, 0), conf * 0.15)
 
-        if getattr(result, "history_prediction", None):
+        if getattr(result, "history_prediction", None) and not self._history_excluded_from_fusion(
+            result.history_prediction
+        ):
+            # F4: an excluded history prediction is not a model candidate label.
             label = result.history_prediction.get("label")
             conf = result.history_prediction.get("confidence", 0)
             if label and label != result.label:
@@ -558,7 +602,11 @@ class HybridExplainer:
             predictions.append(result.graph2d_prediction.get("label"))
         if result.titleblock_prediction:
             predictions.append(result.titleblock_prediction.get("label"))
-        if getattr(result, "history_prediction", None):
+        # F4: only a history prediction that participated in fusion counts as a model
+        # source for disagreement; an excluded (degraded/shadow) one does not.
+        if getattr(result, "history_prediction", None) and not self._history_excluded_from_fusion(
+            result.history_prediction
+        ):
             predictions.append(result.history_prediction.get("label"))
 
         predictions = [p for p in predictions if p]
@@ -575,7 +623,11 @@ class HybridExplainer:
             uncertainty_sources.append("缺少几何分析")
         if not result.titleblock_prediction:
             uncertainty_score += 0.05
-        if not getattr(result, "history_prediction", None):
+        # F4: a degraded/excluded history yields no usable model signal, so it counts
+        # as a missing history source here (same penalty as a truly-absent one).
+        if not getattr(result, "history_prediction", None) or self._history_excluded_from_fusion(
+            result.history_prediction
+        ):
             uncertainty_score += 0.05
 
         # Fallback decision

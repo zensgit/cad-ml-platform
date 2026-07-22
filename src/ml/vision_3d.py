@@ -266,6 +266,16 @@ class UVNetEncoder:
         Returns:
             List[float]: A normalized embedding vector (e.g., 1024 dimensions).
         """
+        # F4 root-cause fix: default the caller-visible flag to DEGRADED at the
+        # very top of every encode(), before any inference or ZEROS guard runs.
+        # It is flipped to False in EXACTLY ONE place — after a genuine model
+        # inference has materialized a real (non-zeros-guard) embedding. Every
+        # other exit (mock path, schema/dim/empty ZEROS guards, exception
+        # fallback, fallthrough) therefore inherits the degraded default and
+        # cannot be mislabeled as a verified model embedding. (Previously this
+        # was set False at the START of the inference path, so a zeros-fallback
+        # from a schema/dim mismatch or an exception looked like a real embedding.)
+        self.last_encode_degraded = True
         dim = self.model.embedding_dim if self._loaded and self.model is not None else 1024
 
         # 1. Mock Path (If no model loaded or explicit legacy feature dict)
@@ -273,14 +283,12 @@ class UVNetEncoder:
             # Explicit degrade marker (design lock: no silent stand-in). When the
             # pinned model never activated this is a model-unavailable degrade;
             # when a legacy feature dict is passed to a loaded model it is still a
-            # non-model heuristic embedding. Either way the caller-visible flag is
-            # set and the mock producer logs it.
-            self.last_encode_degraded = True
+            # non-model heuristic embedding. The flag is already True from the
+            # default above; the mock producer logs it.
             return self._mock_embedding(data_source, dim)
 
         # 2. Inference Path (Graph Data)
         if HAS_TORCH and self._loaded:
-            self.last_encode_degraded = False
             try:
                 # Prepare Inputs
                 if isinstance(data_source, dict):
@@ -361,7 +369,13 @@ class UVNetEncoder:
                 with torch.no_grad():
                     _, embedding = self.model(x, edge_index, batch, edge_attr=edge_attr)
 
-                return embedding.cpu().numpy().flatten().tolist()
+                # Materialize the list BEFORE clearing the degrade flag. Only a
+                # genuine, fully-converted model embedding is non-degraded; if the
+                # conversion itself raises, the ``except`` below returns zeros with
+                # the flag still True (never flipped early).
+                result = embedding.cpu().numpy().flatten().tolist()
+                self.last_encode_degraded = False
+                return result
 
             except Exception as e:
                 logger.error(f"Inference failed: {e}")

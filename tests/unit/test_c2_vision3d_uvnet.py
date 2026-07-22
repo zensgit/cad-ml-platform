@@ -211,3 +211,105 @@ def test_digest_tamper_degrades(monkeypatch: pytest.MonkeyPatch, tmp_path: Path)
 
     assert encoder._loaded is False
     assert encoder.model is None
+
+
+# ---------------------------------------------------------------------------
+# 4. F4 defect (1) — last_encode_degraded is set False ONLY after a genuine
+#    inference. Every ZEROS guard / mock / exception path leaves it True.
+#    (Was: set False at the START of the inference path, so a schema/dim
+#    ZEROS-fallback was mislabeled as a verified model embedding.)
+# ---------------------------------------------------------------------------
+
+def test_unpinned_encoder_defaults_degraded(monkeypatch: pytest.MonkeyPatch):
+    """A never-pinned encoder reports degraded before any encode() is called."""
+    from src.ml import vision_3d as v
+
+    importlib.reload(v)
+
+    encoder = v.UVNetEncoder()
+    assert encoder._loaded is False
+    assert encoder.last_encode_degraded is True
+    assert encoder.model_available is False
+
+
+def test_successful_inference_clears_degrade_flag(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    """A genuine graph inference on the pinned model flips the flag to False."""
+    from src.ml import vision_3d as v
+
+    importlib.reload(v)
+
+    if not v.HAS_TORCH:
+        pytest.skip("torch not installed under this interpreter; see module docstring.")
+
+    import torch
+
+    data = _tiny_checkpoint_bytes()  # node_input_dim=4, embedding_dim=16
+    _configure_pinned_file(monkeypatch, tmp_path, data)
+
+    encoder = v.UVNetEncoder()
+    assert encoder._loaded is True
+    # Flag starts degraded until a real inference succeeds.
+    assert encoder.last_encode_degraded is True
+
+    x = torch.randn(4, 4)  # width matches node_input_dim=4 -> no dim guard
+    edge_index = torch.tensor([[0, 1, 2], [1, 2, 3]], dtype=torch.long)
+
+    embedding = encoder.encode({"x": x, "edge_index": edge_index})
+
+    assert len(embedding) == encoder.model.embedding_dim
+    assert any(value != 0.0 for value in embedding)  # a real, non-zeros embedding
+    assert encoder.last_encode_degraded is False
+
+
+def test_mock_legacy_dict_path_leaves_degrade_flag_true(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    """A legacy feature dict (no ``edge_index``) fed to a LOADED model still
+    degrades to the heuristic mock and MUST leave the flag True."""
+    from src.ml import vision_3d as v
+
+    importlib.reload(v)
+
+    if not v.HAS_TORCH:
+        pytest.skip("torch not installed under this interpreter; see module docstring.")
+
+    data = _tiny_checkpoint_bytes()
+    _configure_pinned_file(monkeypatch, tmp_path, data)
+
+    encoder = v.UVNetEncoder()
+    assert encoder._loaded is True
+
+    encoder.encode({"faces": 6, "edges": 12, "surface_types": {"plane": 5}})
+    assert encoder.last_encode_degraded is True
+
+
+def test_dimension_mismatch_zeros_guard_leaves_degrade_flag_true(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    """A node-dimension mismatch returns zeros AND leaves the flag True — the
+    exact mislabel this fix closes (previously reported as a verified embedding)."""
+    from src.ml import vision_3d as v
+
+    importlib.reload(v)
+
+    if not v.HAS_TORCH:
+        pytest.skip("torch not installed under this interpreter; see module docstring.")
+
+    import torch
+
+    data = _tiny_checkpoint_bytes()  # node_input_dim=4
+    _configure_pinned_file(monkeypatch, tmp_path, data)
+
+    encoder = v.UVNetEncoder()
+    assert encoder._loaded is True
+
+    x = torch.randn(5, 6)  # width 6 != node_input_dim 4 -> dim guard fires
+    edge_index = torch.tensor([[0, 1, 2], [1, 2, 3]], dtype=torch.long)
+
+    embedding = encoder.encode({"x": x, "edge_index": edge_index})
+
+    assert len(embedding) == encoder.model.embedding_dim
+    assert all(value == 0.0 for value in embedding)
+    assert encoder.last_encode_degraded is True

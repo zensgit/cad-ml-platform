@@ -55,9 +55,20 @@ def _build_feature_vector(
     l3_dim: Optional[int] = None
 
     embedding_vector = None
+    embedding_degraded = False
     if isinstance(features_3d, Mapping):
         embedding_vector = features_3d.get("embedding_vector")
-    if embedding_vector is not None:
+        # F4 — a DEGRADED/mock UV-Net embedding must NOT enter L3 registration or
+        # similarity (design lock: "no silent stand-in"). feature_pipeline is the
+        # sole producer of ``embedding_vector`` and always co-writes
+        # ``embedding_degraded`` (fail-closed: a missing encoder marker is tagged
+        # degraded at the source). We skip L3 only when the marker is explicitly
+        # truthy, so a verified embedding (marker False, or a legacy caller that
+        # never degrades) still registers as L3. Without this guard a mock
+        # heuristic was registered as base_sem_ext_v1+l3 and participated in
+        # similarity (reviewer reproduced l3_dim=3).
+        embedding_degraded = bool(features_3d.get("embedding_degraded", False))
+    if embedding_vector is not None and not embedding_degraded:
         l3_dim = len(embedding_vector)
         feature_vector.extend(float(x) for x in embedding_vector)
         vector_layout = VECTOR_LAYOUT_L3

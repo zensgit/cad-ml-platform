@@ -76,6 +76,13 @@ VALID_CLASSES = {"gated", "producer", "offline", "unmounted", "infra"}
 # digest-pinned bytes returned by the activation gateway. The gateway functions whose RETURNED VALUE the
 # reconstruction must derive from (a data-flow binding, NOT mere function-scope presence — F2):
 _ACTIVATION_FUNCS = {"activate_file", "activate_bundle"}
+# The one canonical gateway module. A call is a gateway call ONLY if its name RESOLVES to this module
+# through the file's import table (bare / aliased / attribute form) — a name-only match let a
+# project-local FAKE or shadowed ``def activate_file(...)`` / ``activate_file = lambda ...`` count as
+# the real gateway (round-3 false-green). ``_GW_PARENT`` / ``_GW_LEAF`` cover the
+# ``from src.core.model_activation import activation_gateway`` module-attribute form.
+_CANONICAL_GATEWAY_MODULE = "src.core.model_activation.activation_gateway"
+_GW_PARENT, _GW_LEAF = _CANONICAL_GATEWAY_MODULE.rsplit(".", 1)
 # In-memory buffer wrappers that may sit between the gateway bytes and the raw loader
 # (``torch.load(io.BytesIO(data))``). A raw loader argument that is one of these still counts as
 # gateway-derived iff the buffer wraps a gateway-derived value.
@@ -132,30 +139,51 @@ class EnumeratorMalfunction(Exception):
         super().__init__(f"{len(malfunctions)} gate malfunction(s)")
 
 
-def _collect_imports(tree: ast.AST) -> Tuple[Dict[str, str], Dict[str, Tuple[str, str]]]:
-    """Return (module_aliases, imported_names).
+def _collect_imports(
+    tree: ast.AST,
+) -> Tuple[Dict[str, str], Dict[str, Tuple[str, str]], set, set]:
+    """Return (module_aliases, imported_names, gw_names, gw_modules).
 
     module_aliases: local name -> canonical module ("t" -> "torch", "torch" -> "torch").
     imported_names: local name -> (canonical module, attr) for `from X import Y [as Z]`
                     (e.g. "load" -> ("torch","load")), or ("__ctor__", ctor) for a model constructor.
+    gw_names:   local names bound to a canonical gateway FUNCTION — for a Name-form call
+                ``activate_file(...)`` — from ``from src.core.model_activation.activation_gateway import
+                activate_file [as af]`` (the import may be module- OR function-scoped; ``ast.walk`` sees
+                both).
+    gw_modules: local names bound to the canonical gateway MODULE — for an Attribute-form call
+                ``gw.activate_file(...)`` — from ``import ...activation_gateway as gw`` or
+                ``from src.core.model_activation import activation_gateway [as gw]``.
+    NB: gateway names are tracked SEPARATELY from ``imported_names`` on purpose — folding them in would
+    make ``_classify`` misread a gateway call as a loader kind.
     """
     mod_alias: Dict[str, str] = {}
     imported: Dict[str, Tuple[str, str]] = {}
+    gw_names: set = set()
+    gw_modules: set = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for a in node.names:
                 canon = a.name.split(".")[0]
                 if canon in _MODULE_LOADERS or canon in _TRACKED_EXTRA_MODULES:
                     mod_alias[a.asname or a.name] = canon
+                if a.name == _CANONICAL_GATEWAY_MODULE and a.asname:
+                    # import src.core.model_activation.activation_gateway as gw  -> gw is the module
+                    gw_modules.add(a.asname)
         elif isinstance(node, ast.ImportFrom):
-            base = (node.module or "").split(".")[0]
+            full = node.module or ""
+            base = full.split(".")[0]
             for a in node.names:
                 local = a.asname or a.name
                 if base in _MODULE_LOADERS and a.name in _MODULE_LOADERS[base]:
                     imported[local] = (base, a.name)          # from torch import load
                 elif a.name in _MODEL_CONSTRUCTORS:
                     imported[local] = ("__ctor__", a.name)    # from sentence_transformers import SentenceTransformer
-    return mod_alias, imported
+                if full == _CANONICAL_GATEWAY_MODULE and a.name in _ACTIVATION_FUNCS:
+                    gw_names.add(local)                       # from ...activation_gateway import activate_file
+                elif full == _GW_PARENT and a.name == _GW_LEAF:
+                    gw_modules.add(local)                     # from src.core.model_activation import activation_gateway
+    return mod_alias, imported, gw_names, gw_modules
 
 
 # A block path is a tuple of ``(id(compound_node), field)`` pairs from the enclosing function body
@@ -254,9 +282,19 @@ class _GatewayAssignScan(ast.NodeVisitor):
 
 
 class _LoadVisitor(ast.NodeVisitor):
-    def __init__(self, mod_alias: Dict[str, str], imported: Dict[str, Tuple[str, str]]) -> None:
+    def __init__(
+        self,
+        mod_alias: Dict[str, str],
+        imported: Dict[str, Tuple[str, str]],
+        gw_names: set,
+        gw_modules: set,
+    ) -> None:
         self.mod_alias = mod_alias
         self.imported = imported
+        # Local names that resolve to the canonical gateway (function-form / module-form) — a call is a
+        # gateway call ONLY via these, never by bare spelling (round-3: a local fake activate_file).
+        self.gw_names = gw_names
+        self.gw_modules = gw_modules
         self.stack: List[str] = []
         # full-qualname of every enclosing FUNCTION scope (class scopes excluded) — used to attribute
         # each load site to its enclosing function(s).
@@ -265,8 +303,10 @@ class _LoadVisitor(ast.NodeVisitor):
         # activation gateway (only meaningful, and only computed, for RAW_LOADER_KINDS).
         self.sites: List[Tuple[str, str, int, bool]] = []
         # Per enclosing function: name -> list of (lineno, block_path) for each gateway-derived binding
-        # of that name, cumulative down the nesting chain (outer names are visible to inner closures).
-        # Top of stack = current scope.
+        # of that name, bound WITHIN THAT function only. Outer-scope bindings are deliberately NOT
+        # inherited into nested scopes (round-3 false-green fix): absent real cross-scope call-order
+        # analysis, an outer binding cannot be proven to dominate a nested loader. Top of stack = current
+        # scope.
         self.func_gwvars: List[Dict[str, List[Tuple[int, tuple]]]] = []
         # Per enclosing function: id(node) -> block_path, so a load site's block can be looked up to
         # decide dominance. Parallel to func_gwvars.
@@ -277,15 +317,15 @@ class _LoadVisitor(ast.NodeVisitor):
         if is_func:
             self.func_qual.append(".".join(self.stack))
             gwvars, block_of = self._collect_gateway_vars(node)
-            # Outer names remain visible to an inner closure, but their block paths belong to the OUTER
-            # function's AST — incomparable to this scope's. Relax each inherited binding to (0, ()) so it
-            # always dominates (matches the prior "outer names visible" semantics); this scope's OWN
-            # bindings keep their real positions, which is where the F2 ordering bug lived.
-            parent = self.func_gwvars[-1] if self.func_gwvars else {}
-            merged: Dict[str, List[Tuple[int, tuple]]] = {k: [(0, ())] for k in parent}
-            for k, v in gwvars.items():
-                merged.setdefault(k, []).extend(v)
-            self.func_gwvars.append(merged)
+            # Do NOT inherit outer-scope gateway vars into this nested function scope (round-3 false-green
+            # fix). The old code relaxed every parent binding to (0, ()) so it ALWAYS dominated — which let
+            # a nested closure that does ``torch.load(x)`` FIRST (before, or regardless of, an outer
+            # ``x = activate_file(...)`` binding) score wrapped=True, though the enumerator cannot prove the
+            # outer binding runs before the nested load. Absent real cross-scope call-order analysis, the
+            # conservative fail-closed rule is: a raw loader inside a nested function/lambda is wrapped ONLY
+            # if a gateway binding WITHIN THAT SAME function dominates it. So each scope carries only its
+            # OWN bindings.
+            self.func_gwvars.append(gwvars)
             self.func_blockof.append(block_of)
         self.generic_visit(node)
         if is_func:
@@ -416,12 +456,20 @@ class _LoadVisitor(ast.NodeVisitor):
             return func.id in _BUFFER_WRAPPERS      # BytesIO(...) (from io import BytesIO)
         return False
 
-    @staticmethod
-    def _is_activation_call(func: ast.AST) -> bool:
+    def _is_activation_call(self, func: ast.AST) -> bool:
+        """A gateway call ONLY if the name RESOLVES (via this file's import table) to the canonical
+        gateway module — NOT by bare spelling. ``activate_file(...)`` counts iff ``activate_file`` was
+        imported from ``src.core.model_activation.activation_gateway`` (bare/aliased); an attribute call
+        ``gw.activate_file(...)`` counts iff ``gw`` is a canonical-gateway-module alias. A project-local
+        or differently-sourced ``activate_file`` (a fake, a shadowing ``def``/``lambda``) does NOT."""
         if isinstance(func, ast.Name):
-            return func.id in _ACTIVATION_FUNCS
+            return func.id in self.gw_names
         if isinstance(func, ast.Attribute):
-            return func.attr in _ACTIVATION_FUNCS
+            return (
+                func.attr in _ACTIVATION_FUNCS
+                and isinstance(func.value, ast.Name)
+                and func.value.id in self.gw_modules
+            )
         return False
 
     def _classify(self, func: ast.AST):
@@ -472,8 +520,8 @@ def enumerate_sites() -> Dict[str, dict]:
                 # silently skip (fail-open).
                 malfunctions.append((rel, type(exc).__name__, " ".join(str(exc).split())))
                 continue
-            mod_alias, imported = _collect_imports(tree)
-            v = _LoadVisitor(mod_alias, imported)
+            mod_alias, imported, gw_names, gw_modules = _collect_imports(tree)
+            v = _LoadVisitor(mod_alias, imported, gw_names, gw_modules)
             v.visit(tree)
             per_key: Dict[str, int] = {}
             for qual, kind, lineno, wrapped in v.sites:

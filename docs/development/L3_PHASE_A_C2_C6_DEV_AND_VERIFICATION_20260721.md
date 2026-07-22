@@ -145,6 +145,28 @@ built `ControlledStore`:
 - Current manifest inventory: **129 sites** — 38 `gated` (**18 wired**, 18
   `gate-before-wired`, 2 `latent`), 44 `producer`, 40 `offline`, 4 `infra`, 3
   `unmounted` — across **11 families**.
+- **Round-3 strengthening (the enumerator's own false-green): a gateway call
+  now must RESOLVE to the canonical gateway module, not merely match a bare
+  name.** Two holes existed in the "wired" check itself: (1) `_is_activation_call`
+  matched on the bare spelling `activate_file`/`activate_bundle` regardless of
+  where that name came from — a project-local FAKE or a shadowing
+  `def activate_file(...)` / `activate_file = lambda ...` counted as gateway-derived
+  and would have scored `wired`/`wrapped=True` even though it never touched
+  `src.core.model_activation.activation_gateway`. This is now resolved through
+  the file's own import table (`gw_names` for the bare/aliased
+  `from ...activation_gateway import activate_file [as x]` form, `gw_modules`
+  for the `import ...activation_gateway as gw` / attribute-call form) — only a
+  name that traces back to the one canonical gateway module counts.
+  (2) Cross-scope dominance was unsound: an outer-scope gateway binding was
+  relaxed to "always dominates" and inherited into every nested closure, so a
+  nested function/lambda that calls a raw loader BEFORE (or independent of) an
+  outer `x = activate_file(...)` binding could still score `wrapped=True` —
+  the check cannot actually prove call order across scopes. Each function scope
+  now carries only its OWN gateway bindings (fail-closed: a raw loader inside a
+  nested scope is `wrapped` only if a gateway binding within that SAME scope
+  dominates it). Both fixes are enumerator/structural-check-only — no
+  `activation_surface.json` classification or C1/C2 runtime code changed.
+  Covered by the expanded cases in `tests/unit/test_activation_surface_enumerator.py`.
 
 ## 7. C6 golden matrix results
 
@@ -380,6 +402,25 @@ Containment says *"an unpinned/tampered family degrades explicitly,"* NOT
 *"the family is loaded."* Default posture ships **NO-PIN / degraded**; that is
 containment working, not a gap.
 
+**Consumption of the degrade marker (added after round-3; do not read the
+three points above as covering this).** A family entering its defined degraded
+state is necessary but not sufficient — a *consumer* of that family's output
+that ignores the degrade marker and treats a mock/fallback result as if it
+were verified reopens the same hole one layer downstream. Round-2 established
+the marker fields (`used_for_fusion`/`degraded`/`model_available` for history,
+`embedding_degraded`/`last_encode_degraded` for UV-Net) but, as the gate review
+found in round-3, did not prove every reader of those fields honored them.
+**As of round-3, three specific, named consumer paths are verified to honor
+their marker:** (a) `src/ml/hybrid_classifier.py` excludes a degraded history
+prediction from fusion (round-2); (b) `src/ml/hybrid/explainer.py` independently
+excludes the same degraded history prediction from its own model-contribution /
+candidate-label / disagreement-count treatment (round-3, §13 F4-history); (c)
+`src/core/vector_pipeline.py` excludes a degraded UV-Net embedding from L3
+registration/similarity (round-3, §13 F4-UVNet). This is **not** a claim that
+every reader of `embedding_degraded`/`used_for_fusion`/`last_encode_degraded`
+in the tree has been audited — it is a claim about these three, now-fixed,
+reviewer-identified paths.
+
 ## 13. F3 + F4 + F1 remediation (post-NO-GO gate fix)
 
 This unit closed the containment holes the gate review flagged. All source
@@ -415,12 +456,25 @@ EXPLICITLY labeled degraded.**
   only for legacy compat (the pre-existing prototype contract reads it), but a
   `degraded=True` history prediction now **EXITS model fusion** —
   `src/ml/hybrid_classifier.py` detects `degraded`/`model_available=False` and
-  excludes it from every downstream model-vote/fusion path
+  excludes it from the model-vote/fusion path
   (`decision_path` gets `history_degraded_excluded_from_fusion`; the retained
   record is stamped `used_for_fusion=False`, `fusion_excluded_reason=
   "degraded_model_unavailable"`, `auxiliary_role="rule_fallback"`). It survives
   only as an explicit rule/fallback auxiliary result, never as a model signal.
-  Covered by the new `tests/unit/test_hybrid_history_degraded.py`.
+  Covered by the new `tests/unit/test_hybrid_history_degraded.py`. **As of this
+  review round, `hybrid_classifier` was the only consumer this held for** —
+  `src/ml/hybrid/explainer.py` independently re-derived model-vote treatment
+  from the raw `history_prediction` dict and still scored a
+  `used_for_fusion=False`/`degraded=True` history as a model signal
+  (`history_sequence_label` contribution, a candidate-label alternative, and a
+  disagreeing-source count). **Round-3 closes this**: a new
+  `_history_excluded_from_fusion()` helper (mirroring the same
+  `used_for_fusion`/`degraded`/`model_available` marker checks) gates every one
+  of those four explainer paths — feature contributions, the model-statistics
+  summary, alternative-label candidates, and the model-disagreement count — so
+  an excluded history prediction surfaces only as a zero-contribution
+  `rule_fallback` auxiliary entry, never as a `history_sequence` model source.
+  Covered by the new `tests/unit/test_hybrid_explainer_history_degraded.py`.
 - `src/ml/vision_3d.py` — the mock B-Rep embedding path is now non-silent: it
   logs a WARNING and sets `last_encode_degraded=True`, and the encoder exposes a
   `model_available` property (mirrors gateway activation) for callers/health.
@@ -431,7 +485,28 @@ EXPLICITLY labeled degraded.**
   cache key bumped `l4_v1` -> `l4_v2` to invalidate any pre-fix entries that
   predate the marker, so a later cache HIT can never re-surface an untagged
   mock as if it were verified. Covered by the new cases in
-  `tests/unit/test_feature_pipeline.py`.
+  `tests/unit/test_feature_pipeline.py`. **This round-2 fix stopped at the
+  marker/cache layer — it did not stop the marked-degraded embedding from being
+  CONSUMED.** A reviewer reproduced `l3_dim=3`: `src/core/vector_pipeline.py`
+  registered any `embedding_vector` present in the features mapping under
+  `VECTOR_LAYOUT_L3`/`base_sem_ext_v1+l3` regardless of `embedding_degraded`,
+  so a mock heuristic embedding still entered L3 registration and participated
+  in similarity. **Round-3 closes this**: `_build_feature_vector` now reads the
+  co-written `embedding_degraded` marker and skips L3 registration (falls back
+  to the pre-L3 vector layout) whenever it is truthy — a degraded/mock
+  embedding is tagged-degraded in the cache (round-2) AND excluded from L3
+  registration/similarity (round-3); only a verified UV-Net embedding (marker
+  `False`, or a legacy caller that never sets it) still registers as L3.
+  Root-caused in `src/ml/vision_3d.py::encode()`: `last_encode_degraded` is now
+  defaulted `True` at the very top of every `encode()` call and flipped `False`
+  in exactly one place — immediately after a genuine model inference has
+  materialized a real (non-zeros-guard) embedding list — so the mock path, every
+  zeros-guard fallback, and the exception fallback all inherit the degraded
+  default; previously the flag was cleared at the *start* of the inference
+  branch, so a zeros-fallback from a schema/dim mismatch or a mid-inference
+  exception could still read as a verified embedding. Covered by the new
+  `tests/unit/test_vector_pipeline_degraded.py` and the added cases in
+  `tests/unit/test_c2_vision3d_uvnet.py`.
 - `src/models/readiness_registry.py::_status_from_evidence` — for gateway-wired
   families (v16, graph2d, uvnet, pointnet) readiness is judged on **ACTIVATION**,
   not legacy checkpoint-file presence: an enabled family that is not `loaded` is
@@ -522,3 +597,115 @@ Discriminating tests (`test_c2_part.py`):
 identical (another SINGLE_FILE pin, same logical id), and the artifact **count**
 for this logical activation (2→3) — and the resulting 9-pin denominator (§3) —
 is now ratified, not pending.
+
+## 15. Round-3 remediation (post-round-2 ratified NO-GO, this record)
+
+Round-2 (§13/§14, committed at `d8ebd971`) fixed the containment membrane
+itself. The round-2 gate review found the membrane's own structural check had
+a name-only false-green, and that the C4 degrade contract stopped at the
+family/marker boundary without proof its *consumers* honored the marker.
+Round-3 (working-tree changes on top of `d8ebd971`, **not committed**) closes
+both. No C1 core file was touched (`store.py`/`types.py`/`resolver.py`/
+`pin_domain.py`/`digest.py`/`fd_dir.py` untouched); `activation_gateway.py` was
+read, not edited.
+
+**C5 — canonical-gateway resolve + no cross-scope inheritance**
+(`scripts/ci/activation_surface_enumerator.py`, §6 above). A gateway call now
+counts only if the file's own import table resolves the call target to
+`src.core.model_activation.activation_gateway` (bare/aliased name-import or
+module-import + attribute form) — a same-named local fake/shadow no longer
+passes as wired. A nested function/lambda scope no longer inherits an outer
+scope's gateway bindings as always-dominant; each scope is judged on its own
+bindings only (fail-closed, since the enumerator has no real call-order
+analysis across scopes).
+
+**UVNet non-consumption** (`src/ml/vision_3d.py` + `src/core/vector_pipeline.py`,
+§13 F4-UVNet above). `last_encode_degraded` now defaults `True` at the top of
+every `encode()` and is cleared in exactly one place, right after a genuine
+model inference materializes a real embedding list — so every non-inference
+exit (mock, zeros-guard, exception) is degraded by construction, not by an
+early flag flip that a mid-inference failure could outrun. `vector_pipeline.py`
+now reads the co-written `embedding_degraded` marker and excludes a degraded
+embedding from L3 vector registration and similarity (previously any
+`embedding_vector` present registered as L3 regardless of the marker — the
+reviewer-reproduced `l3_dim=3` false-registration).
+
+**Explainer non-consumption** (`src/ml/hybrid/explainer.py`, §13 F4-history
+above). A new `_history_excluded_from_fusion()` helper applies the same
+`used_for_fusion=False` / `degraded=True` / `model_available=False` test
+`hybrid_classifier` already used, independently, inside the explainer's own
+feature-contribution, model-statistics-summary, alternative-label, and
+model-disagreement-count logic — all four previously re-derived model-vote
+treatment straight from `history_prediction.get("label")` and would still
+score a fusion-excluded history prediction as a live model source. An excluded
+history prediction now emits a zero-contribution `rule_fallback` auxiliary
+entry instead.
+
+**Scope, explicitly:** these three fixes are the C4/C5 contract *record* for
+this round — they close the specific reviewer-identified gaps in the
+structural check and in two named consumers (UV-Net→L3 pipeline,
+history→explainer). They do not constitute, and this section does not claim,
+an audit of every reader of every degrade marker in the tree (see §12
+"Consumption of the degrade marker").
+
+### 15.1 Verbatim verification (`/usr/bin/python3`, `--noconftest -p no:cacheprovider`)
+
+```
+cd /private/tmp/cadml-c2c6
+PYTHONPATH=. /usr/bin/python3 -m pytest --noconftest -p no:cacheprovider -q \
+  tests/unit/test_activation_surface_enumerator.py
+```
+```
+...............................................                          [100%]
+47 passed in 50.91s
+```
+
+```
+PYTHONPATH=. /usr/bin/python3 -m pytest --noconftest -p no:cacheprovider -q \
+  tests/unit/test_c2_vision3d_uvnet.py
+```
+```
+.......                                                                  [100%]
+7 passed in 1.41s
+```
+
+```
+PYTHONPATH=. /usr/bin/python3 -m pytest --noconftest -p no:cacheprovider -q \
+  tests/unit/test_hybrid_explainer_history_degraded.py
+```
+```
+.....                                                                    [100%]
+5 passed in 0.13s
+```
+
+```
+PYTHONPATH=. /usr/bin/python3 -m pytest --noconftest -p no:cacheprovider -q \
+  tests/unit/test_vector_pipeline_degraded.py
+```
+```
+..                                                                       [100%]
+2 passed in 0.35s
+```
+
+Combined (same four full files, one invocation):
+
+```
+PYTHONPATH=. /usr/bin/python3 -m pytest --noconftest -p no:cacheprovider -q \
+  tests/unit/test_activation_surface_enumerator.py \
+  tests/unit/test_c2_vision3d_uvnet.py \
+  tests/unit/test_hybrid_explainer_history_degraded.py \
+  tests/unit/test_vector_pipeline_degraded.py
+```
+```
+.............................................................            [100%]
+61 passed in 56.12s
+```
+
+**Residual — same honesty frame as §0/§9.6:** these four files are the full
+extent of what this unit verified locally; a full-suite / CI run to check for
+unrelated regressions elsewhere in the tree was **not** run as part of this
+unit (round-3 touches four files plus two new test files; the change surface
+is narrow, but "narrow" is not the same claim as "full-suite green," and this
+record does not make that claim). **Working tree is intentionally
+uncommitted** at the time of this record (per this unit's instructions) —
+these results describe the working tree, not any commit SHA.

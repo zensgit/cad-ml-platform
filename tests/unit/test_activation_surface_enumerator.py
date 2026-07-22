@@ -183,8 +183,8 @@ import ast as _ast
 
 def _detect(src: str):
     tree = _ast.parse(src)
-    ma, im = enum._collect_imports(tree)
-    v = enum._LoadVisitor(ma, im)
+    ma, im, gn, gm = enum._collect_imports(tree)
+    v = enum._LoadVisitor(ma, im, gn, gm)
     v.visit(tree)
     return [s[1] for s in v.sites]
 
@@ -421,3 +421,87 @@ def test_every_gated_site_carries_a_valid_wiring() -> None:
     bad = {k: e.get("wiring") for k, e in manifest.items()
            if e["class"] == "gated" and e.get("wiring") not in enum.VALID_WIRING}
     assert not bad, f"gated sites with missing/invalid wiring: {bad}"
+
+
+# --- C5 round-3 (1): outer-scope gateway bindings do NOT dominate a nested-function load -----------
+# The old code inherited every parent-scope gateway var into a nested function scope RELAXED to
+# (0, ()) so it ALWAYS dominated — a raw loader inside a closure was scored wrapped=True merely
+# because an OUTER function bound a gateway var of the same name. That is a false green: without real
+# cross-scope call-order analysis the enumerator cannot prove the outer binding runs BEFORE the nested
+# load (the closure may be called first, or read the raw param). The conservative fail-closed rule:
+# a raw loader inside a nested function/lambda is wrapped ONLY if a gateway binding WITHIN THAT SAME
+# function dominates it — an outer binding never counts.
+#
+# Repro: `load_outer(path)` binds `path = activate_file(...)`, but the nested `inner` closure loads the
+# free var `path` (its gateway rebind in the enclosing scope may not have run when `inner` executes).
+_CLOSURE_BEFORE_OUTER_SRC = (
+    "import torch\n"
+    "from src.core.model_activation.activation_gateway import activate_file\n"
+    "def load_outer(path):\n"
+    "    def inner():\n"
+    "        return torch.load(path, map_location='cpu')  # loads a free var — outer binding must NOT count\n"
+    "    path = activate_file('x', 'main')  # enclosing-scope binding — cannot dominate the nested load\n"
+    "    return inner\n"
+)
+_CLOSURE_SITE_KEY = "src/fam.py::load_outer.inner::torch.load#0"
+
+
+def test_closure_load_not_wrapped_by_outer_gateway_binding(tmp_path, monkeypatch) -> None:
+    # observed-RED against the OLD inherit-and-relax rule: the outer `path = activate_file(...)` binding
+    # was inherited into `inner` as (0, ()) and always dominated -> wrapped=True, structural_findings==[]
+    # (a false green for an unverified free-var load). The no-inheritance rule sees `inner` has NO
+    # in-scope gateway binding -> wrapped=False -> a wired-but-unwrapped finding.
+    _scan_with_manifest(tmp_path, monkeypatch, _CLOSURE_BEFORE_OUTER_SRC, _WIRED_ENTRY, key=_CLOSURE_SITE_KEY)
+    found = enum.enumerate_sites()
+    assert found[_CLOSURE_SITE_KEY]["wrapped"] is False
+    findings = enum.structural_findings(found, enum.load_manifest())
+    assert [f for f in findings if f[0] == _CLOSURE_SITE_KEY and f[1] == "wired-but-unwrapped"], findings
+
+
+def test_closure_load_before_outer_gateway_is_observed_RED_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # end-to-end: under enforce the nested closure load reds CI (exit 1) with a wired-but-unwrapped finding.
+    _scan_with_manifest(tmp_path, monkeypatch, _CLOSURE_BEFORE_OUTER_SRC, _WIRED_ENTRY, key=_CLOSURE_SITE_KEY)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_FINDING == 1
+    err = capsys.readouterr().err
+    assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _CLOSURE_SITE_KEY in err
+
+
+# --- C5 round-3 (2): only a call resolving to the CANONICAL gateway module counts ------------------
+# The old `_is_activation_call` matched by NAME alone (`activate_file` / `activate_bundle`), so a
+# project-local FAKE or shadowed `def activate_file(...)` counted as the real gateway — a raw load
+# wrapping its bytes was scored wrapped=True though nothing verified them. The fix resolves the call
+# against the file's import table: it counts only if `activate_file`/`activate_bundle` was imported
+# from src.core.model_activation.activation_gateway (bare, aliased, or attribute form). A locally
+# defined or differently-sourced name does NOT.
+_FAKE_GATEWAY_SRC = (
+    "import io, torch\n"
+    "def activate_file(artifact_id, family):  # project-local FAKE — NOT the canonical gateway\n"
+    "    with open(artifact_id, 'rb') as fh:\n"
+    "        return fh.read()\n"
+    "class M:\n"
+    "    def load(self):\n"
+    "        data = activate_file('fam/main', 'main')\n"
+    "        return torch.load(io.BytesIO(data), map_location='cpu')\n"
+)
+
+
+def test_local_fake_activate_file_is_not_the_gateway(tmp_path, monkeypatch) -> None:
+    # observed-RED against the OLD name-only matcher: `activate_file` matched by name, so `data` became a
+    # gateway var and `torch.load(io.BytesIO(data))` scored wrapped=True, structural_findings==[] (a false
+    # green — the bytes came from an unverified local read). Import-table resolution sees the name does not
+    # resolve to the canonical gateway module -> not a gateway call -> wrapped=False -> a finding.
+    _scan_with_manifest(tmp_path, monkeypatch, _FAKE_GATEWAY_SRC, _WIRED_ENTRY)
+    found = enum.enumerate_sites()
+    assert found[_SITE_KEY]["wrapped"] is False
+    findings = enum.structural_findings(found, enum.load_manifest())
+    assert [f for f in findings if f[0] == _SITE_KEY and f[1] == "wired-but-unwrapped"], findings
+
+
+def test_local_fake_activate_file_is_observed_RED_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # end-to-end: under enforce the fake-gateway wrap reds CI (exit 1) with a wired-but-unwrapped finding.
+    _scan_with_manifest(tmp_path, monkeypatch, _FAKE_GATEWAY_SRC, _WIRED_ENTRY)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_FINDING == 1
+    err = capsys.readouterr().err
+    assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _SITE_KEY in err
