@@ -38,7 +38,16 @@ def test_missing_local_checkpoints_are_degraded_fallbacks(monkeypatch, tmp_path)
     assert _item(snapshot, "embedding_model")["fallback_mode"] == "tfidf_fallback"
 
 
-def test_checkpoint_presence_reports_available_and_checksum(monkeypatch, tmp_path) -> None:
+def test_checkpoint_presence_does_not_confer_available_without_activation(
+    monkeypatch, tmp_path
+) -> None:
+    """F4 / design lock: for a gateway-wired family, the mere PRESENCE of a
+    checkpoint file on the (legacy) model path MUST NOT report ``available``.
+    Availability is judged on ACTIVATION only. The ``_graph2d`` singleton is
+    constructed at import against an unconfigured gateway, so it never
+    activated; a present-but-unpinned checkpoint file must therefore surface as
+    an explicit degraded ``fallback`` — not ``available`` (which previously
+    masked a degraded family as ready)."""
     checkpoint = tmp_path / "graph2d.pth"
     checkpoint.write_bytes(b"graph2d-test-checkpoint")
     monkeypatch.setenv("GRAPH2D_ENABLED", "true")
@@ -47,9 +56,14 @@ def test_checkpoint_presence_reports_available_and_checksum(monkeypatch, tmp_pat
     snapshot = build_model_readiness_snapshot()
     graph2d = _item(snapshot, "graph2d")
 
-    assert graph2d["checkpoint_exists"] is True
-    assert graph2d["loaded"] is False
-    assert graph2d["status"] == "available"
+    assert graph2d["checkpoint_exists"] is True  # file is present on disk
+    assert graph2d["loaded"] is False  # but the pin never activated
+    assert graph2d["status"] == "fallback"  # explicit degraded, NOT "available"
+    assert graph2d["status"] != "available"
+    # No filesystem paths leak into the readiness telemetry (design lock).
+    assert "checkpoint_paths" not in graph2d
+    assert "checkpoint_checksums" not in graph2d.get("metadata", {})
+    # The combined checksum (a hash, not a path) is still allowed.
     assert isinstance(graph2d["checksum"], str)
     assert len(graph2d["checksum"]) == 16
 

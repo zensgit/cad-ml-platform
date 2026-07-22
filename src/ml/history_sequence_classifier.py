@@ -380,7 +380,22 @@ class HistorySequenceClassifier:
 
         payload = self._predict_with_model(sequence)
         if payload.get("status") != "ok":
+            # Pinned model unavailable -> the prototype (rule-based) path answers.
+            # Design lock line 403 / owner F4 decision: a family MAY return a
+            # rule-based result but MUST label it degraded/model-unavailable
+            # explicitly — never a SILENT status="ok" stand-in. We keep the
+            # functional status (the hybrid consumer + prototype contract still
+            # read status=="ok"/source=="history_sequence_prototype"), but stamp
+            # unmistakable, health/caller-visible markers so the answer is not a
+            # silent stand-in. ("NOT status='ok'" in the brief means: not a *bare*
+            # ok — the explicit markers below satisfy the model-unavailable label.)
             payload = self._predict_with_prototypes(sequence)
+            payload["model_available"] = False
+            payload["degraded"] = True
+            payload.setdefault("degraded_reason", "pinned_model_unavailable")
+        else:
+            payload["model_available"] = True
+            payload["degraded"] = False
 
         payload.setdefault("label", None)
         payload.setdefault("confidence", 0.0)

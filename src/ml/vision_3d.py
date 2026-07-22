@@ -172,6 +172,12 @@ class UVNetEncoder:
         # Set when the checkpoint exists but load raised, so the readiness
         # registry can distinguish load-failure from cold/missing state.
         self._load_error: Optional[str] = None
+        # F4 — explicit, caller/health-visible degrade signal. The mock embedding
+        # path is a rule-based stand-in for the pinned UV-Net model; when it is
+        # used, the design lock forbids serving it SILENTLY. ``last_encode_degraded``
+        # records whether the most recent ``encode`` fell to the mock path, and
+        # ``model_available`` mirrors activation state for callers/health.
+        self.last_encode_degraded: bool = not self._loaded
 
         if HAS_TORCH:
             if torch.cuda.is_available():
@@ -181,6 +187,14 @@ class UVNetEncoder:
             else:
                 self.device = "cpu"
             self._load_model()
+
+    @property
+    def model_available(self) -> bool:
+        """True only when the pinned UV-Net model activated through the gateway.
+
+        Callers (and the readiness registry, via ``_loaded``) use this to tell a
+        real embedding apart from the degraded mock stand-in."""
+        return bool(self._loaded)
 
     def _load_model(self):
         """Load the pre-trained model via the C4 activation gateway.
@@ -256,10 +270,17 @@ class UVNetEncoder:
 
         # 1. Mock Path (If no model loaded or explicit legacy feature dict)
         if not self._loaded or (isinstance(data_source, dict) and "edge_index" not in data_source):
+            # Explicit degrade marker (design lock: no silent stand-in). When the
+            # pinned model never activated this is a model-unavailable degrade;
+            # when a legacy feature dict is passed to a loaded model it is still a
+            # non-model heuristic embedding. Either way the caller-visible flag is
+            # set and the mock producer logs it.
+            self.last_encode_degraded = True
             return self._mock_embedding(data_source, dim)
 
         # 2. Inference Path (Graph Data)
         if HAS_TORCH and self._loaded:
+            self.last_encode_degraded = False
             try:
                 # Prepare Inputs
                 if isinstance(data_source, dict):
@@ -354,6 +375,13 @@ class UVNetEncoder:
         Generate a heuristic embedding based on available scalar features.
         Used when the deep learning model is not available.
         """
+        # Non-silent degrade: surface that a rule-based stand-in is being served
+        # in place of the pinned UV-Net model (design lock line 403).
+        if not self._loaded:
+            logger.warning(
+                "UV-Net degraded: serving mock heuristic embedding "
+                "(model_available=False); pinned model not activated."
+            )
         seed_val = (
             features.get("faces", 0) * 1000
             + features.get("edges", 0)

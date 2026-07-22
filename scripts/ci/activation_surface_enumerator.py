@@ -42,12 +42,19 @@ never wears a finding's exit code. Stdlib only.
 **C5 structural wiring check (added in Phase-A):** beyond discovery+classification, each ``gated`` site
 carries a ``wiring`` lifecycle (``wired`` / ``gate-before-wired`` / ``latent``) and a raw deserializer
 (``torch.load`` / ``pickle.load`` / ``pickle.loads`` / ``joblib.load``) declared ``wired`` must actually
-reconstruct from ``activate_file`` / ``activate_bundle`` bytes — its enclosing function must delegate to
-the gateway. A ``wired`` raw loader that still reads bytes straight off a path (the wrapper was removed)
-is a structural inconsistency. Per the ratified W4 this is BLOCKING only once ``ACTIVATION_ENFORCE_WIRING``
-is set (after all in-scope live activations are wired); until the owner flips it the structural check is
-present-but-advisory (printed, exit code unchanged) so it cannot red CI on families that are still
-``gate-before-wired``. See :func:`structural_findings`.
+reconstruct from ``activate_file`` / ``activate_bundle`` bytes. The wrap check is a **data-flow binding**,
+not function-scope presence (review — F2 false-green): the value the raw loader deserializes must itself
+*derive* (via local assignments in the enclosing function) from the bytes returned by
+``activate_file`` / ``activate_bundle`` — either the returned value directly, or an in-memory buffer
+(``io.BytesIO`` / ``BufferedReader`` …) wrapping it. A function that CALLS the gateway, DISCARDS the
+result, and then ``torch.load(path)``\\s straight off a filesystem path is therefore NOT wrapped (its
+loaded argument does not derive from the gateway) — this is the F2 discard case, a structural
+inconsistency the old presence-only rule scored as a false green. The binding is fail-closed: a local
+name counts as gateway-derived only if EVERY assignment to it derives from the gateway (so a
+reassignment to a non-gateway value cannot launder it). Per the ratified W4 the check is BLOCKING only
+once ``ACTIVATION_ENFORCE_WIRING`` is set (after all in-scope live activations are wired); until the owner
+flips it the structural check is present-but-advisory (printed, exit code unchanged) so it cannot red CI
+on families that are still ``gate-before-wired``. See :func:`structural_findings`.
 """
 from __future__ import annotations
 
@@ -66,9 +73,13 @@ VALID_CLASSES = {"gated", "producer", "offline", "unmounted", "infra"}
 # --- C5 structural wiring check ---------------------------------------------------------------------
 # A raw deserializer (torch.load / pickle.load / pickle.loads / joblib.load) that lands a model into a
 # LIVE serving path must not read bytes straight off a path — it must reconstruct from the verified,
-# digest-pinned bytes returned by the activation gateway. The gateway functions whose result the
-# reconstruction must come from (or whose enclosing function must delegate to):
+# digest-pinned bytes returned by the activation gateway. The gateway functions whose RETURNED VALUE the
+# reconstruction must derive from (a data-flow binding, NOT mere function-scope presence — F2):
 _ACTIVATION_FUNCS = {"activate_file", "activate_bundle"}
+# In-memory buffer wrappers that may sit between the gateway bytes and the raw loader
+# (``torch.load(io.BytesIO(data))``). A raw loader argument that is one of these still counts as
+# gateway-derived iff the buffer wraps a gateway-derived value.
+_BUFFER_WRAPPERS = {"BytesIO", "BufferedReader", "BufferedRandom"}
 # The raw deserializer idioms the wrap check governs (a subset of the enumerated kinds — NOT
 # load_state_dict/from_pretrained/ctor:*, which consume bytes/paths the raw loader already produced).
 RAW_LOADER_KINDS = {"torch.load", "pickle.load", "pickle.loads", "joblib.load"}
@@ -147,26 +158,63 @@ def _collect_imports(tree: ast.AST) -> Tuple[Dict[str, str], Dict[str, Tuple[str
     return mod_alias, imported
 
 
+class _GatewayAssignScan(ast.NodeVisitor):
+    """Collect ``name = <expr>`` bindings in ONE function body, NOT descending into nested function
+    scopes (a nested function's locals are not the enclosing function's). Used to resolve which local
+    names carry gateway-derived bytes. Handles plain assign, annotated assign, and walrus."""
+
+    def __init__(self) -> None:
+        self.assigns: List[Tuple[str, ast.AST]] = []  # (target name, RHS value node), in source order
+
+    def visit_FunctionDef(self, node):  # a nested def — its body is a different scope; do not descend.
+        return
+
+    visit_AsyncFunctionDef = visit_FunctionDef
+
+    def visit_Lambda(self, node):
+        return
+
+    def visit_Assign(self, node):
+        for t in node.targets:
+            if isinstance(t, ast.Name):
+                self.assigns.append((t.id, node.value))
+        self.generic_visit(node)
+
+    def visit_AnnAssign(self, node):
+        if isinstance(node.target, ast.Name) and node.value is not None:
+            self.assigns.append((node.target.id, node.value))
+        self.generic_visit(node)
+
+    def visit_NamedExpr(self, node):  # (data := activate_file(...))
+        if isinstance(node.target, ast.Name):
+            self.assigns.append((node.target.id, node.value))
+        self.generic_visit(node)
+
+
 class _LoadVisitor(ast.NodeVisitor):
     def __init__(self, mod_alias: Dict[str, str], imported: Dict[str, Tuple[str, str]]) -> None:
         self.mod_alias = mod_alias
         self.imported = imported
         self.stack: List[str] = []
         # full-qualname of every enclosing FUNCTION scope (class scopes excluded) — used to attribute
-        # each load site to its enclosing function(s) and to know which functions delegate to the gateway.
+        # each load site to its enclosing function(s).
         self.func_qual: List[str] = []
-        # (qualname, kind, lineno, func_ctx) — func_ctx = tuple of enclosing function qualnames.
-        self.sites: List[Tuple[str, str, int, Tuple[str, ...]]] = []
-        # function qualnames whose body contains a call to activate_file / activate_bundle. A raw load
-        # inside such a function reconstructs from gateway-verified bytes (canonical activation path).
-        self.delegating: set = set()
+        # (qualname, kind, lineno, wrapped) — wrapped = the loaded value derives (data-flow) from the
+        # activation gateway (only meaningful, and only computed, for RAW_LOADER_KINDS).
+        self.sites: List[Tuple[str, str, int, bool]] = []
+        # Per enclosing function: the set of local names bound to gateway-derived bytes, cumulative down
+        # the nesting chain (outer names are visible to inner closures). Top of stack = current scope.
+        self.func_gwvars: List[set] = []
 
     def _scoped(self, name: str, node: ast.AST, is_func: bool) -> None:
         self.stack.append(name)
         if is_func:
             self.func_qual.append(".".join(self.stack))
+            parent = self.func_gwvars[-1] if self.func_gwvars else set()
+            self.func_gwvars.append(parent | self._collect_gateway_vars(node))
         self.generic_visit(node)
         if is_func:
+            self.func_gwvars.pop()
             self.func_qual.pop()
         self.stack.pop()
 
@@ -180,15 +228,65 @@ class _LoadVisitor(ast.NodeVisitor):
         self._scoped(node.name, node, False)
 
     def visit_Call(self, node: ast.Call) -> None:
-        if self._is_activation_call(node.func):
-            # every enclosing function of an activate_* call is a delegating (canonical-path) function.
-            for fq in self.func_qual:
-                self.delegating.add(fq)
         kind = self._classify(node.func)
         if kind:
             qual = ".".join(self.stack) if self.stack else "<module>"
-            self.sites.append((qual, kind, node.lineno, tuple(self.func_qual)))
+            # `wrapped`: does the deserialized value derive (reaching-definition, within the enclosing
+            # function) from activate_file / activate_bundle bytes? Only raw deserializers take such a
+            # bytes/stream argument; for the receiver-independent kinds (load_state_dict / from_pretrained
+            # / ctor:*) the wrap requirement does not apply and `wrapped` is left False (unused downstream).
+            wrapped = False
+            if kind in RAW_LOADER_KINDS and node.args:
+                gwvars = self.func_gwvars[-1] if self.func_gwvars else set()
+                wrapped = self._derives_from_gateway(node.args[0], gwvars)
+            self.sites.append((qual, kind, node.lineno, wrapped))
         self.generic_visit(node)
+
+    def _collect_gateway_vars(self, func_node: ast.AST) -> set:
+        """Local names in ``func_node``'s body that carry gateway-derived bytes.
+
+        Fail-closed under reassignment: a name counts ONLY if it is bound at least once and EVERY one of
+        its bindings derives from the gateway — so ``data = activate_file(...); data = open(p).read()``
+        does NOT launder ``data`` into a gateway var. Fixpoint so buffer/name chains resolve
+        (``data = activate_file(...); buf = io.BytesIO(data)`` -> both gateway-derived)."""
+        scan = _GatewayAssignScan()
+        for stmt in getattr(func_node, "body", []):
+            scan.visit(stmt)
+        by_name: Dict[str, List[ast.AST]] = {}
+        for name, val in scan.assigns:
+            by_name.setdefault(name, []).append(val)
+        gwvars: set = set()
+        changed = True
+        while changed:
+            changed = False
+            for name, vals in by_name.items():
+                if name in gwvars:
+                    continue
+                if vals and all(self._derives_from_gateway(v, gwvars) for v in vals):
+                    gwvars.add(name)
+                    changed = True
+        return gwvars
+
+    def _derives_from_gateway(self, expr: ast.AST, gwvars: set) -> bool:
+        """True iff ``expr`` is (transitively) the bytes returned by activate_file / activate_bundle:
+        the gateway call itself, a local name proven gateway-derived, or an in-memory buffer wrapping
+        such a value. A filesystem path/str/Path/attribute (e.g. ``self.model_path``) is NOT."""
+        if isinstance(expr, ast.Name):
+            return expr.id in gwvars
+        if isinstance(expr, ast.Call):
+            if self._is_activation_call(expr.func):
+                return True
+            if self._is_buffer_wrapper(expr.func):
+                return any(self._derives_from_gateway(a, gwvars) for a in expr.args)
+        return False
+
+    @staticmethod
+    def _is_buffer_wrapper(func: ast.AST) -> bool:
+        if isinstance(func, ast.Attribute):
+            return func.attr in _BUFFER_WRAPPERS  # io.BytesIO(...)
+        if isinstance(func, ast.Name):
+            return func.id in _BUFFER_WRAPPERS      # BytesIO(...) (from io import BytesIO)
+        return False
 
     @staticmethod
     def _is_activation_call(func: ast.AST) -> bool:
@@ -250,13 +348,12 @@ def enumerate_sites() -> Dict[str, dict]:
             v = _LoadVisitor(mod_alias, imported)
             v.visit(tree)
             per_key: Dict[str, int] = {}
-            for qual, kind, lineno, func_ctx in v.sites:
+            for qual, kind, lineno, wrapped in v.sites:
                 base = f"{rel}::{qual}::{kind}"
                 n = per_key.get(base, 0)
                 per_key[base] = n + 1
-                # `wrapped`: does the load reconstruct from gateway-verified bytes? True iff any enclosing
-                # function delegates to activate_file / activate_bundle. A module-level load is never wrapped.
-                wrapped = any(fq in v.delegating for fq in func_ctx)
+                # `wrapped` (computed by the visitor as a data-flow binding, NOT function-scope presence):
+                # the raw loader's deserialized argument derives from activate_file / activate_bundle bytes.
                 found[f"{base}#{n}"] = {
                     "file": rel, "symbol": qual, "kind": kind, "lineno": lineno, "wrapped": wrapped,
                 }
@@ -323,9 +420,11 @@ def structural_findings(
 
     * a gated site with no valid ``wiring`` value — the lifecycle must be declared, else a new gated
       load could hide unrouted;
-    * a raw deserializer (``RAW_LOADER_KINDS``) marked ``wiring="wired"`` whose enclosing function does
-      NOT delegate to ``activate_file``/``activate_bundle`` — i.e. it can still read bytes straight off a
-      path, so a missing/tampered artifact could load UNVERIFIED (this is the remove-the-wrapper regression);
+    * a raw deserializer (``RAW_LOADER_KINDS``) marked ``wiring="wired"`` whose deserialized argument does
+      NOT derive (data-flow) from ``activate_file``/``activate_bundle`` bytes — i.e. it can still read
+      bytes straight off a path, so a missing/tampered artifact could load UNVERIFIED. This catches BOTH
+      the remove-the-wrapper regression (no gateway call at all) AND the F2 discard case (the function
+      calls the gateway, ignores the return, then ``torch.load(path)``);
     * a raw deserializer marked ``gate-before-wired``/``latent`` that IS wrapped — the marker is stale, it
       has been routed through the gateway and should be reclassified ``wired``.
 
@@ -353,8 +452,9 @@ def structural_findings(
         if wiring == "wired" and not wrapped:
             findings.append(
                 (key, "wired-but-unwrapped",
-                 "marked wiring=wired but its enclosing function does not delegate to "
-                 "activate_file/activate_bundle — a raw load-by-path can load UNVERIFIED bytes")
+                 "marked wiring=wired but its deserialized argument does not derive (data-flow) from "
+                 "activate_file/activate_bundle bytes — a raw load-by-path can load UNVERIFIED bytes "
+                 "(the gateway may be called then its result discarded — the F2 false-green)")
             )
         elif wiring in {"gate-before-wired", "latent"} and wrapped:
             findings.append(

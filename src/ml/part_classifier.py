@@ -644,13 +644,21 @@ class PartClassifierV16:
         if self.loaded:
             return
 
-        # 加载配置
-        config_path = self.model_dir / "cad_classifier_v16_config.json"
-        if config_path.exists():
-            with open(config_path) as f:
-                config = json.load(f)
-            self.v6_weight = config['components']['v6']['weight']
-            self.v14_weight = config['components']['v14_ensemble']['weight']
+        # 加载配置 (activation-gateway pin: same logical id, artifact "v16config")
+        # F5: the ensemble config json sets the component weights (self.v6_weight
+        # / self.v14_weight) that combine V6 and V14 predictions — editing it
+        # changes outputs even with the two checkpoints pinned, so it is itself a
+        # weight-bearing artifact and is pinned as a THIRD SINGLE_FILE artifact
+        # under this same logical id (owner: two-pins-one-id extended to three).
+        # All-or-nothing (owner decision 1, consistent with F4): a missing/tampered
+        # config degrades the WHOLE V16 family — NEVER a silent proceed with the
+        # default weights (that would be an unlabeled model-unavailable stand-in).
+        config_data = activate_file("part/v16-v6pt", "v16config")
+        if config_data is None:
+            raise RuntimeError("part/v16-v6pt v16config activation unavailable")
+        config = json.loads(config_data)
+        self.v6_weight = config['components']['v6']['weight']
+        self.v14_weight = config['components']['v14_ensemble']['weight']
 
         # 加载V6 (activation-gateway pin: logical id "part/v16-v6pt", artifact "v6pt")
         v6_data = activate_file("part/v16-v6pt", "v6pt")

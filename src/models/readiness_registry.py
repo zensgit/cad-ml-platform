@@ -112,10 +112,13 @@ class ModelReadinessItem:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
+        # Design lock: no filesystem paths in health/telemetry. ``checkpoint_paths``
+        # (and the path-keyed per-file checksums, dropped in ``_item``) are NOT
+        # emitted; ``checkpoint_exists`` (a boolean) and the combined ``checksum``
+        # (a hash, not a path) are path-free and retained.
         return {
             "name": self.name,
             "enabled": self.enabled,
-            "checkpoint_paths": list(self.checkpoint_paths),
             "checkpoint_exists": self.checkpoint_exists,
             "loaded": self.loaded,
             "status": self.status,
@@ -161,6 +164,7 @@ def _status_from_evidence(
     checkpoint_required: bool,
     fallback_mode: Optional[str],
     error: Optional[str] = None,
+    activation_based: bool = False,
 ) -> str:
     if not enabled:
         return "disabled"
@@ -168,6 +172,16 @@ def _status_from_evidence(
         return "error"
     if loaded:
         return "loaded"
+    if activation_based:
+        # F4 / design lock: for gateway-wired families, availability is judged on
+        # ACTIVATION, never on legacy checkpoint-file presence. An enabled family
+        # whose pin did not activate is EXPLICITLY degraded ("fallback"/"missing"),
+        # not "available" — a present-but-unpinned checkpoint no longer masks a
+        # degraded family as ready. This reconciles readiness with the C1 gateway
+        # state (the singleton's ``loaded`` reflects activate_file's verdict).
+        return "fallback" if fallback_mode else "missing"
+    # Legacy, non-gateway-wired families (ocr provider-managed, embedding model)
+    # keep their existing checkpoint-presence signal.
     if checkpoint_exists:
         return "available"
     if fallback_mode:
@@ -188,12 +202,14 @@ def _item(
     version: Optional[str] = None,
     error: Optional[str] = None,
     metadata: Optional[Dict[str, Any]] = None,
+    activation_based: bool = False,
 ) -> ModelReadinessItem:
     checkpoint_exists = _all_paths_exist(paths)
-    checksum, per_path_checksums = _combined_checksum(paths) if checkpoint_exists else (None, {})
+    # Keep the combined checksum (a hash, path-free) but DO NOT surface the
+    # path-keyed per-file checksums — that map leaks filesystem paths into
+    # health/telemetry (design lock).
+    checksum, _per_path_checksums = _combined_checksum(paths) if checkpoint_exists else (None, {})
     item_metadata = dict(metadata or {})
-    if per_path_checksums:
-        item_metadata["checkpoint_checksums"] = per_path_checksums
     status = _status_from_evidence(
         enabled=enabled,
         loaded=loaded,
@@ -201,6 +217,7 @@ def _item(
         checkpoint_required=checkpoint_required,
         fallback_mode=fallback_mode,
         error=error,
+        activation_based=activation_based,
     )
     return ModelReadinessItem(
         name=name,
@@ -234,7 +251,8 @@ def _v16_item() -> ModelReadinessItem:
     loaded = bool(classifier is not None and getattr(classifier, "loaded", False))
     error = _module_object("src.core.analyzer", "_v16_classifier_load_error")
     paths = _path_list([v6_path, v14_path])
-    fallback = "v6_or_rule_based_classifier" if enabled and not _all_paths_exist(paths) else None
+    # Gateway-wired: degrade is judged on ACTIVATION (not old-path presence).
+    fallback = "v6_or_rule_based_classifier" if enabled and not loaded else None
     return _item(
         name="v16_classifier",
         enabled=enabled,
@@ -243,6 +261,7 @@ def _v16_item() -> ModelReadinessItem:
         error=error,
         checkpoint_required=True,
         fallback_mode=fallback,
+        activation_based=True,
         version=os.getenv("V16_MODEL_VERSION", "v16"),
         metadata={
             "torch_available": _torch_available(),
@@ -261,10 +280,9 @@ def _graph2d_item() -> ModelReadinessItem:
     loaded = bool(classifier is not None and getattr(classifier, "_loaded", False))
     error = getattr(classifier, "_load_error", None) if classifier is not None else None
     paths = _path_list([path])
+    # Gateway-wired: degrade is judged on ACTIVATION (not old-path presence).
     fallback = (
-        "filename_titleblock_process_rules"
-        if enabled and not _all_paths_exist(paths)
-        else None
+        "filename_titleblock_process_rules" if enabled and not loaded else None
     )
     return _item(
         name="graph2d",
@@ -274,6 +292,7 @@ def _graph2d_item() -> ModelReadinessItem:
         error=error,
         checkpoint_required=True,
         fallback_mode=fallback,
+        activation_based=True,
         version=os.getenv("GRAPH2D_MODEL_VERSION"),
         metadata={"torch_available": _torch_available()},
     )
@@ -286,7 +305,8 @@ def _uvnet_item() -> ModelReadinessItem:
     loaded = bool(encoder is not None and getattr(encoder, "_loaded", False))
     error = getattr(encoder, "_load_error", None) if encoder is not None else None
     paths = _path_list([path])
-    fallback = "mock_brep_embedding" if enabled and not _all_paths_exist(paths) else None
+    # Gateway-wired: degrade is judged on ACTIVATION (not old-path presence).
+    fallback = "mock_brep_embedding" if enabled and not loaded else None
     return _item(
         name="uvnet",
         enabled=enabled,
@@ -295,6 +315,7 @@ def _uvnet_item() -> ModelReadinessItem:
         error=error,
         checkpoint_required=True,
         fallback_mode=fallback,
+        activation_based=True,
         version=os.getenv("UVNET_MODEL_VERSION"),
         metadata={"torch_available": _torch_available()},
     )
@@ -307,11 +328,8 @@ def _pointnet_item() -> ModelReadinessItem:
     loaded = bool(analyzer is not None and getattr(analyzer, "_model_loaded", False))
     error = getattr(analyzer, "_load_error", None) if analyzer is not None else None
     paths = _path_list([path])
-    fallback = (
-        "statistical_pointcloud_features"
-        if enabled and not _all_paths_exist(paths)
-        else None
-    )
+    # Gateway-wired: degrade is judged on ACTIVATION (not old-path presence).
+    fallback = "statistical_pointcloud_features" if enabled and not loaded else None
     return _item(
         name="pointnet",
         enabled=enabled,
@@ -320,6 +338,7 @@ def _pointnet_item() -> ModelReadinessItem:
         error=error,
         checkpoint_required=True,
         fallback_mode=fallback,
+        activation_based=True,
         version=os.getenv("POINTNET_MODEL_VERSION"),
         metadata={"torch_available": _torch_available()},
     )

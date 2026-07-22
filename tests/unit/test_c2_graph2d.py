@@ -141,6 +141,12 @@ def test_pin_absent_degrades_no_raw_load(tmp_path: Path):
     # A missing/unverified artifact is a graceful FALLBACK, not a load error:
     # _load_error stays None so the readiness registry reports "graph2d:fallback"
     # (not "graph2d:error"), matching the pre-wiring missing-model contract.
+    #
+    # F4 corrected contract: readiness for this gateway-wired family is judged on
+    # ACTIVATION, not legacy checkpoint-file presence. Because this un-activated
+    # ``_loaded is False`` state is what the registry reads, graph2d is reported
+    # as explicit "fallback" (degraded) — it can NEVER be "available" on the
+    # strength of a checkpoint file merely existing on disk.
     assert clf._load_error is None
 
 

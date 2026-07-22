@@ -195,17 +195,18 @@ def build_health_payload(
             v14_model_path
         )
 
+        # Design lock: NO filesystem paths in health/telemetry. Degraded reasons
+        # are name-only (model name + degraded state); the resolved artifact paths
+        # are never emitted.
         degraded_reasons: list[str] = []
         if bool(hybrid_cfg.graph2d.enabled) and not torch_available:
             degraded_reasons.append("graph2d_enabled_but_torch_missing")
         if bool(hybrid_cfg.graph2d.enabled) and not graph2d_model_present:
-            degraded_reasons.append(f"graph2d_model_missing:{graph2d_model_path}")
+            degraded_reasons.append("graph2d_model_missing")
         if not v16_disabled and not torch_available:
             degraded_reasons.append("v16_enabled_but_torch_missing")
         if not v16_disabled and not v16_models_present:
-            degraded_reasons.append(
-                f"v16_models_missing:v6={v6_model_path},v14={v14_model_path}"
-            )
+            degraded_reasons.append("v16_models_missing")
 
         model_readiness_snapshot = None
         try:
@@ -218,13 +219,14 @@ def build_health_payload(
 
         # Preserve the legacy readiness keys while adding the registry snapshot
         # that reports model-by-model checkpoint, load and fallback state.
+        # Design lock: emit model NAME + present/degraded state, never the
+        # resolved filesystem path. The previous ``*_model_path`` keys leaked
+        # store/artifact locations into telemetry and are dropped; the boolean
+        # ``*_present`` signals (path-free) are retained for readiness triage.
         readiness_payload: Dict[str, Any] = {
             "torch_available": torch_available,
-            "graph2d_model_path": graph2d_model_path,
             "graph2d_model_present": graph2d_model_present,
             "v16_disabled": v16_disabled,
-            "v6_model_path": v6_model_path,
-            "v14_model_path": v14_model_path,
             "v16_models_present": v16_models_present,
             "degraded_reasons": sorted(set(degraded_reasons)),
             "required_providers": os.getenv("READINESS_REQUIRED_PROVIDERS", ""),

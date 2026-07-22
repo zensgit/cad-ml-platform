@@ -329,20 +329,31 @@ class EnsembleGraph2DClassifier:
             self._load_models()
 
     def _load_models(self) -> None:
-        for path in self.model_paths:
-            if os.path.exists(path):
-                clf = Graph2DClassifier(model_path=path)
-                if clf._loaded:
-                    self.classifiers.append(clf)
-                    logger.info("Loaded ensemble model: %s", path)
-                else:
-                    logger.warning("Failed to load ensemble model: %s", path)
-            else:
-                logger.warning("Ensemble model not found: %s", path)
+        # F3(b) — the Phase-A baseline manifest pins exactly ONE graph2d
+        # activation ("graph2d/main"); there is no distinct per-path pinned
+        # activation. The ensemble is therefore NOT a separately-pinned family:
+        # it is driven by that single gateway-routed classifier. We reuse the
+        # already-activated module singleton rather than (a) gating each path on
+        # legacy os.path.exists — a stale/bypassable proxy for the pin — or
+        # (b) re-instantiating Graph2DClassifier per path, which would re-pull
+        # the SAME pin N times. Multi-model ensembling needs distinct pins and is
+        # out of scope until Track E; ``self.model_paths`` is retained only for
+        # config-echo visibility (see health_utils) and no longer drives loads.
+        base = get_2d_classifier()
+        if getattr(base, "_loaded", False):
+            self.classifiers.append(base)
+            logger.info(
+                "Ensemble driven by the single gateway-pinned graph2d activation"
+            )
+        else:
+            logger.warning(
+                "Ensemble degraded: graph2d/main pin unavailable "
+                "(no legacy raw-path fallback)"
+            )
 
         self._loaded = len(self.classifiers) > 0
         if self._loaded:
-            logger.info("Ensemble initialized with %d models", len(self.classifiers))
+            logger.info("Ensemble initialized with %d model(s)", len(self.classifiers))
 
     def predict_from_bytes(self, data: bytes, file_name: str) -> Dict[str, Any]:
         """Ensemble prediction combining multiple models."""

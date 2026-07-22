@@ -67,6 +67,10 @@ V6PT_AID = "v6pt"
 V6PT_RELPATH = "part_v16_v6pt.pt"
 V14ENS_AID = "v14ens"
 V14ENS_RELPATH = "part_v16_v14ens.pt"
+# F5: the ensemble config is the THIRD single-file pin under the same logical id.
+# store_relpath matches the baseline-manifest documented path (models/…json).
+V16CONFIG_AID = "v16config"
+V16CONFIG_RELPATH = "models/cad_classifier_v16_config.json"
 
 
 @pytest.fixture(autouse=True)
@@ -104,7 +108,9 @@ def _configure_pins(
     store_root.mkdir(exist_ok=True)
     entries = []
     for lid, aid, relpath, data in files:
-        (store_root / relpath).write_bytes(data)
+        target = store_root / relpath
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
         entries.append(_entry(lid, aid, relpath, _sha256_hex(data)))
 
     manifest = tmp_path / "baseline.json"
@@ -211,6 +217,21 @@ def _make_v16_v6pt_checkpoint_bytes(bias_value: float) -> bytes:
     return buf.getvalue()
 
 
+def _make_v16_config_bytes(v6_weight: float, v14_weight: float) -> bytes:
+    """A minimal, real V16 ensemble config JSON (the F5 third pinned artifact).
+
+    Shape matches what PartClassifierV16._load_models reads:
+    config['components']['v6']['weight'] and ['v14_ensemble']['weight'].
+    """
+    config = {
+        "components": {
+            "v6": {"weight": v6_weight},
+            "v14_ensemble": {"weight": v14_weight},
+        }
+    }
+    return json.dumps(config).encode("utf-8")
+
+
 def _make_v16_v14ens_checkpoint_bytes(bias_value: float) -> bytes:
     """A minimal, real PartClassifierV16 "v14ens" component checkpoint (1 fold)."""
     model = _FusionModelV14(48, 5)
@@ -293,12 +314,16 @@ def test_v16_fixture_pins_success_uses_exact_bytes_for_both(
     OWN exact pinned bytes (proves the two pins are wired independently)."""
     v6pt_data = _make_v16_v6pt_checkpoint_bytes(bias_value=11.0)
     v14ens_data = _make_v16_v14ens_checkpoint_bytes(bias_value=22.0)
+    # Distinguishing weights (NOT the __init__ defaults 0.3/0.7) so we can prove
+    # the weights came from the pinned config, not the fallback defaults.
+    config_data = _make_v16_config_bytes(v6_weight=0.25, v14_weight=0.75)
     _configure_pins(
         monkeypatch,
         tmp_path,
         [
             (V16_LID, V6PT_AID, V6PT_RELPATH, v6pt_data),
             (V16_LID, V14ENS_AID, V14ENS_RELPATH, v14ens_data),
+            (V16_LID, V16CONFIG_AID, V16CONFIG_RELPATH, config_data),
         ],
     )
 
@@ -315,6 +340,9 @@ def test_v16_fixture_pins_success_uses_exact_bytes_for_both(
     assert torch.allclose(
         classifier.v14_models[0].classifier[-1].bias.cpu(), torch.full((5,), 22.0)
     )
+    # F5: weights came from the pinned config, proving it was read via the gateway.
+    assert classifier.v6_weight == 0.25
+    assert classifier.v14_weight == 0.75
 
 
 def test_v16_v14ens_missing_degrades_whole_family_all_or_nothing(
@@ -323,7 +351,17 @@ def test_v16_v14ens_missing_degrades_whole_family_all_or_nothing(
     """v6pt pinned but v14ens absent -> the WHOLE V16 family degrades (raises),
     never a partial v6-only fallback inside V16 (owner decision 1: all-or-nothing)."""
     v6pt_data = _make_v16_v6pt_checkpoint_bytes(bias_value=5.0)
-    _configure_pins(monkeypatch, tmp_path, [(V16_LID, V6PT_AID, V6PT_RELPATH, v6pt_data)])
+    config_data = _make_v16_config_bytes(v6_weight=0.3, v14_weight=0.7)
+    # config + v6pt pinned, v14ens deliberately absent: we must progress PAST the
+    # config and v6pt steps to prove the all-or-nothing failure is the v14ens gap.
+    _configure_pins(
+        monkeypatch,
+        tmp_path,
+        [
+            (V16_LID, V16CONFIG_AID, V16CONFIG_RELPATH, config_data),
+            (V16_LID, V6PT_AID, V6PT_RELPATH, v6pt_data),
+        ],
+    )
 
     classifier = PartClassifierV16(model_dir=str(tmp_path), use_jit=False)
 
@@ -339,10 +377,12 @@ def test_v16_v6pt_digest_tamper_degrades(tmp_path: Path, monkeypatch: pytest.Mon
     """v6pt tampered after pinning -> degrades before v14ens is even attempted."""
     original = _make_v16_v6pt_checkpoint_bytes(bias_value=1.0)
     v14ens_data = _make_v16_v14ens_checkpoint_bytes(bias_value=2.0)
+    config_data = _make_v16_config_bytes(v6_weight=0.3, v14_weight=0.7)
     store_root = _configure_pins(
         monkeypatch,
         tmp_path,
         [
+            (V16_LID, V16CONFIG_AID, V16CONFIG_RELPATH, config_data),
             (V16_LID, V6PT_AID, V6PT_RELPATH, original),
             (V16_LID, V14ENS_AID, V14ENS_RELPATH, v14ens_data),
         ],
@@ -358,3 +398,108 @@ def test_v16_v6pt_digest_tamper_degrades(tmp_path: Path, monkeypatch: pytest.Mon
 
     assert classifier.v6_model is None
     assert classifier.v14_models == []
+
+
+# ---------------------------------------------------------------------------
+# part/v16-v6pt "v16config" — the F5 THIRD single-file pin (ensemble weights).
+#
+# The config json sets self.v6_weight / self.v14_weight, which combine the V6
+# and V14 predictions. Even with both checkpoints pinned, editing this json
+# changes outputs -> it is an unpinned weight-bearing artifact unless pinned.
+# These prove: absent config -> whole V16 degrades (no silent default-weight
+# fallback); tampered config -> degrades; valid config -> weights loaded.
+# ---------------------------------------------------------------------------
+
+def test_v16_config_pin_absent_degrades_whole_family(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """Both checkpoints pinned but the config pin absent -> the WHOLE V16 family
+    degrades (raises), NEVER a silent proceed with the default __init__ weights.
+
+    This is the F5 discriminator: without the fix, a missing config silently
+    used self.v6_weight=0.3 / self.v14_weight=0.7 and loaded the models anyway;
+    with the fix it is all-or-nothing, so the config gap alone degrades V16."""
+    v6pt_data = _make_v16_v6pt_checkpoint_bytes(bias_value=3.0)
+    v14ens_data = _make_v16_v14ens_checkpoint_bytes(bias_value=4.0)
+    # Both checkpoints pinned; v16config deliberately NOT pinned.
+    _configure_pins(
+        monkeypatch,
+        tmp_path,
+        [
+            (V16_LID, V6PT_AID, V6PT_RELPATH, v6pt_data),
+            (V16_LID, V14ENS_AID, V14ENS_RELPATH, v14ens_data),
+        ],
+    )
+
+    classifier = PartClassifierV16(model_dir=str(tmp_path), use_jit=False)
+    with pytest.raises(RuntimeError, match="v16config"):
+        classifier._load_models()
+
+    # Config is read FIRST, so degrade happens before any checkpoint is loaded.
+    assert classifier.loaded is False
+    assert classifier.v6_model is None
+    assert classifier.v14_models == []
+    # Weights remain the untouched __init__ defaults — never silently applied.
+    assert classifier.v6_weight == 0.3
+    assert classifier.v14_weight == 0.7
+
+
+def test_v16_config_digest_tamper_degrades(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """Config bytes on disk changed after the manifest pinned the original
+    digest -> the gateway refuses (digest mismatch) -> V16 degrades, never
+    using the tampered (attacker-chosen) weights."""
+    original_config = _make_v16_config_bytes(v6_weight=0.25, v14_weight=0.75)
+    v6pt_data = _make_v16_v6pt_checkpoint_bytes(bias_value=1.0)
+    v14ens_data = _make_v16_v14ens_checkpoint_bytes(bias_value=2.0)
+    store_root = _configure_pins(
+        monkeypatch,
+        tmp_path,
+        [
+            (V16_LID, V16CONFIG_AID, V16CONFIG_RELPATH, original_config),
+            (V16_LID, V6PT_AID, V6PT_RELPATH, v6pt_data),
+            (V16_LID, V14ENS_AID, V14ENS_RELPATH, v14ens_data),
+        ],
+    )
+
+    # Attacker swaps the config to skew the ensemble weights.
+    tampered = _make_v16_config_bytes(v6_weight=0.99, v14_weight=0.01)
+    assert tampered != original_config
+    (store_root / V16CONFIG_RELPATH).write_bytes(tampered)
+
+    classifier = PartClassifierV16(model_dir=str(tmp_path), use_jit=False)
+    with pytest.raises(RuntimeError, match="v16config"):
+        classifier._load_models()
+
+    assert classifier.loaded is False
+    assert classifier.v6_model is None
+    # Tampered weights were NEVER applied — defaults remain untouched.
+    assert classifier.v6_weight == 0.3
+    assert classifier.v14_weight == 0.7
+
+
+def test_v16_valid_config_pin_loads_weights(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """A correctly pinned config -> its weights are applied (read via the
+    gateway from the exact pinned bytes), and the full V16 family activates."""
+    config_data = _make_v16_config_bytes(v6_weight=0.4, v14_weight=0.6)
+    v6pt_data = _make_v16_v6pt_checkpoint_bytes(bias_value=8.0)
+    v14ens_data = _make_v16_v14ens_checkpoint_bytes(bias_value=9.0)
+    _configure_pins(
+        monkeypatch,
+        tmp_path,
+        [
+            (V16_LID, V16CONFIG_AID, V16CONFIG_RELPATH, config_data),
+            (V16_LID, V6PT_AID, V6PT_RELPATH, v6pt_data),
+            (V16_LID, V14ENS_AID, V14ENS_RELPATH, v14ens_data),
+        ],
+    )
+
+    classifier = PartClassifierV16(model_dir=str(tmp_path), use_jit=False)
+    classifier._load_models()
+
+    assert classifier.loaded is True
+    assert classifier.v6_weight == 0.4
+    assert classifier.v14_weight == 0.6

@@ -248,6 +248,21 @@ _UNWRAPPED_SRC = (
     "    def load(self, path):\n"
     "        return torch.load(path, map_location='cpu')\n"
 )
+# F2 DISCARD case — the enclosing function CALLS the gateway but DISCARDS the return, then loads a model
+# straight off a filesystem path (self.model_path). The old presence-only wrap rule ("any enclosing
+# function delegates to activate_*") scored this wrapped=True — a FALSE GREEN: an unverified path load
+# marked as gateway-routed. The data-flow rule must see the loaded argument does not derive from the
+# gateway bytes and score it wrapped=False -> a structural finding.
+_DISCARD_SRC = (
+    "import torch\n"
+    "from src.core.model_activation.activation_gateway import activate_file\n"
+    "class M:\n"
+    "    def load(self):\n"
+    "        data = activate_file('fam/main', 'main')  # called...\n"
+    "        if data is None:\n"
+    "            return None\n"
+    "        return torch.load(self.model_path, map_location='cpu')  # ...but result DISCARDED\n"
+)
 _SITE_KEY = "src/fam.py::M.load::torch.load#0"
 
 
@@ -287,6 +302,27 @@ def test_remove_the_wrapper_is_observed_RED_under_enforce(tmp_path, monkeypatch,
     _scan_with_manifest(tmp_path, monkeypatch, _UNWRAPPED_SRC, _WIRED_ENTRY)
     found = enum.enumerate_sites()
     assert found[_SITE_KEY]["wrapped"] is False  # detector no longer sees the gateway delegation
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_FINDING == 1
+    err = capsys.readouterr().err
+    assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _SITE_KEY in err
+
+
+def test_f2_gateway_called_but_result_discarded_is_unwrapped(tmp_path, monkeypatch) -> None:
+    # observed-RED against the OLD presence-only rule: the function DOES call activate_file, so the old
+    # "any enclosing function delegates" test marked the raw torch.load(self.model_path) wrapped=True and
+    # structural_findings returned [] — a false green for an unverified path load. The data-flow rule
+    # sees the loaded argument (self.model_path) does not derive from the gateway bytes -> wrapped=False.
+    _scan_with_manifest(tmp_path, monkeypatch, _DISCARD_SRC, _WIRED_ENTRY)
+    found = enum.enumerate_sites()
+    assert found[_SITE_KEY]["wrapped"] is False
+    findings = enum.structural_findings(found, enum.load_manifest())
+    assert [f for f in findings if f[0] == _SITE_KEY and f[1] == "wired-but-unwrapped"], findings
+
+
+def test_f2_discard_case_is_observed_RED_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # end-to-end: under enforce the F2 discard case reds CI (exit 1) with a wired-but-unwrapped finding.
+    _scan_with_manifest(tmp_path, monkeypatch, _DISCARD_SRC, _WIRED_ENTRY)
     monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
     assert enum.main() == enum.EXIT_FINDING == 1
     err = capsys.readouterr().err

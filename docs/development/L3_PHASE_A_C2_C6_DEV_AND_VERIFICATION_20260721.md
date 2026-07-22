@@ -60,17 +60,26 @@ missing/tampered/unpinned artifact can never load unverified.
 | logical id | artifact | source : load site | degraded behavior | C2 unit test |
 |---|---|---|---|---|
 | `pickle-classifier/main` | `main` | `src/ml/classifier.py` (`pickle.loads` of gateway bytes) | model unavailable / fallback | `test_c2_pickle_classifier.py` (opus-authored) |
-| `graph2d/main` | `main` | `src/ml/vision_2d.py:144` `_load_model` | `model=None`, `_loaded=False`, `_load_error="model_activation_degraded"` | `test_c2_graph2d.py` |
+| `graph2d/main` | `main` | `src/ml/vision_2d.py:144` `_load_model` | `model=None`, `_loaded=False`, `_load_error=None` (benign degrade, like uvnet/pointnet) | `test_c2_graph2d.py` |
 | `history/sequence` | `main` | `src/ml/history_sequence_classifier.py:165` `_load_model` | degrade to prototype scorer (`source != history_sequence_model`) | `test_c2_history_sequence.py` |
 | `vision3d-uvnet/main` | `main` | `src/ml/vision_3d.py:196` `_load_model` | mock encoder; `_load_error` stays `None` on benign degrade | `test_c2_vision3d_uvnet.py` |
 | `pointnet/main` | `main` | `src/ml/pointnet/inference.py:102` `_try_load_model` | fallback mode; `_load_error` stays `None` on benign degrade | `test_c2_pointnet.py` |
 | `part/v6` | `main` | `src/ml/part_classifier.py:60` `_load_model` (gate `analyzer.py`) | `raise RuntimeError("part/v6 … unavailable")` → analyzer falls back to V6/rules | `test_c2_part.py` |
-| `part/v16-v6pt` | `v6pt` | `src/ml/part_classifier.py:656` `_load_models` | all-or-nothing `RuntimeError` (owner decision 1) | `test_c2_part.py` |
-| `part/v16-v6pt` | `v14ens` | `src/ml/part_classifier.py:702` `_load_models` | all-or-nothing `RuntimeError` | `test_c2_part.py` |
+| `part/v16-v6pt` | `v6pt` | `src/ml/part_classifier.py` `_load_models` | all-or-nothing `RuntimeError` (owner decision 1) | `test_c2_part.py` |
+| `part/v16-v6pt` | `v14ens` | `src/ml/part_classifier.py` `_load_models` | all-or-nothing `RuntimeError` | `test_c2_part.py` |
+| `part/v16-v6pt` | `v16config` (F5) | `src/ml/part_classifier.py` `_load_models` (config json → ensemble weights; `store_relpath` `models/cad_classifier_v16_config.json`) | all-or-nothing `RuntimeError` | `test_c2_part.py` |
 
-Notes: `part/v16-v6pt` is **two SINGLE_FILE pins sharing one logical id**
-(owner decision 1). The `pickle-classifier/reload` pathway is **latent, sealed
-403, register-only, not wired, not in the denominator** (owner decision 2).
+Notes: `part/v16-v6pt` is **three SINGLE_FILE pins sharing one logical id**
+— `v6pt` + `v14ens` (owner decision 1) **plus the F5 `v16config`** ensemble-config
+pin. The config json sets `self.v6_weight`/`self.v14_weight` (it combines the V6
+and V14 predictions), so even with both checkpoints pinned, editing it changes
+outputs — it is itself a weight-bearing artifact and is pinned as a third
+SINGLE_FILE artifact (owner two-pins-one-id shape extended to three; **needs an
+owner nod** since it extends decision-1's two-pin count). Absent/tampered config
+degrades the WHOLE V16 family — never a silent proceed with the default weights
+(consistent with F4, design-lock line 403). The `pickle-classifier/reload`
+pathway is **latent, sealed 403, register-only, not wired, not in the
+denominator** (owner decision 2).
 
 ## 4. C3 baseline manifest mechanism
 
@@ -203,8 +212,9 @@ of two; it was discovered failing for the **same** raw-load-removed reason
 (verified failing in isolation on the original file) and fixed the same way, as
 the brief instructed. (The graph2d sibling
 `test_graph2d_load_error_captured_on_corrupt_checkpoint` was **not** touched: it
-still passes because graph2d's wiring sets `_load_error="model_activation_degraded"`
-on a benign degrade — see the residual finding in §10.)
+still passes because graph2d degrades benignly with `_load_error=None` — cold,
+exactly like uvnet/pointnet — and only sets `_load_error` on gateway-delivered
+verified-but-undecodable bytes. Half (A) asserts `cold._load_error is None`.)
 
 ## 9. VERIFICATION — exact commands + verbatim pass lines
 
@@ -285,33 +295,34 @@ PYTHONPATH=. python3.11 -m pytest --noconftest -q \
 
 ## 10. Residual risks & correctness findings (surfaced, out of scope)
 
-1. **Pre-existing cross-file test-isolation leak (flag for owner / C2 author).**
-   `tests/unit/test_c2_graph2d.py` uses `importlib.reload(vision_2d)`, which
-   re-runs the module-level `_graph2d = Graph2DClassifier()` and leaves that
-   **module singleton's `_load_error` non-`None`**. When
-   `test_c2_graph2d.py` runs **before** `test_model_readiness_registry.py` in
-   the same process (alphabetical collection order does exactly this), four
-   readiness-registry tests observe graph2d `status="error"` instead of
-   `fallback`/`available`:
-   `test_missing_local_checkpoints_are_degraded_fallbacks`,
-   `test_checkpoint_presence_reports_available_and_checksum`,
+1. **Test-isolation note (findings 1 & 2 below are now SUPERSEDED by the F4
+   remediation — see §13).** The original C6 record described a cross-file leak
+   where `importlib.reload(vision_2d)` left the `_graph2d` singleton's
+   `_load_error` non-`None`, flipping four readiness tests to `status="error"`.
+   That premise no longer holds. What actually neutralizes the "error" leak is
+   finding-2's correction — graph2d degrades benignly with `_load_error=None`
+   (confirmed by the current `src/ml/vision_2d.py:_load_model` and by
+   `test_c2_graph2d.py` asserting `_load_error is None`) — combined with
+   `test_c2_graph2d.py` not reloading the `_graph2d` singleton. (F4 does NOT stop
+   this leak on its own: `_status_from_evidence` checks `if error: return "error"`
+   *before* the `activation_based` branch, so a leaked non-`None` `_load_error`
+   would still surface as `"error"`.) F4 is a **separate** improvement: it
+   reshapes readiness to be **activation-based**, so a wired family's status is
+   `fallback` (explicit degraded) whenever it is not `loaded`, never `"available"`
+   on the strength of a checkpoint file existing. The empirical proof both hold
+   is a single-process cross-file run (test_c2_graph2d.py before
+   test_model_readiness_registry.py, the feared alphabetical order): 155 passed.
+   The four readiness tests
+   (`test_missing_local_checkpoints_are_degraded_fallbacks`,
+   `test_checkpoint_presence_does_not_confer_available_without_activation`
+   [renamed from `…reports_available_and_checksum`],
    `test_required_missing_model_blocks_readiness`,
-   `test_model_readiness_health_endpoint`.
-   **Verified pre-existing:** reproduced on the *unmodified* readiness file
-   (my edits stashed), so it is **not** caused by any C6 deliverable. Each file
-   passes in isolation. Root cause is twofold: graph2d's wiring conflates a
-   benign degrade with `_load_error` (see finding 2), and the C2 graph2d unit
-   reloads the module without restoring the singleton. **Out of my edit scope**
-   (I may edit only the two raw-load test files); recommended fix lives in
-   `test_c2_graph2d.py` (restore/reset the `_graph2d` singleton in teardown, or
-   avoid `importlib.reload`).
-2. **graph2d degrade sets `_load_error` (unlike pointnet/uvnet).**
-   `src/ml/vision_2d.py:_load_model` sets `_load_error="model_activation_degraded"`
-   on a benign gateway degrade, whereas pointnet/UVNet keep `_load_error=None`
-   (cold) and only set it on a genuine post-activation load failure. This is why
-   the graph2d load-error test still passes while pointnet/UVNet needed the
-   decision-#3 rewrite — and it is the upstream half of finding 1. A wired
-   family source; **out of scope** to change here.
+   `test_model_readiness_health_endpoint`) pass under the corrected contract.
+2. **~~graph2d degrade sets `_load_error`~~ — CORRECTED (stale claim).** The
+   earlier record claimed `src/ml/vision_2d.py:_load_model` set
+   `_load_error="model_activation_degraded"` on a benign degrade; the actual code
+   sets `_load_error=None` on the gateway `None` (degrade) path, identical to
+   pointnet/UVNet. There is no graph2d-specific degrade-vs-error divergence.
 3. **`src/core/ocr/providers/paddle.py:206` fabricates OCR text when the model
    is absent** (confidently-wrong; violates the spirit of decision #3). OCR is a
    **gate-before-wired** activation (decision #4), so this is recorded, not
@@ -349,3 +360,134 @@ PYTHONPATH=. python3.11 -m pytest --noconftest -q \
 Framed honestly: this holds **for the 7 in-scope activations**; **landing
 requires owner merge of #528 + rebase onto `main` + owner ratification.** This
 step merges nothing and ratifies nothing.
+
+**Scope of "containment complete" (corrected after the ratified NO-GO gate
+review).** The word *complete* here is NOT "every family serves a verified
+model." It means the **containment membrane** is what these deliverables
+actually establish, and only after the §13 remediation:
+
+1. the **explicit-degraded C4 contract** — every wired family that cannot
+   activate its pin enters a *defined, caller/health-visible degraded state*
+   and never silently serves a stand-in (design-lock line 403);
+2. **live-gate wiring** — activation is decided by the C1 gateway at the load
+   site, not by a legacy `os.path.exists` pre-gate that could bypass the pin;
+3. the **strengthened C5 structural check** — every wired raw-load site is
+   enumerated and asserted.
+
+Containment says *"an unpinned/tampered family degrades explicitly,"* NOT
+*"the family is loaded."* Default posture ships **NO-PIN / degraded**; that is
+containment working, not a gap.
+
+## 13. F3 + F4 + F1 remediation (post-NO-GO gate fix)
+
+This unit closed the containment holes the gate review flagged. All source
+changes are additive to the C2–C6 wiring and change no C1 core.
+
+**F3 — legacy path pre-gates removed (a valid pin must be able to activate).**
+- `src/core/analyzer.py::_get_v16_classifier` no longer gates V16 construction
+  on `os.path.exists(v6_path) and os.path.exists(v14_path)`. `PartClassifierV16`
+  is constructed unconditionally (its `_load_models` is lazy); the C1 gateway
+  (`activate_file("part/v16-v6pt", …)`) decides activation-vs-degrade at predict
+  time. A valid pin with the old convenience files absent now activates; a
+  degrade raises inside `_load_models`, is caught by `_classify_with_v16` → V6 →
+  rules, and — by design — does **not** populate `_v16_classifier_load_error`
+  (missing pin = *degraded*, not *error*). The `DISABLE_V16_CLASSIFIER` feature
+  flag is preserved.
+- `src/ml/vision_2d.py::EnsembleGraph2DClassifier._load_models` no longer gates
+  each `model_path` on `os.path.exists` and no longer re-instantiates a
+  `Graph2DClassifier` per path. **Decision:** the Phase-A baseline manifest pins
+  exactly ONE graph2d activation (`graph2d/main`); the ensemble is **not** a
+  distinct pinned family, so it is driven by that single gateway-routed
+  classifier (the already-activated module singleton) **once** — no re-pull of
+  the same pin, no legacy path bypass. Multi-model ensembling needs distinct
+  pins and is **out of scope until Track E**; `GRAPH2D_ENSEMBLE_MODELS` is kept
+  only for config-echo visibility.
+
+**F4 — no silent stand-in (design-lock line 403); rule-based results are
+EXPLICITLY labeled degraded.**
+- `src/ml/history_sequence_classifier.py::predict_from_tokens` — when the pinned
+  model is unavailable and the prototype (rule-based) scorer answers, the payload
+  is stamped `model_available=False`, `degraded=True`,
+  `degraded_reason="pinned_model_unavailable"`. The functional `status="ok"` /
+  `source="history_sequence_prototype"` is retained (the hybrid consumer and the
+  prototype contract read it), so this is the owner-approved "rule-based result,
+  explicitly labeled" shape — *not a bare silent ok*.
+- `src/ml/vision_3d.py` — the mock B-Rep embedding path is now non-silent: it
+  logs a WARNING and sets `last_encode_degraded=True`, and the encoder exposes a
+  `model_available` property (mirrors gateway activation) for callers/health.
+- `src/models/readiness_registry.py::_status_from_evidence` — for gateway-wired
+  families (v16, graph2d, uvnet, pointnet) readiness is judged on **ACTIVATION**,
+  not legacy checkpoint-file presence: an enabled family that is not `loaded` is
+  explicit `fallback`/`missing`, **never** `"available"` on the strength of a
+  file existing. Non-wired families (ocr provider-managed, embedding) keep their
+  existing signal. The `to_dict` no longer emits `checkpoint_paths` and the
+  path-keyed per-file checksums are dropped (design-lock: no paths in telemetry);
+  the boolean `checkpoint_exists` and combined `checksum` (a hash) remain.
+- `src/api/health_utils.py` — degraded reasons and the readiness telemetry no
+  longer emit resolved filesystem paths (`graph2d_model_missing:{path}` →
+  `graph2d_model_missing`; `graph2d_model_path` / `v6_model_path` /
+  `v14_model_path` keys dropped). Path-free `*_present` booleans are retained.
+
+**F1 — full-suite miss fixed.**
+`tests/unit/test_part_classifier_coverage.py::TestV16ModelLoadingErrors` — the
+old `test_v6_not_found_raises_error` expected `FileNotFoundError("V6模型不存在")`;
+the wired impl raises the gateway degrade
+`RuntimeError("part/v16-v6pt v6pt component activation unavailable")`. Renamed to
+`test_v6_not_found_degrades_via_activation_gateway` and re-pointed at the new
+safety contract.
+
+**Residual (scoped, not fixed here):** `config.ml.classification` in the health
+payload still echoes operator-configured *config* paths (`hybrid_config_path`,
+`graph2d_model_path`, `graph2d_temperature_calibration_path`) and basename model
+filenames. These are configuration echo, distinct from readiness/health-state
+telemetry (the design-lock line-403 target, now path-free). A broader config-echo
+path scrub is a separate change with wider (ops-dashboard) blast radius.
+`history/sequence` is a wired family with **no `readiness_registry` item** yet;
+adding one is an owner-scoped follow-up, not an omission in this unit.
+
+**Residual (test coverage of the new marker FIELDS).** The degrade *behavior* is
+tested — `test_c2_history_sequence` proves the pinned-model-unavailable path
+answers with `source != "history_sequence_model"`, and the readiness suite proves
+`uvnet:fallback` — so design-lock line 410 ("degraded contract is tested") is
+behaviorally satisfied. But the specific new marker fields
+(`history_sequence` payload `model_available`/`degraded`/`degraded_reason`;
+`vision_3d` `last_encode_degraded`/`model_available`) have **no positive
+assertion**, and none of this unit's three owned test files import those modules,
+so there is no clean home to add one here. The fields are **additive and
+unlocked** — a candidate follow-up (a `test_c2_history_sequence` positive-marker
+case and a `vision_3d` mock-path flag case), not existing coverage.
+
+**Residual (F3(a) success side) — NOW FILLED by F5.** The degrade side of the
+analyzer gate removal was already proven (F1 test → gateway `RuntimeError` →
+V6/rules). The positive claim — a valid V16 pin activates with the old
+convenience files absent — is now exercised: F5 added a real `part/v16-v6pt`
+**three-component** pin fixture. `test_v16_valid_config_pin_loads_weights` and
+`test_v16_fixture_pins_success_uses_exact_bytes_for_both` activate the full V16
+family from pinned bytes (both checkpoints reconstructed from their exact pinned
+bytes, and the ensemble weights read from the pinned config).
+
+## 14. F5 — pin the V16 ensemble config (`v16config`, third single-file pin)
+
+`PartClassifierV16._load_models` (`src/ml/part_classifier.py`) previously read
+`cad_classifier_v16_config.json` directly from the mutable `model_dir` and, if
+present, set `self.v6_weight`/`self.v14_weight` from it (silently defaulting to
+0.3/0.7 if absent). That json is a **weight-bearing artifact**: even with both
+checkpoints pinned, editing it changes the ensemble output. F5 routes its read
+through `activate_file("part/v16-v6pt", "v16config")` — a THIRD SINGLE_FILE pin
+under the same logical id, `store_relpath` `models/cad_classifier_v16_config.json`.
+On `None` (pin absent / digest mismatch) the WHOLE V16 activation degrades with
+`RuntimeError("part/v16-v6pt v16config activation unavailable")` — no silent
+proceed with default weights (owner F4 no-silent-stand-in; design-lock line 403).
+
+Discriminating tests (`test_c2_part.py`):
+- `test_v16_config_pin_absent_degrades_whole_family` — both checkpoints pinned,
+  config pin absent → V16 degrades; weights stay the untouched `__init__` defaults.
+- `test_v16_config_digest_tamper_degrades` — config swapped on disk after pinning
+  → gateway digest-miss → degrade; tampered (attacker-skewed) weights never applied.
+- `test_v16_valid_config_pin_loads_weights` — valid config pin → weights applied
+  (0.4/0.6, distinct from defaults) and the full family activates.
+
+**Owner nod needed:** adding `v16config` extends decision-1's *two-pins-one-id*
+shape to **three** pins under `part/v16-v6pt`. Mechanically identical (another
+SINGLE_FILE pin, same logical id), but the artifact **count** for this logical
+activation changes 2→3, so it should get an explicit owner acknowledgement.
