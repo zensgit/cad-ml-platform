@@ -77,15 +77,18 @@ VALID_CLASSES = {"gated", "producer", "offline", "unmounted", "infra"}
 # reconstruction must derive from (a data-flow binding, NOT mere function-scope presence — F2):
 _ACTIVATION_FUNCS = {"activate_file", "activate_bundle"}
 # The one canonical gateway module. A call is a gateway call ONLY if its name RESOLVES to this module
-# through the file's import table (bare / aliased / attribute form) — a name-only match let a
-# project-local FAKE or shadowed ``def activate_file(...)`` / ``activate_file = lambda ...`` count as
-# the real gateway (round-3 false-green). ``_GW_PARENT`` / ``_GW_LEAF`` cover the
+# through a real LEXICAL binding environment (bare / aliased / attribute form) — resolved per-scope in
+# ``_LoadVisitor`` (see ``_Scope`` / ``_lookup``), NOT a file-wide walk. A name-only or file-wide match
+# let a project-local FAKE or shadowed ``def activate_file(...)`` / ``activate_file = lambda ...`` count as
+# the real gateway (round-3), a SIBLING function's local import leak in (round-5 P1a), or a module import
+# overridden at module level slip through (round-5 P1a). ``_GW_PARENT`` / ``_GW_LEAF`` cover the
 # ``from src.core.model_activation import activation_gateway`` module-attribute form.
 _CANONICAL_GATEWAY_MODULE = "src.core.model_activation.activation_gateway"
 _GW_PARENT, _GW_LEAF = _CANONICAL_GATEWAY_MODULE.rsplit(".", 1)
 # In-memory buffer wrappers that may sit between the gateway bytes and the raw loader
 # (``torch.load(io.BytesIO(data))``). A raw loader argument that is one of these still counts as
-# gateway-derived iff the buffer wraps a gateway-derived value.
+# gateway-derived iff the buffer wraps a gateway-derived value AND the wrapper resolves lexically to the
+# STDLIB ``io`` module — ``evil.BytesIO(data)`` on a non-io object is NOT a buffer wrapper (round-5 P1b).
 _BUFFER_WRAPPERS = {"BytesIO", "BufferedReader", "BufferedRandom"}
 # The raw deserializer idioms the wrap check governs (a subset of the enumerated kinds — NOT
 # load_state_dict/from_pretrained/ctor:*, which consume bytes/paths the raw loader already produced).
@@ -141,35 +144,28 @@ class EnumeratorMalfunction(Exception):
 
 def _collect_imports(
     tree: ast.AST,
-) -> Tuple[Dict[str, str], Dict[str, Tuple[str, str]], set, set]:
-    """Return (module_aliases, imported_names, gw_names, gw_modules).
+) -> Tuple[Dict[str, str], Dict[str, Tuple[str, str]]]:
+    """Return (module_aliases, imported_names) for KIND classification — file-wide on purpose.
 
     module_aliases: local name -> canonical module ("t" -> "torch", "torch" -> "torch").
     imported_names: local name -> (canonical module, attr) for `from X import Y [as Z]`
                     (e.g. "load" -> ("torch","load")), or ("__ctor__", ctor) for a model constructor.
-    gw_names:   local names bound to a canonical gateway FUNCTION — for a Name-form call
-                ``activate_file(...)`` — from ``from src.core.model_activation.activation_gateway import
-                activate_file [as af]`` (the import may be module- OR function-scoped; ``ast.walk`` sees
-                both).
-    gw_modules: local names bound to the canonical gateway MODULE — for an Attribute-form call
-                ``gw.activate_file(...)`` — from ``import ...activation_gateway as gw`` or
-                ``from src.core.model_activation import activation_gateway [as gw]``.
-    NB: gateway names are tracked SEPARATELY from ``imported_names`` on purpose — folding them in would
-    make ``_classify`` misread a gateway call as a loader kind.
+
+    These drive :meth:`_LoadVisitor._classify`, i.e. whether a call is a load SITE at all. They stay
+    file-wide (``ast.walk``) by design: kind-detection only governs a site's EXISTENCE, and a file-wide
+    leak there can only ADD a discovered site (which then MUST be classified — fail-safe), never fabricate
+    a false-green wrap. The two properties that CAN false-green a wrap — is-this-the-canonical-gateway and
+    is-this-stdlib-io — are resolved LEXICALLY per scope inside ``_LoadVisitor`` (a real binding
+    environment, not a file-wide walk); see :class:`_LoadVisitor` and :func:`_build_scope`.
     """
     mod_alias: Dict[str, str] = {}
     imported: Dict[str, Tuple[str, str]] = {}
-    gw_names: set = set()
-    gw_modules: set = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for a in node.names:
                 canon = a.name.split(".")[0]
                 if canon in _MODULE_LOADERS or canon in _TRACKED_EXTRA_MODULES:
                     mod_alias[a.asname or a.name] = canon
-                if a.name == _CANONICAL_GATEWAY_MODULE and a.asname:
-                    # import src.core.model_activation.activation_gateway as gw  -> gw is the module
-                    gw_modules.add(a.asname)
         elif isinstance(node, ast.ImportFrom):
             full = node.module or ""
             base = full.split(".")[0]
@@ -179,11 +175,7 @@ def _collect_imports(
                     imported[local] = (base, a.name)          # from torch import load
                 elif a.name in _MODEL_CONSTRUCTORS:
                     imported[local] = ("__ctor__", a.name)    # from sentence_transformers import SentenceTransformer
-                if full == _CANONICAL_GATEWAY_MODULE and a.name in _ACTIVATION_FUNCS:
-                    gw_names.add(local)                       # from ...activation_gateway import activate_file
-                elif full == _GW_PARENT and a.name == _GW_LEAF:
-                    gw_modules.add(local)                     # from src.core.model_activation import activation_gateway
-    return mod_alias, imported, gw_names, gw_modules
+    return mod_alias, imported
 
 
 # A block path is a tuple of ``(id(compound_node), field)`` pairs from the enclosing function body
@@ -281,57 +273,135 @@ class _GatewayAssignScan(ast.NodeVisitor):
     visit_Match = _visit_compound            # 3.10+
 
 
-class _ScopeBindingScan(ast.NodeVisitor):
-    """Names BOUND within ONE function scope (params are added separately by the caller), NOT descending
-    into nested function / lambda / class bodies (their bindings belong to those inner scopes). A
-    Store-context ``Name`` (assign / for-target / with-as / walrus / comprehension target …) or a nested
-    ``def`` / ``async def`` / ``class`` NAME binds in THIS scope. Used to detect a canonical-gateway name
-    that is SHADOWED locally — a param / local ``def`` / local rebinding — so it is not the gateway there.
+class _Scope:
+    """The binding environment of ONE lexical scope (a module or a function body). A stack of these —
+    module at the base, one per enclosing FUNCTION (class scopes are NOT lexical parents of the methods
+    they contain, so they are excluded from the chain) — lets a name be resolved LEXICALLY at a use site
+    instead of by a file-wide walk (round-5 P1a/P1b). Four canonical-import buckets plus a fail-closed
+    ``rebound`` shadow set:
 
-    Fail-closed / over-approximating on purpose: it collects EVERY store-bound name in the scope (a
-    comprehension target is technically its own scope, but counting it can only ADD a shadow, never drop
-    one). Over-shadowing a gateway name can at worst false-RED a family that binds ``activate_file`` /
-    ``activate_bundle`` as a local — which no real wired family does — never green a shadowed call."""
+    * ``gw_func``  — names imported as a canonical gateway FUNCTION here (``activate_file``/``activate_bundle``);
+    * ``gw_mod``   — names bound to the canonical gateway MODULE here (for ``gw.activate_file(...)``);
+    * ``io_mod``   — names bound to the STDLIB ``io`` module here (``import io`` / ``import io as x``);
+    * ``io_buf``   — names bound to a stdlib ``io`` buffer class here (``from io import BytesIO [as B]``);
+    * ``rebound``  — EVERY name bound in this scope by anything else: a parameter, a nested ``def``/``class``
+                     name, an assign / for-target / with-as / walrus / comprehension target, or a
+                     NON-canonical import (``from foo import activate_file``, ``import torch``, …). A name
+                     in ``rebound`` is shadowed — it does NOT resolve to a tracked import in this scope,
+                     even if this scope ALSO imported it (fail-closed: the shadow wins).
+    """
+
+    __slots__ = ("gw_func", "gw_mod", "io_mod", "io_buf", "rebound")
+
+    def __init__(self, gw_func: set, gw_mod: set, io_mod: set, io_buf: set, rebound: set) -> None:
+        self.gw_func = gw_func
+        self.gw_mod = gw_mod
+        self.io_mod = io_mod
+        self.io_buf = io_buf
+        self.rebound = rebound
+
+
+class _ScopeCollector(ast.NodeVisitor):
+    """Collect the DIRECT bindings of ONE scope body (module or function), NOT descending into nested
+    function / lambda / class bodies (their bindings belong to those inner scopes). Classifies each
+    binding into a canonical-import bucket or the ``rebound`` shadow set. Fail-closed / over-approximating:
+    it records EVERY store-bound name (a comprehension target is technically its own scope, but counting
+    it can only ADD a shadow, never drop one)."""
 
     def __init__(self) -> None:
-        self.bound: set = set()
+        self.gw_func: set = set()
+        self.gw_mod: set = set()
+        self.io_mod: set = set()
+        self.io_buf: set = set()
+        self.rebound: set = set()
+
+    def visit_Import(self, node):
+        for a in node.names:
+            if a.name == "io":
+                self.io_mod.add(a.asname or "io")                 # import io [as x]  -> stdlib io module
+            elif a.name == _CANONICAL_GATEWAY_MODULE and a.asname:
+                self.gw_mod.add(a.asname)                          # import ...activation_gateway as gw
+            else:
+                # any other `import x[.y] [as z]` binds a name that SHADOWS a same-named gateway/io name.
+                self.rebound.add(a.asname or a.name.split(".")[0])
+
+    def visit_ImportFrom(self, node):
+        full = node.module or ""
+        for a in node.names:
+            local = a.asname or a.name
+            if full == _CANONICAL_GATEWAY_MODULE and a.name in _ACTIVATION_FUNCS:
+                self.gw_func.add(local)                            # from ...activation_gateway import activate_file
+            elif full == _GW_PARENT and a.name == _GW_LEAF:
+                self.gw_mod.add(local)                             # from src.core.model_activation import activation_gateway
+            elif full == "io" and a.name in _BUFFER_WRAPPERS:
+                self.io_buf.add(local)                             # from io import BytesIO [as B]
+            else:
+                self.rebound.add(local)                            # any other from-import shadows
 
     def visit_Name(self, node):
         if isinstance(node.ctx, ast.Store):
-            self.bound.add(node.id)
+            self.rebound.add(node.id)
+
+    def visit_ExceptHandler(self, node):  # `except E as name:` binds `name` (a str, not a Store Name node).
+        if node.name:
+            self.rebound.add(node.name)
+        self.generic_visit(node)
 
     def visit_FunctionDef(self, node):  # the def NAME binds here; its body is a nested scope — don't descend.
-        self.bound.add(node.name)
+        self.rebound.add(node.name)
 
     visit_AsyncFunctionDef = visit_FunctionDef
 
     def visit_ClassDef(self, node):     # the class NAME binds here; its body is a nested scope — don't descend.
-        self.bound.add(node.name)
+        self.rebound.add(node.name)
 
     def visit_Lambda(self, node):       # a lambda binds no name here; its params/body are a nested scope.
         return
 
 
+def _param_names(func_node: ast.AST) -> Tuple[str, ...]:
+    """Every parameter name of a function/async-function (pos-only, normal, *args, kw-only, **kwargs).
+    Parameters bind in the function scope and so can SHADOW a canonical gateway/io name (round-4)."""
+    args = getattr(func_node, "args", None)
+    if not isinstance(args, ast.arguments):
+        return ()
+    names: List[str] = []
+    for a in (*getattr(args, "posonlyargs", ()), *args.args, *args.kwonlyargs):
+        names.append(a.arg)
+    if args.vararg:
+        names.append(args.vararg.arg)
+    if args.kwarg:
+        names.append(args.kwarg.arg)
+    return tuple(names)
+
+
+def _build_scope(body: List[ast.stmt], params: Tuple[str, ...] = ()) -> _Scope:
+    """The binding environment of one scope: collect its body's direct bindings, then add ``params`` to
+    the shadow set (a param named ``activate_file`` shadows the gateway within this scope)."""
+    c = _ScopeCollector()
+    for stmt in body or []:
+        c.visit(stmt)
+    c.rebound |= set(params)
+    return _Scope(c.gw_func, c.gw_mod, c.io_mod, c.io_buf, c.rebound)
+
+
 class _LoadVisitor(ast.NodeVisitor):
     def __init__(
         self,
+        tree: ast.AST,
         mod_alias: Dict[str, str],
         imported: Dict[str, Tuple[str, str]],
-        gw_names: set,
-        gw_modules: set,
     ) -> None:
         self.mod_alias = mod_alias
         self.imported = imported
-        # Local names that resolve to the canonical gateway (function-form / module-form) — a call is a
-        # gateway call ONLY via these, never by bare spelling (round-3: a local fake activate_file).
-        self.gw_names = gw_names
-        self.gw_modules = gw_modules
-        # Round-4: gw_names/gw_modules are collected FILE-level (ast.walk), so a scope that SHADOWS a
-        # canonical name — a parameter, a local `def`/`lambda`, or a local assignment rebinding it — must
-        # subtract that name from the effective gateway set WITHIN that scope (and nested scopes), else a
-        # shadowed `activate_file(...)` call is misread as the canonical gateway (a false green). Stack of
-        # cumulative shadowed-name sets; top = current scope. Root (module) scope carries no shadows.
-        self.shadowed_stack: List[set] = [set()]
+        # Round-5: a name resolves to the canonical gateway / stdlib-io LEXICALLY, through a real binding
+        # environment — NOT a file-wide walk. ``self.scopes`` is the lexical scope chain: the MODULE scope
+        # at the base, one ``_Scope`` pushed per enclosing FUNCTION (class scopes are excluded — a method
+        # does not see class-body names). A function-local ``from ...gateway import activate_file`` is thus
+        # visible only within that function and its nested functions, NEVER a sibling (P1a), and a
+        # module-level import REBOUND at module level (``def``/``=``) is shadowed at the module scope where
+        # both bindings live (P1a). ``_lookup`` walks innermost→outermost, rebound-first (fail-closed).
+        self.scopes: List[_Scope] = [_build_scope(getattr(tree, "body", []))]
         self.stack: List[str] = []
         # full-qualname of every enclosing FUNCTION scope (class scopes excluded) — used to attribute
         # each load site to its enclosing function(s).
@@ -353,9 +423,10 @@ class _LoadVisitor(ast.NodeVisitor):
         self.stack.append(name)
         if is_func:
             self.func_qual.append(".".join(self.stack))
-            # Push this scope's cumulative shadowed gateway names BEFORE collecting gateway vars — the
-            # gateway-var fixpoint calls _is_activation_call, which must already see the shadowing.
-            self.shadowed_stack.append(self.shadowed_stack[-1] | self._shadowed_in_scope(node))
+            # Push this function's lexical scope BEFORE collecting gateway vars — the gateway-var fixpoint
+            # calls _is_activation_call, which must already see this scope's imports/shadows (e.g. a
+            # function-local `from ...gateway import activate_file`, as in src/ml/classifier.py).
+            self.scopes.append(_build_scope(getattr(node, "body", []), _param_names(node)))
             gwvars, block_of = self._collect_gateway_vars(node)
             # Do NOT inherit outer-scope gateway vars into this nested function scope (round-3 false-green
             # fix). The old code relaxed every parent binding to (0, ()) so it ALWAYS dominated — which let
@@ -372,7 +443,7 @@ class _LoadVisitor(ast.NodeVisitor):
             self.func_gwvars.pop()
             self.func_blockof.pop()
             self.func_qual.pop()
-            self.shadowed_stack.pop()
+            self.scopes.pop()
         self.stack.pop()
 
     def visit_FunctionDef(self, node):  # noqa: D401
@@ -489,58 +560,64 @@ class _LoadVisitor(ast.NodeVisitor):
             return False
         return site_block[: len(bind_block)] == bind_block
 
-    @staticmethod
-    def _is_buffer_wrapper(func: ast.AST) -> bool:
+    def _lookup(self, name: str):
+        """Resolve ``name`` LEXICALLY through the scope chain (innermost function → … → module), returning
+        which canonical binding it denotes AT THIS use site — ``"gw_func"`` / ``"gw_mod"`` / ``"io_mod"`` /
+        ``"io_buf"``, or ``None`` if it is not a tracked canonical name here.
+
+        Rebound-first, innermost-first, fail-closed: the first scope that binds ``name`` at all decides. If
+        that scope has ``name`` in its ``rebound`` shadow set it returns ``None`` — even if the SAME scope
+        also imported it as a gateway (a module import then a module-level ``def``/``=`` override, P1a) — so
+        a shadow anywhere in the chain between the import and the use strips the canonical status. A
+        function-local import lives only in that function's scope, so a SIBLING function (whose chain is
+        module→sibling) never sees it (P1a)."""
+        for scope in reversed(self.scopes):
+            if name in scope.rebound:
+                return None                    # shadowed here — resolves to the rebinding, not a gateway/io
+            if name in scope.gw_func:
+                return "gw_func"
+            if name in scope.gw_mod:
+                return "gw_mod"
+            if name in scope.io_mod:
+                return "io_mod"
+            if name in scope.io_buf:
+                return "io_buf"
+            # not bound in this scope at all — keep looking outward
+        return None
+
+    def _is_buffer_wrapper(self, func: ast.AST) -> bool:
+        """A buffer wrapper ONLY if it resolves (via the SAME lexical import env) to the STDLIB ``io``
+        module, unshadowed (P1b): ``io.BytesIO(...)`` where ``io`` is stdlib io (``import io`` / ``import io
+        as x``), or bare ``BytesIO(...)``/``BufferedReader(...)`` from ``from io import BytesIO [as B]``. Any
+        other same-named attribute/name — ``evil.BytesIO(...)`` on a non-io object, a local ``def BytesIO``,
+        a shadowed import — is NOT a buffer wrapper, so the raw load it feeds does not derive from the
+        gateway and is scored unwrapped."""
         if isinstance(func, ast.Attribute):
-            return func.attr in _BUFFER_WRAPPERS  # io.BytesIO(...)
+            return (
+                func.attr in _BUFFER_WRAPPERS
+                and isinstance(func.value, ast.Name)
+                and self._lookup(func.value.id) == "io_mod"   # io.BytesIO(...) — io must be stdlib io
+            )
         if isinstance(func, ast.Name):
-            return func.id in _BUFFER_WRAPPERS      # BytesIO(...) (from io import BytesIO)
+            return self._lookup(func.id) == "io_buf"          # BytesIO(...) from `from io import BytesIO`
         return False
 
-    def _shadowed_in_scope(self, func_node: ast.AST) -> set:
-        """The subset of canonical gateway names (``gw_names`` ∪ ``gw_modules``) that ``func_node``
-        SHADOWS in its own scope — a parameter, a nested ``def``/``class`` of that name, or any local
-        rebinding (assign / for-target / with-as / walrus). Such a name is NOT the canonical gateway
-        within this scope (nor its nested scopes), so a call spelled with it must not count as a gateway
-        call (round-4 false-green). Fail-closed: ANY local binding of the name shadows it — we do not try
-        to prove a rebinding re-establishes the canonical import (``activate_file = activate_file``); in
-        doubt it is a shadow. No real wired family binds ``activate_file``/``activate_bundle`` as a local,
-        so this cannot false-RED the tree."""
-        gw_all = self.gw_names | self.gw_modules
-        if not gw_all:
-            return set()
-        bound: set = set()
-        args = getattr(func_node, "args", None)
-        if isinstance(args, ast.arguments):  # parameters bind in this scope
-            for a in (*getattr(args, "posonlyargs", ()), *args.args, *args.kwonlyargs):
-                bound.add(a.arg)
-            if args.vararg:
-                bound.add(args.vararg.arg)
-            if args.kwarg:
-                bound.add(args.kwarg.arg)
-        scan = _ScopeBindingScan()
-        for stmt in getattr(func_node, "body", []):
-            scan.visit(stmt)
-        bound |= scan.bound
-        return bound & gw_all
-
     def _is_activation_call(self, func: ast.AST) -> bool:
-        """A gateway call ONLY if the name RESOLVES (via this file's import table) to the canonical
-        gateway module — NOT by bare spelling — AND is not SHADOWED in the current scope. ``activate_file(...)``
-        counts iff ``activate_file`` was imported from ``src.core.model_activation.activation_gateway``
-        (bare/aliased) and no enclosing scope rebinds it; an attribute call ``gw.activate_file(...)`` counts
-        iff ``gw`` is a canonical-gateway-module alias and unshadowed. A project-local or differently-sourced
-        ``activate_file`` (a fake), or a canonical name shadowed by a param / local ``def`` / ``lambda`` /
-        assignment, does NOT (round-3 fake + round-4 scope-shadowing false-greens)."""
-        shadowed = self.shadowed_stack[-1]
+        """A gateway call ONLY if the name RESOLVES LEXICALLY (via the scope chain) to the canonical
+        gateway — NOT by bare spelling. ``activate_file(...)`` counts iff a lexically-visible, unshadowed
+        ``from src.core.model_activation.activation_gateway import activate_file`` binds it (module- or
+        enclosing-function-scoped); ``gw.activate_file(...)`` counts iff ``gw`` resolves to the canonical
+        gateway MODULE. A project-local / differently-sourced ``activate_file`` (round-3 fake), a canonical
+        name shadowed by a param / local ``def`` / assignment (round-4), a function-local import used in a
+        SIBLING function, or a module import overridden at module level (round-5 P1a) — none resolve, so
+        none count."""
         if isinstance(func, ast.Name):
-            return func.id in self.gw_names and func.id not in shadowed
+            return self._lookup(func.id) == "gw_func"
         if isinstance(func, ast.Attribute):
             return (
                 func.attr in _ACTIVATION_FUNCS
                 and isinstance(func.value, ast.Name)
-                and func.value.id in self.gw_modules
-                and func.value.id not in shadowed
+                and self._lookup(func.value.id) == "gw_mod"
             )
         return False
 
@@ -592,8 +669,8 @@ def enumerate_sites() -> Dict[str, dict]:
                 # silently skip (fail-open).
                 malfunctions.append((rel, type(exc).__name__, " ".join(str(exc).split())))
                 continue
-            mod_alias, imported, gw_names, gw_modules = _collect_imports(tree)
-            v = _LoadVisitor(mod_alias, imported, gw_names, gw_modules)
+            mod_alias, imported = _collect_imports(tree)
+            v = _LoadVisitor(tree, mod_alias, imported)
             v.visit(tree)
             per_key: Dict[str, int] = {}
             for qual, kind, lineno, wrapped in v.sites:

@@ -1,5 +1,25 @@
 # L3 Phase-A C2–C6 — Development & Verification record (2026-07-21)
 
+> **CURRENT-STATE HEADER (2026-07-22, supersedes conflicting statements below).**
+> Latest head on this branch is **`4d9ee6d6`** (round-4: C5 scope-shadowing
+> fail-closed + `vector_pipeline` missing-marker fail-closed — the work §16
+> below describes as "uncommitted on top of `ae332c5e`" **is now committed**
+> as this head). Live CI on `4d9ee6d6` (PR #532), using the same de-duped
+> check-run methodology as §0/§15.2 (the raw `statusCheckRollup` shows 83
+> items, but 4 of those are `Unit Tests (Shard 1-4)` re-run duplicates within
+> the same workflow — the same double-count §0 already flags — and collapse
+> to 79 distinct check-runs): **64 pass / 15 skip / 0 fail**, 79 check-run
+> items total, unchanged from the `ae332c5e` rollup because round-4 touched
+> no workflow YAML. Every statement below that says round-4 is "not yet
+> committed" or that head is `ae332c5e` is a **superseded, point-in-time
+> record** — accurate for what had landed when it was written, retained below
+> as history, and not rewritten. Round-5 (C5 lexical-scope import env +
+> buffer-canonical resolution) is the current in-flight round on top of
+> `4d9ee6d6`; a follow-up commit will carry it and the head will advance
+> again. Treat every CI number in this document as
+> **head-accurate-as-of-`4d9ee6d6`** unless a later current-state note says
+> otherwise.
+
 ## 0. Scope & honesty frame
 
 This record documents the C2 family wiring, the C3 baseline manifest, the C4
@@ -916,3 +936,33 @@ in the tree was **not** run as part of this unit. The working tree is
 working tree on top of `ae332c5e`, not any commit SHA, and are not the same
 claim as the §15.2 live-CI rollup (which covers `ae332c5e` only, before these
 round-4 changes).
+
+### 16.2 CURRENT-STATE / superseded note (2026-07-22)
+
+**Everything above in §16, including its title's "(uncommitted, on top of
+`ae332c5e`)" and the "Residual" paragraph's "working tree is uncommitted" /
+"not any commit SHA" language, is a superseded, point-in-time record.** It is
+retained unedited as the historical account of what was true immediately
+after those local runs, before the next push. It is **no longer current**:
+
+- The two round-4 fixes described above (C5 scope-shadowing fail-closed;
+  `vector_pipeline` missing-marker fail-closed) **are now committed**, as head
+  `4d9ee6d6` (`fix(l3): round-4 NO-GO remediation on ae332c5e — C5
+  scope-shadowing + vector_pipeline fail-closed`).
+- Live CI **completed** on that head (PR #532): **64 pass / 15 skip / 0 fail**,
+  79 check-run items total (same de-duped-by-workflow methodology as §0/§15.2;
+  the raw rollup shows 83, which double-counts the 4 `Unit Tests (Shard 1-4)`
+  re-run entries, exactly the double-count §0 already corrected for
+  `ae332c5e`) — zero failing checks, and the same 79-item total as
+  `ae332c5e` since round-4 added no workflow. This supersedes §16.1's local,
+  pre-commit numbers as the authoritative outcome for `4d9ee6d6`, the same
+  relationship §15.2 has to §15.1 for the prior head.
+- The §16.1 local commands were independently re-run against the committed
+  working tree at `4d9ee6d6` and remain green: the 4-file set (62 passed) and
+  the round-3-combined 4-file set (68 passed) both reproduce verbatim.
+- **Round-5** (C5 lexical-scope import env + buffer-canonical resolution) is
+  a separate, currently in-flight round of work on top of `4d9ee6d6`, not
+  covered by the `4d9ee6d6` CI rollup above. A follow-up commit is expected to
+  carry it, at which point the head — and the authoritative CI number — will
+  advance again. Do not read the 68/15/0/83 figures above as covering
+  round-5.

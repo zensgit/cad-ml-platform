@@ -183,8 +183,8 @@ import ast as _ast
 
 def _detect(src: str):
     tree = _ast.parse(src)
-    ma, im, gn, gm = enum._collect_imports(tree)
-    v = enum._LoadVisitor(ma, im, gn, gm)
+    ma, im = enum._collect_imports(tree)
+    v = enum._LoadVisitor(tree, ma, im)
     v.visit(tree)
     return [s[1] for s in v.sites]
 
@@ -578,3 +578,132 @@ def test_local_def_shadow_of_activate_file_is_observed_RED_under_enforce(tmp_pat
     assert enum.main() == enum.EXIT_FINDING == 1
     err = capsys.readouterr().err
     assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _SITE_KEY in err
+
+
+# --- C5 round-5 (P1a): gateway import resolution must be LEXICALLY SCOPED, not file-wide -------------
+# The old `_collect_imports` walked the WHOLE tree (ast.walk) and put EVERY `from ...gateway import
+# activate_file` into a file-level gw_names set, so `_is_activation_call` matched the name anywhere in the
+# file. Two ways that false-greens a raw-path load:
+#   (P1a-i)  the canonical import lives inside a SIBLING function, but a different function uses the same
+#            name — the sibling's import LEAKS in and the use is scored as the gateway;
+#   (P1a-ii) a MODULE-level import is then REBOUND at module level (`def activate_file` / `activate_file =`)
+#            — the root scope's shadow set was empty, so the rebind was never subtracted.
+# The lexical scope chain (module + enclosing FUNCTION scopes, rebound-first) resolves each correctly:
+# a function-local import is invisible to a sibling, and a module-level rebind shadows the module import.
+
+# (P1a-i) SIBLING-LOCAL IMPORT: `helper` imports the gateway (function-scoped); `M.load` uses the same
+# name but never imported it. The loaded `data` derives from that non-gateway `activate_file`, so under
+# the OLD file-wide gw_names it scored wrapped=True — a false green.
+_SIBLING_IMPORT_SRC = (
+    "import io, torch\n"
+    "def helper():\n"
+    "    from src.core.model_activation.activation_gateway import activate_file\n"
+    "    return activate_file('x', 'main')  # the ONLY canonical import — scoped to helper\n"
+    "class M:\n"
+    "    def load(self):\n"
+    "        data = activate_file('fam/main', 'main')  # NOT imported in THIS scope — a sibling's import\n"
+    "        return torch.load(io.BytesIO(data), map_location='cpu')\n"
+)
+
+# (P1a-ii) MODULE-LEVEL REBIND: the canonical import is present at module level, then `activate_file` is
+# REASSIGNED at module level to a raw reader. The rebind lives in the SAME (module) scope as the import;
+# fail-closed, the shadow wins, so the call is not the gateway. Under the OLD empty-root-shadow it matched.
+_MODULE_REBIND_SRC = (
+    "import io, torch\n"
+    "from src.core.model_activation.activation_gateway import activate_file\n"
+    "activate_file = lambda a, b: open(a, 'rb').read()  # module-level REBIND shadows the import\n"
+    "class M:\n"
+    "    def load(self):\n"
+    "        data = activate_file('fam/main', 'main')  # the rebind, NOT the gateway\n"
+    "        return torch.load(io.BytesIO(data), map_location='cpu')\n"
+)
+
+
+def test_sibling_local_gateway_import_does_not_leak(tmp_path, monkeypatch) -> None:
+    # observed-RED against the OLD file-wide gw_names: `helper`'s function-local import put `activate_file`
+    # in the file-level gateway set, so `M.load`'s same-named call matched, `data` became a gateway var and
+    # `torch.load(io.BytesIO(data))` scored wrapped=True, structural_findings==[] (a false green). The
+    # lexical scope chain gives `M.load` no visibility of `helper`'s local import -> not a gateway call ->
+    # wrapped=False -> a wired-but-unwrapped finding.
+    _scan_with_manifest(tmp_path, monkeypatch, _SIBLING_IMPORT_SRC, _WIRED_ENTRY)
+    found = enum.enumerate_sites()
+    assert found[_SITE_KEY]["wrapped"] is False
+    findings = enum.structural_findings(found, enum.load_manifest())
+    assert [f for f in findings if f[0] == _SITE_KEY and f[1] == "wired-but-unwrapped"], findings
+
+
+def test_sibling_local_gateway_import_is_observed_RED_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # end-to-end: under enforce the sibling-import-leak case reds CI (exit 1) with a wired-but-unwrapped finding.
+    _scan_with_manifest(tmp_path, monkeypatch, _SIBLING_IMPORT_SRC, _WIRED_ENTRY)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_FINDING == 1
+    err = capsys.readouterr().err
+    assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _SITE_KEY in err
+
+
+def test_module_level_rebind_of_activate_file_shadows_the_import(tmp_path, monkeypatch) -> None:
+    # observed-RED against the OLD empty root-scope shadow set: the module-level `activate_file = ...` rebind
+    # was never subtracted, so the file-wide gw_names still matched the call, `data` became a gateway var and
+    # `torch.load(io.BytesIO(data))` scored wrapped=True (a false green). The lexical rule sees the import and
+    # the rebind in the SAME module scope, rebound wins -> not a gateway call -> wrapped=False -> a finding.
+    _scan_with_manifest(tmp_path, monkeypatch, _MODULE_REBIND_SRC, _WIRED_ENTRY)
+    found = enum.enumerate_sites()
+    assert found[_SITE_KEY]["wrapped"] is False
+    findings = enum.structural_findings(found, enum.load_manifest())
+    assert [f for f in findings if f[0] == _SITE_KEY and f[1] == "wired-but-unwrapped"], findings
+
+
+def test_module_level_rebind_is_observed_RED_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # end-to-end: under enforce the module-level rebind case reds CI (exit 1) with a wired-but-unwrapped finding.
+    _scan_with_manifest(tmp_path, monkeypatch, _MODULE_REBIND_SRC, _WIRED_ENTRY)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_FINDING == 1
+    err = capsys.readouterr().err
+    assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _SITE_KEY in err
+
+
+# --- C5 round-5 (P1b): a buffer wrapper is trusted by RESOLUTION to stdlib io, not by NAME -----------
+# The old `_is_buffer_wrapper` returned True for ANY object's `.BytesIO`/`.BufferedReader`/`.BufferedRandom`
+# attribute, so `evil.BytesIO(gateway_data)` — which could DISCARD its arg and return `open(raw_path)` —
+# was scored a buffer wrapper, and because its arg was gateway-derived the raw load scored wrapped=True.
+# The fix requires the wrapper to resolve (via the SAME lexical import env) to the stdlib `io` module:
+# `evil` does not, so `evil.BytesIO(...)` is NOT a buffer wrapper -> the raw load does not derive from the
+# gateway -> wrapped=False.
+_FAKE_BUFFER_SRC = (
+    "import io, torch\n"
+    "from src.core.model_activation.activation_gateway import activate_file\n"
+    "class M:\n"
+    "    def load(self):\n"
+    "        data = activate_file('fam/main', 'main')  # genuine gateway bytes...\n"
+    "        return torch.load(evil.BytesIO(data), map_location='cpu')  # ...through a NON-io buffer\n"
+)
+
+
+def test_non_io_buffer_wrapper_is_not_trusted(tmp_path, monkeypatch) -> None:
+    # observed-RED against the OLD name-only `_is_buffer_wrapper`: `evil.BytesIO` matched by attr name, so
+    # `torch.load(evil.BytesIO(data))` recursed into a gateway-derived `data` and scored wrapped=True,
+    # structural_findings==[] (a false green — `evil.BytesIO` could return open(raw_path)). Lexical
+    # resolution sees `evil` is not the stdlib io module -> not a buffer wrapper -> wrapped=False.
+    _scan_with_manifest(tmp_path, monkeypatch, _FAKE_BUFFER_SRC, _WIRED_ENTRY)
+    found = enum.enumerate_sites()
+    assert found[_SITE_KEY]["wrapped"] is False
+    findings = enum.structural_findings(found, enum.load_manifest())
+    assert [f for f in findings if f[0] == _SITE_KEY and f[1] == "wired-but-unwrapped"], findings
+
+
+def test_non_io_buffer_wrapper_is_observed_RED_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # end-to-end: under enforce the fake-buffer case reds CI (exit 1) with a wired-but-unwrapped finding.
+    _scan_with_manifest(tmp_path, monkeypatch, _FAKE_BUFFER_SRC, _WIRED_ENTRY)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_FINDING == 1
+    err = capsys.readouterr().err
+    assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _SITE_KEY in err
+
+
+def test_stdlib_io_buffer_wrapper_is_still_trusted(tmp_path, monkeypatch) -> None:
+    # positive control for P1b: the genuine `io.BytesIO(data)` (module-level `import io`) still resolves to
+    # stdlib io and is trusted -> wrapped=True, no finding. Guards against over-tightening the buffer check.
+    _scan_with_manifest(tmp_path, monkeypatch, _WRAPPED_SRC, _WIRED_ENTRY)
+    found = enum.enumerate_sites()
+    assert found[_SITE_KEY]["wrapped"] is True
+    assert enum.structural_findings(found, enum.load_manifest()) == []
