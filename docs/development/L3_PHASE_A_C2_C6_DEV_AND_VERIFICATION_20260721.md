@@ -19,6 +19,24 @@
 > again. Treat every CI number in this document as
 > **head-accurate-as-of-`4d9ee6d6`** unless a later current-state note says
 > otherwise.
+>
+> **R5 CLOSURE ADDENDUM (2026-07-22, supersedes the header above where it
+> conflicts).** Round-5 (C5 lexical-scope import env + buffer-canonical
+> resolution), described as "in-flight" immediately above, **is now
+> committed** as head **`3c33dc0a`** (`fix(l3): round-5 NO-GO remediation on
+> 4d9ee6d6 — C5 lexical-scope import env + buffer canonical`). Live CI on
+> `3c33dc0a` (PR #532, same head the round-5 commit landed on): raw
+> `statusCheckRollup` shows **83** items / **68** passing raw entries; deduping
+> the 4 `Unit Tests (Shard 1-4)` re-run duplicates the same way §0/§15.2/§16.2
+> already do yields the authoritative headline **64 pass / 15 skip / 0 fail,
+> 79 distinct check-runs** — identical to the `4d9ee6d6` rollup above, because
+> round-5 touched no workflow YAML. Its findings (gateway-name lexical
+> scoping, buffer-wrapper canonical resolution, doc-R4-status) were accepted
+> by the reviewer on this live head. The "in-flight" wording above and in §16
+> is a superseded, point-in-time record and is **not rewritten**, only
+> superseded. See §16.3 for the full account, including the now-in-flight
+> round-6 (loader-alias lexical discovery) and this document's inherent
+> one-commit lag.
 
 ## 0. Scope & honesty frame
 
@@ -966,3 +984,39 @@ after those local runs, before the next push. It is **no longer current**:
   carry it, at which point the head — and the authoritative CI number — will
   advance again. Do not read the 68/15/0/83 figures above as covering
   round-5.
+
+### 16.3 CURRENT-STATE / R5 closure + R6 in-flight note (2026-07-22)
+
+**§16.2's characterization of round-5 as "a separate, currently in-flight
+round of work on top of `4d9ee6d6`" is itself now a superseded, point-in-time
+record, retained unedited above as history.** It is no longer current:
+
+- Round-5 (C5 lexical-scope import env + buffer-canonical resolution) **is
+  now committed**, as head **`3c33dc0a`** (`fix(l3): round-5 NO-GO
+  remediation on 4d9ee6d6 — C5 lexical-scope import env + buffer
+  canonical`), on top of `4d9ee6d6`.
+- Live CI **completed** on `3c33dc0a` (PR #532). Using the raw
+  `statusCheckRollup`: **83** total items, of which **68** report a passing
+  conclusion and **15** report skipped, 0 failing. Applying the same
+  de-duplication methodology as §0/§15.2/§16.2 (the 4 `Unit Tests (Shard
+  1-4)` entries are re-run duplicates within the same workflow, not distinct
+  checks) collapses this to the authoritative headline: **64 pass / 15 skip /
+  0 fail**, **79** distinct check-runs — the same 64/15/0/79 figures as the
+  `4d9ee6d6` rollup in §16.2, unchanged because round-5 added no workflow
+  YAML. Both the raw (68/83) and deduped (64/79) countings describe the same
+  all-green outcome; this document reports both so neither is mistaken for a
+  regression against the other.
+- Round-5's 3 findings — gateway-name lexical scoping, buffer-wrapper
+  canonical resolution, and the doc's R4-status wording — were **ACCEPTED by
+  the reviewer** on this live head (`3c33dc0a`).
+- **Round-6** (loader-alias lexical discovery) is the current in-flight round
+  of work on top of `3c33dc0a`, not covered by the `3c33dc0a` CI rollup above.
+  A further commit is expected to carry it, at which point the head — and the
+  authoritative CI number — will advance again.
+- **One-commit-lag note:** this document, in describing head `3c33dc0a` as
+  current, is itself committed as part of advancing the branch to a new head
+  beyond `3c33dc0a`. That means by the time this paragraph is read, the true
+  branch head may already be one commit ahead of the head this closure names
+  — an inherent lag of a doc that must be committed to exist, describing the
+  state as of the commit just before its own. This is flagged here so that
+  gap is read as expected structure, not as an error or an untracked drift.

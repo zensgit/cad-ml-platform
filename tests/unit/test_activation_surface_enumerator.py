@@ -707,3 +707,72 @@ def test_stdlib_io_buffer_wrapper_is_still_trusted(tmp_path, monkeypatch) -> Non
     found = enum.enumerate_sites()
     assert found[_SITE_KEY]["wrapped"] is True
     assert enum.structural_findings(found, enum.load_manifest()) == []
+
+
+# --- C5 round-6 (P1): loader-receiver resolution must be LEXICALLY SCOPED, not file-wide -------------
+# DISCOVERY fail-open — a real load site VANISHES. The old `_collect_imports` built the module-alias table
+# (`m` -> `torch`) file-wide with LAST-WRITE-WINS into a single-value dict, and `_classify` resolved
+# `m.load` via `mod_alias.get("m")`. So a later or sibling-scope import that REUSES the alias name
+# OVERWRITES an earlier loader binding, and the real load site is MISSED ENTIRELY (found=={}). With an
+# EMPTY manifest the enforce CLI then prints "0 load sites, all classified" and exits 0 — a FALSE GREEN
+# where a real `torch.load` was never even discovered (the inverse failure of the round-5 wrap bugs: those
+# false-greened a DISCOVERED site's wrap; this one loses the site altogether).
+#
+# The fix mirrors the round-5 lexical `_Scope` mechanism onto loader receivers, but FAIL-CLOSED FOR
+# DISCOVERY (the opposite polarity of gateway resolution): a `receiver.load(...)` is a load SITE if the
+# receiver resolves, in its lexical chain, to a loader module in ANY reachable binding — a later same-name
+# rebind never DELETES an earlier loader candidate, and a sibling function's local import is invisible.
+_DISCOVERY_SITE_KEY = "src/fam.py::bad::torch.load#0"
+
+# (P1-i) MODULE-LEVEL LATER REBIND: `m` is bound to torch AND (later, same module scope) to onnxruntime.
+# A single-value last-write-wins dict drops the torch candidate; per-scope union keeps both -> the site is
+# conservatively discovered as torch.load (onnxruntime.load is not a declared loader idiom, so torch wins).
+_MODULE_LATER_REBIND_SRC = (
+    "import torch as m\n"
+    "def bad(path):\n"
+    "    return m.load(path)  # m resolves to torch in bad's lexical chain\n"
+    "import onnxruntime as m  # a LATER same-name rebind must NOT delete the torch loader candidate\n"
+)
+# (P1-ii) SIBLING-LOCAL ALIAS: `bad`'s `m` must resolve to the MODULE-level torch; `helper`'s function-local
+# `import onnxruntime as m` is invisible to the sibling `bad`. File-wide walk saw helper's import last and
+# overwrote m -> onnxruntime, vanishing the site.
+_SIBLING_LOCAL_ALIAS_SRC = (
+    "import torch as m\n"
+    "def bad(path):\n"
+    "    return m.load(path)  # m resolves to the MODULE-level torch, not helper's local rebind\n"
+    "def helper():\n"
+    "    import onnxruntime as m  # a sibling function's local import is invisible to bad\n"
+)
+
+
+def _empty_manifest(tmp_path, monkeypatch) -> None:
+    # Point MANIFEST at an EMPTY-sites manifest: the ONLY manifest that gives the clean observed-RED flip.
+    # A bogus/non-matching key would red the PRE-fix code via `stale`, so pre-fix would NOT be exit 0 and
+    # the flip would be destroyed. With empty sites: pre-fix (site missing) -> "all classified" exit 0;
+    # post-fix (site discovered) -> the site is unclassified -> exit 1.
+    empty = tmp_path / "empty_manifest.json"
+    empty.write_text(json.dumps({"sites": {}}), encoding="utf-8")
+    monkeypatch.setattr(enum, "MANIFEST", empty)
+
+
+def test_module_later_rebind_still_discovers_torch_load(tmp_path, monkeypatch, capsys) -> None:
+    # observed-RED on pre-fix: file-wide last-write-wins overwrote m->torch with m->onnxruntime, so the
+    # torch.load site VANISHED (found=={}) and (b) with an empty manifest main() printed "0 load sites" and
+    # returned 0. Per-scope union keeps BOTH candidates -> (a) the site is discovered as torch.load.
+    _scan_with_manifest(tmp_path, monkeypatch, _MODULE_LATER_REBIND_SRC, _WIRED_ENTRY, key=_DISCOVERY_SITE_KEY)
+    assert _DISCOVERY_SITE_KEY in enum.enumerate_sites()             # (a) the site IS discovered
+    _empty_manifest(tmp_path, monkeypatch)
+    assert enum.main() == 1                                          # (b) unclassified -> RED
+    assert "UNCLASSIFIED" in capsys.readouterr().err
+
+
+def test_sibling_local_alias_still_discovers_torch_load(tmp_path, monkeypatch, capsys) -> None:
+    # observed-RED on pre-fix: helper's function-local `import onnxruntime as m` was seen last by the
+    # file-wide walk and overwrote m->torch, so bad's torch.load VANISHED (found=={}) and (b) an empty
+    # manifest exited 0. Lexical scoping gives bad no visibility of helper's local import -> (a) bad's `m`
+    # resolves to the module-level torch and the site is discovered.
+    _scan_with_manifest(tmp_path, monkeypatch, _SIBLING_LOCAL_ALIAS_SRC, _WIRED_ENTRY, key=_DISCOVERY_SITE_KEY)
+    assert _DISCOVERY_SITE_KEY in enum.enumerate_sites()             # (a) the site IS discovered
+    _empty_manifest(tmp_path, monkeypatch)
+    assert enum.main() == 1                                          # (b) unclassified -> RED
+    assert "UNCLASSIFIED" in capsys.readouterr().err

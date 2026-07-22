@@ -151,12 +151,18 @@ def _collect_imports(
     imported_names: local name -> (canonical module, attr) for `from X import Y [as Z]`
                     (e.g. "load" -> ("torch","load")), or ("__ctor__", ctor) for a model constructor.
 
-    These drive :meth:`_LoadVisitor._classify`, i.e. whether a call is a load SITE at all. They stay
-    file-wide (``ast.walk``) by design: kind-detection only governs a site's EXISTENCE, and a file-wide
-    leak there can only ADD a discovered site (which then MUST be classified — fail-safe), never fabricate
-    a false-green wrap. The two properties that CAN false-green a wrap — is-this-the-canonical-gateway and
-    is-this-stdlib-io — are resolved LEXICALLY per scope inside ``_LoadVisitor`` (a real binding
-    environment, not a file-wide walk); see :class:`_LoadVisitor` and :func:`_build_scope`.
+    Retained as a file-wide overview and for the ``_LoadVisitor(tree, mod_alias, imported)`` signature.
+    They NO LONGER drive :meth:`_LoadVisitor._classify` (round-6): the file-wide LAST-WRITE-WINS single
+    value here let a later/sibling-scope import that REUSES an alias name OVERWRITE an earlier loader
+    binding, so ``_classify`` resolved the receiver to a non-loader and the real load SITE VANISHED
+    (a DISCOVERY fail-open — an empty manifest then printed "0 load sites, all classified" and exited 0).
+    Kind/loader-receiver resolution now runs LEXICALLY per scope inside ``_LoadVisitor``
+    (``load_mod`` / ``load_from`` in :class:`_Scope`, unioned across the chain by
+    :meth:`_LoadVisitor._resolve_load_mods` / :meth:`_resolve_load_from`) — fail-closed for discovery, so a
+    same-name rebind can never delete a loader candidate and a sibling function's local import is invisible.
+    The two properties that CAN false-green a wrap — is-this-the-canonical-gateway and is-this-stdlib-io —
+    are likewise resolved LEXICALLY per scope inside ``_LoadVisitor``; see :class:`_Scope` and
+    :func:`_build_scope`.
     """
     mod_alias: Dict[str, str] = {}
     imported: Dict[str, Tuple[str, str]] = {}
@@ -289,16 +295,31 @@ class _Scope:
                      NON-canonical import (``from foo import activate_file``, ``import torch``, …). A name
                      in ``rebound`` is shadowed — it does NOT resolve to a tracked import in this scope,
                      even if this scope ALSO imported it (fail-closed: the shadow wins).
+
+    Plus two INDEPENDENT loader-receiver tracks used ONLY by ``_classify`` discovery (round-6 P1),
+    resolved with the OPPOSITE polarity of the gateway/io tracks above — fail-closed for DISCOVERY, i.e.
+    a rebind never DELETES a candidate and ``rebound`` is not consulted:
+
+    * ``load_mod``  — local name -> set of canonical loader/tracked modules bound here via ``import``
+                      (``import torch as m`` -> ``{"m": {"torch"}}``; two same-name imports in ONE scope
+                      union, so a later ``import onnxruntime as m`` keeps ``{"torch", "onnxruntime"}``);
+    * ``load_from`` — local name -> set of ``(module, attr)`` / ``("__ctor__", ctor)`` bound here via a
+                      loader/ctor from-import (``from torch import load`` -> ``{"load": {("torch","load")}}``).
     """
 
-    __slots__ = ("gw_func", "gw_mod", "io_mod", "io_buf", "rebound")
+    __slots__ = ("gw_func", "gw_mod", "io_mod", "io_buf", "rebound", "load_mod", "load_from")
 
-    def __init__(self, gw_func: set, gw_mod: set, io_mod: set, io_buf: set, rebound: set) -> None:
+    def __init__(
+        self, gw_func: set, gw_mod: set, io_mod: set, io_buf: set, rebound: set,
+        load_mod: Dict[str, set], load_from: Dict[str, set],
+    ) -> None:
         self.gw_func = gw_func
         self.gw_mod = gw_mod
         self.io_mod = io_mod
         self.io_buf = io_buf
         self.rebound = rebound
+        self.load_mod = load_mod
+        self.load_from = load_from
 
 
 class _ScopeCollector(ast.NodeVisitor):
@@ -314,6 +335,11 @@ class _ScopeCollector(ast.NodeVisitor):
         self.io_mod: set = set()
         self.io_buf: set = set()
         self.rebound: set = set()
+        # Loader-receiver tracks (round-6 P1) — INDEPENDENT of the gw/io/rebound tracks above; a loader
+        # import ALSO lands in ``rebound`` (preserving gateway shadow semantics) but is ADDITIONALLY
+        # recorded here as a per-name SET so a same-name rebind in this scope unions rather than overwrites.
+        self.load_mod: Dict[str, set] = {}
+        self.load_from: Dict[str, set] = {}
 
     def visit_Import(self, node):
         for a in node.names:
@@ -324,9 +350,15 @@ class _ScopeCollector(ast.NodeVisitor):
             else:
                 # any other `import x[.y] [as z]` binds a name that SHADOWS a same-named gateway/io name.
                 self.rebound.add(a.asname or a.name.split(".")[0])
+            # Loader track (independent): mirror _collect_imports' key derivation, but union per name so a
+            # later same-name import in this scope does NOT drop an earlier loader candidate (round-6 P1).
+            canon = a.name.split(".")[0]
+            if canon in _MODULE_LOADERS or canon in _TRACKED_EXTRA_MODULES:
+                self.load_mod.setdefault(a.asname or a.name, set()).add(canon)
 
     def visit_ImportFrom(self, node):
         full = node.module or ""
+        base = full.split(".")[0]
         for a in node.names:
             local = a.asname or a.name
             if full == _CANONICAL_GATEWAY_MODULE and a.name in _ACTIVATION_FUNCS:
@@ -337,6 +369,11 @@ class _ScopeCollector(ast.NodeVisitor):
                 self.io_buf.add(local)                             # from io import BytesIO [as B]
             else:
                 self.rebound.add(local)                            # any other from-import shadows
+            # Loader track (independent): loader from-import or model-constructor from-import (round-6 P1).
+            if base in _MODULE_LOADERS and a.name in _MODULE_LOADERS[base]:
+                self.load_from.setdefault(local, set()).add((base, a.name))   # from torch import load
+            elif a.name in _MODEL_CONSTRUCTORS:
+                self.load_from.setdefault(local, set()).add(("__ctor__", a.name))
 
     def visit_Name(self, node):
         if isinstance(node.ctx, ast.Store):
@@ -382,7 +419,7 @@ def _build_scope(body: List[ast.stmt], params: Tuple[str, ...] = ()) -> _Scope:
     for stmt in body or []:
         c.visit(stmt)
     c.rebound |= set(params)
-    return _Scope(c.gw_func, c.gw_mod, c.io_mod, c.io_buf, c.rebound)
+    return _Scope(c.gw_func, c.gw_mod, c.io_mod, c.io_buf, c.rebound, c.load_mod, c.load_from)
 
 
 class _LoadVisitor(ast.NodeVisitor):
@@ -621,23 +658,48 @@ class _LoadVisitor(ast.NodeVisitor):
             )
         return False
 
+    def _resolve_load_mods(self, name: str) -> List[str]:
+        """Every canonical loader/tracked module ``name`` denotes across its LEXICAL chain (module +
+        enclosing functions), UNIONED. Fail-closed for DISCOVERY (the opposite polarity of gateway
+        resolution): a later same-name rebind — even in the same scope — never DELETES an earlier loader
+        candidate, and ``rebound`` is deliberately NOT consulted; a sibling/nested scope not on the chain is
+        invisible. Sorted for deterministic kind selection. This is the round-6 fix for the file-wide
+        last-write-wins that let a real ``m.load`` site VANISH."""
+        mods: set = set()
+        for scope in self.scopes:
+            mods.update(scope.load_mod.get(name, ()))
+        return sorted(mods)
+
+    def _resolve_load_from(self, name: str):
+        """The loader/ctor from-import binding ``name`` denotes, resolved across its LEXICAL chain and
+        unioned (fail-closed for discovery, ``rebound`` not consulted). Deterministic: ``None`` if none,
+        else the sorted-first ``(module, attr)`` / ``("__ctor__", ctor)`` candidate (on the real tree each
+        such name has exactly one)."""
+        cands: set = set()
+        for scope in self.scopes:
+            cands.update(scope.load_from.get(name, ()))
+        return sorted(cands)[0] if cands else None
+
     def _classify(self, func: ast.AST):
         if isinstance(func, ast.Attribute):
             attr = func.attr
             if attr in _ATTR_LOADERS:
                 return attr  # from_pretrained / load_state_dict — receiver-independent
             if attr in {"load", "loads"} and isinstance(func.value, ast.Name):
-                mod = self.mod_alias.get(func.value.id)
-                if mod in _MODULE_LOADERS and attr in _MODULE_LOADERS[mod]:
-                    return f"{mod}.{attr}"          # t.load()  (t aliased to torch), p.loads(), etc.
+                # round-6: resolve the receiver LEXICALLY (per-scope union), NOT via a file-wide
+                # last-write-wins dict — any loader candidate in the chain makes this a load site.
+                for mod in self._resolve_load_mods(func.value.id):
+                    if mod in _MODULE_LOADERS and attr in _MODULE_LOADERS[mod]:
+                        return f"{mod}.{attr}"      # t.load()  (t aliased to torch), p.loads(), etc.
             if attr in _MODEL_CONSTRUCTORS and isinstance(func.value, ast.Name):
                 # sentence_transformers.SentenceTransformer(...) via `import sentence_transformers`
                 return f"ctor:{attr}"
             return None
         if isinstance(func, ast.Name):
             name = func.id
-            if name in self.imported:
-                mod, attr = self.imported[name]
+            binding = self._resolve_load_from(name)   # round-6: lexically scoped, not file-wide
+            if binding is not None:
+                mod, attr = binding
                 if mod == "__ctor__":
                     return f"ctor:{attr}"           # SentenceTransformer(...) (from-imported)
                 return f"{mod}.{attr}"              # bare load() from `from torch import load`
