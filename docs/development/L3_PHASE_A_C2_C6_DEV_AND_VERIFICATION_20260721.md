@@ -34,9 +34,11 @@
 > scoping, buffer-wrapper canonical resolution, doc-R4-status) were accepted
 > by the reviewer on this live head. The "in-flight" wording above and in §16
 > is a superseded, point-in-time record and is **not rewritten**, only
-> superseded. See §16.3 for the full account, including the now-in-flight
-> round-6 (loader-alias lexical discovery) and this document's inherent
-> one-commit lag.
+> superseded. See §16.3 and **§16.4** for the full account. Round-6
+> (loader-alias lexical discovery) is **no longer in-flight** — it is committed
+> as head **`405d141d`** with live CI terminal (68 pass / 15 skip / 0 fail); see
+> §16.4. This document's inherent one-commit lag (it is committed as part of
+> advancing the head) is flagged in §16.3/§16.4.
 
 ## 0. Scope & honesty frame
 
@@ -1020,3 +1022,34 @@ record, retained unedited above as history.** It is no longer current:
   — an inherent lag of a doc that must be committed to exist, describing the
   state as of the commit just before its own. This is flagged here so that
   gap is read as expected structure, not as an error or an untracked drift.
+
+### 16.4 CURRENT-STATE / R6 closure (2026-07-22)
+
+**§16.3's characterization of round-6 as "the current in-flight round" is now a
+superseded, point-in-time record, retained unedited above as history.** Round-6
+is no longer in-flight — it is **carried by the current implementation commit**:
+
+- Round-6 (loader-alias lexical discovery — the file-level single-value
+  module-alias table let a later/sibling same-name import erase a load site;
+  fixed by extending the round-5 lexical `_Scope` env to loader receivers,
+  fail-closed **for discovery**) **is committed** as head **`405d141d`**
+  (`fix(l3): round-6 NO-GO remediation on 3c33dc0a — loader-alias lexical
+  discovery (fail-closed)`), on top of `3c33dc0a`.
+- Live CI **completed** on `405d141d` (PR #532): raw `statusCheckRollup` = 68
+  passing / 15 skipped / **0 failing**, all checks terminal (`tests (3.10)` and
+  `tests (3.11)` both passed; no `#528` C1 concurrency-flake recurrence).
+  De-duped per §0/§15.2 convention (4 `Unit Tests (Shard 1-4)` re-run
+  duplicates): 64 pass / 15 skip / 0 fail / 79 distinct check-runs — unchanged
+  from prior heads, as round-6 added no workflow YAML. Both countings describe
+  the same all-green outcome.
+- This follow-up commit adds the four reviewer-checklist positive/negative
+  controls (normal module alias, function-local alias, ambiguous cross-loader
+  rebind fail-closed-discover, and a non-loader receiver that must **not** be
+  invented as a load site) as permanent tests, plus this §16.4 closure. It
+  advances the branch head beyond `405d141d`; the exact SHA and CI-terminal
+  state of **this** head are confirmed post-push (the same inherent one-commit
+  doc-lag noted in §16.3).
+- Non-blocking residual (disclosed): `_resolve_load_from` picks the
+  alphabetically-first candidate for the kind **label** in a pathological
+  cross-scope from-import collision; the site is still **discovered**
+  (fail-closed), and no such collision exists in the real tree.

@@ -776,3 +776,65 @@ def test_sibling_local_alias_still_discovers_torch_load(tmp_path, monkeypatch, c
     _empty_manifest(tmp_path, monkeypatch)
     assert enum.main() == 1                                          # (b) unclassified -> RED
     assert "UNCLASSIFIED" in capsys.readouterr().err
+
+
+# --- Round-6 positive/negative controls (reviewer round-7 checklist item 3): normal alias,
+# function-local alias, ambiguous cross-loader rebind (fail-closed discover), and a non-loader
+# receiver (must NOT be invented as a load site). ------------------------------------------------
+_NORMAL_ALIAS_SRC = (
+    "import torch as t\n"
+    "def bad(path):\n"
+    "    return t.load(path)\n"
+)
+_FUNCTION_LOCAL_ALIAS_SRC = (
+    "def bad(path):\n"
+    "    import torch as t  # local to bad; resolves in its own scope\n"
+    "    return t.load(path)\n"
+)
+_AMBIGUOUS_REBIND_SRC = (
+    "import torch as m\n"
+    "import pickle as m  # two loader candidates for m; fail-closed discovery keeps the site\n"
+    "def bad(path):\n"
+    "    return m.load(path)\n"
+)
+_NON_LOADER_RECEIVER_SRC = (
+    "import os as m  # os is NOT a loader module\n"
+    "def bad(path):\n"
+    "    return m.load(path)  # os.load is not a loader idiom -> must NOT be discovered\n"
+)
+
+
+def test_normal_module_alias_is_discovered(tmp_path, monkeypatch, capsys) -> None:
+    # positive control: a plain `import torch as t; t.load(...)` is still discovered + unclassified-RED.
+    _scan_with_manifest(tmp_path, monkeypatch, _NORMAL_ALIAS_SRC, _WIRED_ENTRY, key=_DISCOVERY_SITE_KEY)
+    assert _DISCOVERY_SITE_KEY in enum.enumerate_sites()
+    _empty_manifest(tmp_path, monkeypatch)
+    assert enum.main() == 1
+    assert "UNCLASSIFIED" in capsys.readouterr().err
+
+
+def test_function_local_alias_is_discovered_in_own_scope(tmp_path, monkeypatch, capsys) -> None:
+    # positive control: a function-local `import torch as t` resolves within its OWN scope -> discovered.
+    _scan_with_manifest(tmp_path, monkeypatch, _FUNCTION_LOCAL_ALIAS_SRC, _WIRED_ENTRY, key=_DISCOVERY_SITE_KEY)
+    assert _DISCOVERY_SITE_KEY in enum.enumerate_sites()
+    _empty_manifest(tmp_path, monkeypatch)
+    assert enum.main() == 1
+
+
+def test_ambiguous_cross_loader_rebind_fails_closed_and_is_discovered(tmp_path, monkeypatch, capsys) -> None:
+    # fail-closed discovery: `m` is bound to BOTH torch and pickle; the site must be discovered as SOME
+    # loader site (the kind label among multiple candidates is a disclosed non-blocking residual) and RED.
+    _scan_with_manifest(tmp_path, monkeypatch, _AMBIGUOUS_REBIND_SRC, _WIRED_ENTRY, key=_DISCOVERY_SITE_KEY)
+    sites = enum.enumerate_sites()
+    assert any(k.startswith("src/fam.py::bad::") and "load" in k for k in sites), sites
+    _empty_manifest(tmp_path, monkeypatch)
+    assert enum.main() == 1
+
+
+def test_non_loader_receiver_is_not_invented_as_a_load_site(tmp_path, monkeypatch) -> None:
+    # negative control (no false-RED / no invented site): `import os as m; m.load(...)` is NOT a loader
+    # idiom -> no load site discovered, and an empty manifest stays clean (exit 0).
+    _scan_with_manifest(tmp_path, monkeypatch, _NON_LOADER_RECEIVER_SRC, _WIRED_ENTRY, key=_DISCOVERY_SITE_KEY)
+    assert not any(k.startswith("src/fam.py::bad::") for k in enum.enumerate_sites())
+    _empty_manifest(tmp_path, monkeypatch)
+    assert enum.main() == 0
