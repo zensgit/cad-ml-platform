@@ -281,6 +281,37 @@ class _GatewayAssignScan(ast.NodeVisitor):
     visit_Match = _visit_compound            # 3.10+
 
 
+class _ScopeBindingScan(ast.NodeVisitor):
+    """Names BOUND within ONE function scope (params are added separately by the caller), NOT descending
+    into nested function / lambda / class bodies (their bindings belong to those inner scopes). A
+    Store-context ``Name`` (assign / for-target / with-as / walrus / comprehension target …) or a nested
+    ``def`` / ``async def`` / ``class`` NAME binds in THIS scope. Used to detect a canonical-gateway name
+    that is SHADOWED locally — a param / local ``def`` / local rebinding — so it is not the gateway there.
+
+    Fail-closed / over-approximating on purpose: it collects EVERY store-bound name in the scope (a
+    comprehension target is technically its own scope, but counting it can only ADD a shadow, never drop
+    one). Over-shadowing a gateway name can at worst false-RED a family that binds ``activate_file`` /
+    ``activate_bundle`` as a local — which no real wired family does — never green a shadowed call."""
+
+    def __init__(self) -> None:
+        self.bound: set = set()
+
+    def visit_Name(self, node):
+        if isinstance(node.ctx, ast.Store):
+            self.bound.add(node.id)
+
+    def visit_FunctionDef(self, node):  # the def NAME binds here; its body is a nested scope — don't descend.
+        self.bound.add(node.name)
+
+    visit_AsyncFunctionDef = visit_FunctionDef
+
+    def visit_ClassDef(self, node):     # the class NAME binds here; its body is a nested scope — don't descend.
+        self.bound.add(node.name)
+
+    def visit_Lambda(self, node):       # a lambda binds no name here; its params/body are a nested scope.
+        return
+
+
 class _LoadVisitor(ast.NodeVisitor):
     def __init__(
         self,
@@ -295,6 +326,12 @@ class _LoadVisitor(ast.NodeVisitor):
         # gateway call ONLY via these, never by bare spelling (round-3: a local fake activate_file).
         self.gw_names = gw_names
         self.gw_modules = gw_modules
+        # Round-4: gw_names/gw_modules are collected FILE-level (ast.walk), so a scope that SHADOWS a
+        # canonical name — a parameter, a local `def`/`lambda`, or a local assignment rebinding it — must
+        # subtract that name from the effective gateway set WITHIN that scope (and nested scopes), else a
+        # shadowed `activate_file(...)` call is misread as the canonical gateway (a false green). Stack of
+        # cumulative shadowed-name sets; top = current scope. Root (module) scope carries no shadows.
+        self.shadowed_stack: List[set] = [set()]
         self.stack: List[str] = []
         # full-qualname of every enclosing FUNCTION scope (class scopes excluded) — used to attribute
         # each load site to its enclosing function(s).
@@ -316,6 +353,9 @@ class _LoadVisitor(ast.NodeVisitor):
         self.stack.append(name)
         if is_func:
             self.func_qual.append(".".join(self.stack))
+            # Push this scope's cumulative shadowed gateway names BEFORE collecting gateway vars — the
+            # gateway-var fixpoint calls _is_activation_call, which must already see the shadowing.
+            self.shadowed_stack.append(self.shadowed_stack[-1] | self._shadowed_in_scope(node))
             gwvars, block_of = self._collect_gateway_vars(node)
             # Do NOT inherit outer-scope gateway vars into this nested function scope (round-3 false-green
             # fix). The old code relaxed every parent binding to (0, ()) so it ALWAYS dominated — which let
@@ -332,6 +372,7 @@ class _LoadVisitor(ast.NodeVisitor):
             self.func_gwvars.pop()
             self.func_blockof.pop()
             self.func_qual.pop()
+            self.shadowed_stack.pop()
         self.stack.pop()
 
     def visit_FunctionDef(self, node):  # noqa: D401
@@ -456,19 +497,50 @@ class _LoadVisitor(ast.NodeVisitor):
             return func.id in _BUFFER_WRAPPERS      # BytesIO(...) (from io import BytesIO)
         return False
 
+    def _shadowed_in_scope(self, func_node: ast.AST) -> set:
+        """The subset of canonical gateway names (``gw_names`` ∪ ``gw_modules``) that ``func_node``
+        SHADOWS in its own scope — a parameter, a nested ``def``/``class`` of that name, or any local
+        rebinding (assign / for-target / with-as / walrus). Such a name is NOT the canonical gateway
+        within this scope (nor its nested scopes), so a call spelled with it must not count as a gateway
+        call (round-4 false-green). Fail-closed: ANY local binding of the name shadows it — we do not try
+        to prove a rebinding re-establishes the canonical import (``activate_file = activate_file``); in
+        doubt it is a shadow. No real wired family binds ``activate_file``/``activate_bundle`` as a local,
+        so this cannot false-RED the tree."""
+        gw_all = self.gw_names | self.gw_modules
+        if not gw_all:
+            return set()
+        bound: set = set()
+        args = getattr(func_node, "args", None)
+        if isinstance(args, ast.arguments):  # parameters bind in this scope
+            for a in (*getattr(args, "posonlyargs", ()), *args.args, *args.kwonlyargs):
+                bound.add(a.arg)
+            if args.vararg:
+                bound.add(args.vararg.arg)
+            if args.kwarg:
+                bound.add(args.kwarg.arg)
+        scan = _ScopeBindingScan()
+        for stmt in getattr(func_node, "body", []):
+            scan.visit(stmt)
+        bound |= scan.bound
+        return bound & gw_all
+
     def _is_activation_call(self, func: ast.AST) -> bool:
         """A gateway call ONLY if the name RESOLVES (via this file's import table) to the canonical
-        gateway module — NOT by bare spelling. ``activate_file(...)`` counts iff ``activate_file`` was
-        imported from ``src.core.model_activation.activation_gateway`` (bare/aliased); an attribute call
-        ``gw.activate_file(...)`` counts iff ``gw`` is a canonical-gateway-module alias. A project-local
-        or differently-sourced ``activate_file`` (a fake, a shadowing ``def``/``lambda``) does NOT."""
+        gateway module — NOT by bare spelling — AND is not SHADOWED in the current scope. ``activate_file(...)``
+        counts iff ``activate_file`` was imported from ``src.core.model_activation.activation_gateway``
+        (bare/aliased) and no enclosing scope rebinds it; an attribute call ``gw.activate_file(...)`` counts
+        iff ``gw`` is a canonical-gateway-module alias and unshadowed. A project-local or differently-sourced
+        ``activate_file`` (a fake), or a canonical name shadowed by a param / local ``def`` / ``lambda`` /
+        assignment, does NOT (round-3 fake + round-4 scope-shadowing false-greens)."""
+        shadowed = self.shadowed_stack[-1]
         if isinstance(func, ast.Name):
-            return func.id in self.gw_names
+            return func.id in self.gw_names and func.id not in shadowed
         if isinstance(func, ast.Attribute):
             return (
                 func.attr in _ACTIVATION_FUNCS
                 and isinstance(func.value, ast.Name)
                 and func.value.id in self.gw_modules
+                and func.value.id not in shadowed
             )
         return False
 

@@ -55,20 +55,23 @@ def _build_feature_vector(
     l3_dim: Optional[int] = None
 
     embedding_vector = None
-    embedding_degraded = False
+    embedding_verified = False
     if isinstance(features_3d, Mapping):
         embedding_vector = features_3d.get("embedding_vector")
-        # F4 — a DEGRADED/mock UV-Net embedding must NOT enter L3 registration or
-        # similarity (design lock: "no silent stand-in"). feature_pipeline is the
-        # sole producer of ``embedding_vector`` and always co-writes
-        # ``embedding_degraded`` (fail-closed: a missing encoder marker is tagged
-        # degraded at the source). We skip L3 only when the marker is explicitly
-        # truthy, so a verified embedding (marker False, or a legacy caller that
-        # never degrades) still registers as L3. Without this guard a mock
-        # heuristic was registered as base_sem_ext_v1+l3 and participated in
-        # similarity (reviewer reproduced l3_dim=3).
-        embedding_degraded = bool(features_3d.get("embedding_degraded", False))
-    if embedding_vector is not None and not embedding_degraded:
+        # F4 (round-4 fail-CLOSED) — a DEGRADED/mock/untagged UV-Net embedding must
+        # NOT enter L3 registration or similarity (design lock: "no silent
+        # stand-in"). feature_pipeline is the intended producer of
+        # ``embedding_vector`` and co-writes ``embedding_degraded=False`` on its
+        # VERIFIED path. An embedding is admitted to L3 ONLY when that marker is
+        # EXPLICITLY the boolean ``False``. Every other state is treated as
+        # degraded and excluded: key missing (e.g. a pre-fix cache-hit payload or
+        # any producer that didn't co-write the marker), ``None``, truthy, or a
+        # non-bool value. The earlier ``bool(...get(..., False))`` form was
+        # fail-OPEN — a missing key / None / 0 all read as "not degraded", so an
+        # UNTAGGED payload carrying an ``embedding_vector`` registered as
+        # base_sem_ext_v1+l3 and entered similarity (reviewer reproduced this).
+        embedding_verified = features_3d.get("embedding_degraded") is False
+    if embedding_vector is not None and embedding_verified:
         l3_dim = len(embedding_vector)
         feature_vector.extend(float(x) for x in embedding_vector)
         vector_layout = VECTOR_LAYOUT_L3

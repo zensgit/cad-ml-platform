@@ -81,6 +81,91 @@ async def test_degraded_embedding_stays_base_and_is_not_appended():
     }
 
 
+async def _run_with_features_3d(features_3d, captured, registered_vector):  # noqa: ANN001, ANN201
+    """Drive run_vector_pipeline with a given features_3d payload, no qdrant."""
+    doc = SimpleNamespace(format="step", complexity_bucket=lambda: "high")
+
+    def _register(vector_id, vector, meta):  # noqa: ANN001, ANN201
+        registered_vector["vector"] = list(vector)
+        return True
+
+    return await run_vector_pipeline(
+        analysis_id="vec-failclosed",
+        doc=doc,
+        features={"geometric": [1.0], "semantic": [2.0]},
+        features_3d=features_3d,
+        material="steel",
+        get_qdrant_store=lambda: None,
+        feature_extractor_factory=lambda: _StubExtractor([0.1, 0.2]),
+        metadata_builder=_capturing_metadata_builder(captured),
+        register_local_vector=_register,
+    )
+
+
+def _assert_stayed_base(result, captured, registered_vector):  # noqa: ANN001, ANN201
+    """The base vector is registered untouched — no L3 append, l3_dim None."""
+    assert registered_vector["vector"] == [0.1, 0.2]
+    assert result["feature_vector_dim"] == 2
+    assert captured["metadata_builder"]["vector_layout"] == VECTOR_LAYOUT_BASE
+    assert captured["metadata_builder"]["l3_dim"] is None
+    assert result["vector_metadata"] == {
+        "vector_layout": VECTOR_LAYOUT_BASE,
+        "l3_dim": "None",
+    }
+
+
+@pytest.mark.asyncio
+async def test_missing_marker_key_stays_base_fail_closed():
+    """(a) An embedding_vector with NO embedding_degraded key must NOT enter L3.
+
+    The old ``bool(...get("embedding_degraded", False))`` form defaulted a missing
+    key to "not degraded" (fail-OPEN) and admitted the vector. Fail-closed: a
+    payload that never co-wrote the marker is treated as degraded."""
+    captured: dict[str, object] = {}
+    registered_vector: dict[str, object] = {}
+    result = await _run_with_features_3d(
+        {"embedding_vector": [7.0, 8.0, 9.0]},  # no embedding_degraded key at all
+        captured,
+        registered_vector,
+    )
+    _assert_stayed_base(result, captured, registered_vector)
+
+
+@pytest.mark.asyncio
+async def test_none_marker_stays_base_fail_closed():
+    """(b) embedding_degraded=None is NOT the boolean False -> excluded from L3."""
+    captured: dict[str, object] = {}
+    registered_vector: dict[str, object] = {}
+    result = await _run_with_features_3d(
+        {"embedding_vector": [7.0, 8.0, 9.0], "embedding_degraded": None},
+        captured,
+        registered_vector,
+    )
+    _assert_stayed_base(result, captured, registered_vector)
+
+
+@pytest.mark.asyncio
+async def test_untagged_cache_hit_payload_stays_base_fail_closed():
+    """(c) A legacy/untagged CACHE-hit payload — brep + dfm + embedding_vector but
+    no provenance/degrade marker (e.g. an entry written before the marker existed)
+    — must NOT be admitted to L3. This is the exact hole the reviewer reproduced:
+    a cache-hit load carrying an embedding_vector registered as base_sem_ext_v1+l3."""
+    captured: dict[str, object] = {}
+    registered_vector: dict[str, object] = {}
+    result = await _run_with_features_3d(
+        {
+            "surface_area": 12.0,
+            "faces": 6,
+            "thin_walls_detected": False,
+            "embedding_vector": [7.0, 8.0, 9.0],
+            # No embedding_degraded / embedding_provenance — untagged legacy payload.
+        },
+        captured,
+        registered_vector,
+    )
+    _assert_stayed_base(result, captured, registered_vector)
+
+
 @pytest.mark.asyncio
 async def test_verified_embedding_is_appended_as_l3():
     """Positive control: a VERIFIED embedding (marker False) DOES register as L3,

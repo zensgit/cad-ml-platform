@@ -17,11 +17,26 @@ Honesty frame — read this before trusting any "green" below:
 - **torch is installed only under the box's `/usr/bin/python3` (3.9.6)**; the
   sandbox `python3.11` has **no torch**. Torch-dependent tests therefore run
   under 3.9.6 and *skip* (not fail) under 3.11 via `pytest.importorskip`.
-- **CI-on-Linux is the authority.** Nothing here claims CI-green; it claims
-  what ran locally, on which interpreter, with what result.
+- **CI-on-Linux is the authority.** The local results in §9 and §15.1 are
+  **pre-push evidence** — what ran locally, on which interpreter, with what
+  result — for the commits that produced them. They are not a substitute for
+  the live CI rollup (§15.2), which is the authoritative outcome for the
+  pushed head.
 
 This branch is **stacked on PR #528** and is **not on `main`**. It merges
 nothing, ratifies nothing, resolves no review threads — those are the owner's.
+
+**Post-push update (this record).** The round-1/round-2/round-3 work described
+in §§1–15 is committed and pushed; head is `ae332c5e` (see §1). Live CI ran on
+that head: **64 pass / 15 skip / 0 fail** (the reviewer's authoritative rollup
+counts **79** check-run items total — not 83; an earlier 83 double-counted
+re-run check-runs and is corrected here). §15's "not committed" / "working
+tree" language below describes the state *at the time those sections were
+written*, i.e. before this push — it is not rewritten, only annotated, so the
+record does not contradict itself. A further, separate round of fixes (§16,
+"round-4") was made **on top of** `ae332c5e` in the working tree after this
+push and is **not yet committed**; see §16 for its own, explicitly-labelled
+pre-commit status.
 
 ## 1. Base / head SHAs and governance
 
@@ -31,7 +46,8 @@ nothing, ratifies nothing, resolves no review threads — those are the owner's.
 | Base provenance | PR #528 head — C1 model-activation core; passed a fresh 6-lens opus conformance gate (**GO**, 0 blocking, 0 runtime holes) |
 | Branch | `l3-phasea-c2c6-wiring-20260721` |
 | Foundation commit (C3+C4) | `c9696f1160ad395f35cb0d6066e6cd64c6c43798` |
-| C2/C5/C6 delivery | working-tree changes on the branch (family sources, C2 unit tests, enumerator, this record) |
+| C2/C5/C6 delivery | committed and pushed through round-3 remediation, head `ae332c5e13408c3e01da739065cb8e8e0de135f2` (family sources, C2 unit tests, enumerator, this record) |
+| Live CI on `ae332c5e` | **64 pass / 15 skip / 0 fail** (reviewer's authoritative rollup, 79 check-run items total) — this is the **round-4 pre-fix baseline**; see §16 |
 
 Landing requires the owner to: **(a) merge #528 first, (b) rebase this onto
 `main`, (c) ratify.** Do not merge before #528.
@@ -315,7 +331,12 @@ PYTHONPATH=. python3.11 -m pytest --noconftest -q \
   is safe.
 - The C1 Linux-root / `openat2` suites are **CI-only** (no local Docker) and are
   **not** part of the local evidence above.
-- **CI-on-Linux is the authority.** These are local, single-box results.
+- **CI-on-Linux is the authority.** These are local, single-box, pre-push
+  results for the commits that produced them. The head this record now cites
+  (`ae332c5e`) has since been pushed and run on live CI: **64 pass / 15 skip /
+  0 fail** (79 check-run items, reviewer's authoritative rollup — not 83). That
+  number was **observed by the reviewer on CI**, not reproduced in this
+  sandbox (no Docker here); it is cited, not re-derived.
 
 ## 10. Residual risks & correctness findings (surfaced, out of scope)
 
@@ -604,10 +625,16 @@ Round-2 (§13/§14, committed at `d8ebd971`) fixed the containment membrane
 itself. The round-2 gate review found the membrane's own structural check had
 a name-only false-green, and that the C4 degrade contract stopped at the
 family/marker boundary without proof its *consumers* honored the marker.
-Round-3 (working-tree changes on top of `d8ebd971`, **not committed**) closes
-both. No C1 core file was touched (`store.py`/`types.py`/`resolver.py`/
-`pin_domain.py`/`digest.py`/`fd_dir.py` untouched); `activation_gateway.py` was
-read, not edited.
+Round-3 closes both. No C1 core file was touched (`store.py`/`types.py`/
+`resolver.py`/`pin_domain.py`/`digest.py`/`fd_dir.py` untouched);
+`activation_gateway.py` was read, not edited.
+
+**Committed-status update.** At the time this section was originally written,
+round-3 was working-tree-only and uncommitted; it has since been committed as
+`ae332c5e13408c3e01da739065cb8e8e0de135f2` and pushed (see §1). §15.1's
+"uncommitted" / "working tree" framing below is left as the accurate
+description of that point in time and is not rewritten — §16 records the
+subsequent (round-4) working-tree state on top of this commit.
 
 **C5 — canonical-gateway resolve + no cross-scope inheritance**
 (`scripts/ci/activation_surface_enumerator.py`, §6 above). A gateway call now
@@ -706,6 +733,186 @@ extent of what this unit verified locally; a full-suite / CI run to check for
 unrelated regressions elsewhere in the tree was **not** run as part of this
 unit (round-3 touches four files plus two new test files; the change surface
 is narrow, but "narrow" is not the same claim as "full-suite green," and this
-record does not make that claim). **Working tree is intentionally
-uncommitted** at the time of this record (per this unit's instructions) —
-these results describe the working tree, not any commit SHA.
+record does not make that claim). At the time this paragraph was originally
+written the working tree was intentionally uncommitted (per that unit's
+instructions) and these results described the working tree, not a commit SHA.
+
+**Superseded by push (see §15.2/§1):** round-3 is no longer working-tree-only.
+It is committed at `ae332c5e13408c3e01da739065cb8e8e0de135f2` and pushed, and
+live CI has run on that head. The local numbers immediately above remain
+accurate as **pre-push evidence** for that commit; they are not restated as a
+CI result.
+
+### 15.2 Live CI rollup on the pushed head (`ae332c5e`)
+
+This is the reviewer-reported, authoritative CI outcome for
+`ae332c5e13408c3e01da739065cb8e8e0de135f2` — not a local reproduction (no
+Docker in this sandbox):
+
+- **64 pass / 15 skip / 0 fail**, 79 check-run items total.
+- This 79/64/15/0 figure is the corrected rollup. An earlier report of 83
+  items was wrong — it double-counted re-run check-runs — and is superseded
+  here; do not cite 83.
+- This is the **round-4 pre-fix baseline**: it reflects the tree as committed
+  through round-3 (§13–§15), **before** the round-4 fixes in §16 below, which
+  exist only as uncommitted working-tree changes on top of this head at the
+  time of this record and have not themselves been through CI.
+
+## 16. Round-4 fixes (uncommitted, on top of `ae332c5e`) — C4/C5 contract record
+
+Two further, reviewer-identified gaps on top of round-3 (§13–§15). Both are
+present in the working tree at the time of this record; **neither is
+committed**, per this unit's own instructions (docs-only; no commit made
+here) — a follow-up commit is expected to carry them. They are folded into the
+C4/C5 contract record here (extending §6 and §13's "consumption of the
+degrade marker" framing), not into §15, so that §15 continues to describe
+exactly what `ae332c5e` contains.
+
+**C5 — scope-shadowing fail-closed** (`scripts/ci/activation_surface_enumerator.py`).
+Round-3 (§6, §15) stopped an outer-scope gateway binding from being inherited
+as always-dominant into a nested scope, and required a call to resolve to the
+canonical gateway module rather than match by bare name. It did not yet handle
+the inverse: a nested scope that **shadows** a canonical gateway name — a
+function parameter named `activate_file`, a local `def activate_file(...)` /
+`activate_file = lambda ...`, or any local rebinding — was still resolved
+against the file-level import table and could score as a genuine gateway call
+even though, within that scope, the name no longer refers to the canonical
+gateway. The fix collects, per function scope, the set of canonical-gateway
+names (`gw_names`/`gw_modules`) that scope locally shadows (via parameters and
+a store-context AST scan that does not descend into nested `def`/`lambda`/
+`class` bodies), and `_is_activation_call` now requires the resolved name to
+be **both** import-traceable to the canonical module **and** unshadowed in the
+current scope's cumulative shadow set. This is fail-closed by construction: it
+only ever adds a reason to reject a call as non-gateway, so it cannot
+false-green a shadowed call, and it cannot false-RED any real wired family
+(none binds `activate_file`/`activate_bundle` as a local). New discriminator
+tests: `test_param_shadow_of_activate_file_is_not_the_gateway`,
+`test_param_shadow_of_activate_file_is_observed_RED_under_enforce`,
+`test_local_def_shadow_of_activate_file_is_not_the_gateway`,
+`test_local_def_shadow_of_activate_file_is_observed_RED_under_enforce`.
+
+**vector_pipeline missing-marker fail-closed** (`src/core/vector_pipeline.py`).
+Round-3 (§13 F4-UVNet, §15) excluded a degraded UV-Net embedding from L3
+registration/similarity when `embedding_degraded` was **truthy**
+(`bool(features_3d.get("embedding_degraded", False))`) — but that form
+defaults a **missing** key, a `None` value, or any falsy-but-present value to
+"not degraded," i.e. fail-**open**: an untagged payload (e.g. a pre-fix
+cache-hit entry, or any producer that never co-wrote the marker) carrying an
+`embedding_vector` still registered as `base_sem_ext_v1+l3` and entered
+similarity. The fix admits an embedding to L3 **only** when the marker is
+explicitly the boolean `False` (`features_3d.get("embedding_degraded") is
+False`); every other state — missing key, `None`, truthy, or a non-bool value
+— is treated as degraded and excluded, falling back to the pre-L3 vector
+layout. New discriminator tests in `tests/unit/test_vector_pipeline_degraded.py`:
+`test_missing_marker_key_stays_base_fail_closed`,
+`test_none_marker_stays_base_fail_closed`,
+`test_untagged_cache_hit_payload_stays_base_fail_closed` (the last is the
+exact untagged-cache-hit shape the reviewer identified). The existing
+`test_vector_pipeline.py::test_run_vector_pipeline_uses_qdrant_registration_and_similarity`
+positive-path fixture was updated to co-write `embedding_degraded: False`,
+since it now needs to be explicitly tagged verified to keep exercising the L3
+registration/similarity path it was written for.
+
+**Scope, explicitly:** as with §13/§15's own scope notes, these two fixes
+close the specific reviewer-identified gaps in the structural check and in
+the vector_pipeline consumer; they are not a claim that every reader of every
+degrade marker in the tree has been re-audited.
+
+### 16.1 Verbatim verification (`/usr/bin/python3`, `--noconftest -p no:cacheprovider`)
+
+These are **local, pre-commit, pre-CI** results for the uncommitted working
+tree described above — not a CI result, and not claimed as one.
+
+```
+PYTHONPATH=. /usr/bin/python3 -m pytest --noconftest -p no:cacheprovider -v \
+  tests/unit/test_activation_surface_enumerator.py \
+  tests/unit/test_vector_pipeline.py \
+  tests/unit/test_vector_pipeline_degraded.py
+```
+```
+tests/unit/test_activation_surface_enumerator.py::test_every_gated_site_carries_a_family PASSED [  8%]
+tests/unit/test_activation_surface_enumerator.py::test_syntaxerror_in_scope_is_malfunction_exit_2 PASSED [  9%]
+tests/unit/test_activation_surface_enumerator.py::test_unicodedecodeerror_in_scope_is_malfunction_exit_2 PASSED [ 11%]
+tests/unit/test_activation_surface_enumerator.py::test_valueerror_from_ast_parse_is_malfunction_exit_2 PASSED [ 12%]
+tests/unit/test_activation_surface_enumerator.py::test_unreadable_in_scope_file_is_malfunction_exit_2 PASSED [ 14%]
+tests/unit/test_activation_surface_enumerator.py::test_wellformed_file_is_not_a_malfunction PASSED [ 16%]
+tests/unit/test_activation_surface_enumerator.py::test_missing_manifest_is_malfunction_exit_2 PASSED [ 17%]
+tests/unit/test_activation_surface_enumerator.py::test_corrupt_json_manifest_is_malfunction_exit_2 PASSED [ 19%]
+tests/unit/test_activation_surface_enumerator.py::test_manifest_schema_violation_is_malfunction_exit_2 PASSED [ 20%]
+tests/unit/test_activation_surface_enumerator.py::test_manifest_without_a_sites_object_is_malfunction_exit_2[{}] PASSED [ 22%]
+tests/unit/test_activation_surface_enumerator.py::test_manifest_without_a_sites_object_is_malfunction_exit_2[{"notsites": {}}] PASSED [ 24%]
+tests/unit/test_activation_surface_enumerator.py::test_manifest_without_a_sites_object_is_malfunction_exit_2[{"sites": []}] PASSED [ 25%]
+tests/unit/test_activation_surface_enumerator.py::test_manifest_without_a_sites_object_is_malfunction_exit_2["a string"] PASSED [ 27%]
+tests/unit/test_activation_surface_enumerator.py::test_import_aware_detection_no_blind_spots[import torch as t\ndef f(): return t.load('x')-torch.load] PASSED [ 29%]
+tests/unit/test_activation_surface_enumerator.py::test_import_aware_detection_no_blind_spots[from torch import load\ndef f(): return load('x')-torch.load] PASSED [ 30%]
+tests/unit/test_activation_surface_enumerator.py::test_import_aware_detection_no_blind_spots[from torch import load as L\ndef f(): return L('x')-torch.load] PASSED [ 32%]
+tests/unit/test_activation_surface_enumerator.py::test_import_aware_detection_no_blind_spots[import pickle as p\ndef f(): return p.loads(b'x')-pickle.loads] PASSED [ 33%]
+tests/unit/test_activation_surface_enumerator.py::test_import_aware_detection_no_blind_spots[import joblib as jl\ndef f(): return jl.load('x')-joblib.load] PASSED [ 35%]
+tests/unit/test_activation_surface_enumerator.py::test_import_aware_detection_no_blind_spots[from transformers import AutoModel\ndef f(): return AutoModel.from_pretrained('x')-from_pretrained] PASSED [ 37%]
+tests/unit/test_activation_surface_enumerator.py::test_import_aware_detection_no_blind_spots[from sentence_transformers import SentenceTransformer\ndef f(): return SentenceTransformer('x')-ctor:SentenceTransformer] PASSED [ 38%]
+tests/unit/test_activation_surface_enumerator.py::test_import_aware_detection_no_blind_spots[import sentence_transformers as st\ndef f(): return st.SentenceTransformer('x')-ctor:SentenceTransformer] PASSED [ 40%]
+tests/unit/test_activation_surface_enumerator.py::test_import_aware_detection_no_blind_spots[from paddleocr import PaddleOCR\ndef f(): return PaddleOCR()-ctor:PaddleOCR] PASSED [ 41%]
+tests/unit/test_activation_surface_enumerator.py::test_import_aware_detection_no_blind_spots[import onnx\ndef f(): return onnx.load('m.onnx')-onnx.load] PASSED [ 43%]
+tests/unit/test_activation_surface_enumerator.py::test_import_aware_detection_no_blind_spots[import onnxruntime as ort\ndef f(): return ort.InferenceSession('m')-ctor:InferenceSession] PASSED [ 45%]
+tests/unit/test_activation_surface_enumerator.py::test_import_aware_detection_no_blind_spots[from onnxruntime import InferenceSession\ndef f(): return InferenceSession('m')-ctor:InferenceSession] PASSED [ 46%]
+tests/unit/test_activation_surface_enumerator.py::test_real_hf_and_embedding_loaders_are_gated PASSED [ 48%]
+tests/unit/test_activation_surface_enumerator.py::test_wrapped_wired_site_detected_as_wrapped PASSED [ 50%]
+tests/unit/test_activation_surface_enumerator.py::test_wired_site_with_wrapper_present_is_green_even_enforced PASSED [ 51%]
+tests/unit/test_activation_surface_enumerator.py::test_remove_the_wrapper_is_observed_RED_under_enforce PASSED [ 53%]
+tests/unit/test_activation_surface_enumerator.py::test_f2_gateway_called_but_result_discarded_is_unwrapped PASSED [ 54%]
+tests/unit/test_activation_surface_enumerator.py::test_f2_discard_case_is_observed_RED_under_enforce PASSED [ 56%]
+tests/unit/test_activation_surface_enumerator.py::test_gateway_bound_after_loader_is_unwrapped PASSED [ 58%]
+tests/unit/test_activation_surface_enumerator.py::test_gateway_bound_after_loader_is_observed_RED_under_enforce PASSED [ 59%]
+tests/unit/test_activation_surface_enumerator.py::test_remove_the_wrapper_is_advisory_only_by_default PASSED [ 61%]
+tests/unit/test_activation_surface_enumerator.py::test_gate_before_wired_unwrapped_raw_loader_is_consistent PASSED [ 62%]
+tests/unit/test_activation_surface_enumerator.py::test_gate_before_wired_but_actually_wrapped_reds_under_enforce PASSED [ 64%]
+tests/unit/test_activation_surface_enumerator.py::test_gated_raw_loader_missing_wiring_reds_under_enforce PASSED [ 66%]
+tests/unit/test_activation_surface_enumerator.py::test_real_tree_is_structurally_consistent_under_enforce PASSED [ 67%]
+tests/unit/test_activation_surface_enumerator.py::test_every_gated_site_carries_a_valid_wiring PASSED [ 69%]
+tests/unit/test_activation_surface_enumerator.py::test_closure_load_not_wrapped_by_outer_gateway_binding PASSED [ 70%]
+tests/unit/test_activation_surface_enumerator.py::test_closure_load_before_outer_gateway_is_observed_RED_under_enforce PASSED [ 72%]
+tests/unit/test_activation_surface_enumerator.py::test_local_fake_activate_file_is_not_the_gateway PASSED [ 74%]
+tests/unit/test_activation_surface_enumerator.py::test_local_fake_activate_file_is_observed_RED_under_enforce PASSED [ 75%]
+tests/unit/test_activation_surface_enumerator.py::test_param_shadow_of_activate_file_is_not_the_gateway PASSED [ 77%]
+tests/unit/test_activation_surface_enumerator.py::test_param_shadow_of_activate_file_is_observed_RED_under_enforce PASSED [ 79%]
+tests/unit/test_activation_surface_enumerator.py::test_local_def_shadow_of_activate_file_is_not_the_gateway PASSED [ 80%]
+tests/unit/test_activation_surface_enumerator.py::test_local_def_shadow_of_activate_file_is_observed_RED_under_enforce PASSED [ 82%]
+tests/unit/test_vector_pipeline.py::test_run_vector_pipeline_registers_local_vector_and_updates_memory_meta PASSED [ 83%]
+tests/unit/test_vector_pipeline.py::test_run_vector_pipeline_uses_qdrant_registration_and_similarity PASSED [ 85%]
+tests/unit/test_vector_pipeline.py::test_run_vector_pipeline_registration_failure_does_not_block_similarity PASSED [ 87%]
+tests/unit/test_vector_pipeline.py::test_run_vector_pipeline_reports_reference_not_found_without_similarity_compute PASSED [ 88%]
+tests/unit/test_vector_pipeline.py::test_run_vector_pipeline_adds_faiss_entry_when_backend_enabled PASSED [ 90%]
+tests/unit/test_vector_pipeline.py::test_run_vector_pipeline_reports_qdrant_reference_not_found_without_similarity PASSED [ 91%]
+tests/unit/test_vector_pipeline_degraded.py::test_degraded_embedding_stays_base_and_is_not_appended PASSED [ 93%]
+tests/unit/test_vector_pipeline_degraded.py::test_missing_marker_key_stays_base_fail_closed PASSED [ 95%]
+tests/unit/test_vector_pipeline_degraded.py::test_none_marker_stays_base_fail_closed PASSED [ 96%]
+tests/unit/test_vector_pipeline_degraded.py::test_untagged_cache_hit_payload_stays_base_fail_closed PASSED [ 98%]
+tests/unit/test_vector_pipeline_degraded.py::test_verified_embedding_is_appended_as_l3 PASSED [100%]
+
+============================= 62 passed in 53.07s ==============================
+```
+
+Combined with the round-3 referenced files (§15.1), same four files plus
+`test_vector_pipeline.py`:
+
+```
+PYTHONPATH=. /usr/bin/python3 -m pytest --noconftest -p no:cacheprovider -q \
+  tests/unit/test_activation_surface_enumerator.py \
+  tests/unit/test_c2_vision3d_uvnet.py \
+  tests/unit/test_hybrid_explainer_history_degraded.py \
+  tests/unit/test_vector_pipeline_degraded.py
+```
+```
+....................................................................     [100%]
+68 passed in 55.67s
+```
+
+**Residual — same honesty frame as §0/§9.6/§15.1:** these are the full extent
+of what this unit verified locally for the round-4 change surface (two source
+files, one existing test file's fixture updated, one new-cases test file
+extended); a full-suite / CI run to check for unrelated regressions elsewhere
+in the tree was **not** run as part of this unit. The working tree is
+**uncommitted** at the time of this record — these results describe the
+working tree on top of `ae332c5e`, not any commit SHA, and are not the same
+claim as the §15.2 live-CI rollup (which covers `ae332c5e` only, before these
+round-4 changes).

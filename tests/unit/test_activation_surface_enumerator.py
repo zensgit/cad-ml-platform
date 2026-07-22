@@ -505,3 +505,76 @@ def test_local_fake_activate_file_is_observed_RED_under_enforce(tmp_path, monkey
     assert enum.main() == enum.EXIT_FINDING == 1
     err = capsys.readouterr().err
     assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _SITE_KEY in err
+
+
+# --- C5 round-4: gateway-name resolution must be SCOPE-AWARE (shadowing fails closed) ---------------
+# The canonical import IS present at file level (so `activate_file` lands in gw_names via ast.walk), but
+# a function SHADOWS that name — with a PARAMETER (A) or a LOCAL `def` (B) — so within that scope the
+# name is NOT the canonical gateway. The old file-level gw_names + name-only `_is_activation_call` scored
+# the shadowed call as canonical, laundering an unverified value into a gateway var: `data` derives from
+# the SHADOWED activate_file, so `torch.load(io.BytesIO(data))` scored wrapped=True — a FALSE GREEN. The
+# scope-aware fix subtracts shadowed gateway names from the effective gw set for that scope (and nested
+# scopes), fail-closed: a shadowing param/def/assign means the name is not the gateway there ->
+# wrapped=False -> a wired-but-unwrapped finding. NB the loaded value must DERIVE from the shadowed call
+# (mirror _WRAPPED_SRC), else the load reads a bare path and is already unwrapped on the old code — which
+# would not be an observed-RED for THIS shadowing bug.
+_PARAM_SHADOW_SRC = (
+    "import io, torch\n"
+    "from src.core.model_activation.activation_gateway import activate_file\n"
+    "class M:\n"
+    "    def load(self, activate_file):  # PARAM shadows the canonical import within this scope\n"
+    "        data = activate_file('fam/main', 'main')  # NOT the gateway — it is the param\n"
+    "        return torch.load(io.BytesIO(data), map_location='cpu')\n"
+)
+_LOCAL_DEF_SHADOW_SRC = (
+    "import io, torch\n"
+    "from src.core.model_activation.activation_gateway import activate_file\n"
+    "class M:\n"
+    "    def load(self):\n"
+    "        def activate_file(a, b):  # LOCAL def shadows the canonical import within this scope\n"
+    "            return None\n"
+    "        data = activate_file('fam/main', 'main')  # NOT the gateway — it is the local def\n"
+    "        return torch.load(io.BytesIO(data), map_location='cpu')\n"
+)
+
+
+def test_param_shadow_of_activate_file_is_not_the_gateway(tmp_path, monkeypatch) -> None:
+    # observed-RED against the OLD file-level gw_names: the param `activate_file` shadows the canonical
+    # import, but the old name-only matcher still counted `activate_file(...)` as the gateway, so `data`
+    # became a gateway var and `torch.load(io.BytesIO(data))` scored wrapped=True, structural_findings==[]
+    # (a false green). The scope-aware rule drops the shadowed name -> not a gateway call -> wrapped=False.
+    _scan_with_manifest(tmp_path, monkeypatch, _PARAM_SHADOW_SRC, _WIRED_ENTRY)
+    found = enum.enumerate_sites()
+    assert found[_SITE_KEY]["wrapped"] is False
+    findings = enum.structural_findings(found, enum.load_manifest())
+    assert [f for f in findings if f[0] == _SITE_KEY and f[1] == "wired-but-unwrapped"], findings
+
+
+def test_param_shadow_of_activate_file_is_observed_RED_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # end-to-end: under enforce the param-shadow case reds CI (exit 1) with a wired-but-unwrapped finding.
+    _scan_with_manifest(tmp_path, monkeypatch, _PARAM_SHADOW_SRC, _WIRED_ENTRY)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_FINDING == 1
+    err = capsys.readouterr().err
+    assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _SITE_KEY in err
+
+
+def test_local_def_shadow_of_activate_file_is_not_the_gateway(tmp_path, monkeypatch) -> None:
+    # observed-RED against the OLD file-level gw_names: a local `def activate_file` shadows the canonical
+    # import, yet the old name-only matcher counted the shadowed call as the gateway, so `data` became a
+    # gateway var and `torch.load(io.BytesIO(data))` scored wrapped=True, structural_findings==[] (a false
+    # green). The scope-aware rule drops the locally-defined name -> not a gateway call -> wrapped=False.
+    _scan_with_manifest(tmp_path, monkeypatch, _LOCAL_DEF_SHADOW_SRC, _WIRED_ENTRY)
+    found = enum.enumerate_sites()
+    assert found[_SITE_KEY]["wrapped"] is False
+    findings = enum.structural_findings(found, enum.load_manifest())
+    assert [f for f in findings if f[0] == _SITE_KEY and f[1] == "wired-but-unwrapped"], findings
+
+
+def test_local_def_shadow_of_activate_file_is_observed_RED_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # end-to-end: under enforce the local-def-shadow case reds CI (exit 1) with a wired-but-unwrapped finding.
+    _scan_with_manifest(tmp_path, monkeypatch, _LOCAL_DEF_SHADOW_SRC, _WIRED_ENTRY)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_FINDING == 1
+    err = capsys.readouterr().err
+    assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _SITE_KEY in err
