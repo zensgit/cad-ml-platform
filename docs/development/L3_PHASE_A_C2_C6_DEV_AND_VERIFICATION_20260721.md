@@ -1140,3 +1140,25 @@ this section is the correction, not a silent edit of those sections.
   the true branch head; the same one-commit-lag caveat noted in §16.3/§16.4 applies once round-8 is
   committed and pushed — the exact SHA and CI-terminal state of that future head are confirmed post-push,
   not asserted here.
+
+### 16.6 CURRENT-STATE / R8 closure (2026-07-22)
+
+**§16.5's "Round-8 (this round, in-flight) … uncommitted" wording is now a superseded,
+point-in-time record, retained unedited above as history.** Round-8 is no longer in-flight:
+
+- Round-8 (class-body `is_class` depth-uniform scope + fail-closed raw-kind preference) **is
+  committed** as head **`af39e261`** (`fix(l3): round-8 NO-GO remediation on d1beb7e5 — class-body
+  scope + fail-closed raw-kind preference`), on top of `d1beb7e5`.
+- Live CI **completed** on `af39e261` (PR #532): **68 pass / 15 skip / 0 fail**, all checks
+  terminal — `tests (3.10)` and `tests (3.11)` both passed, no `#528` C1 concurrency-flake
+  recurrence this run. This is the reviewer's authoritative raw-rollup convention (§16.5), not a
+  re-derived de-duped figure.
+- The full enumerator suite is **75 passed** (py3.9 + py3.11); `ACTIVATION_ENFORCE_WIRING=1` CLI =
+  129 sites all classified, exit 0; manifest set-equality holds; full base-vs-branch wired diff = 0
+  branch-only failures.
+- This closure is a docs-only follow-up commit; it advances the branch head beyond `af39e261`
+  (the same inherent one-commit doc-lag noted in §16.3–§16.5). The exact SHA of **this** head is
+  confirmed post-push.
+- Separately: the `#528` concurrency-test flake (`test_dup_dir_fd_caller_owned_and_cleanup_concurrent`)
+  is addressed by a distinct #528-targeted PR (deterministic cleanup-entered hook, no security-semantic
+  change) — not part of #532.
