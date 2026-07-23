@@ -30,7 +30,7 @@ def pinned_v6_activation():
         pytest.skip("模型文件不存在")
     model_bytes = model_path.read_bytes()
 
-    def activate(logical_id, artifact_id):
+    def activate(logical_id: str, artifact_id: str) -> bytes:
         assert (logical_id, artifact_id) == ("part/v6", "main")
         return model_bytes
 

@@ -1188,7 +1188,8 @@ skipped those branches, while a developer checkout with the model correctly
 failed because Phase A now refuses every unpinned raw-path load.
 
 The tests now inject those local bytes through the mocked
-`activate_file("part/v6", "main")` success boundary. This preserves the useful
+`activate_file("part/v6", "main")` success boundary, and the stub asserts that
+exact logical/artifact tuple before returning bytes. This preserves the useful
 real-checkpoint loading assertions while proving that success comes from
 gateway-verified bytes, never from path existence. Product code is unchanged
 by this follow-up.
