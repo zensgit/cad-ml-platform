@@ -2688,6 +2688,9 @@ def test_preflight_dirent_cap_lazy_no_listdir_exhaustion(tmp_path: Path) -> None
     next_calls = {"n": 0}
     closed = {"n": 0}
     real_open = os.open
+    real_scandir = store_mod._scandir_dir_fd
+    bundle_stat = os.stat(bdir, follow_symlinks=False)
+    bundle_identity = (int(bundle_stat.st_dev), int(bundle_stat.st_ino))
 
     class _Entry:
         __slots__ = ("name",)
@@ -2709,8 +2712,11 @@ def test_preflight_dirent_cap_lazy_no_listdir_exhaustion(tmp_path: Path) -> None
         def close(self) -> None:
             closed["n"] += 1
 
-    def fake_scandir(_dir_fd: int):  # type: ignore[no-untyped-def]
-        return _CountingIt()
+    def fake_scandir(dir_fd: int):  # type: ignore[no-untyped-def]
+        st = os.fstat(dir_fd)
+        if (int(st.st_dev), int(st.st_ino)) == bundle_identity:
+            return _CountingIt()
+        return real_scandir(dir_fd)
 
     def boom_listdir(*_a, **_k):  # type: ignore[no-untyped-def]
         raise AssertionError("os.listdir must not be used on C1 traversal paths")
@@ -2740,6 +2746,7 @@ def test_preflight_dirent_cap_lazy_no_listdir_exhaustion(tmp_path: Path) -> None
         return real_open(path, flags, mode, dir_fd=dir_fd)
 
     try:
+        assert store.bounds.max_total_dirents == 3
         with mock.patch.object(
             store_mod, "_scandir_dir_fd", side_effect=fake_scandir
         ), mock.patch.object(
