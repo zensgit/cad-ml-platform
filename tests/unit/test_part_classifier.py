@@ -5,6 +5,7 @@
 import os
 import tempfile
 from pathlib import Path
+from typing import Callable
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -23,7 +24,7 @@ from src.ml.part_classifier import (
 
 
 @pytest.fixture
-def pinned_v6_activation():
+def pinned_v6_activation() -> Callable[[str, str], bytes]:
     """Return a gateway stub bound to the expected Part V6 pin."""
     model_path = Path("models/cad_classifier_v2.pt")
     if not model_path.exists():
