@@ -1945,7 +1945,9 @@ def test_dup_dir_fd_caller_owned_and_cleanup_concurrent(tmp_path: Path) -> None:
       1. Pre-return a caller-owned duplicate (must remain valid after cleanup).
       2. Reader validates under lock / bumps in_flight, then pauses (one-shot).
       3. Cleanup thread runs cleanup() and blocks until in_flight drains.
-      4. Reader proceeds: in-flight dup still targets the live freeze root.
+      4. Reader proceeds: in-flight dup still targets the freeze-root inode.
+         Cleanup may scrub members after dup_dir_fd() returns; the caller-owned
+         directory fd remains valid but may then observe an empty directory.
       5. After drain, cleanup closes the root; main forces old fd-number reuse
          with a poison file; further dup/open refuse (never poison).
       6. Pre-returned duplicate identity remains the freeze inode.
@@ -2046,7 +2048,13 @@ def test_dup_dir_fd_caller_owned_and_cleanup_concurrent(tmp_path: Path) -> None:
             assert is_dir is True
             # In-flight dup must match freeze identity (pre_dup), never poison.
             assert (dev, ino) == (pre_st.st_dev, pre_st.st_ino)
-            assert "m.bin" in results.get("dup_names", set())  # type: ignore[operator]
+            dup_names = results.get("dup_names")
+            assert isinstance(dup_names, set)
+            # _in_flight protects validation + os.dup, not caller work after
+            # dup_dir_fd() returns. Cleanup may therefore scrub m.bin before
+            # listdir runs, but the stable duplicate must never expose names
+            # from an unrelated recycled fd.
+            assert dup_names <= {"m.bin"}
             if "member" in results:
                 assert results["member"] == b"good"
             else:
