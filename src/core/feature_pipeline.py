@@ -74,7 +74,11 @@ async def run_feature_pipeline(
         try:
             geo_start = time.time()
             feature_cache_3d = (geometry_cache_factory or _default_geometry_cache_factory)()
-            feature_version_3d = "l4_v1"
+            # F4 — bumped l4_v1 -> l4_v2 to invalidate pre-fix cache entries. Those
+            # were written WITHOUT the embedding_degraded/provenance marker, so a hit
+            # on one would flow an untagged mock through as if verified — reopening
+            # the exact hole this fix closes.
+            feature_version_3d = "l4_v2"
             cache_key_3d = feature_cache_3d.generate_key(content, feature_version_3d)
             cached_3d = feature_cache_3d.get(cache_key_3d)
 
@@ -90,6 +94,24 @@ async def run_feature_pipeline(
                     encoder = (encoder_3d_factory or _default_encoder_3d_factory)()
                     embedding_3d = encoder.encode(features_3d)
                     features_3d["embedding_vector"] = embedding_3d
+                    # F4 — propagate the encoder's degrade/provenance marker WITH the
+                    # result so downstream/health can tell a real model embedding from
+                    # the mock heuristic stand-in (design lock §"Failure = an explicit,
+                    # defined product state — NO silent stub"). The marker is read from
+                    # encoder instance state immediately after the synchronous encode()
+                    # (no await in between, so no intra-call race); encode()'s
+                    # List[float] return is left intact because every caller consumes it
+                    # as a plain vector. An encoder that does not expose the marker
+                    # defaults to degraded — fail-closed, never fail-open to "verified".
+                    embedding_degraded = bool(getattr(encoder, "last_encode_degraded", True))
+                    features_3d["embedding_degraded"] = embedding_degraded
+                    features_3d["embedding_provenance"] = (
+                        "mock_heuristic" if embedding_degraded else "uvnet_model"
+                    )
+                    # Do NOT cache a degraded/mock embedding as a verified model output.
+                    # It is cached TAGGED degraded (embedding_degraded=True is now a key
+                    # of features_3d), so a later cache HIT re-reads the marker and cannot
+                    # mistake the stand-in for a verified embedding.
                     feature_cache_3d.set(cache_key_3d, features_3d)
 
             if "embedding_vector" in features_3d:

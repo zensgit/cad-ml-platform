@@ -184,7 +184,7 @@ import ast as _ast
 def _detect(src: str):
     tree = _ast.parse(src)
     ma, im = enum._collect_imports(tree)
-    v = enum._LoadVisitor(ma, im)
+    v = enum._LoadVisitor(tree, ma, im)
     v.visit(tree)
     return [s[1] for s in v.sites]
 
@@ -221,3 +221,816 @@ def test_real_hf_and_embedding_loaders_are_gated() -> None:
         assert hits, f"{f} not enumerated (blind spot regressed)"
         assert all(e["class"] == "gated" and e.get("family") for e in hits), \
             f"{f} must be gated with a family: {hits}"
+
+
+# --- C5 structural wiring check --------------------------------------------------------------------
+# A `wired` raw deserializer (torch.load/pickle.load[s]/joblib.load) MUST reconstruct from
+# activate_file/activate_bundle bytes; if the wrapper is removed and it reads bytes straight off a
+# path again, the structural check must go RED (under enforce) — the remove-the-wrapper discriminator.
+# Per the ratified W4 the check is present-but-advisory by default and BLOCKING only under
+# ACTIVATION_ENFORCE_WIRING; both directions are exercised below.
+
+# A LIVE gated raw loader that reconstructs from gateway-verified bytes (enclosing function delegates).
+_WRAPPED_SRC = (
+    "import io, torch\n"
+    "from src.core.model_activation.activation_gateway import activate_file\n"
+    "class M:\n"
+    "    def load(self):\n"
+    "        data = activate_file('fam/main', 'main')\n"
+    "        if data is None:\n"
+    "            return None\n"
+    "        return torch.load(io.BytesIO(data), map_location='cpu')\n"
+)
+# The SAME site with the gateway wrapper REMOVED — a raw load straight off a path (unverified).
+_UNWRAPPED_SRC = (
+    "import torch\n"
+    "class M:\n"
+    "    def load(self, path):\n"
+    "        return torch.load(path, map_location='cpu')\n"
+)
+# F2 DISCARD case — the enclosing function CALLS the gateway but DISCARDS the return, then loads a model
+# straight off a filesystem path (self.model_path). The old presence-only wrap rule ("any enclosing
+# function delegates to activate_*") scored this wrapped=True — a FALSE GREEN: an unverified path load
+# marked as gateway-routed. The data-flow rule must see the loaded argument does not derive from the
+# gateway bytes and score it wrapped=False -> a structural finding.
+_DISCARD_SRC = (
+    "import torch\n"
+    "from src.core.model_activation.activation_gateway import activate_file\n"
+    "class M:\n"
+    "    def load(self):\n"
+    "        data = activate_file('fam/main', 'main')  # called...\n"
+    "        if data is None:\n"
+    "            return None\n"
+    "        return torch.load(self.model_path, map_location='cpu')  # ...but result DISCARDED\n"
+)
+_SITE_KEY = "src/fam.py::M.load::torch.load#0"
+
+
+def _scan_with_manifest(tmp_path, monkeypatch, src: str, entry: dict, key: str = _SITE_KEY) -> None:
+    """Point the enumerator at a one-file `src/` tree + a manifest classifying its single load site."""
+    p = tmp_path / "src" / "fam.py"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(src, encoding="utf-8")
+    mani = tmp_path / "manifest.json"
+    mani.write_text(json.dumps({"sites": {key: entry}}), encoding="utf-8")
+    monkeypatch.setattr(enum, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(enum, "SCAN_DIRS", ("src",))
+    monkeypatch.setattr(enum, "MANIFEST", mani)
+
+
+_WIRED_ENTRY = {"class": "gated", "family": "fam", "wiring": "wired", "reason": "live"}
+
+
+def test_wrapped_wired_site_detected_as_wrapped(tmp_path, monkeypatch) -> None:
+    # unit-level: the AST wrap detector sees the enclosing function delegate to activate_file.
+    _scan_with_manifest(tmp_path, monkeypatch, _WRAPPED_SRC, _WIRED_ENTRY)
+    found = enum.enumerate_sites()
+    assert found[_SITE_KEY]["wrapped"] is True
+    assert enum.structural_findings(found, enum.load_manifest()) == []
+
+
+def test_wired_site_with_wrapper_present_is_green_even_enforced(tmp_path, monkeypatch) -> None:
+    # positive control for the discriminator: wrapper present -> no finding, exit 0 even under enforce.
+    _scan_with_manifest(tmp_path, monkeypatch, _WRAPPED_SRC, _WIRED_ENTRY)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_OK == 0
+
+
+def test_remove_the_wrapper_is_observed_RED_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # THE discriminator: same wired-marked site but the activate_file wrapper is REMOVED -> the raw
+    # torch.load reads straight off a path -> structural inconsistency -> RED (exit 1) under enforce.
+    _scan_with_manifest(tmp_path, monkeypatch, _UNWRAPPED_SRC, _WIRED_ENTRY)
+    found = enum.enumerate_sites()
+    assert found[_SITE_KEY]["wrapped"] is False  # detector no longer sees the gateway delegation
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_FINDING == 1
+    err = capsys.readouterr().err
+    assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _SITE_KEY in err
+
+
+def test_f2_gateway_called_but_result_discarded_is_unwrapped(tmp_path, monkeypatch) -> None:
+    # observed-RED against the OLD presence-only rule: the function DOES call activate_file, so the old
+    # "any enclosing function delegates" test marked the raw torch.load(self.model_path) wrapped=True and
+    # structural_findings returned [] — a false green for an unverified path load. The data-flow rule
+    # sees the loaded argument (self.model_path) does not derive from the gateway bytes -> wrapped=False.
+    _scan_with_manifest(tmp_path, monkeypatch, _DISCARD_SRC, _WIRED_ENTRY)
+    found = enum.enumerate_sites()
+    assert found[_SITE_KEY]["wrapped"] is False
+    findings = enum.structural_findings(found, enum.load_manifest())
+    assert [f for f in findings if f[0] == _SITE_KEY and f[1] == "wired-but-unwrapped"], findings
+
+
+def test_f2_discard_case_is_observed_RED_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # end-to-end: under enforce the F2 discard case reds CI (exit 1) with a wired-but-unwrapped finding.
+    _scan_with_manifest(tmp_path, monkeypatch, _DISCARD_SRC, _WIRED_ENTRY)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_FINDING == 1
+    err = capsys.readouterr().err
+    assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _SITE_KEY in err
+
+
+# F2 ROUND-2 — GATEWAY-CALLED-AFTER-THE-LOADER. The wrap check must be DOMINANCE / lexical-order aware:
+# a gateway-derived binding counts for a load site ONLY if it lexically precedes (dominates) that site.
+# Here the raw torch.load reads the raw `path` PARAM, and the gateway rebind of `path` happens on the
+# line AFTER the loader — so the value the loader deserializes is the unverified param, not gateway bytes.
+# observed-RED against the OLD order-blind rule: _collect_gateway_vars scanned the WHOLE function body and
+# admitted `path` as a gateway var regardless of position, scoring wrapped=True (a false green). The
+# dominance rule rejects a binding at a lineno >= the load site -> wrapped=False -> a wired-but-unwrapped
+# finding (exit 1 under enforce).
+_GATEWAY_AFTER_LOADER_SRC = (
+    "import io, torch\n"
+    "from src.core.model_activation.activation_gateway import activate_file\n"
+    "class M:\n"
+    "    def load(self, path):\n"
+    "        loaded = torch.load(path, map_location='cpu')  # unverified raw-path load\n"
+    "        path = activate_file('x', 'main')  # gateway binding AFTER the loader -> must NOT count\n"
+    "        return loaded\n"
+)
+
+
+def test_gateway_bound_after_loader_is_unwrapped(tmp_path, monkeypatch) -> None:
+    # unit-level: the loaded arg (`path`) has its only gateway binding on a LATER line, so the
+    # dominance-aware detector scores it wrapped=False and structural_findings flags it.
+    _scan_with_manifest(tmp_path, monkeypatch, _GATEWAY_AFTER_LOADER_SRC, _WIRED_ENTRY)
+    found = enum.enumerate_sites()
+    assert found[_SITE_KEY]["wrapped"] is False
+    findings = enum.structural_findings(found, enum.load_manifest())
+    assert [f for f in findings if f[0] == _SITE_KEY and f[1] == "wired-but-unwrapped"], findings
+
+
+def test_gateway_bound_after_loader_is_observed_RED_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # end-to-end: under enforce the gateway-after-loader case reds CI (exit 1) with wired-but-unwrapped.
+    _scan_with_manifest(tmp_path, monkeypatch, _GATEWAY_AFTER_LOADER_SRC, _WIRED_ENTRY)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_FINDING == 1
+    err = capsys.readouterr().err
+    assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _SITE_KEY in err
+
+
+def test_remove_the_wrapper_is_advisory_only_by_default(tmp_path, monkeypatch, capsys) -> None:
+    # W4: without the enforce flag the SAME inconsistency is advisory — printed, but exit 0 (non-blocking),
+    # so it cannot red CI while in-scope families are still being wired.
+    _scan_with_manifest(tmp_path, monkeypatch, _UNWRAPPED_SRC, _WIRED_ENTRY)
+    monkeypatch.delenv(enum.ENV_ENFORCE_WIRING, raising=False)
+    assert enum.main() == enum.EXIT_OK == 0
+    err = capsys.readouterr().err
+    assert "ADVISORY (structural wiring, non-blocking" in err and "wired-but-unwrapped" in err
+
+
+def test_gate_before_wired_unwrapped_raw_loader_is_consistent(tmp_path, monkeypatch) -> None:
+    # a LIVE gated raw loader not yet routed (gate-before-wired) is a raw load today -> consistent,
+    # green even under enforce (this is why enforce can be flipped without redding deferred families).
+    entry = {"class": "gated", "family": "fam", "wiring": "gate-before-wired", "reason": "deferred"}
+    _scan_with_manifest(tmp_path, monkeypatch, _UNWRAPPED_SRC, entry)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_OK == 0
+
+
+def test_gate_before_wired_but_actually_wrapped_reds_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # the inverse lie: a site marked gate-before-wired that IS routed through the gateway -> stale
+    # marker -> RED under enforce (forces reclassification to wired, so the manifest cannot under-claim).
+    entry = {"class": "gated", "family": "fam", "wiring": "gate-before-wired", "reason": "stale"}
+    _scan_with_manifest(tmp_path, monkeypatch, _WRAPPED_SRC, entry)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_FINDING == 1
+    assert "unwired-but-wrapped" in capsys.readouterr().err
+
+
+def test_gated_raw_loader_missing_wiring_reds_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # a gated site with no wiring lifecycle is itself a finding under enforce — the lifecycle must be
+    # declared so a new gated load cannot slip in unrouted-and-unmarked.
+    entry = {"class": "gated", "family": "fam", "reason": "no wiring field"}
+    _scan_with_manifest(tmp_path, monkeypatch, _WRAPPED_SRC, entry)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_FINDING == 1
+    assert "missing-wiring" in capsys.readouterr().err
+
+
+def test_real_tree_is_structurally_consistent_under_enforce() -> None:
+    # integration: the real source tree + manifest carry NO structural inconsistency — every `wired`
+    # raw loader actually reconstructs from activate_file/activate_bundle bytes, and every
+    # gate-before-wired/latent raw loader is still a raw load. So the owner can flip enforce ON safely.
+    found = enum.enumerate_sites()
+    manifest = enum.load_manifest()
+    assert enum.structural_findings(found, manifest) == []
+
+
+def test_every_gated_site_carries_a_valid_wiring() -> None:
+    # manifest self-consistency: all 38 gated sites declare a wiring lifecycle in the valid set.
+    manifest = enum.load_manifest()
+    bad = {k: e.get("wiring") for k, e in manifest.items()
+           if e["class"] == "gated" and e.get("wiring") not in enum.VALID_WIRING}
+    assert not bad, f"gated sites with missing/invalid wiring: {bad}"
+
+
+# --- C5 round-3 (1): outer-scope gateway bindings do NOT dominate a nested-function load -----------
+# The old code inherited every parent-scope gateway var into a nested function scope RELAXED to
+# (0, ()) so it ALWAYS dominated — a raw loader inside a closure was scored wrapped=True merely
+# because an OUTER function bound a gateway var of the same name. That is a false green: without real
+# cross-scope call-order analysis the enumerator cannot prove the outer binding runs BEFORE the nested
+# load (the closure may be called first, or read the raw param). The conservative fail-closed rule:
+# a raw loader inside a nested function/lambda is wrapped ONLY if a gateway binding WITHIN THAT SAME
+# function dominates it — an outer binding never counts.
+#
+# Repro: `load_outer(path)` binds `path = activate_file(...)`, but the nested `inner` closure loads the
+# free var `path` (its gateway rebind in the enclosing scope may not have run when `inner` executes).
+_CLOSURE_BEFORE_OUTER_SRC = (
+    "import torch\n"
+    "from src.core.model_activation.activation_gateway import activate_file\n"
+    "def load_outer(path):\n"
+    "    def inner():\n"
+    "        return torch.load(path, map_location='cpu')  # loads a free var — outer binding must NOT count\n"
+    "    path = activate_file('x', 'main')  # enclosing-scope binding — cannot dominate the nested load\n"
+    "    return inner\n"
+)
+_CLOSURE_SITE_KEY = "src/fam.py::load_outer.inner::torch.load#0"
+
+
+def test_closure_load_not_wrapped_by_outer_gateway_binding(tmp_path, monkeypatch) -> None:
+    # observed-RED against the OLD inherit-and-relax rule: the outer `path = activate_file(...)` binding
+    # was inherited into `inner` as (0, ()) and always dominated -> wrapped=True, structural_findings==[]
+    # (a false green for an unverified free-var load). The no-inheritance rule sees `inner` has NO
+    # in-scope gateway binding -> wrapped=False -> a wired-but-unwrapped finding.
+    _scan_with_manifest(tmp_path, monkeypatch, _CLOSURE_BEFORE_OUTER_SRC, _WIRED_ENTRY, key=_CLOSURE_SITE_KEY)
+    found = enum.enumerate_sites()
+    assert found[_CLOSURE_SITE_KEY]["wrapped"] is False
+    findings = enum.structural_findings(found, enum.load_manifest())
+    assert [f for f in findings if f[0] == _CLOSURE_SITE_KEY and f[1] == "wired-but-unwrapped"], findings
+
+
+def test_closure_load_before_outer_gateway_is_observed_RED_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # end-to-end: under enforce the nested closure load reds CI (exit 1) with a wired-but-unwrapped finding.
+    _scan_with_manifest(tmp_path, monkeypatch, _CLOSURE_BEFORE_OUTER_SRC, _WIRED_ENTRY, key=_CLOSURE_SITE_KEY)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_FINDING == 1
+    err = capsys.readouterr().err
+    assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _CLOSURE_SITE_KEY in err
+
+
+# --- C5 round-3 (2): only a call resolving to the CANONICAL gateway module counts ------------------
+# The old `_is_activation_call` matched by NAME alone (`activate_file` / `activate_bundle`), so a
+# project-local FAKE or shadowed `def activate_file(...)` counted as the real gateway — a raw load
+# wrapping its bytes was scored wrapped=True though nothing verified them. The fix resolves the call
+# against the file's import table: it counts only if `activate_file`/`activate_bundle` was imported
+# from src.core.model_activation.activation_gateway (bare, aliased, or attribute form). A locally
+# defined or differently-sourced name does NOT.
+_FAKE_GATEWAY_SRC = (
+    "import io, torch\n"
+    "def activate_file(artifact_id, family):  # project-local FAKE — NOT the canonical gateway\n"
+    "    with open(artifact_id, 'rb') as fh:\n"
+    "        return fh.read()\n"
+    "class M:\n"
+    "    def load(self):\n"
+    "        data = activate_file('fam/main', 'main')\n"
+    "        return torch.load(io.BytesIO(data), map_location='cpu')\n"
+)
+
+
+def test_local_fake_activate_file_is_not_the_gateway(tmp_path, monkeypatch) -> None:
+    # observed-RED against the OLD name-only matcher: `activate_file` matched by name, so `data` became a
+    # gateway var and `torch.load(io.BytesIO(data))` scored wrapped=True, structural_findings==[] (a false
+    # green — the bytes came from an unverified local read). Import-table resolution sees the name does not
+    # resolve to the canonical gateway module -> not a gateway call -> wrapped=False -> a finding.
+    _scan_with_manifest(tmp_path, monkeypatch, _FAKE_GATEWAY_SRC, _WIRED_ENTRY)
+    found = enum.enumerate_sites()
+    assert found[_SITE_KEY]["wrapped"] is False
+    findings = enum.structural_findings(found, enum.load_manifest())
+    assert [f for f in findings if f[0] == _SITE_KEY and f[1] == "wired-but-unwrapped"], findings
+
+
+def test_local_fake_activate_file_is_observed_RED_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # end-to-end: under enforce the fake-gateway wrap reds CI (exit 1) with a wired-but-unwrapped finding.
+    _scan_with_manifest(tmp_path, monkeypatch, _FAKE_GATEWAY_SRC, _WIRED_ENTRY)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_FINDING == 1
+    err = capsys.readouterr().err
+    assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _SITE_KEY in err
+
+
+# --- C5 round-4: gateway-name resolution must be SCOPE-AWARE (shadowing fails closed) ---------------
+# The canonical import IS present at file level (so `activate_file` lands in gw_names via ast.walk), but
+# a function SHADOWS that name — with a PARAMETER (A) or a LOCAL `def` (B) — so within that scope the
+# name is NOT the canonical gateway. The old file-level gw_names + name-only `_is_activation_call` scored
+# the shadowed call as canonical, laundering an unverified value into a gateway var: `data` derives from
+# the SHADOWED activate_file, so `torch.load(io.BytesIO(data))` scored wrapped=True — a FALSE GREEN. The
+# scope-aware fix subtracts shadowed gateway names from the effective gw set for that scope (and nested
+# scopes), fail-closed: a shadowing param/def/assign means the name is not the gateway there ->
+# wrapped=False -> a wired-but-unwrapped finding. NB the loaded value must DERIVE from the shadowed call
+# (mirror _WRAPPED_SRC), else the load reads a bare path and is already unwrapped on the old code — which
+# would not be an observed-RED for THIS shadowing bug.
+_PARAM_SHADOW_SRC = (
+    "import io, torch\n"
+    "from src.core.model_activation.activation_gateway import activate_file\n"
+    "class M:\n"
+    "    def load(self, activate_file):  # PARAM shadows the canonical import within this scope\n"
+    "        data = activate_file('fam/main', 'main')  # NOT the gateway — it is the param\n"
+    "        return torch.load(io.BytesIO(data), map_location='cpu')\n"
+)
+_LOCAL_DEF_SHADOW_SRC = (
+    "import io, torch\n"
+    "from src.core.model_activation.activation_gateway import activate_file\n"
+    "class M:\n"
+    "    def load(self):\n"
+    "        def activate_file(a, b):  # LOCAL def shadows the canonical import within this scope\n"
+    "            return None\n"
+    "        data = activate_file('fam/main', 'main')  # NOT the gateway — it is the local def\n"
+    "        return torch.load(io.BytesIO(data), map_location='cpu')\n"
+)
+
+
+def test_param_shadow_of_activate_file_is_not_the_gateway(tmp_path, monkeypatch) -> None:
+    # observed-RED against the OLD file-level gw_names: the param `activate_file` shadows the canonical
+    # import, but the old name-only matcher still counted `activate_file(...)` as the gateway, so `data`
+    # became a gateway var and `torch.load(io.BytesIO(data))` scored wrapped=True, structural_findings==[]
+    # (a false green). The scope-aware rule drops the shadowed name -> not a gateway call -> wrapped=False.
+    _scan_with_manifest(tmp_path, monkeypatch, _PARAM_SHADOW_SRC, _WIRED_ENTRY)
+    found = enum.enumerate_sites()
+    assert found[_SITE_KEY]["wrapped"] is False
+    findings = enum.structural_findings(found, enum.load_manifest())
+    assert [f for f in findings if f[0] == _SITE_KEY and f[1] == "wired-but-unwrapped"], findings
+
+
+def test_param_shadow_of_activate_file_is_observed_RED_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # end-to-end: under enforce the param-shadow case reds CI (exit 1) with a wired-but-unwrapped finding.
+    _scan_with_manifest(tmp_path, monkeypatch, _PARAM_SHADOW_SRC, _WIRED_ENTRY)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_FINDING == 1
+    err = capsys.readouterr().err
+    assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _SITE_KEY in err
+
+
+def test_local_def_shadow_of_activate_file_is_not_the_gateway(tmp_path, monkeypatch) -> None:
+    # observed-RED against the OLD file-level gw_names: a local `def activate_file` shadows the canonical
+    # import, yet the old name-only matcher counted the shadowed call as the gateway, so `data` became a
+    # gateway var and `torch.load(io.BytesIO(data))` scored wrapped=True, structural_findings==[] (a false
+    # green). The scope-aware rule drops the locally-defined name -> not a gateway call -> wrapped=False.
+    _scan_with_manifest(tmp_path, monkeypatch, _LOCAL_DEF_SHADOW_SRC, _WIRED_ENTRY)
+    found = enum.enumerate_sites()
+    assert found[_SITE_KEY]["wrapped"] is False
+    findings = enum.structural_findings(found, enum.load_manifest())
+    assert [f for f in findings if f[0] == _SITE_KEY and f[1] == "wired-but-unwrapped"], findings
+
+
+def test_local_def_shadow_of_activate_file_is_observed_RED_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # end-to-end: under enforce the local-def-shadow case reds CI (exit 1) with a wired-but-unwrapped finding.
+    _scan_with_manifest(tmp_path, monkeypatch, _LOCAL_DEF_SHADOW_SRC, _WIRED_ENTRY)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_FINDING == 1
+    err = capsys.readouterr().err
+    assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _SITE_KEY in err
+
+
+# --- C5 round-5 (P1a): gateway import resolution must be LEXICALLY SCOPED, not file-wide -------------
+# The old `_collect_imports` walked the WHOLE tree (ast.walk) and put EVERY `from ...gateway import
+# activate_file` into a file-level gw_names set, so `_is_activation_call` matched the name anywhere in the
+# file. Two ways that false-greens a raw-path load:
+#   (P1a-i)  the canonical import lives inside a SIBLING function, but a different function uses the same
+#            name — the sibling's import LEAKS in and the use is scored as the gateway;
+#   (P1a-ii) a MODULE-level import is then REBOUND at module level (`def activate_file` / `activate_file =`)
+#            — the root scope's shadow set was empty, so the rebind was never subtracted.
+# The lexical scope chain (module + enclosing FUNCTION scopes, rebound-first) resolves each correctly:
+# a function-local import is invisible to a sibling, and a module-level rebind shadows the module import.
+
+# (P1a-i) SIBLING-LOCAL IMPORT: `helper` imports the gateway (function-scoped); `M.load` uses the same
+# name but never imported it. The loaded `data` derives from that non-gateway `activate_file`, so under
+# the OLD file-wide gw_names it scored wrapped=True — a false green.
+_SIBLING_IMPORT_SRC = (
+    "import io, torch\n"
+    "def helper():\n"
+    "    from src.core.model_activation.activation_gateway import activate_file\n"
+    "    return activate_file('x', 'main')  # the ONLY canonical import — scoped to helper\n"
+    "class M:\n"
+    "    def load(self):\n"
+    "        data = activate_file('fam/main', 'main')  # NOT imported in THIS scope — a sibling's import\n"
+    "        return torch.load(io.BytesIO(data), map_location='cpu')\n"
+)
+
+# (P1a-ii) MODULE-LEVEL REBIND: the canonical import is present at module level, then `activate_file` is
+# REASSIGNED at module level to a raw reader. The rebind lives in the SAME (module) scope as the import;
+# fail-closed, the shadow wins, so the call is not the gateway. Under the OLD empty-root-shadow it matched.
+_MODULE_REBIND_SRC = (
+    "import io, torch\n"
+    "from src.core.model_activation.activation_gateway import activate_file\n"
+    "activate_file = lambda a, b: open(a, 'rb').read()  # module-level REBIND shadows the import\n"
+    "class M:\n"
+    "    def load(self):\n"
+    "        data = activate_file('fam/main', 'main')  # the rebind, NOT the gateway\n"
+    "        return torch.load(io.BytesIO(data), map_location='cpu')\n"
+)
+
+
+def test_sibling_local_gateway_import_does_not_leak(tmp_path, monkeypatch) -> None:
+    # observed-RED against the OLD file-wide gw_names: `helper`'s function-local import put `activate_file`
+    # in the file-level gateway set, so `M.load`'s same-named call matched, `data` became a gateway var and
+    # `torch.load(io.BytesIO(data))` scored wrapped=True, structural_findings==[] (a false green). The
+    # lexical scope chain gives `M.load` no visibility of `helper`'s local import -> not a gateway call ->
+    # wrapped=False -> a wired-but-unwrapped finding.
+    _scan_with_manifest(tmp_path, monkeypatch, _SIBLING_IMPORT_SRC, _WIRED_ENTRY)
+    found = enum.enumerate_sites()
+    assert found[_SITE_KEY]["wrapped"] is False
+    findings = enum.structural_findings(found, enum.load_manifest())
+    assert [f for f in findings if f[0] == _SITE_KEY and f[1] == "wired-but-unwrapped"], findings
+
+
+def test_sibling_local_gateway_import_is_observed_RED_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # end-to-end: under enforce the sibling-import-leak case reds CI (exit 1) with a wired-but-unwrapped finding.
+    _scan_with_manifest(tmp_path, monkeypatch, _SIBLING_IMPORT_SRC, _WIRED_ENTRY)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_FINDING == 1
+    err = capsys.readouterr().err
+    assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _SITE_KEY in err
+
+
+def test_module_level_rebind_of_activate_file_shadows_the_import(tmp_path, monkeypatch) -> None:
+    # observed-RED against the OLD empty root-scope shadow set: the module-level `activate_file = ...` rebind
+    # was never subtracted, so the file-wide gw_names still matched the call, `data` became a gateway var and
+    # `torch.load(io.BytesIO(data))` scored wrapped=True (a false green). The lexical rule sees the import and
+    # the rebind in the SAME module scope, rebound wins -> not a gateway call -> wrapped=False -> a finding.
+    _scan_with_manifest(tmp_path, monkeypatch, _MODULE_REBIND_SRC, _WIRED_ENTRY)
+    found = enum.enumerate_sites()
+    assert found[_SITE_KEY]["wrapped"] is False
+    findings = enum.structural_findings(found, enum.load_manifest())
+    assert [f for f in findings if f[0] == _SITE_KEY and f[1] == "wired-but-unwrapped"], findings
+
+
+def test_module_level_rebind_is_observed_RED_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # end-to-end: under enforce the module-level rebind case reds CI (exit 1) with a wired-but-unwrapped finding.
+    _scan_with_manifest(tmp_path, monkeypatch, _MODULE_REBIND_SRC, _WIRED_ENTRY)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_FINDING == 1
+    err = capsys.readouterr().err
+    assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _SITE_KEY in err
+
+
+# --- C5 round-5 (P1b): a buffer wrapper is trusted by RESOLUTION to stdlib io, not by NAME -----------
+# The old `_is_buffer_wrapper` returned True for ANY object's `.BytesIO`/`.BufferedReader`/`.BufferedRandom`
+# attribute, so `evil.BytesIO(gateway_data)` — which could DISCARD its arg and return `open(raw_path)` —
+# was scored a buffer wrapper, and because its arg was gateway-derived the raw load scored wrapped=True.
+# The fix requires the wrapper to resolve (via the SAME lexical import env) to the stdlib `io` module:
+# `evil` does not, so `evil.BytesIO(...)` is NOT a buffer wrapper -> the raw load does not derive from the
+# gateway -> wrapped=False.
+_FAKE_BUFFER_SRC = (
+    "import io, torch\n"
+    "from src.core.model_activation.activation_gateway import activate_file\n"
+    "class M:\n"
+    "    def load(self):\n"
+    "        data = activate_file('fam/main', 'main')  # genuine gateway bytes...\n"
+    "        return torch.load(evil.BytesIO(data), map_location='cpu')  # ...through a NON-io buffer\n"
+)
+
+
+def test_non_io_buffer_wrapper_is_not_trusted(tmp_path, monkeypatch) -> None:
+    # observed-RED against the OLD name-only `_is_buffer_wrapper`: `evil.BytesIO` matched by attr name, so
+    # `torch.load(evil.BytesIO(data))` recursed into a gateway-derived `data` and scored wrapped=True,
+    # structural_findings==[] (a false green — `evil.BytesIO` could return open(raw_path)). Lexical
+    # resolution sees `evil` is not the stdlib io module -> not a buffer wrapper -> wrapped=False.
+    _scan_with_manifest(tmp_path, monkeypatch, _FAKE_BUFFER_SRC, _WIRED_ENTRY)
+    found = enum.enumerate_sites()
+    assert found[_SITE_KEY]["wrapped"] is False
+    findings = enum.structural_findings(found, enum.load_manifest())
+    assert [f for f in findings if f[0] == _SITE_KEY and f[1] == "wired-but-unwrapped"], findings
+
+
+def test_non_io_buffer_wrapper_is_observed_RED_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # end-to-end: under enforce the fake-buffer case reds CI (exit 1) with a wired-but-unwrapped finding.
+    _scan_with_manifest(tmp_path, monkeypatch, _FAKE_BUFFER_SRC, _WIRED_ENTRY)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == enum.EXIT_FINDING == 1
+    err = capsys.readouterr().err
+    assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _SITE_KEY in err
+
+
+def test_stdlib_io_buffer_wrapper_is_still_trusted(tmp_path, monkeypatch) -> None:
+    # positive control for P1b: the genuine `io.BytesIO(data)` (module-level `import io`) still resolves to
+    # stdlib io and is trusted -> wrapped=True, no finding. Guards against over-tightening the buffer check.
+    _scan_with_manifest(tmp_path, monkeypatch, _WRAPPED_SRC, _WIRED_ENTRY)
+    found = enum.enumerate_sites()
+    assert found[_SITE_KEY]["wrapped"] is True
+    assert enum.structural_findings(found, enum.load_manifest()) == []
+
+
+# --- C5 round-6 (P1): loader-receiver resolution must be LEXICALLY SCOPED, not file-wide -------------
+# DISCOVERY fail-open — a real load site VANISHES. The old `_collect_imports` built the module-alias table
+# (`m` -> `torch`) file-wide with LAST-WRITE-WINS into a single-value dict, and `_classify` resolved
+# `m.load` via `mod_alias.get("m")`. So a later or sibling-scope import that REUSES the alias name
+# OVERWRITES an earlier loader binding, and the real load site is MISSED ENTIRELY (found=={}). With an
+# EMPTY manifest the enforce CLI then prints "0 load sites, all classified" and exits 0 — a FALSE GREEN
+# where a real `torch.load` was never even discovered (the inverse failure of the round-5 wrap bugs: those
+# false-greened a DISCOVERED site's wrap; this one loses the site altogether).
+#
+# The fix mirrors the round-5 lexical `_Scope` mechanism onto loader receivers, but FAIL-CLOSED FOR
+# DISCOVERY (the opposite polarity of gateway resolution): a `receiver.load(...)` is a load SITE if the
+# receiver resolves, in its lexical chain, to a loader module in ANY reachable binding — a later same-name
+# rebind never DELETES an earlier loader candidate, and a sibling function's local import is invisible.
+_DISCOVERY_SITE_KEY = "src/fam.py::bad::torch.load#0"
+
+# (P1-i) MODULE-LEVEL LATER REBIND: `m` is bound to torch AND (later, same module scope) to onnxruntime.
+# A single-value last-write-wins dict drops the torch candidate; per-scope union keeps both -> the site is
+# conservatively discovered as torch.load (onnxruntime.load is not a declared loader idiom, so torch wins).
+_MODULE_LATER_REBIND_SRC = (
+    "import torch as m\n"
+    "def bad(path):\n"
+    "    return m.load(path)  # m resolves to torch in bad's lexical chain\n"
+    "import onnxruntime as m  # a LATER same-name rebind must NOT delete the torch loader candidate\n"
+)
+# (P1-ii) SIBLING-LOCAL ALIAS: `bad`'s `m` must resolve to the MODULE-level torch; `helper`'s function-local
+# `import onnxruntime as m` is invisible to the sibling `bad`. File-wide walk saw helper's import last and
+# overwrote m -> onnxruntime, vanishing the site.
+_SIBLING_LOCAL_ALIAS_SRC = (
+    "import torch as m\n"
+    "def bad(path):\n"
+    "    return m.load(path)  # m resolves to the MODULE-level torch, not helper's local rebind\n"
+    "def helper():\n"
+    "    import onnxruntime as m  # a sibling function's local import is invisible to bad\n"
+)
+
+
+def _empty_manifest(tmp_path, monkeypatch) -> None:
+    # Point MANIFEST at an EMPTY-sites manifest: the ONLY manifest that gives the clean observed-RED flip.
+    # A bogus/non-matching key would red the PRE-fix code via `stale`, so pre-fix would NOT be exit 0 and
+    # the flip would be destroyed. With empty sites: pre-fix (site missing) -> "all classified" exit 0;
+    # post-fix (site discovered) -> the site is unclassified -> exit 1.
+    empty = tmp_path / "empty_manifest.json"
+    empty.write_text(json.dumps({"sites": {}}), encoding="utf-8")
+    monkeypatch.setattr(enum, "MANIFEST", empty)
+
+
+def test_module_later_rebind_still_discovers_torch_load(tmp_path, monkeypatch, capsys) -> None:
+    # observed-RED on pre-fix: file-wide last-write-wins overwrote m->torch with m->onnxruntime, so the
+    # torch.load site VANISHED (found=={}) and (b) with an empty manifest main() printed "0 load sites" and
+    # returned 0. Per-scope union keeps BOTH candidates -> (a) the site is discovered as torch.load.
+    _scan_with_manifest(tmp_path, monkeypatch, _MODULE_LATER_REBIND_SRC, _WIRED_ENTRY, key=_DISCOVERY_SITE_KEY)
+    assert _DISCOVERY_SITE_KEY in enum.enumerate_sites()             # (a) the site IS discovered
+    _empty_manifest(tmp_path, monkeypatch)
+    assert enum.main() == 1                                          # (b) unclassified -> RED
+    assert "UNCLASSIFIED" in capsys.readouterr().err
+
+
+def test_sibling_local_alias_still_discovers_torch_load(tmp_path, monkeypatch, capsys) -> None:
+    # observed-RED on pre-fix: helper's function-local `import onnxruntime as m` was seen last by the
+    # file-wide walk and overwrote m->torch, so bad's torch.load VANISHED (found=={}) and (b) an empty
+    # manifest exited 0. Lexical scoping gives bad no visibility of helper's local import -> (a) bad's `m`
+    # resolves to the module-level torch and the site is discovered.
+    _scan_with_manifest(tmp_path, monkeypatch, _SIBLING_LOCAL_ALIAS_SRC, _WIRED_ENTRY, key=_DISCOVERY_SITE_KEY)
+    assert _DISCOVERY_SITE_KEY in enum.enumerate_sites()             # (a) the site IS discovered
+    _empty_manifest(tmp_path, monkeypatch)
+    assert enum.main() == 1                                          # (b) unclassified -> RED
+    assert "UNCLASSIFIED" in capsys.readouterr().err
+
+
+# --- Round-6 positive/negative controls (reviewer round-7 checklist item 3): normal alias,
+# function-local alias, ambiguous cross-loader rebind (fail-closed discover), and a non-loader
+# receiver (must NOT be invented as a load site). ------------------------------------------------
+_NORMAL_ALIAS_SRC = (
+    "import torch as t\n"
+    "def bad(path):\n"
+    "    return t.load(path)\n"
+)
+_FUNCTION_LOCAL_ALIAS_SRC = (
+    "def bad(path):\n"
+    "    import torch as t  # local to bad; resolves in its own scope\n"
+    "    return t.load(path)\n"
+)
+_AMBIGUOUS_REBIND_SRC = (
+    "import torch as m\n"
+    "import pickle as m  # two loader candidates for m; fail-closed discovery keeps the site\n"
+    "def bad(path):\n"
+    "    return m.load(path)\n"
+)
+_NON_LOADER_RECEIVER_SRC = (
+    "import os as m  # os is NOT a loader module\n"
+    "def bad(path):\n"
+    "    return m.load(path)  # os.load is not a loader idiom -> must NOT be discovered\n"
+)
+
+
+def test_normal_module_alias_is_discovered(tmp_path, monkeypatch, capsys) -> None:
+    # positive control: a plain `import torch as t; t.load(...)` is still discovered + unclassified-RED.
+    _scan_with_manifest(tmp_path, monkeypatch, _NORMAL_ALIAS_SRC, _WIRED_ENTRY, key=_DISCOVERY_SITE_KEY)
+    assert _DISCOVERY_SITE_KEY in enum.enumerate_sites()
+    _empty_manifest(tmp_path, monkeypatch)
+    assert enum.main() == 1
+    assert "UNCLASSIFIED" in capsys.readouterr().err
+
+
+def test_function_local_alias_is_discovered_in_own_scope(tmp_path, monkeypatch, capsys) -> None:
+    # positive control: a function-local `import torch as t` resolves within its OWN scope -> discovered.
+    _scan_with_manifest(tmp_path, monkeypatch, _FUNCTION_LOCAL_ALIAS_SRC, _WIRED_ENTRY, key=_DISCOVERY_SITE_KEY)
+    assert _DISCOVERY_SITE_KEY in enum.enumerate_sites()
+    _empty_manifest(tmp_path, monkeypatch)
+    assert enum.main() == 1
+
+
+def test_ambiguous_cross_loader_rebind_fails_closed_and_is_discovered(tmp_path, monkeypatch, capsys) -> None:
+    # fail-closed discovery: `m` is bound to BOTH torch and pickle (both RAW). Round-8 UPDATE: the site is
+    # not merely discovered as "some loader" — its kind is now REQUIRED to be a RAW_LOADER_KINDS kind (never
+    # downgraded), so C5's wrap check always runs on it. Both candidates here are raw, so this test asserts
+    # the raw-kind invariant; the raw-vs-NON-raw discriminator (onnx+torch) lives in
+    # test_raw_vs_nonraw_ambiguity_classifies_raw_not_onnx below.
+    _scan_with_manifest(tmp_path, monkeypatch, _AMBIGUOUS_REBIND_SRC, _WIRED_ENTRY, key=_DISCOVERY_SITE_KEY)
+    sites = enum.enumerate_sites()
+    bad_sites = {k: v for k, v in sites.items() if k.startswith("src/fam.py::bad::")}
+    assert bad_sites, sites
+    assert all(v["kind"] in enum.RAW_LOADER_KINDS for v in bad_sites.values()), bad_sites
+    _empty_manifest(tmp_path, monkeypatch)
+    assert enum.main() == 1
+
+
+def test_non_loader_receiver_is_not_invented_as_a_load_site(tmp_path, monkeypatch) -> None:
+    # negative control (no false-RED / no invented site): `import os as m; m.load(...)` is NOT a loader
+    # idiom -> no load site discovered, and an empty manifest stays clean (exit 0).
+    _scan_with_manifest(tmp_path, monkeypatch, _NON_LOADER_RECEIVER_SRC, _WIRED_ENTRY, key=_DISCOVERY_SITE_KEY)
+    assert not any(k.startswith("src/fam.py::bad::") for k in enum.enumerate_sites())
+    _empty_manifest(tmp_path, monkeypatch)
+    assert enum.main() == 0
+
+
+# --- Round-8: the kind-ambiguity bypass (fail-closed raw-kind preference) + class-body scope ------------
+# The round-6 ambiguous-rebind control above (torch vs pickle) is benign because BOTH candidates are raw:
+# whichever kind label the site gets, C5's wrap check still runs. The REAL bypass is a raw-vs-NON-raw
+# collision: `onnx` is a declared loader module (`onnx.load`) but is NOT in RAW_LOADER_KINDS, so if the
+# ambiguous alias resolved to "onnx.load" the C5 structural wrap check (`structural_findings`) would
+# `continue` past the site entirely (`site["kind"] not in RAW_LOADER_KINDS`) — an unwrapped, wired
+# `torch.load` masquerading as `onnx.load` would NEVER be checked. Round-8 makes kind resolution
+# fail-closed: any candidate that resolves to a RAW_LOADER_KINDS kind wins over any non-raw candidate.
+_RAW_VS_NONRAW_SITE_KEY = "src/fam.py::bad::torch.load#0"
+_RAW_VS_NONRAW_SRC = (
+    "import onnx as m       # onnx sorts BEFORE torch; a naive sorted-first pick would choose onnx.load\n"
+    "import torch as m      # non-raw (onnx) vs raw (torch) candidates for the same alias `m`\n"
+    "def bad(path):\n"
+    "    return m.load(path)   # unwrapped raw load-by-path -- must be classified (and checked) as RAW\n"
+)
+
+
+def test_raw_vs_nonraw_ambiguity_classifies_raw_not_onnx(tmp_path, monkeypatch) -> None:
+    # the discovered kind must be the RAW candidate (torch.load), never the non-raw one (onnx.load),
+    # regardless of sort order among the aliased modules.
+    _scan_with_manifest(tmp_path, monkeypatch, _RAW_VS_NONRAW_SRC, _WIRED_ENTRY, key=_RAW_VS_NONRAW_SITE_KEY)
+    sites = enum.enumerate_sites()
+    assert _RAW_VS_NONRAW_SITE_KEY in sites, sites
+    assert not any(k.startswith("src/fam.py::bad::onnx.load") for k in sites), sites
+
+
+def test_raw_vs_nonraw_ambiguity_c5_wrap_check_actually_runs(tmp_path, monkeypatch) -> None:
+    # the security-relevant consequence: because the site is classified RAW (not onnx), `structural_findings`
+    # does NOT skip it -- an unwrapped `wiring=wired` raw load through the ambiguous alias is caught as a
+    # wired-but-unwrapped finding. Pre-round-8, a sorted-first "onnx.load" label would have made this site
+    # invisible to the wrap check entirely (silently skipped, no finding, no RED) -- the real bypass.
+    _scan_with_manifest(tmp_path, monkeypatch, _RAW_VS_NONRAW_SRC, _WIRED_ENTRY, key=_RAW_VS_NONRAW_SITE_KEY)
+    found = enum.enumerate_sites()
+    findings = enum.structural_findings(found, enum.load_manifest())
+    assert [f for f in findings if f[0] == _RAW_VS_NONRAW_SITE_KEY and f[1] == "wired-but-unwrapped"], findings
+
+
+def test_raw_vs_nonraw_ambiguity_reds_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # end-to-end: under ACTIVATION_ENFORCE_WIRING the ambiguous-alias unwrapped raw load reds CI.
+    _scan_with_manifest(tmp_path, monkeypatch, _RAW_VS_NONRAW_SRC, _WIRED_ENTRY, key=_RAW_VS_NONRAW_SITE_KEY)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == 1
+    err = capsys.readouterr().err
+    assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _RAW_VS_NONRAW_SITE_KEY in err
+
+
+# The FROM-IMPORT TWIN of the raw-vs-non-raw downgrade (task-required): the same bypass reaches through
+# `_resolve_load_from` (bare-name call resolution), not only `_resolve_load_mods` (module-attr). Pre-round-8
+# `_resolve_load_from` returned `sorted(cands)[0]` = ("onnx","load") -> kind "onnx.load" (non-raw), so C5's
+# wrap check `continue`d past a real unwrapped `torch.load`. Round-8's raw-preference in _resolve_load_from
+# makes the bare-imported alias classify RAW so the wrap check runs. Distinct name/src from the module-alias
+# trio above so the two code paths are exercised independently.
+_RAW_VS_NONRAW_FROM_SRC = (
+    "from onnx import load as L    # onnx.load sorts BEFORE torch.load; naive sorted-first picks onnx\n"
+    "from torch import load as L   # raw (torch) vs non-raw (onnx) for the SAME from-import alias `L`\n"
+    "def bad(path):\n"
+    "    return L(path)            # unwrapped raw load-by-path -- must classify (and check) as RAW\n"
+)
+
+
+def test_raw_vs_nonraw_fromimport_ambiguity_classifies_raw_not_onnx(tmp_path, monkeypatch) -> None:
+    # observed-RED on clean d1beb7e5: _resolve_load_from returned sorted-first ("onnx","load") -> the site
+    # was keyed onnx.load#0 and the torch.load#0 assertion failed. Round-8 raw-preference -> torch.load.
+    _scan_with_manifest(tmp_path, monkeypatch, _RAW_VS_NONRAW_FROM_SRC, _WIRED_ENTRY, key=_RAW_VS_NONRAW_SITE_KEY)
+    sites = enum.enumerate_sites()
+    assert _RAW_VS_NONRAW_SITE_KEY in sites, sites
+    assert not any(k.startswith("src/fam.py::bad::onnx.load") for k in sites), sites
+
+
+def test_raw_vs_nonraw_fromimport_ambiguity_c5_wrap_check_actually_runs(tmp_path, monkeypatch) -> None:
+    # the security consequence for the from-import path: classified RAW -> structural_findings does NOT skip
+    # it -> the unwrapped wired raw load is caught as wired-but-unwrapped (pre-round-8: silently skipped).
+    _scan_with_manifest(tmp_path, monkeypatch, _RAW_VS_NONRAW_FROM_SRC, _WIRED_ENTRY, key=_RAW_VS_NONRAW_SITE_KEY)
+    found = enum.enumerate_sites()
+    findings = enum.structural_findings(found, enum.load_manifest())
+    assert [f for f in findings if f[0] == _RAW_VS_NONRAW_SITE_KEY and f[1] == "wired-but-unwrapped"], findings
+
+
+def test_raw_vs_nonraw_fromimport_ambiguity_reds_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # end-to-end: under enforce the from-import ambiguous-alias unwrapped raw load reds CI (exit 1).
+    _scan_with_manifest(tmp_path, monkeypatch, _RAW_VS_NONRAW_FROM_SRC, _WIRED_ENTRY, key=_RAW_VS_NONRAW_SITE_KEY)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == 1
+    err = capsys.readouterr().err
+    assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _RAW_VS_NONRAW_SITE_KEY in err
+
+
+# --- Round-8: class-body scope (fail-closed discovery) ---------------------------------------------------
+# A class body executes in its OWN namespace, so a load call made DIRECTLY at class level (not inside a
+# method) resolves against bindings made in that SAME class body -- real Python, not hypothetical. Before
+# round-8 NO scope was ever pushed for a class (by design, so methods correctly do not inherit class-body
+# names), which ALSO made class-body-direct bindings invisible to `self.scopes` entirely: a class-body-local
+# loader alias used in a class-body-direct call was never discovered AT ALL (not even as unclassified) --
+# a silent, fail-OPEN discovery gap distinct from (and worse than) an "unclassified" finding.
+_CLASS_BODY_DISCOVERY_KEY = "src/fam.py::M::torch.load#0"
+_CLASS_BODY_DIRECT_LOAD_SRC = (
+    "class M:\n"
+    "    import torch as u          # class-body-local alias\n"
+    "    x = u.load('weights.pt')   # class-body-DIRECT call; must resolve `u` via the class's own scope\n"
+)
+_CLASS_BODY_METHOD_MUST_NOT_INHERIT_SRC = (
+    "class M:\n"
+    "    import torch as u          # class-body-local alias -- NOT visible to methods\n"
+    "    def load_it(self, path):\n"
+    "        return u.load(path)    # `u` is undefined here at runtime (NameError) -- must NOT be invented\n"
+)
+
+
+def test_class_body_direct_load_call_is_discovered(tmp_path, monkeypatch) -> None:
+    # positive control: a load call made directly in the class body, using a class-body-local alias, IS
+    # discovered -- previously invisible entirely (found=={}), a silent fail-open discovery gap.
+    _scan_with_manifest(
+        tmp_path, monkeypatch, _CLASS_BODY_DIRECT_LOAD_SRC, _WIRED_ENTRY, key=_CLASS_BODY_DISCOVERY_KEY
+    )
+    assert _CLASS_BODY_DISCOVERY_KEY in enum.enumerate_sites()
+
+
+def test_class_body_scope_is_not_inherited_by_methods(tmp_path, monkeypatch) -> None:
+    # negative control: methods do NOT see a class-body-only alias (real Python: nested `def`s do not see
+    # the enclosing class's namespace) -- must not be invented as a load site (no false-RED).
+    _scan_with_manifest(
+        tmp_path, monkeypatch, _CLASS_BODY_METHOD_MUST_NOT_INHERIT_SRC, _WIRED_ENTRY, key=_SITE_KEY
+    )
+    assert not any(k.startswith("src/fam.py::M.load_it::") for k in enum.enumerate_sites())
+
+
+# The DISCRIMINATING controls for the class-scope leak: a def/method that is NOT a DIRECT child of the
+# class body but is nested inside a compound statement (an `if`, a `try`, a `for`, …) in the class body.
+# A shallow "pop the class scope only around DIRECT FunctionDef/ClassDef children" fix leaves the class
+# scope on the chain for such a nested def, so it WRONGLY inherits class-body bindings — fail-OPEN in both
+# gate-relevant directions: (A) a class-body loader alias resolves inside the nested method and invents a
+# runtime-NameError load site (discovery noise); (B) far worse, a class-body `from ...gateway import
+# activate_file` LEAKS into the nested method and false-greens a raw path load as gateway-wrapped. The
+# correct rule (a class scope is consulted only when it is the innermost scope) must hold at ANY nesting
+# depth. These two tests fail on the shallow pop-around and pass on the depth-uniform is_class rule.
+_CLASS_BODY_NESTED_DEF_ALIAS_SRC = (
+    "class M:\n"
+    "    import torch as u                 # class-body-only alias\n"
+    "    if True:\n"
+    "        def f(self, path):\n"
+    "            return u.load(path)        # `u` is NOT in this method's scope (NameError) -> not a site\n"
+)
+_CLASS_BODY_NESTED_DEF_GATEWAY_LEAK_SRC = (
+    "import io, torch\n"
+    "class M:\n"
+    "    from src.core.model_activation.activation_gateway import activate_file  # class-body-only import\n"
+    "    if True:\n"
+    "        def load(self):\n"
+    "            data = activate_file('a', 'b')     # NOT the gateway here — class scope is not inherited\n"
+    "            return torch.load(io.BytesIO(data))  # a raw path load must score wrapped=False\n"
+)
+_CLASS_NESTED_LOAD_KEY = "src/fam.py::M.load::torch.load#0"
+
+
+def test_class_body_alias_does_not_leak_into_a_def_nested_in_a_compound(tmp_path, monkeypatch) -> None:
+    # (A) fail-OPEN discovery guard: a `def` nested inside an `if` in the class body must NOT see the
+    # class-body alias `u` — else a runtime-NameError call is invented as a load site. The shallow
+    # pop-around (which only pops around DIRECT def children) discovered `src/fam.py::M.f::torch.load`.
+    _scan_with_manifest(
+        tmp_path, monkeypatch, _CLASS_BODY_NESTED_DEF_ALIAS_SRC, _WIRED_ENTRY, key=_SITE_KEY
+    )
+    assert not any(k.startswith("src/fam.py::M.f::") for k in enum.enumerate_sites()), enum.enumerate_sites()
+
+
+def test_class_body_gateway_import_does_not_leak_into_a_def_nested_in_a_compound(tmp_path, monkeypatch) -> None:
+    # (B) fail-OPEN wrap guard (the security-critical one): a class-body `from ...gateway import
+    # activate_file` must NOT leak into a method nested inside an `if` in the class body. On the shallow
+    # pop-around the leaked import made `data` a gateway var and the raw torch.load scored wrapped=True — a
+    # FALSE GREEN for an unverified load. The depth-uniform rule scores wrapped=False -> a wired-but-
+    # unwrapped finding, exactly the class of scoping leak prior rounds closed.
+    _scan_with_manifest(
+        tmp_path, monkeypatch, _CLASS_BODY_NESTED_DEF_GATEWAY_LEAK_SRC, _WIRED_ENTRY, key=_CLASS_NESTED_LOAD_KEY
+    )
+    found = enum.enumerate_sites()
+    assert found[_CLASS_NESTED_LOAD_KEY]["wrapped"] is False, found
+    findings = enum.structural_findings(found, enum.load_manifest())
+    assert [f for f in findings if f[0] == _CLASS_NESTED_LOAD_KEY and f[1] == "wired-but-unwrapped"], findings
+
+
+def test_class_body_gateway_leak_nested_def_is_observed_RED_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # end-to-end: under enforce the class-scope gateway leak reds CI (exit 1) with a wired-but-unwrapped
+    # finding — the shallow pop-around would have printed OK / exit 0 (false green).
+    _scan_with_manifest(
+        tmp_path, monkeypatch, _CLASS_BODY_NESTED_DEF_GATEWAY_LEAK_SRC, _WIRED_ENTRY, key=_CLASS_NESTED_LOAD_KEY
+    )
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == 1
+    err = capsys.readouterr().err
+    assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _CLASS_NESTED_LOAD_KEY in err

@@ -66,22 +66,29 @@ def _get_v16_classifier(speed_mode: str = "fast") -> Optional[Any]:
     try:
         from src.ml.part_classifier import PartClassifierV16
 
-        # 检查V16模型文件是否存在
-        v6_path = "models/cad_classifier_v6.pt"
-        v14_path = "models/cad_classifier_v14_ensemble.pt"
-
-        if os.path.exists(v6_path) and os.path.exists(v14_path):
-            env_speed_mode = os.getenv("V16_SPEED_MODE", speed_mode)
-            _v16_classifier = PartClassifierV16(
-                speed_mode=env_speed_mode,
-                enable_cache=True,
-                cache_size=int(os.getenv("V16_CACHE_SIZE", "1000")),
-            )
-            logger.info(f"V16分类器加载成功 (speed_mode={env_speed_mode}, 99.65%准确率)")
-        else:
-            logger.info("V16模型文件不完整，将回退到V6分类器")
+        # No os.path.exists pre-gate on the OLD convenience file paths
+        # (models/cad_classifier_v6.pt / v14_ensemble.pt). Activation is the C1
+        # gateway's decision, not a stale filesystem probe: PartClassifierV16
+        # constructs cheaply (its _load_models is lazy), and the pinned bytes are
+        # resolved through activate_file("part/v16-v6pt", ...) at predict time. A
+        # valid pin with the old convenience files absent MUST still activate; a
+        # gateway degrade surfaces as a RuntimeError from _load_models that
+        # _classify_with_v16 catches -> None -> V6 -> rules. Note this degrade
+        # path deliberately does NOT populate _v16_classifier_load_error (a
+        # missing/unverified pin is "degraded", not "error" per the design lock);
+        # only a genuine construction failure here is recorded as an error.
+        env_speed_mode = os.getenv("V16_SPEED_MODE", speed_mode)
+        _v16_classifier = PartClassifierV16(
+            speed_mode=env_speed_mode,
+            enable_cache=True,
+            cache_size=int(os.getenv("V16_CACHE_SIZE", "1000")),
+        )
+        logger.info(
+            f"V16分类器已构造 (speed_mode={env_speed_mode}); "
+            "activation decided by C1 gateway at predict time"
+        )
     except Exception as e:
-        logger.warning(f"V16分类器加载失败: {e}，将回退到V6分类器")
+        logger.warning(f"V16分类器构造失败: {e}，将回退到V6分类器")
         _v16_classifier_load_error = str(e)
 
     return _v16_classifier
@@ -97,11 +104,12 @@ def _get_ml_classifier() -> Optional[Any]:
     try:
         from src.ml.part_classifier import PartClassifier
         model_path = os.getenv("CAD_CLASSIFIER_MODEL", "models/cad_classifier_v6.pt")
-        if os.path.exists(model_path):
-            _ml_classifier = PartClassifier(model_path)
-            logger.info(f"ML分类器加载成功: {model_path}")
-        else:
-            logger.warning(f"ML分类器模型不存在: {model_path}，将使用规则分类")
+        # No raw os.path.exists precheck: the activation gateway (part/v6, "main")
+        # is now the sole load path inside PartClassifier._load_model, and its
+        # `None` degrade signal is the thing that decides availability — a
+        # path-existence check here would be a stale/bypassable proxy for it.
+        _ml_classifier = PartClassifier(model_path)
+        logger.info(f"ML分类器加载成功: {model_path}")
     except Exception as e:
         logger.warning(f"ML分类器加载失败: {e}，将使用规则分类")
     return _ml_classifier

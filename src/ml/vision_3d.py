@@ -5,10 +5,13 @@ Handles Deep Geometric Learning inference.
 Designed to interface with UV-Net Graph Models.
 """
 
+import io
 import logging
 import os
 import time
 from typing import Any, Dict, List, Optional, Union
+
+from src.core.model_activation.activation_gateway import activate_file
 
 logger = logging.getLogger(__name__)
 
@@ -169,6 +172,12 @@ class UVNetEncoder:
         # Set when the checkpoint exists but load raised, so the readiness
         # registry can distinguish load-failure from cold/missing state.
         self._load_error: Optional[str] = None
+        # F4 — explicit, caller/health-visible degrade signal. The mock embedding
+        # path is a rule-based stand-in for the pinned UV-Net model; when it is
+        # used, the design lock forbids serving it SILENTLY. ``last_encode_degraded``
+        # records whether the most recent ``encode`` fell to the mock path, and
+        # ``model_available`` mirrors activation state for callers/health.
+        self.last_encode_degraded: bool = not self._loaded
 
         if HAS_TORCH:
             if torch.cuda.is_available():
@@ -179,21 +188,36 @@ class UVNetEncoder:
                 self.device = "cpu"
             self._load_model()
 
+    @property
+    def model_available(self) -> bool:
+        """True only when the pinned UV-Net model activated through the gateway.
+
+        Callers (and the readiness registry, via ``_loaded``) use this to tell a
+        real embedding apart from the degraded mock stand-in."""
+        return bool(self._loaded)
+
     def _load_model(self):
-        """Load the pre-trained model."""
+        """Load the pre-trained model via the C4 activation gateway.
+
+        The gateway returns verified bytes on success, or ``None`` on ANY
+        refusal (pin absent, digest mismatch, unconfigured store, ...). ``None``
+        means this family must degrade to the mock encoder — there is no raw
+        path-based load fallback.
+        """
         if not HAS_TORCH:
             return
 
-        if not os.path.exists(self.model_path):
+        data = activate_file("vision3d-uvnet/main", "main")
+        if data is None:
             logger.info(
-                "UV-Net model not found at %s. Will use mock encoder until model is trained.",
-                self.model_path,
+                "UV-Net model activation degraded (pin absent/refused/unconfigured "
+                "store); using mock encoder until a pinned model is available."
             )
             return
 
         try:
             # Load state dict and config
-            checkpoint = torch.load(self.model_path, map_location=self.device)
+            checkpoint = torch.load(io.BytesIO(data), map_location=self.device)
 
             # Initialize model architecture (Config-driven if available)
             config = checkpoint.get("config", {})
@@ -222,7 +246,7 @@ class UVNetEncoder:
             self.model.eval()
 
             self._loaded = True
-            logger.info(f"UV-Net GNN model loaded from {self.model_path}")
+            logger.info("UV-Net GNN model activated via gateway (id=vision3d-uvnet/main)")
         except Exception as e:
             logger.error(f"Failed to load UV-Net model: {e}")
             self._load_error = f"Failed to load UV-Net model: {e}"
@@ -242,10 +266,25 @@ class UVNetEncoder:
         Returns:
             List[float]: A normalized embedding vector (e.g., 1024 dimensions).
         """
+        # F4 root-cause fix: default the caller-visible flag to DEGRADED at the
+        # very top of every encode(), before any inference or ZEROS guard runs.
+        # It is flipped to False in EXACTLY ONE place — after a genuine model
+        # inference has materialized a real (non-zeros-guard) embedding. Every
+        # other exit (mock path, schema/dim/empty ZEROS guards, exception
+        # fallback, fallthrough) therefore inherits the degraded default and
+        # cannot be mislabeled as a verified model embedding. (Previously this
+        # was set False at the START of the inference path, so a zeros-fallback
+        # from a schema/dim mismatch or an exception looked like a real embedding.)
+        self.last_encode_degraded = True
         dim = self.model.embedding_dim if self._loaded and self.model is not None else 1024
 
         # 1. Mock Path (If no model loaded or explicit legacy feature dict)
         if not self._loaded or (isinstance(data_source, dict) and "edge_index" not in data_source):
+            # Explicit degrade marker (design lock: no silent stand-in). When the
+            # pinned model never activated this is a model-unavailable degrade;
+            # when a legacy feature dict is passed to a loaded model it is still a
+            # non-model heuristic embedding. The flag is already True from the
+            # default above; the mock producer logs it.
             return self._mock_embedding(data_source, dim)
 
         # 2. Inference Path (Graph Data)
@@ -330,7 +369,13 @@ class UVNetEncoder:
                 with torch.no_grad():
                     _, embedding = self.model(x, edge_index, batch, edge_attr=edge_attr)
 
-                return embedding.cpu().numpy().flatten().tolist()
+                # Materialize the list BEFORE clearing the degrade flag. Only a
+                # genuine, fully-converted model embedding is non-degraded; if the
+                # conversion itself raises, the ``except`` below returns zeros with
+                # the flag still True (never flipped early).
+                result = embedding.cpu().numpy().flatten().tolist()
+                self.last_encode_degraded = False
+                return result
 
             except Exception as e:
                 logger.error(f"Inference failed: {e}")
@@ -344,6 +389,13 @@ class UVNetEncoder:
         Generate a heuristic embedding based on available scalar features.
         Used when the deep learning model is not available.
         """
+        # Non-silent degrade: surface that a rule-based stand-in is being served
+        # in place of the pinned UV-Net model (design lock line 403).
+        if not self._loaded:
+            logger.warning(
+                "UV-Net degraded: serving mock heuristic embedding "
+                "(model_available=False); pinned model not activated."
+            )
         seed_val = (
             features.get("faces", 0) * 1000
             + features.get("edges", 0)

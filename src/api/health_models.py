@@ -59,8 +59,12 @@ class HealthConfigDebug(BaseModel):
 class HealthConfigMlClassification(BaseModel):
     hybrid_enabled: bool
     hybrid_version: str
-    hybrid_config_path: str
-    graph2d_model_path: str
+    # Design lock: no filesystem paths in telemetry — model/config NAME only,
+    # never the resolved artifact path (was ``hybrid_config_path`` /
+    # ``graph2d_model_path``). Presence/degraded state lives path-free in
+    # ``readiness`` (``graph2d_model_present``, model_registry).
+    hybrid_config_name: str
+    graph2d_model_name: str
     filename_enabled: bool
     graph2d_enabled: bool
     titleblock_enabled: bool
@@ -71,7 +75,7 @@ class HealthConfigMlClassification(BaseModel):
     graph2d_allow_labels: Optional[str] = None
     graph2d_temperature: Optional[float] = None
     graph2d_temperature_source: Optional[str] = None
-    graph2d_temperature_calibration_path: Optional[str] = None
+    graph2d_temperature_calibration_name: Optional[str] = None
     graph2d_ensemble_enabled: Optional[bool] = None
     graph2d_ensemble_models_configured: Optional[int] = None
     graph2d_ensemble_models_present: Optional[int] = None

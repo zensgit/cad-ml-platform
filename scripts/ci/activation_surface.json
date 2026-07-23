@@ -272,37 +272,44 @@
     "src/core/assistant/embedding_retriever.py::EmbeddingProvider._init_model::ctor:SentenceTransformer#0": {
       "class": "gated",
       "family": "embedding",
-      "reason": "SentenceTransformer — reached via the assistant"
+      "reason": "SentenceTransformer — reached via the assistant",
+      "wiring": "gate-before-wired"
     },
     "src/core/assistant/semantic_retrieval.py::SentenceTransformerProvider._load_model::ctor:SentenceTransformer#0": {
       "class": "gated",
       "family": "embedding",
-      "reason": "SentenceTransformer — reached via the assistant"
+      "reason": "SentenceTransformer — reached via the assistant",
+      "wiring": "gate-before-wired"
     },
     "src/core/ocr/providers/deepseek_hf.py::DeepSeekHfProvider._lazy_load::from_pretrained#0": {
       "class": "gated",
       "family": "ocr",
-      "reason": "DeepSeek OCR: HF from_pretrained + PaddleOCR — MOUNTED /ocr"
+      "reason": "DeepSeek OCR: HF from_pretrained + PaddleOCR — MOUNTED /ocr",
+      "wiring": "gate-before-wired"
     },
     "src/core/ocr/providers/deepseek_hf.py::DeepSeekHfProvider._lazy_load::from_pretrained#1": {
       "class": "gated",
       "family": "ocr",
-      "reason": "DeepSeek OCR: HF from_pretrained + PaddleOCR — MOUNTED /ocr"
+      "reason": "DeepSeek OCR: HF from_pretrained + PaddleOCR — MOUNTED /ocr",
+      "wiring": "gate-before-wired"
     },
     "src/core/ocr/providers/deepseek_hf.py::DeepSeekHfProvider.extract::ctor:PaddleOCR#0": {
       "class": "gated",
       "family": "ocr",
-      "reason": "DeepSeek OCR: HF from_pretrained + PaddleOCR — MOUNTED /ocr"
+      "reason": "DeepSeek OCR: HF from_pretrained + PaddleOCR — MOUNTED /ocr",
+      "wiring": "gate-before-wired"
     },
     "src/core/ocr/providers/deepseek_hf.py::DeepSeekHfProvider.warmup::ctor:PaddleOCR#0": {
       "class": "gated",
       "family": "ocr",
-      "reason": "DeepSeek OCR: HF from_pretrained + PaddleOCR — MOUNTED /ocr"
+      "reason": "DeepSeek OCR: HF from_pretrained + PaddleOCR — MOUNTED /ocr",
+      "wiring": "gate-before-wired"
     },
     "src/core/ocr/providers/paddle.py::PaddleOcrProvider._init_paddle::ctor:PaddleOCR#0": {
       "class": "gated",
       "family": "ocr",
-      "reason": "PaddleOCR provider — MOUNTED /ocr"
+      "reason": "PaddleOCR provider — MOUNTED /ocr",
+      "wiring": "gate-before-wired"
     },
     "src/core/vectors/stores/faiss_store.py::FaissStore.load::pickle.load#0": {
       "class": "infra",
@@ -311,32 +318,32 @@
     "src/inference/classifier_api.py::V16Classifier.load::load_state_dict#0": {
       "class": "gated",
       "family": "part-v16",
-      "reason": "V16Classifier.load — NOT proven live via the mounted app (health.py imports only result_cache -> __init__, no load); load is lazy-on-predict()/standalone-app/CLI and no mounted route calls predict(); reachability = Wave-1 audit"
+      "reason": "V16Classifier.load — NOT proven live via the mounted app (health.py imports only result_cache -> __init__, no load); load is lazy-on-predict()/standalone-app/CLI and no mounted route calls predict(); reachability = Wave-1 audit",
+      "wiring": "gate-before-wired"
     },
     "src/inference/classifier_api.py::V16Classifier.load::load_state_dict#1": {
       "class": "gated",
       "family": "part-v16",
-      "reason": "V16Classifier.load — NOT proven live via the mounted app (health.py imports only result_cache -> __init__, no load); load is lazy-on-predict()/standalone-app/CLI and no mounted route calls predict(); reachability = Wave-1 audit"
+      "reason": "V16Classifier.load — NOT proven live via the mounted app (health.py imports only result_cache -> __init__, no load); load is lazy-on-predict()/standalone-app/CLI and no mounted route calls predict(); reachability = Wave-1 audit",
+      "wiring": "gate-before-wired"
     },
     "src/inference/classifier_api.py::V16Classifier.load::torch.load#0": {
       "class": "gated",
       "family": "part-v16",
-      "reason": "V16Classifier.load — NOT proven live via the mounted app (health.py imports only result_cache -> __init__, no load); load is lazy-on-predict()/standalone-app/CLI and no mounted route calls predict(); reachability = Wave-1 audit"
+      "reason": "V16Classifier.load — NOT proven live via the mounted app (health.py imports only result_cache -> __init__, no load); load is lazy-on-predict()/standalone-app/CLI and no mounted route calls predict(); reachability = Wave-1 audit",
+      "wiring": "gate-before-wired"
     },
     "src/inference/classifier_api.py::V16Classifier.load::torch.load#1": {
       "class": "gated",
       "family": "part-v16",
-      "reason": "V16Classifier.load — NOT proven live via the mounted app (health.py imports only result_cache -> __init__, no load); load is lazy-on-predict()/standalone-app/CLI and no mounted route calls predict(); reachability = Wave-1 audit"
+      "reason": "V16Classifier.load — NOT proven live via the mounted app (health.py imports only result_cache -> __init__, no load); load is lazy-on-predict()/standalone-app/CLI and no mounted route calls predict(); reachability = Wave-1 audit",
+      "wiring": "gate-before-wired"
     },
     "src/ml/classifier.py::_reload_model_impl::pickle.loads#0": {
       "class": "gated",
       "family": "pickle-classifier",
-      "reason": "hot-reload pickle deserialization (classifier.py _reload_model_impl) — reachable only via the now-sealed /model/reload (403), latent auto_remediation, and offline finetune; NOT a currently-live activation path"
-    },
-    "src/ml/classifier.py::load_model::pickle.load#0": {
-      "class": "gated",
-      "family": "pickle-classifier",
-      "reason": "LIVE lazy-first-predict pickle load of the classification model (classifier.py load_model:47, called only from predict:124)"
+      "reason": "hot-reload pickle deserialization (classifier.py _reload_model_impl) — reachable only via the now-sealed /model/reload (403), latent auto_remediation, and offline finetune; NOT a currently-live activation path",
+      "wiring": "latent"
     },
     "src/ml/compression/export.py::ONNXExporter.export::onnx.load#0": {
       "class": "offline",
@@ -365,7 +372,8 @@
     "src/ml/embeddings/model.py::DomainEmbeddingModel._try_load_sentence_transformer::ctor:SentenceTransformer#0": {
       "class": "gated",
       "family": "embedding",
-      "reason": "DomainEmbeddingModel SentenceTransformer — production embedding path"
+      "reason": "DomainEmbeddingModel SentenceTransformer — production embedding path",
+      "wiring": "gate-before-wired"
     },
     "src/ml/embeddings/trainer.py::DomainEmbeddingTrainer._init_model::ctor:SentenceTransformer#0": {
       "class": "offline",
@@ -378,77 +386,92 @@
     "src/ml/history_sequence_classifier.py::HistorySequenceClassifier._load_model::load_state_dict#0": {
       "class": "gated",
       "family": "history",
-      "reason": "HistorySequence — reached via /analyze"
+      "reason": "HistorySequence — reached via /analyze",
+      "wiring": "wired"
     },
     "src/ml/history_sequence_classifier.py::HistorySequenceClassifier._load_model::torch.load#0": {
       "class": "gated",
       "family": "history",
-      "reason": "HistorySequence — reached via /analyze"
+      "reason": "HistorySequence — reached via /analyze",
+      "wiring": "wired"
     },
     "src/ml/hybrid_classifier.py::HybridClassifier.stat_mlp::load_state_dict#0": {
       "class": "gated",
       "family": "hybrid",
-      "reason": "HybridClassifier stat/text — reached via classify tools"
+      "reason": "HybridClassifier stat/text — reached via classify tools",
+      "wiring": "gate-before-wired"
     },
     "src/ml/hybrid_classifier.py::HybridClassifier.stat_mlp::torch.load#0": {
       "class": "gated",
       "family": "hybrid",
-      "reason": "HybridClassifier stat/text — reached via classify tools"
+      "reason": "HybridClassifier stat/text — reached via classify tools",
+      "wiring": "gate-before-wired"
     },
     "src/ml/hybrid_classifier.py::HybridClassifier.tfidf_text_classifier::load_state_dict#0": {
       "class": "gated",
       "family": "hybrid",
-      "reason": "HybridClassifier stat/text — reached via classify tools"
+      "reason": "HybridClassifier stat/text — reached via classify tools",
+      "wiring": "gate-before-wired"
     },
     "src/ml/hybrid_classifier.py::HybridClassifier.tfidf_text_classifier::torch.load#0": {
       "class": "gated",
       "family": "hybrid",
-      "reason": "HybridClassifier stat/text — reached via classify tools"
+      "reason": "HybridClassifier stat/text — reached via classify tools",
+      "wiring": "gate-before-wired"
     },
     "src/ml/monitoring/anomaly_detector.py::MetricsAnomalyDetector.load_models::joblib.load#0": {
       "class": "gated",
       "family": "anomaly-monitor",
-      "reason": "loads anomaly model (joblib/pickle) in production monitoring; conservatively gated"
+      "reason": "loads anomaly model (joblib/pickle) in production monitoring; conservatively gated",
+      "wiring": "gate-before-wired"
     },
     "src/ml/monitoring/anomaly_detector.py::MetricsAnomalyDetector.load_models::pickle.load#0": {
       "class": "gated",
       "family": "anomaly-monitor",
-      "reason": "loads anomaly model (joblib/pickle) in production monitoring; conservatively gated"
+      "reason": "loads anomaly model (joblib/pickle) in production monitoring; conservatively gated",
+      "wiring": "gate-before-wired"
     },
     "src/ml/monitoring/auto_remediation.py::AutoRemediation._action_rollback_model::reload_model()#0": {
       "class": "gated",
       "family": "pickle-classifier",
-      "reason": "LATENT in-process rollback reload; gate before wired"
+      "reason": "LATENT in-process rollback reload; gate before wired",
+      "wiring": "latent"
     },
     "src/ml/part_classifier.py::PartClassifier._load_model::load_state_dict#0": {
       "class": "gated",
       "family": "part",
-      "reason": "PartClassifier/V16/V14 — reached via /analyze, /health"
+      "reason": "PartClassifier/V16/V14 — reached via /analyze, /health",
+      "wiring": "wired"
     },
     "src/ml/part_classifier.py::PartClassifier._load_model::torch.load#0": {
       "class": "gated",
       "family": "part",
-      "reason": "PartClassifier/V16/V14 — reached via /analyze, /health"
+      "reason": "PartClassifier/V16/V14 — reached via /analyze, /health",
+      "wiring": "wired"
     },
     "src/ml/part_classifier.py::PartClassifierV16._load_models::load_state_dict#0": {
       "class": "gated",
       "family": "part",
-      "reason": "PartClassifier/V16/V14 — reached via /analyze, /health"
+      "reason": "PartClassifier/V16/V14 — reached via /analyze, /health",
+      "wiring": "wired"
     },
     "src/ml/part_classifier.py::PartClassifierV16._load_models::load_state_dict#1": {
       "class": "gated",
       "family": "part",
-      "reason": "PartClassifier/V16/V14 — reached via /analyze, /health"
+      "reason": "PartClassifier/V16/V14 — reached via /analyze, /health",
+      "wiring": "wired"
     },
     "src/ml/part_classifier.py::PartClassifierV16._load_models::torch.load#0": {
       "class": "gated",
       "family": "part",
-      "reason": "PartClassifier/V16/V14 — reached via /analyze, /health"
+      "reason": "PartClassifier/V16/V14 — reached via /analyze, /health",
+      "wiring": "wired"
     },
     "src/ml/part_classifier.py::PartClassifierV16._load_models::torch.load#1": {
       "class": "gated",
       "family": "part",
-      "reason": "PartClassifier/V16/V14 — reached via /analyze, /health"
+      "reason": "PartClassifier/V16/V14 — reached via /analyze, /health",
+      "wiring": "wired"
     },
     "src/ml/pipeline/stages.py::DataLoadingStage.run::torch.load#0": {
       "class": "infra",
@@ -457,27 +480,32 @@
     "src/ml/pointnet/inference.py::PointNet3DAnalyzer._try_load_model::load_state_dict#0": {
       "class": "gated",
       "family": "pointnet",
-      "reason": "PointNet — reached via MOUNTED /pointcloud"
+      "reason": "PointNet — reached via MOUNTED /pointcloud",
+      "wiring": "wired"
     },
     "src/ml/pointnet/inference.py::PointNet3DAnalyzer._try_load_model::load_state_dict#1": {
       "class": "gated",
       "family": "pointnet",
-      "reason": "PointNet — reached via MOUNTED /pointcloud"
+      "reason": "PointNet — reached via MOUNTED /pointcloud",
+      "wiring": "wired"
     },
     "src/ml/pointnet/inference.py::PointNet3DAnalyzer._try_load_model::load_state_dict#2": {
       "class": "gated",
       "family": "pointnet",
-      "reason": "PointNet — reached via MOUNTED /pointcloud"
+      "reason": "PointNet — reached via MOUNTED /pointcloud",
+      "wiring": "wired"
     },
     "src/ml/pointnet/inference.py::PointNet3DAnalyzer._try_load_model::load_state_dict#3": {
       "class": "gated",
       "family": "pointnet",
-      "reason": "PointNet — reached via MOUNTED /pointcloud"
+      "reason": "PointNet — reached via MOUNTED /pointcloud",
+      "wiring": "wired"
     },
     "src/ml/pointnet/inference.py::PointNet3DAnalyzer._try_load_model::torch.load#0": {
       "class": "gated",
       "family": "pointnet",
-      "reason": "PointNet — reached via MOUNTED /pointcloud"
+      "reason": "PointNet — reached via MOUNTED /pointcloud",
+      "wiring": "wired"
     },
     "src/ml/serving/grpc_service.py::InferenceGRPCService._deserialize_inputs::torch.load#0": {
       "class": "unmounted",
@@ -538,22 +566,32 @@
     "src/ml/vision_2d.py::Graph2DClassifier._load_model::load_state_dict#0": {
       "class": "gated",
       "family": "graph2d",
-      "reason": "Graph2DClassifier — reached via /analyze"
+      "reason": "Graph2DClassifier — reached via /analyze",
+      "wiring": "wired"
     },
     "src/ml/vision_2d.py::Graph2DClassifier._load_model::torch.load#0": {
       "class": "gated",
       "family": "graph2d",
-      "reason": "Graph2DClassifier — reached via /analyze"
+      "reason": "Graph2DClassifier — reached via /analyze",
+      "wiring": "wired"
     },
     "src/ml/vision_3d.py::UVNetEncoder._load_model::load_state_dict#0": {
       "class": "gated",
       "family": "vision3d-uvnet",
-      "reason": "UVNet 3D encoder — reached via /analyze on 3D inputs"
+      "reason": "UVNet 3D encoder — reached via /analyze on 3D inputs",
+      "wiring": "wired"
     },
     "src/ml/vision_3d.py::UVNetEncoder._load_model::torch.load#0": {
       "class": "gated",
       "family": "vision3d-uvnet",
-      "reason": "UVNet 3D encoder — reached via /analyze on 3D inputs"
+      "reason": "UVNet 3D encoder — reached via /analyze on 3D inputs",
+      "wiring": "wired"
+    },
+    "src/ml/classifier.py::load_model::pickle.loads#0": {
+      "class": "gated",
+      "family": "pickle-classifier",
+      "reason": "LIVE lazy-first-predict load of the classification model (classifier.py load_model, called only from predict); now routed through the activation gateway — pickle.loads of verified, digest-pinned bytes (no raw pickle.load-by-path)",
+      "wiring": "wired"
     }
   }
 }
