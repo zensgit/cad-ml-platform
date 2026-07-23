@@ -307,11 +307,11 @@ class _Scope:
                       loader/ctor from-import (``from torch import load`` -> ``{"load": {("torch","load")}}``).
     """
 
-    __slots__ = ("gw_func", "gw_mod", "io_mod", "io_buf", "rebound", "load_mod", "load_from")
+    __slots__ = ("gw_func", "gw_mod", "io_mod", "io_buf", "rebound", "load_mod", "load_from", "is_class")
 
     def __init__(
         self, gw_func: set, gw_mod: set, io_mod: set, io_buf: set, rebound: set,
-        load_mod: Dict[str, set], load_from: Dict[str, set],
+        load_mod: Dict[str, set], load_from: Dict[str, set], is_class: bool = False,
     ) -> None:
         self.gw_func = gw_func
         self.gw_mod = gw_mod
@@ -320,6 +320,12 @@ class _Scope:
         self.rebound = rebound
         self.load_mod = load_mod
         self.load_from = load_from
+        # Round-8: a CLASS body's scope. It sits on the scope chain so a class-body-DIRECT statement can
+        # resolve a class-body binding, but Python does NOT make a class scope a lexical parent of the
+        # methods/nested-classes it contains — so it is consulted ONLY when it is the innermost scope (see
+        # _LoadVisitor._visible_scopes). Marked here rather than popped/re-pushed around nested defs so the
+        # skip holds at ANY nesting depth (e.g. a `def` inside an `if` in the class body).
+        self.is_class = is_class
 
 
 class _ScopeCollector(ast.NodeVisitor):
@@ -412,14 +418,17 @@ def _param_names(func_node: ast.AST) -> Tuple[str, ...]:
     return tuple(names)
 
 
-def _build_scope(body: List[ast.stmt], params: Tuple[str, ...] = ()) -> _Scope:
+def _build_scope(body: List[ast.stmt], params: Tuple[str, ...] = (), is_class: bool = False) -> _Scope:
     """The binding environment of one scope: collect its body's direct bindings, then add ``params`` to
-    the shadow set (a param named ``activate_file`` shadows the gateway within this scope)."""
+    the shadow set (a param named ``activate_file`` shadows the gateway within this scope). ``is_class``
+    marks a class-body scope (consulted only when innermost — see _LoadVisitor._visible_scopes)."""
     c = _ScopeCollector()
     for stmt in body or []:
         c.visit(stmt)
     c.rebound |= set(params)
-    return _Scope(c.gw_func, c.gw_mod, c.io_mod, c.io_buf, c.rebound, c.load_mod, c.load_from)
+    return _Scope(
+        c.gw_func, c.gw_mod, c.io_mod, c.io_buf, c.rebound, c.load_mod, c.load_from, is_class=is_class
+    )
 
 
 class _LoadVisitor(ast.NodeVisitor):
@@ -490,7 +499,32 @@ class _LoadVisitor(ast.NodeVisitor):
         self._scoped(node.name, node, True)
 
     def visit_ClassDef(self, node):
-        self._scoped(node.name, node, False)
+        # Round-8 (class-body scope, fail-closed discovery): a class body runs in its OWN namespace, so a
+        # load call made DIRECTLY at class level (e.g. ``class M:\n    import torch as t\n    x =
+        # t.load(...)``) resolves ``t`` against bindings made in that same class body — real Python, not a
+        # hypothetical. The prior code never pushed any scope for a class, which was correct for methods
+        # (they must not inherit class-body names) but ALSO made class-body-direct bindings invisible to
+        # ``self.scopes`` entirely — a silent, fail-OPEN discovery gap for a class-body-direct load.
+        #
+        # Fix: push the class body's own ``_Scope`` marked ``is_class=True`` and leave it on the chain for
+        # the whole body (NO pop-around-each-def). Python's rule "a class scope is not a lexical parent of
+        # its methods" is enforced by ``_visible_scopes`` skipping any class scope that is not innermost —
+        # which holds at ANY nesting depth (a ``def`` inside an ``if`` inside the class body is still a
+        # function scope, so the class scope beneath it is skipped; the pop-around missed exactly this).
+        # Decorators/bases/keywords evaluate in the ENCLOSING scope BEFORE the class namespace exists, so
+        # they are visited with the class scope NOT yet pushed.
+        self.stack.append(node.name)
+        for deco in node.decorator_list:
+            self.visit(deco)
+        for base in node.bases:
+            self.visit(base)
+        for kw in node.keywords:
+            self.visit(kw)
+        self.scopes.append(_build_scope(getattr(node, "body", []), is_class=True))
+        for stmt in getattr(node, "body", []):
+            self.visit(stmt)
+        self.scopes.pop()
+        self.stack.pop()
 
     def visit_Call(self, node: ast.Call) -> None:
         kind = self._classify(node.func)
@@ -597,6 +631,25 @@ class _LoadVisitor(ast.NodeVisitor):
             return False
         return site_block[: len(bind_block)] == bind_block
 
+    def _visible_scopes(self) -> List["_Scope"]:
+        """The scopes visible at the current use site, INNERMOST-FIRST, applying Python's class-scope rule
+        (round-8): a class scope is consulted ONLY when it is the innermost scope — i.e. code running
+        DIRECTLY in that class body. Once execution is inside a nested function/method (or a further-nested
+        class), every class scope BELOW the innermost is SKIPPED, so a method never sees its class's
+        bindings at ANY nesting depth (a ``def`` in an ``if`` in a class body is a function scope, so the
+        class scope beneath it is skipped). This is fail-closed in BOTH directions the gate cares about: it
+        prevents a class-body gateway/io import from leaking into a method (which would false-green a wrap)
+        AND prevents a class-body loader alias from being resolved inside a method (which would invent a
+        NameError load site). Module and function scopes are always visible."""
+        n = len(self.scopes)
+        out: List["_Scope"] = []
+        for i in range(n - 1, -1, -1):
+            scope = self.scopes[i]
+            if scope.is_class and i != n - 1:
+                continue  # a non-innermost class scope is not a lexical parent of the code running here
+            out.append(scope)
+        return out
+
     def _lookup(self, name: str):
         """Resolve ``name`` LEXICALLY through the scope chain (innermost function → … → module), returning
         which canonical binding it denotes AT THIS use site — ``"gw_func"`` / ``"gw_mod"`` / ``"io_mod"`` /
@@ -607,8 +660,9 @@ class _LoadVisitor(ast.NodeVisitor):
         also imported it as a gateway (a module import then a module-level ``def``/``=`` override, P1a) — so
         a shadow anywhere in the chain between the import and the use strips the canonical status. A
         function-local import lives only in that function's scope, so a SIBLING function (whose chain is
-        module→sibling) never sees it (P1a)."""
-        for scope in reversed(self.scopes):
+        module→sibling) never sees it (P1a). Class scopes are consulted only when innermost (round-8, via
+        _visible_scopes) — a class-body gateway/io import never leaks into a method."""
+        for scope in self._visible_scopes():
             if name in scope.rebound:
                 return None                    # shadowed here — resolves to the rebinding, not a gateway/io
             if name in scope.gw_func:
@@ -663,22 +717,39 @@ class _LoadVisitor(ast.NodeVisitor):
         enclosing functions), UNIONED. Fail-closed for DISCOVERY (the opposite polarity of gateway
         resolution): a later same-name rebind — even in the same scope — never DELETES an earlier loader
         candidate, and ``rebound`` is deliberately NOT consulted; a sibling/nested scope not on the chain is
-        invisible. Sorted for deterministic kind selection. This is the round-6 fix for the file-wide
-        last-write-wins that let a real ``m.load`` site VANISH."""
+        invisible. Sorted for a deterministic candidate order; this is the round-6 fix for the file-wide
+        last-write-wins that let a real ``m.load`` site VANISH. Round-8: the caller (``_classify``) no
+        longer just takes this list's sorted-first entry — it prefers whichever candidate yields a
+        ``RAW_LOADER_KINDS`` kind, fail-closed for the C5 raw-wiring check (see ``_classify``). Uses
+        ``_visible_scopes`` so a class-body alias is resolvable only in the class body, never in a method."""
         mods: set = set()
-        for scope in self.scopes:
+        for scope in self._visible_scopes():
             mods.update(scope.load_mod.get(name, ()))
         return sorted(mods)
 
     def _resolve_load_from(self, name: str):
         """The loader/ctor from-import binding ``name`` denotes, resolved across its LEXICAL chain and
-        unioned (fail-closed for discovery, ``rebound`` not consulted). Deterministic: ``None`` if none,
-        else the sorted-first ``(module, attr)`` / ``("__ctor__", ctor)`` candidate (on the real tree each
-        such name has exactly one)."""
+        unioned (fail-closed for discovery, ``rebound`` not consulted). Deterministic: ``None`` if none.
+        Round-8 (fail-closed for the C5 SECURITY gate — a prior "sorted-first" tie-break was a REAL
+        bypass: the returned candidate's kind decides whether ``structural_findings`` even runs the
+        raw-wiring check, so a from-import alias ambiguous between a RAW module (torch/pickle/joblib)
+        and a non-raw one (onnx / a model-constructor) could resolve to the non-raw candidate and skip
+        C5 entirely for a real raw load). Any candidate that denotes a ``RAW_LOADER_KINDS`` kind now wins
+        over any that doesn't (sorted among the raw candidates for determinism); only when NO candidate
+        is raw does it fall back to the sorted-first candidate (on the real tree each name has exactly
+        one candidate, so this only changes pathological-collision behavior, never the common case). Uses
+        ``_visible_scopes`` so a class-body from-import is resolvable only in the class body, not a method."""
         cands: set = set()
-        for scope in self.scopes:
+        for scope in self._visible_scopes():
             cands.update(scope.load_from.get(name, ()))
-        return sorted(cands)[0] if cands else None
+        if not cands:
+            return None
+        raw = sorted(
+            c for c in cands if c[0] != "__ctor__" and f"{c[0]}.{c[1]}" in RAW_LOADER_KINDS
+        )
+        if raw:
+            return raw[0]
+        return sorted(cands)[0]
 
     def _classify(self, func: ast.AST):
         if isinstance(func, ast.Attribute):
@@ -688,9 +759,21 @@ class _LoadVisitor(ast.NodeVisitor):
             if attr in {"load", "loads"} and isinstance(func.value, ast.Name):
                 # round-6: resolve the receiver LEXICALLY (per-scope union), NOT via a file-wide
                 # last-write-wins dict — any loader candidate in the chain makes this a load site.
-                for mod in self._resolve_load_mods(func.value.id):
-                    if mod in _MODULE_LOADERS and attr in _MODULE_LOADERS[mod]:
-                        return f"{mod}.{attr}"      # t.load()  (t aliased to torch), p.loads(), etc.
+                # Round-8 (fail-closed for C5): among the candidate modules, prefer whichever yields a
+                # RAW_LOADER_KINDS kind — a plain sorted-first pick was a REAL bypass (an alias ambiguous
+                # between e.g. `onnx` (non-raw) and `torch` (raw) could resolve to "onnx.load", and the
+                # C5 raw-wiring/wrap check in structural_findings only runs for RAW_LOADER_KINDS, so the
+                # real raw candidate's wrap requirement would silently never be checked). Any raw
+                # candidate now wins over any non-raw one; ties among raw candidates broken by sort order
+                # for determinism, matching the raw-preference in `_resolve_load_from`.
+                candidates = [
+                    f"{mod}.{attr}"
+                    for mod in self._resolve_load_mods(func.value.id)
+                    if mod in _MODULE_LOADERS and attr in _MODULE_LOADERS[mod]
+                ]
+                if candidates:
+                    raw = [c for c in candidates if c in RAW_LOADER_KINDS]
+                    return raw[0] if raw else candidates[0]
             if attr in _MODEL_CONSTRUCTORS and isinstance(func.value, ast.Name):
                 # sentence_transformers.SentenceTransformer(...) via `import sentence_transformers`
                 return f"ctor:{attr}"

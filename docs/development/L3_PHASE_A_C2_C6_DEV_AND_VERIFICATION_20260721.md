@@ -1049,7 +1049,94 @@ is no longer in-flight — it is **carried by the current implementation commit*
   advances the branch head beyond `405d141d`; the exact SHA and CI-terminal
   state of **this** head are confirmed post-push (the same inherent one-commit
   doc-lag noted in §16.3).
-- Non-blocking residual (disclosed): `_resolve_load_from` picks the
-  alphabetically-first candidate for the kind **label** in a pathological
-  cross-scope from-import collision; the site is still **discovered**
-  (fail-closed), and no such collision exists in the real tree.
+- **This "non-blocking residual" framing was WRONG and the reviewer rejected it in round-7/8 review.**
+  §16.4 as originally written described the kind-**label** ambiguity (a sorted-first pick among multiple
+  loader candidates for one alias) as a cosmetic, non-blocking loose end because "the site is still
+  discovered." That undersold the actual risk: the discovered **kind** is not just a label — it is the
+  input `structural_findings` (the C5 raw-wiring / wrap check) branches on. `structural_findings` skips
+  any site whose kind is not in `RAW_LOADER_KINDS` (`torch.load` / `pickle.load` / `pickle.loads` /
+  `joblib.load`) — non-raw kinds like `onnx.load`, `load_state_dict`, `from_pretrained`, and `ctor:*` are
+  not subject to the wrap requirement. So an alias ambiguous between a RAW loader module (`torch`) and a
+  declared-but-non-raw one (`onnx` — declared in `_MODULE_LOADERS` but deliberately excluded from
+  `RAW_LOADER_KINDS`), whose kind resolution picked the non-raw candidate (a plain sorted-first pick does
+  exactly this, since `"onnx"` sorts before `"torch"`), would classify the site `onnx.load` — and
+  `structural_findings` would then `continue` straight past it. A real, unwrapped, `wiring=wired`
+  `torch.load(path)` behind that alias would **never be checked for the wrap it is required to have**: the
+  C5 gate would be silently bypassed for that site, with no finding and no RED. That is a REAL bypass, not
+  a cosmetic residual — the kind label is a security-relevant decision, not just a display string.
+  **This is CLOSED by round-8's fail-closed raw-kind preference:** kind resolution (both the module-alias
+  path in `_classify`'s `Attribute` branch, and `_resolve_load_from` for the `Name`/from-import path) now
+  prefers any candidate that resolves to a `RAW_LOADER_KINDS` kind over any non-raw candidate, before
+  falling back to the old sorted-first tie-break only when no candidate is raw. Observed-RED coverage:
+  three new tests (`test_raw_vs_nonraw_ambiguity_classifies_raw_not_onnx`,
+  `test_raw_vs_nonraw_ambiguity_c5_wrap_check_actually_runs`,
+  `test_raw_vs_nonraw_ambiguity_reds_under_enforce`) all **fail against the pre-round-8 code** (confirmed
+  by reverting only the source fix and re-running: the site classifies as `onnx.load`, `structural_findings`
+  returns no `wired-but-unwrapped` finding for it, and `ACTIVATION_ENFORCE_WIRING=1` stays green) and **pass**
+  once the fix lands — i.e. the bypass is demonstrated, not merely asserted.
+- Round-8 additionally closes a second, independently-found discovery gap — **class-body scope**: a load
+  call made directly in a class body (not inside a method), using an alias imported directly in that same
+  class body, was previously **invisible to discovery entirely** (not even surfaced as "unclassified" —
+  `enumerate_sites()` returned no site at all for it), because no scope was ever pushed for a class body.
+  That omission was deliberately correct for **methods** (a nested `def` must not inherit its class's
+  namespace — real Python does not look up class-scope names from inside a method), but it over-applied
+  the same exclusion to the class body's own direct statements, which DO run in that namespace. Fixed by
+  giving the class body its own `_Scope` marked **`is_class=True`**, pushed once in `visit_ClassDef` and
+  left on the chain for the whole body (a **depth-uniform** design — NOT a pop-around-each-nested-def).
+  `_LoadVisitor._visible_scopes()` then consults a class scope **only when it is the innermost scope** — so
+  a class-body-direct statement sees the class-body bindings, while any nested `def`/`class` (including one
+  nested inside an `if`/`try`/`for` in the class body) does NOT inherit them (matching Python: a class scope
+  is not a lexical parent of its methods). The earlier "pop-around-each-def" sketch was rejected: it
+  fail-opened on a `def` nested inside a compound statement (the class scope leaked into it), which could
+  launder an unverified raw load to `wrapped=True` and invent NameError load sites. Observed-RED /
+  regression coverage: `test_class_body_direct_load_call_is_discovered` fails against pre-round-8 code
+  (found=={}) and passes post-fix; the negative control `test_class_body_scope_is_not_inherited_by_methods`
+  and the nested-in-compound discriminators pass on the shipped `is_class` design but RED against the
+  rejected pop-around variant (regression guards).
+
+### 16.5 CURRENT-STATE / R7 closure + R8 in-flight note (2026-07-22)
+
+**CI-count correction (applies wherever this document cites a "de-duped" 64-pass headline as
+authoritative, §0/§15.1-§15.2/§16.2-§16.4 included): that de-dup methodology is itself corrected here.**
+The reviewer's authoritative live figure for this branch is the **raw `statusCheckRollup`: 68 success /
+15 skipped / 0 failing**. The prior "64 pass / 15 skip / 0 fail, 79 distinct check-runs" headline collapsed
+4 `Unit Tests (Shard 1-4)` entries as same-workflow re-run duplicates — that collapse is **not** how the
+reviewer counts the gate: **68/15/0 is the number to cite going forward**; do not re-derive a 64-figure by
+subtracting the shard entries again. Every earlier section's 64-pass wording above is retained unedited as
+the historical, point-in-time record of what this document asserted at the time (per this document's own
+established convention of appending a superseding CURRENT-STATE section rather than rewriting history) —
+this section is the correction, not a silent edit of those sections.
+
+- **Round-6-follow-up** (the reviewer-checklist positive/negative controls for round-6's loader-alias
+  lexical discovery, plus the §16.4 closure text) is committed as head **`d1beb7e5`** (`test(l3): round-6
+  follow-up — reviewer-checklist controls + Dev&V R6 closure`), on top of `405d141d`. This is the head this
+  worktree started round-8 from.
+- **Round-7** (reviewer's NO-GO on `d1beb7e5`) identified the kind-ambiguity bypass corrected in this
+  section's rewrite of the former §16.4 "non-blocking residual" bullet above: the sorted-first kind pick
+  could resolve a raw-vs-non-raw-ambiguous alias to a non-raw kind, silently exempting the site from the C5
+  wrap check. There is no separate round-7 commit — its finding is what round-8 (this round) fixes.
+- **Round-8 (this round, in-flight)** — two fixes, both in `scripts/ci/activation_surface_enumerator.py`,
+  no C1 core changes:
+  1. Fail-closed raw-kind preference in kind resolution (`_classify`'s `Attribute`-branch loop over
+     `_resolve_load_mods`, and `_resolve_load_from`): any candidate resolving to a `RAW_LOADER_KINDS` kind
+     now wins over a non-raw candidate, closing the bypass described above.
+  2. Class-body scope: a class body gets its own `_Scope` marked `is_class=True`, pushed once and left on
+     the chain for the whole body (**depth-uniform**; `_visible_scopes()` consults it only when innermost).
+     A class-body-direct load call using a class-body-local alias is discovered (previously invisible to
+     `enumerate_sites()` entirely), while methods — including a `def` nested inside an `if`/`try`/`for` in
+     the class body — correctly do NOT inherit it. (The pop-around-each-def sketch was rejected: it
+     fail-opened on a def nested in a compound statement — see the §16.5-referenced note above.)
+  Both fixes ship with new permanent tests in `tests/unit/test_activation_surface_enumerator.py`: the
+  raw-vs-non-raw ambiguity trio for the module-alias form (`test_raw_vs_nonraw_ambiguity_*` ×3) **and** the
+  from-import twin (`test_raw_vs_nonraw_fromimport_ambiguity_*` ×3), `test_class_body_direct_load_call_is_discovered`,
+  the negative control `test_class_body_scope_is_not_inherited_by_methods`, and the nested-in-compound
+  discriminators (regression guards vs the rejected pop-around). Full local run `/usr/bin/python3 -m pytest
+  tests/unit/test_activation_surface_enumerator.py --noconftest -p no:cacheprovider`: **75 passed**. The
+  live tree itself (`ACTIVATION_ENFORCE_WIRING=1 /usr/bin/python3 scripts/ci/activation_surface_enumerator.py`)
+  remains **129 load sites, all classified, exit 0** — neither fix changes any real-tree classification,
+  only the fail-closed handling of the pathological alias shapes the new tests construct.
+- This round-8 work is **uncommitted** at the time of this record (per this worktree's task instructions,
+  not committed as part of this pass). The head at the top of this section (`d1beb7e5`) is therefore still
+  the true branch head; the same one-commit-lag caveat noted in §16.3/§16.4 applies once round-8 is
+  committed and pushed — the exact SHA and CI-terminal state of that future head are confirmed post-push,
+  not asserted here.

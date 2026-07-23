@@ -822,11 +822,16 @@ def test_function_local_alias_is_discovered_in_own_scope(tmp_path, monkeypatch, 
 
 
 def test_ambiguous_cross_loader_rebind_fails_closed_and_is_discovered(tmp_path, monkeypatch, capsys) -> None:
-    # fail-closed discovery: `m` is bound to BOTH torch and pickle; the site must be discovered as SOME
-    # loader site (the kind label among multiple candidates is a disclosed non-blocking residual) and RED.
+    # fail-closed discovery: `m` is bound to BOTH torch and pickle (both RAW). Round-8 UPDATE: the site is
+    # not merely discovered as "some loader" — its kind is now REQUIRED to be a RAW_LOADER_KINDS kind (never
+    # downgraded), so C5's wrap check always runs on it. Both candidates here are raw, so this test asserts
+    # the raw-kind invariant; the raw-vs-NON-raw discriminator (onnx+torch) lives in
+    # test_raw_vs_nonraw_ambiguity_classifies_raw_not_onnx below.
     _scan_with_manifest(tmp_path, monkeypatch, _AMBIGUOUS_REBIND_SRC, _WIRED_ENTRY, key=_DISCOVERY_SITE_KEY)
     sites = enum.enumerate_sites()
-    assert any(k.startswith("src/fam.py::bad::") and "load" in k for k in sites), sites
+    bad_sites = {k: v for k, v in sites.items() if k.startswith("src/fam.py::bad::")}
+    assert bad_sites, sites
+    assert all(v["kind"] in enum.RAW_LOADER_KINDS for v in bad_sites.values()), bad_sites
     _empty_manifest(tmp_path, monkeypatch)
     assert enum.main() == 1
 
@@ -838,3 +843,194 @@ def test_non_loader_receiver_is_not_invented_as_a_load_site(tmp_path, monkeypatc
     assert not any(k.startswith("src/fam.py::bad::") for k in enum.enumerate_sites())
     _empty_manifest(tmp_path, monkeypatch)
     assert enum.main() == 0
+
+
+# --- Round-8: the kind-ambiguity bypass (fail-closed raw-kind preference) + class-body scope ------------
+# The round-6 ambiguous-rebind control above (torch vs pickle) is benign because BOTH candidates are raw:
+# whichever kind label the site gets, C5's wrap check still runs. The REAL bypass is a raw-vs-NON-raw
+# collision: `onnx` is a declared loader module (`onnx.load`) but is NOT in RAW_LOADER_KINDS, so if the
+# ambiguous alias resolved to "onnx.load" the C5 structural wrap check (`structural_findings`) would
+# `continue` past the site entirely (`site["kind"] not in RAW_LOADER_KINDS`) — an unwrapped, wired
+# `torch.load` masquerading as `onnx.load` would NEVER be checked. Round-8 makes kind resolution
+# fail-closed: any candidate that resolves to a RAW_LOADER_KINDS kind wins over any non-raw candidate.
+_RAW_VS_NONRAW_SITE_KEY = "src/fam.py::bad::torch.load#0"
+_RAW_VS_NONRAW_SRC = (
+    "import onnx as m       # onnx sorts BEFORE torch; a naive sorted-first pick would choose onnx.load\n"
+    "import torch as m      # non-raw (onnx) vs raw (torch) candidates for the same alias `m`\n"
+    "def bad(path):\n"
+    "    return m.load(path)   # unwrapped raw load-by-path -- must be classified (and checked) as RAW\n"
+)
+
+
+def test_raw_vs_nonraw_ambiguity_classifies_raw_not_onnx(tmp_path, monkeypatch) -> None:
+    # the discovered kind must be the RAW candidate (torch.load), never the non-raw one (onnx.load),
+    # regardless of sort order among the aliased modules.
+    _scan_with_manifest(tmp_path, monkeypatch, _RAW_VS_NONRAW_SRC, _WIRED_ENTRY, key=_RAW_VS_NONRAW_SITE_KEY)
+    sites = enum.enumerate_sites()
+    assert _RAW_VS_NONRAW_SITE_KEY in sites, sites
+    assert not any(k.startswith("src/fam.py::bad::onnx.load") for k in sites), sites
+
+
+def test_raw_vs_nonraw_ambiguity_c5_wrap_check_actually_runs(tmp_path, monkeypatch) -> None:
+    # the security-relevant consequence: because the site is classified RAW (not onnx), `structural_findings`
+    # does NOT skip it -- an unwrapped `wiring=wired` raw load through the ambiguous alias is caught as a
+    # wired-but-unwrapped finding. Pre-round-8, a sorted-first "onnx.load" label would have made this site
+    # invisible to the wrap check entirely (silently skipped, no finding, no RED) -- the real bypass.
+    _scan_with_manifest(tmp_path, monkeypatch, _RAW_VS_NONRAW_SRC, _WIRED_ENTRY, key=_RAW_VS_NONRAW_SITE_KEY)
+    found = enum.enumerate_sites()
+    findings = enum.structural_findings(found, enum.load_manifest())
+    assert [f for f in findings if f[0] == _RAW_VS_NONRAW_SITE_KEY and f[1] == "wired-but-unwrapped"], findings
+
+
+def test_raw_vs_nonraw_ambiguity_reds_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # end-to-end: under ACTIVATION_ENFORCE_WIRING the ambiguous-alias unwrapped raw load reds CI.
+    _scan_with_manifest(tmp_path, monkeypatch, _RAW_VS_NONRAW_SRC, _WIRED_ENTRY, key=_RAW_VS_NONRAW_SITE_KEY)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == 1
+    err = capsys.readouterr().err
+    assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _RAW_VS_NONRAW_SITE_KEY in err
+
+
+# The FROM-IMPORT TWIN of the raw-vs-non-raw downgrade (task-required): the same bypass reaches through
+# `_resolve_load_from` (bare-name call resolution), not only `_resolve_load_mods` (module-attr). Pre-round-8
+# `_resolve_load_from` returned `sorted(cands)[0]` = ("onnx","load") -> kind "onnx.load" (non-raw), so C5's
+# wrap check `continue`d past a real unwrapped `torch.load`. Round-8's raw-preference in _resolve_load_from
+# makes the bare-imported alias classify RAW so the wrap check runs. Distinct name/src from the module-alias
+# trio above so the two code paths are exercised independently.
+_RAW_VS_NONRAW_FROM_SRC = (
+    "from onnx import load as L    # onnx.load sorts BEFORE torch.load; naive sorted-first picks onnx\n"
+    "from torch import load as L   # raw (torch) vs non-raw (onnx) for the SAME from-import alias `L`\n"
+    "def bad(path):\n"
+    "    return L(path)            # unwrapped raw load-by-path -- must classify (and check) as RAW\n"
+)
+
+
+def test_raw_vs_nonraw_fromimport_ambiguity_classifies_raw_not_onnx(tmp_path, monkeypatch) -> None:
+    # observed-RED on clean d1beb7e5: _resolve_load_from returned sorted-first ("onnx","load") -> the site
+    # was keyed onnx.load#0 and the torch.load#0 assertion failed. Round-8 raw-preference -> torch.load.
+    _scan_with_manifest(tmp_path, monkeypatch, _RAW_VS_NONRAW_FROM_SRC, _WIRED_ENTRY, key=_RAW_VS_NONRAW_SITE_KEY)
+    sites = enum.enumerate_sites()
+    assert _RAW_VS_NONRAW_SITE_KEY in sites, sites
+    assert not any(k.startswith("src/fam.py::bad::onnx.load") for k in sites), sites
+
+
+def test_raw_vs_nonraw_fromimport_ambiguity_c5_wrap_check_actually_runs(tmp_path, monkeypatch) -> None:
+    # the security consequence for the from-import path: classified RAW -> structural_findings does NOT skip
+    # it -> the unwrapped wired raw load is caught as wired-but-unwrapped (pre-round-8: silently skipped).
+    _scan_with_manifest(tmp_path, monkeypatch, _RAW_VS_NONRAW_FROM_SRC, _WIRED_ENTRY, key=_RAW_VS_NONRAW_SITE_KEY)
+    found = enum.enumerate_sites()
+    findings = enum.structural_findings(found, enum.load_manifest())
+    assert [f for f in findings if f[0] == _RAW_VS_NONRAW_SITE_KEY and f[1] == "wired-but-unwrapped"], findings
+
+
+def test_raw_vs_nonraw_fromimport_ambiguity_reds_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # end-to-end: under enforce the from-import ambiguous-alias unwrapped raw load reds CI (exit 1).
+    _scan_with_manifest(tmp_path, monkeypatch, _RAW_VS_NONRAW_FROM_SRC, _WIRED_ENTRY, key=_RAW_VS_NONRAW_SITE_KEY)
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == 1
+    err = capsys.readouterr().err
+    assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _RAW_VS_NONRAW_SITE_KEY in err
+
+
+# --- Round-8: class-body scope (fail-closed discovery) ---------------------------------------------------
+# A class body executes in its OWN namespace, so a load call made DIRECTLY at class level (not inside a
+# method) resolves against bindings made in that SAME class body -- real Python, not hypothetical. Before
+# round-8 NO scope was ever pushed for a class (by design, so methods correctly do not inherit class-body
+# names), which ALSO made class-body-direct bindings invisible to `self.scopes` entirely: a class-body-local
+# loader alias used in a class-body-direct call was never discovered AT ALL (not even as unclassified) --
+# a silent, fail-OPEN discovery gap distinct from (and worse than) an "unclassified" finding.
+_CLASS_BODY_DISCOVERY_KEY = "src/fam.py::M::torch.load#0"
+_CLASS_BODY_DIRECT_LOAD_SRC = (
+    "class M:\n"
+    "    import torch as u          # class-body-local alias\n"
+    "    x = u.load('weights.pt')   # class-body-DIRECT call; must resolve `u` via the class's own scope\n"
+)
+_CLASS_BODY_METHOD_MUST_NOT_INHERIT_SRC = (
+    "class M:\n"
+    "    import torch as u          # class-body-local alias -- NOT visible to methods\n"
+    "    def load_it(self, path):\n"
+    "        return u.load(path)    # `u` is undefined here at runtime (NameError) -- must NOT be invented\n"
+)
+
+
+def test_class_body_direct_load_call_is_discovered(tmp_path, monkeypatch) -> None:
+    # positive control: a load call made directly in the class body, using a class-body-local alias, IS
+    # discovered -- previously invisible entirely (found=={}), a silent fail-open discovery gap.
+    _scan_with_manifest(
+        tmp_path, monkeypatch, _CLASS_BODY_DIRECT_LOAD_SRC, _WIRED_ENTRY, key=_CLASS_BODY_DISCOVERY_KEY
+    )
+    assert _CLASS_BODY_DISCOVERY_KEY in enum.enumerate_sites()
+
+
+def test_class_body_scope_is_not_inherited_by_methods(tmp_path, monkeypatch) -> None:
+    # negative control: methods do NOT see a class-body-only alias (real Python: nested `def`s do not see
+    # the enclosing class's namespace) -- must not be invented as a load site (no false-RED).
+    _scan_with_manifest(
+        tmp_path, monkeypatch, _CLASS_BODY_METHOD_MUST_NOT_INHERIT_SRC, _WIRED_ENTRY, key=_SITE_KEY
+    )
+    assert not any(k.startswith("src/fam.py::M.load_it::") for k in enum.enumerate_sites())
+
+
+# The DISCRIMINATING controls for the class-scope leak: a def/method that is NOT a DIRECT child of the
+# class body but is nested inside a compound statement (an `if`, a `try`, a `for`, …) in the class body.
+# A shallow "pop the class scope only around DIRECT FunctionDef/ClassDef children" fix leaves the class
+# scope on the chain for such a nested def, so it WRONGLY inherits class-body bindings — fail-OPEN in both
+# gate-relevant directions: (A) a class-body loader alias resolves inside the nested method and invents a
+# runtime-NameError load site (discovery noise); (B) far worse, a class-body `from ...gateway import
+# activate_file` LEAKS into the nested method and false-greens a raw path load as gateway-wrapped. The
+# correct rule (a class scope is consulted only when it is the innermost scope) must hold at ANY nesting
+# depth. These two tests fail on the shallow pop-around and pass on the depth-uniform is_class rule.
+_CLASS_BODY_NESTED_DEF_ALIAS_SRC = (
+    "class M:\n"
+    "    import torch as u                 # class-body-only alias\n"
+    "    if True:\n"
+    "        def f(self, path):\n"
+    "            return u.load(path)        # `u` is NOT in this method's scope (NameError) -> not a site\n"
+)
+_CLASS_BODY_NESTED_DEF_GATEWAY_LEAK_SRC = (
+    "import io, torch\n"
+    "class M:\n"
+    "    from src.core.model_activation.activation_gateway import activate_file  # class-body-only import\n"
+    "    if True:\n"
+    "        def load(self):\n"
+    "            data = activate_file('a', 'b')     # NOT the gateway here — class scope is not inherited\n"
+    "            return torch.load(io.BytesIO(data))  # a raw path load must score wrapped=False\n"
+)
+_CLASS_NESTED_LOAD_KEY = "src/fam.py::M.load::torch.load#0"
+
+
+def test_class_body_alias_does_not_leak_into_a_def_nested_in_a_compound(tmp_path, monkeypatch) -> None:
+    # (A) fail-OPEN discovery guard: a `def` nested inside an `if` in the class body must NOT see the
+    # class-body alias `u` — else a runtime-NameError call is invented as a load site. The shallow
+    # pop-around (which only pops around DIRECT def children) discovered `src/fam.py::M.f::torch.load`.
+    _scan_with_manifest(
+        tmp_path, monkeypatch, _CLASS_BODY_NESTED_DEF_ALIAS_SRC, _WIRED_ENTRY, key=_SITE_KEY
+    )
+    assert not any(k.startswith("src/fam.py::M.f::") for k in enum.enumerate_sites()), enum.enumerate_sites()
+
+
+def test_class_body_gateway_import_does_not_leak_into_a_def_nested_in_a_compound(tmp_path, monkeypatch) -> None:
+    # (B) fail-OPEN wrap guard (the security-critical one): a class-body `from ...gateway import
+    # activate_file` must NOT leak into a method nested inside an `if` in the class body. On the shallow
+    # pop-around the leaked import made `data` a gateway var and the raw torch.load scored wrapped=True — a
+    # FALSE GREEN for an unverified load. The depth-uniform rule scores wrapped=False -> a wired-but-
+    # unwrapped finding, exactly the class of scoping leak prior rounds closed.
+    _scan_with_manifest(
+        tmp_path, monkeypatch, _CLASS_BODY_NESTED_DEF_GATEWAY_LEAK_SRC, _WIRED_ENTRY, key=_CLASS_NESTED_LOAD_KEY
+    )
+    found = enum.enumerate_sites()
+    assert found[_CLASS_NESTED_LOAD_KEY]["wrapped"] is False, found
+    findings = enum.structural_findings(found, enum.load_manifest())
+    assert [f for f in findings if f[0] == _CLASS_NESTED_LOAD_KEY and f[1] == "wired-but-unwrapped"], findings
+
+
+def test_class_body_gateway_leak_nested_def_is_observed_RED_under_enforce(tmp_path, monkeypatch, capsys) -> None:
+    # end-to-end: under enforce the class-scope gateway leak reds CI (exit 1) with a wired-but-unwrapped
+    # finding — the shallow pop-around would have printed OK / exit 0 (false green).
+    _scan_with_manifest(
+        tmp_path, monkeypatch, _CLASS_BODY_NESTED_DEF_GATEWAY_LEAK_SRC, _WIRED_ENTRY, key=_CLASS_NESTED_LOAD_KEY
+    )
+    monkeypatch.setenv(enum.ENV_ENFORCE_WIRING, "1")
+    assert enum.main() == 1
+    err = capsys.readouterr().err
+    assert "structural wiring, ENFORCED" in err and "wired-but-unwrapped" in err and _CLASS_NESTED_LOAD_KEY in err
