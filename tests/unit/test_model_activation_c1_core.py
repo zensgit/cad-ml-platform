@@ -2018,14 +2018,20 @@ def test_dup_dir_fd_caller_owned_and_cleanup_concurrent(tmp_path: Path) -> None:
             assert validated.wait(timeout=5.0), "reader never reached validate barrier"
 
             # Cleanup blocks on in_flight until reader finishes the protected dup.
+            # Inject a deterministic cleanup-entered signal (mirrors the
+            # _after_validate_hook injection) so we can PROVE the interleaving is
+            # established — cleanup has committed to the in_flight drain-wait with
+            # in_flight held at 1 — rather than polling private state on a 2s
+            # timeout that silently expires under CI load and breaks the barrier.
+            cleanup_entered = threading.Event()
+            object.__setattr__(
+                frozen, "_cleanup_wait_entered_hook", cleanup_entered.set
+            )
             t_clean = threading.Thread(target=cleanup_worker)
             t_clean.start()
-            # Allow cleanup to enter the in_flight wait.
-            deadline = time.monotonic() + 2.0
-            while time.monotonic() < deadline:
-                if int(frozen._in_flight) > 0 and frozen._closed:  # noqa: SLF001
-                    break
-                time.sleep(0.01)
+            assert cleanup_entered.wait(
+                timeout=5.0
+            ), "cleanup never entered the in_flight wait"
 
             proceed.set()
             t_reader.join(timeout=5.0)

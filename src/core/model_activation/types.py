@@ -209,6 +209,9 @@ class FrozenBundle:
         "_releasing",
         # Optional test hook: called after validate/in_flight++, before os.dup.
         "_after_validate_hook",
+        # Optional test hook: called once cleanup has committed to draining
+        # in-flight dups (right before the in_flight cond.wait). Default None.
+        "_cleanup_wait_entered_hook",
         # Test-only private residual name for path-redirect RED (not public API).
         "_backing_path",
     )
@@ -237,6 +240,7 @@ class FrozenBundle:
         object.__setattr__(self, "_in_flight", 0)
         object.__setattr__(self, "_releasing", False)
         object.__setattr__(self, "_after_validate_hook", None)
+        object.__setattr__(self, "_cleanup_wait_entered_hook", None)
         object.__setattr__(self, "_backing_path", backing_path)
 
     def __setattr__(self, name: str, value: object) -> None:
@@ -439,6 +443,18 @@ class FrozenBundle:
 
             if not self._closed:
                 object.__setattr__(self, "_closed", True)
+                # Optional test-observability hook (default None → no-op in
+                # production): fired once cleanup has committed to draining
+                # in-flight dups, while the lock is still held and immediately
+                # before the cond.wait below releases it. A concurrency test can
+                # KNOW the interleaving is established (cleanup parked, in_flight
+                # held) without polling private state on a timeout. Sets an
+                # Event only; must not block or touch this lock.
+                entered_hook: Optional[Callable[[], None]] = (
+                    self._cleanup_wait_entered_hook
+                )
+                if entered_hook is not None:
+                    entered_hook()
                 # Drain in-flight stable dups before closing the *bundle* root
                 # dup. The lease retains its original root fd and is responsible
                 # for scrubbing/closing it in lease.release() — never detach
