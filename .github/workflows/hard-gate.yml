@@ -25,9 +25,16 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  # Event-scoped: same-PR updates cancel older runs; push/schedule/dispatch never
+  # cancel each other merely by sharing a branch/ref (run_id is unique per run).
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   hard-gate:
     name: Hard Gate (diff-scoped)
+    # PR-only workflow: always GitHub-hosted (public repo — never self-hosted on PRs).
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
