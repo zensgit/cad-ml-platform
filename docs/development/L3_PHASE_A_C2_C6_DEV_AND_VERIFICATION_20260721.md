@@ -1162,3 +1162,49 @@ point-in-time record, retained unedited above as history.** Round-8 is no longer
 - Separately: the `#528` concurrency-test flake (`test_dup_dir_fd_caller_owned_and_cleanup_concurrent`)
   is addressed by a distinct #528-targeted PR (deterministic cleanup-entered hook, no security-semantic
   change) — not part of #532.
+
+### 16.7 CURRENT-STATE / post-#528 rebase acceptance (2026-07-23)
+
+This section supersedes the earlier statements that #532 is still stacked on
+an unmerged #528:
+
+- PR #528, including the #533 deterministic concurrency hook, was squash-merged
+  to `main` as `c2ecfe558a2a027ab9ee63c07788c19203df6926`.
+- The 11 C2-C6 commits were rebased from the former C1 boundary `6e645bc2` onto
+  that `main`. `git range-diff` reported all 11 patches as equivalent, and the
+  resulting `origin/main...HEAD` diff contains only the 41 C2-C6 source, test,
+  manifest, and documentation files. It contains no duplicate C1 core or #533
+  changes.
+- The first rebased head was `398a26f6`. This section and the test-only
+  acceptance correction below advance the branch again, so the final SHA and
+  authoritative CI result must be taken from PR #532 after this commit is
+  pushed; no green result for that future head is claimed here.
+
+The post-rebase local acceptance run found a test-contract gap hidden by the
+fresh-clone fixture shape. Six legacy tests in `test_part_classifier.py`
+treated the mere existence of `models/cad_classifier_v2.pt` as authorization
+to load it. Fresh-clone CI does not contain that local model and therefore
+skipped those branches, while a developer checkout with the model correctly
+failed because Phase A now refuses every unpinned raw-path load.
+
+The tests now inject those local bytes through the mocked
+`activate_file("part/v6", "main")` success boundary. This preserves the useful
+real-checkpoint loading assertions while proving that success comes from
+gateway-verified bytes, never from path existence. Product code is unchanged
+by this follow-up.
+
+Local evidence on the rebased tree:
+
+```text
+# The six previously hidden failures
+6 passed
+
+# Gateway/manifest/C5, all C2 families, degraded consumers, readiness,
+# path-scrub, and part/vector integration (root conftest excluded because the
+# local Python 3.9 FastAPI stack cannot evaluate existing PEP-604 annotations)
+226 passed, 4 skipped, 0 failed
+```
+
+The complete Linux CI matrix on the final pushed SHA remains the authoritative
+landing gate. Until it is terminal green, this branch is not ratified or
+merge-ready.
