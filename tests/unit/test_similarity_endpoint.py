@@ -1,15 +1,15 @@
 from fastapi.testclient import TestClient
 from unittest.mock import patch
 
+from conftest import valid_dxf_bytes
 from src.main import app
 
 client = TestClient(app)
 
 
 def test_similarity_endpoint_flow():
-    # Upload two minimal CAD files (DXF stub)
-    file1 = ("a.dxf", b"0", "application/octet-stream")
-    file2 = ("b.dxf", b"0", "application/octet-stream")
+    file1 = ("a.dxf", valid_dxf_bytes("similarity-a"), "application/octet-stream")
+    file2 = ("b.dxf", valid_dxf_bytes("similarity-b"), "application/octet-stream")
     opts = {"options": (None, '{"extract_features": true, "classify_parts": false}')}  # form field
     r1 = client.post(
         "/api/v1/analyze", files={"file": file1}, data=opts, headers={"X-API-Key": "test"}
@@ -31,14 +31,11 @@ def test_similarity_endpoint_flow():
     assert data["reference_id"] == id1
     assert data["target_id"] == id2
     assert "score" in data
-    # Self similarity for empty vectors is 0.0 due to 0/0 division avoidance.
-    # For non-zero vectors, self-similarity would be 1.0
     resp_self = client.post(
         "/api/v1/analyze/similarity",
         json={"reference_id": id1, "target_id": id1},
         headers={"X-API-Key": "test"},
     )
-    # Empty/stub documents produce zero vectors, so cosine similarity is 0.0 (not 1.0)
     assert resp_self.json()["score"] in (0.0, 1.0)  # 0.0 for empty docs, 1.0 for real docs
 
 
@@ -114,8 +111,8 @@ def test_similarity_endpoint_uses_qdrant_for_analyze_registered_vectors():
             return self._vectors.get(vector_id)
 
     store = DummyQdrantStore()
-    file1 = ("qa.dxf", b"0", "application/octet-stream")
-    file2 = ("qb.dxf", b"0", "application/octet-stream")
+    file1 = ("qa.dxf", valid_dxf_bytes("qdrant-a"), "application/octet-stream")
+    file2 = ("qb.dxf", valid_dxf_bytes("qdrant-b"), "application/octet-stream")
     opts = {"options": (None, '{"extract_features": true, "classify_parts": false}')}
     with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
         "src.core.vector_stores.get_vector_store",

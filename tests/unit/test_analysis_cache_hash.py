@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from conftest import valid_dxf_bytes
 from src.main import app
 
 client = TestClient(app)
@@ -10,7 +11,13 @@ def test_analysis_cache_hash_different_content_same_name():
     # First request with content A
     r1 = client.post(
         "/api/v1/analyze",
-        files={"file": ("sample_same_name.dxf", b"AAAA", "application/octet-stream")},
+        files={
+            "file": (
+                "sample_same_name.dxf",
+                valid_dxf_bytes("analysis-cache-A"),
+                "application/octet-stream",
+            )
+        },
         data={"options": options},
         headers={"X-API-Key": "test"},
     )
@@ -18,7 +25,13 @@ def test_analysis_cache_hash_different_content_same_name():
     # Second request same filename different content
     r2 = client.post(
         "/api/v1/analyze",
-        files={"file": ("sample_same_name.dxf", b"BBBB", "application/octet-stream")},
+        files={
+            "file": (
+                "sample_same_name.dxf",
+                valid_dxf_bytes("analysis-cache-B"),
+                "application/octet-stream",
+            )
+        },
         data={"options": options},
         headers={"X-API-Key": "test"},
     )

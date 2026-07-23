@@ -1,12 +1,13 @@
 from fastapi.testclient import TestClient
 
+from conftest import valid_dxf_bytes
 from src.main import app
 
 client = TestClient(app)
 
 
 def _analyze(name: str, material: str) -> str:
-    file = (name, b"stub", "application/octet-stream")
+    file = (name, valid_dxf_bytes(f"{name}-{material}"), "application/octet-stream")
     data = {
         "options": '{"extract_features": true, "classify_parts": false}',
         "material": material,

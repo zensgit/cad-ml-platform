@@ -3,12 +3,13 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from conftest import valid_dxf_bytes
 from src.main import app
 
 
 def test_feature_cache_hit(tmp_path):
     client = TestClient(app)
-    content = b"FAKE_DXF_DATA_1"
+    content = valid_dxf_bytes("feature-cache-hit")
     fileobj = io.BytesIO(content)
     # First request (miss)
     r1 = client.post(
@@ -38,9 +39,9 @@ def test_feature_cache_hit(tmp_path):
 
 def test_orphan_cleanup_endpoint(tmp_path):
     client = TestClient(app)
-    # Create a vector by analyzing a file (will store vector with analysis_result id different from vector id; simplistic)
+    # Create a vector by analyzing a file.
     # Use DXF format which has lenient validation
-    content = b"0\nSECTION\n2\nHEADER\n0\nENDSEC\n0\nEOF" + b"X" * 100
+    content = valid_dxf_bytes("orphan-cleanup", include_header=True)
     fileobj = io.BytesIO(content)
     r = client.post(
         "/api/v1/analyze/",

@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from conftest import valid_dxf_bytes
 from src.main import app
 
 client = TestClient(app)
@@ -9,7 +10,13 @@ def test_vector_list_and_delete():
     # Create an analysis to ensure at least one vector exists
     r = client.post(
         "/api/v1/analyze",
-        files={"file": ("sample.dxf", b"0" * 10, "application/octet-stream")},
+        files={
+            "file": (
+                "sample.dxf",
+                valid_dxf_bytes("vector-management"),
+                "application/octet-stream",
+            )
+        },
         data={"options": '{"extract_features": true, "classify_parts": false}'},
         headers={"X-API-Key": "test"},
     )

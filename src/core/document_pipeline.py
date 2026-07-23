@@ -40,6 +40,32 @@ SUPPORTED_FILE_FORMATS = {
 }
 
 
+def _raise_unsupported_raw_dwg(file_name: str) -> None:
+    analysis_requests_total.labels(status="error").inc()
+    analysis_errors_total.labels(stage="input", code="unsupported_raw_dwg").inc()
+    err = build_error(
+        ErrorCode.UNSUPPORTED_INPUT_DWG,
+        stage="input",
+        message=(
+            "Raw DWG input is not supported by /analyze. Convert through an "
+            "approved DWG route before analysis."
+        ),
+        file=file_name,
+        format="dwg",
+    )
+    raise HTTPException(status_code=415, detail=err)
+
+
+def _is_empty_parser_stub_for_non_dxf_payload(doc: CadDocument, content: bytes) -> bool:
+    head = content[:4096].upper()
+    return (
+        doc.metadata.get("parser", "stub") == "stub"
+        and doc.entity_count() == 0
+        and not doc.layers
+        and b"SECTION" not in head
+    )
+
+
 async def run_document_pipeline(
     *,
     file_name: str,
@@ -94,6 +120,9 @@ async def run_document_pipeline(
         )
         raise HTTPException(status_code=400, detail=err)
 
+    if file_format == "dwg":
+        _raise_unsupported_raw_dwg(file_name)
+
     if adapter_factory_cls is None:
         from src.adapters.factory import AdapterFactory as adapter_factory_cls
 
@@ -131,6 +160,18 @@ async def run_document_pipeline(
     except Exception:
         doc = CadDocument(file_name=file_name, format=file_format)
         unified_data = doc.to_unified_dict()
+
+    if file_format == "dxf" and _is_empty_parser_stub_for_non_dxf_payload(doc, content):
+        analysis_requests_total.labels(status="error").inc()
+        analysis_errors_total.labels(stage="parse", code="empty_parser_stub").inc()
+        err = build_error(
+            ErrorCode.PARSE_FAILED,
+            stage="parse",
+            message="CAD parser returned an empty stub document",
+            file=file_name,
+            format=file_format,
+        )
+        raise HTTPException(status_code=422, detail=err)
 
     try:
         from src.utils.analysis_metrics import parse_stage_latency_seconds

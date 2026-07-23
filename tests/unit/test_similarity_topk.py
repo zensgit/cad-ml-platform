@@ -1,13 +1,14 @@
 from fastapi.testclient import TestClient
 from unittest.mock import patch
 
+from conftest import valid_dxf_bytes
 from src.main import app
 
 client = TestClient(app)
 
 
 def _run_analysis(name: str) -> str:
-    file = (name, b"stub", "application/octet-stream")
+    file = (name, valid_dxf_bytes(name), "application/octet-stream")
     opts = {"options": (None, '{"extract_features": true, "classify_parts": false}')}
     r = client.post(
         "/api/v1/analyze", files={"file": file}, data=opts, headers={"X-API-Key": "test"}
