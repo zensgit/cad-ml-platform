@@ -12,12 +12,6 @@ if [[ ! -x "$PYTHON_BIN" ]]; then
 fi
 
 export PYTHONPATH="$ROOT_DIR${PYTHONPATH:+:$PYTHONPATH}"
-export DWG_CONVERTER="${DWG_CONVERTER:-auto}"
-
-if [[ -z "${ODA_FILE_CONVERTER_EXE:-}" ]]; then
-  if [[ -x "/Applications/ODAFileConverter.app/Contents/MacOS/ODAFileConverter" ]]; then
-    export ODA_FILE_CONVERTER_EXE="/Applications/ODAFileConverter.app/Contents/MacOS/ODAFileConverter"
-  fi
-fi
+export DWG_CONVERTER="${DWG_CONVERTER:-disabled}"
 
 exec "$PYTHON_BIN" -m uvicorn scripts.cad_render_server:app --host 0.0.0.0 --port "$PORT"

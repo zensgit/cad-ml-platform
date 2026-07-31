@@ -18,6 +18,7 @@ services:
       - APP_PORT=8000
       - REDIS_URL=redis://redis:6379/0
       - LOG_LEVEL=INFO
+      - DWG_CONVERTER=${DWG_CONVERTER:-disabled}
     volumes:
       - ./data:/app/data:ro
       - ./models:/app/models:ro

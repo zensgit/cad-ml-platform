@@ -151,6 +151,8 @@ startupProbe:
 
 # Environment variables
 env:
+  DWG_CONVERTER: "disabled"
+
   # Vector Store
   VECTOR_STORE_BACKEND: "faiss"
 

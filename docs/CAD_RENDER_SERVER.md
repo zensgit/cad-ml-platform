@@ -21,7 +21,7 @@ The default port is `18002`.
 
 ```
 CAD_RENDER_PORT=18002
-DWG_CONVERTER=auto   # auto|oda|cmd|autocad|bricscad|draftsight
+DWG_CONVERTER=disabled   # disabled|auto|oda|cmd|autocad|bricscad|draftsight
 ODA_FILE_CONVERTER_EXE=/Applications/ODAFileConverter.app/Contents/MacOS/ODAFileConverter
 ODA_OUTPUT_VERSION=ACAD2018
 DWG_TO_DXF_CMD=
@@ -30,6 +30,9 @@ DWG_BRICSCAD_CMD=
 DWG_DRAFTSIGHT_CMD=
 CAD_RENDER_AUTH_TOKEN=
 ```
+
+DWG conversion is disabled by default. Set an explicit non-disabled mode only
+after the selected converter has been approved for the target environment.
 
 ## Use as cad-ml fallback
 

@@ -123,6 +123,9 @@ jobs:
           pip install -r requirements.txt
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
 
+      - name: Run DWG conversion disabled policy gate
+        run: pytest -q tests/unit/test_dwg_conversion_disabled_policy.py
+
       - name: Run eval_with_history regression unit tests
         run: |
           pytest -q \
