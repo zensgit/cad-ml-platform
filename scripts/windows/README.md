@@ -17,6 +17,8 @@
 
 如果这台 Windows 机器也装了 Python，并且能访问 `cad-ml-platform`（以及其依赖的 `dedupcad-vision`），可以直接跑端到端 smoke test：
 
+`-Mode` 为必填参数；脚本不再隐式选择 ODA。每次运行都必须显式指定 `-Mode ODA` 或 `-Mode Plugin`。
+
 #### Mode A：ODA（不依赖 CAD UI）
 
 适合快速验证“Windows 批处理”链路（只需要安装 ODA File Converter）：

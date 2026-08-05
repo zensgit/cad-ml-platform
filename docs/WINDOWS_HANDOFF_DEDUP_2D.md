@@ -40,6 +40,8 @@
 
 脚本位置：`scripts/windows/dedup_end_to_end.ps1`
 
+`-Mode` 为必填参数；脚本不再隐式选择 ODA。每次运行都必须显式指定 `-Mode ODA` 或 `-Mode Plugin`。
+
 它会自动完成：
 
 1) 导出/生成工件（`artifacts/`：`PNG + *.v2.json`）
@@ -138,4 +140,3 @@ version（建议启用 gate）：
   - 看 `artifacts\logs\*.log`
   - 中文路径问题：建议保持 `ScriptEncoding Default`（脚本默认已设置）
   - 插件导出命令是否支持无 UI（建议单独手动跑 1 个 DWG 验证命令）
-

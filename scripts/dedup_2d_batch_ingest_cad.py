@@ -94,7 +94,7 @@ def main() -> int:
     parser.add_argument(
         "--dwg-to-dxf",
         choices=["auto", "oda", "cmd", "skip"],
-        default="auto",
+        default="skip",
         help="How to convert DWG to DXF (default: %(default)s)",
     )
     parser.add_argument(
@@ -123,6 +123,8 @@ def main() -> int:
         help="Margin ratio around extents when rendering",
     )
     args = parser.parse_args()
+    if args.dwg_to_dxf != "skip":
+        os.environ["DWG_CONVERTER"] = args.dwg_to_dxf
 
     input_dir: Path = args.input_dir
     if not input_dir.exists():

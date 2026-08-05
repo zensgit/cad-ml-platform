@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import importlib.util
 import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -16,6 +18,17 @@ from src.core.dedupcad_precision import cad_pipeline
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _load_cli_script(script_path: str, monkeypatch: pytest.MonkeyPatch):
+    path = REPO_ROOT / script_path
+    monkeypatch.setitem(sys.modules, "requests", Mock())
+    spec = importlib.util.spec_from_file_location(f"test_{path.stem}_{id(path)}", path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_dwg_converter_defaults_to_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -278,7 +291,172 @@ def test_explicit_cmd_mode_preserves_direct_command_conversion(
     assert output_path.read_text(encoding="utf-8") == "DXF"
 
 
-def test_tracked_runtime_templates_pin_dwg_conversion_disabled() -> None:
+@pytest.mark.parametrize(
+    ("script_path", "extra_args"),
+    [
+        (
+            "scripts/dedup_2d_batch_ingest_cad.py",
+            ["--dry-run", "--no-rebuild-index"],
+        ),
+        (
+            "scripts/dedup_2d_batch_search_cad.py",
+            ["--skip-index", "--skip-search", "--no-rebuild-index"],
+        ),
+    ],
+)
+def test_batch_cli_default_main_path_skips_dwg_without_converter(
+    script_path: str,
+    extra_args: list[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_cli_script(script_path, monkeypatch)
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    (input_dir / "sample.dwg").write_bytes(b"AC1032")
+    work_dir = tmp_path / "work"
+    output_json = tmp_path / "results.json"
+    oda = Mock(side_effect=AssertionError("default CLI must not call ODA"))
+    cmd = Mock(
+        side_effect=AssertionError("default CLI must not call command converter")
+    )
+    resolver = Mock(side_effect=AssertionError("default CLI must not resolve ODA"))
+
+    monkeypatch.delenv("DWG_CONVERTER", raising=False)
+    monkeypatch.setattr(module, "convert_dwg_to_dxf_oda", oda)
+    monkeypatch.setattr(module, "convert_dwg_to_dxf_cmd", cmd)
+    monkeypatch.setattr(module, "resolve_oda_exe_from_env", resolver)
+    argv = [
+        str(REPO_ROOT / script_path),
+        str(input_dir),
+        "--work-dir",
+        str(work_dir),
+        *extra_args,
+    ]
+    if script_path.endswith("search_cad.py"):
+        argv.extend(["--output-json", str(output_json)])
+    monkeypatch.setattr(sys, "argv", argv)
+
+    assert module.main() == 0
+    assert "DWG_CONVERTER" not in module.os.environ
+    oda.assert_not_called()
+    cmd.assert_not_called()
+    resolver.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("script_path", "mode"),
+    [
+        ("scripts/dedup_2d_batch_ingest_cad.py", "oda"),
+        ("scripts/dedup_2d_batch_ingest_cad.py", "auto"),
+        ("scripts/dedup_2d_batch_ingest_cad.py", "cmd"),
+        ("scripts/dedup_2d_batch_search_cad.py", "oda"),
+        ("scripts/dedup_2d_batch_search_cad.py", "auto"),
+        ("scripts/dedup_2d_batch_search_cad.py", "cmd"),
+    ],
+)
+def test_batch_cli_explicit_mode_reaches_helper_with_matching_policy(
+    script_path: str,
+    mode: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_cli_script(script_path, monkeypatch)
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    (input_dir / "sample.dwg").write_bytes(b"AC1032")
+    work_dir = tmp_path / "work"
+    output_json = tmp_path / "results.json"
+    converter_path = tmp_path / "ODAFileConverter"
+    converter_path.write_text("converter", encoding="utf-8")
+    observed_modes: list[str | None] = []
+
+    def convert_oda(
+        _input_path: Path,
+        output_path: Path,
+        *,
+        cfg: cad_pipeline.OdaConverterConfig,
+    ) -> None:
+        assert cfg.exe_path == converter_path
+        observed_modes.append(module.os.environ.get("DWG_CONVERTER"))
+        output_path.write_text("DXF", encoding="utf-8")
+
+    def convert_cmd(
+        _input_path: Path,
+        output_path: Path,
+        *,
+        cmd_template: str,
+    ) -> None:
+        assert cmd_template == "converter {input} {output}"
+        observed_modes.append(module.os.environ.get("DWG_CONVERTER"))
+        output_path.write_text("DXF", encoding="utf-8")
+
+    def render(_input_path: Path, output_path: Path, *, config: object) -> None:
+        assert config is not None
+        output_path.write_bytes(b"PNG")
+
+    monkeypatch.setenv("DWG_CONVERTER", "disabled")
+    monkeypatch.setattr(module, "convert_dwg_to_dxf_oda", convert_oda)
+    monkeypatch.setattr(module, "convert_dwg_to_dxf_cmd", convert_cmd)
+    monkeypatch.setattr(module, "extract_geom_json_from_dxf", lambda _path: {})
+    monkeypatch.setattr(module, "render_dxf_to_png", render)
+    argv = [
+        str(REPO_ROOT / script_path),
+        str(input_dir),
+        "--work-dir",
+        str(work_dir),
+        "--dwg-to-dxf",
+        mode,
+        "--overwrite",
+        "--no-rebuild-index",
+    ]
+    if mode in {"oda", "auto"}:
+        argv.extend(["--oda-exe", str(converter_path)])
+    else:
+        argv.extend(["--dwg-to-dxf-cmd", "converter {input} {output}"])
+    if script_path.endswith("ingest_cad.py"):
+        argv.append("--dry-run")
+    else:
+        argv.extend(
+            ["--skip-index", "--skip-search", "--output-json", str(output_json)]
+        )
+    monkeypatch.setattr(sys, "argv", argv)
+
+    assert module.main() == 0
+    assert observed_modes == [mode]
+
+
+def test_windows_end_to_end_requires_explicit_mode() -> None:
+    script = (REPO_ROOT / "scripts/windows/dedup_end_to_end.ps1").read_text(
+        encoding="utf-8"
+    )
+
+    assert '[string]$Mode = "ODA"' not in script
+    assert (
+        '[Parameter(Mandatory = $true)]\n  [ValidateSet("ODA", "Plugin")]\n'
+        "  [string]$Mode," in script
+    )
+
+
+def test_current_operator_docs_require_explicit_dwg_conversion_mode() -> None:
+    precision_doc = (
+        REPO_ROOT / "docs/CAD_DEDUP_2D_VISION_JSON_PRECISION.md"
+    ).read_text(encoding="utf-8")
+    windows_doc = (REPO_ROOT / "docs/WINDOWS_HANDOFF_DEDUP_2D.md").read_text(
+        encoding="utf-8"
+    )
+    windows_readme = (REPO_ROOT / "scripts/windows/README.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "`--dwg-to-dxf` 默认值为 `skip`" in precision_doc
+    assert "--dwg-to-dxf oda --oda-exe" in precision_doc
+    assert "--dwg-to-dxf auto" in precision_doc
+    assert "`-Mode` 为必填参数" in windows_doc
+    assert "`-Mode` 为必填参数" in windows_readme
+
+
+def test_current_runtime_entrypoint_templates_pin_dwg_conversion_disabled() -> None:
     env_example = (REPO_ROOT / ".env.example").read_text(encoding="utf-8")
     render_server = (REPO_ROOT / "scripts/run_cad_render_server.sh").read_text(
         encoding="utf-8"
@@ -290,6 +468,9 @@ def test_tracked_runtime_templates_pin_dwg_conversion_disabled() -> None:
     )
     root_compose = yaml.safe_load(
         (REPO_ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+    )
+    observability_compose = yaml.safe_load(
+        (REPO_ROOT / "docker-compose.observability.yml").read_text(encoding="utf-8")
     )
     helm_values = yaml.safe_load(
         (REPO_ROOT / "charts/cad-ml-platform/values.yaml").read_text(encoding="utf-8")
@@ -305,6 +486,22 @@ def test_tracked_runtime_templates_pin_dwg_conversion_disabled() -> None:
     kustomize_config = yaml.safe_load(
         (REPO_ROOT / "k8s/kustomize/base/configmap.yaml").read_text(encoding="utf-8")
     )
+    k8s_app_documents = list(
+        yaml.safe_load_all(
+            (REPO_ROOT / "k8s/app/deployment.yaml").read_text(encoding="utf-8")
+        )
+    )
+    k8s_app_deployment = next(
+        document
+        for document in k8s_app_documents
+        if document.get("kind") == "Deployment"
+    )
+    k8s_app_env = {
+        item["name"]: item.get("value")
+        for item in k8s_app_deployment["spec"]["template"]["spec"]["containers"][0][
+            "env"
+        ]
+    }
 
     assert "DWG_CONVERTER=disabled" in env_example
     assert 'DWG_CONVERTER="${DWG_CONVERTER:-disabled}"' in render_server
@@ -321,6 +518,10 @@ def test_tracked_runtime_templates_pin_dwg_conversion_disabled() -> None:
         "DWG_CONVERTER=${DWG_CONVERTER:-disabled}"
         in root_compose["services"]["cad-ml-platform"]["environment"]
     )
+    assert (
+        "DWG_CONVERTER=${DWG_CONVERTER:-disabled}"
+        in observability_compose["services"]["app"]["environment"]
+    )
     assert helm_values["env"]["DWG_CONVERTER"] == "disabled"
     assert helm_prod["env"]["DWG_CONVERTER"] == "disabled"
     assert (
@@ -328,6 +529,10 @@ def test_tracked_runtime_templates_pin_dwg_conversion_disabled() -> None:
         in (helm_worker_template)
     )
     assert kustomize_config["data"]["DWG_CONVERTER"] == "disabled"
+    assert k8s_app_env["DWG_CONVERTER"] == "disabled"
+
+    # k8s/blue-green and k8s/canary are strategy examples without a repository
+    # execution entrypoint, so this current-entrypoint gate intentionally excludes them.
 
 
 def test_required_ci_runs_dwg_conversion_policy_gate() -> None:

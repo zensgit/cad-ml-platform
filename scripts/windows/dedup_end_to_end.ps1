@@ -10,8 +10,9 @@ Param(
   # Pipeline mode:
   #  - ODA: uses ODAFileConverter.exe to convert DWG->DXF, then server-side extracts v2 JSON + renders PNG.
   #  - Plugin: uses accoreconsole + your plugin export command to produce PNG + v2 JSON directly.
+  [Parameter(Mandatory = $true)]
   [ValidateSet("ODA", "Plugin")]
-  [string]$Mode = "ODA",
+  [string]$Mode,
 
   # cad-ml-platform API
   [string]$BaseUrl = "http://127.0.0.1:18000",
