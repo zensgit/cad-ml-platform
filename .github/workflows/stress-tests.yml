@@ -192,7 +192,8 @@ jobs:
       - name: Health endpoint smoke check (Faiss)
         run: |
           for attempt in $(seq 1 10); do
-            if curl -fsS ${API_BASE_URL}/api/v1/health/faiss/health -o faiss_health.json; then
+            if curl -fsS ${API_BASE_URL}/api/v1/health/faiss/health \
+              -H "X-API-Key: ${API_KEY}" -o faiss_health.json; then
               if python - <<'PY'
           import json
           with open('faiss_health.json') as f:
@@ -222,7 +223,8 @@ jobs:
             -H "X-API-Key: ${API_KEY}" || true
           sleep 2
           for attempt in $(seq 1 10); do
-            if curl -fsS ${API_BASE_URL}/api/v1/health/faiss/health -o faiss_health_after.json; then
+            if curl -fsS ${API_BASE_URL}/api/v1/health/faiss/health \
+              -H "X-API-Key: ${API_KEY}" -o faiss_health_after.json; then
               if python - <<'PY'
           import json
           with open('faiss_health_after.json') as f:

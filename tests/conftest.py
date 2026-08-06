@@ -15,11 +15,15 @@ if str(ROOT_DIR) not in sys.path:
 # imports app modules before autouse fixtures run, so the harness opt-in must
 # be process-level. Production-posture goldens override via monkeypatch and
 # call validate_boot_identity / deps directly (they do not re-import main).
+#
+# Force (do not setdefault): CI runners / scripts/test_with_local_api.sh may
+# export a different API_KEY (historically "test-api-key"). Suite TestClients
+# send X-API-Key: test — ambient mismatch → mass 401. Pin harness credentials.
 os.environ["ENVIRONMENT"] = "development"
-if not os.environ.get("API_KEY") and not os.environ.get("API_KEYS"):
-    os.environ["API_KEY"] = "test"
-if not os.environ.get("ADMIN_TOKEN"):
-    os.environ["ADMIN_TOKEN"] = "test"
+os.environ.pop("REQUIRE_STRONG_AUTH", None)
+os.environ.pop("API_KEYS", None)
+os.environ["API_KEY"] = "test"
+os.environ["ADMIN_TOKEN"] = "test"
 
 if SRC_DIR.exists():
     if "src" in sys.modules:
@@ -83,13 +87,15 @@ def _production_identity_dev_opt_in(monkeypatch):
 
     Production posture is fail-closed when ENVIRONMENT is unset/unknown.
     Tests that need production posture must override ENVIRONMENT / REQUIRE_STRONG_AUTH.
+    Always pin API_KEY/ADMIN_TOKEN to the harness value so ambient CI exports
+    (e.g. API_KEY=test-api-key from tiered runners) cannot desync headers.
+    Multi-tenant tests that need extra keys set API_KEYS via their own monkeypatch
+    (API_KEYS takes precedence in configured_api_keys).
     """
     monkeypatch.setenv("ENVIRONMENT", "development")
-    # Harness API key: matches expected_api_keys_for_request() default under dev opt-in.
-    if not os.environ.get("API_KEY") and not os.environ.get("API_KEYS"):
-        monkeypatch.setenv("API_KEY", "test")
-    if not os.environ.get("ADMIN_TOKEN"):
-        monkeypatch.setenv("ADMIN_TOKEN", "test")
+    monkeypatch.delenv("REQUIRE_STRONG_AUTH", raising=False)
+    monkeypatch.setenv("API_KEY", "test")
+    monkeypatch.setenv("ADMIN_TOKEN", "test")
     yield
 
 @pytest.fixture(autouse=True)
