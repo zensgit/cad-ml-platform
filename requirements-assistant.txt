@@ -23,6 +23,17 @@ aiofiles>=23.1.0
 # sentence-transformers>=2.2.0
 # torch>=2.0.0
 
+# DO NOT add `anthropic` or `openai` here before the assistant's provider
+# SEAL lands (docs/development/L3_ASSISTANT_SCOPE_SEAL_DESIGNLOCK_20260805.md,
+# #535). Their current absence is the only thing standing between
+# ClaudeProvider/OpenAIProvider/FunctionCallingEngine's default
+# llm_provider="claude" and a live, un-gated hosted-LLM call from a mounted,
+# CD-deployed service (src/core/assistant/) that sits adjacent to customer
+# drawing data. See #535 §0 findings #6, #13, #15;
+# tests/unit/test_assistant_hosted_provider_dependency_lock.py enforces this.
+# anthropic>=0.30.0
+# openai>=1.0.0
+
 # Monitoring and observability
 prometheus-client>=0.17.0
 
