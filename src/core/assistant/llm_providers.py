@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Generator, Optional
 
+from .egress_allowlist import EgressRejected, enforce_hosted_prompt_egress
 from .provider_seal import (
     endpoint_is_verified_local,
     hosted_provider_opt_in,
@@ -85,6 +86,8 @@ class ClaudeProvider(BaseLLMProvider):
     def generate(self, system_prompt: str, user_prompt: str) -> str:
         """Generate response using Claude."""
         record_provider_attempt("claude")
+        # SEAL §2.B: refuse unsafe content before any hosted network call.
+        enforce_hosted_prompt_egress(system_prompt, user_prompt)
         if not self._client:
             raise RuntimeError("Anthropic client not initialized. Set ANTHROPIC_API_KEY.")
 
@@ -129,6 +132,8 @@ class OpenAIProvider(BaseLLMProvider):
     def generate(self, system_prompt: str, user_prompt: str) -> str:
         """Generate response using GPT."""
         record_provider_attempt("openai")
+        # SEAL §2.B: refuse unsafe content before any hosted network call.
+        enforce_hosted_prompt_egress(system_prompt, user_prompt)
         if not self._client:
             raise RuntimeError("OpenAI client not initialized. Set OPENAI_API_KEY.")
 
@@ -165,6 +170,8 @@ class QwenProvider(BaseLLMProvider):
     def generate(self, system_prompt: str, user_prompt: str) -> str:
         """Generate response using Qwen."""
         record_provider_attempt("qwen")
+        # SEAL §2.B: refuse unsafe content before any hosted network call.
+        enforce_hosted_prompt_egress(system_prompt, user_prompt)
         if not self._api_key:
             raise RuntimeError("DashScope API key not set. Set DASHSCOPE_API_KEY.")
 

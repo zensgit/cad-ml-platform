@@ -51,6 +51,8 @@ DEFAULT_ALLOWED_FIELDS = frozenset(
         "decision",
         "rank",
         "count",
+        "citable",
+        "disclosure",
         # Hashed / opaque ids only when explicitly named as such:
         "candidate_id_hash",
         "file_id_hash",
@@ -58,7 +60,7 @@ DEFAULT_ALLOWED_FIELDS = frozenset(
 )
 
 _PATH_HINT = re.compile(
-    r"(^|/)([A-Za-z]:\\|/(?:Users|home|var|tmp|data|models)/|\\\\)",
+    r"(?:[A-Za-z]:\\|/(?:Users|home|var|tmp|data|models)/|\\\\)",
     re.IGNORECASE,
 )
 _BASE64_LONG = re.compile(r"[A-Za-z0-9+/]{80,}={0,2}")
@@ -138,10 +140,105 @@ def redact_for_hosted(
     return out
 
 
+# Prompt-assembly keys permitted for hosted chat APIs (text only).
+HOSTED_PROMPT_FIELDS = frozenset(
+    {
+        "system_prompt",
+        "user_prompt",
+        "role",
+        "content",
+        "messages",
+        "type",
+        "text",
+    }
+)
+
+# Substrings that must never appear in hosted free-text prompts.
+_FORBIDDEN_CONTENT_MARKERS = (
+    "ocr_text",
+    "raw_ocr",
+    "drawing_bytes",
+    "image_bytes",
+    "file_path=",
+    "filepath=",
+)
+
+
+def _scan_text_content(text: str, *, where: str) -> None:
+    if not isinstance(text, str):
+        raise EgressRejected(f"non_text_{where}")
+    if _PATH_HINT.search(text):
+        raise EgressRejected(f"path_like_{where}")
+    if _BASE64_LONG.search(text):
+        # Long base64 blobs often encode images/files — refuse.
+        raise EgressRejected(f"base64_blob_{where}")
+    lower = text.lower()
+    for marker in _FORBIDDEN_CONTENT_MARKERS:
+        if marker in lower:
+            raise EgressRejected(f"forbidden_marker_{marker}")
+
+
+def enforce_hosted_prompt_egress(system_prompt: str, user_prompt: str) -> None:
+    """Gate free-text prompts immediately before a hosted-provider network call.
+
+    This is the live-path enforcement for §2.B when the call site sends chat
+    prompts rather than a structured tool JSON object.
+    """
+    if isinstance(system_prompt, (bytes, bytearray)) or isinstance(
+        user_prompt, (bytes, bytearray)
+    ):
+        raise EgressRejected("raw_bytes_prompt")
+    _scan_text_content(system_prompt or "", where="system_prompt")
+    _scan_text_content(user_prompt or "", where="user_prompt")
+    # Also validate as a structured envelope so field-name bans apply if
+    # callers later pass dict-shaped content through the same helper.
+    validate_hosted_payload(
+        {
+            "system_prompt": system_prompt or "",
+            "user_prompt": user_prompt or "",
+        },
+        allowed_fields=set(HOSTED_PROMPT_FIELDS) | set(DEFAULT_ALLOWED_FIELDS),
+    )
+
+
+def enforce_tool_result_for_hosted(result: Mapping[str, Any]) -> Dict[str, Any]:
+    """Redact a tool result before it may be sent to a hosted model.
+
+    Non-citable results are reduced to status/reason_code only so fabricated
+    business fields never leave the process toward a third party.
+    """
+    from src.core.assistant.tool_status import is_citable_tool_result
+
+    if not is_citable_tool_result(result):
+        status = result.get("status", "failed")
+        reason = result.get("reason_code", "non_citable")
+        slim = {"status": status, "reason_code": reason, "citable": False}
+        validate_hosted_payload(slim)
+        return slim
+    # Citable structured results still pass the field allowlist (strict).
+    try:
+        validate_hosted_payload(result)
+        return dict(result)
+    except EgressRejected:
+        # Drop to scores/status only rather than aborting the whole turn when a
+        # tool returns extra keys — still fail closed on forbidden categories.
+        slim = {
+            k: v
+            for k, v in result.items()
+            if str(k).lower()
+            in DEFAULT_ALLOWED_FIELDS | {"citable", "status", "reason_code", "label"}
+        }
+        validate_hosted_payload(slim)
+        return slim
+
+
 __all__ = [
     "DEFAULT_ALLOWED_FIELDS",
     "EgressRejected",
     "FORBIDDEN_FIELD_NAMES",
+    "HOSTED_PROMPT_FIELDS",
+    "enforce_hosted_prompt_egress",
+    "enforce_tool_result_for_hosted",
     "redact_for_hosted",
     "validate_hosted_payload",
 ]

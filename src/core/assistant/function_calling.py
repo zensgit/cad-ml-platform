@@ -16,7 +16,12 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 from .tools import TOOL_REGISTRY, BaseTool
 from .provider_seal import hosted_provider_opt_in, is_hosted_provider_name, resolve_provider_name
 from .tool_status import is_citable_tool_result
-from .egress_allowlist import EgressRejected, validate_hosted_payload
+from .egress_allowlist import (
+    EgressRejected,
+    enforce_hosted_prompt_egress,
+    enforce_tool_result_for_hosted,
+    validate_hosted_payload,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -206,6 +211,32 @@ class FunctionCallingEngine:
         tools = self._build_tool_definitions_anthropic()
 
         for _ in range(_MAX_TOOL_ROUNDS):
+            # SEAL §2.B: gate free-text + structured content before hosted call.
+
+            user_bits = []
+
+            for _m in messages:
+
+                _c = _m.get("content") if isinstance(_m, dict) else getattr(_m, "content", "")
+
+                if isinstance(_c, str):
+
+                    user_bits.append(_c)
+
+                elif isinstance(_c, list):
+
+                    for _b in _c:
+
+                        if isinstance(_b, dict) and "text" in _b:
+
+                            user_bits.append(str(_b["text"]))
+
+                        elif isinstance(_b, str):
+
+                            user_bits.append(_b)
+
+            enforce_hosted_prompt_egress(self._system_prompt, "\n".join(user_bits))
+
             response = self._anthropic_client.messages.create(
                 model=self._model,
                 max_tokens=4096,
@@ -241,10 +272,19 @@ class FunctionCallingEngine:
             tool_results = []
             for tu in tool_uses:
                 result = await self._execute_tool(tu["name"], tu["input"])
+                # §2.B/C: redact for hosted; non-citable cannot be decision evidence.
+                safe = enforce_tool_result_for_hosted(result)
+                if not is_citable_tool_result(result):
+                    safe = {
+                        "status": result.get("status", "failed"),
+                        "reason_code": result.get("reason_code", "non_citable"),
+                        "citable": False,
+                        "disclosure": "tool result excluded from decision evidence",
+                    }
                 tool_results.append({
                     "type": "tool_result",
                     "tool_use_id": tu["id"],
-                    "content": json.dumps(result, ensure_ascii=False),
+                    "content": json.dumps(safe, ensure_ascii=False),
                 })
 
             messages.append({"role": "user", "content": tool_results})
@@ -280,6 +320,24 @@ class FunctionCallingEngine:
         tools = self._build_tool_definitions_openai()
 
         for _ in range(_MAX_TOOL_ROUNDS):
+            user_bits = []
+
+            for _m in messages:
+
+                if isinstance(_m, dict):
+
+                    _c = _m.get("content", "")
+
+                else:
+
+                    _c = getattr(_m, "content", "") or ""
+
+                if isinstance(_c, str):
+
+                    user_bits.append(_c)
+
+            enforce_hosted_prompt_egress(self._system_prompt, "\n".join(user_bits))
+
             response = self._openai_client.chat.completions.create(
                 model=self._model,
                 max_tokens=4096,
@@ -294,10 +352,18 @@ class FunctionCallingEngine:
                     func = tc.function
                     args = json.loads(func.arguments) if func.arguments else {}
                     result = await self._execute_tool(func.name, args)
+                    safe = enforce_tool_result_for_hosted(result)
+                    if not is_citable_tool_result(result):
+                        safe = {
+                            "status": result.get("status", "failed"),
+                            "reason_code": result.get("reason_code", "non_citable"),
+                            "citable": False,
+                            "disclosure": "tool result excluded from decision evidence",
+                        }
                     messages.append({
                         "role": "tool",
                         "tool_call_id": tc.id,
-                        "content": json.dumps(result, ensure_ascii=False),
+                        "content": json.dumps(safe, ensure_ascii=False),
                     })
             else:
                 text = choice.message.content or ""
