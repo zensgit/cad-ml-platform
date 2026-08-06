@@ -7,15 +7,21 @@ the analyser returns deterministic fallback results so downstream code
 (including the REST API) can function without a checkpoint.
 """
 
+import io
 import logging
-import os
 from typing import Any, Dict, List, Optional
 
 import numpy as np
 
+from src.core.model_activation.activation_gateway import activate_file
 from src.ml.pointnet.preprocessor import PointCloudPreprocessor
 
 logger = logging.getLogger(__name__)
+
+# C2 wiring: pointnet/main is a SINGLE_FILE activation gated through the
+# Phase-A activation gateway (see docs/development/L3_PHASE_A_C2_C6_HANDOFF_20260721.md).
+_LOGICAL_ACTIVATION_ID = "pointnet/main"
+_ARTIFACT_ID = "main"
 
 HAS_TORCH = False
 try:
@@ -80,15 +86,24 @@ class PointNet3DAnalyzer:
     # ------------------------------------------------------------------
 
     def _try_load_model(self) -> None:
-        """Attempt to load a trained checkpoint. Fail silently."""
+        """Attempt to load a trained checkpoint via the activation gateway.
+
+        The raw model_path is no longer read directly: the checkpoint bytes
+        must come from ``activate_file`` (verified pinned artifact) or the
+        family degrades. This closes the raw-load-by-path fallback so a
+        missing/tampered artifact can never be loaded unverified. ``None``
+        from the gateway covers pin-absent, unconfigured store, digest
+        mismatch, and any other refusal -- all degrade identically.
+        """
         if not HAS_TORCH:
             logger.info("PyTorch unavailable -- running in fallback mode.")
             return
 
-        if self.model_path is None or not os.path.exists(self.model_path):
+        data = activate_file(_LOGICAL_ACTIVATION_ID, _ARTIFACT_ID)
+        if data is None:
             logger.info(
-                "No model checkpoint at %s -- running in fallback mode.",
-                self.model_path,
+                "No activated model checkpoint for %s -- running in fallback mode.",
+                _LOGICAL_ACTIVATION_ID,
             )
             return
 
@@ -106,7 +121,7 @@ class PointNet3DAnalyzer:
             self._device = device
 
             checkpoint = torch.load(
-                self.model_path, map_location=device, weights_only=False
+                io.BytesIO(data), map_location=device, weights_only=False
             )
 
             self._classifier = PointNetClassifier(
@@ -132,7 +147,11 @@ class PointNet3DAnalyzer:
             self._feature_extractor.eval()
 
             self._model_loaded = True
-            logger.info("PointNet model loaded from %s on %s.", self.model_path, device)
+            logger.info(
+                "PointNet model loaded from activation %s on %s.",
+                _LOGICAL_ACTIVATION_ID,
+                device,
+            )
         except Exception as exc:
             logger.exception("Failed to load PointNet model -- using fallback mode.")
             self._classifier = None

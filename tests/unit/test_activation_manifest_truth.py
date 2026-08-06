@@ -22,7 +22,10 @@ FORBIDDEN = ("production-reachable", "must be frozen")
 
 # The single LIVE (non-latent) pickle-classifier load site. It is lazy-first-predict,
 # NOT a startup load — see the pinpoint guard below.
-LIVE_PICKLE_SITE = "src/ml/classifier.py::load_model::pickle.load#0"
+# Re-keyed pickle.load#0 -> pickle.loads#0: the C2 wiring routed load_model through the activation
+# gateway, so the raw idiom changed from pickle.load(f) (path) to pickle.loads(data) (verified bytes).
+# The guard's intent is unchanged — same site, still lazy-first-predict, still no-startup.
+LIVE_PICKLE_SITE = "src/ml/classifier.py::load_model::pickle.loads#0"
 
 
 def _forbidden_hits(path: pathlib.Path) -> list:

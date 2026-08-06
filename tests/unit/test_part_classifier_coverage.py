@@ -557,8 +557,14 @@ class TestV16RenderNoModel:
 class TestV16ModelLoadingErrors:
     """Tests for V16 model loading error paths."""
 
-    def test_v6_not_found_raises_error(self):
-        """FileNotFoundError when V6 model doesn't exist."""
+    def test_v6_not_found_degrades_via_activation_gateway(self):
+        """New safety contract (design lock line 403): a missing/unpinned V6
+        component is NOT a FileNotFoundError raw-path miss any more — the V16
+        loader routes through the C1 activation gateway, and an unconfigured
+        store degrades. V16 is all-or-nothing, so the degrade surfaces as the
+        gateway RuntimeError (``part/v16-v6pt v6pt component activation
+        unavailable``), which analyzer._classify_with_v16 catches -> V6 -> rules.
+        This replaces the old ``FileNotFoundError('V6模型不存在')`` expectation."""
         mock_torch = _setup_torch_mock()
         with patch.dict(sys.modules, {"torch": mock_torch, "torch.nn": mock_torch.nn}):
             import importlib
@@ -566,11 +572,22 @@ class TestV16ModelLoadingErrors:
             importlib.reload(src.ml.part_classifier)
             from src.ml.part_classifier import PartClassifierV16
 
-            with tempfile.TemporaryDirectory() as tmp_dir:
-                classifier = PartClassifierV16(model_dir=tmp_dir)
+            # Ensure no store is configured so the gateway degrades (returns None).
+            from src.core.model_activation import activation_gateway as gw
 
-                with pytest.raises(FileNotFoundError, match="V6模型不存在"):
-                    classifier._load_models()
+            for _env in (gw.ENV_STORE_ROOT, "MODEL_ACTIVATION_BASELINE_MANIFEST"):
+                os.environ.pop(_env, None)
+            gw.reset_gateway_for_tests()
+            try:
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    classifier = PartClassifierV16(model_dir=tmp_dir)
+
+                    with pytest.raises(
+                        RuntimeError, match="activation unavailable"
+                    ):
+                        classifier._load_models()
+            finally:
+                gw.reset_gateway_for_tests()
 
     def test_predict_batch_empty(self):
         """predict_batch returns empty list for empty input."""

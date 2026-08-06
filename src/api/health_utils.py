@@ -152,6 +152,13 @@ def build_health_payload(
         except Exception:
             graph2d_temperature, graph2d_temperature_source = 1.0, None
 
+        # Design lock: no filesystem paths in telemetry. The temperature source
+        # is "env" or None for those cases, but becomes ``str(<calibration path>)``
+        # when loaded from a calibration file (see load_graph2d_temperature_settings).
+        # Collapse that path-bearing branch to a fixed, path-free token.
+        if graph2d_temperature_source not in (None, "env"):
+            graph2d_temperature_source = "calibration"
+
         graph2d_ensemble_enabled = (
             os.getenv("GRAPH2D_ENSEMBLE_ENABLED", "false").strip().lower() == "true"
         )
@@ -184,6 +191,13 @@ def build_health_payload(
             "models/graph2d_training_dxf_oda_titleblock_distill_20260210.pth",
         )
         graph2d_model_present = os.path.exists(graph2d_model_path)
+        # Design lock: name-only in telemetry, never the resolved path (may be None).
+        _graph2d_temp_calibration = os.getenv("GRAPH2D_TEMPERATURE_CALIBRATION_PATH")
+        graph2d_temperature_calibration_name = (
+            os.path.basename(_graph2d_temp_calibration)
+            if _graph2d_temp_calibration
+            else None
+        )
         v16_disabled = os.getenv("DISABLE_V16_CLASSIFIER", "").lower() in (
             "1",
             "true",
@@ -195,17 +209,18 @@ def build_health_payload(
             v14_model_path
         )
 
+        # Design lock: NO filesystem paths in health/telemetry. Degraded reasons
+        # are name-only (model name + degraded state); the resolved artifact paths
+        # are never emitted.
         degraded_reasons: list[str] = []
         if bool(hybrid_cfg.graph2d.enabled) and not torch_available:
             degraded_reasons.append("graph2d_enabled_but_torch_missing")
         if bool(hybrid_cfg.graph2d.enabled) and not graph2d_model_present:
-            degraded_reasons.append(f"graph2d_model_missing:{graph2d_model_path}")
+            degraded_reasons.append("graph2d_model_missing")
         if not v16_disabled and not torch_available:
             degraded_reasons.append("v16_enabled_but_torch_missing")
         if not v16_disabled and not v16_models_present:
-            degraded_reasons.append(
-                f"v16_models_missing:v6={v6_model_path},v14={v14_model_path}"
-            )
+            degraded_reasons.append("v16_models_missing")
 
         model_readiness_snapshot = None
         try:
@@ -218,13 +233,14 @@ def build_health_payload(
 
         # Preserve the legacy readiness keys while adding the registry snapshot
         # that reports model-by-model checkpoint, load and fallback state.
+        # Design lock: emit model NAME + present/degraded state, never the
+        # resolved filesystem path. The previous ``*_model_path`` keys leaked
+        # store/artifact locations into telemetry and are dropped; the boolean
+        # ``*_present`` signals (path-free) are retained for readiness triage.
         readiness_payload: Dict[str, Any] = {
             "torch_available": torch_available,
-            "graph2d_model_path": graph2d_model_path,
             "graph2d_model_present": graph2d_model_present,
             "v16_disabled": v16_disabled,
-            "v6_model_path": v6_model_path,
-            "v14_model_path": v14_model_path,
             "v16_models_present": v16_models_present,
             "degraded_reasons": sorted(set(degraded_reasons)),
             "required_providers": os.getenv("READINESS_REQUIRED_PROVIDERS", ""),
@@ -238,13 +254,15 @@ def build_health_payload(
             "classification": {
                 "hybrid_enabled": bool(hybrid_cfg.enabled),
                 "hybrid_version": str(hybrid_cfg.version),
-                "hybrid_config_path": os.getenv(
-                    "HYBRID_CONFIG_PATH", "config/hybrid_classifier.yaml"
+                # Design lock: emit model/config NAME only, never the resolved
+                # filesystem path. The previous ``hybrid_config_path`` /
+                # ``graph2d_model_path`` keys leaked store/artifact locations into
+                # telemetry; presence/degraded state is carried path-free by the
+                # readiness payload (``graph2d_model_present``, model_registry).
+                "hybrid_config_name": os.path.basename(
+                    os.getenv("HYBRID_CONFIG_PATH", "config/hybrid_classifier.yaml")
                 ),
-                "graph2d_model_path": os.getenv(
-                    "GRAPH2D_MODEL_PATH",
-                    "models/graph2d_training_dxf_oda_titleblock_distill_20260210.pth",
-                ),
+                "graph2d_model_name": os.path.basename(graph2d_model_path),
                 "filename_enabled": bool(hybrid_cfg.filename.enabled),
                 "graph2d_enabled": bool(hybrid_cfg.graph2d.enabled),
                 "titleblock_enabled": bool(hybrid_cfg.titleblock.enabled),
@@ -255,8 +273,9 @@ def build_health_payload(
                 "graph2d_allow_labels": str(hybrid_cfg.graph2d.allow_labels),
                 "graph2d_temperature": float(graph2d_temperature),
                 "graph2d_temperature_source": graph2d_temperature_source,
-                "graph2d_temperature_calibration_path": os.getenv(
-                    "GRAPH2D_TEMPERATURE_CALIBRATION_PATH"
+                # Design lock: name-only, never the resolved calibration path.
+                "graph2d_temperature_calibration_name": (
+                    graph2d_temperature_calibration_name
                 ),
                 "graph2d_ensemble_enabled": bool(graph2d_ensemble_enabled),
                 "graph2d_ensemble_models_configured": len(graph2d_ensemble_paths),
