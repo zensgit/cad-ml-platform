@@ -17,7 +17,7 @@
 
 | # | Finding | Evidence |
 |---|---|---|
-| 1 | `src/core/assistant/` is a large, live subsystem: 47 files, **14,587 lines** — RAG retrieval, function-calling with 9 domain tools, multi-tenant + RBAC, streaming, explainability, quality evaluation, conversation memory | `find src/core/assistant -name '*.py' \| xargs wc -l` |
+| 1 | `src/core/assistant/` is a large, live subsystem: 44 files, **14,587 lines** — RAG retrieval, function-calling with 9 domain tools, multi-tenant + RBAC, streaming, explainability, quality evaluation, conversation memory | `find src/core/assistant -name '*.py' \| wc -l` (corrected 2026-08-05 review — an earlier pass over-counted at 47) |
 | 2 | **Predates the ratified strategy by ~6 months**: added 2026-01-29 (`feat: add RAG-based CAD intelligent assistant module (#44)`); still being actively touched 2026-07-10 — 2 days before `PRODUCT_STRATEGY.md` ratified 2026-07-12 | `git log --follow -- src/core/assistant/assistant.py` |
 | 3 | **Mounted and live**: `assistant = _import_router("assistant", "src.api.v1.assistant")` at `/assistant/*` | `src/api/__init__.py:266,494-500` |
 | 4 | **Deployed via CD**: `.github/workflows/cd.yml:77` builds and pushes `./docker/assistant/Dockerfile` | `cd.yml:75-79` |
@@ -27,8 +27,12 @@
 | 8 | `PRODUCT_STRATEGY.md` contains **zero** mentions of "assistant" — not authorized, not exempted, not addressed | `grep -in assistant docs/PRODUCT_STRATEGY.md` → empty |
 | 9 | `api/v1/assistant.py` already contains `_decision_contract_from_metadata` / `_decision_evidence_from_metadata` / `_knowledge_citations_from_decision_evidence` — evidence the module was *aimed* at explaining this platform's own §3.3 decision contract, not built as a general-purpose chatbot from scratch | `src/api/v1/assistant.py:188-320` |
 | 10 | The 9 `tools/` (e.g. `similarity_tool.py`: `"在向量库中搜索与指定图纸相似的零件"`) wrap the platform's **own** existing capabilities (similarity search, classification, point-cloud, cost, quality) via function-calling — confirmed by direct read, not assumed | `src/core/assistant/tools/similarity_tool.py:1-30` |
+| 11 | **The fallback chain escalates to hosted providers regardless of the caller's original provider choice.** `_fallback_generate` iterates `["claude", "openai", "qwen", "vllm", "ollama"]` **in that literal order** on any primary-provider error — three hosted providers are attempted *before* the one local candidate (`ollama`) is ever tried. A no-opt-in / local-only deployment whose primary attempt errors (network blip, local-model timeout) can still egress to a hosted provider if a hosted API key happens to be configured, with no opt-in check at this layer at all. (Owner review, 2026-08-05) | `src/core/assistant/assistant.py:493-498` (`_fallback_generate`) |
+| 12 | **Tool-execution failure returns a success-shaped payload, with no uniform structured failure marker.** Severity varies by tool, all confirmed by direct read: `cost_tool.py` fabricates a full CNY cost breakdown (material/machining/setup/overhead/total) from hardcoded per-material base rates on **any** exception, with **zero disclosure field in the returned dict** — only a `logger.warning` line, which a payload consumer never sees; `feature_tool.py` returns hardcoded default dimensions (17/22) plus a free-text `note` field; `similarity_tool.py` returns an empty result set plus a free-text `note` (safer — no fabricated candidates — but a silent `count: 0` is itself indistinguishable from "verified no duplicates" without reading the note); `classify_tool.py` returns `label: "unknown", confidence: 0.0` plus a free-text `note` — a shape a consumer could plausibly conflate with a genuine low-confidence classification. None of the four use a structured, schema-checkable status field. (Owner review, 2026-08-05) | `src/core/assistant/tools/cost_tool.py:62-89`; `feature_tool.py:40-63`; `similarity_tool.py:56-85`; `classify_tool.py:40-64` |
 
 **Owner ruling (2026-08-05, this design-lock's originating conversation):** the absence from `PRODUCT_STRATEGY.md` is an **oversight, not an exemption**. This module is to be narrowed/reviewed under §6's spirit — the question this lock answers is *how*, in a way consistent with #530's safe-park constraints (no new customer data, no new model environment, no-regrets under all three end states).
+
+**Owner precise-head review (2026-08-05, this PR's head `61187de7`):** findings 11–12 above are additions from that review. Verdict: direction confirmed ("assistant should only become an Evidence Pack explainability layer, not WorkBuddy/a CAD ChatGPT" — consistent with §3 below), but **not seal-complete** — findings 11–12 (P1) and the tightened egress allowlist (§2.B, P2) must be reflected as acceptance criteria in this lock before it is treated as ready to implement against. CI green on a docs-only PR proves the document parses; it says nothing about runtime safety.
 
 ---
 
@@ -47,17 +51,21 @@ Two asks follow, and they are **not the same size or the same gate**:
 
 Mirrors the pattern already used for `/model/reload` (#513/#516) and production-identity defaults (#517): **fail-closed first, redesign later, never a flag that silently re-opens the sealed path.**
 
-### A. Provider default: local-only unless explicitly opted in
+### A. Provider default: local-only unless explicitly opted in — including on the failure/fallback path
 - With no explicit, per-deployment configuration, provider resolution **MUST** land on `OfflineProvider` (or `OllamaProvider` pointed at a local endpoint) — never a hosted provider by default. Consistent with §2.1's on-premise/private-network requirement.
 - Selecting `ClaudeProvider` / `OpenAIProvider` / `QwenProvider` / any remote `VLLMProvider` **MUST** require an explicit opt-in flag documented as an external-provider-egress event under the same governance as any other external AI call (§4's "customer drawings stay private by default; external-provider transmission is explicit opt-in" rule, and §8.3's pilot release gates) — not merely "configure an API key and it works."
+- **The seal covers the fallback path, not only the initial default (finding #11).** When the explicitly-opted-in (or default local) provider errors, the fallback chain **MUST NOT** attempt any hosted provider that was not itself part of the explicit opt-in. A no-opt-in / local-only deployment whose primary attempt fails **MUST** fail closed (or retry local-only candidates) — it **MUST NOT** walk a hosted-first priority list (`claude → openai → qwen → vllm → ollama`, the current order) merely because a hosted API key happens to be present. The opt-in decision governs every attempt for a request, not just the first one.
 - A provider class whose required SDK (`anthropic`, `openai`) is not installed **MUST** fail closed to `OfflineProvider` at selection time, not raise an unhandled `ImportError` or silently degrade mid-request (verify current behavior — not yet checked; this lock flags it as a thing to verify, not asserts it either way).
 
-### B. Egress boundary: computed evidence only, never raw source material
-- Any payload sent to a hosted provider **MUST** be limited to already-computed §3.3 decision-contract fields (candidate id, scores, confidence, evidence/rejection reasons, provenance) — **MUST NOT** include raw drawing bytes, raw OCR text, file paths, or any other unredacted source material.
-- A tool call (`similarity_tool`, `classify_tool`, etc.) whose result is destined for a hosted-provider payload **MUST** pass through the same redaction boundary before the network call, not after.
+### B. Egress boundary: a field-level allowlist schema, not a category description
+- A payload sent to a hosted provider **MUST** be validated against an explicit, field-level allowlist schema — not merely "computed §3.3 fields are OK." §3.3's own field list (candidate id, provenance, evidence/rejection reasons, drawing numbers implied by provenance, supplier/material/process notes) can itself carry customer-sensitive identifiers even though every value is "computed," not raw. The schema **MUST**, by default: redact or hash candidate/file identifiers (no plaintext IDs that trace back to a customer's part/drawing numbering scheme); exclude supplier names, drawing numbers, and free-text process/material notes unless a field is explicitly allowlisted per-deployment; permit only the minimum needed for the explainability purpose (scores, confidence, rejection-reason *category*, not verbatim customer-authored text).
+- Raw drawing bytes, raw OCR text, and file paths remain categorically excluded (unchanged from the original draft) — the schema requirement above is additive, not a replacement.
+- A tool call (`similarity_tool`, `classify_tool`, etc.) whose result is destined for a hosted-provider payload **MUST** pass through the same schema-validated redaction boundary before the network call, not after.
 
-### C. Honest degradation disclosure (extends the already-ratified #503 invariant)
-- Any response whose retrieval step ran on the TF-IDF fallback **MUST** carry the same disclosed-fallback contract `PHASE0_A3_HONEST_EMBEDDING_DEGRADATION_DESIGN_20260708.md` (#503) already established for `DomainEmbeddingModel` — this lock does not relitigate that invariant, it extends it to every assistant response path that consumes it.
+### C. Honest degradation disclosure: structured status, not a log line or a free-text note (extends #503; closes finding #12)
+- Any computation that did not complete as designed — the embedding/retrieval TF-IDF fallback (already governed by `PHASE0_A3_HONEST_EMBEDDING_DEGRADATION_DESIGN_20260708.md` / #503), **and every assistant tool's exception path** (finding #12: `cost_tool`, `feature_tool`, `similarity_tool`, `classify_tool` today) — **MUST** carry a structured `status` field with one of `failed` / `unavailable` / `degraded`, not only a log line or a free-text `note`. A free-text note is easy for downstream response-assembly (or an LLM composing an answer) to silently drop while still consuming the numeric/label fields as if they were valid.
+- A degraded/failed tool result **MUST NOT** be citable as decision evidence: no fabricated business-looking values (e.g. `cost_tool`'s current hardcoded CNY cost breakdown on any exception) may be returned in place of a clearly-marked absence. Where a placeholder value is structurally required, it **MUST** be paired with the `status` field above, not stand alone.
+- This is one invariant, not two: the same "never let a degraded/failed computation look like a real result" principle governs both the retrieval substrate and the tool layer. An implementation must not treat them as separate problems with separate fixes.
 
 ### D. Deployment posture during review
 - Owner decision, not assumed here (see §5): pause `docker/assistant`'s CD deployment while this lock is under review, or leave it live with SEAL items tracked as the acceptance bar for the next PR touching it. Either is compatible with safe-park; this lock does not pick one.
@@ -87,6 +95,7 @@ No code change. No new provider onboarding. No RAG/embedding fix. No IM/notifica
 - Deployment posture (§2.D): pause `docker/assistant` during review, or seal-forward without pausing?
 - Is there a named consumer for `/assistant/*` today that this investigation did not surface, which would change any of the above?
 - Does §3 (REDESIGN) wait for #530's own decision ladder (Day-90 / Month-6), or can it be scoped independently once SEAL lands, given it's a different kind of decision (product scope, not calendar/customer-evidence gate)?
+- This lock is not yet ratified as seal-complete (owner verdict, 2026-08-05): findings #11–#12 and the tightened §2.B schema are now reflected as acceptance criteria (§2, §6). Does the revised contract satisfy the review, or does it need another pass before an implementation PR may cite it as its target?
 
 ---
 
@@ -95,9 +104,11 @@ No code change. No new provider onboarding. No RAG/embedding fix. No IM/notifica
 At contract altitude, for the eventual SEAL implementation PR:
 
 1. No explicit opt-in configured → a request that would otherwise route to `ClaudeProvider`/`OpenAIProvider`/`QwenProvider` → **fails closed** to `OfflineProvider`, not silently succeeds against a hosted endpoint.
-2. A hosted-provider call payload is inspected for raw image bytes / raw OCR text / file-path strings (not just decision-contract field names) → **rejected before the network call** if any are present.
-3. A response whose retrieval used the TF-IDF fallback and does **not** carry the disclosed-fallback marker → **flagged as a regression** against the #503 invariant.
-4. `anthropic`/`openai` uninstalled (the current, verified state) → provider selection resolves to `OfflineProvider` deterministically, not an unhandled exception surfaced to the caller.
+2. **(closes finding #11)** Force the opted-in-or-default primary provider to error → assert the resulting fallback attempt sequence contains **zero** hosted-provider calls when no hosted provider was part of the explicit opt-in — not merely that the *final* response came from a local provider (an implementation could satisfy that while still having attempted, and partially transmitted a prompt to, a hosted provider along the way; the discriminator must catch the attempt, not just the outcome).
+3. A hosted-provider call payload is validated against the field-level allowlist schema (§2.B) → **rejected before the network call** if it contains raw image bytes / raw OCR text / file-path strings, an un-redacted candidate/file identifier, or any field not on the explicit per-deployment allowlist.
+4. **(closes finding #12)** Inject a forced exception into each of `cost_tool`, `feature_tool`, `similarity_tool`, `classify_tool` in turn → assert the returned payload carries `status` ∈ `{failed, unavailable, degraded}` as a structured field (not only a log line or a free-text `note`), and that response-assembly code refuses to present that result as decision evidence (e.g. it cannot populate a `_decision_evidence_from_metadata`-style citation from a `status`-marked result).
+5. A response whose retrieval used the TF-IDF fallback and does **not** carry the disclosed-fallback marker → **flagged as a regression** against the #503 invariant (same structured-status requirement as #4, applied to the retrieval substrate).
+6. `anthropic`/`openai` uninstalled (the current, verified state) → provider selection resolves to `OfflineProvider` deterministically, not an unhandled exception surfaced to the caller.
 
 ---
 
