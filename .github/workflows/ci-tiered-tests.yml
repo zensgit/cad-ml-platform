@@ -127,7 +127,8 @@ jobs:
         run: |
           pytest -q \
             tests/unit/test_eval_integrity_gate.py \
-            tests/unit/test_auto_retrain_failclosed.py
+            tests/unit/test_auto_retrain_failclosed.py \
+            tests/unit/test_finetune_from_feedback_failclosed.py
 
       - name: L3 activation-surface enumerator — no new unclassified model-load site (fail-closed)
         run: |
