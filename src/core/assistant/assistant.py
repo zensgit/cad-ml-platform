@@ -17,6 +17,16 @@ from .query_analyzer import QueryAnalyzer, AnalyzedQuery, QueryIntent
 from .knowledge_retriever import KnowledgeRetriever, RetrievalResult
 from .context_assembler import ContextAssembler, AssembledContext
 from .explainability import AssistantEvidence, build_assistant_evidence
+from .egress_allowlist import EgressRejected, enforce_hosted_prompt_egress
+from .tool_status import is_citable_tool_result
+from .provider_seal import (
+    clear_provider_attempts,
+    get_provider_attempts,
+    is_hosted_provider_name,
+    record_provider_attempt,
+    resolve_provider_name,
+    sealed_fallback_chain,
+)
 from .llm_providers import (
     BaseLLMProvider,
     LLMConfig,
@@ -50,7 +60,7 @@ class AssistantConfig:
     """Configuration for CAD Assistant."""
 
     # LLM settings
-    llm_provider: LLMProvider = LLMProvider.CLAUDE
+    llm_provider: LLMProvider = LLMProvider.LOCAL  # SEAL: local/offline default; hosted requires opt-in
     model_name: str = "claude-3-sonnet-20240229"
     temperature: float = 0.3
     max_tokens: int = 2000
@@ -269,8 +279,22 @@ class CADAssistant:
             self._conversation_manager.add_assistant_message(conversation_id, answer)
 
         # 6. Build response
-        sources = [f"{r.source.value}: {r.summary}" for r in results]
-        evidence = build_assistant_evidence(results)
+        # §2.C live path: only citable retrieval rows become decision evidence.
+        citable_results = []
+        suppressed = 0
+        for r in results:
+            meta = getattr(r, "metadata", None) or {}
+            if isinstance(meta, dict) and not is_citable_tool_result(meta):
+                suppressed += 1
+                continue
+            citable_results.append(r)
+        sources = [f"{r.source.value}: {r.summary}" for r in citable_results]
+        evidence = build_assistant_evidence(citable_results)
+        if suppressed:
+            answer = (
+                f"{answer}\n\n[披露] {suppressed} 条检索结果因 status 非 ok "
+                f"不可作为决策证据，已从 evidence 中排除。"
+            )
 
         return AssistantResponse(
             answer=answer,
@@ -284,6 +308,7 @@ class CADAssistant:
                 "entities": analyzed.entities,
                 "retrieval_count": len(results),
                 "evidence_count": len(evidence),
+                "suppressed_non_citable": suppressed,
             },
         )
 
@@ -462,6 +487,11 @@ class CADAssistant:
         if self._llm_provider is not None and self._llm_provider.is_available():
             start = time.monotonic()
             try:
+                # Live-path §2.B: hosted providers validate prompts before generate().
+                # Local/offline providers skip the hosted allowlist (no third-party egress).
+                provider_key = type(self._llm_provider).__name__.lower()
+                if any(h in provider_key for h in ("claude", "openai", "qwen", "gpt")):
+                    enforce_hosted_prompt_egress(system_prompt, user_prompt)
                 result = self._llm_provider.generate(system_prompt, user_prompt)
                 latency_ms = (time.monotonic() - start) * 1000
                 provider_name = type(self._llm_provider).__name__
@@ -475,6 +505,19 @@ class CADAssistant:
                 if self.config.verbose:
                     print(f"[LLM] {provider_name} responded in {latency_ms:.1f}ms")
                 return result
+            except EgressRejected as e:
+                latency_ms = (time.monotonic() - start) * 1000
+                provider_name = type(self._llm_provider).__name__
+                logger.warning(
+                    "llm.generate.egress_rejected",
+                    extra={
+                        "provider": provider_name,
+                        "latency_ms": f"{latency_ms:.1f}",
+                        "reason": e.reason,
+                    },
+                )
+                # Fail closed to offline/local — never retry the same unsafe payload on hosted.
+                return self._default_llm_callback(system_prompt, user_prompt)
             except Exception as e:
                 latency_ms = (time.monotonic() - start) * 1000
                 provider_name = type(self._llm_provider).__name__
@@ -496,8 +539,11 @@ class CADAssistant:
         return self._default_llm_callback(system_prompt, user_prompt)
 
     def _fallback_generate(self, system_prompt: str, user_prompt: str) -> str:
-        """Try fallback providers in priority order."""
-        fallback_chain = ["claude", "openai", "qwen", "vllm", "ollama"]
+        """Try fallback providers under the SEAL chain (no hosted cascade)."""
+        # SEAL §2.A: never attempt hosted providers on fallback unless they were
+        # the opted-in primary (already failed — skip by class name). Chain is
+        # local-only candidates; get_provider rewrites non-local endpoints.
+        fallback_chain = sealed_fallback_chain()
         current_name = type(self._llm_provider).__name__ if self._llm_provider else ""
 
         llm_config = LLMConfig(
@@ -508,6 +554,9 @@ class CADAssistant:
         )
 
         for provider_name in fallback_chain:
+            # Skip if seal would map this to a hosted name (defensive).
+            if is_hosted_provider_name(provider_name):
+                continue
             provider = get_provider(provider_name, llm_config)
             # Skip the provider that already failed
             if type(provider).__name__ == current_name:

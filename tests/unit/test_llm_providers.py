@@ -248,14 +248,21 @@ class TestOllamaProvider:
 class TestGetProvider:
 
     def test_get_claude_provider(self):
-        with patch("src.core.assistant.llm_providers.ClaudeProvider._init_client"):
-            provider = get_provider("claude")
-            assert isinstance(provider, ClaudeProvider)
+        # SEAL default: no hosted opt-in → OfflineProvider (not Claude).
+        provider = get_provider("claude")
+        assert isinstance(provider, OfflineProvider)
+        with patch.dict(os.environ, {"ASSISTANT_HOSTED_PROVIDER_OPT_IN": "1"}):
+            with patch("src.core.assistant.llm_providers.ClaudeProvider._init_client"):
+                provider = get_provider("claude")
+                assert isinstance(provider, ClaudeProvider)
 
     def test_get_openai_provider(self):
-        with patch("src.core.assistant.llm_providers.OpenAIProvider._init_client"):
-            provider = get_provider("openai")
-            assert isinstance(provider, OpenAIProvider)
+        provider = get_provider("openai")
+        assert isinstance(provider, OfflineProvider)
+        with patch.dict(os.environ, {"ASSISTANT_HOSTED_PROVIDER_OPT_IN": "1"}):
+            with patch("src.core.assistant.llm_providers.OpenAIProvider._init_client"):
+                provider = get_provider("openai")
+                assert isinstance(provider, OpenAIProvider)
 
     def test_get_offline_provider(self):
         provider = get_provider("offline")
@@ -266,13 +273,16 @@ class TestGetProvider:
         assert isinstance(provider, OfflineProvider)
 
     def test_aliases(self):
-        with patch("src.core.assistant.llm_providers.ClaudeProvider._init_client"):
-            p = get_provider("anthropic")
-            assert isinstance(p, ClaudeProvider)
-
-        with patch("src.core.assistant.llm_providers.OpenAIProvider._init_client"):
-            p = get_provider("gpt")
-            assert isinstance(p, OpenAIProvider)
+        # Without opt-in, hosted aliases seal to Offline.
+        assert isinstance(get_provider("anthropic"), OfflineProvider)
+        assert isinstance(get_provider("gpt"), OfflineProvider)
+        with patch.dict(os.environ, {"ASSISTANT_HOSTED_PROVIDER_OPT_IN": "1"}):
+            with patch("src.core.assistant.llm_providers.ClaudeProvider._init_client"):
+                p = get_provider("anthropic")
+                assert isinstance(p, ClaudeProvider)
+            with patch("src.core.assistant.llm_providers.OpenAIProvider._init_client"):
+                p = get_provider("gpt")
+                assert isinstance(p, OpenAIProvider)
 
         p = get_provider("local")
         assert isinstance(p, OllamaProvider)

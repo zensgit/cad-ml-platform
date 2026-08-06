@@ -6,6 +6,11 @@ import logging
 from typing import Any, Dict
 
 from .base import BaseTool
+from src.core.assistant.tool_status import (
+    STATUS_FAILED,
+    STATUS_UNAVAILABLE,
+    failure_result,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -72,23 +77,9 @@ class CostTool(BaseTool):
                 "process_route": response.process_route,
             }
         except Exception as exc:
-            logger.warning("estimate_cost fallback for %s: %s", file_id, exc)
-            # Deterministic mock for testing / offline
-            base = {"steel": 45.0, "aluminum": 38.0, "stainless_steel": 62.0}.get(material, 50.0)
-            tol_factor = {"IT6": 1.5, "IT7": 1.3, "IT8": 1.0, "IT9": 0.9, "IT10": 0.8}.get(tolerance_grade, 1.0)
-            material_cost = round(base * tol_factor, 2)
-            machining_cost = round(material_cost * 1.8, 2)
-            setup_cost = round(200.0 / max(batch_size, 1), 2)
-            overhead = round((material_cost + machining_cost) * 0.15, 2)
-            total = round(material_cost + machining_cost + setup_cost + overhead, 2)
-            return {
-                "material_cost": material_cost,
-                "machining_cost": machining_cost,
-                "setup_cost": setup_cost,
-                "overhead": overhead,
-                "total": total,
-                "currency": "CNY",
-                "confidence": 0.5,
-                "process_route": ["blanking", "machining", "inspection"],
-                "note": f"成本估算服务暂不可用，返回估算值。原因: {exc}",
-            }
+            logger.warning("estimate_cost fallback for %s: %s", file_id, type(exc).__name__)
+            return failure_result(
+                STATUS_UNAVAILABLE,
+                "cost_service_unavailable",
+                currency="CNY",
+            )
