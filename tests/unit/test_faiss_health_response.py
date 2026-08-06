@@ -17,7 +17,7 @@ except Exception:  # pragma: no cover
 def test_faiss_health_response_keys():
     from src.main import app
 
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     resp = client.get("/api/v1/health/faiss/health", headers={"X-API-Key": "test"})
     assert resp.status_code in (200, 401, 403)
     if resp.status_code == 200:

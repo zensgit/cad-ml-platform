@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from src.core.similarity import _VECTOR_STORE, register_vector  # type: ignore
 from src.main import app
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def test_vector_migrate_dry_run():

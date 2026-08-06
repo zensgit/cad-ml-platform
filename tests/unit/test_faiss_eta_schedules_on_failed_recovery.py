@@ -21,7 +21,7 @@ from src.main import app
 
 @pytest.fixture(scope="module")
 def client():
-    return TestClient(app)
+    return TestClient(app, headers={"X-API-Key": "test"})
 
 
 def test_eta_scheduled_on_failed_recovery(client: TestClient):

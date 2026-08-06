@@ -9,7 +9,7 @@ from src.core.analyzer import CADAnalyzer
 from src.core.knowledge.fusion import FusionClassifier
 
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def test_analyze_dxf_hybrid_auto_override_applies_for_placeholder_rules():

@@ -30,7 +30,7 @@ async def test_history_endpoint_returns_recent_frames():
         )
     await asyncio.wait_for(ingestor.queue.join(), timeout=1)
 
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     resp = client.get(
         "/api/v1/twin/history",
         params={"device_id": "asset-1", "limit": 2},

@@ -35,7 +35,7 @@ def test_model_reload_route_sealed_403_and_never_loads(monkeypatch) -> None:
     from fastapi.testclient import TestClient
     from src.main import app
 
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     resp = client.post(
         "/api/v1/model/reload",
         headers={"X-API-Key": "test", "X-Admin-Token": "test"},
@@ -56,7 +56,7 @@ def test_model_reload_seal_has_no_payload_bypass(monkeypatch) -> None:
     from fastapi.testclient import TestClient
     from src.main import app
 
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     for payload in ({"path": None}, {"path": "", "force": True}, {"path": "/etc/shadow"}):
         r = client.post("/api/v1/model/reload",
                         headers={"X-API-Key": "test", "X-Admin-Token": "test"}, json=payload)

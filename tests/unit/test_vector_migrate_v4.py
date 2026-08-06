@@ -6,7 +6,7 @@ from src.core.feature_extractor import SLOTS_V1, SLOTS_V2, SLOTS_V3, SLOTS_V4
 from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
 from src.main import app
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def _register_vec(vid: str, version: str):

@@ -7,7 +7,7 @@ from src.main import app
 
 
 def test_feature_cache_sliding_window_metrics(monkeypatch, require_metrics_enabled):
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     content = b"0\nSECTION\n2\nENTITIES\n0\nENDSEC\n0\nEOF\n"
     files = {"file": ("sw.dxf", content, "application/octet-stream")}
     # First miss (cache empty)

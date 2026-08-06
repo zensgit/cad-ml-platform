@@ -6,7 +6,7 @@ from src.main import app
 
 
 def test_faiss_health_has_next_eta_and_manual_flag():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     # Call health; fields should exist even if None
     resp = client.get("/api/v1/health/faiss/health", headers={"X-API-Key": "test"})
     assert resp.status_code == 200
@@ -16,7 +16,7 @@ def test_faiss_health_has_next_eta_and_manual_flag():
 
 
 def test_manual_recover_toggles_flag_and_health_reports():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     # Trigger manual recover; status may be success or skipped depending on backend
     r = client.post("/api/v1/faiss/recover", headers={"X-API-Key": "test"})
     assert r.status_code == 200

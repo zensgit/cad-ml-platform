@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 def test_cache_controls_apply_rollback_prewarm_smoke():
     from src.main import app
 
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     headers = {"X-API-Key": "test"}
     # Apply
     resp_apply = client.post(

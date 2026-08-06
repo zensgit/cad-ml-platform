@@ -33,8 +33,8 @@ class _DemoProvider(BaseProvider[_DemoConfig, dict]):
 
 def test_provider_health_emits_core_provider_metrics(require_metrics_enabled, metrics_text):
     """Provider health endpoint should emit per-provider counter + histogram."""
-    client = TestClient(app)
-    headers = {"X-API-Key": os.getenv("API_KEY", "test-key")}
+    client = TestClient(app, headers={"X-API-Key": "test"})
+    headers = {"X-API-Key": os.getenv("API_KEY", "test")}
 
     domain = "metrics_domain"
     provider_name = "metrics_provider"

@@ -4,7 +4,7 @@ from src.main import app
 
 
 def test_faiss_health_endpoint_basic(monkeypatch):
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     # Monkeypatch API key dependency if required
     # Assuming get_api_key validates header 'X-API-Key'
     resp = client.get("/api/v1/faiss/health", headers={"X-API-Key": "test"})

@@ -4,7 +4,7 @@ from src.api.v1.tolerance import _normalize_fit_code
 from src.main import app
 
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def test_normalize_fit_code_basic_case():

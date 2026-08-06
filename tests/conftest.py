@@ -293,7 +293,7 @@ def metrics_text() -> Callable[[Optional["TestClient"]], Optional[str]]:
             from fastapi.testclient import TestClient
             from src.main import app
 
-            client = TestClient(app)
+            client = TestClient(app, headers={"X-API-Key": "test"})
 
         response = client.get("/metrics")
         if response.status_code != 200:

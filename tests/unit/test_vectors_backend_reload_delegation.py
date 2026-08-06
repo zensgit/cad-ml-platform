@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from src.main import app
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def test_vectors_backend_reload_delegates_to_shared_pipeline():

@@ -6,7 +6,7 @@ from src.core import similarity
 from src.core.similarity import FaissVectorStore
 from src.main import app
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def test_faiss_backend_unavailable_graceful():

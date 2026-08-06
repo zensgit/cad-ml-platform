@@ -15,7 +15,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("ACTIVE_LEARNING_DATA_DIR", str(tmp_path / "active_learning"))
     monkeypatch.setenv("ACTIVE_LEARNING_RETRAIN_THRESHOLD", "1")
     reset_active_learner()
-    yield TestClient(app)
+    yield TestClient(app, headers={"X-API-Key": "test"})
     reset_active_learner()
 
 

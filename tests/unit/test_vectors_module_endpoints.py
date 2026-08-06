@@ -34,7 +34,7 @@ class DummyRedis:
 
 
 def test_vectors_list_endpoint():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     r = client.get("/api/v1/vectors", headers={"X-API-Key": "test"})
     assert r.status_code == 200
     data = r.json()
@@ -42,7 +42,7 @@ def test_vectors_list_endpoint():
 
 
 def test_vectors_update_not_found():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     r = client.post(
         "/api/v1/vectors/update",
         json={"id": "nope", "replace": [1.0, 2.0]},
@@ -54,7 +54,7 @@ def test_vectors_update_not_found():
 
 
 def test_vectors_migrate_dry_run():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     r = client.post(
         "/api/v1/vectors/migrate",
         json={"ids": ["none"], "to_version": "v2", "dry_run": True},
@@ -66,7 +66,7 @@ def test_vectors_migrate_dry_run():
 
 
 def test_vectors_list_invalid_source():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     r = client.get("/api/v1/vectors?source=invalid", headers={"X-API-Key": "test"})
     assert r.status_code == 400
     data = r.json()
@@ -74,7 +74,7 @@ def test_vectors_list_invalid_source():
 
 
 def test_vectors_list_pagination_memory():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     vector_store = {"vec1": [1.0], "vec2": [2.0], "vec3": [3.0]}
     vector_meta = {
         "vec1": {"material": "steel", "complexity": "low", "format": "dxf"},
@@ -109,7 +109,7 @@ def test_vectors_list_pagination_memory():
 
 
 def test_vectors_list_supports_coarse_contract_filters_memory():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     vector_store = {"vec1": [1.0], "vec2": [2.0], "vec3": [3.0]}
     vector_meta = {
         "vec1": {
@@ -153,7 +153,7 @@ def test_vectors_list_supports_coarse_contract_filters_memory():
 
 
 def test_vectors_list_redis_source():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     redis_data = {
         b"vector:vec1": {
             b"v": "1,2,3",
@@ -194,7 +194,7 @@ def test_vectors_list_redis_source():
 
 
 def test_vectors_list_redis_supports_coarse_contract_filters():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     redis_data = {
         b"vector:vec1": {
             b"v": "1,2,3",
@@ -247,7 +247,7 @@ def test_vectors_list_redis_supports_coarse_contract_filters():
 
 
 def test_vectors_register_and_search():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     payload = {
         "id": "vec1",
         "vector": [0.1] * 7,
@@ -287,7 +287,7 @@ def test_vectors_register_and_search():
 
 
 def test_vectors_search_with_filters():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     client.post(
         "/api/v1/vectors/register",
         json={
@@ -323,7 +323,7 @@ def test_vectors_search_with_filters():
 
 
 def test_vectors_search_with_coarse_contract_filters():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     client.post(
         "/api/v1/vectors/register",
         json={
@@ -378,7 +378,7 @@ def test_vectors_search_with_coarse_contract_filters():
 
 
 def test_vectors_list_qdrant_source_supports_coarse_contract_filters():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
 
     class DummyQdrantStore:
         async def list_vectors(self, offset, limit, filter_conditions=None, with_vectors=False):
@@ -428,7 +428,7 @@ def test_vectors_list_qdrant_source_supports_coarse_contract_filters():
 
 
 def test_vectors_search_uses_qdrant_native_filters_when_enabled():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
 
     class DummyQdrantStore:
         async def search_similar(self, query_vector, top_k=10, filter_conditions=None, **kwargs):
@@ -479,7 +479,7 @@ def test_vectors_search_uses_qdrant_native_filters_when_enabled():
 
 
 def test_vectors_register_uses_qdrant_when_enabled():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
 
     class DummyQdrantStore:
         def __init__(self) -> None:
@@ -508,7 +508,7 @@ def test_vectors_register_uses_qdrant_when_enabled():
 
 
 def test_vectors_delete_uses_qdrant_when_enabled():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
 
     class DummyQdrantStore:
         async def get_vector(self, vector_id):
@@ -531,7 +531,7 @@ def test_vectors_delete_uses_qdrant_when_enabled():
 
 
 def test_vectors_delete_qdrant_failure_returns_internal_error():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
 
     class DummyQdrantStore:
         async def get_vector(self, vector_id):
@@ -557,7 +557,7 @@ def test_vectors_delete_qdrant_failure_returns_internal_error():
 
 
 def test_vectors_update_uses_qdrant_when_enabled():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
 
     class DummyQdrantStore:
         def __init__(self) -> None:

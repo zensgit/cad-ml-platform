@@ -6,7 +6,7 @@ from src.main import app
 
 
 def test_parallel_savings_metric_observed(monkeypatch, require_metrics_enabled):
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     # Craft minimal DXF-like content (adapter should handle or skip gracefully)
     content = b"0\nSECTION\n2\nENTITIES\n0\nENDSEC\n0\nEOF\n"
     files = {"file": ("test.dxf", content, "application/octet-stream")}

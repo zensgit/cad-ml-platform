@@ -21,7 +21,7 @@ _original_getenv = os.getenv
 @pytest.fixture
 def client():
     """Create a fresh test client for each test."""
-    with TestClient(app) as c:
+    with TestClient(app, headers={"X-API-Key": "test"}) as c:
         yield c
 
 
@@ -46,13 +46,8 @@ def make_getenv_side_effect(backend_value: str):
 def test_backend_reload_invalid_backend(client):
     """Test reload with invalid backend environment variable."""
     with patch("os.getenv") as mock_getenv:
-        # Simulate invalid backend name
-        def getenv_side_effect(key, default=None):
-            if key == "VECTOR_STORE_BACKEND":
-                return "invalid_backend"
-            return default
-
-        mock_getenv.side_effect = getenv_side_effect
+        # Pass through real env for API_KEY / posture; only override backend name.
+        mock_getenv.side_effect = make_getenv_side_effect("invalid_backend")
 
         with patch("src.core.similarity.reload_vector_store_backend") as mock_reload:
             # Reload fails due to invalid backend
@@ -76,20 +71,12 @@ def test_backend_reload_invalid_backend(client):
             assert "message" in detail
 
 
-def test_backend_reload_missing_api_key(client):
-    """Test reload endpoint with missing API key.
-
-    Note: In test environment, the dependency has a default value,
-    so this test verifies the endpoint is callable but doesn't fail on missing key.
-    In production, the dependency would enforce the requirement.
-    """
-    response = client.post(
-        "/api/v1/maintenance/vectors/backend/reload"
-        # No X-API-Key header - but test env has default
-    )
-
-    # In test env with default API key, should succeed or fail on other grounds
-    assert response.status_code in (200, 401, 403, 500)
+def test_backend_reload_missing_api_key():
+    """Missing X-API-Key must 401 via the real Header resolution path (#517)."""
+    # Bare client — no default auth headers — so Header(default=None) is exercised.
+    bare = TestClient(app)
+    response = bare.post("/api/v1/maintenance/vectors/backend/reload")
+    assert response.status_code == 401
 
 
 def test_backend_reload_initialization_failure(client):
@@ -126,13 +113,8 @@ def test_backend_reload_success(client):
         with patch("os.getenv") as mock_getenv:
             # Simulate successful reload
             mock_reload.return_value = True
-
-            def getenv_side_effect(key, default=None):
-                if key == "VECTOR_STORE_BACKEND":
-                    return "memory"
-                return default
-
-            mock_getenv.side_effect = getenv_side_effect
+            # Pass through real env for API_KEY / posture; only override backend.
+            mock_getenv.side_effect = make_getenv_side_effect("memory")
 
             response = client.post(
                 "/api/v1/maintenance/vectors/backend/reload", headers={"X-API-Key": "test"}
@@ -196,13 +178,7 @@ def test_backend_reload_returns_current_backend(client):
 
         for backend_name in backends:
             with patch("os.getenv") as mock_getenv:
-
-                def getenv_side_effect(key, default=None):
-                    if key == "VECTOR_STORE_BACKEND":
-                        return backend_name
-                    return default
-
-                mock_getenv.side_effect = getenv_side_effect
+                mock_getenv.side_effect = make_getenv_side_effect(backend_name)
 
                 response = client.post(
                     "/api/v1/maintenance/vectors/backend/reload", headers={"X-API-Key": "test"}

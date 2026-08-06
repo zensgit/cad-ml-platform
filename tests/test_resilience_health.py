@@ -6,7 +6,7 @@ from src.main import app
 
 
 def test_health_includes_resilience_block():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     resp = client.get("/health")
     assert resp.status_code == 200
     data = resp.json()
@@ -16,7 +16,7 @@ def test_health_includes_resilience_block():
 
 
 def test_adaptive_limiter_registers_on_call():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     # Trigger vision analyze to register limiter via decorator
     payload = {"image_base64": "aGVsbG8=", "include_description": False}
     resp = client.post("/api/v1/vision/analyze", json=payload)

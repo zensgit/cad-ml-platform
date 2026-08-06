@@ -7,7 +7,7 @@ from src.main import app
 
 
 def test_admin_token_rotation(monkeypatch):
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
 
     monkeypatch.setenv("ADMIN_TOKEN", "old-token")
     ok_resp = client.get(

@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 
 from src.main import app
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def test_vector_migration_plan_memory_returns_ranked_batches():

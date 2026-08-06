@@ -53,6 +53,43 @@ def test_api_key_missing_401(monkeypatch) -> None:
     assert e.value.status_code == 401
 
 
+def test_api_key_missing_header_401_via_http_path(monkeypatch) -> None:
+    """Golden: zero X-API-Key through real FastAPI Header() resolution (TestClient).
+
+    Must NOT call get_api_key() as a bare coroutine — that bypasses Header(default=...)
+    and cannot catch a regression reintroducing Header(default=\"test\").
+    """
+    from fastapi.testclient import TestClient
+
+    from src.main import app
+
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.setenv("API_KEY", "test")
+    # Client with NO default auth headers — forces the real missing-header path.
+    client = TestClient(app)
+    # Pick a non-public route that requires get_api_key.
+    resp = client.get("/api/v1/tolerance/it", params={"diameter_mm": 25, "grade": "IT7"})
+    assert resp.status_code == 401
+    assert "API Key" in resp.json().get("detail", "")
+
+
+def test_api_key_wrong_header_401_via_http_path(monkeypatch) -> None:
+    """Golden: attacker-chosen key through real HTTP path → 401."""
+    from fastapi.testclient import TestClient
+
+    from src.main import app
+
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.setenv("API_KEY", "test")
+    client = TestClient(app)
+    resp = client.get(
+        "/api/v1/tolerance/it",
+        params={"diameter_mm": 25, "grade": "IT7"},
+        headers={"X-API-Key": "attacker-key"},
+    )
+    assert resp.status_code == 401
+
+
 def test_api_key_attacker_chosen_401_in_production(monkeypatch) -> None:
     from src.api.dependencies import get_api_key
 

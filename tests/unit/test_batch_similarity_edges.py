@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
 from src.main import app
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def _add_vec(vid: str, dim: int = 7):

@@ -9,7 +9,7 @@ from src.main import app
 def test_faiss_rebuild_backoff_metric(monkeypatch, require_metrics_enabled):
     # Ensure backend env forces faiss logic path (even if faiss lib absent, should degrade gracefully)
     os.environ["VECTOR_STORE_BACKEND"] = "faiss"
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     # Attempt to delete enough vectors to trigger rebuild logic (pending delete threshold)
     # We simulate by directly invoking similarity store mark_delete via endpoint registration of fake vectors
     # First register a few vectors through analysis (simplified DXF content)

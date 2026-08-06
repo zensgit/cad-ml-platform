@@ -25,8 +25,8 @@ class DemoProvider(BaseProvider[DemoConfig, dict]):
 
 
 def test_provider_health_endpoint_returns_sorted_results():
-    client = TestClient(app)
-    headers = {"X-API-Key": "test-key"}
+    client = TestClient(app, headers={"X-API-Key": "test"})
+    headers = {"X-API-Key": "test"}
 
     def _list_domains():
         return ["vision", "classifier"]
@@ -96,8 +96,8 @@ def test_provider_health_endpoint_returns_sorted_results():
 
 
 def test_provider_health_endpoint_sanitizes_plugin_errors():
-    client = TestClient(app)
-    headers = {"X-API-Key": "test-key"}
+    client = TestClient(app, headers={"X-API-Key": "test"})
+    headers = {"X-API-Key": "test"}
 
     long_error = "boom\nSECRET=abc\n" + ("x" * 1000)
     with patch("src.core.providers.bootstrap_core_provider_registry", return_value={}):
@@ -140,8 +140,8 @@ def test_provider_health_endpoint_sanitizes_plugin_errors():
 
 
 def test_provider_health_endpoint_sanitizes_provider_last_error_and_error_field():
-    client = TestClient(app)
-    headers = {"X-API-Key": "test-key"}
+    client = TestClient(app, headers={"X-API-Key": "test"})
+    headers = {"X-API-Key": "test"}
 
     long_error = "boom\nSECRET=abc\n" + ("x" * 1000)
 
@@ -210,8 +210,8 @@ def test_provider_health_endpoint_sanitizes_provider_last_error_and_error_field(
 
 
 def test_provider_registry_endpoint_sanitizes_plugin_errors():
-    client = TestClient(app)
-    headers = {"X-API-Key": "test-key"}
+    client = TestClient(app, headers={"X-API-Key": "test"})
+    headers = {"X-API-Key": "test"}
 
     long_error = "boom\nSECRET=abc\n" + ("x" * 2000)
     snapshot = {
@@ -267,8 +267,8 @@ def test_provider_registry_endpoint_sanitizes_plugin_errors():
 
 def test_provider_health_endpoint_supports_legacy_health_check_signature():
     """Legacy providers without timeout keyword should still be supported."""
-    client = TestClient(app)
-    headers = {"X-API-Key": "test-key"}
+    client = TestClient(app, headers={"X-API-Key": "test"})
+    headers = {"X-API-Key": "test"}
 
     class LegacyProvider:
         name = "legacy_provider"

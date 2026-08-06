@@ -173,7 +173,7 @@ class TestAssistantAPI:
         app = FastAPI()
         app.include_router(router, prefix="/assistant")
         try:
-            return TestClient(app)
+            return TestClient(app, headers={"X-API-Key": "test"})
         except TypeError as exc:
             pytest.skip(f"TestClient unavailable in this environment: {exc}")
 

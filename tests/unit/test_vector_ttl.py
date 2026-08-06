@@ -9,7 +9,7 @@ from src.core import similarity
 from src.core.similarity import InMemoryVectorStore, register_vector
 from src.main import app
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def test_vector_ttl_pruning():

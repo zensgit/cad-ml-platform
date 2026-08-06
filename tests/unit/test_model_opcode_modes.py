@@ -13,7 +13,7 @@ from src.utils.analysis_metrics import (
     model_opcode_scans_total,
 )
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def setup_module(module):

@@ -19,7 +19,7 @@ def render_client(monkeypatch):
     reload(render)
     app = FastAPI()
     app.include_router(render.router, prefix="/api/v1/render")
-    return TestClient(app)
+    return TestClient(app, headers={"X-API-Key": "test"})
 
 
 def test_render_cad_preview_empty_file_returns_400(render_client):
