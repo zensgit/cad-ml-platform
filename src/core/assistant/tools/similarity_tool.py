@@ -6,6 +6,11 @@ import logging
 from typing import Any, Dict
 
 from .base import BaseTool
+from src.core.assistant.tool_status import (
+    STATUS_FAILED,
+    STATUS_UNAVAILABLE,
+    failure_result,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -79,9 +84,10 @@ class SimilarityTool(BaseTool):
             return {"results": results[:top_k], "count": len(results)}
 
         except Exception as exc:
-            logger.warning("search_similar fallback for %s: %s", file_id, exc)
-            return {
-                "results": [],
-                "count": 0,
-                "note": f"相似性搜索服务暂不可用。原因: {exc}",
-            }
+            logger.warning("search_similar fallback for %s: %s", file_id, type(exc).__name__)
+            return failure_result(
+                STATUS_UNAVAILABLE,
+                "similarity_service_unavailable",
+                results=[],
+                count=0,
+            )

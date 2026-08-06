@@ -6,6 +6,11 @@ import logging
 from typing import Any, Dict, List
 
 from .base import BaseTool
+from src.core.assistant.tool_status import (
+    STATUS_FAILED,
+    STATUS_UNAVAILABLE,
+    failure_result,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,20 +46,9 @@ class QualityTool(BaseTool):
                 "suggestions": result.suggestions,
             }
         except Exception as exc:
-            logger.warning("assess_quality fallback for %s: %s", file_id, exc)
-            issues: List[str] = [
-                "无法连接图纸质量评估服务，以下为通用检查项",
-                "请确认标注完整性（尺寸标注、公差标注、表面粗糙度）",
-                "请确认图层规范性（0图层应为空）",
-            ]
-            suggestions: List[str] = [
-                "建议检查是否有缺失的关键尺寸标注",
-                "建议统一图层命名规范",
-                "建议添加标题栏和技术要求",
-            ]
-            return {
-                "overall_score": 0.0,
-                "issues": issues,
-                "suggestions": suggestions,
-                "note": f"质量评估服务暂不可用，返回通用建议。原因: {exc}",
-            }
+            logger.warning("tool fallback: %s", type(exc).__name__)
+            return failure_result(
+                STATUS_UNAVAILABLE,
+                "quality_service_unavailable",
+                file_id=file_id,
+            )

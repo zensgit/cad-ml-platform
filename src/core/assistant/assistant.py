@@ -17,6 +17,14 @@ from .query_analyzer import QueryAnalyzer, AnalyzedQuery, QueryIntent
 from .knowledge_retriever import KnowledgeRetriever, RetrievalResult
 from .context_assembler import ContextAssembler, AssembledContext
 from .explainability import AssistantEvidence, build_assistant_evidence
+from .provider_seal import (
+    clear_provider_attempts,
+    get_provider_attempts,
+    is_hosted_provider_name,
+    record_provider_attempt,
+    resolve_provider_name,
+    sealed_fallback_chain,
+)
 from .llm_providers import (
     BaseLLMProvider,
     LLMConfig,
@@ -50,7 +58,7 @@ class AssistantConfig:
     """Configuration for CAD Assistant."""
 
     # LLM settings
-    llm_provider: LLMProvider = LLMProvider.CLAUDE
+    llm_provider: LLMProvider = LLMProvider.LOCAL  # SEAL: local/offline default; hosted requires opt-in
     model_name: str = "claude-3-sonnet-20240229"
     temperature: float = 0.3
     max_tokens: int = 2000
@@ -496,8 +504,11 @@ class CADAssistant:
         return self._default_llm_callback(system_prompt, user_prompt)
 
     def _fallback_generate(self, system_prompt: str, user_prompt: str) -> str:
-        """Try fallback providers in priority order."""
-        fallback_chain = ["claude", "openai", "qwen", "vllm", "ollama"]
+        """Try fallback providers under the SEAL chain (no hosted cascade)."""
+        # SEAL §2.A: never attempt hosted providers on fallback unless they were
+        # the opted-in primary (already failed — skip by class name). Chain is
+        # local-only candidates; get_provider rewrites non-local endpoints.
+        fallback_chain = sealed_fallback_chain()
         current_name = type(self._llm_provider).__name__ if self._llm_provider else ""
 
         llm_config = LLMConfig(
@@ -508,6 +519,9 @@ class CADAssistant:
         )
 
         for provider_name in fallback_chain:
+            # Skip if seal would map this to a hosted name (defensive).
+            if is_hosted_provider_name(provider_name):
+                continue
             provider = get_provider(provider_name, llm_config)
             # Skip the provider that already failed
             if type(provider).__name__ == current_name:

@@ -6,6 +6,11 @@ import logging
 from typing import Any, Dict
 
 from .base import BaseTool
+from src.core.assistant.tool_status import (
+    STATUS_FAILED,
+    STATUS_UNAVAILABLE,
+    failure_result,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -76,11 +81,11 @@ class PointCloudTool(BaseTool):
                 return {"error": f"Unknown action: {action}"}
 
         except Exception as exc:
-            logger.warning("analyze_3d fallback: %s", exc)
-            return {
-                "action": action,
-                "file_id": file_id,
-                "status": "model_unavailable",
-                "supported_formats": [".stl", ".obj", ".ply", ".xyz"],
-                "note": str(exc),
-            }
+            logger.warning("analyze_3d fallback: %s", type(exc).__name__)
+            return failure_result(
+                STATUS_UNAVAILABLE,
+                "model_unavailable",
+                action=action,
+                file_id=file_id,
+                supported_formats=[".stl", ".obj", ".ply", ".xyz"],
+            )

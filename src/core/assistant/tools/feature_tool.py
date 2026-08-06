@@ -6,6 +6,11 @@ import logging
 from typing import Any, Dict
 
 from .base import BaseTool
+from src.core.assistant.tool_status import (
+    STATUS_FAILED,
+    STATUS_UNAVAILABLE,
+    failure_result,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -54,14 +59,9 @@ class FeatureTool(BaseTool):
                 },
             }
         except Exception as exc:
-            logger.warning("extract_features fallback for %s: %s", file_id, exc)
-            dim = {"v3": 17, "v4": 22}.get(version, 17)
-            return {
-                "dimension": dim,
-                "version": version,
-                "summary": {
-                    "entity_count": 0,
-                    "complexity": 0.0,
-                },
-                "note": f"特征提取服务暂不可用，返回默认维度。原因: {exc}",
-            }
+            logger.warning("extract_features fallback for %s: %s", file_id, type(exc).__name__)
+            return failure_result(
+                STATUS_UNAVAILABLE,
+                "feature_service_unavailable",
+                version=version,
+            )

@@ -108,35 +108,41 @@ class TestToolExecution:
 
     @pytest.mark.asyncio
     async def test_feature_tool_fallback(self):
+        # SEAL §2.C: exception/unavailable path returns canonical status, not fake dims.
         result = await FeatureTool().execute({"file_id": "test-001"})
-        assert "dimension" in result
-        assert "version" in result
-        assert result["version"] == "v3"
+        assert result.get("status") in {"failed", "unavailable", "degraded"}
+        assert "reason_code" in result
 
     @pytest.mark.asyncio
     async def test_feature_tool_v4(self):
         result = await FeatureTool().execute({"file_id": "test-001", "version": "v4"})
-        assert result["version"] == "v4"
+        # When the extractor is unavailable the seal still surfaces version on failure.
+        if result.get("status") in {"failed", "unavailable", "degraded"}:
+            assert result.get("version") == "v4" or "reason_code" in result
+        else:
+            assert result["version"] == "v4"
 
     @pytest.mark.asyncio
     async def test_process_tool_fallback(self):
         result = await ProcessTool().execute({"file_id": "test-001"})
-        assert "primary_process" in result
-        assert "alternatives" in result
-        assert isinstance(result["alternatives"], list)
+        assert result.get("status") in {"failed", "unavailable", "degraded"}
+        assert "reason_code" in result
 
     @pytest.mark.asyncio
     async def test_quality_tool_fallback(self):
         result = await QualityTool().execute({"file_id": "test-001"})
-        assert "overall_score" in result
-        assert "issues" in result
-        assert "suggestions" in result
+        assert result.get("status") in {"failed", "unavailable", "degraded"}
+        assert "reason_code" in result
 
     @pytest.mark.asyncio
     async def test_knowledge_tool_fallback(self):
         result = await KnowledgeTool().execute({"query": "304不锈钢强度"})
-        assert "results" in result
-        assert "count" in result
+        # May succeed from in-process fallback or fail closed with status.
+        if result.get("status") in {"failed", "unavailable", "degraded"}:
+            assert "reason_code" in result
+        else:
+            assert "results" in result
+            assert "count" in result
 
 
 # ---------------------------------------------------------------------------

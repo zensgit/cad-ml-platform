@@ -10,6 +10,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Tuple
+from .provider_seal import hosted_provider_opt_in, is_hosted_provider_name, resolve_provider_name
 
 
 class ModelProvider(Enum):
@@ -167,13 +168,28 @@ class ModelSelector:
 
     def select_with_fallback(self) -> List[ModelConfig]:
         """
-        Get ordered list of models with fallbacks.
+        Get ordered list of models with fallbacks (SEAL: drop non-opted hosted).
 
         Returns:
             List of models in order of preference
         """
         available = self._get_available_models()
-        return sorted(available, key=lambda m: m.priority)
+        name_map = {
+            ModelProvider.OPENAI: "openai",
+            ModelProvider.CLAUDE: "claude",
+            ModelProvider.QWEN: "qwen",
+            ModelProvider.OLLAMA: "ollama",
+            ModelProvider.OFFLINE: "offline",
+        }
+        sealed: List[ModelConfig] = []
+        for m in available:
+            req = name_map.get(m.provider, "offline")
+            if is_hosted_provider_name(req) and not hosted_provider_opt_in():
+                continue
+            if resolve_provider_name(req) == "offline" and is_hosted_provider_name(req):
+                continue
+            sealed.append(m)
+        return sorted(sealed, key=lambda m: m.priority)
 
     def _get_available_models(self) -> List[ModelConfig]:
         """Get list of available models."""
@@ -281,7 +297,7 @@ class MultiModelAssistant:
         self._providers.pop(provider, None)
 
     def _create_provider(self, config: ModelConfig) -> Optional[Any]:
-        """Create provider instance based on config."""
+        """Create provider instance based on config (SEAL-aware)."""
         # Lazy import to avoid circular dependencies
         try:
             from .llm_providers import (
@@ -291,26 +307,26 @@ class MultiModelAssistant:
                 OllamaProvider,
                 OfflineProvider,
                 LLMConfig,
+                get_provider,
             )
 
+            # Map enum to seal-safe name; hosted without opt-in becomes offline.
+            name_map = {
+                ModelProvider.OPENAI: "openai",
+                ModelProvider.CLAUDE: "claude",
+                ModelProvider.QWEN: "qwen",
+                ModelProvider.OLLAMA: "ollama",
+                ModelProvider.OFFLINE: "offline",
+            }
+            requested = name_map.get(config.provider, "offline")
+            sealed = resolve_provider_name(requested)
             llm_config = LLMConfig(
                 model=config.model_name,
                 api_key=config.api_key or "",
                 max_tokens=config.max_tokens,
                 temperature=config.temperature,
             )
-
-            providers = {
-                ModelProvider.OPENAI: OpenAIProvider,
-                ModelProvider.CLAUDE: ClaudeProvider,
-                ModelProvider.QWEN: QwenProvider,
-                ModelProvider.OLLAMA: OllamaProvider,
-                ModelProvider.OFFLINE: OfflineProvider,
-            }
-
-            provider_class = providers.get(config.provider)
-            if provider_class:
-                return provider_class(llm_config)
+            return get_provider(sealed, llm_config)
         except ImportError:
             pass
 

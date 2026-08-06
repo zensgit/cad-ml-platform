@@ -14,6 +14,9 @@ import os
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from .tools import TOOL_REGISTRY, BaseTool
+from .provider_seal import hosted_provider_opt_in, is_hosted_provider_name, resolve_provider_name
+from .tool_status import is_citable_tool_result
+from .egress_allowlist import EgressRejected, validate_hosted_payload
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +70,7 @@ def _get_system_prompt() -> str:
         "3. 综合多个工具的结果，给出完整、准确的回答。\n"
         "4. 回答时使用中文，保持简洁专业。技术术语保留英文原文。\n"
         "5. 成本数据单位为 CNY（人民币），精确到小数点后两位。\n"
-        "6. 如果工具返回结果中含有 note 字段，不需要向用户暴露内部错误细节。\n"
+        "6. 若工具结果的 status 为 failed/unavailable/degraded，必须向用户如实披露（或明确拒绝基于该结果作答），禁止隐藏或粉饰失败。\n"
     )
 
 
@@ -84,9 +87,18 @@ class FunctionCallingEngine:
 
     def __init__(
         self,
-        llm_provider: str = "claude",
+        llm_provider: str = "offline",  # SEAL: hosted requires ASSISTANT_HOSTED_PROVIDER_OPT_IN
         model: Optional[str] = None,
     ):
+        # SEAL: rewrite hosted/non-local requests to offline without opt-in.
+        sealed = resolve_provider_name(llm_provider)
+        if is_hosted_provider_name(llm_provider) and sealed == "offline":
+            logger.warning(
+                "hosted provider %s blocked by SEAL (no ASSISTANT_HOSTED_PROVIDER_OPT_IN) "
+                "-- using offline",
+                llm_provider,
+            )
+        llm_provider = sealed
         self._provider_name = llm_provider
         self._tools: Dict[str, BaseTool] = dict(TOOL_REGISTRY)
         self._system_prompt = _get_system_prompt()
@@ -361,15 +373,39 @@ class FunctionCallingEngine:
         return messages
 
     async def _execute_tool(self, name: str, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Look up and execute a tool by name."""
+        """Look up and execute a tool by name (SEAL: preserve non-ok status)."""
         tool = self._tools.get(name)
         if tool is None:
             logger.error("Unknown tool requested: %s", name)
-            return {"error": f"未知工具: {name}"}
+            return {
+                "status": "failed",
+                "reason_code": "unknown_tool",
+                "error": f"未知工具: {name}",
+                "citable": False,
+            }
 
         logger.info("Executing tool %s with params %s", name, params)
         try:
-            return await tool.execute(params)
+            result = await tool.execute(params)
         except Exception as exc:
             logger.exception("Tool %s raised an exception", name)
-            return {"error": f"工具执行失败: {exc}"}
+            return {
+                "status": "failed",
+                "reason_code": "tool_exception",
+                "error": f"工具执行失败: {type(exc).__name__}",
+                "citable": False,
+            }
+        if not isinstance(result, dict):
+            return {
+                "status": "failed",
+                "reason_code": "invalid_tool_result",
+                "citable": False,
+            }
+        # Mark non-citable when status is non-ok (honest degradation).
+        if not is_citable_tool_result(result):
+            result = dict(result)
+            result["citable"] = False
+        else:
+            result = dict(result)
+            result.setdefault("citable", True)
+        return result
