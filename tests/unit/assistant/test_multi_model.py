@@ -328,14 +328,12 @@ class TestModelSelector:
         assert selected.provider == ModelProvider.CLAUDE
 
     def test_select_with_fallback(self, selector):
-        """Test fallback list generation."""
+        """Test fallback list generation under SEAL (hosted dropped without opt-in)."""
         fallbacks = selector.select_with_fallback()
 
-        assert len(fallbacks) == 3
-        # Should be ordered by priority
-        assert fallbacks[0].provider == ModelProvider.OPENAI
-        assert fallbacks[1].provider == ModelProvider.CLAUDE
-        assert fallbacks[2].provider == ModelProvider.OFFLINE
+        # Without ASSISTANT_HOSTED_PROVIDER_OPT_IN, openai/claude are filtered out.
+        assert len(fallbacks) == 1
+        assert fallbacks[0].provider == ModelProvider.OFFLINE
 
     def test_get_all_health(self, selector):
         """Test getting all health statuses."""
@@ -485,11 +483,13 @@ class TestMultiModelAssistant:
         assert health.latency_ms > 0
 
     @pytest.mark.asyncio
-    async def test_ask_updates_health_on_failure(self, assistant):
-        """Test health is updated on failed call."""
+    async def test_ask_updates_health_on_failure(self, assistant, monkeypatch):
+        """Test health is updated on failed call (opt-in so hosted is selectable)."""
+        monkeypatch.setenv("ASSISTANT_HOSTED_PROVIDER_OPT_IN", "1")
         assistant.selector.register_model(ModelConfig(
             provider=ModelProvider.OPENAI,
             model_name="gpt-4",
+            priority=1,
         ))
         assistant.selector.register_model(ModelConfig(
             provider=ModelProvider.OFFLINE,

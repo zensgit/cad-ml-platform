@@ -441,3 +441,92 @@ def test_cad_assistant_suppresses_non_citable_retrieval_evidence() -> None:
     assert resp.metadata.get("suppressed_non_citable") == 1
     assert len(resp.evidence) == 1
     assert "不可作为决策证据" in resp.answer
+
+
+@pytest.mark.asyncio
+async def test_function_calling_openai_loop_reads_citable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """P2 regression: citable filter must run inside the real OpenAI tool loop.
+
+    Mutation target: remove enforce_tool_result_for_hosted / safe rewrite in
+    _chat_openai — this test must go RED.
+    """
+    from src.core.assistant.function_calling import FunctionCallingEngine
+
+    eng = FunctionCallingEngine(llm_provider="offline")
+    # Force openai path with a fake client + opt-in so name is openai
+    eng._provider_name = "openai"
+    eng._model = "gpt-test"
+
+    non_citable = {
+        "status": "unavailable",
+        "reason_code": "cost_service_unavailable",
+        "total": 12345.0,
+        "citable": False,
+    }
+
+    async def fake_execute(name, params):
+        return dict(non_citable)
+
+    eng._execute_tool = fake_execute  # type: ignore[method-assign]
+
+    tool_payloads = []
+
+    class _Fn:
+        def __init__(self):
+            self.name = "estimate_cost"
+            self.arguments = "{}"
+
+    class _TC:
+        def __init__(self):
+            self.id = "call_1"
+            self.function = _Fn()
+
+    class _Msg:
+        def __init__(self, tool_calls=None, content=None):
+            self.tool_calls = tool_calls
+            self.content = content
+
+    class _Choice:
+        def __init__(self, finish, msg):
+            self.finish_reason = finish
+            self.message = msg
+
+    class _Resp:
+        def __init__(self, choice):
+            self.choices = [choice]
+
+    calls = {"n": 0}
+
+    def fake_create(**kwargs):
+        calls["n"] += 1
+        # Capture tool messages fed back into the model
+        for m in kwargs.get("messages", []):
+            if isinstance(m, dict) and m.get("role") == "tool":
+                tool_payloads.append(m.get("content"))
+        if calls["n"] == 1:
+            return _Resp(_Choice("tool_calls", _Msg(tool_calls=[_TC()])))
+        return _Resp(_Choice("stop", _Msg(content="final")))
+
+    eng._openai_client = MagicMock()
+    eng._openai_client.chat.completions.create.side_effect = fake_create
+    eng._build_tool_definitions_openai = lambda: []  # type: ignore[method-assign]
+
+    # Bypass hosted prompt gate for this assembly-only test
+    monkeypatch.setattr(
+        "src.core.assistant.function_calling.enforce_hosted_prompt_egress",
+        lambda *a, **k: None,
+    )
+    monkeypatch.setenv(ENV_HOSTED_OPT_IN, "1")
+
+    chunks = []
+    async for c in eng._chat_openai("need cost", None, None):
+        chunks.append(c)
+    assert "".join(chunks) == "final"
+    assert tool_payloads, "tool result must be fed back into OpenAI messages"
+    import json
+    body = json.loads(tool_payloads[0])
+    assert body.get("citable") is False
+    assert "total" not in body  # fabricated business field stripped
+    assert body.get("status") in CANONICAL_NON_OK
