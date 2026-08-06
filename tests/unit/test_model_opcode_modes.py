@@ -17,13 +17,16 @@ client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def setup_module(module):
+    # Align with harness (conftest pins API_KEY/ADMIN_TOKEN=test).
+    os.environ["API_KEY"] = "test"
     os.environ["X_API_KEY"] = "test"
-    os.environ["ADMIN_TOKEN"] = "secret"
+    os.environ["ADMIN_TOKEN"] = "test"
 
 
 def teardown_module(module):
     """Cleanup environment variables set by setup_module."""
     os.environ.pop("X_API_KEY", None)
+    os.environ.pop("API_KEY", None)
     os.environ.pop("ADMIN_TOKEN", None)
     os.environ.pop("MODEL_OPCODE_MODE", None)
     os.environ.pop("MODEL_OPCODE_SCAN", None)
@@ -89,8 +92,9 @@ def test_opcode_audit_counts_increment(tmp_path):
     # Query audit endpoint
     audit_resp = client.get(
         "/api/v1/model/opcode-audit",
-        headers={"X-API-Key": "test", "X-Admin-Token": "secret"},
+        headers={"X-API-Key": "test", "X-Admin-Token": "test"},
     )
+    assert audit_resp.status_code == 200, audit_resp.text
     audit = audit_resp.json()
     assert "GLOBAL" in audit["opcodes"] or len(audit["opcodes"]) > 0
     assert audit["total_samples"] >= 1
