@@ -42,6 +42,7 @@ from src.tasks.orphan_scan import orphan_scan_loop
 from src.utils.cache import get_client as get_redis_client
 from src.utils.cache import init_redis
 from src.utils.logging import setup_logging
+from src.api.production_identity import refuse_boot_if_invalid
 
 _metrics_enabled = metrics_enabled()
 if _metrics_enabled:
@@ -53,6 +54,9 @@ logger = logging.getLogger(__name__)
 
 # 加载配置
 settings = get_settings()
+
+# L3 production identity: refuse to boot on fail-open production config
+refuse_boot_if_invalid(settings)
 READINESS_CHECK_TIMEOUT_SECONDS = float(
     os.getenv("READINESS_CHECK_TIMEOUT_SECONDS", "0.5")
 )

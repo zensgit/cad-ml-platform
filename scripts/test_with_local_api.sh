@@ -217,6 +217,10 @@ echo ""
 
 export API_BASE_URL="$BASE_URL"
 export API_KEY="$API_KEY_VALUE"
+# L3 #517 production identity: local harness must opt into development posture
+# or refuse_boot_if_invalid kills uvicorn (unset ENVIRONMENT = production).
+export ENVIRONMENT="${ENVIRONMENT:-development}"
+export ADMIN_TOKEN="${ADMIN_TOKEN:-test}"
 
 case $SUITE in
     unit)

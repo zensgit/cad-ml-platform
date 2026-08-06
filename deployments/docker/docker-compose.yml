@@ -13,6 +13,16 @@ services:
     environment:
       - LOG_LEVEL=INFO
       - DEBUG=false
+      # L3 #517 production identity: unset ENVIRONMENT = production (boot refuses without secrets).
+      # Local compose defaults to development; for production set ENVIRONMENT=production and
+      # provide real API_KEY, ADMIN_TOKEN, INTEGRATION_AUTH_MODE (+ JWT secret/aud/iss).
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - API_KEY=${API_KEY:-test}
+      - ADMIN_TOKEN=${ADMIN_TOKEN:-test}
+      - INTEGRATION_AUTH_MODE=${INTEGRATION_AUTH_MODE:-disabled}
+      - INTEGRATION_JWT_SECRET=${INTEGRATION_JWT_SECRET:-}
+      - INTEGRATION_JWT_AUDIENCE=${INTEGRATION_JWT_AUDIENCE:-}
+      - INTEGRATION_JWT_ISSUER=${INTEGRATION_JWT_ISSUER:-}
       - REDIS_URL=redis://redis:6379/0
       - VECTOR_STORE_BACKEND=redis
       # Graph2D override threshold (defaults to 0.6; override via env if needed)

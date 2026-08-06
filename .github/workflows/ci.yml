@@ -804,6 +804,10 @@ jobs:
           REDIS_ENABLED: "false"
           DEDUPCAD_VISION_URL: "http://localhost:58001"
           DEDUPCAD_VISION_TIMEOUT_SECONDS: "10"
+          # L3 #517: unset ENVIRONMENT is production (boot refuse). CI harness opt-in.
+          ENVIRONMENT: development
+          API_KEY: test
+          ADMIN_TOKEN: test
         run: |
           nohup python -m uvicorn src.main:app --host 0.0.0.0 --port 8000 > /tmp/uvicorn.log 2>&1 &
           echo $! > /tmp/uvicorn.pid

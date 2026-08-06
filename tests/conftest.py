@@ -10,6 +10,17 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 SRC_DIR = ROOT_DIR / "src"
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
+
+# L3 #517: refuse_boot_if_invalid runs at src.main import time. Collection
+# imports app modules before autouse fixtures run, so the harness opt-in must
+# be process-level. Production-posture goldens override via monkeypatch and
+# call validate_boot_identity / deps directly (they do not re-import main).
+os.environ["ENVIRONMENT"] = "development"
+if not os.environ.get("API_KEY") and not os.environ.get("API_KEYS"):
+    os.environ["API_KEY"] = "test"
+if not os.environ.get("ADMIN_TOKEN"):
+    os.environ["ADMIN_TOKEN"] = "test"
+
 if SRC_DIR.exists():
     if "src" in sys.modules:
         del sys.modules["src"]
@@ -21,6 +32,18 @@ if TYPE_CHECKING:
 
 # List of environment variables that may be modified by tests
 _ENV_VARS_TO_ISOLATE = [
+    "ENVIRONMENT",
+    "APP_ENV",
+    "ENV",
+    "API_KEY",
+    "API_KEYS",
+    "ADMIN_TOKEN",
+    "REQUIRE_STRONG_AUTH",
+    "INTEGRATION_AUTH_MODE",
+    "INTEGRATION_JWT_SECRET",
+    "INTEGRATION_JWT_AUDIENCE",
+    "INTEGRATION_JWT_ISSUER",
+
     "ADMIN_TOKEN",
     "X_API_KEY",
     "MODEL_OPCODE_SCAN",
@@ -51,6 +74,23 @@ _ENV_VARS_TO_ISOLATE = [
     "PART_CLASSIFIER_PROVIDER_INCLUDE_IN_CACHE_KEY",
 ]
 
+
+
+
+@pytest.fixture(autouse=True)
+def _production_identity_dev_opt_in(monkeypatch):
+    """L3 #517 harness: explicit development opt-in so the suite is not bricked.
+
+    Production posture is fail-closed when ENVIRONMENT is unset/unknown.
+    Tests that need production posture must override ENVIRONMENT / REQUIRE_STRONG_AUTH.
+    """
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    # Harness API key: matches expected_api_keys_for_request() default under dev opt-in.
+    if not os.environ.get("API_KEY") and not os.environ.get("API_KEYS"):
+        monkeypatch.setenv("API_KEY", "test")
+    if not os.environ.get("ADMIN_TOKEN"):
+        monkeypatch.setenv("ADMIN_TOKEN", "test")
+    yield
 
 @pytest.fixture(autouse=True)
 def env_isolation():

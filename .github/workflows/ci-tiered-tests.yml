@@ -163,6 +163,11 @@ jobs:
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
 
       - name: Run contract tier (local API)
+        env:
+          # L3 #517: unset ENVIRONMENT is production (boot refuse). CI harness opt-in.
+          ENVIRONMENT: development
+          API_KEY: test-api-key
+          ADMIN_TOKEN: test
         run: bash scripts/test_with_local_api.sh --suite contract --wait-seconds 90
 
       - name: Upload local API log
@@ -200,6 +205,11 @@ jobs:
           python -m playwright install --with-deps chromium
 
       - name: Run e2e tier (local API)
+        env:
+          # L3 #517: unset ENVIRONMENT is production (boot refuse). CI harness opt-in.
+          ENVIRONMENT: development
+          API_KEY: test-api-key
+          ADMIN_TOKEN: test
         run: bash scripts/test_with_local_api.sh --suite e2e --wait-seconds 120
 
       - name: Upload local API log
