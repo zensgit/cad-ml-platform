@@ -26,10 +26,16 @@ env:
   PROMETHEUS_URL: ${{ github.event.inputs.prometheus_url || 'http://prometheus:9090' }}
   BUDGET_THRESHOLD: ${{ github.event.inputs.budget_threshold || 90 }}
 
+concurrency:
+  # Event-scoped: same-PR updates cancel older runs; push/schedule/dispatch never
+  # cancel each other merely by sharing a branch/ref (run_id is unique per run).
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   analyze-metrics-changes:
     name: Analyze Metrics Changes
-    runs-on: ubuntu-latest
+    runs-on: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'schedule') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && (vars.CADML_LINUX_RUNNER || 'ubuntu-latest') || 'ubuntu-latest' }}
     outputs:
       has_metrics_changes: ${{ steps.detect.outputs.has_changes }}
       metrics_added: ${{ steps.analyze.outputs.metrics_added }}
@@ -175,7 +181,7 @@ jobs:
     name: Check Cardinality Budget
     needs: analyze-metrics-changes
     if: needs.analyze-metrics-changes.outputs.has_metrics_changes == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'schedule') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && (vars.CADML_LINUX_RUNNER || 'ubuntu-latest') || 'ubuntu-latest' }}
     outputs:
       budget_status: ${{ steps.budget.outputs.status }}
       budget_usage: ${{ steps.budget.outputs.usage_percentage }}
@@ -239,7 +245,7 @@ jobs:
     name: Calculate Cost Impact
     needs: analyze-metrics-changes
     if: needs.analyze-metrics-changes.outputs.has_metrics_changes == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'schedule') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && (vars.CADML_LINUX_RUNNER || 'ubuntu-latest') || 'ubuntu-latest' }}
     outputs:
       monthly_cost_increase: ${{ steps.cost.outputs.monthly_increase }}
       yearly_cost_increase: ${{ steps.cost.outputs.yearly_increase }}
@@ -270,7 +276,7 @@ jobs:
     name: Generate Optimization Suggestions
     needs: [analyze-metrics-changes, check-cardinality-budget]
     if: needs.analyze-metrics-changes.outputs.has_metrics_changes == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'schedule') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && (vars.CADML_LINUX_RUNNER || 'ubuntu-latest') || 'ubuntu-latest' }}
 
     steps:
       - name: Checkout code
@@ -338,7 +344,7 @@ jobs:
     name: Post PR Comment
     needs: [analyze-metrics-changes, check-cardinality-budget, calculate-cost-impact, generate-optimization-suggestions]
     if: needs.analyze-metrics-changes.outputs.has_metrics_changes == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'schedule') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && (vars.CADML_LINUX_RUNNER || 'ubuntu-latest') || 'ubuntu-latest' }}
     permissions:
       pull-requests: write
       issues: write
@@ -427,7 +433,7 @@ jobs:
     name: Block if Over Budget
     needs: check-cardinality-budget
     if: needs.check-cardinality-budget.outputs.budget_exceeded == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'schedule') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && (vars.CADML_LINUX_RUNNER || 'ubuntu-latest') || 'ubuntu-latest' }}
 
     steps:
       - name: Block PR
@@ -444,7 +450,7 @@ jobs:
     name: Generate Summary
     needs: [analyze-metrics-changes, check-cardinality-budget, calculate-cost-impact]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'schedule') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && (vars.CADML_LINUX_RUNNER || 'ubuntu-latest') || 'ubuntu-latest' }}
 
     steps:
       - name: Generate job summary

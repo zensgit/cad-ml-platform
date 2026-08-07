@@ -15,6 +15,12 @@ on:
       - 'grafana/dashboards/**'
       - '.github/workflows/*.yml'
 
+concurrency:
+  # Event-scoped: same-PR updates cancel older runs; push/schedule/dispatch never
+  # cancel each other merely by sharing a branch/ref (run_id is unique per run).
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   workflow-file-health:
     runs-on: ubuntu-latest
