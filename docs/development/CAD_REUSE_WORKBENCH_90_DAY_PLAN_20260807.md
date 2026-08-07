@@ -460,7 +460,7 @@ Not allowed during this plan:
   `EvidencePack`, `HumanDecision`, and `CandidateDecision`.
 - Add a service layer that wraps the existing dedup 2D pipeline without duplicating
   search logic.
-- Add API endpoints under `/v1/review-reuse` only after the design-lock is ratified.
+- Add API endpoints under `/api/v1/review-reuse` only after the design-lock is ratified.
 - Add storage abstraction for task state, events, evidence packs, and decisions.
 - Add JSON EvidencePack export.
 - Add Markdown or HTML EvidencePack export.
