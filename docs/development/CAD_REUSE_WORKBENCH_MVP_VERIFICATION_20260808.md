@@ -148,10 +148,24 @@ cad-reuse-workbench-system validate_only phase=all → OK
 
 Workflow next_actions (owner / residual, not eng self-complete): design-lock ratification; pilot-only decision enable; Track C human residual; leave eval_integrity/cost_cap/retrain out of Track R.
 
+### Live run: `cad-reuse-workbench-system` phase=all (2026-08-08)
+
+| Field | Result |
+|---|---|
+| overall `ok` | **true** |
+| phase | all |
+| inventory | Track R MVP + residual audits/ops/system **engineering-done** on #547 |
+| residual_eng open | R10 live dedup (PR3), O3 metrics (PR4) — **blocked by L3 WIP=1** |
+| residual_human | R11 design-lock ratify, R12 decision enable, Track C C1–C5 |
+| execute_plan_design | `CAD_REUSE_WORKBENCH_SYSTEM_EXECUTE_DESIGN_20260808.md` |
+| report | `scratch/workbench_system_report.md` |
+
+System blockers (expected): do not open second L3 runtime PR while #547 open; no self-merge on red CI; PR1+PR2 docs already on #547.
+
 Scheduled task: `cad-reuse-workbench-gap-check` (weekdays 09:30 Asia/Shanghai).
 
 execute-plan design: `CAD_REUSE_WORKBENCH_SYSTEM_EXECUTE_DESIGN_20260808.md`  
-First batch PR1+PR2 content landed on this PR; PR3+PR4 gated on L3 slot.
+PR1+PR2 content landed on this PR; PR3+PR4 gated on L3 slot after #547 merges.
 
 ---
 
