@@ -7,7 +7,7 @@ from src.main import app
 
 
 def test_feature_cache_hit(tmp_path):
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     content = b"FAKE_DXF_DATA_1"
     fileobj = io.BytesIO(content)
     # First request (miss)
@@ -37,7 +37,7 @@ def test_feature_cache_hit(tmp_path):
 
 
 def test_orphan_cleanup_endpoint(tmp_path):
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     # Create a vector by analyzing a file (will store vector with analysis_result id different from vector id; simplistic)
     # Use DXF format which has lenient validation
     content = b"0\nSECTION\n2\nHEADER\n0\nENDSEC\n0\nEOF" + b"X" * 100

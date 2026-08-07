@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from src.main import app
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def test_analyze_route_delegates_to_live_pipeline(monkeypatch):

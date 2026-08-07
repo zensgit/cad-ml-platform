@@ -6,7 +6,7 @@ from src.main import app
 
 
 def test_analyze_legacy_vector_migrate_route_delegates_to_shared_pipeline(monkeypatch) -> None:
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     captured = {}
 
     async def _stub_run_legacy_vector_migrate_pipeline(**kwargs):  # noqa: ANN003, ANN201
@@ -30,7 +30,7 @@ def test_analyze_legacy_vector_migrate_route_delegates_to_shared_pipeline(monkey
     response = client.post(
         "/api/v1/analyze/vectors/migrate",
         json={"ids": ["vec-1"], "to_version": "v2", "dry_run": True},
-        headers={"X-API-Key": "test-key"},
+        headers={"X-API-Key": "test"},
     )
 
     assert response.status_code == 200
@@ -43,7 +43,7 @@ def test_analyze_legacy_vector_migrate_route_delegates_to_shared_pipeline(monkey
 def test_analyze_legacy_vector_migration_status_route_delegates_to_shared_pipeline(
     monkeypatch,
 ) -> None:
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
 
     monkeypatch.setattr(
         "src.api.v1.analyze_vector_migration_router.run_legacy_vector_migration_status_pipeline",
@@ -60,7 +60,7 @@ def test_analyze_legacy_vector_migration_status_route_delegates_to_shared_pipeli
 
     response = client.get(
         "/api/v1/analyze/vectors/migrate/status",
-        headers={"X-API-Key": "test-key"},
+        headers={"X-API-Key": "test"},
     )
 
     assert response.status_code == 200

@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from src.core.similarity import register_vector  # type: ignore
 from src.main import app
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def test_features_diff_basic():

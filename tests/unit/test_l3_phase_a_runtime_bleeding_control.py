@@ -23,7 +23,10 @@ def _clear_posture(monkeypatch):
 
 # --- /model/reload is sealed (403), loader never reached -----------------------------------------
 def test_model_reload_route_sealed_403_and_never_loads(monkeypatch) -> None:
-    _clear_posture(monkeypatch)  # dev posture -> the 'test' creds pass the deps, so we reach the seal
+    # #517: unset ENVIRONMENT is production (fail-closed). Explicit development
+    # opt-in so harness 'test' creds pass deps and we reach the route seal.
+    _clear_posture(monkeypatch)
+    monkeypatch.setenv("ENVIRONMENT", "development")
     import src.ml.classifier as classifier
 
     calls = {"n": 0}
@@ -32,7 +35,7 @@ def test_model_reload_route_sealed_403_and_never_loads(monkeypatch) -> None:
     from fastapi.testclient import TestClient
     from src.main import app
 
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     resp = client.post(
         "/api/v1/model/reload",
         headers={"X-API-Key": "test", "X-Admin-Token": "test"},
@@ -45,6 +48,7 @@ def test_model_reload_route_sealed_403_and_never_loads(monkeypatch) -> None:
 
 def test_model_reload_seal_has_no_payload_bypass(monkeypatch) -> None:
     _clear_posture(monkeypatch)
+    monkeypatch.setenv("ENVIRONMENT", "development")
     import src.ml.classifier as classifier
 
     monkeypatch.setattr(classifier, "reload_model",
@@ -52,7 +56,7 @@ def test_model_reload_seal_has_no_payload_bypass(monkeypatch) -> None:
     from fastapi.testclient import TestClient
     from src.main import app
 
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     for payload in ({"path": None}, {"path": "", "force": True}, {"path": "/etc/shadow"}):
         r = client.post("/api/v1/model/reload",
                         headers={"X-API-Key": "test", "X-Admin-Token": "test"}, json=payload)
@@ -100,8 +104,9 @@ def test_api_key_rejects_default_test_in_production(monkeypatch) -> None:
 
 
 def test_dev_posture_preserves_test_default(monkeypatch) -> None:
-    # no prod flag / env -> historical dev default preserved, suite not bricked.
+    # Explicit development opt-in preserves harness defaults (design-lock §1.B).
     from src.api.dependencies import get_api_key, get_admin_token
     _clear_posture(monkeypatch)
+    monkeypatch.setenv("ENVIRONMENT", "development")
     assert _run(get_api_key("test")) == "test"
     assert _run(get_admin_token("test")) == "test"

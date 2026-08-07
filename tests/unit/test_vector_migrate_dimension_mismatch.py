@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from src.core import similarity
 from src.main import app
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def test_vector_migrate_dimension_mismatch_error() -> None:

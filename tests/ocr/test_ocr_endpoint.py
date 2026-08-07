@@ -29,7 +29,7 @@ async def extract(file: UploadFile = File(...), provider: str = "auto"):
 
 
 app.include_router(router, prefix="/api")
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def test_ocr_extract_smoke():

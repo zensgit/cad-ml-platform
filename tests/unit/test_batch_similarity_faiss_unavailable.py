@@ -36,7 +36,7 @@ def test_batch_similarity_faiss_unavailable_degraded_flag(monkeypatch: MonkeyPat
 
     try:
         payload = {"ids": ["a"], "top_k": 1}
-        with TestClient(app) as client:
+        with TestClient(app, headers={"X-API-Key": "test"}) as client:
             response = client.post("/api/v1/vectors/similarity/batch", json=payload)
             assert response.status_code == 200
             data = response.json()
@@ -89,7 +89,7 @@ def test_batch_similarity_degraded_forces_fallback(monkeypatch: MonkeyPatch) -> 
 
     try:
         payload = {"ids": ["a"], "top_k": 1}
-        with TestClient(app) as client:
+        with TestClient(app, headers={"X-API-Key": "test"}) as client:
             response = client.post("/api/v1/vectors/similarity/batch", json=payload)
             assert response.status_code == 200
             data = response.json()

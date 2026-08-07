@@ -19,7 +19,7 @@ from src.main import app
 
 @pytest.fixture(scope="module")
 def client():
-    return TestClient(app)
+    return TestClient(app, headers={"X-API-Key": "test"})
 
 
 def test_eta_resets_to_zero_after_recovery(client: TestClient):

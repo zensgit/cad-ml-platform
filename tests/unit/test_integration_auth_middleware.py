@@ -1,5 +1,8 @@
+"""Integration auth middleware — production identity fail-closed goldens."""
+
 from __future__ import annotations
 
+import time
 from types import SimpleNamespace
 
 import jwt
@@ -14,11 +17,15 @@ def _make_settings(
     mode: str = "required",
     secret: str = "test-secret",
     alg: str = "HS256",
+    audience: str = "cad-ml-api",
+    issuer: str = "cad-ml-issuer",
 ) -> SimpleNamespace:
     return SimpleNamespace(
         INTEGRATION_AUTH_MODE=mode,
         INTEGRATION_JWT_SECRET=secret,
         INTEGRATION_JWT_ALG=alg,
+        INTEGRATION_JWT_AUDIENCE=audience,
+        INTEGRATION_JWT_ISSUER=issuer,
         INTEGRATION_TENANT_HEADER="x-tenant-id",
         INTEGRATION_ORG_HEADER="x-org-id",
         INTEGRATION_USER_HEADER="x-user-id",
@@ -41,72 +48,142 @@ def _build_app(settings: SimpleNamespace) -> FastAPI:
     return app
 
 
-def _encode(payload: dict[str, str], secret: str, alg: str) -> str:
+def _encode(payload: dict, secret: str, alg: str) -> str:
     token = jwt.encode(payload, secret, algorithm=alg)
     return token if isinstance(token, str) else token.decode("utf-8")
 
 
+def _full_claims(**extra) -> dict:
+    now = int(time.time())
+    base = {
+        "sub": "user-1",
+        "tenant_id": "tenant-1",
+        "iat": now,
+        "exp": now + 3600,
+        "aud": "cad-ml-api",
+        "iss": "cad-ml-issuer",
+    }
+    base.update(extra)
+    return base
+
+
 def test_required_missing_token_rejected() -> None:
-    settings = _make_settings()
-    client = TestClient(_build_app(settings))
-    response = client.get("/private")
-    assert response.status_code == 401
+    client = TestClient(_build_app(_make_settings()), headers={"X-API-Key": "test"})
+    assert client.get("/private").status_code == 401
 
 
 def test_required_invalid_token_rejected() -> None:
-    settings = _make_settings()
-    client = TestClient(_build_app(settings))
+    client = TestClient(_build_app(_make_settings()), headers={"X-API-Key": "test"})
     response = client.get("/private", headers={"Authorization": "Bearer not-a-jwt"})
     assert response.status_code == 401
 
 
 def test_required_missing_claims_rejected() -> None:
     settings = _make_settings()
-    token = _encode(
-        {"sub": "user-1"},
-        settings.INTEGRATION_JWT_SECRET,
-        settings.INTEGRATION_JWT_ALG,
-    )
-    client = TestClient(_build_app(settings))
+    token = _encode({"sub": "user-1"}, settings.INTEGRATION_JWT_SECRET, settings.INTEGRATION_JWT_ALG)
+    client = TestClient(_build_app(settings), headers={"X-API-Key": "test"})
     response = client.get("/private", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 401
 
 
 def test_required_tenant_mismatch_rejected() -> None:
     settings = _make_settings()
-    token = _encode(
-        {"tenant_id": "tenant-1", "sub": "user-1"},
-        settings.INTEGRATION_JWT_SECRET,
-        settings.INTEGRATION_JWT_ALG,
-    )
-    client = TestClient(_build_app(settings))
-    response = client.get(
-        "/private",
-        headers={"Authorization": f"Bearer {token}", "x-tenant-id": "tenant-2"},
-    )
-    assert response.status_code == 401
-
-
-def test_required_valid_token_sets_state() -> None:
-    settings = _make_settings()
-    token = _encode(
-        {"tenant_id": "tenant-1", "sub": "user-1", "org_id": "org-1"},
-        settings.INTEGRATION_JWT_SECRET,
-        settings.INTEGRATION_JWT_ALG,
-    )
-    client = TestClient(_build_app(settings))
+    token = _encode(_full_claims(), settings.INTEGRATION_JWT_SECRET, settings.INTEGRATION_JWT_ALG)
+    client = TestClient(_build_app(settings), headers={"X-API-Key": "test"})
     response = client.get(
         "/private",
         headers={
             "Authorization": f"Bearer {token}",
-            "x-tenant-id": "tenant-1",
-            "x-org-id": "org-1",
-            "x-user-id": "user-header",
+            "x-tenant-id": "other-tenant",
         },
+    )
+    assert response.status_code == 401
+
+
+def test_required_valid_token_sets_state_from_sub() -> None:
+    """Identity is token sub — not a spoofable x-user-id header (design-lock D)."""
+    settings = _make_settings()
+    token = _encode(_full_claims(sub="user-1"), settings.INTEGRATION_JWT_SECRET, settings.INTEGRATION_JWT_ALG)
+    client = TestClient(_build_app(settings), headers={"X-API-Key": "test"})
+    response = client.get(
+        "/private",
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 200
     payload = response.json()
-    assert payload["tenant_id"] == "tenant-1"
-    assert payload["org_id"] == "org-1"
-    assert payload["user_id"] == "user-header"
+    assert payload["user_id"] == "user-1"
     assert payload["auth_subject"] == "user-1"
+    assert payload["tenant_id"] == "tenant-1"
+
+
+def test_required_user_header_mismatch_rejected() -> None:
+    settings = _make_settings()
+    token = _encode(_full_claims(sub="alice"), settings.INTEGRATION_JWT_SECRET, settings.INTEGRATION_JWT_ALG)
+    client = TestClient(_build_app(settings), headers={"X-API-Key": "test"})
+    response = client.get(
+        "/private",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "x-user-id": "bob",
+        },
+    )
+    assert response.status_code == 401
+    assert "mismatch" in response.json()["detail"].lower()
+
+
+def test_jwt_without_exp_rejected() -> None:
+    settings = _make_settings()
+    claims = _full_claims()
+    del claims["exp"]
+    token = _encode(claims, settings.INTEGRATION_JWT_SECRET, settings.INTEGRATION_JWT_ALG)
+    client = TestClient(_build_app(settings), headers={"X-API-Key": "test"})
+    response = client.get("/private", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 401
+
+
+def test_jwt_wrong_audience_rejected() -> None:
+    settings = _make_settings()
+    token = _encode(
+        _full_claims(aud="other-aud"),
+        settings.INTEGRATION_JWT_SECRET,
+        settings.INTEGRATION_JWT_ALG,
+    )
+    client = TestClient(_build_app(settings), headers={"X-API-Key": "test"})
+    response = client.get("/private", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 401
+
+
+def test_jwt_wrong_issuer_rejected() -> None:
+    settings = _make_settings()
+    token = _encode(
+        _full_claims(iss="other-iss"),
+        settings.INTEGRATION_JWT_SECRET,
+        settings.INTEGRATION_JWT_ALG,
+    )
+    client = TestClient(_build_app(settings), headers={"X-API-Key": "test"})
+    response = client.get("/private", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 401
+
+
+def test_disabled_mode_does_not_set_trusted_identity_from_headers() -> None:
+    settings = _make_settings(mode="disabled")
+    client = TestClient(_build_app(settings), headers={"X-API-Key": "test"})
+    response = client.get(
+        "/private",
+        headers={"x-user-id": "spoofed", "x-tenant-id": "t1"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["user_id"] is None
+    assert payload["tenant_id"] is None
+
+
+def test_optional_without_token_does_not_trust_headers() -> None:
+    settings = _make_settings(mode="optional")
+    client = TestClient(_build_app(settings), headers={"X-API-Key": "test"})
+    response = client.get(
+        "/private",
+        headers={"x-user-id": "spoofed"},
+    )
+    assert response.status_code == 200
+    assert response.json()["user_id"] is None

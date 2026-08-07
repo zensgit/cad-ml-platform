@@ -6,7 +6,7 @@ from src.main import app
 
 
 def test_analyze_faiss_rebuild_route_delegates_to_shared_pipeline(monkeypatch) -> None:
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     captured = {}
 
     def _stub_run_faiss_rebuild_pipeline(**kwargs):  # noqa: ANN003, ANN201
@@ -20,7 +20,7 @@ def test_analyze_faiss_rebuild_route_delegates_to_shared_pipeline(monkeypatch) -
 
     response = client.post(
         "/api/v1/analyze/vectors/faiss/rebuild",
-        headers={"X-API-Key": "test-key"},
+        headers={"X-API-Key": "test"},
     )
 
     assert response.status_code == 200

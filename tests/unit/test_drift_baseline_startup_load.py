@@ -5,7 +5,7 @@ from src.main import app
 
 def test_drift_baseline_startup_load(monkeypatch):
     # Without Redis this will simply not preload; ensure no crash and state defaults
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     resp = client.get("/api/v1/analyze/drift", headers={"X-API-Key": "test"})
     assert resp.status_code == 200
     data = resp.json()

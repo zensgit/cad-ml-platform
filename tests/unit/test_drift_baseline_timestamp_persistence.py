@@ -6,7 +6,7 @@ from src.main import app
 
 
 def test_drift_baseline_timestamp_persistence(monkeypatch):
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     # Trigger drift status to potentially establish baseline (threshold may be high; simulate state)
     # Directly patch internal state for test determinism
     from src.api.v1 import analyze as analyze_module

@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from src.core.errors import ErrorCode
 from src.main import app
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def _assert_rejection_metric(metrics_text: str, reason: str) -> None:

@@ -8,7 +8,7 @@ from src.main import app
 
 def test_analysis_cache_hit_miss_metrics(monkeypatch, metrics_text):
     """Test analysis cache hit/miss metrics with unique keys per test run."""
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
 
     # Use unique file name and content to ensure cache isolation from other tests
     unique_id = uuid.uuid4().hex[:8]

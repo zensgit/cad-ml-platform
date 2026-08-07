@@ -41,7 +41,7 @@ def classifier_client(monkeypatch):
     except Exception as e:
         pytest.skip(f"Models not available: {e}")
 
-    return TestClient(classifier_api.app)
+    return TestClient(classifier_api.app, headers={"X-API-Key": "test"})
 
 
 class TestSingleFileLatency:

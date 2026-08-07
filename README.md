@@ -190,17 +190,31 @@ vim config/config.yaml
 
 #### 4. 启动服务
 
-**开发环境**:
+**开发环境** (必须显式 `ENVIRONMENT=development`，否则按生产姿态 fail-closed 拒绝启动):
 ```bash
-# 使用Docker Compose
-docker-compose up -d
+export ENVIRONMENT=development
+export API_KEY=test
+export ADMIN_TOKEN=test
+
+# 使用Docker Compose（compose 默认已 opt-in development；生产部署请覆盖）
+docker-compose -f deployments/docker/docker-compose.yml up -d
 
 # 或直接运行
-python src/main.py
+uvicorn src.main:app --reload
 ```
+
+请求受保护接口时需带 `X-API-Key`（及管理接口的 `X-Admin-Token`）。任意未配置/错误 key → **401**；生产姿态下默认 `test` 凭据不可用，且 `INTEGRATION_AUTH_MODE=disabled` 会拒绝 boot。详见 `.env.example` 与 design-lock `#517`。
 
 **生产环境**:
 ```bash
+export ENVIRONMENT=production   # 或省略（unset = production）
+export API_KEY='<strong-secret>'
+export ADMIN_TOKEN='<strong-secret>'
+export INTEGRATION_AUTH_MODE=required
+export INTEGRATION_JWT_SECRET='...'
+export INTEGRATION_JWT_AUDIENCE='cad-ml-platform'
+export INTEGRATION_JWT_ISSUER='your-idp'
+
 # Kubernetes部署
 kubectl apply -f deployments/kubernetes/
 ```
@@ -1105,6 +1119,11 @@ Grafana 面板示例：见 `docs/grafana/observability_dashboard.json`（导入�
 
 ### ⚙️ 配置速查表（.env）
 
+- `ENVIRONMENT` / `APP_ENV` / `ENV`：仅 `development` 或 `test` 为开发 opt-in；**unset/其他值 = 生产姿态**（fail-closed）。
+- `API_KEY` / `API_KEYS`：期望的 API key（或逗号列表）。生产未配置/`test` → boot refuse；请求未知 key → 401。
+- `ADMIN_TOKEN`：管理接口令牌。生产未配置/`test` → boot refuse。
+- `INTEGRATION_AUTH_MODE`：`disabled`|`optional`|`required`。生产禁止 `disabled`。
+- `INTEGRATION_JWT_SECRET` / `INTEGRATION_JWT_AUDIENCE` / `INTEGRATION_JWT_ISSUER`：JWT 校验；`required` 模式三者必填。
 - `VISION_MAX_BASE64_BYTES`：Vision Base64 输入大小上限（字节，默认 1048576）。
 - `ERROR_EMA_ALPHA`：错误率 EMA 平滑因子（0<alpha<=1，默认 0.2）。
 - `OCR_MAX_PDF_PAGES`：OCR PDF 最大页数（默认 20）。

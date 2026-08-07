@@ -20,7 +20,7 @@ def test_classifier_cache_hits(monkeypatch):
     monkeypatch.setattr(classifier_api.classifier, "load", fake_load)
     monkeypatch.setattr(classifier_api.classifier, "predict", fake_predict)
 
-    client = TestClient(classifier_api.app)
+    client = TestClient(classifier_api.app, headers={"X-API-Key": "test"})
 
     admin_headers = {"X-Admin-Token": "test"}
     response = client.post("/cache/clear", headers=admin_headers)
@@ -60,7 +60,7 @@ def test_classifier_rate_limit(monkeypatch):
 
     monkeypatch.setattr(classifier_api, "_rate_limiter", DummyLimiter())
 
-    client = TestClient(classifier_api.app)
+    client = TestClient(classifier_api.app, headers={"X-API-Key": "test"})
     payload = b"0\nSECTION\n2\nENTITIES\n0\nENDSEC\n0\nEOF\n"
 
     response = client.post(
@@ -204,7 +204,7 @@ def test_batch_classify_uses_cache(monkeypatch):
     monkeypatch.setattr(classifier_api.classifier, "load", fake_load)
     monkeypatch.setattr(classifier_api.classifier, "predict", fake_predict)
 
-    client = TestClient(classifier_api.app)
+    client = TestClient(classifier_api.app, headers={"X-API-Key": "test"})
 
     admin_headers = {"X-Admin-Token": "test"}
     client.post("/cache/clear", headers=admin_headers)
@@ -242,7 +242,7 @@ def test_root_endpoint(monkeypatch):
         return None
 
     monkeypatch.setattr(classifier_api.classifier, "load", fake_load)
-    client = TestClient(classifier_api.app)
+    client = TestClient(classifier_api.app, headers={"X-API-Key": "test"})
 
     response = client.get("/")
     assert response.status_code == 200
@@ -258,7 +258,7 @@ def test_categories_endpoint(monkeypatch):
         return None
 
     monkeypatch.setattr(classifier_api.classifier, "load", fake_load)
-    client = TestClient(classifier_api.app)
+    client = TestClient(classifier_api.app, headers={"X-API-Key": "test"})
 
     response = client.get("/categories")
     assert response.status_code == 200
@@ -275,7 +275,7 @@ def test_classify_non_dxf_file(monkeypatch):
         return None
 
     monkeypatch.setattr(classifier_api.classifier, "load", fake_load)
-    client = TestClient(classifier_api.app)
+    client = TestClient(classifier_api.app, headers={"X-API-Key": "test"})
 
     response = client.post(
         "/classify",
@@ -303,7 +303,7 @@ def test_batch_classify_mixed_files(monkeypatch):
     monkeypatch.setattr(classifier_api.classifier, "load", fake_load)
     monkeypatch.setattr(classifier_api.classifier, "predict", fake_predict)
 
-    client = TestClient(classifier_api.app)
+    client = TestClient(classifier_api.app, headers={"X-API-Key": "test"})
     admin_headers = {"X-Admin-Token": "test"}
     client.post("/cache/clear", headers=admin_headers)
 
@@ -349,7 +349,7 @@ def test_batch_classify_duplicate_filenames(monkeypatch):
     monkeypatch.setattr(classifier_api.classifier, "load", fake_load)
     monkeypatch.setattr(classifier_api.classifier, "predict", fake_predict)
 
-    client = TestClient(classifier_api.app)
+    client = TestClient(classifier_api.app, headers={"X-API-Key": "test"})
     admin_headers = {"X-Admin-Token": "test"}
     client.post("/cache/clear", headers=admin_headers)
 

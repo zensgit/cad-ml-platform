@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from src.main import app
 from src.ml.classifier import reload_model
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 class DummyModel:

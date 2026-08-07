@@ -4,7 +4,7 @@ from unittest.mock import patch
 from src.core.similarity import register_vector
 from src.main import app
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def test_vector_distribution_endpoint():

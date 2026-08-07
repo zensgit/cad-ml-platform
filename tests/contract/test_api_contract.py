@@ -26,7 +26,7 @@ except ImportError:
 
 # Configuration
 BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000").rstrip("/")
-API_KEY = os.environ.get("API_KEY", "test-api-key")
+API_KEY = os.environ.get("API_KEY", "test")
 OPENAPI_URL = f"{BASE_URL}/openapi.json"
 
 
@@ -59,7 +59,7 @@ def _get_test_client():
     from fastapi.testclient import TestClient
     from src.main import app
 
-    return TestClient(app)
+    return TestClient(app, headers={"X-API-Key": "test"})
 
 
 def _request(

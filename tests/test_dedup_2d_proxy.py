@@ -30,6 +30,18 @@ def _disable_forced_async(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DEDUP2D_FORCED_ASYNC_ON_MODE_PRECISE", "0")
 
 
+@pytest.fixture(autouse=True)
+def _allow_tenant_api_keys(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#517: multi-tenant proxy tests use distinct X-API-Key values as tenant ids.
+
+    Those keys must be in the expected set (comparison is real now).
+    """
+    monkeypatch.setenv(
+        "API_KEYS",
+        "test,t1,tenant_a,tenant_b,tenant_x,any_tenant",
+    )
+
+
 class _FakeDedupClient:
     async def health(self) -> Dict[str, Any]:
         return {"status": "healthy", "service": "caddedup-vision", "version": "0.2.0"}
@@ -219,7 +231,7 @@ class _FakeTenantConfigStore:
 def test_dedup_2d_health_proxy_ok():
     app.dependency_overrides[get_dedupcad_vision_client] = lambda: _FakeDedupClient()
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         resp = client.get("/api/v1/dedup/2d/health")
         assert resp.status_code == 200
         assert resp.json()["status"] == "healthy"
@@ -230,7 +242,7 @@ def test_dedup_2d_health_proxy_ok():
 def test_dedup_2d_index_rebuild_proxy_ok():
     app.dependency_overrides[get_dedupcad_vision_client] = lambda: _FakeDedupClient()
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         resp = client.post("/api/v1/dedup/2d/index/rebuild")
         assert resp.status_code == 200
         assert resp.json()["success"] is True
@@ -241,7 +253,7 @@ def test_dedup_2d_index_rebuild_proxy_ok():
 def test_dedup_2d_search_proxy_ok():
     app.dependency_overrides[get_dedupcad_vision_client] = lambda: _FakeDedupClient()
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         files = {"file": ("drawing.png", b"fake", "image/png")}
         resp = client.post("/api/v1/dedup/2d/search?mode=balanced&max_results=10", files=files)
         assert resp.status_code == 200
@@ -258,7 +270,7 @@ def test_dedup_2d_search_adds_coarse_label_contract_from_match_filename():
         lambda: _FakeDedupClientLabelledCandidate()
     )
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         files = {"file": ("drawing.png", b"fake", "image/png")}
         resp = client.post(
             "/api/v1/dedup/2d/search?mode=balanced&max_results=10",
@@ -282,7 +294,7 @@ def test_dedup_2d_search_applies_precision_when_geom_json_provided():
     app.dependency_overrides[get_geom_store] = lambda: fake_store
     app.dependency_overrides[get_precision_verifier] = lambda: _FakePrecisionVerifier()
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         files = {
             "file": ("drawing.png", b"fake", "image/png"),
             "geom_json": ("geom.json", b'{"entities":[]}', "application/json"),
@@ -306,7 +318,7 @@ def test_dedup_2d_search_thresholds_can_reclassify_duplicate_to_similar():
     app.dependency_overrides[get_geom_store] = lambda: fake_store
     app.dependency_overrides[get_precision_verifier] = lambda: _FakePrecisionVerifier()
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         files = {
             "file": ("drawing.png", b"fake", "image/png"),
             "geom_json": ("geom.json", b'{"entities":[]}', "application/json"),
@@ -335,7 +347,7 @@ def test_dedup_2d_search_preset_version_can_classify_mid_similarity_as_similar()
     app.dependency_overrides[get_geom_store] = lambda: fake_store
     app.dependency_overrides[get_precision_verifier] = lambda: _FakePrecisionVerifierMidScore()
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         files = {
             "file": ("drawing.png", b"fake", "image/png"),
             "geom_json": (
@@ -365,7 +377,7 @@ def test_dedup_2d_search_preset_does_not_override_explicit_thresholds():
     app.dependency_overrides[get_geom_store] = lambda: fake_store
     app.dependency_overrides[get_precision_verifier] = lambda: _FakePrecisionVerifierMidScore()
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         files = {
             "file": ("drawing.png", b"fake", "image/png"),
             "geom_json": (
@@ -396,7 +408,7 @@ def test_dedup_2d_search_precision_diff_can_be_requested():
     app.dependency_overrides[get_geom_store] = lambda: fake_store
     app.dependency_overrides[get_precision_verifier] = lambda: _FakePrecisionVerifier()
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         files = {
             "file": ("drawing.png", b"fake", "image/png"),
             "geom_json": (
@@ -428,7 +440,7 @@ def test_dedup_2d_index_add_stores_geom_json():
     app.dependency_overrides[get_geom_store] = lambda: fake_store
     app.dependency_overrides[get_precision_verifier] = lambda: _FakePrecisionVerifier()
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         files = {
             "file": ("drawing.png", b"fake", "image/png"),
             "geom_json": ("geom.json", b'{"entities":[]}', "application/json"),
@@ -446,7 +458,7 @@ def test_dedup_2d_index_add_stores_geom_json():
 def test_dedup_2d_precision_compare_ok():
     app.dependency_overrides[get_precision_verifier] = lambda: _FakePrecisionVerifier()
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         files = {
             "left_geom_json": ("left.json", b'{"entities":[]}', "application/json"),
             "right_geom_json": ("right.json", b'{"entities":[]}', "application/json"),
@@ -468,7 +480,7 @@ def test_dedup_2d_geom_exists_ok():
 
     app.dependency_overrides[get_geom_store] = lambda: fake_store
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         resp = client.get(f"/api/v1/dedup/2d/geom/{file_hash}/exists")
         assert resp.status_code == 200
         assert resp.json() == {"file_hash": file_hash, "exists": True}
@@ -479,7 +491,7 @@ def test_dedup_2d_geom_exists_ok():
 def test_dedup_2d_health_proxy_unavailable_returns_503():
     app.dependency_overrides[get_dedupcad_vision_client] = lambda: _FailingDedupClient()
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         resp = client.get("/api/v1/dedup/2d/health")
         assert resp.status_code == 503
     finally:
@@ -489,7 +501,7 @@ def test_dedup_2d_health_proxy_unavailable_returns_503():
 def test_dedup_2d_search_circuit_open_returns_503():
     app.dependency_overrides[get_dedupcad_vision_client] = lambda: _CircuitOpenDedupClient()
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         files = {"file": ("drawing.png", b"fake", "image/png")}
         resp = client.post("/api/v1/dedup/2d/search?mode=balanced&max_results=10", files=files)
         assert resp.status_code == 503
@@ -503,7 +515,7 @@ def test_dedup_2d_tenant_config_put_requires_admin_token():
     tenant_store = _FakeTenantConfigStore()
     app.dependency_overrides[get_tenant_config_store] = lambda: tenant_store
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         resp = client.put(
             "/api/v1/dedup/2d/config", json={"preset": "version"}, headers={"X-API-Key": "t1"}
         )
@@ -516,7 +528,7 @@ def test_dedup_2d_tenant_config_roundtrip_get_put_delete():
     tenant_store = _FakeTenantConfigStore()
     app.dependency_overrides[get_tenant_config_store] = lambda: tenant_store
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         headers = {"X-API-Key": "t1", "X-Admin-Token": "test"}
         resp = client.put(
             "/api/v1/dedup/2d/config",
@@ -555,7 +567,7 @@ def test_dedup_2d_search_applies_tenant_preset_when_no_preset_given():
     app.dependency_overrides[get_precision_verifier] = lambda: _FakePrecisionVerifierMidScore()
     app.dependency_overrides[get_tenant_config_store] = lambda: tenant_store
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         files = {
             "file": ("drawing.png", b"fake", "image/png"),
             "geom_json": (
@@ -586,7 +598,7 @@ def test_dedup_2d_search_explicit_preset_overrides_tenant_preset():
     app.dependency_overrides[get_precision_verifier] = lambda: _FakePrecisionVerifierMidScore()
     app.dependency_overrides[get_tenant_config_store] = lambda: tenant_store
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         files = {
             "file": ("drawing.png", b"fake", "image/png"),
             "geom_json": (
@@ -616,7 +628,7 @@ def test_dedup_2d_search_version_gate_file_name_filters_cross_drawing_candidates
     app.dependency_overrides[get_geom_store] = lambda: fake_store
     app.dependency_overrides[get_precision_verifier] = lambda: _FakePrecisionVerifier()
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         files = {
             "file": ("PartA_v1.png", b"fake", "image/png"),
             "geom_json": ("geom.json", b'{"entities":[]}', "application/json"),
@@ -640,7 +652,7 @@ def test_dedup_2d_search_async_returns_job_and_completes():
     reset_dedup2d_job_store()
     app.dependency_overrides[get_dedupcad_vision_client] = lambda: _FakeDedupClient()
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         files = {"file": ("drawing.png", b"fake", "image/png")}
         resp = client.post(
             "/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true", files=files
@@ -674,7 +686,7 @@ def test_dedup_2d_search_async_with_precision_overlay():
     app.dependency_overrides[get_geom_store] = lambda: fake_store
     app.dependency_overrides[get_precision_verifier] = lambda: _FakePrecisionVerifier()
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         files = {
             "file": ("drawing.png", b"fake", "image/png"),
             "geom_json": ("geom.json", b'{"entities":[]}', "application/json"),
@@ -714,7 +726,7 @@ def test_dedup_2d_search_async_cancel():
     reset_dedup2d_job_store()
     app.dependency_overrides[get_dedupcad_vision_client] = lambda: _SlowDedupClient()
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         files = {"file": ("drawing.png", b"fake", "image/png")}
         resp = client.post(
             "/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true", files=files
@@ -738,7 +750,7 @@ def test_dedup_2d_search_async_callback_url_requires_redis_backend():
     reset_dedup2d_job_store()
     app.dependency_overrides[get_dedupcad_vision_client] = lambda: _FakeDedupClient()
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         files = {"file": ("drawing.png", b"fake", "image/png")}
         resp = client.post(
             "/api/v1/dedup/2d/search"
@@ -768,7 +780,7 @@ def test_dedup_2d_search_async_invalid_callback_url_returns_400(monkeypatch):
 
     app.dependency_overrides[get_tenant_config_store] = lambda: _FakeTenantConfigStore()
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         files = {"file": ("drawing.png", b"fake", "image/png")}
         resp = client.post(
             "/api/v1/dedup/2d/search"
@@ -817,7 +829,7 @@ def test_dedup_2d_tenant_isolation_job_access_forbidden():
     app.dependency_overrides[get_dedupcad_vision_client] = lambda: _FakeDedupClient()
     app.dependency_overrides[get_tenant_config_store] = lambda: tenant_store
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         files = {"file": ("drawing.png", b"fake", "image/png")}
 
         # Tenant A (api_key=tenant_a) creates a job
@@ -847,7 +859,7 @@ def test_dedup_2d_tenant_isolation_job_cancel_forbidden():
     app.dependency_overrides[get_dedupcad_vision_client] = lambda: _SlowDedupClient()
     app.dependency_overrides[get_tenant_config_store] = lambda: tenant_store
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         files = {"file": ("drawing.png", b"fake", "image/png")}
 
         # Tenant A creates a job
@@ -877,7 +889,7 @@ def test_dedup_2d_tenant_isolation_same_tenant_access_ok():
     app.dependency_overrides[get_dedupcad_vision_client] = lambda: _FakeDedupClient()
     app.dependency_overrides[get_tenant_config_store] = lambda: tenant_store
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         files = {"file": ("drawing.png", b"fake", "image/png")}
 
         # Tenant A creates a job
@@ -913,7 +925,7 @@ def test_dedup_2d_tenant_isolation_cancel_response_includes_tenant_id():
     app.dependency_overrides[get_dedupcad_vision_client] = lambda: _SlowDedupClient()
     app.dependency_overrides[get_tenant_config_store] = lambda: tenant_store
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         files = {"file": ("drawing.png", b"fake", "image/png")}
 
         # Create a job
@@ -945,7 +957,7 @@ def test_dedup_2d_job_not_found_returns_404():
     tenant_store = _TenantAwareTenantConfigStore()
     app.dependency_overrides[get_tenant_config_store] = lambda: tenant_store
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         fake_job_id = "00000000-0000-0000-0000-000000000000"
 
         # Get non-existent job
@@ -1024,7 +1036,7 @@ def test_dedup_2d_async_backend_redis_can_submit_and_poll(monkeypatch):
 
     app.dependency_overrides[get_tenant_config_store] = lambda: _FakeTenantConfigStore()
     try:
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         files = {"file": ("drawing.png", b"fake", "image/png")}
 
         resp = client.post(

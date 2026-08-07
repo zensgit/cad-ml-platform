@@ -26,7 +26,7 @@ def test_parse_timeout(monkeypatch):
             return SlowAdapter()
 
     monkeypatch.setattr(factory, "AdapterFactory", MockAdapterFactory)
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     files = {"file": ("test.step", b"STEP DATA")}
     r = client.post(
         "/api/v1/analyze/", files=files, data={"options": "{}"}, headers={"api-key": "test"}

@@ -8,7 +8,7 @@ from src.main import app
 from src.ml.hybrid_config import get_config
 
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 GRAPH2D_DEFAULT_MIN_CONF = float(get_config().graph2d.min_confidence)
 
 

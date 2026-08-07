@@ -42,7 +42,7 @@ async def test_mqtt_ingest_history_roundtrip(monkeypatch):
         status={"ok": True},
     ).to_bytes()
 
-    with TestClient(app) as client:
+    with TestClient(app, headers={"X-API-Key": "test"}) as client:
         # Publish after app startup so MQTT subscription is active
         try:
             async with aiomqtt.Client(

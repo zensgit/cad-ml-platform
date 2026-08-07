@@ -20,7 +20,7 @@ def test_analyze_legacy_redirect_get_route_delegates(monkeypatch):
         fake_raise_legacy_redirect,
     )
 
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     response = client.get("/api/v1/analyze/faiss/health", headers={"api-key": "test"})
 
     assert response.status_code == 410
@@ -45,7 +45,7 @@ def test_analyze_legacy_redirect_post_route_delegates(monkeypatch):
         fake_raise_legacy_redirect,
     )
 
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     response = client.post(
         "/api/v1/analyze/model/reload",
         json={"path": "/tmp/model.bin"},
@@ -74,7 +74,7 @@ def test_analyze_legacy_redirect_delete_route_delegates(monkeypatch):
         fake_raise_legacy_redirect,
     )
 
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     response = client.delete(
         "/api/v1/analyze/vectors/orphans?threshold=0&dry_run=true",
         headers={"api-key": "test"},

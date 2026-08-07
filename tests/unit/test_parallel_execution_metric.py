@@ -7,7 +7,7 @@ from src.main import app
 
 def test_parallel_execution_gauge(monkeypatch, require_metrics_enabled):
     # Ensure multiple stages enabled to trigger parallel path
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     # Use small dummy content; rely on stub adapter
     files = {"file": ("test.dxf", b"0", "application/octet-stream")}
     options = {

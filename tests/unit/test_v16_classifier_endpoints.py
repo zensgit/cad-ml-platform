@@ -12,18 +12,18 @@ from src.main import app
 
 @pytest.fixture
 def client():
-    return TestClient(app)
+    return TestClient(app, headers={"X-API-Key": "test"})
 
 
 @pytest.fixture
 def api_headers():
-    return {"X-API-Key": "test-key"}
+    return {"X-API-Key": "test"}
 
 
 @pytest.fixture
 def admin_headers():
     os.environ["ADMIN_TOKEN"] = "test"
-    return {"X-API-Key": "test-key", "X-Admin-Token": "test"}
+    return {"X-API-Key": "test", "X-Admin-Token": "test"}
 
 
 class TestV16HealthEndpoint:

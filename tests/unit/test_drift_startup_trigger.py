@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from src.main import app
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def test_drift_startup_trigger_metric_present(require_metrics_enabled) -> None:

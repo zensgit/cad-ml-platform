@@ -274,7 +274,7 @@ class TestRateLimitMiddleware:
     def test_excluded_paths_not_limited(self):
         """Test excluded paths bypass rate limiting."""
         app = self._create_app_with_middleware()
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
 
         with patch("src.api.middleware.rate_limiting.get_client", return_value=None):
             # Health endpoint should not be rate limited
@@ -285,7 +285,7 @@ class TestRateLimitMiddleware:
     def test_rate_limit_headers_present(self):
         """Test rate limit headers are added to response."""
         app = self._create_app_with_middleware()
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
 
         with patch("src.api.middleware.rate_limiting.get_client", return_value=None):
             response = client.get("/test")
@@ -300,6 +300,7 @@ class TestRateLimitMiddleware:
         from src.api.middleware.rate_limiting import RateLimitTier
 
         app = self._create_app_with_middleware()
+        # Bare client: no X-API-Key so tier resolves to anonymous (not free).
         client = TestClient(app)
 
         with patch("src.api.middleware.rate_limiting.get_client", return_value=None):
@@ -312,10 +313,10 @@ class TestRateLimitMiddleware:
         from src.api.middleware.rate_limiting import RateLimitTier
 
         app = self._create_app_with_middleware()
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
 
         with patch("src.api.middleware.rate_limiting.get_client", return_value=None):
-            response = client.get("/test", headers={"X-API-Key": "test-key"})
+            response = client.get("/test", headers={"X-API-Key": "test"})
 
         assert response.headers["X-RateLimit-Tier"] == RateLimitTier.FREE.value
 
@@ -324,7 +325,7 @@ class TestRateLimitMiddleware:
         from src.api.middleware.rate_limiting import RateLimitTier
 
         app = self._create_app_with_middleware()
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
 
         with patch("src.api.middleware.rate_limiting.get_client", return_value=None):
             response = client.get("/test", headers={"X-Tenant-Tier": "enterprise"})
@@ -336,7 +337,7 @@ class TestRateLimitMiddleware:
         from src.api.middleware.rate_limiting import RateLimitTier
 
         app = self._create_app_with_middleware()
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
 
         with patch("src.api.middleware.rate_limiting.get_client", return_value=None):
             response = client.get("/test", headers={"X-Internal-Service": "true"})
@@ -611,7 +612,7 @@ class TestAdditionalCoverage:
 
         app.add_middleware(RateLimitMiddleware)
 
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
 
         # Create a very low limit config
         low_limit_config = {RateLimitTier.ANONYMOUS: RateLimitConfig(max_requests=2)}
@@ -630,6 +631,7 @@ class TestAdditionalCoverage:
                     tier_configs={RateLimitTier.ANONYMOUS: RateLimitConfig(max_requests=2)},
                 )
 
+                # Bare client — must hit ANONYMOUS tier (the only configured low limit).
                 client2 = TestClient(app2)
 
                 # First two requests should succeed
@@ -655,7 +657,7 @@ class TestAdditionalCoverage:
             return {"status": "ok"}
 
         app.add_middleware(RateLimitMiddleware)
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
 
         with patch("src.api.middleware.rate_limiting.get_client", return_value=None):
             response = client.get("/test", headers={"X-Tenant-Tier": "pro"})

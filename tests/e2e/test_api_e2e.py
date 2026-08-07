@@ -28,7 +28,7 @@ except ImportError:
 
 # Configuration
 BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
-API_KEY = os.environ.get("API_KEY", "test-api-key")
+API_KEY = os.environ.get("API_KEY", "test")
 
 
 @pytest.fixture(scope="module")

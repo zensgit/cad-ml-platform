@@ -84,7 +84,7 @@ def test_vision_analyze_with_base64_happy_path(sample_image_base64):
 
     app = FastAPI()
     app.include_router(router, prefix="/api/v1/vision")
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
 
     # Prepare request
     request_data = {
@@ -119,7 +119,7 @@ def test_vision_analyze_includes_cad_stats(sample_image_base64):
 
     app = FastAPI()
     app.include_router(router, prefix="/api/v1/vision")
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
 
     request_data = {
         "image_base64": sample_image_base64,
@@ -152,7 +152,7 @@ def test_vision_analyze_invalid_cad_threshold_key(sample_image_base64):
 
     app = FastAPI()
     app.include_router(router, prefix="/api/v1/vision")
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
 
     request_data = {
         "image_base64": sample_image_base64,
@@ -175,7 +175,7 @@ def test_vision_analyze_invalid_cad_threshold_value(sample_image_base64):
 
     app = FastAPI()
     app.include_router(router, prefix="/api/v1/vision")
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
 
     request_data = {
         "image_base64": sample_image_base64,
@@ -198,7 +198,7 @@ def test_vision_analyze_invalid_arc_fill_range(sample_image_base64):
 
     app = FastAPI()
     app.include_router(router, prefix="/api/v1/vision")
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
 
     request_data = {
         "image_base64": sample_image_base64,
@@ -221,7 +221,7 @@ def test_vision_analyze_thresholds_change_stats(sample_image_base64):
 
     app = FastAPI()
     app.include_router(router, prefix="/api/v1/vision")
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
 
     image = Image.new("L", (120, 80), color=255)
     draw = ImageDraw.Draw(image)
@@ -264,7 +264,7 @@ def test_vision_analyze_arc_sweep_bins(sample_image_base64):
 
     app = FastAPI()
     app.include_router(router, prefix="/api/v1/vision")
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
 
     image = Image.new("L", (120, 120), color=255)
     draw = ImageDraw.Draw(image)
@@ -308,7 +308,7 @@ def test_vision_analyze_missing_image_error():
 
     app = FastAPI()
     app.include_router(router, prefix="/api/v1/vision")
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
 
     # Request with no image
     request_data = {"include_description": True, "include_ocr": False}
@@ -334,7 +334,7 @@ def test_vision_analyze_invalid_base64_error():
 
     app = FastAPI()
     app.include_router(router, prefix="/api/v1/vision")
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
 
     # Invalid base64
     request_data = {"image_base64": "this-is-not-valid-base64!!!", "include_description": True}
@@ -362,7 +362,7 @@ def test_vision_health_check():
 
     app = FastAPI()
     app.include_router(router, prefix="/api/v1/vision")
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
 
     response = client.get("/api/v1/vision/health")
 

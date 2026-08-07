@@ -11,7 +11,7 @@ def test_health_classifier_cache_stats(monkeypatch):
 
     monkeypatch.setattr(classifier_api, "result_cache", DummyCache())
 
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     response = client.get("/api/v1/health/classifier/cache", headers={"X-Admin-Token": "test"})
     assert response.status_code == 200
     payload = response.json()

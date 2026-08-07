@@ -107,7 +107,7 @@ def test_health_payload_exposes_model_registry(monkeypatch, tmp_path) -> None:
 def test_model_readiness_health_endpoint(monkeypatch, tmp_path) -> None:
     monkeypatch.setenv("GRAPH2D_ENABLED", "true")
     monkeypatch.setenv("GRAPH2D_MODEL_PATH", str(tmp_path / "missing.pth"))
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
 
     response = client.get(
         "/api/v1/health/model-readiness",

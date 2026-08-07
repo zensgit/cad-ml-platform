@@ -226,7 +226,7 @@ class TestAPIBenchmarks:
 
         from src.main import app
 
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
 
         def call_health():
             client.get("/health")

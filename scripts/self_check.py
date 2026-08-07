@@ -46,6 +46,12 @@ if str(project_root) not in sys.path:
 # Try local client first, fallback to httpx for remote URLs
 base_url = os.getenv("SELF_CHECK_BASE_URL", "").strip()
 
+# L3 #517: protected routes require a real X-API-Key (no Header default).
+# Harness/CI set API_KEY=test under ENVIRONMENT=development.
+_AUTH_HEADERS = {
+    "X-API-Key": os.getenv("API_KEY") or os.getenv("X_API_KEY") or "test",
+}
+
 if not base_url:
     # Use TestClient for local testing
     try:
@@ -56,6 +62,10 @@ if not base_url:
 
     def _load_app():
         try:
+            # Process-level opt-in so refuse_boot does not kill import under CI.
+            os.environ.setdefault("ENVIRONMENT", "development")
+            os.environ.setdefault("API_KEY", _AUTH_HEADERS["X-API-Key"])
+            os.environ.setdefault("ADMIN_TOKEN", os.getenv("ADMIN_TOKEN", "test"))
             from src.main import app  # type: ignore
         except Exception as e:
             print(f"[self-check] Failed to import app: {e}")
@@ -63,12 +73,12 @@ if not base_url:
         return app
 
     app = _load_app()
-    client = TestClient(app)
+    client = TestClient(app, headers=_AUTH_HEADERS)
 else:
     # Use httpx for remote URLs
     try:
         import httpx
-        client = httpx.Client(base_url=base_url, timeout=10.0)
+        client = httpx.Client(base_url=base_url, timeout=10.0, headers=_AUTH_HEADERS)
     except Exception as e:
         print(f"[self-check] httpx client creation failed: {e}")
         sys.exit(2)

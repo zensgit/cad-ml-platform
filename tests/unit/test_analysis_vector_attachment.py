@@ -24,8 +24,9 @@ async def test_attach_analysis_vector_context_writes_similarity_and_stage_time(
             "vector_metadata": {},
         }
 
-    time_values = iter([10.0])
-    monkeypatch.setattr("src.core.analysis_vector_attachment.time.time", lambda: next(time_values))
+    # Constant clock — avoid finite iterators (suite order can call time.time
+    # extra times during teardown and raise StopIteration).
+    monkeypatch.setattr("src.core.analysis_vector_attachment.time.time", lambda: 10.0)
 
     vector_context = await attach_analysis_vector_context(
         analysis_id="analysis-1",

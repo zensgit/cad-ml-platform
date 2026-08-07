@@ -13,7 +13,7 @@ from src.main import app
 
 class TestAnalyzeIntegration(unittest.TestCase):
     def setUp(self):
-        self.client = TestClient(app)
+        self.client = TestClient(app, headers={"X-API-Key": "test"})
 
     @patch("src.core.geometry.engine.GeometryEngine.load_step")
     @patch("src.core.geometry.engine.GeometryEngine.extract_brep_features")
