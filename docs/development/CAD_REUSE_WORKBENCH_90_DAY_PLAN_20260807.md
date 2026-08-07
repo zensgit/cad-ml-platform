@@ -1,9 +1,13 @@
 # CAD Reuse Workbench 90-Day Development Plan
 
-**Date**: 2026-08-07  
-**Status**: Proposed execution plan; does not reset the ratified 90-day clock  
-**Authority**: `docs/PRODUCT_STRATEGY.md` section 3.3, section 7.1, section 8.2, and section 8.4  
+**Date**: 2026-08-07
+
+**Status**: Proposed execution plan; does not reset the ratified 90-day clock
+
+**Authority**: `docs/PRODUCT_STRATEGY.md` section 3.3, section 7.1, section 8.2, and section 8.4
+
 **Scope**: implement the ratified CAD reuse / revise / new decision slice, not a generic CAD chatbot, WorkBuddy clone, or multi-agent platform
+
 **Clock**: Day 0 = 2026-07-12, Day 30 = 2026-08-11, Day 60 = 2026-09-10, Day 90 = 2026-10-10
 
 ## 1. Executive Summary
