@@ -383,6 +383,8 @@ def build_versioned_manifest(
         "license": license_,
         "label_authority": label_authority,
         "holdout_fraction": holdout_fraction,
+        # Hardcoded dry-run floor (invariant G): never a retrain unlock token.
+        "unlocks_retraining": False,
         # §8.1.5 provenance completeness: any row of unknown provenance means the manifest is NOT a
         # clean, fully-attributed dataset — a downstream evaluation must NOT treat it as complete.
         "provenance_complete": unknown_provenance == 0,
@@ -485,6 +487,11 @@ def verify_manifest(
         raise IntegrityError(
             f"schema_version mismatch: artifact declares {manifest.get('schema_version')!r} != "
             f"trusted {SCHEMA_VERSION!r} — refusing to verify an unrecognized schema."
+        )
+    if manifest.get("unlocks_retraining") is not False:
+        raise IntegrityError(
+            "unlocks_retraining must be hardcoded false on E1 dry-run manifests "
+            f"(got {manifest.get('unlocks_retraining')!r})"
         )
     trusted_holdout = (
         DEFAULT_HOLDOUT_FRACTION if expected_holdout_fraction is None else expected_holdout_fraction

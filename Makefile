@@ -2215,3 +2215,12 @@ rules-cd: ## 运行规则 CD 流程
 rules-report: ## 生成规则版本报告
 	@echo "Generating rules version report..."
 	$(PYTHON) scripts/recording_rules_versioning.py report --format markdown
+
+track-e-e1-dry-run: ## Track E E1 torch-free dry-run (split+manifest+verify)
+	@test -n "$(MANIFEST)" || (echo "MANIFEST=path/to.csv required" >&2; exit 2)
+	python scripts/run_track_e_e1_dry_run.py --manifest "$(MANIFEST)" \
+		$(if $(ROOT),--root "$(ROOT)",) \
+		--out "$(or $(OUT),artifacts/track_e_e1_dry_run)" \
+		$(if $(HOLDOUT),--holdout-fraction $(HOLDOUT),)
+
+
