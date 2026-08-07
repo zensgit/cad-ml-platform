@@ -681,21 +681,13 @@ def test_no_root_relative_symlink_escape_is_contained(tmp_path: Path, monkeypatc
 
 
 def test_verify_red_on_smuggled_top_level_key(tmp_path: Path) -> None:
-    # audit P3: a re-digested manifest must not smuggle an unbound top-level key through verify.
+    # audit P3: a re-digested manifest must not smuggle an unbound top-level key (esp. a
+    # security-named unlocks_retraining) through verify.
     rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "g") for i in range(4)]
     man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=tmp_path)
-    man["smuggled_unbound_field"] = "x"              # not part of build schema
+    man["unlocks_retraining"] = True                 # smuggle a forbidden flag
     man["manifest_digest"] = tm._manifest_digest(man)
     with pytest.raises(tm.IntegrityError, match="schema key-set FAILED"):
-        tm.verify_manifest(rows, man, root=tmp_path)
-
-
-def test_verify_red_when_unlocks_retraining_flipped_true(tmp_path: Path) -> None:
-    rows = [_mk(tmp_path, f"f{i}.dxf", f"c{i}".encode(), "g") for i in range(4)]
-    man = tm.build_versioned_manifest(rows, source="s", license_="l", label_authority="a", root=tmp_path)
-    man["unlocks_retraining"] = True
-    man["manifest_digest"] = tm._manifest_digest(man)
-    with pytest.raises(tm.IntegrityError, match="unlocks_retraining"):
         tm.verify_manifest(rows, man, root=tmp_path)
 
 
