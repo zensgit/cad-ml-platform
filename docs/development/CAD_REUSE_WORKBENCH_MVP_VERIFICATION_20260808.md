@@ -135,6 +135,19 @@ cad-reuse-workbench-dev   validate_only mode=gap|full → OK
 cad-reuse-workbench-system validate_only phase=all → OK
 ```
 
+### Live run: `cad-reuse-workbench-dev` mode=verify (2026-08-08)
+
+| Field | Result |
+|---|---|
+| overall `ok` | **true** |
+| gap_ok_areas | **4/4** |
+| tests_pass | **true** (16/16 review-reuse unit; + OpenAPI/route uniqueness 3/3) |
+| verify_ok | **true** |
+| missing | `[]` |
+| report | `scratch/workbench_dev_report.md` (workflow run artifact) |
+
+Workflow next_actions (owner / residual, not eng self-complete): design-lock ratification; pilot-only decision enable; Track C human residual; leave eval_integrity/cost_cap/retrain out of Track R.
+
 Scheduled task: `cad-reuse-workbench-gap-check` (weekdays 09:30 Asia/Shanghai).
 
 execute-plan design: `CAD_REUSE_WORKBENCH_SYSTEM_EXECUTE_DESIGN_20260808.md`  
