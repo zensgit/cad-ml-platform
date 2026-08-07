@@ -1,0 +1,71 @@
+name: Dependabot Action Pin Sync
+
+# Issue #476 / August plan: Dependabot github-actions bumps often land as commit
+# SHAs (or tags). Action Pin Guard requires both SHA form *and* an allow-list
+# entry in config/workflow_action_pin_policy.json. This job rewrites any remaining
+# tags → SHAs and regenerates the policy on the PR head so Pin Guard can pass.
+#
+# Does not amend Action Pin Guard policy rules themselves — only keeps the
+# allow-list in sync with workflow uses: lines on the PR branch.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths:
+      - ".github/workflows/**"
+      - "config/workflow_action_pin_policy.json"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync-pin-policy:
+    name: Sync action pin policy
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          # Need write access to push policy sync commits onto the PR branch.
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        with:
+          python-version: "3.11"
+
+      - name: Rewrite tags to SHA and regenerate pin policy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python scripts/ci/sync_dependabot_action_pin_policy.py \
+            --workflows-dir .github/workflows \
+            --policy-json config/workflow_action_pin_policy.json \
+            --output-json /tmp/dependabot-pin-sync-report.json
+          python scripts/ci/check_workflow_action_pins.py \
+            --workflows-dir .github/workflows \
+            --policy-json config/workflow_action_pin_policy.json \
+            --require-policy-for-all-external
+
+      - name: Commit and push policy sync (if dirty)
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows config/workflow_action_pin_policy.json
+          if git diff --cached --quiet; then
+            echo "No pin-policy changes to commit."
+            exit 0
+          fi
+          git commit -m "chore(ci): SHA-pin / sync action pin policy (#476)"
+          # Dependabot branches accept maintainer pushes when permissions allow.
+          git push origin "HEAD:${{ github.head_ref || github.ref_name }}"
