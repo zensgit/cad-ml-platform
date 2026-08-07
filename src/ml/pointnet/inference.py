@@ -139,10 +139,16 @@ class PointNet3DAnalyzer:
             self._feature_extractor = PointNetFeatureExtractor(
                 feature_dim=self.feature_dim
             )
-            if "extractor_state_dict" in checkpoint:
-                self._feature_extractor.load_state_dict(
-                    checkpoint["extractor_state_dict"]
+            if "extractor_state_dict" not in checkpoint:
+                # Missing extractor weights would leave a randomly-initialized
+                # network reporting as "loaded" — refuse silent success.
+                raise RuntimeError(
+                    "PointNet checkpoint missing extractor_state_dict; "
+                    "refusing randomly-initialized feature extractor"
                 )
+            self._feature_extractor.load_state_dict(
+                checkpoint["extractor_state_dict"]
+            )
             self._feature_extractor.to(device)
             self._feature_extractor.eval()
 

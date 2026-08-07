@@ -203,13 +203,11 @@ class PaddleOcrProvider(OcrClient):
                 # Paddle path failed — keep empty to fall back to regex parsing below
                 text = ""
         else:
-            text = "Φ20±0.02 R5 M10×1.5 Ra3.2 Drawing No: PAD-001"
-            dimensions = [
-                DimensionInfo(type=DimensionType.diameter, value=20.0, tolerance=0.02),
-                DimensionInfo(type=DimensionType.radius, value=5.0),
-                DimensionInfo(type=DimensionType.thread, value=10.0, pitch=1.5),
-            ]
-            symbols = [SymbolInfo(type=SymbolType.surface_roughness, value="3.2")]
+            # Model/client missing: do NOT invent dimensions/text (honesty / fail-closed).
+            logging.warning("Paddle OCR client unavailable — returning empty OCR result")
+            text = ""
+            dimensions = []
+            symbols = []
         timer.end("infer")
         extraction_mode = "provider_native"
         timer.start("parse")
