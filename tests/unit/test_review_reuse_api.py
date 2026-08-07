@@ -165,3 +165,15 @@ def test_cancel(client: TestClient) -> None:
 def test_not_found(client: TestClient) -> None:
     r = client.get("/api/v1/review-reuse/tasks/does-not-exist")
     assert r.status_code == 404
+
+
+def test_metrics_endpoint(client: TestClient) -> None:
+    client.post(
+        "/api/v1/review-reuse/tasks",
+        files={"file": ("a.dxf", b"metrics", "application/octet-stream")},
+    )
+    r = client.get("/api/v1/review-reuse/metrics")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["metric_family"] == "review_workflow"
+    assert body["task_count"] >= 1

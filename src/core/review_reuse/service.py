@@ -8,13 +8,12 @@ import time
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
+from .dedup_adapter import recall_candidates
 from .evidence import build_evidence_pack, evidence_pack_markdown
+from .metrics import compute_review_metrics
 from .models import (
-    CandidateDecision,
-    CandidateState,
     HumanDecision,
     HumanDecisionState,
-    RejectionReason,
     ReviewReuseTask,
     TaskEvent,
     TaskEventType,
@@ -86,9 +85,14 @@ class ReviewReuseService:
         task.updated_at = time.time()
         self.store.put(task)
 
-        # Pipeline: recall → precision → evidence (deterministic adapter; no training path).
+        # Pipeline: recall → precision → evidence (adapter; no training path).
         task = self._emit(task, TaskEventType.recall_started, {})
-        candidates = self._build_candidates(file_name, content_sha, seed_candidates)
+        candidates = recall_candidates(
+            file_name=file_name,
+            file_bytes=file_bytes,
+            content_sha=content_sha,
+            seed=seed_candidates,
+        )
         task.candidates = candidates
         task = self._emit(
             task,
@@ -141,6 +145,9 @@ class ReviewReuseService:
             raise ReviewReuseError("not_ready", "evidence pack not ready")
         md = evidence_pack_markdown(task.evidence_pack) if as_markdown else None
         return task.evidence_pack, md
+
+    def metrics(self, tenant_id: str) -> Dict[str, Any]:
+        return compute_review_metrics(self.store, tenant_id)
 
     def submit_decision(
         self,
@@ -209,63 +216,4 @@ class ReviewReuseService:
         task.updated_at = time.time()
         return task
 
-    def _build_candidates(
-        self,
-        file_name: str,
-        content_sha: str,
-        seed: Optional[List[Dict[str, Any]]],
-    ) -> List[CandidateDecision]:
-        """Deterministic candidate builder.
 
-        When ``seed`` is provided (tests / offline archive fixture), use it.
-        Otherwise synthesize a single insufficient_evidence row so the task is
-        still exportable without requiring a live dedup service.
-        """
-        if seed:
-            out: List[CandidateDecision] = []
-            for raw in seed:
-                state = CandidateState(raw.get("state", "similar"))
-                scores = dict(raw.get("scores") or {})
-                reasons = list(raw.get("rejection_reasons") or [])
-                if state == CandidateState.insufficient_evidence and not reasons:
-                    reasons = [RejectionReason.tool_unavailable.value]
-                out.append(
-                    CandidateDecision(
-                        candidate_id=str(raw.get("candidate_id") or raw.get("drawing_id") or uuid.uuid4()),
-                        candidate_source=str(raw.get("candidate_source") or "archive"),
-                        state=state,
-                        scores=scores,
-                        verification=dict(
-                            raw.get("verification")
-                            or {
-                                "verdict": state.value,
-                                "level": raw.get("match_level", 0),
-                                "methods": ["dedup2d-adapter"],
-                            }
-                        ),
-                        rejection_reasons=reasons,
-                        provenance={
-                            "input_sha256": content_sha,
-                            "query_file": file_name,
-                            "model": raw.get("decision_source") or "dedup2d",
-                        },
-                    )
-                )
-            return out
-
-        # Offline / no-tool path: honest insufficient evidence.
-        return [
-            CandidateDecision(
-                candidate_id=f"none-{content_sha[:12]}",
-                candidate_source="none",
-                state=CandidateState.insufficient_evidence,
-                scores={"geometric": None, "semantic": None},
-                verification={
-                    "verdict": "insufficient_evidence",
-                    "level": 0,
-                    "methods": [],
-                },
-                rejection_reasons=[RejectionReason.tool_unavailable.value],
-                provenance={"input_sha256": content_sha, "query_file": file_name},
-            )
-        ]

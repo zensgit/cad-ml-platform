@@ -261,8 +261,8 @@
     "WeldingType"
   ],
   "openapi": "3.1.0",
-  "operation_count": 205,
-  "path_count": 199,
+  "operation_count": 206,
+  "path_count": 200,
   "paths": {
     "/": {
       "get": {
@@ -1801,6 +1801,16 @@
       "post": {
         "deprecated": false,
         "operationId": "render_cad_preview_api_v1_render_cad_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/review-reuse/metrics": {
+      "get": {
+        "deprecated": false,
+        "operationId": "review_metrics_api_v1_review_reuse_metrics_get",
         "responses": [
           "200",
           "422"

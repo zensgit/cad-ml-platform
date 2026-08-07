@@ -239,3 +239,70 @@ class TestEvidenceBuilder:
         assert "scores" in c0
         assert "verification" in c0
         assert "provenance" in c0
+
+
+class TestDedupAdapterAndMetrics:
+    def test_live_dedup_off_offline_path(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from src.core.review_reuse import dedup_adapter as da
+
+        monkeypatch.delenv(da.ENV_LIVE_DEDUP, raising=False)
+        da.set_live_recall_hook(None)
+        svc = _svc()
+        task = svc.create_task(tenant_id="t-m", file_name="a.dxf", file_bytes=b"x")
+        assert task.candidates[0].state == CandidateState.insufficient_evidence
+
+    def test_live_dedup_hook(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from src.core.review_reuse import dedup_adapter as da
+
+        monkeypatch.setenv(da.ENV_LIVE_DEDUP, "true")
+
+        def _hook(fn: str, fb: bytes, sha: str):
+            return [
+                {
+                    "candidate_id": "live-1",
+                    "state": "duplicate",
+                    "scores": {"geometric": 0.99, "semantic": 0.5},
+                    "match_level": 3,
+                }
+            ]
+
+        da.set_live_recall_hook(_hook)
+        try:
+            svc = _svc()
+            task = svc.create_task(tenant_id="t-m", file_name="a.dxf", file_bytes=b"x")
+            assert task.candidates[0].candidate_id == "live-1"
+            assert task.candidates[0].state == CandidateState.duplicate
+        finally:
+            da.set_live_recall_hook(None)
+            monkeypatch.delenv(da.ENV_LIVE_DEDUP, raising=False)
+
+    def test_live_dedup_hook_failure_fail_closed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from src.core.review_reuse import dedup_adapter as da
+
+        monkeypatch.setenv(da.ENV_LIVE_DEDUP, "1")
+
+        def _boom(fn: str, fb: bytes, sha: str):
+            raise RuntimeError("dedup down")
+
+        da.set_live_recall_hook(_boom)
+        try:
+            svc = _svc()
+            task = svc.create_task(tenant_id="t-m", file_name="a.dxf", file_bytes=b"x")
+            assert task.candidates[0].state == CandidateState.insufficient_evidence
+            assert "external_service_unavailable" in task.candidates[0].rejection_reasons
+        finally:
+            da.set_live_recall_hook(None)
+
+    def test_metrics(self) -> None:
+        svc = _svc()
+        svc.create_task(
+            tenant_id="t-m",
+            file_name="a.dxf",
+            file_bytes=b"1",
+            seed_candidates=_seed_similar(),
+        )
+        m = svc.metrics("t-m")
+        assert m["metric_family"] == "review_workflow"
+        assert m["task_count"] == 1
+        assert m["by_status"].get("evidence_ready") == 1
+        assert "track_e" not in m["metric_family"]

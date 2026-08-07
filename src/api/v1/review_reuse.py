@@ -177,6 +177,16 @@ async def get_evidence_pack(
     return pack
 
 
+@router.get("/metrics", response_model=Dict[str, Any])
+async def review_metrics(
+    request: Request,
+    api_key: str = Depends(get_api_key),
+    service: ReviewReuseService = Depends(_svc),
+) -> Dict[str, Any]:
+    """Review-workflow metrics (not Track E model-release metrics)."""
+    return service.metrics(_tenant_id(request, api_key))
+
+
 @router.post("/tasks/{task_id}/decision", response_model=Dict[str, Any])
 async def submit_decision(
     task_id: str,

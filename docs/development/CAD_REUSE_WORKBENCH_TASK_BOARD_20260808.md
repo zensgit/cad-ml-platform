@@ -22,7 +22,7 @@ Legend: **done** · **in_progress** · **residual_eng** · **residual_human** ·
 | R7 | Isolated-sample runbook | done | #547 | `ISOLATED_SAMPLE_ARCHIVE_RUNBOOK_20260808.md` |
 | R8 | Plan + verification MD | done | #547 | MVP plan/verification MDs |
 | R9 | OpenAPI snapshot for new routes | done | #547 | `config/openapi_schema_snapshot.json` |
-| R10 | Live dedup2d adapter | residual_eng | execute-plan **PR 3** (after #547) | offline seed today |
+| R10 | Live dedup2d adapter | done | #547 `dedup_adapter.py` | default-off live hook; honest offline fallback |
 | R11 | Owner ratify design-lock | residual_human | — | owner only |
 | R12 | Pilot enable decisions | residual_human | — | env flag |
 
@@ -48,7 +48,7 @@ Legend: **done** · **in_progress** · **residual_eng** · **residual_human** ·
 |---|---|---|---|---|
 | O1 | Isolated sample checklist | done | #547 | runbook |
 | O2 | Pilot ops package (kill/rollback/export/retention) | done | #547 / execute-plan PR 2 | `TRACK_O_PILOT_OPS_PACKAGE_20260808.md` |
-| O3 | Workbench review metrics export | residual_eng | execute-plan **PR 4** | after #547 L3 slot free |
+| O3 | Workbench review metrics export | done | #547 `metrics.py` + `GET .../metrics` | review_workflow family only |
 | O4 | Kill switch documented | done | runbook §6 + Track O package | done |
 
 ## Track C — Customer Pilot (P1) — human residual
@@ -70,7 +70,7 @@ Legend: **done** · **in_progress** · **residual_eng** · **residual_human** ·
 | SYS3 | `cad-reuse-workbench-system` master workflow | done | `.grok/workflows/cad-reuse-workbench-system.rhai` |
 | SYS4 | System execute design + PR Plan DAG | done | `CAD_REUSE_WORKBENCH_SYSTEM_EXECUTE_DESIGN_20260808.md` |
 | SYS5 | residual PR1+PR2 (audits + ops) content | done | landed on #547 docs tranche |
-| SYS6 | execute-plan PR3+PR4 after #547 | blocked | L3 WIP=1 until #547 merges |
+| SYS6 | PR3+PR4 content folded into #547 | done | same L3 slot — no second runtime PR |
 | SYS7 | Closeout board flip (PR 5) | done | this board updated |
 
 ---
