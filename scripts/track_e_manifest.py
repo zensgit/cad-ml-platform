@@ -1,6 +1,3 @@
-# Track E Slice E1 (dry-run) — reimplemented from main against
-# docs/development/L3_TRACK_E_EVALUATION_INTEGRITY_V2_DESIGNLOCK_20260721.md (#531).
-# Reference-only prior art: closed #510/#511 branches (not a merge base).
 #!/usr/bin/env python3
 """Track E slice-2: versioned evaluation-integrity manifest + real/synthetic/augmented reporting.
 
