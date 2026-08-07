@@ -89,3 +89,33 @@ def test_analyze_rejects_empty_dxf_parser_stub_fail_closed():
     assert detail["code"] == "PARSE_FAILED"
     assert detail["source"] == "system"
     assert detail["context"]["format"] == "dxf"
+
+
+def test_analyze_rejects_section_substring_bypass_fail_closed():
+    """#525 P2: planting ``SECTION`` in garbage must NOT green-light .dxf analyze.
+
+    Pre-fix: inverted check ``SECTION not in head`` made this path return 200.
+    Observed-RED: without structural group-code check this payload bypasses.
+    """
+    payload = b"not-a-drawing\nSECTION\nrandom-bytes\xff\x00"
+    r = client.post(
+        "/api/v1/analyze",
+        files={"file": ("launder.dxf", payload, "application/octet-stream")},
+        data={"options": '{"extract_features": false, "classify_parts": false}'},
+        headers={"X-API-Key": "test"},
+    )
+    assert r.status_code == 422, r.text
+    detail = r.json()["detail"]
+    assert detail["code"] == "PARSE_FAILED"
+    assert detail["context"]["format"] == "dxf"
+
+
+def test_looks_like_ascii_dxf_requires_group_code_not_substring():
+    from src.core.document_pipeline import _looks_like_ascii_dxf
+
+    assert _looks_like_ascii_dxf(VALID_LINE_DXF) is True
+    assert _looks_like_ascii_dxf(b"0\nSECTION\n2\nHEADER\n") is True
+    # Attacker-controlled substring without group-code 0 pairing
+    assert _looks_like_ascii_dxf(b"not-a-drawing\nSECTION\nrandom") is False
+    assert _looks_like_ascii_dxf(b"SECTION") is False
+    assert _looks_like_ascii_dxf(b"456") is False
