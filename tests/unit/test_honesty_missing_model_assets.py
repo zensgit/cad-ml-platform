@@ -1,11 +1,16 @@
-"""Honesty: missing model assets must not invent success (Track 2 / L2)."""
+"""Honesty: missing model assets must not invent success (Track 2 / L2).
+
+Also: do not permanently pollute ``sys.modules`` — use ``monkeypatch.setitem``
+so later tests in the same pytest session keep a clean import graph.
+"""
 
 from __future__ import annotations
 
 import asyncio
+import importlib
 import sys
 import types
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 
 def test_paddle_missing_client_does_not_fabricate_pad001_text():
@@ -33,25 +38,19 @@ def test_pointnet_source_refuses_missing_extractor_state_dict():
     assert "refusing randomly-initialized feature extractor" in src
 
 
-def test_pointnet_missing_extractor_state_dict_does_not_report_loaded():
-    """Drive real _try_load_model with gateway bytes + incomplete checkpoint."""
+def test_pointnet_missing_extractor_state_dict_does_not_report_loaded(monkeypatch):
+    """Drive real _try_load_model with gateway bytes + incomplete checkpoint.
+
+    Uses monkeypatch.setitem for any sys.modules stubs so session isolation holds.
+    """
     # Minimal torch stub so HAS_TORCH path is reachable without installing torch.
-    if "torch" not in sys.modules:
-        torch_mod = types.ModuleType("torch")
-        torch_mod.cuda = types.SimpleNamespace(is_available=lambda: False)
-        torch_mod.backends = types.SimpleNamespace(
-            mps=types.SimpleNamespace(is_available=lambda: False)
-        )
-        torch_mod.load = MagicMock(return_value={"classifier_state_dict": {}})
-        sys.modules["torch"] = torch_mod
-
-    import importlib
-
-    import src.ml.pointnet.inference as inf
-
-    importlib.reload(inf)
-    inf.HAS_TORCH = True
-    inf.torch = sys.modules["torch"]
+    torch_mod = types.ModuleType("torch")
+    torch_mod.cuda = types.SimpleNamespace(is_available=lambda: False)
+    torch_mod.backends = types.SimpleNamespace(
+        mps=types.SimpleNamespace(is_available=lambda: False)
+    )
+    torch_mod.load = MagicMock(return_value={"classifier_state_dict": {"w": 1}})
+    monkeypatch.setitem(sys.modules, "torch", torch_mod)
 
     class DummyMod:
         def load_state_dict(self, *a, **k):
@@ -66,13 +65,18 @@ def test_pointnet_missing_extractor_state_dict_does_not_report_loaded():
     fake_model = types.ModuleType("src.ml.pointnet.model")
     fake_model.PointNetClassifier = lambda **k: DummyMod()
     fake_model.PointNetFeatureExtractor = lambda **k: DummyMod()
-    sys.modules["src.ml.pointnet.model"] = fake_model
+    monkeypatch.setitem(sys.modules, "src.ml.pointnet.model", fake_model)
 
-    with patch.object(inf, "activate_file", return_value=b"fake-ckpt-bytes"):
-        sys.modules["torch"].load = MagicMock(
-            return_value={"classifier_state_dict": {"w": 1}}
-        )
-        analyzer = inf.PointNet3DAnalyzer(model_path="ignored.pt")
+    import src.ml.pointnet.inference as inf
+
+    # Reload under stubbed torch; monkeypatch undoes module dict + attribute sets.
+    monkeypatch.setattr(inf, "HAS_TORCH", True, raising=False)
+    monkeypatch.setattr(inf, "torch", torch_mod, raising=False)
+    monkeypatch.setattr(inf, "activate_file", lambda *a, **k: b"fake-ckpt-bytes")
+
+    # Re-bind model symbols used inside _try_load_model's local import path:
+    # the function does `from src.ml.pointnet.model import ...` which hits our stub.
+    analyzer = inf.PointNet3DAnalyzer(model_path="ignored.pt")
 
     assert analyzer._model_loaded is False
     assert analyzer._feature_extractor is None
