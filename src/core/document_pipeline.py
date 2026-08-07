@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import time as _time
 from typing import Any, Dict, Optional
 
@@ -38,6 +39,69 @@ SUPPORTED_FILE_FORMATS = {
     "igs",
     "stl",
 }
+
+
+def _raise_unsupported_raw_dwg(file_name: str) -> None:
+    analysis_requests_total.labels(status="error").inc()
+    analysis_errors_total.labels(stage="input", code="unsupported_raw_dwg").inc()
+    err = build_error(
+        ErrorCode.UNSUPPORTED_INPUT_DWG,
+        stage="input",
+        message=(
+            "Raw DWG input is not supported by /analyze. Convert through an "
+            "approved DWG route before analysis."
+        ),
+        file=file_name,
+        format="dwg",
+    )
+    raise HTTPException(status_code=415, detail=err)
+
+
+# Group-code 0 followed by SECTION (ASCII DXF). A bare substring "SECTION"
+# is attacker-controllable and must NOT count as structure (#525 P2).
+_DXF_GROUP0_SECTION = re.compile(br"(?m)^\s*0\s*[\r\n]+\s*SECTION\b", re.IGNORECASE)
+
+
+def _looks_like_ascii_dxf(content: bytes) -> bool:
+    """Positive structure check for ASCII DXF (group-code 0 + SECTION)."""
+    return _DXF_GROUP0_SECTION.search(content[:8192]) is not None
+
+
+def _is_empty_parser_stub_for_non_dxf_payload(doc: CadDocument, content: bytes) -> bool:
+    """True when an empty stub came from a non-DXF / laundered payload.
+
+    - Never invert-check a bare ``SECTION`` substring (P2 fail-open).
+    - Do **not** reject legacy convert adapters (``metadata['legacy']=True``):
+      they intentionally build an empty ``CadDocument`` after ``adapter.convert``.
+    - Do **not** reject empty stubs when the payload has positive DXF structure
+      (group-code 0 + SECTION); early structural rejection already covers
+      non-DXF bytes, including garbage that merely contains the word SECTION.
+    """
+    if doc.metadata.get("legacy") is True:
+        return False
+    empty_stub = (
+        doc.metadata.get("parser", "stub") == "stub"
+        and doc.entity_count() == 0
+        and not doc.layers
+    )
+    if not empty_stub:
+        return False
+    # Only fail closed for payloads that fail the positive structure check.
+    return not _looks_like_ascii_dxf(content)
+
+
+def _raise_empty_or_invalid_dxf(file_name: str, *, reason: str) -> None:
+    analysis_requests_total.labels(status="error").inc()
+    analysis_errors_total.labels(stage="parse", code="empty_parser_stub").inc()
+    err = build_error(
+        ErrorCode.PARSE_FAILED,
+        stage="parse",
+        message="CAD parser returned an empty stub document or non-DXF payload",
+        file=file_name,
+        format="dxf",
+        reason=reason,
+    )
+    raise HTTPException(status_code=422, detail=err)
 
 
 async def run_document_pipeline(
@@ -94,6 +158,14 @@ async def run_document_pipeline(
         )
         raise HTTPException(status_code=400, detail=err)
 
+    if file_format == "dwg":
+        _raise_unsupported_raw_dwg(file_name)
+
+    # Early fail-closed for claimed .dxf that lacks group-code 0+SECTION structure.
+    # Must not use inverted substring checks (``SECTION not in head``) — see #525 P2.
+    if file_format == "dxf" and not _looks_like_ascii_dxf(content):
+        _raise_empty_or_invalid_dxf(file_name, reason="dxf_structure_missing")
+
     if adapter_factory_cls is None:
         from src.adapters.factory import AdapterFactory as adapter_factory_cls
 
@@ -131,6 +203,9 @@ async def run_document_pipeline(
     except Exception:
         doc = CadDocument(file_name=file_name, format=file_format)
         unified_data = doc.to_unified_dict()
+
+    if file_format == "dxf" and _is_empty_parser_stub_for_non_dxf_payload(doc, content):
+        _raise_empty_or_invalid_dxf(file_name, reason="empty_parser_stub")
 
     try:
         from src.utils.analysis_metrics import parse_stage_latency_seconds
