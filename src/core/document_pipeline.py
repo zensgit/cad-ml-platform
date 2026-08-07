@@ -68,18 +68,26 @@ def _looks_like_ascii_dxf(content: bytes) -> bool:
 
 
 def _is_empty_parser_stub_for_non_dxf_payload(doc: CadDocument, content: bytes) -> bool:
-    """True when the parser returned an empty stub that must fail closed.
+    """True when an empty stub came from a non-DXF / laundered payload.
 
-    Never invert-check a ``SECTION`` substring: planting that token used to
-    skip this guard and return HTTP 200 for garbage renamed to ``.dxf``.
-    Empty stubs fail closed regardless of payload tokens; callers also apply
-    :func:`_looks_like_ascii_dxf` for early structural rejection.
+    - Never invert-check a bare ``SECTION`` substring (P2 fail-open).
+    - Do **not** reject legacy convert adapters (``metadata['legacy']=True``):
+      they intentionally build an empty ``CadDocument`` after ``adapter.convert``.
+    - Do **not** reject empty stubs when the payload has positive DXF structure
+      (group-code 0 + SECTION); early structural rejection already covers
+      non-DXF bytes, including garbage that merely contains the word SECTION.
     """
-    return (
+    if doc.metadata.get("legacy") is True:
+        return False
+    empty_stub = (
         doc.metadata.get("parser", "stub") == "stub"
         and doc.entity_count() == 0
         and not doc.layers
     )
+    if not empty_stub:
+        return False
+    # Only fail closed for payloads that fail the positive structure check.
+    return not _looks_like_ascii_dxf(content)
 
 
 def _raise_empty_or_invalid_dxf(file_name: str, *, reason: str) -> None:
