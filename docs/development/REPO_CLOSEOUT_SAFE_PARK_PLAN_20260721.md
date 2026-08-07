@@ -63,8 +63,8 @@ merge planning. Facts below replace it.
 | **#528 / #532** | Phase-A model activation membrane (C1 + C2–C6 wiring / golden path) | 2026-07 → early Aug |
 | **#529** | finetune train-and-reload seal | post-#528 |
 | **#536** | assistant hosted-provider dependency lock | 2026-08-06 |
-| **#535** | assistant tool_status contract | 2026-08-06 |
-| **#537** | assistant provider SEAL (live path) | 2026-08-06 |
+| **#535** | assistant SEAL **design / docs** only (commit: “Docs-only. Does not implement runtime SEAL”) | 2026-08-06 |
+| **#537** | assistant provider **runtime SEAL** on live path (incl. §2.C `TOOL_REGISTRY` canonical status / `tool_status` contract) | 2026-08-06 |
 | **#538** | production identity fail-closed (#517 design-lock runtime) | 2026-08-07 `191ce7ef` |
 | **#525** | fail-closed raw DWG analyze input (SECTION structure + empty-stub guard) | 2026-08-07 `e98f7e12` |
 | **#539** | OCR/PointNet honesty (no fabricated OCR; refuse random PointNet weights) | 2026-08-07 `2dd6225b` |
@@ -104,7 +104,10 @@ Phase-A / identity / SEAL landings and is not a current exit criterion.
 > in §2.2 are **on `main`**. Layer 1 is no longer “start C1 from zero”; remaining safe-park work
 > is residual inventory (Layer 2 closeout MD), owner KIND/caliber decisions still open in §3.1
 > if not already recorded in the Phase-A Dev&V docs, and **not** reopening sealed reload paths.
-> Track E **runtime** remains supply-gated (§5) even though design-lock #531 is merged.
+> Track E **design-lock #531 is ratified**. Per that lock, **Slice E1** (torch-free dry-run /
+> reporting only) is **not** blocked on real data — its start conditions were (1) design-lock
+> ratify and (2) a free L3 PR slot; both are now true. Real data / model-run supply remains the
+> gate only for **invariant H and the two-phase release path** (explicitly out of E1). See §5.
 
 ### 3.1 Owner decisions that unblock the build (cheapest, highest leverage)
 
@@ -160,23 +163,38 @@ Safe-park's deliverable is a **SAFE-PARK CLOSEOUT MD** freezing the parked state
 
 The closeout MD must contain: exact SHAs, CI evidence links, residual risks (including the C1
 honest residual: non-atomic mkdir+fd binding can leave a safe empty directory shell, zero model
-bytes), and a **restart manual** (how Track E / Phase B resume when their supplies appear).
+bytes), and a **restart manual** (how Phase B / enablement / post-E1 model-run resume when their
+supplies appear; how E1 resumes as ordinary L3 engineering once a slot is free).
 
 ---
 
-## 5. Layer 3 — supply-gated tracks: explicitly parked, never scheduled
+## 5. Layer 3 — what is still parked vs what is now unblocked
 
-These never enter the engineering schedule until their external supply exists. Pre-building any
-of them is forbidden by strategy §6 and the design lock (the literal fake-green).
+This section must **not contradict** the ratified Track E design-lock
+(`docs/development/L3_TRACK_E_EVALUATION_INTEGRITY_V2_DESIGNLOCK_20260721.md`, merged via #531).
+This closeout plan **implements** design locks; it does not amend them.
+
+### 5.1 Track E — split by design-lock (not a single “wait for data” gate)
+
+| Slice | Status (2026-08-07) | What blocks / does not block | Fake-green risk |
+|---|---|---|---|
+| **E1** dry-run / reporting only (torch-free; invariants A–G; discriminators 1–14; **no** import of `eval_integrity_gate`; cannot mint unlock; `release_eligible:false` / `unlocks_retraining:false`) | **Unblocked to author** | Design-lock start conditions: **(1) #531 ratify** ✅ **(2) L3 PR slot free** ✅. **Does not require real data or a model-run environment.** | Claiming full §8.1 exit (“fresh clone reproduces the **evaluation result**”) or any retrain unlock from E1 outputs |
+| **Invariant H + two-phase release / real metrics** (§8.1.4; explicitly **NOT in E1**) | Still parked | Real holdout metrics over model-run (torch + data) + later owner decision on release gate | Fabricated metrics / forged release eligibility |
+
+E1 is **one** implementation PR and the line’s **single** L3 runtime PR while open. Closed #510/#511
+are **not** revived; rebuild from `main` against the ratified lock.
+
+### 5.2 Still fully supply-gated (do not schedule until supply exists)
 
 | Track | Missing supply | Consequence of faking it |
 |---|---|---|
-| **Track E** (evaluation-integrity-v2) | Real data + model-run environment. **Design-lock #531 is on main** — that unlocks authoring E1; it does **not** authorize pre-building runtime without supply. `release_eligible:false` remains hard. | Metrics without them = fabricated metrics |
 | **Phase B** (signed proofs) | Signing-key custody (HSM / human-gated signer outside CI) | Proofs without them = forged signatures |
 | **Enablement gate 1** (Phase-A baseline-pin activation) | Owner-supplied §7.2 evidence: named target environment, named owner AND user, date, staging replay, observed-RED, rollback, kill switch, user-outcome telemetry, no paths in logs | Owner-only decision; rides on Phase A + Wave-1 |
 | **Enablement gate 2** (dynamic swap / retraining) | Phases A–E complete + separate owner decision | Last gate; re-enable = replacing a body, never a flag |
 
-Safe-park requires **none** of these — that is what makes it indefinitely parkable.
+Safe-park requires **none** of Phase B / enablement — that is what makes it indefinitely parkable.
+E1 is **orthogonal** to safe-park completion: it may proceed under L3 discipline without claiming
+safe-park or retrain enablement.
 
 ---
 
@@ -212,8 +230,9 @@ runs, never `gh run watch` exit codes.
 
 ## 8. What this plan explicitly does NOT do
 
-- No Track E **runtime** / Phase B pre-building (supplies absent — §5 above). Design-lock merge
-  is not a runtime schedule.
+- No Phase B pre-building (signing supply absent — §5.2). No Track E **fake metrics / release
+  unlock** (invariant H + two-phase gate stay deferred — §5.1). **E1 dry-run is not “supply-blocked”**;
+  once a free L3 slot is used, it is ordinary gated engineering against #531, not an enablement claim.
 - Nothing from strategy §6's stop-building list (no new providers, no B-Rep breadth, no
   dashboards, no speculative adapters).
 - No promotion of §8.3 pilot gates into safe-park scope (they are pilot preconditions).
@@ -229,7 +248,7 @@ runs, never `gh run watch` exit codes.
 | **2026-08-06…07** | Layer-0 implementation queue cleared: Phase-A membrane, seals, #538 identity, #525/#539 honesty, #531 design-lock, #527 audit, #523 runners — on `main@0ffe6ce5` | Builder / gate / **owner-authorized merges** |
 | Next | Re-review + merge **#530** (this refreshed plan); dependabot batch + #476; finish or close **#534** draft | Owner / builder |
 | Residual | Safe-park closeout MD (Layer 2 inventory) at a pinned SHA if any §5 gaps remain undocumented | Owner ratifies |
-| Track E E1 | Only after supply exists; single L3 runtime WIP; `release_eligible:false` | Builder / gate / owner |
+| **Now (slot free)** | **Track E E1** may start: torch-free dry-run from `main` per #531; single L3 runtime WIP; never unlocks retrain; H/real metrics still deferred | Builder / gate / owner |
 | Late Aug+ | #507 three questions answered (fold-in target fixed) — **not** merge-driven | **Owner** |
 | ~Mid-Oct 2026 | Day-90 gate | Owner |
 | ~Mid-Jan 2027 | Month-6 gate → end state A or B | Owner |
