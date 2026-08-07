@@ -111,24 +111,34 @@ PR path set (after OpenAPI fix): workbench sources, docs, tests, workflow, `.env
 
 ---
 
-## 5. Residuals (explicit non-goals for this engineering tranche)
+## 5. Residuals
 
 | Item | Status |
 |---|---|
-| Owner ratify design-lock | open (PROPOSED) |
-| Enable `REVIEW_REUSE_DECISIONS_ENABLED` in pilot | owner-only |
-| E1 / SEAL / identity post-merge audits | residual preserve |
-| Customer Track C (contacts / samples / commercial) | residual |
-| Live dedup adapter / durable store | follow-up eng |
-| Day 61–90 measured pilot package | out of scope |
+| Owner ratify design-lock | residual_human (PROPOSED) |
+| Enable `REVIEW_REUSE_DECISIONS_ENABLED` in pilot | residual_human |
+| E1 post-merge audit | `TRACK_E_E1_POST_MERGE_AUDIT_20260808.md` |
+| SEAL / identity re-audit | `TRACK_S_SEAL_IDENTITY_BASELINE_AUDIT_20260808.md` |
+| Track O pilot ops package | `TRACK_O_PILOT_OPS_PACKAGE_20260808.md` |
+| System task board + execute design | `CAD_REUSE_WORKBENCH_TASK_BOARD_20260808.md`, `CAD_REUSE_WORKBENCH_SYSTEM_EXECUTE_DESIGN_20260808.md` |
+| Customer Track C | residual_human |
+| Live dedup adapter / metrics export | residual_eng — execute-plan PR3/PR4 **after** #547 (L3 WIP=1) |
+| Day 61–90 measured pilot package | residual_human / eng support |
 
 ---
 
-## 6. Workflow smoke
+## 6. Workflow smoke + system
 
 ```text
-workflow validate_only: cad-reuse-workbench-90d (args track=r-mvp) → metadata+compile path OK
+cad-reuse-workbench-90d   validate_only track=r-mvp → OK
+cad-reuse-workbench-dev   validate_only mode=gap|full → OK
+cad-reuse-workbench-system validate_only phase=all → OK
 ```
+
+Scheduled task: `cad-reuse-workbench-gap-check` (weekdays 09:30 Asia/Shanghai).
+
+execute-plan design: `CAD_REUSE_WORKBENCH_SYSTEM_EXECUTE_DESIGN_20260808.md`  
+First batch PR1+PR2 content landed on this PR; PR3+PR4 gated on L3 slot.
 
 ---
 
@@ -137,8 +147,8 @@ workflow validate_only: cad-reuse-workbench-90d (args track=r-mvp) → metadata+
 | Item | Value |
 |---|---|
 | PR | https://github.com/zensgit/cad-ml-platform/pull/547 |
-| Self-merge | **No** — wait for required CI green after OpenAPI snapshot commit |
-| First core-fast-gate failure | OpenAPI snapshot missing review-reuse routes — **fixed** by snapshot update |
+| Self-merge | **No** — wait for required CI green |
+| OpenAPI snapshot | refreshed for `/api/v1/review-reuse/*` |
 
 ---
 
@@ -146,6 +156,6 @@ workflow validate_only: cad-reuse-workbench-90d (args track=r-mvp) → metadata+
 
 | Role | Action |
 |---|---|
-| Engineering | MVP code + tests + docs + OpenAPI snapshot on branch |
-| CI required checks | re-check after snapshot push; do not self-merge on red |
-| Owner | ratify design-lock; enable decisions only for pilot |
+| Engineering | MVP + residual audits/ops + system (workflows/board/execute design) on branch |
+| CI required checks | green before merge |
+| Owner | ratify design-lock; pilot decision enable; Track C |
