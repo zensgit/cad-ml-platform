@@ -80,15 +80,32 @@ def cost_cap_usd() -> float:
     return cap
 
 
+def _is_production_posture() -> bool:
+    """Align with production_identity: unset env = production fail-closed."""
+    try:
+        from src.api.production_identity import is_production_posture
+
+        return bool(is_production_posture())
+    except Exception:
+        # If identity helpers are unavailable, treat as production (fail-closed).
+        env = (
+            os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or os.getenv("ENV") or ""
+        ).strip().lower()
+        return env not in {"development", "test"}
+
+
 def assert_external_ai_allowed(*, provider_name: str = "") -> None:
     """Fail-closed gate before a hosted/external LLM provider may be used.
 
     Rules:
-    1. ``ISOLATED_SAMPLE_MODE`` → always refuse external AI.
-    2. Hosted opt-in false → no-op here (caller seals to offline); this function is
-       only invoked when a hosted provider is about to be constructed.
-    3. Hosted opt-in true → require positive ``EXTERNAL_AI_COST_CAP_USD`` and
-       ``EXTERNAL_AI_SPEND_USD < cap``.
+    1. ``ISOLATED_SAMPLE_MODE`` → always refuse external AI (any environment).
+    2. Hosted opt-in false → callers seal to offline; this is only invoked for
+       sealed hosted names.
+    3. **Production posture** + hosted provider → require positive
+       ``EXTERNAL_AI_COST_CAP_USD`` and ``EXTERNAL_AI_SPEND_USD < cap``.
+    4. **Development/test harness** → if cap is set, enforce spend < cap; if cap
+       is unset, allow construction so unit tests / local opt-in still work.
+       Pilot enablement still requires production posture + explicit cap.
     """
     if isolated_sample_mode():
         raise CostCapRejected(
@@ -96,15 +113,22 @@ def assert_external_ai_allowed(*, provider_name: str = "") -> None:
             "(PRODUCT_STRATEGY §8.3 isolated sample handling)"
         )
 
-    # Cap is mandatory whenever we are about to construct a hosted provider.
-    # Callers only invoke this for hosted names after seal resolution.
-    cap = cost_cap_usd()
-    spend = current_spend_usd()
-    if spend >= cap:
-        raise CostCapRejected(
-            f"external AI spend {spend} USD is at or above cost cap {cap} USD "
-            f"(provider={provider_name or 'hosted'})"
-        )
+    raw_cap = os.getenv(ENV_EXTERNAL_AI_COST_CAP_USD)
+    production = _is_production_posture()
+    if production or (raw_cap is not None and str(raw_cap).strip() != ""):
+        # Production always requires a positive cap; dev only enforces when set.
+        if production and (raw_cap is None or str(raw_cap).strip() == ""):
+            raise CostCapRejected(
+                f"{ENV_EXTERNAL_AI_COST_CAP_USD} is required in production posture "
+                "before external AI is enabled (PRODUCT_STRATEGY §8.3)"
+            )
+        cap = cost_cap_usd()
+        spend = current_spend_usd()
+        if spend >= cap:
+            raise CostCapRejected(
+                f"external AI spend {spend} USD is at or above cost cap {cap} USD "
+                f"(provider={provider_name or 'hosted'})"
+            )
 
 
 __all__ = [

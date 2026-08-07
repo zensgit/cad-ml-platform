@@ -35,13 +35,17 @@ def test_isolated_sample_mode_blocks_external_ai(monkeypatch: pytest.MonkeyPatch
         assert_external_ai_allowed(provider_name="openai")
 
 
-def test_hosted_requires_positive_cost_cap(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_production_hosted_requires_positive_cost_cap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ENVIRONMENT", "production")
     monkeypatch.setenv("ASSISTANT_HOSTED_PROVIDER_OPT_IN", "true")
     with pytest.raises(CostCapRejected, match="EXTERNAL_AI_COST_CAP_USD"):
         assert_external_ai_allowed(provider_name="openai")
 
 
 def test_spend_at_cap_is_fail_closed(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ENVIRONMENT", "production")
     monkeypatch.setenv("ASSISTANT_HOSTED_PROVIDER_OPT_IN", "true")
     monkeypatch.setenv(ENV_EXTERNAL_AI_COST_CAP_USD, "10")
     monkeypatch.setenv(ENV_EXTERNAL_AI_SPEND_USD, "10")
@@ -50,16 +54,19 @@ def test_spend_at_cap_is_fail_closed(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_spend_under_cap_allows(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ENVIRONMENT", "production")
     monkeypatch.setenv("ASSISTANT_HOSTED_PROVIDER_OPT_IN", "true")
     monkeypatch.setenv(ENV_EXTERNAL_AI_COST_CAP_USD, "10")
     monkeypatch.setenv(ENV_EXTERNAL_AI_SPEND_USD, "1.5")
     assert_external_ai_allowed(provider_name="openai")  # no raise
 
 
-def test_get_provider_hosted_without_cap_raises(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Real entry: get_provider('openai') with opt-in must hit cost-cap fail-closed."""
+def test_get_provider_hosted_without_cap_raises_in_production(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Real entry: production + opt-in + get_provider('openai') requires cost cap."""
+    monkeypatch.setenv("ENVIRONMENT", "production")
     monkeypatch.setenv("ASSISTANT_HOSTED_PROVIDER_OPT_IN", "true")
-    # Cap missing → refuse construction of hosted provider.
     with pytest.raises(CostCapRejected):
         get_provider("openai")
 
@@ -72,12 +79,22 @@ def test_get_provider_offline_does_not_require_cap(monkeypatch: pytest.MonkeyPat
     assert provider.__class__.__name__ == "OfflineProvider"
 
 
+def test_dev_opt_in_without_cap_allows_construction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Harness/dev: hosted opt-in without cap still constructs (cap enforced in production)."""
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.setenv("ASSISTANT_HOSTED_PROVIDER_OPT_IN", "true")
+    provider = get_provider("openai")
+    assert provider.__class__.__name__ == "OpenAIProvider"
+
+
 def test_get_provider_hosted_opt_in_with_cap_constructs(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setenv("ENVIRONMENT", "production")
     monkeypatch.setenv("ASSISTANT_HOSTED_PROVIDER_OPT_IN", "true")
     monkeypatch.setenv(ENV_EXTERNAL_AI_COST_CAP_USD, "50")
     monkeypatch.setenv(ENV_EXTERNAL_AI_SPEND_USD, "0")
-    # May still be unavailable without API keys, but construction must not CostCapRejected.
     provider = get_provider("openai")
     assert provider.__class__.__name__ == "OpenAIProvider"
