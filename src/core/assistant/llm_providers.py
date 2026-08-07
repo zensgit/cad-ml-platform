@@ -11,12 +11,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Generator, Optional
 
-from .cost_cap import CostCapRejected, assert_external_ai_allowed
 from .egress_allowlist import EgressRejected, enforce_hosted_prompt_egress
 from .provider_seal import (
     endpoint_is_verified_local,
     hosted_provider_opt_in,
-    is_hosted_provider_name,
     record_provider_attempt,
     resolve_provider_name,
     sealed_auto_select_order,
@@ -443,9 +441,6 @@ def get_provider(provider_name: str, config: Optional[LLMConfig] = None) -> Base
     provider instance whose is_available() is False / Offline fallback via resolve.
     """
     sealed_name = resolve_provider_name(provider_name)
-    # §8.3: hosted providers require fail-closed cost cap (and refuse isolated-sample mode).
-    if is_hosted_provider_name(sealed_name):
-        assert_external_ai_allowed(provider_name=sealed_name)
     providers = {
         "claude": ClaudeProvider,
         "anthropic": ClaudeProvider,
