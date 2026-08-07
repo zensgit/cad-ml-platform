@@ -252,6 +252,7 @@ features = _import_router("features", "src.api.v1.features")
 model = _import_router("model", "src.api.v1.model")
 maintenance = _import_router("maintenance", "src.api.v1.maintenance")
 dedup = _import_router("dedup", "src.api.v1.dedup")
+review_reuse = _import_router("review_reuse", "src.api.v1.review_reuse")
 feedback = _import_router("feedback", "src.api.v1.feedback")
 render = _import_router("render", "src.api.v1.render")
 active_learning = _import_router("active_learning", "src.api.v1.active_learning")
@@ -418,6 +419,16 @@ if dedup is not None:
         module=dedup,
         prefix="/dedup",
         tags=["查重"],
+    )
+# Track R: ReviewReuse workbench (PRODUCT_STRATEGY §3.3 / §8.2). Decision sink default-off.
+if review_reuse is not None:
+    _include_router(
+        v1_router,
+        diagnostics=_ROUTER_IMPORT_DIAGNOSTICS,
+        name="review_reuse",
+        module=review_reuse,
+        prefix="/review-reuse",
+        tags=["复用评审"],
     )
 if feedback is not None:
     _include_router(
