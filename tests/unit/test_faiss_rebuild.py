@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from src.core.similarity import FaissVectorStore, register_vector
 from src.main import app
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def test_faiss_rebuild_skipped_when_not_backend(monkeypatch):

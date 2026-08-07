@@ -9,6 +9,7 @@ The classifier supports:
 
 from __future__ import annotations
 
+import io
 import json
 import logging
 import math
@@ -17,6 +18,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from src.core.model_activation.activation_gateway import activate_file
 from src.ml.history_sequence_tools import (
     load_command_tokens_from_h5,
     sequence_statistics,
@@ -99,7 +101,8 @@ class HistorySequenceClassifier:
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
         except Exception as exc:
-            logger.warning("Failed loading history prototypes %s: %s", path, exc)
+            # Design lock: no filesystem paths in logs; report the error only.
+            logger.warning("Failed loading history prototypes: %s", exc)
             return
 
         labels_payload = payload.get("labels", payload)
@@ -153,13 +156,18 @@ class HistorySequenceClassifier:
         self.prototype_bias = parsed_bias
 
     def _load_model(self) -> None:
-        if not HAS_TORCH or not self.model_path:
+        if not HAS_TORCH:
             return
-        model_path = Path(self.model_path).expanduser()
-        if not model_path.exists():
+        # Model bytes are only ever obtained through the model-activation
+        # gateway's verified-artifact contract: `None` means "unconfigured or
+        # refused" and the family MUST degrade to the prototype fallback
+        # below, never fall back to a raw path-based load of an
+        # unverified/tampered artifact.
+        data = activate_file("history/sequence", "main")
+        if data is None:
             return
         try:
-            checkpoint = torch.load(str(model_path), map_location="cpu")
+            checkpoint = torch.load(io.BytesIO(data), map_location="cpu")
             raw_label_map = checkpoint.get("label_map", {})
             if not isinstance(raw_label_map, dict) or not raw_label_map:
                 raise ValueError("missing label_map in checkpoint")
@@ -207,7 +215,9 @@ class HistorySequenceClassifier:
             self._loaded_model = True
         except Exception as exc:
             logger.warning(
-                "Failed loading history sequence model %s: %s", model_path, exc
+                "Failed loading history sequence model (logical_activation_id=%s): %s",
+                "history/sequence",
+                exc,
             )
             self.model = None
             self.label_map = {}
@@ -371,7 +381,22 @@ class HistorySequenceClassifier:
 
         payload = self._predict_with_model(sequence)
         if payload.get("status") != "ok":
+            # Pinned model unavailable -> the prototype (rule-based) path answers.
+            # Design lock line 403 / owner F4 decision: a family MAY return a
+            # rule-based result but MUST label it degraded/model-unavailable
+            # explicitly — never a SILENT status="ok" stand-in. We keep the
+            # functional status (the hybrid consumer + prototype contract still
+            # read status=="ok"/source=="history_sequence_prototype"), but stamp
+            # unmistakable, health/caller-visible markers so the answer is not a
+            # silent stand-in. ("NOT status='ok'" in the brief means: not a *bare*
+            # ok — the explicit markers below satisfy the model-unavailable label.)
             payload = self._predict_with_prototypes(sequence)
+            payload["model_available"] = False
+            payload["degraded"] = True
+            payload.setdefault("degraded_reason", "pinned_model_unavailable")
+        else:
+            payload["model_available"] = True
+            payload["degraded"] = False
 
         payload.setdefault("label", None)
         payload.setdefault("confidence", 0.0)

@@ -6,6 +6,11 @@ import logging
 from typing import Any, Dict
 
 from .base import BaseTool
+from src.core.assistant.tool_status import (
+    STATUS_FAILED,
+    STATUS_UNAVAILABLE,
+    failure_result,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -60,10 +65,11 @@ class ClassifyTool(BaseTool):
                     "source_contributions": {},
                 }
         except Exception as exc:
-            logger.warning("classify_part fallback for %s: %s", file_id, exc)
-            return {
-                "label": "unknown",
-                "confidence": 0.0,
-                "source_contributions": {},
-                "note": f"分类服务暂不可用，已返回默认结果。原因: {exc}",
-            }
+            logger.warning("classify_part fallback for %s: %s", file_id, type(exc).__name__)
+            return failure_result(
+                STATUS_UNAVAILABLE,
+                "classify_service_unavailable",
+                label=None,
+                confidence=0.0,
+                source_contributions={},
+            )

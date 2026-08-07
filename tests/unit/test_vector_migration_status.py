@@ -5,7 +5,7 @@ from src.core import similarity
 from src.core.similarity import register_vector  # type: ignore
 from src.main import app
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def test_vector_migration_status_flow(monkeypatch):

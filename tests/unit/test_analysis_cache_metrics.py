@@ -3,17 +3,18 @@ import uuid
 
 from fastapi.testclient import TestClient
 
+from conftest import valid_dxf_bytes
 from src.main import app
 
 
 def test_analysis_cache_hit_miss_metrics(monkeypatch, metrics_text):
     """Test analysis cache hit/miss metrics with unique keys per test run."""
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
 
     # Use unique file name and content to ensure cache isolation from other tests
     unique_id = uuid.uuid4().hex[:8]
     unique_filename = f"cache_test_{unique_id}.dxf"
-    unique_content = f"DATA_{unique_id}".encode()
+    unique_content = valid_dxf_bytes(f"cache-metrics-{unique_id}")
 
     payload_options = {"extract_features": True, "classify_parts": True}
     files = {"file": (unique_filename, unique_content, "application/octet-stream")}

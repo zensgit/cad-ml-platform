@@ -18,6 +18,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from src.core.model_activation.activation_gateway import activate_file
 from src.utils.dxf_features import extract_features_v6
 
 logger = logging.getLogger(__name__)
@@ -56,10 +57,14 @@ class PartClassifier:
 
     def _load_model(self):
         """加载模型"""
-        if not self.model_path.exists():
-            raise FileNotFoundError(f"模型文件不存在: {self.model_path}")
+        data = activate_file("part/v6", "main")
+        if data is None:
+            # Gateway degrade (pin absent / digest mismatch / store unconfigured,
+            # …) — the caller must treat this as "model unavailable", never
+            # fall back to an unverified raw load.
+            raise RuntimeError("part/v6 model activation unavailable")
 
-        checkpoint = torch.load(self.model_path, map_location=self.device)
+        checkpoint = torch.load(io.BytesIO(data), map_location=self.device)
 
         input_dim = checkpoint["input_dim"]
         hidden_dim = checkpoint["hidden_dim"]
@@ -639,20 +644,32 @@ class PartClassifierV16:
         if self.loaded:
             return
 
-        # 加载配置
-        config_path = self.model_dir / "cad_classifier_v16_config.json"
-        if config_path.exists():
-            with open(config_path) as f:
-                config = json.load(f)
-            self.v6_weight = config['components']['v6']['weight']
-            self.v14_weight = config['components']['v14_ensemble']['weight']
+        # 加载配置 (activation-gateway pin: same logical id, artifact "v16config")
+        # F5: the ensemble config json sets the component weights (self.v6_weight
+        # / self.v14_weight) that combine V6 and V14 predictions — editing it
+        # changes outputs even with the two checkpoints pinned, so it is itself a
+        # weight-bearing artifact and is pinned as a THIRD SINGLE_FILE artifact
+        # under this same logical id (owner: two-pins-one-id extended to three).
+        # All-or-nothing (owner decision 1, consistent with F4): a missing/tampered
+        # config degrades the WHOLE V16 family — NEVER a silent proceed with the
+        # default weights (that would be an unlabeled model-unavailable stand-in).
+        config_data = activate_file("part/v16-v6pt", "v16config")
+        if config_data is None:
+            raise RuntimeError("part/v16-v6pt v16config activation unavailable")
+        config = json.loads(config_data)
+        self.v6_weight = config['components']['v6']['weight']
+        self.v14_weight = config['components']['v14_ensemble']['weight']
 
-        # 加载V6
-        v6_path = self.model_dir / "cad_classifier_v6.pt"
-        if not v6_path.exists():
-            raise FileNotFoundError(f"V6模型不存在: {v6_path}")
+        # 加载V6 (activation-gateway pin: logical id "part/v16-v6pt", artifact "v6pt")
+        v6_data = activate_file("part/v16-v6pt", "v6pt")
+        if v6_data is None:
+            # Gateway degrade — V16 is all-or-nothing (owner decision 1): missing
+            # either component means V16 is unavailable, never an unverified
+            # raw-load fallback. The caller (analyzer._classify_with_v16) already
+            # catches this and falls back to V6/rules.
+            raise RuntimeError("part/v16-v6pt v6pt component activation unavailable")
 
-        v6_ckpt = torch.load(v6_path, map_location=self.device, weights_only=False)
+        v6_ckpt = torch.load(io.BytesIO(v6_data), map_location=self.device, weights_only=False)
 
         class ImprovedClassifierV6(nn.Module):
             def __init__(self, in_dim, hid_dim, n_classes, dropout=0.5):
@@ -689,22 +706,25 @@ class PartClassifierV16:
         self.v6_mean = v6_ckpt.get('feature_mean', np.zeros(48))
         self.v6_std = v6_ckpt.get('feature_std', np.ones(48))
 
-        # 加载V14集成
-        v14_path = self.model_dir / "cad_classifier_v14_ensemble.pt"
-        if v14_path.exists():
-            v14_ckpt = torch.load(v14_path, map_location=self.device, weights_only=False)
-            for fold_state in v14_ckpt['fold_states']:
-                model = _FusionModelV14(48, 5)
-                model.load_state_dict(fold_state)
-                model.to(self.device)
-                model.eval()
-                # FP16转换
-                if self._use_fp16:
-                    model = model.half()
-                self.v14_models.append(model)
-            logger.info(f"V14集成模型加载完成，{len(self.v14_models)}个折叠")
-        else:
-            logger.warning(f"V14模型不存在: {v14_path}，将仅使用V6")
+        # 加载V14集成 (activation-gateway pin: same logical id, artifact "v14ens")
+        v14_data = activate_file("part/v16-v6pt", "v14ens")
+        if v14_data is None:
+            # All-or-nothing: v14ens missing degrades the whole V16 family too
+            # (matches the pre-wiring behavior where analyzer only attempted V16
+            # construction when BOTH files were present on disk).
+            raise RuntimeError("part/v16-v6pt v14ens component activation unavailable")
+
+        v14_ckpt = torch.load(io.BytesIO(v14_data), map_location=self.device, weights_only=False)
+        for fold_state in v14_ckpt['fold_states']:
+            model = _FusionModelV14(48, 5)
+            model.load_state_dict(fold_state)
+            model.to(self.device)
+            model.eval()
+            # FP16转换
+            if self._use_fp16:
+                model = model.half()
+            self.v14_models.append(model)
+        logger.info(f"V14集成模型加载完成，{len(self.v14_models)}个折叠")
 
         # TorchScript JIT编译 (可选，提升推理速度)
         if self._use_jit:

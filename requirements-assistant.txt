@@ -23,6 +23,22 @@ aiofiles>=23.1.0
 # sentence-transformers>=2.2.0
 # torch>=2.0.0
 
+# DO NOT add `anthropic`, `openai`, or `dashscope` here before the
+# assistant's provider SEAL lands
+# (docs/development/L3_ASSISTANT_SCOPE_SEAL_DESIGNLOCK_20260805.md, #535).
+# Their current absence is the only thing standing between
+# ClaudeProvider/OpenAIProvider/QwenProvider,
+# FunctionCallingEngine's default llm_provider="claude", and the
+# _fallback_generate/get_best_available_provider auto-select paths, and a
+# live, un-gated hosted-LLM call from a mounted, CD-deployed service
+# (src/core/assistant/) that sits adjacent to customer drawing data. See
+# #535 §0 findings #6, #13, #15;
+# tests/unit/test_assistant_hosted_provider_dependency_lock.py enforces this
+# for all three SDKs.
+# anthropic>=0.30.0
+# openai>=1.0.0
+# dashscope>=1.14.0
+
 # Monitoring and observability
 prometheus-client>=0.17.0
 

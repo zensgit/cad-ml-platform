@@ -190,7 +190,10 @@ def test_stress_unit_tests_wait_for_api_readiness_and_retry_faiss_health() -> No
     smoke_step = _get_step(workflow, "stress-unit-tests", "Health endpoint smoke check (Faiss)")
     smoke_script = smoke_step["run"]
     assert "for attempt in $(seq 1 10)" in smoke_script
-    assert "curl -fsS ${API_BASE_URL}/api/v1/health/faiss/health -o faiss_health.json" in smoke_script
+    # #517: protected health routes require a real X-API-Key (no Header default).
+    assert "/api/v1/health/faiss/health" in smoke_script
+    assert 'X-API-Key: ${API_KEY}' in smoke_script or 'X-API-Key: ${{ env.API_KEY }}' in smoke_script
+    assert "faiss_health.json" in smoke_script
     assert "Faiss health endpoint never returned valid JSON" in smoke_script
 
     recover_step = _get_step(
@@ -199,5 +202,7 @@ def test_stress_unit_tests_wait_for_api_readiness_and_retry_faiss_health() -> No
         "Trigger manual recover and validate ETA reset",
     )
     recover_script = recover_step["run"]
-    assert "curl -fsS ${API_BASE_URL}/api/v1/health/faiss/health -o faiss_health_after.json" in recover_script
+    assert "/api/v1/health/faiss/health" in recover_script
+    assert 'X-API-Key: ${API_KEY}' in recover_script or 'X-API-Key: ${{ env.API_KEY }}' in recover_script
+    assert "faiss_health_after.json" in recover_script
     assert "Faiss health after recover never returned valid JSON" in recover_script

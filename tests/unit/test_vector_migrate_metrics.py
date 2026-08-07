@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from src.main import app
 from src.utils.analysis_metrics import vector_migrate_total
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def _counter_values(counter):

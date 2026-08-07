@@ -4,7 +4,7 @@ from src.main import app
 
 
 def test_cache_prewarm_endpoint_basic():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     resp = client.post(
         "/api/v1/health/features/cache/prewarm",
         headers={"X-API-Key": "test", "X-Admin-Token": "test"},

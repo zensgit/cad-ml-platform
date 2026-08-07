@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 
 from src.main import app
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 # List of all deprecated endpoints with their expected migration info
 DEPRECATED_ENDPOINTS = [

@@ -3,7 +3,8 @@ set -euo pipefail
 
 SUITE="all"
 BASE_URL="${API_BASE_URL:-http://127.0.0.1:8000}"
-API_KEY_VALUE="${API_KEY:-test-api-key}"
+# Must match harness X-API-Key headers in tests (default "test") and conftest.
+API_KEY_VALUE="${API_KEY:-test}"
 WAIT_SECONDS=60
 LOG_PATH="/tmp/cad_ml_uvicorn.log"
 PYTHON_BIN="${PYTHON_BIN:-}"
@@ -23,7 +24,7 @@ Run tiered tests with optional local API auto-start.
 Options:
     --suite SUITE       Test suite to run: unit, contract, e2e, all (default: all)
     --base-url URL      API base URL (default: http://127.0.0.1:8000)
-    --api-key KEY       API key for authentication (default: test-api-key)
+    --api-key KEY       API key for authentication (default: test)
     --wait-seconds SEC  Max seconds to wait for server readiness (default: 60)
     --wait SEC          Backward-compatible alias for --wait-seconds
     --log-path PATH     Uvicorn log output path (default: /tmp/cad_ml_uvicorn.log)
@@ -217,6 +218,10 @@ echo ""
 
 export API_BASE_URL="$BASE_URL"
 export API_KEY="$API_KEY_VALUE"
+# L3 #517 production identity: local harness must opt into development posture
+# or refuse_boot_if_invalid kills uvicorn (unset ENVIRONMENT = production).
+export ENVIRONMENT="${ENVIRONMENT:-development}"
+export ADMIN_TOKEN="${ADMIN_TOKEN:-test}"
 
 case $SUITE in
     unit)

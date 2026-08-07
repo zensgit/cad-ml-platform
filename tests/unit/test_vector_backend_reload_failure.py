@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from src.core.errors_extended import ErrorCode
 from src.main import app
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def _read_metric(counter):

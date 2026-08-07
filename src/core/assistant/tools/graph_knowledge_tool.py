@@ -6,6 +6,11 @@ import logging
 from typing import Any, Dict
 
 from .base import BaseTool
+from src.core.assistant.tool_status import (
+    STATUS_FAILED,
+    STATUS_UNAVAILABLE,
+    failure_result,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -135,10 +140,11 @@ class GraphKnowledgeTool(BaseTool):
                 }
 
         except Exception as exc:
-            logger.warning("query_graph fallback: %s", exc)
-            return {
-                "action": action,
-                "answer": f"知识图谱查询暂不可用: {question}",
-                "confidence": 0.0,
-                "note": "graph_unavailable",
-            }
+            logger.warning("query_graph fallback: %s", type(exc).__name__)
+            return failure_result(
+                STATUS_UNAVAILABLE,
+                "graph_unavailable",
+                action=action,
+                answer=None,
+                confidence=0.0,
+            )

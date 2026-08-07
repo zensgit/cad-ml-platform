@@ -9,7 +9,7 @@ from src.api.v1.vector_similarity_models import (
 )
 from src.main import app
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def test_vectors_batch_similarity_route_delegates_to_shared_helper(monkeypatch):

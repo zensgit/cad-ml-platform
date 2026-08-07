@@ -1,11 +1,73 @@
 from __future__ import annotations
 
+import hashlib
+import io
 import json
 from pathlib import Path
+from typing import List
 
 import pytest
 
+from src.core.model_activation import activation_gateway as gw
 from src.ml.history_sequence_classifier import HistorySequenceClassifier
+
+
+@pytest.fixture(autouse=True)
+def _clean_gateway(monkeypatch: pytest.MonkeyPatch):
+    """Isolate the process-wide activation gateway around every test.
+
+    Phase-A decision #3 routed the history-sequence model load through the
+    activation gateway, so the gateway's cached store must be reset (and its
+    env cleared) before and after each test — otherwise a manifest pinned by
+    the load-checkpoint test below would leak into the other tests, which
+    expect the default NO-PIN (degrade-to-prototype) posture.
+    """
+    monkeypatch.delenv(gw.ENV_STORE_ROOT, raising=False)
+    monkeypatch.delenv(gw.ENV_FREEZE_PARENT, raising=False)
+    monkeypatch.delenv("MODEL_ACTIVATION_BASELINE_MANIFEST", raising=False)
+    gw.reset_gateway_for_tests()
+    yield
+    gw.reset_gateway_for_tests()
+
+
+def _sha256_hex(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _pin_history_main(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    data: bytes,
+    relpath: str = "history_main.ckpt",
+) -> Path:
+    """Pin ``data`` as the ``history/sequence`` / ``main`` SINGLE_FILE artifact.
+
+    Mirrors the activation-gateway fixture pattern used across the C2 family
+    unit tests: a server-owned store root holding the artifact plus a baseline
+    manifest whose digest locks these exact bytes. Returns the store root.
+    """
+    store_root = tmp_path / "store"
+    store_root.mkdir(exist_ok=True)
+    (store_root / relpath).write_bytes(data)
+    manifest = tmp_path / "baseline.json"
+    manifest.write_text(
+        json.dumps(
+            [
+                {
+                    "logical_activation_id": "history/sequence",
+                    "artifact_id": "main",
+                    "kind": "single_file",
+                    "digest": _sha256_hex(data),
+                    "store_relpath": relpath,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(gw.ENV_STORE_ROOT, str(store_root))
+    monkeypatch.setenv("MODEL_ACTIVATION_BASELINE_MANIFEST", str(manifest))
+    gw.reset_gateway_for_tests()
+    return store_root
 
 
 def test_history_sequence_classifier_uses_prototypes_and_returns_summary(
@@ -43,11 +105,22 @@ def test_history_sequence_classifier_uses_prototypes_and_returns_summary(
     assert result["sequence_summary"]["top_commands"][0] == (1, 2)
 
 
-def test_history_sequence_classifier_loads_checkpoint_model(tmp_path: Path) -> None:
+def test_history_sequence_classifier_loads_checkpoint_model(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Phase-A decision #3: raw-load-by-path removed; loading is gated by the
+    # activation manifest. ``HistorySequenceClassifier._load_model`` no longer
+    # does ``torch.load(self.model_path)`` — the checkpoint bytes must arrive
+    # through the activation gateway (pin + sha-256 verified) or the family
+    # degrades to its prototype fallback. This test proves BOTH halves of that
+    # new contract, so it cannot pass if a raw path load is re-introduced:
+    #   (A) a real, loadable checkpoint sitting AT ``model_path`` but UNPINNED
+    #       is NOT read — the model does not load, ``source`` is not the model;
+    #   (B) the SAME bytes, once pinned through the gateway, DO load and the
+    #       family produces its model-sourced prediction.
     torch = pytest.importorskip("torch")
     from src.ml.train.sequence_encoder import SequenceCommandClassifier
 
-    checkpoint_path = tmp_path / "history.ckpt"
     model = SequenceCommandClassifier(
         vocab_size=16,
         num_classes=2,
@@ -59,31 +132,56 @@ def test_history_sequence_classifier_loads_checkpoint_model(tmp_path: Path) -> N
     with torch.no_grad():
         for parameter in model.parameters():
             parameter.zero_()
+        # Bias steers the argmax deterministically to class 1 ("beta").
         model.classifier.bias.copy_(torch.tensor([0.0, 2.5]))
 
-    torch.save(
-        {
-            "model_state_dict": model.state_dict(),
-            "label_map": {"alpha": 0, "beta": 1},
-            "model_config": {
-                "vocab_size": 16,
-                "embedding_dim": 8,
-                "hidden_dim": 8,
-                "num_layers": 1,
-                "dropout": 0.0,
-                "bidirectional": False,
-                "padding_idx": 0,
-                "max_sequence_length": 16,
-            },
+    checkpoint = {
+        "model_state_dict": model.state_dict(),
+        "label_map": {"alpha": 0, "beta": 1},
+        "model_config": {
+            "vocab_size": 16,
+            "embedding_dim": 8,
+            "hidden_dim": 8,
+            "num_layers": 1,
+            "dropout": 0.0,
+            "bidirectional": False,
+            "padding_idx": 0,
+            "max_sequence_length": 16,
         },
-        checkpoint_path,
-    )
+    }
+    buf = io.BytesIO()
+    torch.save(checkpoint, buf)
+    ckpt_bytes = buf.getvalue()
 
-    classifier = HistorySequenceClassifier(
+    # A REAL, loadable checkpoint on disk at model_path — its only purpose is to
+    # prove it is never raw-loaded when the gateway has not pinned it.
+    on_disk = tmp_path / "history.ckpt"
+    on_disk.write_bytes(ckpt_bytes)
+
+    # (A) Gateway UNCONFIGURED (autouse fixture cleared the env) → activate_file
+    #     returns None → degrade. The on-disk checkpoint at model_path is NOT
+    #     read; a re-introduced raw torch.load(model_path) would flip source to
+    #     "history_sequence_model" and fail this half.
+    degraded = HistorySequenceClassifier(
         prototypes_path=str(tmp_path / "missing.json"),
-        model_path=str(checkpoint_path),
+        model_path=str(on_disk),
         min_sequence_length=2,
     )
+    assert degraded._loaded_model is False
+    degraded_result = degraded.predict_from_tokens([1, 2, 3])
+    assert degraded_result.get("source") != "history_sequence_model"
+
+    # (B) Pin the SAME bytes through the activation gateway → activate_file
+    #     returns the verified bytes → the model loads and produces a real,
+    #     model-sourced prediction. model_path here points at a file that does
+    #     NOT exist, proving the bytes came from the gateway, not the path.
+    _pin_history_main(monkeypatch, tmp_path, ckpt_bytes)
+    classifier = HistorySequenceClassifier(
+        prototypes_path=str(tmp_path / "missing.json"),
+        model_path=str(tmp_path / "does_not_exist_on_disk.ckpt"),
+        min_sequence_length=2,
+    )
+    assert classifier._loaded_model is True
 
     result = classifier.predict_from_tokens([1, 2, 3])
 

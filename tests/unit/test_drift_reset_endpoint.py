@@ -4,7 +4,7 @@ from src.main import app
 
 
 def test_drift_reset_endpoint():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     # Call drift status first (may establish pending state)
     client.get("/api/v1/analyze/drift", headers={"api-key": "test"})
     r = client.post("/api/v1/analyze/drift/reset", headers={"api-key": "test"})

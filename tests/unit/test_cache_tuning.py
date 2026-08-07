@@ -12,7 +12,7 @@ from src.utils.analysis_metrics import (
     feature_cache_tuning_requests_total,
 )
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def _counter_value(counter, status: str) -> float:

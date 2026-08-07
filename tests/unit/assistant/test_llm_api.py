@@ -51,9 +51,10 @@ class TestLLMProviders:
             OfflineProvider,
         )
 
-        assert isinstance(get_provider("claude"), ClaudeProvider)
-        assert isinstance(get_provider("openai"), OpenAIProvider)
-        assert isinstance(get_provider("qwen"), QwenProvider)
+        # SEAL: hosted names seal to Offline without ASSISTANT_HOSTED_PROVIDER_OPT_IN.
+        assert isinstance(get_provider("claude"), OfflineProvider)
+        assert isinstance(get_provider("openai"), OfflineProvider)
+        assert isinstance(get_provider("qwen"), OfflineProvider)
         assert isinstance(get_provider("ollama"), OllamaProvider)
         assert isinstance(get_provider("offline"), OfflineProvider)
         assert isinstance(get_provider("unknown"), OfflineProvider)
@@ -172,7 +173,7 @@ class TestAssistantAPI:
         app = FastAPI()
         app.include_router(router, prefix="/assistant")
         try:
-            return TestClient(app)
+            return TestClient(app, headers={"X-API-Key": "test"})
         except TypeError as exc:
             pytest.skip(f"TestClient unavailable in this environment: {exc}")
 

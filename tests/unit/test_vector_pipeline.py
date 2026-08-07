@@ -108,7 +108,10 @@ async def test_run_vector_pipeline_uses_qdrant_registration_and_similarity():
         analysis_id="vec-2",
         doc=doc,
         features={"geometric": [1.0], "semantic": [2.0]},
-        features_3d={"embedding_vector": [3.0, 4.0]},
+        # Round-4 fail-closed: an embedding reaches L3 ONLY when the producer
+        # co-writes embedding_degraded=False (verified). This test exercises the
+        # L3 qdrant registration + similarity path, so it tags the payload verified.
+        features_3d={"embedding_vector": [3.0, 4.0], "embedding_degraded": False},
         material="aluminum",
         classification_meta={"part_type": "支架"},
         calculate_similarity=True,

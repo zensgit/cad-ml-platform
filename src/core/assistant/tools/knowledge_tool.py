@@ -6,6 +6,11 @@ import logging
 from typing import Any, Dict, List
 
 from .base import BaseTool
+from src.core.assistant.tool_status import (
+    STATUS_FAILED,
+    STATUS_UNAVAILABLE,
+    failure_result,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -69,31 +74,8 @@ class KnowledgeTool(BaseTool):
             return {"results": results, "count": len(results)}
 
         except Exception as exc:
-            logger.warning("query_knowledge fallback: %s", exc)
-            fallback_results: List[Dict[str, Any]] = []
-            if category in ("materials", "all") and any(kw in query for kw in ("钢", "steel", "铝", "aluminum", "304", "Q235")):
-                fallback_results.append({
-                    "source": "materials",
-                    "summary": "请参考 GB/T 标准查询具体材料属性参数",
-                    "relevance": 0.5,
-                    "metadata": {},
-                })
-            if category in ("gdt", "all") and any(kw in query for kw in ("公差", "tolerance", "GD&T", "形位")):
-                fallback_results.append({
-                    "source": "gdt",
-                    "summary": "GD&T 规则参考 ASME Y14.5 / GB/T 1182",
-                    "relevance": 0.5,
-                    "metadata": {},
-                })
-            if not fallback_results:
-                fallback_results.append({
-                    "source": "general",
-                    "summary": "知识库查询服务暂不可用，请稍后重试",
-                    "relevance": 0.0,
-                    "metadata": {},
-                })
-            return {
-                "results": fallback_results,
-                "count": len(fallback_results),
-                "note": f"知识库服务暂不可用。原因: {exc}",
-            }
+            logger.warning("tool fallback: %s", type(exc).__name__)
+            return failure_result(
+                STATUS_UNAVAILABLE,
+                "knowledge_service_unavailable",
+            )

@@ -8,7 +8,7 @@ from src.main import app
 
 
 def test_batch_classify_route_delegates_to_shared_pipeline(monkeypatch) -> None:
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     captured = {}
 
     async def _stub_run_batch_classify_pipeline(**kwargs):  # noqa: ANN003, ANN201
@@ -56,7 +56,7 @@ def test_batch_classify_route_delegates_to_shared_pipeline(monkeypatch) -> None:
             ("files", ("part.dxf", io.BytesIO(b"0\nEOF\n"), "application/octet-stream"))
         ],
         data={"max_workers": "3"},
-        headers={"X-API-Key": "test-key"},
+        headers={"X-API-Key": "test"},
     )
 
     assert response.status_code == 200

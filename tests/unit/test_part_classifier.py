@@ -5,6 +5,7 @@
 import os
 import tempfile
 from pathlib import Path
+from typing import Callable
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -20,6 +21,21 @@ from src.ml.part_classifier import (
     classify_part,
     get_part_classifier,
 )
+
+
+@pytest.fixture
+def pinned_v6_activation() -> Callable[[str, str], bytes]:
+    """Return a gateway stub bound to the expected Part V6 pin."""
+    model_path = Path("models/cad_classifier_v2.pt")
+    if not model_path.exists():
+        pytest.skip("模型文件不存在")
+    model_bytes = model_path.read_bytes()
+
+    def activate(logical_id: str, artifact_id: str) -> bytes:
+        assert (logical_id, artifact_id) == ("part/v6", "main")
+        return model_bytes
+
+    return activate
 
 
 class TestClassificationResult:
@@ -93,11 +109,13 @@ class TestPartClassifierIntegration:
     """集成测试 - 需要真实模型"""
 
     @pytest.fixture
-    def real_classifier(self):
+    def real_classifier(self, monkeypatch, pinned_v6_activation):
         """加载真实的分类器"""
         model_path = Path("models/cad_classifier_v2.pt")
-        if not model_path.exists():
-            pytest.skip("模型文件不存在")
+        monkeypatch.setattr(
+            "src.ml.part_classifier.activate_file",
+            pinned_v6_activation,
+        )
         return PartClassifier(str(model_path))
 
     @pytest.mark.skipif(
@@ -164,12 +182,19 @@ class TestConvenienceFunctions:
         not Path("models/cad_classifier_v2.pt").exists(),
         reason="模型文件不存在",
     )
-    def test_get_part_classifier_singleton(self):
+    def test_get_part_classifier_singleton(
+        self, monkeypatch, pinned_v6_activation
+    ):
         """测试单例模式"""
         # 重置单例
         import src.ml.part_classifier as module
 
         module._classifier = None
+        monkeypatch.setattr(
+            module,
+            "activate_file",
+            pinned_v6_activation,
+        )
 
         classifier1 = get_part_classifier()
         classifier2 = get_part_classifier()
@@ -180,12 +205,17 @@ class TestConvenienceFunctions:
         or not Path("data/training").exists(),
         reason="模型或训练数据不存在",
     )
-    def test_classify_part_function(self):
+    def test_classify_part_function(self, monkeypatch, pinned_v6_activation):
         """测试便捷分类函数"""
         # 重置单例
         import src.ml.part_classifier as module
 
         module._classifier = None
+        monkeypatch.setattr(
+            module,
+            "activate_file",
+            pinned_v6_activation,
+        )
 
         training_dir = Path("data/training")
         dxf_files = list(training_dir.glob("**/*.dxf"))
@@ -201,15 +231,21 @@ class TestConvenienceFunctions:
 class TestCADAnalyzerIntegration:
     """CADAnalyzer 集成测试"""
 
-    def test_ml_classifier_loader(self):
+    def test_ml_classifier_loader(self, monkeypatch, pinned_v6_activation):
         """测试ML分类器加载器"""
         from src.core.analyzer import _get_ml_classifier
 
         # 重置加载状态
         import src.core.analyzer as module
+        import src.ml.part_classifier as classifier_module
 
         module._ml_classifier = None
         module._ml_classifier_loaded = False
+        monkeypatch.setattr(
+            classifier_module,
+            "activate_file",
+            pinned_v6_activation,
+        )
 
         classifier = _get_ml_classifier()
         if Path("models/cad_classifier_v2.pt").exists():
@@ -236,16 +272,26 @@ class TestEdgeCases:
     """边界情况测试"""
 
     def test_model_file_not_found(self):
-        """测试模型文件不存在"""
-        with pytest.raises(FileNotFoundError):
+        """Phase-A decision #3: raw-load-by-path removed. A missing model path no
+        longer raises FileNotFoundError — the load is gated by the activation
+        manifest (part/v6). With the gateway unconfigured/unpinned, activation is
+        unavailable and ``_load_model`` raises the explicit activation-degraded
+        RuntimeError (caught upstream by the analyzer, which then falls back to the
+        rule-based classifier — never an unverified raw load of the path).
+        """
+        with pytest.raises(RuntimeError, match="activation unavailable"):
             PartClassifier("/nonexistent/model.pt")
 
     @pytest.mark.skipif(
         not Path("models/cad_classifier_v2.pt").exists(),
         reason="模型文件不存在",
     )
-    def test_predict_invalid_file(self):
+    def test_predict_invalid_file(self, monkeypatch, pinned_v6_activation):
         """测试无效文件"""
+        monkeypatch.setattr(
+            "src.ml.part_classifier.activate_file",
+            pinned_v6_activation,
+        )
         classifier = PartClassifier("models/cad_classifier_v2.pt")
         result = classifier.predict("/nonexistent/file.dxf")
         assert result is None
@@ -254,8 +300,12 @@ class TestEdgeCases:
         not Path("models/cad_classifier_v2.pt").exists(),
         reason="模型文件不存在",
     )
-    def test_predict_empty_batch(self):
+    def test_predict_empty_batch(self, monkeypatch, pinned_v6_activation):
         """测试空批量"""
+        monkeypatch.setattr(
+            "src.ml.part_classifier.activate_file",
+            pinned_v6_activation,
+        )
         classifier = PartClassifier("models/cad_classifier_v2.pt")
         results = classifier.predict_batch([])
         assert results == []

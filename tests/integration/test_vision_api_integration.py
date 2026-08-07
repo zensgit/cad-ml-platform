@@ -26,7 +26,7 @@ def client():
     from src.main import app
 
     reset_vision_manager()
-    with TestClient(app) as c:
+    with TestClient(app, headers={"X-API-Key": "test"}) as c:
         yield c
     reset_vision_manager()
 

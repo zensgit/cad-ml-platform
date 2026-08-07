@@ -116,7 +116,7 @@ def test_drawing_recognize_smoke(monkeypatch) -> None:
 
     app = FastAPI()
     app.include_router(drawing.router, prefix="/api/v1/drawing")
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
 
     files = {"file": ("test.png", b"fake_image_bytes", "image/png")}
     resp = client.post("/api/v1/drawing/recognize?provider=auto", files=files)
@@ -169,7 +169,7 @@ def test_drawing_recognize_smoke(monkeypatch) -> None:
 def test_drawing_fields_catalog() -> None:
     app = FastAPI()
     app.include_router(drawing.router, prefix="/api/v1/drawing")
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
 
     resp = client.get("/api/v1/drawing/fields")
     assert resp.status_code == 200
@@ -184,7 +184,7 @@ def test_drawing_recognize_base64_smoke(monkeypatch) -> None:
 
     app = FastAPI()
     app.include_router(drawing.router, prefix="/api/v1/drawing")
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
 
     payload = {"image_base64": SAMPLE_BASE64_PNG, "provider": "auto"}
     resp = client.post("/api/v1/drawing/recognize-base64", json=payload)

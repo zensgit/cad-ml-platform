@@ -10,9 +10,10 @@ diagnosis on PR #523) and assert:
   non-zero (the mismatch is the finding);
 * a checkpoint missing its state_dict, or a missing file, exits non-zero.
 
-``importorskip`` keeps torch-less lanes green, but the required self-hosted
-lane runs an explicit ``python -c "import torch"`` gate before executing this
-file (ci-tiered-tests.yml), so it can never silently skip there again.
+``importorskip`` keeps torch-less lanes green, but the required
+``uvnet-inspector-gate`` job in ``ci-tiered-tests.yml`` installs an explicit
+reproducible torch on a GitHub-hosted runner, asserts ``import torch``, then
+executes this file — so the inspector can never silently skip there again.
 """
 
 from __future__ import annotations

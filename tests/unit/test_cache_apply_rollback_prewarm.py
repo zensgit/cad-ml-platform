@@ -14,7 +14,7 @@ def setup_function():
     os.environ["ADMIN_TOKEN"] = "admin_test"
 
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def test_cache_apply_and_rollback_window():

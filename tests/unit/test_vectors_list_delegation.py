@@ -6,7 +6,7 @@ from src.api.v1 import vectors as vectors_module
 from src.api.v1.vector_list_models import VectorListItem, VectorListResponse
 from src.main import app
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def test_vectors_list_route_delegates_to_shared_helper(monkeypatch):

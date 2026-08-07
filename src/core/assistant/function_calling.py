@@ -14,6 +14,14 @@ import os
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from .tools import TOOL_REGISTRY, BaseTool
+from .provider_seal import hosted_provider_opt_in, is_hosted_provider_name, resolve_provider_name
+from .tool_status import is_citable_tool_result
+from .egress_allowlist import (
+    EgressRejected,
+    enforce_hosted_prompt_egress,
+    enforce_tool_result_for_hosted,
+    validate_hosted_payload,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +75,7 @@ def _get_system_prompt() -> str:
         "3. 综合多个工具的结果，给出完整、准确的回答。\n"
         "4. 回答时使用中文，保持简洁专业。技术术语保留英文原文。\n"
         "5. 成本数据单位为 CNY（人民币），精确到小数点后两位。\n"
-        "6. 如果工具返回结果中含有 note 字段，不需要向用户暴露内部错误细节。\n"
+        "6. 若工具结果的 status 为 failed/unavailable/degraded，必须向用户如实披露（或明确拒绝基于该结果作答），禁止隐藏或粉饰失败。\n"
     )
 
 
@@ -84,9 +92,18 @@ class FunctionCallingEngine:
 
     def __init__(
         self,
-        llm_provider: str = "claude",
+        llm_provider: str = "offline",  # SEAL: hosted requires ASSISTANT_HOSTED_PROVIDER_OPT_IN
         model: Optional[str] = None,
     ):
+        # SEAL: rewrite hosted/non-local requests to offline without opt-in.
+        sealed = resolve_provider_name(llm_provider)
+        if is_hosted_provider_name(llm_provider) and sealed == "offline":
+            logger.warning(
+                "hosted provider %s blocked by SEAL (no ASSISTANT_HOSTED_PROVIDER_OPT_IN) "
+                "-- using offline",
+                llm_provider,
+            )
+        llm_provider = sealed
         self._provider_name = llm_provider
         self._tools: Dict[str, BaseTool] = dict(TOOL_REGISTRY)
         self._system_prompt = _get_system_prompt()
@@ -194,6 +211,32 @@ class FunctionCallingEngine:
         tools = self._build_tool_definitions_anthropic()
 
         for _ in range(_MAX_TOOL_ROUNDS):
+            # SEAL §2.B: gate free-text + structured content before hosted call.
+
+            user_bits = []
+
+            for _m in messages:
+
+                _c = _m.get("content") if isinstance(_m, dict) else getattr(_m, "content", "")
+
+                if isinstance(_c, str):
+
+                    user_bits.append(_c)
+
+                elif isinstance(_c, list):
+
+                    for _b in _c:
+
+                        if isinstance(_b, dict) and "text" in _b:
+
+                            user_bits.append(str(_b["text"]))
+
+                        elif isinstance(_b, str):
+
+                            user_bits.append(_b)
+
+            enforce_hosted_prompt_egress(self._system_prompt, "\n".join(user_bits))
+
             response = self._anthropic_client.messages.create(
                 model=self._model,
                 max_tokens=4096,
@@ -229,10 +272,19 @@ class FunctionCallingEngine:
             tool_results = []
             for tu in tool_uses:
                 result = await self._execute_tool(tu["name"], tu["input"])
+                # §2.B/C: redact for hosted; non-citable cannot be decision evidence.
+                safe = enforce_tool_result_for_hosted(result)
+                if not is_citable_tool_result(result):
+                    safe = {
+                        "status": result.get("status", "failed"),
+                        "reason_code": result.get("reason_code", "non_citable"),
+                        "citable": False,
+                        "disclosure": "tool result excluded from decision evidence",
+                    }
                 tool_results.append({
                     "type": "tool_result",
                     "tool_use_id": tu["id"],
-                    "content": json.dumps(result, ensure_ascii=False),
+                    "content": json.dumps(safe, ensure_ascii=False),
                 })
 
             messages.append({"role": "user", "content": tool_results})
@@ -268,6 +320,24 @@ class FunctionCallingEngine:
         tools = self._build_tool_definitions_openai()
 
         for _ in range(_MAX_TOOL_ROUNDS):
+            user_bits = []
+
+            for _m in messages:
+
+                if isinstance(_m, dict):
+
+                    _c = _m.get("content", "")
+
+                else:
+
+                    _c = getattr(_m, "content", "") or ""
+
+                if isinstance(_c, str):
+
+                    user_bits.append(_c)
+
+            enforce_hosted_prompt_egress(self._system_prompt, "\n".join(user_bits))
+
             response = self._openai_client.chat.completions.create(
                 model=self._model,
                 max_tokens=4096,
@@ -282,10 +352,18 @@ class FunctionCallingEngine:
                     func = tc.function
                     args = json.loads(func.arguments) if func.arguments else {}
                     result = await self._execute_tool(func.name, args)
+                    safe = enforce_tool_result_for_hosted(result)
+                    if not is_citable_tool_result(result):
+                        safe = {
+                            "status": result.get("status", "failed"),
+                            "reason_code": result.get("reason_code", "non_citable"),
+                            "citable": False,
+                            "disclosure": "tool result excluded from decision evidence",
+                        }
                     messages.append({
                         "role": "tool",
                         "tool_call_id": tc.id,
-                        "content": json.dumps(result, ensure_ascii=False),
+                        "content": json.dumps(safe, ensure_ascii=False),
                     })
             else:
                 text = choice.message.content or ""
@@ -361,15 +439,39 @@ class FunctionCallingEngine:
         return messages
 
     async def _execute_tool(self, name: str, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Look up and execute a tool by name."""
+        """Look up and execute a tool by name (SEAL: preserve non-ok status)."""
         tool = self._tools.get(name)
         if tool is None:
             logger.error("Unknown tool requested: %s", name)
-            return {"error": f"未知工具: {name}"}
+            return {
+                "status": "failed",
+                "reason_code": "unknown_tool",
+                "error": f"未知工具: {name}",
+                "citable": False,
+            }
 
         logger.info("Executing tool %s with params %s", name, params)
         try:
-            return await tool.execute(params)
+            result = await tool.execute(params)
         except Exception as exc:
             logger.exception("Tool %s raised an exception", name)
-            return {"error": f"工具执行失败: {exc}"}
+            return {
+                "status": "failed",
+                "reason_code": "tool_exception",
+                "error": f"工具执行失败: {type(exc).__name__}",
+                "citable": False,
+            }
+        if not isinstance(result, dict):
+            return {
+                "status": "failed",
+                "reason_code": "invalid_tool_result",
+                "citable": False,
+            }
+        # Mark non-citable when status is non-ok (honest degradation).
+        if not is_citable_tool_result(result):
+            result = dict(result)
+            result["citable"] = False
+        else:
+            result = dict(result)
+            result.setdefault("citable", True)
+        return result

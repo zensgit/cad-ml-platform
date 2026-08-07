@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 def test_preview_response_structure_keys():
     from src.main import app
 
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     # Minimal query; adjust params if required by implementation
     resp = client.get(
         "/api/v1/vectors/migrate/preview",

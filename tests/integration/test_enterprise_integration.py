@@ -220,8 +220,12 @@ class TestStreamingMultiModelIntegration:
         return assistant
 
     @pytest.mark.asyncio
-    async def test_streaming_with_model_failover(self, multi_model_assistant):
+    async def test_streaming_with_model_failover(
+        self, multi_model_assistant, monkeypatch
+    ):
         """Test streaming continues after model failover."""
+        # SEAL: hosted providers only participate when opt-in is set.
+        monkeypatch.setenv("ASSISTANT_HOSTED_PROVIDER_OPT_IN", "1")
         # OpenAI fails, Claude succeeds
         mock_openai = MagicMock(spec=['generate'])
         mock_openai.generate.side_effect = Exception("Rate limited")

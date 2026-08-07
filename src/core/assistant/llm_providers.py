@@ -11,6 +11,15 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Generator, Optional
 
+from .egress_allowlist import EgressRejected, enforce_hosted_prompt_egress
+from .provider_seal import (
+    endpoint_is_verified_local,
+    hosted_provider_opt_in,
+    record_provider_attempt,
+    resolve_provider_name,
+    sealed_auto_select_order,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -76,6 +85,9 @@ class ClaudeProvider(BaseLLMProvider):
 
     def generate(self, system_prompt: str, user_prompt: str) -> str:
         """Generate response using Claude."""
+        record_provider_attempt("claude")
+        # SEAL §2.B: refuse unsafe content before any hosted network call.
+        enforce_hosted_prompt_egress(system_prompt, user_prompt)
         if not self._client:
             raise RuntimeError("Anthropic client not initialized. Set ANTHROPIC_API_KEY.")
 
@@ -119,6 +131,9 @@ class OpenAIProvider(BaseLLMProvider):
 
     def generate(self, system_prompt: str, user_prompt: str) -> str:
         """Generate response using GPT."""
+        record_provider_attempt("openai")
+        # SEAL §2.B: refuse unsafe content before any hosted network call.
+        enforce_hosted_prompt_egress(system_prompt, user_prompt)
         if not self._client:
             raise RuntimeError("OpenAI client not initialized. Set OPENAI_API_KEY.")
 
@@ -154,6 +169,9 @@ class QwenProvider(BaseLLMProvider):
 
     def generate(self, system_prompt: str, user_prompt: str) -> str:
         """Generate response using Qwen."""
+        record_provider_attempt("qwen")
+        # SEAL §2.B: refuse unsafe content before any hosted network call.
+        enforce_hosted_prompt_egress(system_prompt, user_prompt)
         if not self._api_key:
             raise RuntimeError("DashScope API key not set. Set DASHSCOPE_API_KEY.")
 
@@ -189,7 +207,9 @@ class OllamaProvider(BaseLLMProvider):
         self._base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
     def is_available(self) -> bool:
-        """Check if Ollama is running."""
+        """Check if Ollama is running on a seal-verified local endpoint."""
+        if not endpoint_is_verified_local(self._base_url) and not hosted_provider_opt_in():
+            return False
         try:
             import requests
             response = requests.get(f"{self._base_url}/api/tags", timeout=2)
@@ -199,6 +219,7 @@ class OllamaProvider(BaseLLMProvider):
 
     def generate(self, system_prompt: str, user_prompt: str) -> str:
         """Generate response using Ollama."""
+        record_provider_attempt("ollama")
         import requests
 
         response = requests.post(
@@ -246,6 +267,8 @@ class VLLMProvider(BaseLLMProvider):
 
     def is_available(self) -> bool:
         """Check if vLLM server is reachable via its health endpoint."""
+        if not endpoint_is_verified_local(self._base_url) and not hosted_provider_opt_in():
+            return False
         try:
             import requests
 
@@ -265,6 +288,7 @@ class VLLMProvider(BaseLLMProvider):
 
     def generate(self, system_prompt: str, user_prompt: str) -> str:
         """Generate response using vLLM's OpenAI-compatible chat completions API."""
+        record_provider_attempt("vllm")
         import requests
 
         response = requests.post(
@@ -396,6 +420,7 @@ class OfflineProvider(BaseLLMProvider):
 
     def generate(self, system_prompt: str, user_prompt: str) -> str:
         """Generate response from knowledge context only."""
+        record_provider_attempt("offline")
         # Extract knowledge section from user prompt
         if "参考知识:" in user_prompt:
             parts = user_prompt.split("参考知识:")
@@ -409,20 +434,13 @@ class OfflineProvider(BaseLLMProvider):
 
 def get_provider(provider_name: str, config: Optional[LLMConfig] = None) -> BaseLLMProvider:
     """
-    Get LLM provider by name.
+    Get LLM provider by name (SEAL-aware).
 
-    Args:
-        provider_name: Provider name (claude, openai, qwen, ollama, offline)
-        config: Optional LLM configuration
-
-    Returns:
-        Configured LLM provider instance
-
-    Example:
-        >>> provider = get_provider("claude")
-        >>> if provider.is_available():
-        ...     response = provider.generate(system_prompt, user_prompt)
+    Hosted providers and non-local Ollama/vLLM endpoints resolve to OfflineProvider
+    unless ASSISTANT_HOSTED_PROVIDER_OPT_IN is set. Missing SDKs still yield a
+    provider instance whose is_available() is False / Offline fallback via resolve.
     """
+    sealed_name = resolve_provider_name(provider_name)
     providers = {
         "claude": ClaudeProvider,
         "anthropic": ClaudeProvider,
@@ -437,22 +455,17 @@ def get_provider(provider_name: str, config: Optional[LLMConfig] = None) -> Base
         "offline": OfflineProvider,
     }
 
-    provider_class = providers.get(provider_name.lower(), OfflineProvider)
+    provider_class = providers.get(sealed_name.lower(), OfflineProvider)
     return provider_class(config)
 
 
 def get_best_available_provider(config: Optional[LLMConfig] = None) -> BaseLLMProvider:
     """
-    Get the best available LLM provider.
+    Get the best available LLM provider under the SEAL auto-select order.
 
-    Checks providers in priority order: Claude > OpenAI > Qwen > vLLM > Ollama > Offline
-
-    Returns:
-        Best available provider instance
+    Without hosted opt-in the order is vLLM > Ollama > Offline (never Claude/OpenAI/Qwen).
     """
-    priority_order = ["claude", "openai", "qwen", "vllm", "ollama", "offline"]
-
-    for provider_name in priority_order:
+    for provider_name in sealed_auto_select_order():
         provider = get_provider(provider_name, config)
         if provider.is_available():
             return provider

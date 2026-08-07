@@ -2,15 +2,16 @@ import uuid
 
 from fastapi.testclient import TestClient
 
+from conftest import valid_dxf_bytes
 from src.main import app
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def _analyze_stub(name: str, entity_count: int, material: str, unique_suffix: str = ""):
     """Create an analysis with unique content to avoid cache pollution."""
     # Use unique content based on name and suffix to ensure unique cache keys
-    unique_content = f"DATA_{name}_{unique_suffix}_{uuid.uuid4().hex[:4]}".encode()
+    unique_content = valid_dxf_bytes(f"{name}-{unique_suffix}-{uuid.uuid4().hex[:4]}")
     options = '{"extract_features": true, "classify_parts": false}'
     resp = client.post(
         "/api/v1/analyze",

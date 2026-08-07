@@ -8,7 +8,7 @@ from src.main import app
 
 
 def test_openapi_operation_ids_are_unique() -> None:
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     response = client.get("/openapi.json")
     assert response.status_code == 200
     schema = response.json()
@@ -34,7 +34,7 @@ def test_openapi_operation_ids_are_unique() -> None:
 def test_openapi_generation_has_no_duplicate_operation_id_warnings() -> None:
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
         response = client.get("/openapi.json")
         assert response.status_code == 200
 

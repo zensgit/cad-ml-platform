@@ -7,9 +7,12 @@ Supports ensemble voting with multiple models.
 
 from __future__ import annotations
 
+import io
 import logging
 import os
 from typing import Any, Dict, List, Optional
+
+from src.core.model_activation.activation_gateway import activate_file
 
 logger = logging.getLogger(__name__)
 
@@ -59,13 +62,24 @@ class Graph2DClassifier:
 
         self._load_temperature()
 
-        if HAS_TORCH and os.path.exists(self.model_path):
+        if HAS_TORCH:
+            # Model bytes now come exclusively from the C1 activation gateway
+            # (pin + digest verified), not a raw filesystem read of
+            # ``self.model_path`` — so the load is attempted regardless of
+            # whether that path exists locally; the gateway degrades to
+            # ``None`` (never raw-loads) when unpinned/unconfigured/tampered.
             try:
                 self._load_model()
             except Exception as exc:  # noqa: BLE001
                 # Keep model loading best-effort so environments with torch installed
                 # but missing/incompatible checkpoints do not fail import-time.
-                logger.warning("Failed to load Graph2D model %s: %s", self.model_path, exc)
+                # Design lock: no filesystem paths in logs. Identify the model by
+                # its logical activation id, not ``self.model_path``. Bytes come
+                # from the gateway (BytesIO), so ``exc`` carries no filepath either.
+                logger.warning(
+                    "Failed to load Graph2D model (activation_id=graph2d/main): %s",
+                    exc,
+                )
                 self.model = None
                 self._loaded = False
                 self._load_error = str(exc)
@@ -133,7 +147,20 @@ class Graph2DClassifier:
     def _load_model(self) -> None:
         if not HAS_TORCH or torch is None:
             return
-        checkpoint = torch.load(self.model_path, map_location=self.device, weights_only=False)
+        data = activate_file("graph2d/main", "main")
+        if data is None:
+            # Universal C4 degraded signal: pin absent, artifact missing,
+            # digest mismatch, or store unconfigured. Never fall back to a
+            # raw filesystem load of ``self.model_path``. This is a graceful
+            # FALLBACK (readiness reports "graph2d:fallback"), NOT a load error —
+            # it mirrors the pre-wiring "missing model file" contract. A genuine
+            # framework-load failure on verified bytes is still caught in
+            # ``__init__`` and recorded as ``_load_error``.
+            self.model = None
+            self._loaded = False
+            self._load_error = None
+            return
+        checkpoint = torch.load(io.BytesIO(data), map_location=self.device, weights_only=False)
         self.label_map = checkpoint.get("label_map", {})
         self.node_dim = int(checkpoint.get("node_dim", DXF_NODE_DIM))
         self.edge_dim = int(checkpoint.get("edge_dim", DXF_EDGE_DIM))
@@ -144,9 +171,10 @@ class Graph2DClassifier:
             self.model_type = "edge_sage_v2"
             self.model.eval()
             self._loaded = True
+            # Design lock: no filesystem paths in logs. Identify by activation id.
             logger.info(
-                "Loaded GraphEncoderV2WithHead from %s (%d classes)",
-                self.model_path, len(self.label_map),
+                "Loaded GraphEncoderV2WithHead (activation_id=graph2d/main, %d classes)",
+                len(self.label_map),
             )
             return
 
@@ -308,20 +336,31 @@ class EnsembleGraph2DClassifier:
             self._load_models()
 
     def _load_models(self) -> None:
-        for path in self.model_paths:
-            if os.path.exists(path):
-                clf = Graph2DClassifier(model_path=path)
-                if clf._loaded:
-                    self.classifiers.append(clf)
-                    logger.info("Loaded ensemble model: %s", path)
-                else:
-                    logger.warning("Failed to load ensemble model: %s", path)
-            else:
-                logger.warning("Ensemble model not found: %s", path)
+        # F3(b) — the Phase-A baseline manifest pins exactly ONE graph2d
+        # activation ("graph2d/main"); there is no distinct per-path pinned
+        # activation. The ensemble is therefore NOT a separately-pinned family:
+        # it is driven by that single gateway-routed classifier. We reuse the
+        # already-activated module singleton rather than (a) gating each path on
+        # legacy os.path.exists — a stale/bypassable proxy for the pin — or
+        # (b) re-instantiating Graph2DClassifier per path, which would re-pull
+        # the SAME pin N times. Multi-model ensembling needs distinct pins and is
+        # out of scope until Track E; ``self.model_paths`` is retained only for
+        # config-echo visibility (see health_utils) and no longer drives loads.
+        base = get_2d_classifier()
+        if getattr(base, "_loaded", False):
+            self.classifiers.append(base)
+            logger.info(
+                "Ensemble driven by the single gateway-pinned graph2d activation"
+            )
+        else:
+            logger.warning(
+                "Ensemble degraded: graph2d/main pin unavailable "
+                "(no legacy raw-path fallback)"
+            )
 
         self._loaded = len(self.classifiers) > 0
         if self._loaded:
-            logger.info("Ensemble initialized with %d models", len(self.classifiers))
+            logger.info("Ensemble initialized with %d model(s)", len(self.classifiers))
 
     def predict_from_bytes(self, data: bytes, file_name: str) -> Dict[str, Any]:
         """Ensemble prediction combining multiple models."""

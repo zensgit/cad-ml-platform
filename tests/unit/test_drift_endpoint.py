@@ -4,7 +4,7 @@ from src.main import app
 
 
 def test_drift_endpoint_initial():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     r = client.get("/api/v1/analyze/drift", headers={"api-key": "test"})
     assert r.status_code == 200
     data = r.json()

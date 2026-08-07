@@ -18,7 +18,7 @@ from src.main import app
 
 @pytest.fixture(scope="module")
 def client():
-    return TestClient(app)
+    return TestClient(app, headers={"X-API-Key": "test"})
 
 
 def _scrape_metric_value(metric_name: str, label_fragment: str) -> float:

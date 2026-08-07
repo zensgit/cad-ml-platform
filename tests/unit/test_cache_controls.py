@@ -13,7 +13,7 @@ def setup_function():
 
 
 def test_cache_apply_rejects_during_active_rollback_window():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     # First apply to create snapshot
     r1 = client.post(
         "/api/v1/health/features/cache/apply",
@@ -35,7 +35,7 @@ def test_cache_apply_rejects_during_active_rollback_window():
 
 
 def test_cache_rollback_then_reapply_allowed():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     # First apply
     r1 = client.post(
         "/api/v1/health/features/cache/apply",

@@ -6,7 +6,7 @@ from src.main import app
 from src.ml import classifier
 from src.ml.classifier import get_model_info
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 def test_model_health_uptime_absent():

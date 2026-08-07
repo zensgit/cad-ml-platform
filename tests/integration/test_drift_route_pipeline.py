@@ -34,7 +34,7 @@ def test_drift_route_delegates_to_shared_status_pipeline(monkeypatch):
 
     monkeypatch.setattr("src.api.v1.drift.run_drift_status_pipeline", fake_pipeline)
 
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     response = client.get("/api/v1/analyze/drift", headers={"api-key": "test"})
 
     assert response.status_code == 200
@@ -57,7 +57,7 @@ def test_drift_reset_route_delegates_to_shared_reset_pipeline(monkeypatch):
 
     monkeypatch.setattr("src.api.v1.drift.run_drift_reset_pipeline", fake_pipeline)
 
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     response = client.post("/api/v1/analyze/drift/reset", headers={"api-key": "test"})
 
     assert response.status_code == 200
@@ -85,7 +85,7 @@ def test_drift_baseline_status_route_delegates_to_shared_pipeline(monkeypatch):
         "src.api.v1.drift.run_drift_baseline_status_pipeline", fake_pipeline
     )
 
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     response = client.get(
         "/api/v1/analyze/drift/baseline/status", headers={"api-key": "test"}
     )

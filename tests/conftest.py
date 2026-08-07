@@ -10,6 +10,21 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 SRC_DIR = ROOT_DIR / "src"
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
+
+# L3 #517: refuse_boot_if_invalid runs at src.main import time. Collection
+# imports app modules before autouse fixtures run, so the harness opt-in must
+# be process-level. Production-posture goldens override via monkeypatch and
+# call validate_boot_identity / deps directly (they do not re-import main).
+#
+# Force (do not setdefault): CI runners / scripts/test_with_local_api.sh may
+# export a different API_KEY (historically "test-api-key"). Suite TestClients
+# send X-API-Key: test — ambient mismatch → mass 401. Pin harness credentials.
+os.environ["ENVIRONMENT"] = "development"
+os.environ.pop("REQUIRE_STRONG_AUTH", None)
+os.environ.pop("API_KEYS", None)
+os.environ["API_KEY"] = "test"
+os.environ["ADMIN_TOKEN"] = "test"
+
 if SRC_DIR.exists():
     if "src" in sys.modules:
         del sys.modules["src"]
@@ -19,8 +34,38 @@ if SRC_DIR.exists():
 if TYPE_CHECKING:
     from fastapi.testclient import TestClient
 
+
+def valid_dxf_bytes(marker: str = "fixture", *, include_header: bool = False) -> bytes:
+    """Return a tiny syntactically valid DXF payload for analyze success-path tests."""
+    marker_text = str(marker)
+    x2 = (sum(ord(ch) for ch in marker_text) % 1000) + 1
+    header = "0\nSECTION\n2\nHEADER\n0\nENDSEC\n" if include_header else ""
+    return (
+        f"{header}"
+        "0\nSECTION\n2\nENTITIES\n"
+        "0\nLINE\n"
+        "8\n0\n"
+        "10\n0\n20\n0\n30\n0\n"
+        f"11\n{x2}\n21\n0\n31\n0\n"
+        "0\nENDSEC\n"
+        "0\nEOF\n"
+    ).encode("ascii")
+
+
 # List of environment variables that may be modified by tests
 _ENV_VARS_TO_ISOLATE = [
+    "ENVIRONMENT",
+    "APP_ENV",
+    "ENV",
+    "API_KEY",
+    "API_KEYS",
+    "ADMIN_TOKEN",
+    "REQUIRE_STRONG_AUTH",
+    "INTEGRATION_AUTH_MODE",
+    "INTEGRATION_JWT_SECRET",
+    "INTEGRATION_JWT_AUDIENCE",
+    "INTEGRATION_JWT_ISSUER",
+
     "ADMIN_TOKEN",
     "X_API_KEY",
     "MODEL_OPCODE_SCAN",
@@ -51,6 +96,25 @@ _ENV_VARS_TO_ISOLATE = [
     "PART_CLASSIFIER_PROVIDER_INCLUDE_IN_CACHE_KEY",
 ]
 
+
+
+
+@pytest.fixture(autouse=True)
+def _production_identity_dev_opt_in(monkeypatch):
+    """L3 #517 harness: explicit development opt-in so the suite is not bricked.
+
+    Production posture is fail-closed when ENVIRONMENT is unset/unknown.
+    Tests that need production posture must override ENVIRONMENT / REQUIRE_STRONG_AUTH.
+    Always pin API_KEY/ADMIN_TOKEN to the harness value so ambient CI exports
+    (e.g. API_KEY=test-api-key from tiered runners) cannot desync headers.
+    Multi-tenant tests that need extra keys set API_KEYS via their own monkeypatch
+    (API_KEYS takes precedence in configured_api_keys).
+    """
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.delenv("REQUIRE_STRONG_AUTH", raising=False)
+    monkeypatch.setenv("API_KEY", "test")
+    monkeypatch.setenv("ADMIN_TOKEN", "test")
+    yield
 
 @pytest.fixture(autouse=True)
 def env_isolation():
@@ -253,7 +317,7 @@ def metrics_text() -> Callable[[Optional["TestClient"]], Optional[str]]:
             from fastapi.testclient import TestClient
             from src.main import app
 
-            client = TestClient(app)
+            client = TestClient(app, headers={"X-API-Key": "test"})
 
         response = client.get("/metrics")
         if response.status_code != 200:

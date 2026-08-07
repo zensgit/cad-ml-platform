@@ -6,6 +6,11 @@ import logging
 from typing import Any, Dict
 
 from .base import BaseTool
+from src.core.assistant.tool_status import (
+    STATUS_FAILED,
+    STATUS_UNAVAILABLE,
+    failure_result,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -56,19 +61,9 @@ class ProcessTool(BaseTool):
                 "reasoning": result.get("reasoning", ""),
             }
         except Exception as exc:
-            logger.warning("recommend_process fallback for %s: %s", file_id, exc)
-            process_map = {
-                "steel": ("CNC machining", ["turning", "milling", "grinding"]),
-                "aluminum": ("CNC machining", ["milling", "turning", "anodizing"]),
-                "stainless_steel": ("CNC machining", ["turning", "milling", "polishing"]),
-                "cast_iron": ("casting + machining", ["sand casting", "CNC finishing"]),
-                "plastic": ("injection molding", ["3D printing", "CNC machining"]),
-            }
-            primary, alts = process_map.get(material, ("CNC machining", ["turning", "milling"]))
-            if batch_size > 100:
-                primary = "批量加工 - " + primary
-            return {
-                "primary_process": primary,
-                "alternatives": alts,
-                "reasoning": f"基于材料({material})和批量({batch_size})的默认推荐。工艺推荐服务暂不可用。",
-            }
+            logger.warning("tool fallback: %s", type(exc).__name__)
+            return failure_result(
+                STATUS_UNAVAILABLE,
+                "process_service_unavailable",
+                file_id=file_id,
+            )

@@ -4,7 +4,7 @@ from src.main import app
 
 
 def test_feature_cache_stats_endpoint(monkeypatch):
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     resp = client.get("/api/v1/features/cache", headers={"X-API-Key": "test"})
     assert resp.status_code == 200
     data = resp.json()

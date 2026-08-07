@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from src.core.errors import ErrorCode  # noqa: F401 (referenced if extending tests)
 from src.main import app
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 _SAMPLE_PNG_BYTES = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z/C/HwAFgwJ/lb9a0QAAAABJRU5ErkJggg=="
 )

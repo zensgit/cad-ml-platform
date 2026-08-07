@@ -4,7 +4,7 @@ from src.main import app
 
 
 def test_deprecated_vector_list_endpoint():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     resp = client.get("/api/v1/analyze/vectors", headers={"X-API-Key": "test"})
     # The old path /api/v1/analyze/vectors is deprecated and returns 410 Gone
     # The new path is /api/v1/vectors
@@ -14,7 +14,7 @@ def test_deprecated_vector_list_endpoint():
 
 
 def test_deprecated_vector_delete_endpoint():
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     resp = client.post(
         "/api/v1/analyze/vectors/delete",
         json={"id": "non-existent"},

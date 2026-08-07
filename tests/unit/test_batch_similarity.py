@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from src.main import app
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test"})
 
 
 @pytest.fixture(autouse=True)

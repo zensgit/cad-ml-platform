@@ -347,7 +347,7 @@ class TestErrorPropagation:
 
         from src.main import app
 
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-API-Key": "test"})
 
         # Send invalid base64 to trigger INPUT_ERROR
         response = client.post(

@@ -72,7 +72,7 @@ def test_openapi_schema_matches_snapshot() -> None:
         "config/openapi_schema_snapshot.json"
     )
 
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "test"})
     response = client.get("/openapi.json")
     assert response.status_code == 200
     snapshot = _build_openapi_contract_snapshot(response.json())
