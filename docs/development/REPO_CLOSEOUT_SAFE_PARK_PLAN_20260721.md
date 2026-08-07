@@ -1,18 +1,19 @@
-# Repository Closeout — Safe-Park Plan (2026-07-21)
+# Repository Closeout — Safe-Park Plan (2026-07-21; Layer-0 refresh 2026-08-07)
 
-- **Status**: FOR REVIEW. Nothing in this document is self-ratifying; every gate below is
-  owner-decided. This document **implements** the ratified strategy and design locks — it does
-  **not** amend them. If anything here conflicts with `docs/PRODUCT_STRATEGY.md`, the strategy
-  wins and this document is wrong.
-- **Owner**: repository owner (sole ratifier/merger).
-- **Code grounding**: `origin/main@7160694d` (post #526). PR states, branch protection, and
-  seal states below were re-verified live on 2026-07-21, not restated from prior documents.
-- **Authorship & routing disclosure**: assembled by the session agent (Fable) as a
-  *mechanical transcription* of already-ratified decisions (#513 design lock,
-  `PRODUCT_STRATEGY.md`, `L3_SAFETY_DESIGN_AND_VERIFICATION_20260715.md` Part 3) plus
-  live-verified repository facts. Per the locked model-routing rule, Fable authors **no**
-  security semantics and makes **no** completion judgment: all security verdicts in the plan
-  below are routed to opus gate lenses, and only the owner declares any phase "done".
+- **Status**: FOR REVIEW (Layer-0 refreshed after Track-1 batch). Nothing in this document is
+  self-ratifying; every gate below is owner-decided. This document **implements** the ratified
+  strategy and design locks — it does **not** amend them. If anything here conflicts with
+  `docs/PRODUCT_STRATEGY.md`, the strategy wins and this document is wrong.
+- **Owner**: repository owner (sole ratifier of product/strategy gates). Engineering merges
+  happen only under explicit owner authorization for the named PRs.
+- **Code grounding**: `origin/main@0ffe6ce5` (post #531/#527/#523 batch on 2026-08-07; also
+  includes #525/#539/#538/#537/#536/#535/#532/#529/#528). Layer-0 table below was rewritten
+  live against that tip — **do not trust the 2026-07-21 open-queue snapshot**.
+- **Authorship & routing disclosure**: original 2026-07-21 draft assembled by the session agent
+  (Fable) as a *mechanical transcription* of already-ratified decisions (#513 design lock,
+  `PRODUCT_STRATEGY.md`, `L3_SAFETY_DESIGN_AND_VERIFICATION_20260715.md` Part 3). 2026-08-07
+  Layer-0 refresh is a fact update only (merged SHAs / still-open queue); it does **not** claim
+  safe-park complete and does **not** amend strategy end states.
 
 ---
 
@@ -47,26 +48,63 @@ The only completion statement permitted at safe-park is the owner-locked sentenc
 
 ---
 
-## 2. Layer 0 — clear the in-flight queue (target: week of 2026-07-21)
+## 2. Layer 0 — clear the in-flight queue
 
-All 13 open PRs, dispositioned one by one. States verified live 2026-07-21.
+### 2.1 Historical target (week of 2026-07-21) — **SUPERSEDED**
 
-| PR | Verified state (2026-07-21) | Disposition |
+The original Layer-0 table assumed a 13-PR queue at `main@7160694d` and an exit criterion of
+“open list contains only #507”. That snapshot is **false as of 2026-08-07**. Do not use it for
+merge planning. Facts below replace it.
+
+### 2.2 Merged since the original Layer-0 draft (verified on `main@0ffe6ce5`)
+
+| PR | What landed | Merge on main (approx) |
 |---|---|---|
-| **#527** Wave-1 reachability audit | head `7a16a057`, rebased onto `7160694d`, 62 pass / 0 fail, CLEAN, 0 threads | Merge. It is the C2 input (23 LIVE sites / 11 logical activations / denominator rule). |
-| **#528** Phase-A C1 core | head `17ebaee2`; a local **un-pushed authority-fix** exists (`/private/tmp/cadml-c1-authority-fix`, +3857/−509 across 7 files, includes the fix for the gate-blocking vacuous partial-freeze test) | Builder pushes the authority-fix → **full fresh opus gate review** (the 2026-07-20 CONCERNS verdict does not transfer to the new delta; the openat2-seccomp-fallback P2 from codex-connector gets an explicit re-check) → owner ratifies exact SHA → merge. |
-| **#529** finetune train-and-reload seal | head `eaa32158` unchanged since the GO verdict; 2 unresolved gemini nit threads are the only blocker (`required_conversation_resolution=true`) | Reply + resolve threads → owner merges. GO verdict remains valid while the head is unchanged. |
-| **#525** fail-closed raw DWG analyze input | open; pairs with issue #524 (fail-open silent degradation) | L3 review, then merge. This is a **seal item** — it belongs to safe-park, not to backlog. |
-| **#523** keep public PR jobs off self-hosted runners | CLEAN/MERGEABLE | Review, merge; closes the runner-routing environment debt. |
-| **#507** portfolio strategy (cross-repo) | open for-review; carries 3 owner-ratify questions | Answer during Layer 4 (see §6) — it decides end-state B's fold-in target. Not a merge race. |
-| **#497, #481, #394, #393, #392, #391, #389** dependabot ×7 | oldest open since 2026-05-18 | Batch-disposition: merge the CI-green ones, close the rest; fix issue **#476** (dependabot SHA-pin config) so future dependabot PRs pass Action Pin Guard instead of accumulating. |
+| **#528 / #532** | Phase-A model activation membrane (C1 + C2–C6 wiring / golden path) | 2026-07 → early Aug |
+| **#529** | finetune train-and-reload seal | post-#528 |
+| **#536** | assistant hosted-provider dependency lock | 2026-08-06 |
+| **#535** | assistant tool_status contract | 2026-08-06 |
+| **#537** | assistant provider SEAL (live path) | 2026-08-06 |
+| **#538** | production identity fail-closed (#517 design-lock runtime) | 2026-08-07 `191ce7ef` |
+| **#525** | fail-closed raw DWG analyze input (SECTION structure + empty-stub guard) | 2026-08-07 `e98f7e12` |
+| **#539** | OCR/PointNet honesty (no fabricated OCR; refuse random PointNet weights) | 2026-08-07 `2dd6225b` |
+| **#531** | Track E evaluation-integrity-v2 **design-lock** (docs only; unlocks E1) | 2026-08-07 `c26bfe49` |
+| **#527** | Wave-1 reachability audit (docs; gated=38 enumerator alignment) | 2026-08-07 `63f1f928` |
+| **#523** | keep public PR jobs off self-hosted runners (CI) | 2026-08-07 `0ffe6ce5` |
 
-Open issues: **#524** is addressed by #525; **#476** is addressed in the dependabot batch.
-Layer-0 exit criterion: open-PR list contains only #507 (parked deliberately for Layer 4).
+### 2.3 Still open (live 2026-08-07) — disposition
+
+| PR | Verified state | Disposition |
+|---|---|---|
+| **#530** (this plan) | open; Layer-0 rewritten this commit | Re-review after Layer-0 refresh → owner merges when accurate. |
+| **#507** portfolio strategy | open for-review; 3 owner-ratify questions | **Park at Layer 4** (§6). Not a merge race. |
+| **#534** pilot DWG default-disabled | **draft** | Finish draft → L2 review; not Layer-0 blocking. |
+| **#497, #481, #394, #393, #392, #391, #389** dependabot ×7 | oldest open since 2026-05-18 | Still valid batch debt: merge CI-green ones, close the rest; fix issue **#476** (dependabot SHA-pin) so Action Pin Guard stops the pile-up. |
+
+Open issues: **#524** addressed by #525 (merged); **#476** remains for the dependabot batch.
+
+### 2.4 Layer-0 exit criterion (updated)
+
+Layer-0 is **cleared for the original 2026-07-21 implementation queue** (the PRs that plan once
+listed as in-flight seals/audits). Remaining open items are intentionally **not** Layer-0:
+
+- **#507** — Layer 4 product decision (owner only).
+- **#530** — this document (merge after re-review of the refresh).
+- **dependabot ×7 + #476** — maintenance batch (parallel, not strategy-blocking).
+- **#534 draft** — pilot safety follow-up.
+
+False claim **removed**: “open-PR list contains only #507” was never re-verified after
+Phase-A / identity / SEAL landings and is not a current exit criterion.
 
 ---
 
 ## 3. Layer 1 — finish Phase A → safe-park (3–5 weeks; target mid-Aug 2026)
+
+> **Status note (2026-08-07):** Phase-A static fixed-hash containment and related seals listed
+> in §2.2 are **on `main`**. Layer 1 is no longer “start C1 from zero”; remaining safe-park work
+> is residual inventory (Layer 2 closeout MD), owner KIND/caliber decisions still open in §3.1
+> if not already recorded in the Phase-A Dev&V docs, and **not** reopening sealed reload paths.
+> Track E **runtime** remains supply-gated (§5) even though design-lock #531 is merged.
 
 ### 3.1 Owner decisions that unblock the build (cheapest, highest leverage)
 
@@ -110,13 +148,13 @@ uid-65534 / openat2 suites are CI-only; local green is never claimed as verifica
 ## 4. Layer 2 — honest-posture inventory (parallel with Layer 1; docs only)
 
 Safe-park's deliverable is a **SAFE-PARK CLOSEOUT MD** freezing the parked state of every known
-§5 gap. Current states, re-verified in source on `origin/main@7160694d`:
+§5 gap. Current states, re-grounded on `origin/main@0ffe6ce5` (Layer-0 refresh 2026-08-07):
 
 | Strategy §5 gap | Parked state |
 |---|---|
 | §5.2 evaluation contamination (28.7% val/train byte-identical) | **Sealed**: `scripts/auto_retrain.sh` Step-0 runs the unconditional L3 gate (`scripts/eval_integrity_gate.py`) before any mutation; no pass path, no env toggle; re-enablement is a code change (Track E two-phase gate). Verified in source. Keep sealed. |
 | §5.4 flywheel not closed (`src/api/v1/feedback.py` still JSONL placeholder) | **Do not build** (strategy §5.4 forbids resurrecting it outside a real reviewer workflow). Parked as-is. |
-| §5.5 production auth | Production posture fail-closes the `test` defaults (`src/api/dependencies.py::_production_posture`, landed with the bleeding-control PR). The **full §8.3 pilot-release gates are pilot preconditions, not safe-park preconditions** — the closeout MD states this distinction explicitly so closeout does not silently double in scope. |
+| §5.5 production auth | **Hardened further on main via #538**: production-identity fail-closed (`src/api/production_identity.py`, boot refuse, JWT aud/iss/exp, identity from `sub` only; harness opt-in only under `ENVIRONMENT=development|test`). Bleeding-control remains the earlier partial. The **full §8.3 pilot-release gates are pilot preconditions, not safe-park preconditions** — the closeout MD states this distinction explicitly so closeout does not silently double in scope. |
 | §5.3 B-Rep | Untouched per strategy (sourcing start, not a moat). |
 | External reload | `/model/reload` sealed 403; retraining disabled. |
 
@@ -133,7 +171,7 @@ of them is forbidden by strategy §6 and the design lock (the literal fake-green
 
 | Track | Missing supply | Consequence of faking it |
 |---|---|---|
-| **Track E** (evaluation-integrity-v2) | Real data + model-run environment | Metrics without them = fabricated metrics |
+| **Track E** (evaluation-integrity-v2) | Real data + model-run environment. **Design-lock #531 is on main** — that unlocks authoring E1; it does **not** authorize pre-building runtime without supply. `release_eligible:false` remains hard. | Metrics without them = fabricated metrics |
 | **Phase B** (signed proofs) | Signing-key custody (HSM / human-gated signer outside CI) | Proofs without them = forged signatures |
 | **Enablement gate 1** (Phase-A baseline-pin activation) | Owner-supplied §7.2 evidence: named target environment, named owner AND user, date, staging replay, observed-RED, rollback, kill switch, user-outcome telemetry, no paths in logs | Owner-only decision; rides on Phase A + Wave-1 |
 | **Enablement gate 2** (dynamic swap / retraining) | Phases A–E complete + separate owner decision | Last gate; re-enable = replacing a body, never a flag |
@@ -174,21 +212,24 @@ runs, never `gh run watch` exit codes.
 
 ## 8. What this plan explicitly does NOT do
 
-- No Track E / Phase B pre-building (supplies absent — §5 above).
+- No Track E **runtime** / Phase B pre-building (supplies absent — §5 above). Design-lock merge
+  is not a runtime schedule.
 - Nothing from strategy §6's stop-building list (no new providers, no B-Rep breadth, no
   dashboards, no speculative adapters).
 - No promotion of §8.3 pilot gates into safe-park scope (they are pilot preconditions).
 - No completion claim beyond the locked sentence in §1.
-- The session agent merges nothing, resolves no review threads, and ratifies nothing.
+- No self-ratify of product gates; merges of strategy/design-lock docs and L3 runtimes only under
+  explicit owner authorization for the named PR (session agent does not invent ratify).
 
 ## 9. Timeline summary
 
 | When | Milestone | Who |
 |---|---|---|
-| Week of 2026-07-21 | Layer 0 complete: #527/#529/#523/#525 merged; authority-fix pushed + gated; dependabot batch + #476 | Builder / opus gate / **owner merges** |
-| By end of July | KIND ×2 + artifact-less caliber decisions | **Owner** |
-| Late July → mid-Aug | C2 → C3/C4 → C5 → C6, each gated + ratified | Builder / opus / owner |
-| **Mid-Aug 2026** | **Safe-park: closeout MD on `main` at a pinned SHA** | Owner ratifies |
-| Late Aug | #507 three questions answered (fold-in target fixed) | **Owner** |
+| Week of 2026-07-21 | Original Layer-0 target (historical) | — |
+| **2026-08-06…07** | Layer-0 implementation queue cleared: Phase-A membrane, seals, #538 identity, #525/#539 honesty, #531 design-lock, #527 audit, #523 runners — on `main@0ffe6ce5` | Builder / gate / **owner-authorized merges** |
+| Next | Re-review + merge **#530** (this refreshed plan); dependabot batch + #476; finish or close **#534** draft | Owner / builder |
+| Residual | Safe-park closeout MD (Layer 2 inventory) at a pinned SHA if any §5 gaps remain undocumented | Owner ratifies |
+| Track E E1 | Only after supply exists; single L3 runtime WIP; `release_eligible:false` | Builder / gate / owner |
+| Late Aug+ | #507 three questions answered (fold-in target fixed) — **not** merge-driven | **Owner** |
 | ~Mid-Oct 2026 | Day-90 gate | Owner |
 | ~Mid-Jan 2027 | Month-6 gate → end state A or B | Owner |
