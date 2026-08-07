@@ -1,5 +1,5 @@
 {
-  "components_schema_count": 254,
+  "components_schema_count": 258,
   "components_schema_names": [
     "ActiveLearningSample",
     "AlternativeItem",
@@ -23,6 +23,7 @@
     "Body_classify_pointcloud_api_v1_pointcloud_classify_post",
     "Body_compare_annotations_api_v1_diff_annotations_post",
     "Body_compare_files_api_v1_diff_compare_post",
+    "Body_create_task_api_v1_review_reuse_tasks_post",
     "Body_dedup_2d_index_add_api_v1_dedup_2d_index_add_post",
     "Body_dedup_2d_precision_compare_api_v1_dedup_2d_precision_compare_post",
     "Body_dedup_2d_search_api_v1_dedup_2d_search_post",
@@ -52,6 +53,7 @@
     "CostSearchResponse",
     "CostTierItem",
     "CostTierListResponse",
+    "DecisionRequest",
     "Dedup2DGeomExistsResponse",
     "Dedup2DHealthResponse",
     "Dedup2DIndexAddResponse",
@@ -125,6 +127,7 @@
     "HeatTreatmentCompatibilityResponse",
     "HeatTreatmentInfo",
     "HeatTreatmentType",
+    "HumanDecisionState",
     "HybridRuntimeConfigResponse",
     "ITToleranceResponse",
     "KnowledgeReloadResponse",
@@ -215,6 +218,7 @@
     "SurfaceFinishSuggestResponse",
     "SurfaceTreatmentInfo",
     "SurfaceTreatmentType",
+    "TaskSummary",
     "ThreadSpecResponse",
     "V16CacheClearResponse",
     "V16ClassifierHealthResponse",
@@ -257,8 +261,8 @@
     "WeldingType"
   ],
   "openapi": "3.1.0",
-  "operation_count": 198,
-  "path_count": 193,
+  "operation_count": 205,
+  "path_count": 199,
   "paths": {
     "/": {
       "get": {
@@ -1797,6 +1801,74 @@
       "post": {
         "deprecated": false,
         "operationId": "render_cad_preview_api_v1_render_cad_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/review-reuse/tasks": {
+      "get": {
+        "deprecated": false,
+        "operationId": "list_tasks_api_v1_review_reuse_tasks_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      },
+      "post": {
+        "deprecated": false,
+        "operationId": "create_task_api_v1_review_reuse_tasks_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/review-reuse/tasks/{task_id}": {
+      "get": {
+        "deprecated": false,
+        "operationId": "get_task_api_v1_review_reuse_tasks__task_id__get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/review-reuse/tasks/{task_id}/cancel": {
+      "post": {
+        "deprecated": false,
+        "operationId": "cancel_task_api_v1_review_reuse_tasks__task_id__cancel_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/review-reuse/tasks/{task_id}/decision": {
+      "post": {
+        "deprecated": false,
+        "operationId": "submit_decision_api_v1_review_reuse_tasks__task_id__decision_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/review-reuse/tasks/{task_id}/events": {
+      "get": {
+        "deprecated": false,
+        "operationId": "list_events_api_v1_review_reuse_tasks__task_id__events_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/review-reuse/tasks/{task_id}/evidence-pack": {
+      "get": {
+        "deprecated": false,
+        "operationId": "get_evidence_pack_api_v1_review_reuse_tasks__task_id__evidence_pack_get",
         "responses": [
           "200",
           "422"
