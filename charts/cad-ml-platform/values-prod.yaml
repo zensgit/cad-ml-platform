@@ -39,6 +39,7 @@ redis:
   enabled: false
 
 env:
+  DWG_CONVERTER: "disabled"
   REDIS_ENABLED: "true"
   REDIS_URL: "redis://shared-redis.redis.svc.cluster.local:6379/0"
   LOG_LEVEL: "INFO"

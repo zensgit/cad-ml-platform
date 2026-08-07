@@ -293,12 +293,14 @@ python3 scripts/dedup_2d_batch_ingest_cad.py <input_dir> \
 
 - 脚本默认会在结束后调用 `POST /api/v1/dedup/2d/index/rebuild`（可用 `--no-rebuild-index` 禁用）。
 - 做 smoke test 可加 `--max-files 10` 先验证小样本。
+- `dedup_2d_batch_ingest_cad.py` 与 `dedup_2d_batch_search_cad.py` 的 `--dwg-to-dxf` 默认值为 `skip`；只有显式指定 `oda`、`cmd` 或 `auto` 才会启用 DWG 转换。
 - 对 DWG：建议在 Windows 使用“无 UI 批处理”导出 `PNG + v2 JSON`，再走 7.1 的入库脚本（见 7.3）。
 
 DWG 转 DXF（Windows 推荐 ODA File Converter）：
 
-- 环境变量方式：设置 `ODA_FILE_CONVERTER_EXE` 指向 `ODAFileConverter.exe`
-- 或命令行参数：`--oda-exe "C:\\Path\\To\\ODAFileConverter.exe"`
+- 环境变量方式：设置 `ODA_FILE_CONVERTER_EXE` 指向 `ODAFileConverter.exe`，并显式传入 `--dwg-to-dxf oda`
+- 或命令行参数：`--dwg-to-dxf oda --oda-exe "C:\\Path\\To\\ODAFileConverter.exe"`
+- 如确需自动探测 ODA 后回退自定义命令，显式传入 `--dwg-to-dxf auto`，并配置对应转换器路径或命令模板
 
 也可用自定义命令模板（例如已有 `dwg2dxf.exe`）：
 

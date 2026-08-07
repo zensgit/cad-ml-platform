@@ -21,6 +21,28 @@ import uuid
 logger = logging.getLogger(__name__)
 
 
+_DWG_CONVERTER_MODES = {
+    "disabled",
+    "auto",
+    "oda",
+    "cmd",
+    "autocad",
+    "bricscad",
+    "draftsight",
+}
+
+
+def resolve_dwg_converter_mode() -> str:
+    """Return the validated, fail-closed DWG conversion mode."""
+    mode = (os.getenv("DWG_CONVERTER", "disabled") or "disabled").strip().lower()
+    if mode not in _DWG_CONVERTER_MODES:
+        allowed = ", ".join(sorted(_DWG_CONVERTER_MODES))
+        raise RuntimeError(
+            f"Unsupported DWG_CONVERTER '{mode}'; expected one of: {allowed}"
+        )
+    return mode
+
+
 class DXFVersion(str, Enum):
     """Supported DXF output versions."""
     R12 = "ACAD12"
@@ -121,6 +143,11 @@ class DWGConverter:
 
     def _find_oda_converter(self) -> None:
         """Find ODA File Converter installation."""
+        mode = resolve_dwg_converter_mode()
+        if mode not in {"auto", "oda"}:
+            logger.info("ODA converter discovery skipped: DWG_CONVERTER=%s", mode)
+            return
+
         # Check config path first
         if self._config.oda_path:
             path = Path(self._config.oda_path).expanduser()
@@ -182,6 +209,13 @@ class DWGConverter:
 
         input_path = Path(input_path)
         start_time = time.time()
+
+        if resolve_dwg_converter_mode() == "disabled":
+            return ConversionResult(
+                input_path=str(input_path),
+                status=ConversionStatus.CONVERTER_NOT_FOUND,
+                error_message="DWG conversion disabled by DWG_CONVERTER",
+            )
 
         # Validate input
         if not input_path.exists():
@@ -258,6 +292,11 @@ class DWGConverter:
         output_version: DXFVersion,
     ) -> bool:
         """Run ODA File Converter."""
+        mode = resolve_dwg_converter_mode()
+        if mode not in {"auto", "oda"}:
+            raise RuntimeError(
+                f"ODA conversion requires DWG_CONVERTER=auto or oda, got {mode}"
+            )
         # ODA requires input/output directories
         input_dir = input_path.parent
         output_dir = output_path.parent

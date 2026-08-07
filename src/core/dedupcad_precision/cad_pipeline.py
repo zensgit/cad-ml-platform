@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from src.core.cad.dwg.converter import resolve_dwg_converter_mode
+
 logger = logging.getLogger(__name__)
 
 
@@ -233,6 +235,11 @@ def convert_dwg_to_dxf_oda(dwg_path: Path, out_dxf_path: Path, *, cfg: OdaConver
     Notes:
     - ODAFileConverter works on directories, so we stage in a temp folder.
     """
+    converter = resolve_dwg_converter()
+    if converter not in {"auto", "oda"}:
+        raise RuntimeError(
+            f"ODA conversion requires DWG_CONVERTER=auto or oda, got {converter}"
+        )
     if not cfg.exe_path.exists():
         raise FileNotFoundError(str(cfg.exe_path))
     if not dwg_path.exists():
@@ -287,6 +294,12 @@ def convert_dwg_to_dxf_cmd(dwg_path: Path, out_dxf_path: Path, *, cmd_template: 
 
     Template supports placeholders: {input}, {output}.
     """
+    converter = resolve_dwg_converter()
+    if converter not in {"auto", "cmd", "autocad", "bricscad", "draftsight"}:
+        raise RuntimeError(
+            "Command conversion requires DWG_CONVERTER=auto, cmd, autocad, "
+            f"bricscad, or draftsight, got {converter}"
+        )
     if not dwg_path.exists():
         raise FileNotFoundError(str(dwg_path))
     if dwg_path.suffix.lower() != ".dwg":
@@ -319,6 +332,8 @@ def _default_oda_candidates() -> List[Path]:
 
 
 def resolve_oda_exe_from_env() -> Optional[Path]:
+    if resolve_dwg_converter() not in {"auto", "oda"}:
+        return None
     v = os.getenv("ODA_FILE_CONVERTER_EXE", "").strip()
     if v:
         p = Path(v)
@@ -330,7 +345,7 @@ def resolve_oda_exe_from_env() -> Optional[Path]:
 
 
 def resolve_dwg_converter() -> str:
-    return (os.getenv("DWG_CONVERTER", "auto") or "auto").strip().lower()
+    return resolve_dwg_converter_mode()
 
 
 def resolve_dwg_cmd_template(converter: str) -> str:
@@ -352,6 +367,8 @@ def resolve_dwg_cmd_template(converter: str) -> str:
 
 def convert_dwg_to_dxf(dwg_path: Path, out_dxf_path: Path) -> None:
     converter = resolve_dwg_converter()
+    if converter == "disabled":
+        raise RuntimeError("DWG conversion disabled by DWG_CONVERTER")
     if converter in {"auto", "oda"}:
         oda_exe = resolve_oda_exe_from_env()
         if oda_exe is not None:

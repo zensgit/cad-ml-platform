@@ -7,9 +7,10 @@ This guide documents supported converter strategies for DWG -> DXF.
 Use `DWG_CONVERTER` to choose a strategy:
 
 ```
-DWG_CONVERTER=auto  # auto|oda|cmd|autocad|bricscad|draftsight
+DWG_CONVERTER=disabled  # disabled|auto|oda|cmd|autocad|bricscad|draftsight
 ```
 
+- `disabled`: reject DWG conversion without probing installed converters (default).
 - `auto`: prefer ODA if available, otherwise fall back to command templates.
 - `oda`: require ODA (fails if missing).
 - `cmd`: use `DWG_TO_DXF_CMD`.
@@ -18,6 +19,7 @@ DWG_CONVERTER=auto  # auto|oda|cmd|autocad|bricscad|draftsight
 ## ODA (recommended)
 
 ```
+DWG_CONVERTER=oda
 ODA_FILE_CONVERTER_EXE=/path/to/ODAFileConverter
 ODA_OUTPUT_VERSION=ACAD2018
 ```
@@ -53,4 +55,5 @@ DWG_TO_DXF_CMD="<your-command> {input} {output}"
 ## Notes
 
 - Command syntax varies by installation; test locally before production use.
-- Use `DWG_CONVERTER=auto` to prefer ODA but still allow command fallback.
+- Set an explicit non-disabled mode before enabling any converter. Use
+  `DWG_CONVERTER=auto` to prefer ODA but still allow command fallback.

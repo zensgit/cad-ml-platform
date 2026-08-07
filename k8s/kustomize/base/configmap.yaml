@@ -7,6 +7,7 @@ data:
   APP_ENV: "production"
   LOG_LEVEL: "INFO"
   LOG_FORMAT: "json"
+  DWG_CONVERTER: "disabled"
 
   # Server settings
   SERVER_HOST: "0.0.0.0"

@@ -10,9 +10,26 @@ from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 
 from src.core.dedupcad_2d_worker import _render_cad_to_png
+from src.core.dedupcad_precision.cad_pipeline import resolve_dwg_converter
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+_DWG_CONTENT_TYPES = {
+    "application/acad",
+    "application/dwg",
+    "application/x-acad",
+    "application/x-dwg",
+    "image/vnd.dwg",
+}
+
+
+def _looks_like_dwg(file_name: str, content_type: str, file_bytes: bytes) -> bool:
+    return (
+        file_name.lower().endswith(".dwg")
+        or content_type.split(";", 1)[0].strip().lower() in _DWG_CONTENT_TYPES
+        or file_bytes.startswith(b"AC10")
+    )
 
 
 def _resolve_bearer(token: str) -> str:
@@ -69,6 +86,15 @@ async def render_cad_preview(request: Request, file: UploadFile = File(...)) -> 
 
     file_name = file.filename or "drawing.dwg"
     content_type = file.content_type or "application/octet-stream"
+
+    if (
+        _looks_like_dwg(file_name, content_type, file_bytes)
+        and resolve_dwg_converter() == "disabled"
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="DWG conversion disabled by DWG_CONVERTER",
+        )
 
     try:
         _, png_bytes, _ = _render_cad_to_png(

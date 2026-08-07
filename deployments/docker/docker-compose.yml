@@ -23,6 +23,8 @@ services:
       - INTEGRATION_JWT_SECRET=${INTEGRATION_JWT_SECRET:-}
       - INTEGRATION_JWT_AUDIENCE=${INTEGRATION_JWT_AUDIENCE:-}
       - INTEGRATION_JWT_ISSUER=${INTEGRATION_JWT_ISSUER:-}
+      # Pilot safety: DWG conversion opt-in (default disabled)
+      - DWG_CONVERTER=${DWG_CONVERTER:-disabled}
       - REDIS_URL=redis://redis:6379/0
       - VECTOR_STORE_BACKEND=redis
       # Graph2D override threshold (defaults to 0.6; override via env if needed)
@@ -77,6 +79,7 @@ services:
     command: ["arq", "src.core.dedupcad_2d_worker.WorkerSettings"]
     environment:
       - LOG_LEVEL=INFO
+      - DWG_CONVERTER=${DWG_CONVERTER:-disabled}
       - REDIS_URL=redis://redis:6379/0
       - DEDUP2D_REDIS_URL=redis://redis:6379/0
       - DEDUP2D_REDIS_KEY_PREFIX=dedup2d
