@@ -3,7 +3,10 @@ import asyncio
 import pytest
 from fastapi import HTTPException
 
-from src.core.document_pipeline import run_document_pipeline
+from src.core.document_pipeline import (
+    _is_empty_parser_stub_for_non_dxf_payload,
+    run_document_pipeline,
+)
 from src.models.cad_document import CadDocument, CadEntity
 
 
@@ -82,6 +85,25 @@ async def test_run_document_pipeline_supports_legacy_convert(monkeypatch):
     assert context["file_format"] == "dxf"
     assert context["doc"].metadata["legacy"] is True
     assert context["unified_data"]["format"] == "dxf"
+
+
+def test_empty_stub_guard_does_not_flag_legacy_convert_docs():
+    """Regression: empty CadDocument with metadata[legacy]=True is NOT empty-stub.
+
+    Production DxfAdapter uses .parse(); only the legacy .convert() branch builds
+    an empty doc + legacy flag. Guard must never 422 that path.
+    """
+    doc = CadDocument(file_name="legacy.dxf", format="dxf")
+    doc.metadata.update({"legacy": True})
+    # Empty entities/layers + default parser would look "stub-like" without legacy check
+    assert doc.entity_count() == 0
+    assert not doc.layers
+    assert (
+        _is_empty_parser_stub_for_non_dxf_payload(
+            doc, b"0\nSECTION\n2\nHEADER\n0\nENDSEC\n"
+        )
+        is False
+    )
 
 
 @pytest.mark.asyncio
