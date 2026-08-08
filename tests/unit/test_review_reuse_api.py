@@ -72,7 +72,30 @@ def test_create_list_get_events_evidence(client: TestClient) -> None:
         params={"format": "markdown"},
     )
     assert md.status_code == 200
+    assert "markdown" in md.headers.get("content-type", "")
     assert "EvidencePack" in md.text
+    assert task_id in md.text
+
+
+def test_evidence_pack_format_markdown(client: TestClient) -> None:
+    """GET .../evidence-pack?format=markdown → text/markdown with EvidencePack + task_id."""
+    r = client.post(
+        "/api/v1/review-reuse/tasks",
+        files={"file": ("md-pack.dxf", b"0\nSECTION\n", "application/octet-stream")},
+        data={"idempotency_key": "api-md-evidence-1"},
+    )
+    assert r.status_code == 200, r.text
+    task_id = r.json()["task_id"]
+
+    md = client.get(
+        f"/api/v1/review-reuse/tasks/{task_id}/evidence-pack",
+        params={"format": "markdown"},
+    )
+    assert md.status_code == 200, md.text
+    content_type = md.headers.get("content-type", "")
+    assert "markdown" in content_type
+    assert "EvidencePack" in md.text
+    assert task_id in md.text
 
 
 def test_decision_default_off_403(client: TestClient) -> None:
