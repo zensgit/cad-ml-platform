@@ -129,7 +129,9 @@ class TestCreateAndEvidence:
 
 
 class TestDecisionGate:
-    def test_decision_disabled_by_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_decision_disabled_by_default(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.delenv(ENV_DECISIONS_ENABLED, raising=False)
         svc = _svc()
         task = svc.create_task(
@@ -189,7 +191,9 @@ class TestDecisionGate:
             )
         assert ei.value.code == "already_decided"
 
-    def test_cancel_blocks_later_decision(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_cancel_blocks_later_decision(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setenv(ENV_DECISIONS_ENABLED, "1")
         svc = _svc()
         task = svc.create_task(
@@ -276,7 +280,9 @@ class TestDedupAdapterAndMetrics:
             da.set_live_recall_hook(None)
             monkeypatch.delenv(da.ENV_LIVE_DEDUP, raising=False)
 
-    def test_live_dedup_hook_failure_fail_closed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_live_dedup_hook_failure_fail_closed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         from src.core.review_reuse import dedup_adapter as da
 
         monkeypatch.setenv(da.ENV_LIVE_DEDUP, "1")
@@ -289,7 +295,9 @@ class TestDedupAdapterAndMetrics:
             svc = _svc()
             task = svc.create_task(tenant_id="t-m", file_name="a.dxf", file_bytes=b"x")
             assert task.candidates[0].state == CandidateState.insufficient_evidence
-            assert "external_service_unavailable" in task.candidates[0].rejection_reasons
+            assert (
+                "external_service_unavailable" in task.candidates[0].rejection_reasons
+            )
         finally:
             da.set_live_recall_hook(None)
 
@@ -306,3 +314,51 @@ class TestDedupAdapterAndMetrics:
         assert m["task_count"] == 1
         assert m["by_status"].get("evidence_ready") == 1
         assert "track_e" not in m["metric_family"]
+
+    def test_format_metrics_markdown(self) -> None:
+        from src.core.review_reuse.metrics import format_metrics_markdown
+
+        payload = {
+            "schema_version": "review-reuse-metrics-v1",
+            "metric_family": "review_workflow",
+            "tenant_id": "t-md",
+            "task_count": 2,
+            "by_status": {"evidence_ready": 1, "decided": 1},
+            "by_decision": {"reuse": 1},
+            "accepted_reuse": 1,
+            "candidate_total": 3,
+            "insufficient_evidence_count": 1,
+            "insufficient_evidence_rate": 1 / 3,
+            "median_time_to_evidence_seconds": 1.5,
+            "reviewer_coverage": 1,
+            "notes": ["pilot labels needed"],
+        }
+        md = format_metrics_markdown(payload)
+        assert md.startswith("# ReviewReuse workflow metrics\n")
+        assert "metric_family: `review_workflow`" in md
+        assert "task_count: 2" in md
+        assert "accepted_reuse: 1" in md
+        assert "- evidence_ready: 1" in md
+        assert "- reuse: 1" in md
+        assert "pilot labels needed" in md
+        assert "track_e" not in md
+
+        empty_md = format_metrics_markdown(
+            {
+                "schema_version": "review-reuse-metrics-v1",
+                "metric_family": "review_workflow",
+                "tenant_id": "empty",
+                "task_count": 0,
+                "by_status": {},
+                "by_decision": {},
+                "accepted_reuse": 0,
+                "candidate_total": 0,
+                "insufficient_evidence_count": 0,
+                "insufficient_evidence_rate": 0.0,
+                "median_time_to_evidence_seconds": None,
+                "reviewer_coverage": 0,
+                "notes": [],
+            }
+        )
+        assert "_(none)_" in empty_md
+        assert empty_md.endswith("\n")

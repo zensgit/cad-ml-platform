@@ -177,3 +177,16 @@ def test_metrics_endpoint(client: TestClient) -> None:
     body = r.json()
     assert body["metric_family"] == "review_workflow"
     assert body["task_count"] >= 1
+
+    # default remains json
+    r_default = client.get("/api/v1/review-reuse/metrics", params={"format": "json"})
+    assert r_default.status_code == 200
+    assert r_default.json()["metric_family"] == "review_workflow"
+
+    md = client.get("/api/v1/review-reuse/metrics", params={"format": "markdown"})
+    assert md.status_code == 200, md.text
+    content_type = md.headers.get("content-type", "")
+    assert "text/markdown" in content_type
+    assert "ReviewReuse workflow metrics" in md.text
+    assert "metric_family: `review_workflow`" in md.text
+    assert "task_count:" in md.text

@@ -6,7 +6,17 @@ import hashlib
 import logging
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, Request, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+)
 from pydantic import BaseModel, Field
 
 from src.api.dependencies import get_api_key
@@ -35,7 +45,9 @@ def _reviewer_id(request: Request, api_key: str) -> tuple[str, bool]:
     ``validated=True`` only when middleware set JWT/integration subject
     (``user_id`` / ``auth_subject``). API-key fallback is never validated.
     """
-    uid = getattr(request.state, "user_id", None) or getattr(request.state, "auth_subject", None)
+    uid = getattr(request.state, "user_id", None) or getattr(
+        request.state, "auth_subject", None
+    )
     if uid:
         return str(uid), True
     # API-key-only path: not a trusted human identity for pilot; still stable for tests.
@@ -54,7 +66,9 @@ def _http(err: ReviewReuseError) -> HTTPException:
         status = 403
     elif err.code in ("already_decided",):
         status = 409
-    return HTTPException(status_code=status, detail={"code": err.code, "message": err.message})
+    return HTTPException(
+        status_code=status, detail={"code": err.code, "message": err.message}
+    )
 
 
 class TaskSummary(BaseModel):
@@ -182,14 +196,25 @@ async def get_evidence_pack(
     return pack
 
 
-@router.get("/metrics", response_model=Dict[str, Any])
+@router.get("/metrics")
 async def review_metrics(
     request: Request,
+    format: str = Query(default="json", pattern="^(json|markdown)$"),
     api_key: str = Depends(get_api_key),
     service: ReviewReuseService = Depends(_svc),
-) -> Dict[str, Any]:
+) -> Any:
     """Review-workflow metrics (not Track E model-release metrics)."""
-    return service.metrics(_tenant_id(request, api_key))
+    metrics = service.metrics(_tenant_id(request, api_key))
+    if format == "markdown":
+        from fastapi.responses import PlainTextResponse
+
+        from src.core.review_reuse.metrics import format_metrics_markdown
+
+        return PlainTextResponse(
+            format_metrics_markdown(metrics),
+            media_type="text/markdown",
+        )
+    return metrics
 
 
 @router.get("/tasks/{task_id}/audit-export", response_model=Dict[str, Any])
