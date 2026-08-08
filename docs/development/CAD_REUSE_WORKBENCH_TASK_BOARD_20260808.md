@@ -3,7 +3,9 @@
 **Date**: 2026-08-08  
 **Plan**: `CAD_REUSE_WORKBENCH_90_DAY_PLAN_20260807.md`  
 **System design**: `CAD_REUSE_WORKBENCH_SYSTEM_EXECUTE_DESIGN_20260808.md`  
-**Active PR**: https://github.com/zensgit/cad-ml-platform/pull/547  
+**Track R MVP**: [#547](https://github.com/zensgit/cad-ml-platform/pull/547) **MERGED** to `main` (`db437b8b`, 2026-08-07)  
+**Eng residual_eng open**: **none** (R10 live dedup + O3 metrics landed in #547)  
+**Human residual**: R11 design-lock ratify · R12 pilot decision enable · Track C C1–C5  
 
 Legend: **done** · **in_progress** · **residual_eng** · **residual_human** · **blocked**
 
@@ -13,18 +15,18 @@ Legend: **done** · **in_progress** · **residual_eng** · **residual_human** ·
 
 | ID | Task | Status | Workflow / execute-plan | Evidence |
 |---|---|---|---|---|
-| R1 | L3 design-lock §3.3 + default-off decision | done (PROPOSED) | #547 | `L3_REVIEW_REUSE_WORKBENCH_DESIGNLOCK_20260808.md` |
-| R2 | Domain service Task/Event/EvidencePack | done | #547 | `src/core/review_reuse/` |
-| R3 | API `/api/v1/review-reuse/*` mounted | done | #547 | `src/api/v1/review_reuse.py` |
-| R4 | Decision sink default-off | done | #547 | `REVIEW_REUSE_DECISIONS_ENABLED` |
-| R5 | Tenant isolation + quarantine (no feedback JSONL) | done | #547 | unit+API tests |
-| R6 | Unit/API tests driving shipped code | done | #547 | 16+ tests green |
-| R7 | Isolated-sample runbook | done | #547 | `ISOLATED_SAMPLE_ARCHIVE_RUNBOOK_20260808.md` |
-| R8 | Plan + verification MD | done | #547 | MVP plan/verification MDs |
-| R9 | OpenAPI snapshot for new routes | done | #547 | `config/openapi_schema_snapshot.json` |
-| R10 | Live dedup2d adapter | done | #547 `dedup_adapter.py` | default-off live hook; honest offline fallback |
+| R1 | L3 design-lock §3.3 + default-off decision | done (PROPOSED) | #547 merged | `L3_REVIEW_REUSE_WORKBENCH_DESIGNLOCK_20260808.md` |
+| R2 | Domain service Task/Event/EvidencePack | done | #547 merged | `src/core/review_reuse/` |
+| R3 | API `/api/v1/review-reuse/*` mounted | done | #547 merged | `src/api/v1/review_reuse.py` |
+| R4 | Decision sink default-off | done | #547 merged | `REVIEW_REUSE_DECISIONS_ENABLED` |
+| R5 | Tenant isolation + quarantine (no feedback JSONL) | done | #547 merged | unit+API tests |
+| R6 | Unit/API tests driving shipped code | done | #547 merged | 16+ tests green |
+| R7 | Isolated-sample runbook | done | #547 merged | `ISOLATED_SAMPLE_ARCHIVE_RUNBOOK_20260808.md` |
+| R8 | Plan + verification MD | done | #547 merged | MVP plan/verification MDs |
+| R9 | OpenAPI snapshot for new routes | done | #547 merged | `config/openapi_schema_snapshot.json` |
+| R10 | Live dedup2d adapter | done | #547 merged `dedup_adapter.py` | default-off live hook; honest offline fallback |
 | R11 | Owner ratify design-lock | residual_human | — | owner only |
-| R12 | Pilot enable decisions | residual_human | — | env flag |
+| R12 | Pilot enable decisions | residual_human | — | env flag; never self-enable in production |
 
 ## Track E — Evaluation Integrity (P0)
 
@@ -75,13 +77,14 @@ Legend: **done** · **in_progress** · **residual_eng** · **residual_human** ·
 
 ---
 
-## Execution order (default)
+## Execution order (post-#547)
 
-1. Land / green CI for **#547** (Track R MVP) — do not self-merge on red.
-2. execute-plan **PR1 + PR2** (docs, parallel).
-3. execute-plan **PR5** closeout for A7–A9.
-4. After #547 merge: execute-plan **PR3 → PR4** (L3 runtime).
-5. Owner: R11/R12 + Track C.
+1. ~~Land / green CI for **#547** (Track R MVP)~~ — **MERGED** (required checks green; non-required Evaluation Report hybrid superpass still red on main pre-existing).
+2. ~~execute-plan **PR1 + PR2** (docs)~~ — content folded into #547.
+3. ~~execute-plan **PR3 → PR4** (live dedup + metrics)~~ — folded into #547 before merge (L3 WIP=1).
+4. ~~Closeout board flip~~ — this board; residual_eng **cleared**.
+5. **Owner only:** R11 design-lock ratify · R12 pilot decision enable · Track C C1–C5.
+6. Boundaries unchanged: no eval_integrity_gate replace · no cost_cap revive · decision default-off · no fake Track C data · no production self-enable of `REVIEW_REUSE_DECISIONS_ENABLED`.
 
 ## Workflow commands
 

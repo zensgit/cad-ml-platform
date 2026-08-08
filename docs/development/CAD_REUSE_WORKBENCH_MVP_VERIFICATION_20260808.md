@@ -116,13 +116,13 @@ PR path set (after OpenAPI fix): workbench sources, docs, tests, workflow, `.env
 | Item | Status |
 |---|---|
 | Owner ratify design-lock | residual_human (PROPOSED) |
-| Enable `REVIEW_REUSE_DECISIONS_ENABLED` in pilot | residual_human |
-| E1 post-merge audit | `TRACK_E_E1_POST_MERGE_AUDIT_20260808.md` |
-| SEAL / identity re-audit | `TRACK_S_SEAL_IDENTITY_BASELINE_AUDIT_20260808.md` |
-| Track O pilot ops package | `TRACK_O_PILOT_OPS_PACKAGE_20260808.md` |
-| System task board + execute design | `CAD_REUSE_WORKBENCH_TASK_BOARD_20260808.md`, `CAD_REUSE_WORKBENCH_SYSTEM_EXECUTE_DESIGN_20260808.md` |
+| Enable `REVIEW_REUSE_DECISIONS_ENABLED` in pilot | residual_human (pilot-only; never production self-enable) |
+| E1 post-merge audit | done on #547 — `TRACK_E_E1_POST_MERGE_AUDIT_20260808.md` |
+| SEAL / identity re-audit | done on #547 — `TRACK_S_SEAL_IDENTITY_BASELINE_AUDIT_20260808.md` |
+| Track O pilot ops package | done on #547 — `TRACK_O_PILOT_OPS_PACKAGE_20260808.md` |
+| System task board + execute design | done — board flipped post-#547 merge |
 | Customer Track C | residual_human |
-| Live dedup adapter / metrics export | residual_eng — execute-plan PR3/PR4 **after** #547 (L3 WIP=1) |
+| Live dedup adapter / metrics export | **done** on #547 (`dedup_adapter.py`, `metrics.py`) — no residual_eng PR |
 | Day 61–90 measured pilot package | residual_human / eng support |
 
 ---
@@ -154,18 +154,18 @@ Workflow next_actions (owner / residual, not eng self-complete): design-lock rat
 |---|---|
 | overall `ok` | **true** |
 | phase | all |
-| inventory | Track R MVP + residual audits/ops/system **engineering-done** on #547 |
-| residual_eng open | R10 live dedup (PR3), O3 metrics (PR4) — **blocked by L3 WIP=1** |
+| inventory | Track R MVP + residual audits/ops/system **engineering-done**; #547 **merged** |
+| residual_eng open | **none** (R10 + O3 shipped in #547) |
 | residual_human | R11 design-lock ratify, R12 decision enable, Track C C1–C5 |
 | execute_plan_design | `CAD_REUSE_WORKBENCH_SYSTEM_EXECUTE_DESIGN_20260808.md` |
 | report | `scratch/workbench_system_report.md` |
 
-System blockers (expected): do not open second L3 runtime PR while #547 open; no self-merge on red CI; PR1+PR2 docs already on #547.
+Post-merge: residual_eng stack cleared; no second L3 runtime PR required for PR3/PR4.
 
 Scheduled task: `cad-reuse-workbench-gap-check` (weekdays 09:30 Asia/Shanghai).
 
 execute-plan design: `CAD_REUSE_WORKBENCH_SYSTEM_EXECUTE_DESIGN_20260808.md`  
-PR1+PR2 content landed on this PR; PR3+PR4 gated on L3 slot after #547 merges.
+PR1–PR4 content all folded into #547 before merge.
 
 ---
 
@@ -174,7 +174,9 @@ PR1+PR2 content landed on this PR; PR3+PR4 gated on L3 slot after #547 merges.
 | Item | Value |
 |---|---|
 | PR | https://github.com/zensgit/cad-ml-platform/pull/547 |
-| Self-merge | **No** — wait for required CI green |
+| State | **MERGED** 2026-08-07 (`db437b8b`) |
+| Required CI | green at merge (lint-type, openapi-fast, lint-all-report, tests 3.10/3.11, e2e-smoke, core-fast-gate, unit-tier, contract-local, e2e-local, Action Pin Guard) |
+| Non-required fail | Evaluation Report hybrid superpass strict — **pre-existing on main**; not branch-protection required; do not replace eval integrity gate |
 | OpenAPI snapshot | refreshed for `/api/v1/review-reuse/*` |
 
 ---
@@ -183,6 +185,6 @@ PR1+PR2 content landed on this PR; PR3+PR4 gated on L3 slot after #547 merges.
 
 | Role | Action |
 |---|---|
-| Engineering | MVP + residual audits/ops + system (workflows/board/execute design) on branch |
-| CI required checks | green before merge |
+| Engineering | MVP + live dedup + metrics + residual audits/ops **landed on main via #547** |
+| CI required checks | green at merge |
 | Owner | ratify design-lock; pilot decision enable; Track C |
