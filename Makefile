@@ -31,7 +31,7 @@
 				hybrid-superpass-gate hybrid-superpass-e2e-gh hybrid-superpass-apply-gh-vars \
 				hybrid-superpass-e2e-dual-gh hybrid-superpass-e2e-dual-gh-sequential hybrid-superpass-compare hybrid-superpass-nightly-gh \
 				validate-hybrid-superpass-workflow validate-hybrid-superpass-nightly-workflow \
-	test-core install-test-core test-review-reuse
+	test-core install-test-core test-review-reuse review-reuse-isolated-archive
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -254,6 +254,15 @@ test-core: ## 运行 core 轻量测试（仅 src.core，无 ML/向量库依赖�
 test-review-reuse: ## ReviewReuse workbench unit tests + EvidencePack goldens
 	@echo "$(GREEN)Running ReviewReuse workbench tests...$(NC)"
 	$(PYTEST) $(TEST_DIR)/unit/test_review_reuse*.py -q
+
+# ReviewReuse isolated-archive offline demo (synthetic task → EvidencePack/audit).
+# Does NOT set REVIEW_REUSE_DECISIONS_ENABLED (human decisions stay fail-closed).
+# See docs/development/CAD_REUSE_WORKBENCH_PILOT_CHECKLIST_20260808.md §4.
+review-reuse-isolated-archive: ## Offline ReviewReuse isolated-archive run (seed-similar, decisions off)
+	@echo "$(GREEN)Running ReviewReuse isolated-archive demo (decisions disabled)...$(NC)"
+	ENVIRONMENT=development $(PYTHON) scripts/review_reuse_isolated_archive_run.py \
+		--out data/isolated_samples/synthetic_run/exports \
+		--seed-similar
 
 test-tolerance: ## 运行公差知识相关测试（unit + integration）
 	@echo "$(GREEN)Running tolerance tests...$(NC)"

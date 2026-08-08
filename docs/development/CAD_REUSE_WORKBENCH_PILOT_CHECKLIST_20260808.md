@@ -171,10 +171,19 @@ Backup rule (Track O): export EvidencePack + events (and audit bundle when avail
 
 Offline / CI-friendly exercise: create a `ReviewReuseTask` → write EvidencePack + audit bundle to disk. **Does not enable human decisions.**
 
+Preferred operator shortcut (sets `ENVIRONMENT=development`, passes `--seed-similar`, does **not** enable `REVIEW_REUSE_DECISIONS_ENABLED`):
+
 ```bash
-# Synthetic bytes, default out dir
+make review-reuse-isolated-archive
+```
+
+Equivalent direct invocation and optional variants:
+
+```bash
+# Synthetic bytes + seed-similar (same as the Make target)
 python scripts/review_reuse_isolated_archive_run.py \
-  --out data/isolated_samples/synthetic_run/exports
+  --out data/isolated_samples/synthetic_run/exports \
+  --seed-similar
 
 # Optional: real file + synthetic similar candidate (offline archive fixture)
 python scripts/review_reuse_isolated_archive_run.py \
