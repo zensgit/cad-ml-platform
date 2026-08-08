@@ -32,7 +32,7 @@
 				hybrid-superpass-e2e-dual-gh hybrid-superpass-e2e-dual-gh-sequential hybrid-superpass-compare hybrid-superpass-nightly-gh \
 				validate-hybrid-superpass-workflow validate-hybrid-superpass-nightly-workflow \
 	test-core install-test-core test-review-reuse review-reuse-isolated-archive \
-	review-reuse-store-backup review-reuse-store-cleanup-dry
+	review-reuse-export-audit review-reuse-store-backup review-reuse-store-cleanup-dry
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -264,6 +264,21 @@ review-reuse-isolated-archive: ## Offline ReviewReuse isolated-archive run (seed
 	ENVIRONMENT=development $(PYTHON) scripts/review_reuse_isolated_archive_run.py \
 		--out data/isolated_samples/synthetic_run/exports \
 		--seed-similar
+
+# Export existing task audit_bundle.json + evidence.md by TENANT + TASK_ID.
+# Does NOT set REVIEW_REUSE_DECISIONS_ENABLED; export is audit_quarantine (R2 HOLD).
+# Example args only in help — do not hardcode secrets/tenant ids here:
+#   make review-reuse-export-audit TENANT=<tenant> TASK_ID=<uuid> OUT=/tmp/rr_audit
+#   python scripts/review_reuse_export_audit.py --help
+# Requires REVIEW_REUSE_STORE=filesystem (and STORE_DIR) when loading durable tasks.
+review-reuse-export-audit: ## Export audit bundle by TENANT/TASK_ID (see script --help for examples)
+	@test -n "$(TENANT)" || (echo "TENANT= is required. Example: make review-reuse-export-audit TENANT=<tenant> TASK_ID=<uuid> OUT=/tmp/rr_audit" && echo "See: $(PYTHON) scripts/review_reuse_export_audit.py --help" && exit 1)
+	@test -n "$(TASK_ID)" || (echo "TASK_ID= is required. See: $(PYTHON) scripts/review_reuse_export_audit.py --help" && exit 1)
+	@echo "$(GREEN)Exporting ReviewReuse audit bundle (decisions disabled, R2 quarantine)...$(NC)"
+	ENVIRONMENT=development $(PYTHON) scripts/review_reuse_export_audit.py \
+		--tenant "$(TENANT)" \
+		--task-id "$(TASK_ID)" \
+		--out "$(or $(OUT),data/isolated_samples/audit_export)"
 
 # Filesystem store backup / cleanup (REVIEW_REUSE_STORE=filesystem). See JWT pilot runbook.
 review-reuse-store-backup: ## Tar.gz backup of REVIEW_REUSE_STORE_DIR
