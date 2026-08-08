@@ -63,6 +63,50 @@ def compute_review_metrics(
     }
 
 
+def format_metrics_markdown(metrics_dict: Dict[str, Any]) -> str:
+    """Render review-workflow metrics as operator-facing markdown (pure)."""
+    m = metrics_dict or {}
+    lines: List[str] = [
+        "# ReviewReuse workflow metrics",
+        "",
+        f"- schema_version: `{m.get('schema_version')}`",
+        f"- metric_family: `{m.get('metric_family')}`",
+        f"- tenant_id: `{m.get('tenant_id')}`",
+        f"- task_count: {m.get('task_count')}",
+        f"- accepted_reuse: {m.get('accepted_reuse')}",
+        f"- candidate_total: {m.get('candidate_total')}",
+        f"- insufficient_evidence_count: {m.get('insufficient_evidence_count')}",
+        f"- insufficient_evidence_rate: {m.get('insufficient_evidence_rate')}",
+        f"- median_time_to_evidence_seconds: {m.get('median_time_to_evidence_seconds')}",
+        f"- reviewer_coverage: {m.get('reviewer_coverage')}",
+        "",
+        "## By status",
+        "",
+    ]
+    by_status = m.get("by_status") or {}
+    if by_status:
+        for key in sorted(by_status.keys()):
+            lines.append(f"- {key}: {by_status[key]}")
+    else:
+        lines.append("- _(none)_")
+
+    lines.extend(["", "## By decision", ""])
+    by_decision = m.get("by_decision") or {}
+    if by_decision:
+        for key in sorted(by_decision.keys()):
+            lines.append(f"- {key}: {by_decision[key]}")
+    else:
+        lines.append("- _(none)_")
+
+    notes = m.get("notes") or []
+    if notes:
+        lines.extend(["", "## Notes", ""])
+        for note in notes:
+            lines.append(f"- {note}")
+
+    return "\n".join(lines) + "\n"
+
+
 def _time_to_evidence(task: ReviewReuseTask) -> Optional[float]:
     start = task.created_at
     ready = None
