@@ -31,7 +31,7 @@
 				hybrid-superpass-gate hybrid-superpass-e2e-gh hybrid-superpass-apply-gh-vars \
 				hybrid-superpass-e2e-dual-gh hybrid-superpass-e2e-dual-gh-sequential hybrid-superpass-compare hybrid-superpass-nightly-gh \
 				validate-hybrid-superpass-workflow validate-hybrid-superpass-nightly-workflow \
-	test-core install-test-core
+	test-core install-test-core test-review-reuse
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -246,6 +246,14 @@ install-test-core: ## 安装 core 轻量测试依赖（仅 web+pytest，无 ML �
 test-core: ## 运行 core 轻量测试（仅 src.core，无 ML/向量库依赖，秒级快速门）
 	@echo "$(GREEN)Running core (import-light) tests...$(NC)"
 	$(PYTEST) $(CORE_TESTS) -q
+
+# ReviewReuse workbench unit + EvidencePack goldens (local eng gate).
+# Glob covers workbench/api/r2_hold/live_store/audit_reviewer + evidence_goldens.
+# Not wired into validate-core-fast (keeps core-fast lean). See task board:
+# docs/development/CAD_REUSE_WORKBENCH_TASK_BOARD_20260808.md
+test-review-reuse: ## ReviewReuse workbench unit tests + EvidencePack goldens
+	@echo "$(GREEN)Running ReviewReuse workbench tests...$(NC)"
+	$(PYTEST) $(TEST_DIR)/unit/test_review_reuse*.py -q
 
 test-tolerance: ## 运行公差知识相关测试（unit + integration）
 	@echo "$(GREEN)Running tolerance tests...$(NC)"
