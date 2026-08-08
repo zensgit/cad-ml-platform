@@ -1,0 +1,76 @@
+{
+  "case_id": "duplicate",
+  "description": "High-confidence geometric duplicate after deterministic precision",
+  "product_strategy_section": "3.3",
+  "schema_version": "evidence-pack-v1",
+  "expected_candidate_state": "duplicate",
+  "evidence_pack": {
+    "schema_version": "evidence-pack-v1",
+    "task_id": "task-golden-duplicate-0001",
+    "trace_id": "trace-golden-duplicate-0001",
+    "idempotency_key": "idem-golden-duplicate-0001",
+    "source_job_id": "task-golden-duplicate-0001",
+    "tenant_id": "tenant-golden-fixtures",
+    "source": {
+      "file_name": "bracket_assy_revA.dxf",
+      "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "candidates": [
+      {
+        "candidate_id": "arch-dup-001",
+        "candidate_source": "archive",
+        "state": "duplicate",
+        "scores": {
+          "geometric": 0.98,
+          "semantic": 0.88
+        },
+        "score_normalization": "dedup2d-v1",
+        "verification": {
+          "verdict": "duplicate",
+          "level": 3,
+          "methods": [
+            "dedup2d-adapter",
+            "precision-l4"
+          ]
+        },
+        "rejection_reasons": [],
+        "provenance": {
+          "model": "dedup2d-workbench-adapter",
+          "input_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "decision_source": "golden-fixture"
+        }
+      }
+    ],
+    "confidence": {
+      "score": 0.98,
+      "band": "high"
+    },
+    "calibration": {
+      "version": "workbench-mvp-0"
+    },
+    "evidence": [
+      {
+        "candidate_id": "arch-dup-001",
+        "kind": "match",
+        "summary": "duplicate via ['dedup2d-adapter', 'precision-l4']"
+      }
+    ],
+    "rejection_reasons": [],
+    "unsupported_states": [],
+    "provenance": {
+      "model": "dedup2d-workbench-adapter",
+      "ruleset": "review-reuse-mvp-0",
+      "dataset": "tenant-archive",
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "human_decision": {
+      "state": null,
+      "allowed_actions": [
+        "reuse",
+        "revise",
+        "new"
+      ],
+      "submitted": null
+    }
+  }
+}

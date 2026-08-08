@@ -1,0 +1,76 @@
+{
+  "case_id": "similar",
+  "description": "Similar candidate needing human revise/reuse review",
+  "product_strategy_section": "3.3",
+  "schema_version": "evidence-pack-v1",
+  "expected_candidate_state": "similar",
+  "evidence_pack": {
+    "schema_version": "evidence-pack-v1",
+    "task_id": "task-golden-similar-0001",
+    "trace_id": "trace-golden-similar-0001",
+    "idempotency_key": "idem-golden-similar-0001",
+    "source_job_id": "task-golden-similar-0001",
+    "tenant_id": "tenant-golden-fixtures",
+    "source": {
+      "file_name": "flange_dn150_v2.dxf",
+      "content_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "candidates": [
+      {
+        "candidate_id": "arch-sim-001",
+        "candidate_source": "archive",
+        "state": "similar",
+        "scores": {
+          "geometric": 0.91,
+          "semantic": 0.72
+        },
+        "score_normalization": "dedup2d-v1",
+        "verification": {
+          "verdict": "similar",
+          "level": 2,
+          "methods": [
+            "dedup2d-adapter",
+            "precision-l4"
+          ]
+        },
+        "rejection_reasons": [],
+        "provenance": {
+          "model": "dedup2d-workbench-adapter",
+          "input_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "decision_source": "golden-fixture"
+        }
+      }
+    ],
+    "confidence": {
+      "score": 0.91,
+      "band": "high"
+    },
+    "calibration": {
+      "version": "workbench-mvp-0"
+    },
+    "evidence": [
+      {
+        "candidate_id": "arch-sim-001",
+        "kind": "match",
+        "summary": "similar via ['dedup2d-adapter', 'precision-l4']"
+      }
+    ],
+    "rejection_reasons": [],
+    "unsupported_states": [],
+    "provenance": {
+      "model": "dedup2d-workbench-adapter",
+      "ruleset": "review-reuse-mvp-0",
+      "dataset": "tenant-archive",
+      "input": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "human_decision": {
+      "state": null,
+      "allowed_actions": [
+        "reuse",
+        "revise",
+        "new"
+      ],
+      "submitted": null
+    }
+  }
+}
