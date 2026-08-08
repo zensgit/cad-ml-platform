@@ -261,8 +261,8 @@
     "WeldingType"
   ],
   "openapi": "3.1.0",
-  "operation_count": 206,
-  "path_count": 200,
+  "operation_count": 207,
+  "path_count": 201,
   "paths": {
     "/": {
       "get": {
@@ -1839,6 +1839,16 @@
       "get": {
         "deprecated": false,
         "operationId": "get_task_api_v1_review_reuse_tasks__task_id__get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/review-reuse/tasks/{task_id}/audit-export": {
+      "get": {
+        "deprecated": false,
+        "operationId": "audit_export_api_v1_review_reuse_tasks__task_id__audit_export_get",
         "responses": [
           "200",
           "422"
