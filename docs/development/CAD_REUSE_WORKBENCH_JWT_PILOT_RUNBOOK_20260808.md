@@ -160,12 +160,25 @@ python scripts/review_reuse_store_ops.py cleanup \
 
 ---
 
-## 6. Quick link matrix
+## 6. Pilot env preflight (advisory)
+
+Before any decision window, run the read-only preflight to print posture A/B/C and flag dangerous combos (decisions on without `REQUIRE_VALIDATED` or without `INTEGRATION_AUTH_MODE=required`). It **reads** env only and never sets `REVIEW_REUSE_DECISIONS_ENABLED`.
+
+```bash
+make review-reuse-preflight
+# or: python scripts/review_reuse_pilot_preflight.py
+# exit 0 = advisory OK; exit 2 = dangerous combo (fix before enabling decisions)
+```
+
+---
+
+## 7. Quick link matrix
 
 | Goal | Command / flag |
 |---|---|
 | Unit tests | `make test-review-reuse` |
 | Offline archive demo | `make review-reuse-isolated-archive` |
+| Pilot env preflight | `make review-reuse-preflight` |
 | Store backup | `make review-reuse-store-backup` |
 | Store cleanup dry-run | `make review-reuse-store-cleanup-dry` |
 | Store tenant list | `make review-reuse-store-list` |
