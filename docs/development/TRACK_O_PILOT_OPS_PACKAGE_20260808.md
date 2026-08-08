@@ -4,6 +4,10 @@
 **Authority**: 90-day plan §8–§9 Track O; isolated-sample runbook  
 **Status**: Engineering ops package (docs); complements runtime MVP
 
+**Operator checklist**: step-by-step pilot posture (isolated samples, env flags matrix including `LIVE_DEDUP` / `STORE=filesystem` / `DECISIONS` / `REQUIRE_VALIDATED_REVIEWER`, audit-export, isolated-archive script, kill switch/rollback, residual design-lock + Track C) is in  
+[`CAD_REUSE_WORKBENCH_PILOT_CHECKLIST_20260808.md`](./CAD_REUSE_WORKBENCH_PILOT_CHECKLIST_20260808.md).  
+Decision remains default-off; R2 HOLD; Track C customer work is **not** claimed done here.
+
 ---
 
 ## 1. Purpose
@@ -16,13 +20,15 @@ Make pilot operation auditable before Day 61–90 measured pilot. This package i
 
 | Item | Location / procedure |
 |---|---|
+| **Pilot operator checklist** | `CAD_REUSE_WORKBENCH_PILOT_CHECKLIST_20260808.md` |
 | Isolated sample rules | `ISOLATED_SAMPLE_ARCHIVE_RUNBOOK_20260808.md` |
 | Deployment | Private deploy of API image with `ENVIRONMENT` production posture + real `API_KEY` / `ADMIN_TOKEN` |
 | Kill switch (decisions) | `REVIEW_REUSE_DECISIONS_ENABLED=false` (default); restart process |
 | Kill switch (traffic) | Remove from LB / stop process |
-| Backup | Export EvidencePack JSON + events per task to offline volume before changes |
+| Backup | Export EvidencePack JSON + events (+ audit-export when available) per task to offline volume before changes |
 | Rollback | Redeploy previous image SHA; restart clears MVP in-memory store |
-| Audit export | `GET /api/v1/review-reuse/tasks/{id}/evidence-pack` (+ events) |
+| Audit export | `GET .../evidence-pack` (+ events); quarantine bundle `GET .../audit-export` when runtime present — see pilot checklist §3 |
+| Isolated-archive script | `scripts/review_reuse_isolated_archive_run.py` — see pilot checklist §4 |
 | Retention / deletion | Runbook §3–§4 (default 30 days; delete path documented) |
 | Provider egress | SEAL: hosted AI off unless owner opt-in; samples never via hosted LLM |
 | External AI cost | **If** owner enables hosted AI under §8.3, document budget owner + kill path; **do not** revive `cost_cap.py` without separate ratification |

@@ -5,6 +5,10 @@
 **Design-lock**: `L3_REVIEW_REUSE_WORKBENCH_DESIGNLOCK_20260808.md`  
 **Status**: operator checklist (engineering + pilot ops)
 
+**Pilot ops companion**: full env matrix, audit-export, isolated-archive script, kill switch, and residual human gates (design-lock / Track C) live in  
+[`CAD_REUSE_WORKBENCH_PILOT_CHECKLIST_20260808.md`](./CAD_REUSE_WORKBENCH_PILOT_CHECKLIST_20260808.md).  
+R2 HOLD and decision default-off remain in force; this runbook does not claim Track C complete.
+
 ---
 
 ## 1. Purpose
