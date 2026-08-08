@@ -32,7 +32,7 @@
 				hybrid-superpass-e2e-dual-gh hybrid-superpass-e2e-dual-gh-sequential hybrid-superpass-compare hybrid-superpass-nightly-gh \
 				validate-hybrid-superpass-workflow validate-hybrid-superpass-nightly-workflow \
 	test-core install-test-core test-review-reuse review-reuse-isolated-archive \
-review-reuse-export-audit review-reuse-store-backup review-reuse-store-cleanup-dry review-reuse-store-list
+review-reuse-export-audit review-reuse-store-backup review-reuse-store-cleanup-dry review-reuse-store-list review-reuse-preflight
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -298,6 +298,11 @@ review-reuse-store-list: ## List tenants (task count + age_days of newest task)
 	@echo "$(GREEN)Listing ReviewReuse filesystem store tenants...$(NC)"
 	$(PYTHON) scripts/review_reuse_store_ops.py list \
 		--store-dir $${REVIEW_REUSE_STORE_DIR:-data/review_reuse_tasks}
+# Advisory pilot env preflight (does NOT enable decisions). Exit 2 on dangerous combos.
+# See docs/development/CAD_REUSE_WORKBENCH_JWT_PILOT_RUNBOOK_20260808.md
+review-reuse-preflight: ## Print ReviewReuse pilot env posture (exit 2 if dangerous)
+	@echo "$(GREEN)ReviewReuse pilot preflight (advisory)...$(NC)"
+	$(PYTHON) scripts/review_reuse_pilot_preflight.py
 
 test-tolerance: ## 运行公差知识相关测试（unit + integration）
 	@echo "$(GREEN)Running tolerance tests...$(NC)"
