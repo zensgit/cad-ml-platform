@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Backup / cleanup helpers for ReviewReuse filesystem task store.
+"""Backup / cleanup / list helpers for ReviewReuse filesystem task store.
 
 Layout (see FilesystemReviewReuseStore)::
 
@@ -12,6 +12,7 @@ Does not enable decisions, touch training JSONL, or call network services.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import sys
@@ -19,7 +20,7 @@ import tarfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 
 def _tenant_dirs(store_dir: Path) -> List[Path]:
@@ -28,12 +29,16 @@ def _tenant_dirs(store_dir: Path) -> List[Path]:
     return sorted(p for p in store_dir.iterdir() if p.is_dir() and not p.name.startswith("."))
 
 
+def _task_files(tenant_dir: Path) -> List[Path]:
+    tasks = tenant_dir / "tasks"
+    if not tasks.is_dir():
+        return []
+    return sorted(tasks.glob("*.json"))
+
+
 def _newest_mtime(tenant_dir: Path) -> Optional[float]:
     newest: Optional[float] = None
-    tasks = tenant_dir / "tasks"
-    paths: List[Path] = []
-    if tasks.is_dir():
-        paths.extend(tasks.glob("*.json"))
+    paths: List[Path] = list(_task_files(tenant_dir))
     idem = tenant_dir / "idempotency.json"
     if idem.is_file():
         paths.append(idem)
@@ -50,6 +55,76 @@ def _newest_mtime(tenant_dir: Path) -> Optional[float]:
         if newest is None or m > newest:
             newest = m
     return newest
+
+
+def _newest_task_mtime(tenant_dir: Path) -> Optional[float]:
+    """Newest mtime among task JSON files only (excludes idempotency)."""
+    newest: Optional[float] = None
+    for p in _task_files(tenant_dir):
+        try:
+            m = p.stat().st_mtime
+        except OSError:
+            continue
+        if newest is None or m > newest:
+            newest = m
+    return newest
+
+
+def collect_tenant_summaries(
+    store_dir: Path, *, now: Optional[float] = None
+) -> List[Dict[str, Any]]:
+    """Return per-tenant task_count and age_days of newest task."""
+    now_ts = time.time() if now is None else now
+    store_dir = store_dir.resolve()
+    rows: List[Dict[str, Any]] = []
+    for tdir in _tenant_dirs(store_dir):
+        task_files = _task_files(tdir)
+        newest = _newest_task_mtime(tdir)
+        age_days: Optional[float]
+        if newest is None:
+            age_days = None
+        else:
+            age_days = (now_ts - newest) / 86400.0
+        rows.append(
+            {
+                "tenant": tdir.name,
+                "task_count": len(task_files),
+                "age_days": age_days,
+            }
+        )
+    return rows
+
+
+def cmd_list(store_dir: Path, *, as_json: bool = False) -> int:
+    store_dir = store_dir.resolve()
+    rows = collect_tenant_summaries(store_dir)
+    if as_json:
+        payload = {
+            "store_dir": str(store_dir),
+            "tenants": [
+                {
+                    "tenant": r["tenant"],
+                    "task_count": r["task_count"],
+                    "age_days": (
+                        None
+                        if r["age_days"] is None
+                        else round(float(r["age_days"]), 4)
+                    ),
+                }
+                for r in rows
+            ],
+        }
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return 0
+
+    if not store_dir.is_dir():
+        print(f"store_dir missing (empty): {store_dir}", file=sys.stderr)
+    for r in rows:
+        age = r["age_days"]
+        age_s = "n/a" if age is None else f"{float(age):.1f}"
+        print(f"tenant={r['tenant']} tasks={r['task_count']} age_days={age_s}")
+    print(f"tenants={len(rows)} store_dir={store_dir}")
+    return 0
 
 
 def cmd_backup(store_dir: Path, out_dir: Path) -> int:
@@ -139,6 +214,18 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     p_clean.add_argument("--tenant", default=None, help="Limit to one tenant segment")
 
+    p_list = sub.add_parser(
+        "list",
+        help="List tenants with task count and age_days of newest task",
+    )
+    p_list.add_argument("--store-dir", type=Path, default=Path(default_store))
+    p_list.add_argument(
+        "--json",
+        action="store_true",
+        dest="as_json",
+        help="Machine-readable JSON output",
+    )
+
     args = parser.parse_args(argv)
     if args.cmd == "backup":
         return cmd_backup(args.store_dir, args.out_dir)
@@ -150,6 +237,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             dry_run=dry,
             tenant=args.tenant,
         )
+    if args.cmd == "list":
+        return cmd_list(args.store_dir, as_json=args.as_json)
     return 2
 
 
