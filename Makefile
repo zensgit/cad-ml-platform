@@ -31,7 +31,8 @@
 				hybrid-superpass-gate hybrid-superpass-e2e-gh hybrid-superpass-apply-gh-vars \
 				hybrid-superpass-e2e-dual-gh hybrid-superpass-e2e-dual-gh-sequential hybrid-superpass-compare hybrid-superpass-nightly-gh \
 				validate-hybrid-superpass-workflow validate-hybrid-superpass-nightly-workflow \
-	test-core install-test-core test-review-reuse review-reuse-isolated-archive
+	test-core install-test-core test-review-reuse review-reuse-isolated-archive \
+	review-reuse-store-backup review-reuse-store-cleanup-dry
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -263,6 +264,20 @@ review-reuse-isolated-archive: ## Offline ReviewReuse isolated-archive run (seed
 	ENVIRONMENT=development $(PYTHON) scripts/review_reuse_isolated_archive_run.py \
 		--out data/isolated_samples/synthetic_run/exports \
 		--seed-similar
+
+# Filesystem store backup / cleanup (REVIEW_REUSE_STORE=filesystem). See JWT pilot runbook.
+review-reuse-store-backup: ## Tar.gz backup of REVIEW_REUSE_STORE_DIR
+	@echo "$(GREEN)Backing up ReviewReuse filesystem store...$(NC)"
+	$(PYTHON) scripts/review_reuse_store_ops.py backup \
+		--store-dir $${REVIEW_REUSE_STORE_DIR:-data/review_reuse_tasks} \
+		--out-dir data/review_reuse_backups
+
+review-reuse-store-cleanup-dry: ## Dry-run cleanup of tenants older than 30 days
+	@echo "$(GREEN)Dry-run ReviewReuse store cleanup (30d)...$(NC)"
+	$(PYTHON) scripts/review_reuse_store_ops.py cleanup \
+		--store-dir $${REVIEW_REUSE_STORE_DIR:-data/review_reuse_tasks} \
+		--older-than-days 30 \
+		--dry-run
 
 test-tolerance: ## 运行公差知识相关测试（unit + integration）
 	@echo "$(GREEN)Running tolerance tests...$(NC)"
