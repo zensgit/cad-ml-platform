@@ -1,0 +1,81 @@
+{
+  "case_id": "insufficient_evidence",
+  "description": "Honest offline path: tool unavailable / insufficient evidence",
+  "product_strategy_section": "3.3",
+  "schema_version": "evidence-pack-v1",
+  "expected_candidate_state": "insufficient_evidence",
+  "evidence_pack": {
+    "schema_version": "evidence-pack-v1",
+    "task_id": "task-golden-insufficient-0001",
+    "trace_id": "trace-golden-insufficient-0001",
+    "idempotency_key": "idem-golden-insufficient-0001",
+    "source_job_id": "task-golden-insufficient-0001",
+    "tenant_id": "tenant-golden-fixtures",
+    "source": {
+      "file_name": "unknown_scan.pdf",
+      "content_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "candidates": [
+      {
+        "candidate_id": "none-0",
+        "candidate_source": "none",
+        "state": "insufficient_evidence",
+        "scores": {
+          "geometric": null,
+          "semantic": null
+        },
+        "score_normalization": "dedup2d-v1",
+        "verification": {
+          "verdict": "insufficient_evidence",
+          "level": 0,
+          "methods": [
+            "offline-fallback"
+          ]
+        },
+        "rejection_reasons": [
+          "tool_unavailable"
+        ],
+        "provenance": {
+          "model": "dedup2d-workbench-adapter",
+          "input_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "decision_source": "golden-fixture-offline"
+        }
+      }
+    ],
+    "confidence": {
+      "score": 0.0,
+      "band": "low"
+    },
+    "calibration": {
+      "version": "workbench-mvp-0"
+    },
+    "evidence": [
+      {
+        "candidate_id": "none-0",
+        "kind": "match",
+        "summary": "insufficient_evidence via ['offline-fallback']"
+      }
+    ],
+    "rejection_reasons": [
+      "tool_unavailable"
+    ],
+    "unsupported_states": [
+      "none-0"
+    ],
+    "provenance": {
+      "model": "dedup2d-workbench-adapter",
+      "ruleset": "review-reuse-mvp-0",
+      "dataset": "tenant-archive",
+      "input": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "human_decision": {
+      "state": null,
+      "allowed_actions": [
+        "reuse",
+        "revise",
+        "new"
+      ],
+      "submitted": null
+    }
+  }
+}
