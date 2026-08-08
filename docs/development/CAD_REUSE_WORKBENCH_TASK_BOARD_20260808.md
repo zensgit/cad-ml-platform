@@ -73,18 +73,20 @@ Legend: **done** · **in_progress** · **residual_eng** · **residual_human** ·
 | SYS4 | System execute design + PR Plan DAG | done | `CAD_REUSE_WORKBENCH_SYSTEM_EXECUTE_DESIGN_20260808.md` |
 | SYS5 | residual PR1+PR2 (audits + ops) content | done | landed on #547 docs tranche |
 | SYS6 | PR3+PR4 content folded into #547 | done | same L3 slot — no second runtime PR |
-| SYS7 | Closeout board flip (PR 5) | done | this board updated |
+| SYS7 | Closeout board flip (PR 5) | done | #548 merged |
+| SYS8 | R2 HOLD structural tests + external gates audit | done | `test_review_reuse_r2_hold.py` + EXTERNAL_GATES audit |
 
 ---
 
-## Execution order (post-#547)
+## Execution order (post-#547 / #548)
 
-1. ~~Land / green CI for **#547** (Track R MVP)~~ — **MERGED** (required checks green; non-required Evaluation Report hybrid superpass still red on main pre-existing).
-2. ~~execute-plan **PR1 + PR2** (docs)~~ — content folded into #547.
-3. ~~execute-plan **PR3 → PR4** (live dedup + metrics)~~ — folded into #547 before merge (L3 WIP=1).
-4. ~~Closeout board flip~~ — this board; residual_eng **cleared**.
+1. ~~Land / green CI for **#547** (Track R MVP)~~ — **MERGED**.
+2. ~~execute-plan **PR1–PR4** content~~ — folded into #547 (L3 WIP=1).
+3. ~~Closeout board flip~~ — **#548 MERGED**.
+4. ~~R2 HOLD regression tests + external-gates audit (no false complete)~~ — this eng PR.
 5. **Owner only:** R11 design-lock ratify · R12 pilot decision enable · Track C C1–C5.
-6. Boundaries unchanged: no eval_integrity_gate replace · no cost_cap revive · decision default-off · no fake Track C data · no production self-enable of `REVIEW_REUSE_DECISIONS_ENABLED`.
+6. **External only (audit, not eng-closed):** Evaluation Hybrid superpass red on main.
+7. Boundaries: R2 HOLD · no eval_integrity_gate replace · no cost_cap · decision default-off · no fake Track C · no production self-enable of decisions.
 
 ## Workflow commands
 
