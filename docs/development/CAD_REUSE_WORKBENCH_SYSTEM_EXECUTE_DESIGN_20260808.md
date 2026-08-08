@@ -24,23 +24,21 @@ workflows (gap/implement/verify)
 
 ---
 
-## 2. Current baseline (as of 2026-08-08)
+## 2. Current baseline (as of 2026-08-08, post-#547/#548)
 
 | Item | Status | Evidence |
 |---|---|---|
-| Track R design-lock | Shipped on PR #547 (PROPOSED; owner ratify open) | `L3_REVIEW_REUSE_WORKBENCH_DESIGNLOCK_20260808.md` |
-| Track R runtime MVP | Shipped on PR #547 (decision default-off) | `src/core/review_reuse/*`, `src/api/v1/review_reuse.py` |
-| Isolated-sample runbook | Shipped on PR #547 | `ISOLATED_SAMPLE_ARCHIVE_RUNBOOK_20260808.md` |
-| Plan + verification MD | Shipped on PR #547 | `CAD_REUSE_WORKBENCH_MVP_*_20260808.md` |
-| Workflows | `cad-reuse-workbench-dev`, `cad-reuse-workbench-90d`, `cad-reuse-workbench-system` | `.grok/workflows/` |
-| Track E E1 post-merge audit | **Residual** | needs docs PR |
-| Track S SEAL/identity re-audit | **Residual** | needs docs PR |
-| Track O pilot ops package | **Partial** (runbook only) | expand ops package |
-| Live dedup adapter | **Residual** | offline seed only today |
-| Workbench review metrics | **Residual** | not model-release metrics |
+| Track R design-lock | On main (**PROPOSED**; owner ratify open) | `L3_REVIEW_REUSE_WORKBENCH_DESIGNLOCK_20260808.md` |
+| Track R runtime MVP | **MERGED** #547 (`db437b8b`) decision default-off | `src/core/review_reuse/*`, `src/api/v1/review_reuse.py` |
+| Live dedup adapter | **MERGED** #547 default-off | `dedup_adapter.py` + `REVIEW_REUSE_LIVE_DEDUP` |
+| Review metrics | **MERGED** #547 | `metrics.py` + `GET .../metrics` |
+| E1 / SEAL / O audits + ops | **MERGED** #547 | Track E/S/O docs |
+| Board closeout | **MERGED** #548 | residual_eng cleared on board |
+| R2 HOLD structural tests | Eng follow-up PR | `tests/unit/test_review_reuse_r2_hold.py` |
+| External gates audit | Docs only | `CAD_REUSE_WORKBENCH_EXTERNAL_GATES_AUDIT_20260808.md` |
 | Track C customer | **Human residual** | cannot automate |
 
-**WIP rules:** ≤2 open impl PRs; **L3 runtime WIP = 1**. While #547 is open, do **not** open another L3 runtime PR. Docs-only residual PRs may proceed in parallel.
+**WIP rules:** ≤2 open impl PRs; **L3 runtime WIP = 1**. Runtime workbench line closed on main; no second L3 runtime PR without new design-lock.
 
 ---
 
