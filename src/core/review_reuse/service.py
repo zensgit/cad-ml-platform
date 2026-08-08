@@ -23,6 +23,8 @@ from .store import ReviewReuseStoreProtocol, create_review_reuse_store
 
 # Default-off human decision sink (plan §8).
 ENV_DECISIONS_ENABLED = "REVIEW_REUSE_DECISIONS_ENABLED"
+# When on (pilot): reject ak-user-* / empty reviewer ids (require JWT subject).
+ENV_REQUIRE_VALIDATED_REVIEWER = "REVIEW_REUSE_REQUIRE_VALIDATED_REVIEWER"
 _TRUE = frozenset({"1", "true", "yes", "on"})
 
 _STORE: Optional[ReviewReuseStoreProtocol] = None
@@ -30,6 +32,15 @@ _STORE: Optional[ReviewReuseStoreProtocol] = None
 
 def decisions_enabled() -> bool:
     return os.getenv(ENV_DECISIONS_ENABLED, "").strip().lower() in _TRUE
+
+
+def require_validated_reviewer() -> bool:
+    return os.getenv(ENV_REQUIRE_VALIDATED_REVIEWER, "").strip().lower() in _TRUE
+
+
+def is_api_key_fallback_reviewer(reviewer_id: str) -> bool:
+    rid = (reviewer_id or "").strip()
+    return rid.startswith("ak-user-") or rid in ("", "anonymous", "unknown")
 
 
 def get_review_reuse_store() -> ReviewReuseStoreProtocol:
@@ -164,6 +175,23 @@ class ReviewReuseService:
     def metrics(self, tenant_id: str) -> Dict[str, Any]:
         return compute_review_metrics(self.store, tenant_id)
 
+    def export_audit_bundle(self, tenant_id: str, task_id: str) -> Dict[str, Any]:
+        """Machine-readable audit export (not a training manifest).
+
+        Contains task snapshot, events, EvidencePack JSON + markdown. Does not
+        write feedback JSONL or any training-readable path (R2 HOLD).
+        """
+        task = self.get_task(tenant_id, task_id)
+        pack, md = self.get_evidence_pack(tenant_id, task_id, as_markdown=True)
+        return {
+            "schema_version": "review-reuse-audit-bundle-v1",
+            "export_kind": "audit_quarantine",  # not training-readable
+            "task": task.model_dump(mode="json"),
+            "events": [e.model_dump(mode="json") for e in task.events],
+            "evidence_pack": pack,
+            "evidence_pack_markdown": md or "",
+        }
+
     def submit_decision(
         self,
         *,
@@ -175,6 +203,7 @@ class ReviewReuseService:
         reason_text: str = "",
         candidate_id: Optional[str] = None,
         idempotency_key: Optional[str] = None,
+        reviewer_validated: bool = False,
     ) -> ReviewReuseTask:
         if not decisions_enabled():
             raise ReviewReuseError(
@@ -183,6 +212,14 @@ class ReviewReuseService:
             )
         if not reviewer_id or not str(reviewer_id).strip():
             raise ReviewReuseError("reviewer_required", "reviewer_id must come from validated identity")
+        if require_validated_reviewer() and (
+            not reviewer_validated or is_api_key_fallback_reviewer(reviewer_id)
+        ):
+            raise ReviewReuseError(
+                "reviewer_not_validated",
+                "REVIEW_REUSE_REQUIRE_VALIDATED_REVIEWER requires JWT/integration subject "
+                "(not API-key fallback ak-user-*).",
+            )
 
         task = self.get_task(tenant_id, task_id)
         if task.status == TaskStatus.canceled:

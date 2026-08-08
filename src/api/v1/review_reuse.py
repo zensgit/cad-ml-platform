@@ -29,12 +29,17 @@ def _tenant_id(request: Request, api_key: str) -> str:
     return "ak-" + hashlib.sha256(api_key.encode("utf-8")).hexdigest()[:16]
 
 
-def _reviewer_id(request: Request, api_key: str) -> str:
+def _reviewer_id(request: Request, api_key: str) -> tuple[str, bool]:
+    """Return (reviewer_id, validated).
+
+    ``validated=True`` only when middleware set JWT/integration subject
+    (``user_id`` / ``auth_subject``). API-key fallback is never validated.
+    """
     uid = getattr(request.state, "user_id", None) or getattr(request.state, "auth_subject", None)
     if uid:
-        return str(uid)
+        return str(uid), True
     # API-key-only path: not a trusted human identity for pilot; still stable for tests.
-    return "ak-user-" + hashlib.sha256(api_key.encode("utf-8")).hexdigest()[:12]
+    return "ak-user-" + hashlib.sha256(api_key.encode("utf-8")).hexdigest()[:12], False
 
 
 def _svc() -> ReviewReuseService:
@@ -45,7 +50,7 @@ def _http(err: ReviewReuseError) -> HTTPException:
     status = 400
     if err.code == "not_found":
         status = 404
-    elif err.code == "decisions_disabled":
+    elif err.code in ("decisions_disabled", "reviewer_not_validated"):
         status = 403
     elif err.code in ("already_decided",):
         status = 409
@@ -187,6 +192,20 @@ async def review_metrics(
     return service.metrics(_tenant_id(request, api_key))
 
 
+@router.get("/tasks/{task_id}/audit-export", response_model=Dict[str, Any])
+async def audit_export(
+    task_id: str,
+    request: Request,
+    api_key: str = Depends(get_api_key),
+    service: ReviewReuseService = Depends(_svc),
+) -> Dict[str, Any]:
+    """Quarantined audit bundle (task + events + EvidencePack). Not training data."""
+    try:
+        return service.export_audit_bundle(_tenant_id(request, api_key), task_id)
+    except ReviewReuseError as exc:
+        raise _http(exc) from exc
+
+
 @router.post("/tasks/{task_id}/decision", response_model=Dict[str, Any])
 async def submit_decision(
     task_id: str,
@@ -195,16 +214,18 @@ async def submit_decision(
     api_key: str = Depends(get_api_key),
     service: ReviewReuseService = Depends(_svc),
 ) -> Dict[str, Any]:
+    reviewer_id, validated = _reviewer_id(request, api_key)
     try:
         task = service.submit_decision(
             tenant_id=_tenant_id(request, api_key),
             task_id=task_id,
             state=body.state,
-            reviewer_id=_reviewer_id(request, api_key),
+            reviewer_id=reviewer_id,
             reason_codes=body.reason_codes,
             reason_text=body.reason_text,
             candidate_id=body.candidate_id,
             idempotency_key=body.idempotency_key,
+            reviewer_validated=validated,
         )
     except ReviewReuseError as exc:
         raise _http(exc) from exc
