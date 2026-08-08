@@ -88,7 +88,15 @@ def test_audit_export_api(monkeypatch: pytest.MonkeyPatch) -> None:
         assert body["task"]["task_id"] == tid
 
 
-def test_isolated_archive_script(tmp_path: Path) -> None:
+def _assert_isolated_exports(out: Path) -> None:
+    assert (out / "task.json").exists()
+    assert (out / "evidence.json").exists()
+    assert (out / "evidence.md").exists()
+    assert (out / "audit_bundle.json").exists()
+
+
+def test_isolated_archive_script_seed_similar(tmp_path: Path) -> None:
+    """main() with --seed-similar writes EvidencePack / audit exports."""
     from scripts.review_reuse_isolated_archive_run import main
 
     out = tmp_path / "exports"
@@ -104,8 +112,75 @@ def test_isolated_archive_script(tmp_path: Path) -> None:
         ]
     )
     assert rc == 0
-    assert (out / "evidence.json").exists()
-    assert (out / "evidence.md").exists()
-    assert (out / "audit_bundle.json").exists()
+    _assert_isolated_exports(out)
     pack = (out / "evidence.json").read_text(encoding="utf-8")
     assert "synthetic-archive-001" in pack
+    task = (out / "task.json").read_text(encoding="utf-8")
+    assert "similar" in task
+
+
+def test_isolated_archive_script_offline_insufficient_evidence(tmp_path: Path) -> None:
+    """main() without seed still writes exports (offline insufficient_evidence)."""
+    from scripts.review_reuse_isolated_archive_run import main
+
+    out = tmp_path / "exports"
+    rc = main(
+        [
+            "--out",
+            str(out),
+            "--tenant",
+            "script-tenant-offline",
+            "--idempotency-key",
+            "script-offline-1",
+        ]
+    )
+    assert rc == 0
+    _assert_isolated_exports(out)
+    task_raw = (out / "task.json").read_text(encoding="utf-8")
+    assert "insufficient_evidence" in task_raw
+    pack = (out / "evidence.json").read_text(encoding="utf-8")
+    assert "insufficient_evidence" in pack
+
+
+def test_isolated_archive_script_does_not_enable_decisions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Script pops/never sets REVIEW_REUSE_DECISIONS_ENABLED; env not left enabled."""
+    from scripts.review_reuse_isolated_archive_run import main
+
+    # Pre-set as if an operator had decisions on; script must clear it.
+    monkeypatch.setenv("REVIEW_REUSE_DECISIONS_ENABLED", "true")
+    out = tmp_path / "exports"
+    rc = main(
+        [
+            "--out",
+            str(out),
+            "--seed-similar",
+            "--tenant",
+            "script-tenant-decisions",
+            "--idempotency-key",
+            "script-decisions-1",
+        ]
+    )
+    assert rc == 0
+    _assert_isolated_exports(out)
+    # Script pops the var; must not remain true after run.
+    assert os.environ.get("REVIEW_REUSE_DECISIONS_ENABLED") is None
+    assert os.environ.get("REVIEW_REUSE_DECISIONS_ENABLED") != "true"
+
+    # Second path: absent before run, still absent after (never sets true).
+    monkeypatch.delenv("REVIEW_REUSE_DECISIONS_ENABLED", raising=False)
+    out2 = tmp_path / "exports2"
+    rc2 = main(
+        [
+            "--out",
+            str(out2),
+            "--tenant",
+            "script-tenant-decisions-2",
+            "--idempotency-key",
+            "script-decisions-2",
+        ]
+    )
+    assert rc2 == 0
+    _assert_isolated_exports(out2)
+    assert os.environ.get("REVIEW_REUSE_DECISIONS_ENABLED") is None
