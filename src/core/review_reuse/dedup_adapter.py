@@ -148,6 +148,14 @@ def recall_candidates(
         return map_raw_hits_to_candidates(seed, content_sha=content_sha, file_name=file_name)
 
     if live_dedup_enabled():
+        # Lazy-install default vision search hook when none registered.
+        if get_live_recall_hook() is None:
+            try:
+                from .dedup_live import ensure_default_live_hook
+
+                ensure_default_live_hook()
+            except Exception:
+                pass
         hook = get_live_recall_hook()
         if hook is None:
             return offline_insufficient(

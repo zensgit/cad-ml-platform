@@ -19,9 +19,9 @@ def client(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("REVIEW_REUSE_DECISIONS_ENABLED", raising=False)
     # Fresh process-local store for isolation: rebind service singleton store.
     from src.core.review_reuse import service as svc_mod
-    from src.core.review_reuse.store import ReviewReuseStore
+    from src.core.review_reuse.store import InMemoryReviewReuseStore
 
-    svc_mod._STORE = ReviewReuseStore()
+    svc_mod.reset_review_reuse_store_for_tests(InMemoryReviewReuseStore())
 
     from src.main import app
 
@@ -93,9 +93,9 @@ def test_decision_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("API_KEY", "test")
     monkeypatch.setenv("REVIEW_REUSE_DECISIONS_ENABLED", "true")
     from src.core.review_reuse import service as svc_mod
-    from src.core.review_reuse.store import ReviewReuseStore
+    from src.core.review_reuse.store import InMemoryReviewReuseStore
 
-    svc_mod._STORE = ReviewReuseStore()
+    svc_mod.reset_review_reuse_store_for_tests(InMemoryReviewReuseStore())
     from src.main import app
 
     with TestClient(app, headers={"X-API-Key": "test"}) as client:
@@ -124,9 +124,9 @@ def test_tenant_isolation_different_api_keys(monkeypatch: pytest.MonkeyPatch) ->
     # with explicit request.state is hard — hash of different keys must differ.
     monkeypatch.setenv("API_KEYS", "tenant-a-key,tenant-b-key,test")
     from src.core.review_reuse import service as svc_mod
-    from src.core.review_reuse.store import ReviewReuseStore
+    from src.core.review_reuse.store import InMemoryReviewReuseStore
 
-    svc_mod._STORE = ReviewReuseStore()
+    svc_mod.reset_review_reuse_store_for_tests(InMemoryReviewReuseStore())
     from src.main import app
 
     with TestClient(app) as client:

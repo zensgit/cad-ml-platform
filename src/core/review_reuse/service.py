@@ -19,21 +19,36 @@ from .models import (
     TaskEventType,
     TaskStatus,
 )
-from .store import ReviewReuseStore
+from .store import ReviewReuseStoreProtocol, create_review_reuse_store
 
 # Default-off human decision sink (plan §8).
 ENV_DECISIONS_ENABLED = "REVIEW_REUSE_DECISIONS_ENABLED"
 _TRUE = frozenset({"1", "true", "yes", "on"})
 
-_STORE = ReviewReuseStore()
+_STORE: Optional[ReviewReuseStoreProtocol] = None
 
 
 def decisions_enabled() -> bool:
     return os.getenv(ENV_DECISIONS_ENABLED, "").strip().lower() in _TRUE
 
 
+def get_review_reuse_store() -> ReviewReuseStoreProtocol:
+    global _STORE
+    if _STORE is None:
+        _STORE = create_review_reuse_store()
+    return _STORE
+
+
+def reset_review_reuse_store_for_tests(
+    store: Optional[ReviewReuseStoreProtocol] = None,
+) -> None:
+    """Test helper: replace process singleton store."""
+    global _STORE
+    _STORE = store if store is not None else create_review_reuse_store()
+
+
 def get_review_reuse_service() -> "ReviewReuseService":
-    return ReviewReuseService(_STORE)
+    return ReviewReuseService(get_review_reuse_store())
 
 
 class ReviewReuseError(Exception):
@@ -44,7 +59,7 @@ class ReviewReuseError(Exception):
 
 
 class ReviewReuseService:
-    def __init__(self, store: ReviewReuseStore) -> None:
+    def __init__(self, store: ReviewReuseStoreProtocol) -> None:
         self.store = store
 
     def create_task(

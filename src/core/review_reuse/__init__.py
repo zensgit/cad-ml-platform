@@ -12,6 +12,12 @@ from .models import (
     TaskEventType,
     TaskStatus,
 )
+from .store import (
+    FilesystemReviewReuseStore,
+    InMemoryReviewReuseStore,
+    ReviewReuseStore,
+    create_review_reuse_store,
+)
 
 __all__ = [
     "ReviewReuseService",
@@ -20,4 +26,8 @@ __all__ = [
     "HumanDecisionState",
     "TaskEventType",
     "TaskStatus",
+    "ReviewReuseStore",
+    "InMemoryReviewReuseStore",
+    "FilesystemReviewReuseStore",
+    "create_review_reuse_store",
 ]

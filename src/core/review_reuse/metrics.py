@@ -6,11 +6,11 @@ from statistics import median
 from typing import Any, Dict, List, Optional
 
 from .models import CandidateState, ReviewReuseTask, TaskEventType, TaskStatus
-from .store import ReviewReuseStore
+from .store import ReviewReuseStoreProtocol
 
 
 def compute_review_metrics(
-    store: ReviewReuseStore, tenant_id: str
+    store: ReviewReuseStoreProtocol, tenant_id: str
 ) -> Dict[str, Any]:
     """Aggregate operator metrics for one tenant's ReviewReuse tasks."""
     tasks = store.list_for_tenant(tenant_id)
