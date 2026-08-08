@@ -127,6 +127,9 @@ python scripts/review_reuse_store_ops.py backup \
   --store-dir data/review_reuse_tasks \
   --out-dir data/review_reuse_backups
 
+# List tenants (task count + age_days of newest task; add --json for machine output)
+make review-reuse-store-list
+
 # Dry-run cleanup: list tenants older than N days (by newest task mtime)
 python scripts/review_reuse_store_ops.py cleanup \
   --store-dir data/review_reuse_tasks \
@@ -165,4 +168,5 @@ python scripts/review_reuse_store_ops.py cleanup \
 | Offline archive demo | `make review-reuse-isolated-archive` |
 | Store backup | `make review-reuse-store-backup` |
 | Store cleanup dry-run | `make review-reuse-store-cleanup-dry` |
+| Store tenant list | `make review-reuse-store-list` |
 | Decisions | only with owner + JWT + require_validated |
