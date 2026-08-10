@@ -31,19 +31,19 @@
       "a309ff8b426b58ec0e2a45f0f869d46889d02405"
     ],
     "actions/upload-artifact": [
-      "bbbca2ddaa5d8feaa63e36b76fdaad77386f024f"
+      "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
     ],
     "actions/upload-pages-artifact": [
       "56afc609e74202658d3ffba0e8f6dda462b719fa"
     ],
     "anchore/sbom-action": [
-      "57aae528053a48a3f6235f2d9461b05fbcb7366d"
+      "e22c389904149dbc22b58101806040fa8d37a610"
     ],
     "anchore/scan-action": [
       "3343887d815d7b07465f6fdcd395bd66508d486a"
     ],
     "aquasecurity/trivy-action": [
-      "57a97c7e7821a5776cebc9bb87c984fa69cba8f1"
+      "ed142fd0673e97e23eac54620cfb913e5ce36c25"
     ],
     "azure/k8s-set-context": [
       "38d6bc72e5877b8eb640e995218d42b8fedf1a47"
