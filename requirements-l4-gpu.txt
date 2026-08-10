@@ -8,7 +8,7 @@ torchvision>=0.15.0
 # Graph Neural Networks
 # Note: PyG often requires specific CUDA version matches. 
 # For CPU-only dev environments, these standard installs usually work.
-torch-geometric>=2.3.0
+torch-geometric>=2.8.0.post1
 torch-scatter
 torch-sparse
 torch-cluster
