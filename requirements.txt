@@ -43,7 +43,7 @@ botocore>=1.34.0  # Required by boto3, also used for Stubber in tests
 qdrant-client>=1.7.0  # Production vector database, replaces custom FAISS+Redis
 
 # Resilience & Retry (Phase 1 Architecture Improvement)
-tenacity>=8.2.0  # Declarative retry logic, replaces manual retry loops
+tenacity>=8.5.0  # Declarative retry logic, replaces manual retry loops
 
 # Task Queue (Phase 2 Architecture Improvement)
 arq>=0.25.0  # Redis-backed async task queue, replaces InMemoryMessageStore
