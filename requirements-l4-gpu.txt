@@ -3,7 +3,7 @@
 
 # Core Deep Learning
 torch>=2.0.0
-torchvision>=0.15.0
+torchvision>=0.28.0
 
 # Graph Neural Networks
 # Note: PyG often requires specific CUDA version matches. 
