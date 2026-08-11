@@ -191,13 +191,6 @@ def evaluate_superpass_targets(
         and isinstance(hybrid_blind_gate_report.get("metrics"), dict)
         else {}
     )
-    if not gate_metrics:
-        message = "hybrid blind gate report missing or invalid."
-        if mode == "fail":
-            failures.append(message)
-        else:
-            warnings.append(message)
-
     blind_inputs: Dict[str, Any] = {}
     if isinstance(hybrid_blind_gate_report, dict):
         if isinstance(hybrid_blind_gate_report.get("input_summary"), dict):
@@ -231,6 +224,13 @@ def evaluate_superpass_targets(
             f"superpass targets; strict blind targets require one of: {allowed_text}."
         )
         warnings.append(unsupported_source_message)
+
+    if not gate_metrics:
+        message = "hybrid blind gate report missing or invalid."
+        if mode == "fail" and not unsupported_source_message:
+            failures.append(message)
+        else:
+            warnings.append(message)
 
     hybrid_accuracy = _optional_float(gate_metrics.get("hybrid_accuracy"))
     min_hybrid_accuracy = float(thresholds["min_hybrid_accuracy"])

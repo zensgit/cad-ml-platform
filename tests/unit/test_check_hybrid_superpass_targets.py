@@ -105,3 +105,36 @@ def test_superpass_gate_skips_synthetic_blind_metrics_and_keeps_calibration_acti
     assert all(item["skipped"] for item in blind_checks)
     calibration_checks = [item for item in report["checks"] if item["source"] == "hybrid_calibration"]
     assert calibration_checks and calibration_checks[0]["passed"] is True
+
+
+def test_superpass_gate_treats_missing_synthetic_blind_report_as_advisory() -> None:
+    report = evaluate_superpass_targets(
+        hybrid_blind_gate_report=None,
+        hybrid_calibration_json={"metrics_after": {"ece": 0.041}},
+        thresholds=_thresholds(),
+        missing_mode="fail",
+        hybrid_blind_dataset_source="synthetic_manifest",
+    )
+
+    assert report["status"] == "passed"
+    assert report["failures"] == []
+    assert report["inputs"]["hybrid_blind_gate_report_present"] is False
+    assert report["inputs"]["hybrid_blind_dataset_qualified"] is False
+    assert any("missing or invalid" in item for item in report["warnings"])
+    blind_checks = [item for item in report["checks"] if item["source"] == "hybrid_blind_gate"]
+    assert blind_checks
+    assert all(item["skipped"] for item in blind_checks)
+
+
+def test_superpass_gate_keeps_missing_real_blind_report_blocking() -> None:
+    report = evaluate_superpass_targets(
+        hybrid_blind_gate_report=None,
+        hybrid_calibration_json={"metrics_after": {"ece": 0.041}},
+        thresholds=_thresholds(),
+        missing_mode="fail",
+        hybrid_blind_dataset_source="configured_dxf_dir",
+    )
+
+    assert report["status"] == "failed"
+    assert report["inputs"]["hybrid_blind_dataset_qualified"] is True
+    assert any("missing or invalid" in item for item in report["failures"])
