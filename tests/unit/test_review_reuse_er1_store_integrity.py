@@ -463,6 +463,91 @@ def test_candidate_rejection_reason_uses_closed_vocabulary(
     assert _error_code(raised.value) == "store_record_corrupt"
 
 
+@pytest.mark.parametrize("surface", ["persisted", "legacy"])
+@pytest.mark.parametrize("record_level", ["task", "candidate", "event", "decision"])
+def test_task_record_unknown_fields_fail_closed(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    surface: str,
+    record_level: str,
+) -> None:
+    from src.core.review_reuse.store import migrate_legacy_store
+
+    monkeypatch.setenv("REVIEW_REUSE_DECISIONS_ENABLED", "true")
+    source_root = tmp_path / "source"
+    store = FilesystemReviewReuseStore(source_root)
+    service = ReviewReuseService(store)
+    try:
+        ready = service.create_task(
+            tenant_id="tenant-unknown-field",
+            file_name="part.dxf",
+            file_bytes=b"0\nEOF\n",
+            seed_candidates=[
+                {
+                    "candidate_id": "archive-1",
+                    "candidate_source": "archive",
+                    "state": "similar",
+                    "scores": {"geometric": 0.8},
+                    "verification": {"verdict": "review"},
+                    "rejection_reasons": [],
+                    "provenance": {"model": "dedup2d-v1"},
+                }
+            ],
+        )
+        assert ready.evidence_pack is not None
+        decided = service.submit_decision(
+            tenant_id=ready.tenant_id,
+            task_id=ready.task_id,
+            state=HumanDecisionState.revise,
+            reviewer_id="principal-v1-" + "1" * 64,
+            reviewer_kind="validated_principal",
+            reason_codes=["needs_modification"],
+            reason_text="Reviewed evidence.",
+            candidate_id="archive-1",
+            idempotency_key=None,
+            tenant_validated=True,
+            reviewer_validated=True,
+            expected_revision=ready.revision,
+            evidence_pack_sha256=ready.evidence_pack["evidence_pack_sha256"],
+        )
+        record_path = (
+            _tenant_dir(source_root, decided.tenant_id)
+            / "tasks"
+            / f"{decided.task_id}.json"
+        )
+        payload = json.loads(record_path.read_text(encoding="utf-8"))
+        if record_level == "task":
+            payload["unknown_field"] = True
+        elif record_level == "candidate":
+            payload["candidates"][0]["unknown_field"] = True
+        elif record_level == "event":
+            payload["events"][0]["unknown_field"] = True
+        else:
+            payload["human_decision"]["unknown_field"] = True
+    finally:
+        _close(store)
+
+    if surface == "persisted":
+        record_path.write_text(json.dumps(payload), encoding="utf-8")
+        reader = FilesystemReviewReuseStore(source_root, read_only=True)
+        try:
+            with pytest.raises(Exception) as raised:
+                reader.get(decided.tenant_id, decided.task_id)
+        finally:
+            _close(reader)
+    else:
+        legacy_root = tmp_path / "legacy"
+        legacy_tasks = legacy_root / decided.tenant_id / "tasks"
+        legacy_tasks.mkdir(parents=True)
+        (legacy_tasks / f"{decided.task_id}.json").write_text(
+            json.dumps(payload), encoding="utf-8"
+        )
+        with pytest.raises(Exception) as raised:
+            migrate_legacy_store(legacy_root)
+
+    assert _error_code(raised.value) == "store_record_corrupt"
+
+
 @pytest.mark.parametrize(
     "field",
     ["reviewed_revision", "evidence_pack_sha256"],
