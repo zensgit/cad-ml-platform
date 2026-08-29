@@ -47,6 +47,19 @@ class HumanDecisionState(str, Enum):
     need_more_info = "need_more_info"  # implementation extension
 
 
+DECISION_REASON_CODES = frozenset(
+    {
+        "geometry_match",
+        "visual_similarity_only",
+        "needs_modification",
+        "new_part_required",
+        "insufficient_evidence",
+        "incorrect_candidate",
+        "other",
+    }
+)
+
+
 class RejectionReason(str, Enum):
     missing_geom_json = "missing_geom_json"
     version_gate_filtered = "version_gate_filtered"

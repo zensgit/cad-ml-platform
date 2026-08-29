@@ -20,6 +20,7 @@ from .evidence import (
 )
 from .metrics import compute_review_metrics
 from .models import (
+    DECISION_REASON_CODES,
     HumanDecision,
     HumanDecisionState,
     ReviewReuseTask,
@@ -41,17 +42,6 @@ DEFAULT_MAX_UPLOAD_BYTES = 52_428_800
 _TRUE = frozenset({"1", "true", "yes", "on"})
 _HEX64_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 _PRINCIPAL_PATTERN = re.compile(r"^principal-v1-[0-9a-f]{64}$")
-_DECISION_REASONS = frozenset(
-    {
-        "geometry_match",
-        "visual_similarity_only",
-        "needs_modification",
-        "new_part_required",
-        "insufficient_evidence",
-        "incorrect_candidate",
-        "other",
-    }
-)
 _CANDIDATE_REQUIRED = frozenset(
     {
         HumanDecisionState.reuse,
@@ -570,7 +560,7 @@ class ReviewReuseService:
         reason_codes: List[str],
         reason_text: str,
     ) -> None:
-        if any(code not in _DECISION_REASONS for code in reason_codes):
+        if any(code not in DECISION_REASON_CODES for code in reason_codes):
             raise ReviewReuseError("invalid_decision", "unknown decision reason code")
         if not reason_codes and not reason_text:
             raise ReviewReuseError("invalid_decision", "decision rationale is required")

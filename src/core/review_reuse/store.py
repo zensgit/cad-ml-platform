@@ -26,7 +26,12 @@ from .evidence import (
     evidence_pack_digest,
     evidence_pack_digest_is_valid,
 )
-from .models import HumanDecisionState, ReviewReuseTask, TaskStatus
+from .models import (
+    DECISION_REASON_CODES,
+    HumanDecisionState,
+    ReviewReuseTask,
+    TaskStatus,
+)
 
 ENV_STORE = "REVIEW_REUSE_STORE"
 ENV_STORE_DIR = "REVIEW_REUSE_STORE_DIR"
@@ -555,6 +560,10 @@ def _assert_mutation(
             raise ReviewReuseStoreError(
                 "revision_conflict",
                 "decision is not bound to the current EvidencePack",
+            )
+        if any(code not in DECISION_REASON_CODES for code in decision.reason_codes):
+            raise ReviewReuseStoreError(
+                "store_record_corrupt", "decision reason code is invalid"
             )
     _validate_task_payload(task)
     if current.status == TaskStatus.evidence_ready and (
