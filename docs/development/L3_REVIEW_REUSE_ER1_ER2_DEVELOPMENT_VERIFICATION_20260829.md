@@ -7,10 +7,10 @@
 **Ratified authority**: PR #583 exact head
 `9150e06c75721bf086572ed271b68548104e8300`  
 **Runtime implementation head**:
-`60df0f9f7f3b7bed8d98a2fca7f82de7a10fa953`
-(`fix: harden ReviewReuse migration rollback`), on top of the original runtime
-commit `6cc55841` and hardening commits `1ee1bad0`, `9494cc24`, and
-`1bcf275d`.
+`77cd2969b0f097e54628121e104eabca748a8c65`
+(`fix: bind ReviewReuse persisted ownership and evidence`), on top of the
+original runtime commit `6cc55841` and the earlier hardening chain through
+`60df0f9f`.
 
 ## 1. Authorization boundary
 
@@ -51,7 +51,7 @@ named by design-lock section 9.1:
 | Parent / authority | `9150e06c75721bf086572ed271b68548104e8300` |
 | Files | `test_review_reuse_er1_store_integrity.py`, `test_review_reuse_er2_ledger.py`, `test_review_reuse_api_integrity.py` |
 | Baseline result | **18 failed** |
-| Runtime-head result | **54 passed** |
+| Runtime-head result | **59 passed** |
 
 Exact command:
 
@@ -282,16 +282,30 @@ passed**:
 At runtime head `60df0f9f`, the complete named fail-first command is **54
 passed** and the full ReviewReuse suite is **148 passed**.
 
+A fifth exact-head GitHub review at `02a39a63` found two persisted-integrity
+gaps. Follow-up test-only commit
+`b8ebacb760854e225fffeb74eecbfa689f47c25a` reproduced them as **5 failed**;
+runtime repair `77cd2969b0f097e54628121e104eabca748a8c65` made all five pass:
+
+| Finding | Red proof | Closed behavior |
+|---|---|---|
+| An indexed idempotency owner could be replayed while a second valid record owned the same key | indexed replay returned the first owner instead of raising | replay, direct lookup, list, startup, and full-store validation scan all task records and reject duplicate ownership |
+| A task candidate could drift from its still digest-valid EvidencePack | state, scores, verification, and provenance tampering produced four accepted reads | all candidate-derived EvidencePack fields are rebuilt from the task and compared before a stored record is accepted |
+
+At runtime head `77cd2969`, the complete named fail-first command is **59
+passed** and the full ReviewReuse suite is **153 passed**.
+
 ## 6. Verification evidence
 
 Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
-`60df0f9f`.
+`77cd2969`.
 
 | Gate | Result |
 |---|---:|
-| Exact named fail-first command, including narrower additions | **54 passed** |
+| Exact named fail-first command, including narrower additions | **59 passed** |
 | Focused null/rollback/recovery batch | **6 passed** |
-| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **148 passed** |
+| Focused duplicate-owner/candidate-evidence batch | **5 passed** |
+| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **153 passed** |
 | Integration-auth + production-identity + pilot-preflight regressions | **44 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 test-core` | **39 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-openapi` | **5 passed** |
