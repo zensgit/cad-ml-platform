@@ -425,11 +425,16 @@ def _validate_decision_event_binding(task: ReviewReuseTask) -> None:
         "evidence_pack_sha256": decision.evidence_pack_sha256,
     }
     event = task.events[-1]
-    if event.event_type != TaskEventType.decision_submitted or any(
-        key not in event.detail
-        or type(event.detail[key]) is not type(value)
-        or event.detail[key] != value
-        for key, value in expected_detail.items()
+    prior_event_ts = task.events[-2].ts if len(task.events) > 1 else task.created_at
+    if (
+        event.event_type != TaskEventType.decision_submitted
+        or any(
+            key not in event.detail
+            or type(event.detail[key]) is not type(value)
+            or event.detail[key] != value
+            for key, value in expected_detail.items()
+        )
+        or not (prior_event_ts <= decision.ts <= event.ts <= task.updated_at)
     ):
         raise ReviewReuseStoreError(
             "store_record_corrupt", "decision event binding is inconsistent"
