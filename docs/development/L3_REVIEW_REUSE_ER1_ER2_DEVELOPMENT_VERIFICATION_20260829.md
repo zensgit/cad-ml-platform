@@ -7,10 +7,10 @@
 **Ratified authority**: PR #583 exact head
 `9150e06c75721bf086572ed271b68548104e8300`<br>
 **Runtime implementation head**:
-`36175b144d75c855ca5f22efc7dbfa504544fe28`
-(`fix: fail malformed ReviewReuse adapter results safely`), on top of the
-original runtime commit `6cc55841` and the earlier hardening chain through
-`21943856`.
+`00618205c09b689820944ba3577c3be1e1e42651`
+(`fix: canonicalize ReviewReuse candidates and events`), on top of malformed
+adapter repair `36175b14`, the original runtime commit `6cc55841`, and the
+earlier hardening chain through `21943856`.
 
 ## 1. Authorization boundary
 
@@ -51,7 +51,7 @@ named by design-lock section 9.1:
 | Parent / authority | `9150e06c75721bf086572ed271b68548104e8300` |
 | Files | `test_review_reuse_er1_store_integrity.py`, `test_review_reuse_er2_ledger.py`, `test_review_reuse_api_integrity.py` |
 | Baseline result | **18 failed** |
-| Runtime-head result | **108 passed** |
+| Runtime-head result | **111 passed** |
 
 Exact command:
 
@@ -555,14 +555,33 @@ suites continue to cover the underlying store behavior.
 At runtime head `36175b14`, the complete named fail-first command is **108
 passed** and the full ReviewReuse suite is **205 passed**.
 
+A fourteenth exact-head GitHub review (`5057891020`) at
+`761efd26342e5f274cd3b92746db7b3b4e42f8f5` found two ER2 integrity gaps:
+candidate ids could retain surrounding whitespace while decision submission
+canonicalized them, and a direct CAS caller could insert an unrelated event
+before the otherwise valid transition-closing event. Test-only commit
+`ba7b413770196ec500d7d4f260dc8001c059375c` added three assertions and
+reproduced the gaps as **3 failed / 4 passed**:
+
+| Finding | Red proof | Closed behavior |
+|---|---|---|
+| A direct adapter result could persist a noncanonical candidate id | the malformed-adapter case returned `evidence_ready` instead of committing the safe failed snapshot | the persistence boundary rejects empty or surrounding-whitespace candidate ids, so an adapter bypass enters the existing revision-2 failed path |
+| The normal seed/live mapping preserved surrounding candidate-id whitespace | both the task and EvidencePack contained `" archive-1 "` | adapter ingress trims the external identifier before model construction; an empty result is rejected rather than invented |
+| A decision CAS could append `submitted` before a valid `decision_submitted` | the contradictory event suffix committed successfully | every transition validates its complete appended event sequence; `evidence_ready -> decided` accepts exactly one `decision_submitted`, while `running -> failed` accepts only an ordered pipeline prefix followed by `failed` |
+
+Runtime repair `00618205c09b689820944ba3577c3be1e1e42651`
+made the focused batch **7 passed**. The complete named fail-first command is
+now **111 passed**, the full ReviewReuse suite is **208 passed**, and the
+identity/production/preflight regressions remain **47 passed**.
+
 ## 6. Verification evidence
 
 Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
-`36175b14`.
+`00618205`.
 
 | Gate | Result |
 |---|---:|
-| Exact named fail-first command, including narrower additions | **108 passed** |
+| Exact named fail-first command, including narrower additions | **111 passed** |
 | Focused null/rollback/recovery batch | **6 passed** |
 | Focused duplicate-owner/candidate-evidence batch | **5 passed** |
 | Focused published-write quarantine/decision/calibration batch | **5 passed** (red: 5 failed at test-only `d91309df`) |
@@ -576,16 +595,17 @@ Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
 | Focused operator direct-entrypoint batch | **2 passed** (red: 2 failed at test-only `df989064`); complete script suites **21 passed** |
 | Focused persisted decision-event batch | **11 passed** (red: 10 failed / 1 legacy-lock pass at test-only `8b104b96`) |
 | Focused malformed-adapter failure batch | **2 passed** (red: 2 failed at test-only `722b9d3b`) |
-| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **205 passed** |
+| Focused candidate/event canonicalization batch | **7 passed** (red: 3 failed / 4 passed at test-only `ba7b4137`) |
+| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **208 passed** |
 | Integration-auth + production-identity + pilot-preflight regressions | **47 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 test-core` | **39 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-openapi` | **5 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-core-fast` | **exit 0; 229 tests + 10 governance checks** |
 | JCS finite-binary64 differential vs Node `JSON.stringify` at `1ee1bad0`; canonical module unchanged at current head | **20,000 cases; 0 mismatches** |
-| Black + isort | **pass (26 format-clean files); legacy-layout `src/core/config/__init__.py` kept surgical** |
-| flake8 | **pass (27 files)** |
-| mypy | **success (5 newly changed source files)** |
-| `py_compile` | **pass (27 changed Python files)** |
+| Black + isort | **isort pass; Black pass for 26 format-clean files; pre-existing layout in `src/core/config/__init__.py` and `dedup_adapter.py` kept surgical** |
+| flake8 | **pass (28 files)** |
+| mypy | **success (6 changed source files across the implementation runs)** |
+| `py_compile` | **pass (28 changed Python files)** |
 | `git diff --check` | **pass** |
 
 The OpenAPI snapshot was regenerated only after explicit development posture:
