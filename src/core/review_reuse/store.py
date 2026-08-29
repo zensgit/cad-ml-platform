@@ -121,6 +121,30 @@ def _validated_root_directories(store_root: Path) -> List[Path]:
     return directories
 
 
+def _validate_tenant_directory_entries(store_root: Path, tenant_dir: Path) -> None:
+    try:
+        entries = sorted(tenant_dir.iterdir())
+    except OSError as exc:
+        raise ReviewReuseStoreError(
+            "store_record_corrupt", "tenant ledger directory is unreadable"
+        ) from exc
+    for entry in entries:
+        _assert_store_path(store_root, entry, code="store_record_corrupt")
+        if entry.is_symlink():
+            raise ReviewReuseStoreError(
+                "store_record_corrupt", "unexpected tenant ledger artifact"
+            )
+        if entry.name == "tasks" and entry.is_dir():
+            continue
+        if entry.name in {"tenant.json", "idempotency.json"} and entry.is_file():
+            continue
+        if _METADATA_TEMP_PATTERN.fullmatch(entry.name) and entry.is_file():
+            continue
+        raise ReviewReuseStoreError(
+            "store_record_corrupt", "unexpected tenant ledger artifact"
+        )
+
+
 class ReviewReuseStoreProtocol(Protocol):
     def create_if_absent(
         self,
@@ -1232,6 +1256,7 @@ def validated_filesystem_tenants(root: Path | str) -> List[Tuple[str, Path]]:
                     "store_record_corrupt",
                     "legacy or unexpected tenant directory found",
                 )
+            _validate_tenant_directory_entries(store_root, tenant_dir)
             sidecar_path = tenant_dir / "tenant.json"
             sidecar = reader._load_json(sidecar_path, code="store_record_corrupt")
             tenant_id = sidecar.get("tenant_id") if isinstance(sidecar, dict) else None
