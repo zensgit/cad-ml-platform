@@ -61,17 +61,24 @@ _TASK_TEMP_PATTERN = re.compile(
     r"^\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
     r"[0-9a-f]{12}\.json\.[a-z0-9_]{8}(?:\.tmp)?$"
 )
-_TRANSITION_EVENTS = {
-    (TaskStatus.pending, TaskStatus.running): TaskEventType.input_validated,
-    (TaskStatus.pending, TaskStatus.failed): TaskEventType.failed,
-    (TaskStatus.pending, TaskStatus.canceled): TaskEventType.canceled,
-    (TaskStatus.running, TaskStatus.evidence_ready): TaskEventType.evidence_pack_ready,
-    (TaskStatus.running, TaskStatus.failed): TaskEventType.failed,
-    (TaskStatus.running, TaskStatus.canceled): TaskEventType.canceled,
-    (TaskStatus.evidence_ready, TaskStatus.decided): TaskEventType.decision_submitted,
-    (TaskStatus.evidence_ready, TaskStatus.canceled): TaskEventType.canceled,
+_RUNNING_PIPELINE_EVENTS = (
+    TaskEventType.recall_started,
+    TaskEventType.recall_completed,
+    TaskEventType.precision_started,
+    TaskEventType.precision_completed,
+)
+_TRANSITION_EVENT_SEQUENCES = {
+    (TaskStatus.pending, TaskStatus.running): (TaskEventType.input_validated,),
+    (TaskStatus.pending, TaskStatus.failed): (TaskEventType.failed,),
+    (TaskStatus.pending, TaskStatus.canceled): (TaskEventType.canceled,),
+    (TaskStatus.running, TaskStatus.evidence_ready): _RUNNING_PIPELINE_EVENTS
+    + (TaskEventType.evidence_pack_ready,),
+    (TaskStatus.running, TaskStatus.canceled): (TaskEventType.canceled,),
+    (TaskStatus.evidence_ready, TaskStatus.decided): (
+        TaskEventType.decision_submitted,
+    ),
+    (TaskStatus.evidence_ready, TaskStatus.canceled): (TaskEventType.canceled,),
 }
-_TRANSITION_EVENT_TYPES = frozenset(_TRANSITION_EVENTS.values())
 
 
 class ReviewReuseStoreError(Exception):
@@ -415,6 +422,14 @@ def validate_review_reuse_task_payload(task: ReviewReuseTask) -> None:
             "store_record_corrupt", "stored source digest is invalid"
         )
     if any(
+        not candidate.candidate_id
+        or candidate.candidate_id.strip() != candidate.candidate_id
+        for candidate in task.candidates
+    ):
+        raise ReviewReuseStoreError(
+            "store_record_corrupt", "stored candidate identity is invalid"
+        )
+    if any(
         reason not in _REJECTION_REASON_CODES
         for candidate in task.candidates
         for reason in candidate.rejection_reasons
@@ -673,10 +688,17 @@ def _assert_mutation(
             "store_record_corrupt", "task mutation must append to its event ledger"
         )
     appended_events = task.events[len(current.events) :]
-    expected_event = _TRANSITION_EVENTS[(current.status, task.status)]
-    if appended_events[-1].event_type != expected_event or any(
-        event.event_type in _TRANSITION_EVENT_TYPES for event in appended_events[:-1]
-    ):
+    appended_types = tuple(event.event_type for event in appended_events)
+    transition = (current.status, task.status)
+    if transition == (TaskStatus.running, TaskStatus.failed):
+        pipeline_prefix = appended_types[:-1]
+        sequence_valid = (
+            appended_types[-1:] == (TaskEventType.failed,)
+            and pipeline_prefix == _RUNNING_PIPELINE_EVENTS[: len(pipeline_prefix)]
+        )
+    else:
+        sequence_valid = appended_types == _TRANSITION_EVENT_SEQUENCES[transition]
+    if not sequence_valid:
         raise ReviewReuseStoreError(
             "store_record_corrupt", "task transition event is inconsistent"
         )
