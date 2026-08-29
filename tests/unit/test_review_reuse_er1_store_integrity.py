@@ -19,11 +19,14 @@ from src.core.review_reuse.models import (
     HumanDecision,
     HumanDecisionState,
     ReviewReuseTask,
+    TaskEvent,
+    TaskEventType,
     TaskStatus,
 )
 from src.core.review_reuse.service import ReviewReuseService
 from src.core.review_reuse.store import (
     FilesystemReviewReuseStore,
+    InMemoryReviewReuseStore,
     ReviewReuseStoreError,
     validated_filesystem_tenants,
 )
@@ -73,10 +76,26 @@ def _create(
     store: FilesystemReviewReuseStore,
     task: ReviewReuseTask,
 ) -> ReviewReuseTask:
+    if task.status != TaskStatus.running:
+        return store._import_migrated(task)  # type: ignore[attr-defined]
+    native = task.model_copy(deep=True)
+    if not native.events:
+        native.events = [
+            TaskEvent(
+                event_type=TaskEventType.submitted,
+                ts=native.created_at,
+                detail={"file_name": native.source_file_name},
+            ),
+            TaskEvent(
+                event_type=TaskEventType.input_validated,
+                ts=native.created_at,
+                detail={"bytes": 1},
+            ),
+        ]
     return store.create_if_absent(  # type: ignore[attr-defined]
-        task,
-        key=task.idempotency_key,
-        digest=getattr(task, "idempotency_digest", None),
+        native,
+        key=native.idempotency_key,
+        digest=getattr(native, "idempotency_digest", None),
     )
 
 
@@ -143,6 +162,29 @@ def test_tenant_segments_do_not_collide(tmp_path: Path) -> None:
         assert tenant_dirs[0] != tenant_dirs[1]
     finally:
         _close(store)
+
+
+@pytest.mark.parametrize(
+    "events",
+    [
+        [],
+        [
+            TaskEvent(event_type=TaskEventType.submitted, ts=1.0, detail={}),
+            TaskEvent(event_type=TaskEventType.submitted, ts=1.0, detail={}),
+        ],
+    ],
+)
+def test_native_create_requires_canonical_initial_event_ledger(
+    events: list[TaskEvent],
+) -> None:
+    store = InMemoryReviewReuseStore()
+    task = _task("tenant-native-events")
+    task.events = events
+
+    with pytest.raises(Exception) as raised:
+        store.create_if_absent(task, key=None, digest=None)
+
+    assert _error_code(raised.value) == "store_record_corrupt"
 
 
 def test_dotdot_cannot_escape_store_root(tmp_path: Path) -> None:
@@ -493,6 +535,8 @@ def test_candidate_rejection_reason_uses_closed_vocabulary(
     task.evidence_pack = build_evidence_pack(task)
 
     if surface == "create":
+        task.status = TaskStatus.running
+        task.evidence_pack = None
         store = FilesystemReviewReuseStore(root)
         try:
             with pytest.raises(Exception) as raised:
@@ -1736,6 +1780,33 @@ def test_legacy_prefix_like_tenant_is_not_mistaken_for_new_layout(
     assert "already_migrated" not in report
     assert report["legacy_directories"] == 1
     assert report["tasks"] == 1
+
+
+def test_legacy_regex_shaped_tenant_can_migrate(tmp_path: Path) -> None:
+    from src.core.review_reuse.store import migrate_legacy_store
+
+    root = tmp_path / "legacy-store"
+    tenant_id = "tenant-v1-" + ("a" * 64)
+    task = _task(tenant_id)
+    tasks_dir = root / tenant_id / "tasks"
+    tasks_dir.mkdir(parents=True)
+    (tasks_dir / f"{task.task_id}.json").write_text(
+        json.dumps(task.model_dump(mode="json")), encoding="utf-8"
+    )
+
+    dry_run = migrate_legacy_store(root)
+    assert dry_run["legacy_directories"] == 1
+    assert dry_run["tasks"] == 1
+
+    applied = migrate_legacy_store(root, apply=True)
+    reader = FilesystemReviewReuseStore(root, read_only=True)
+    try:
+        migrated = reader.get(tenant_id, task.task_id)
+        assert migrated is not None
+        assert migrated.tenant_id == tenant_id
+        assert Path(applied["backup"]).is_dir()
+    finally:
+        _close(reader)
 
 
 def test_legacy_path_identity_mismatch_fails_closed(tmp_path: Path) -> None:

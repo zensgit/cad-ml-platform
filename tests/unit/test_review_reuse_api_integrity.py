@@ -203,6 +203,31 @@ def test_json_body_without_content_type_rejects_duplicate_keys(
     _assert_domain_error(duplicate, 422, "invalid_request")
 
 
+def test_bodyless_route_does_not_preparse_unauthenticated_body(
+    client: TestClient,
+) -> None:
+    response = client.request(
+        "GET",
+        "/api/v1/review-reuse/tasks",
+        content=b"not-json",
+        headers={"X-API-Key": ""},
+    )
+
+    assert response.status_code == 401
+    assert isinstance(response.json().get("detail"), str)
+
+
+def test_decision_json_body_is_bounded_before_parsing(client: TestClient) -> None:
+    body_limit = 64 * 1024
+    response = client.post(
+        "/api/v1/review-reuse/tasks/00000000-0000-0000-0000-000000000000/decision",
+        content=b'"' + (b"x" * body_limit) + b'"',
+        headers={"Content-Type": "application/json"},
+    )
+
+    _assert_domain_error(response, 413, "input_too_large")
+
+
 def test_store_corruption_maps_to_503(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
