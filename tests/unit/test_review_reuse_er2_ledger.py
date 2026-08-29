@@ -10,6 +10,8 @@ import pytest
 
 from src.core.review_reuse.evidence import build_evidence_pack
 from src.core.review_reuse.models import (
+    CandidateDecision,
+    CandidateState,
     HumanDecision,
     HumanDecisionState,
     TaskEvent,
@@ -169,6 +171,70 @@ def test_pipeline_failure_preserves_attempt_events_without_invalid_payload(
         "precision_completed",
         "failed",
     ]
+
+
+@pytest.mark.parametrize("adapter_case", ["unknown_reason", "duplicate_id"])
+def test_store_rejected_adapter_results_commit_failed_task(
+    monkeypatch: pytest.MonkeyPatch,
+    adapter_case: str,
+) -> None:
+    from src.core.review_reuse import service as service_module
+
+    candidate = CandidateDecision(
+        candidate_id="archive-1",
+        candidate_source="archive",
+        state=CandidateState.similar,
+        scores={"geometric": 0.8, "semantic": 0.7},
+        verification={"verdict": "review"},
+        rejection_reasons=(
+            ["not_in_vocabulary"] if adapter_case == "unknown_reason" else []
+        ),
+        provenance={"model": "dedup2d-live"},
+    )
+    candidates = (
+        [candidate, candidate.model_copy(deep=True)]
+        if adapter_case == "duplicate_id"
+        else [candidate]
+    )
+    calls = 0
+
+    def malformed_recall(**_: Any) -> List[CandidateDecision]:
+        nonlocal calls
+        calls += 1
+        return candidates
+
+    monkeypatch.setattr(service_module, "recall_candidates", malformed_recall)
+    store = InMemoryReviewReuseStore()
+    service = ReviewReuseService(store)
+
+    with pytest.raises(ReviewReuseError) as raised:
+        service.create_task(
+            tenant_id="tenant-adapter",
+            file_name="part.dxf",
+            file_bytes=b"0\nSECTION\n",
+            idempotency_key="adapter-key",
+        )
+
+    [failed] = service.list_tasks("tenant-adapter")
+    assert failed.status == TaskStatus.failed
+    assert failed.revision == 2
+    assert failed.error_code == "internal_error"
+    assert failed.candidates == []
+    assert failed.evidence_pack is None
+    event_types = [event.event_type.value for event in failed.events]
+    assert event_types[-1] == "failed"
+    assert "evidence_pack_ready" not in event_types
+    assert raised.value.code == "internal_error"
+
+    replayed = service.create_task(
+        tenant_id="tenant-adapter",
+        file_name="part.dxf",
+        file_bytes=b"0\nSECTION\n",
+        idempotency_key="adapter-key",
+    )
+    assert replayed.task_id == failed.task_id
+    assert replayed.status == TaskStatus.failed
+    assert calls == 1
 
 
 def test_decision_requires_validated_tenant_and_reviewer(
