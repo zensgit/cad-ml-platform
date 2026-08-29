@@ -7,10 +7,10 @@
 **Ratified authority**: PR #583 exact head
 `9150e06c75721bf086572ed271b68548104e8300`<br>
 **Runtime implementation head**:
-`352bab81c07804c68eb7471ab96a6faeb8fefd7f`
-(`fix: keep ReviewReuse exports and vocabularies canonical`), on top of the
+`50e49686c02fdc386a1345a7783fe636155171f4`
+(`fix: parse implicit ReviewReuse JSON strictly`), on top of the
 original runtime commit `6cc55841` and the earlier hardening chain through
-`d682971b`.
+`352bab81`.
 
 ## 1. Authorization boundary
 
@@ -51,7 +51,7 @@ named by design-lock section 9.1:
 | Parent / authority | `9150e06c75721bf086572ed271b68548104e8300` |
 | Files | `test_review_reuse_er1_store_integrity.py`, `test_review_reuse_er2_ledger.py`, `test_review_reuse_api_integrity.py` |
 | Baseline result | **18 failed** |
-| Runtime-head result | **78 passed** |
+| Runtime-head result | **79 passed** |
 
 Exact command:
 
@@ -242,8 +242,9 @@ named tests plus narrower adversarial cases.
 - Domain 400/403/404/409/413/415/422/500/503 responses are documented for all
   ReviewReuse routes.
 - Unexpected domain codes become a sanitized 500 rather than a catch-all 400.
-- Duplicate-key rejection applies to both `application/json` and
-  `application/*+json` request media types, including parameters.
+- Duplicate-key rejection applies to `application/json`,
+  `application/*+json` request media types including parameters, and a
+  non-empty body that FastAPI treats as JSON when `Content-Type` is absent.
 - Operator logs receive only the structured store failure code; tenant
   responses contain no path, key, token, or record payload.
 - Isolated/pilot/JWT runbooks no longer present API-key fallback decisions,
@@ -405,14 +406,26 @@ cases as **5 failed**; runtime repair
 At runtime head `352bab81`, the complete named fail-first command is **78
 passed** and the full ReviewReuse suite is **173 passed**.
 
+A parallel read-only FastAPI semantics audit then found that a non-empty body
+without `Content-Type` is also parsed as JSON by FastAPI. Test-only commit
+`ed0c430223fe6a8b051929e3bc583d57b931a64e` reproduced **1 failed**: a
+duplicate-key body reached the decision gate and returned 403 instead of
+canonical 422. Runtime repair
+`50e49686c02fdc386a1345a7783fe636155171f4` applies the same strict parser to
+that implicit-JSON path while leaving empty body and non-JSON media requests
+untouched. The focused case is **1 passed**.
+
+At runtime head `50e49686`, the complete named fail-first command is **79
+passed** and the full ReviewReuse suite is **174 passed**.
+
 ## 6. Verification evidence
 
 Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
-`352bab81`.
+`50e49686`.
 
 | Gate | Result |
 |---|---:|
-| Exact named fail-first command, including narrower additions | **78 passed** |
+| Exact named fail-first command, including narrower additions | **79 passed** |
 | Focused null/rollback/recovery batch | **6 passed** |
 | Focused duplicate-owner/candidate-evidence batch | **5 passed** |
 | Focused published-write quarantine/decision/calibration batch | **5 passed** (red: 5 failed at test-only `d91309df`) |
@@ -420,7 +433,8 @@ Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
 | Focused tenant-artifact batch | **2 passed** (red: 2 failed at test-only `4a4b05c5`) |
 | Focused native/historical reason batch | **2 passed** (red: 1 failed / 1 passed at test-only `d06ae3c0`) |
 | Focused single-snapshot/candidate-vocabulary/JSON-suffix batch | **5 passed** (red: 5 failed at test-only `cf26776e`) |
-| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **173 passed** |
+| Focused implicit-JSON duplicate-key case | **1 passed** (red: 1 failed at test-only `ed0c4302`) |
+| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **174 passed** |
 | Integration-auth + production-identity + pilot-preflight regressions | **44 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 test-core` | **39 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-openapi` | **5 passed** |
@@ -428,7 +442,7 @@ Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
 | JCS finite-binary64 differential vs Node `JSON.stringify` at `1ee1bad0`; canonical module unchanged at current head | **20,000 cases; 0 mismatches** |
 | Black + isort | **pass (26 files)** |
 | flake8 | **pass (26 files)** |
-| mypy | **success (3 newly changed source files)** |
+| mypy | **success (3 newly changed source files; API rerun at `50e49686`)** |
 | `py_compile` | **pass (26 changed Python files)** |
 | `git diff --check` | **pass** |
 
