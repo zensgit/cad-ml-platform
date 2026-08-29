@@ -7,11 +7,12 @@
 **Ratified authority**: PR #583 exact head
 `9150e06c75721bf086572ed271b68548104e8300`<br>
 **Runtime implementation head**:
-`487c1c58dfbd72db96f06eab0e8aa9a684578ab9`
-(`fix: bind ReviewReuse initial event metadata`), on top of request/native
-ledger repair `572f7d04`, candidate/event repair `00618205`,
-malformed-adapter repair `36175b14`, the original runtime commit `6cc55841`,
-and the earlier hardening chain through `21943856`.
+`b11f3cb1f4b5e62501eb49a4836fecf621428025`
+(`fix: validate ReviewReuse decision event timestamps`), on top of initial
+event metadata repair `487c1c58`, request/native-ledger repair `572f7d04`,
+candidate/event repair `00618205`, malformed-adapter repair `36175b14`, the
+original runtime commit `6cc55841`, and the earlier hardening chain through
+`21943856`.
 
 ## 1. Authorization boundary
 
@@ -52,7 +53,7 @@ named by design-lock section 9.1:
 | Parent / authority | `9150e06c75721bf086572ed271b68548104e8300` |
 | Files | `test_review_reuse_er1_store_integrity.py`, `test_review_reuse_er2_ledger.py`, `test_review_reuse_api_integrity.py` |
 | Baseline result | **18 failed** |
-| Runtime-head result | **121 passed** |
+| Runtime-head result | **124 passed** |
 
 Exact command:
 
@@ -611,14 +612,33 @@ schema or changing `_import_migrated`. The complete named fail-first command
 is now **121 passed**, the full ReviewReuse suite is **218 passed**, and the
 identity/production/preflight regressions remain **47 passed**.
 
+A sixteenth exact-head GitHub review (`5058022742`) at
+`5ae43575423d627602b300b1aef76753940f5336` found that the persisted
+`decision_submitted` event's timestamp was not bound to its decision, prior
+event, or task update time. Test-only commit
+`e3b86a99d79cfa76688d6114e729c55e2c27d0b1` added three timestamp mutations;
+the existing load-time binding batch reproduced them as **3 failed / 7
+passed**. Runtime repair
+`b11f3cb1f4b5e62501eb49a4836fecf621428025` enforces
+`prior_event.ts <= human_decision.ts <= decision_submitted.ts <=
+task.updated_at` for every non-empty decided ledger. The same focused batch is
+now **10 passed**.
+
+This check uses existing persisted fields and applies on native load,
+migration, mutation, and audit-export validation through the shared payload
+validator. It does not alter the separately owner-gated all-events-empty
+legacy ambiguity. The complete named fail-first command is now **124 passed**,
+the full ReviewReuse suite is **221 passed**, and the
+identity/production/preflight regressions remain **47 passed**.
+
 ## 6. Verification evidence
 
 Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
-`487c1c58`.
+`b11f3cb1`.
 
 | Gate | Result |
 |---|---:|
-| Exact named fail-first command, including narrower additions | **121 passed** |
+| Exact named fail-first command, including narrower additions | **124 passed** |
 | Focused null/rollback/recovery batch | **6 passed** |
 | Focused duplicate-owner/candidate-evidence batch | **5 passed** |
 | Focused published-write quarantine/decision/calibration batch | **5 passed** (red: 5 failed at test-only `d91309df`) |
@@ -635,7 +655,8 @@ Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
 | Focused candidate/event canonicalization batch | **7 passed** (red: 3 failed / 4 passed at test-only `ba7b4137`) |
 | Focused bounded-body/native-ledger/legacy-layout batch | **5 passed** (red: 5 failed at test-only `783d3996`) |
 | Focused initial-event metadata batch | **7 passed** (red: 5 failed at test-only `1af3587a`) |
-| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **218 passed** |
+| Focused decision-event timestamp batch | **10 passed** (red: 3 failed / 7 passed at test-only `e3b86a99`) |
+| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **221 passed** |
 | Integration-auth + production-identity + pilot-preflight regressions | **47 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 test-core` | **39 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-openapi` | **5 passed** |
