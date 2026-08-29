@@ -7,7 +7,9 @@
 **Ratified authority**: PR #583 exact head
 `9150e06c75721bf086572ed271b68548104e8300`  
 **Runtime implementation head**:
-`6cc55841` (`feat: enforce ReviewReuse ER1 ER2 ledger integrity`)
+`1ee1bad01097dfc6dec3c774c6a5f263fe92192e`
+(`fix: harden ReviewReuse store crash recovery`), on top of the original
+runtime commit `6cc55841`.
 
 ## 1. Authorization boundary
 
@@ -98,9 +100,18 @@ named tests plus narrower adversarial cases.
 - A write-capable filesystem store holds a non-blocking process-lifetime
   `flock` lease.
 - Read-only export and operational validation use explicit read-only stores.
-- Mutations reject an inherited/forked or otherwise unavailable writer lease.
+- Mutations reject an inherited/forked or otherwise unavailable writer lease;
+  closing an inherited handle cannot unlock the parent process lease.
 - Writes use unique same-directory temporary files, file `fsync`, atomic
   replacement, and parent-directory `fsync`.
+- Startup removes only exact internal atomic-write leftovers while unknown
+  files and symbolic links continue to fail closed. Read scans ignore only the
+  same exact temporary-file shape, so an interrupted write cannot permanently
+  block list, metrics, or idempotency recovery.
+- A first tenant is assembled under an exact hidden staging name and atomically
+  published only after `tasks/` and `tenant.json` are durable. Failed staging
+  is removed and a retry starts from an absent tenant rather than a partial
+  directory.
 - A task is written before its create index. Index write failure marks the
   writer unhealthy, preventing a duplicate task until recovery.
 
@@ -115,6 +126,9 @@ named tests plus narrower adversarial cases.
   the backup if the final rename fails.
 - A directory that looks like a new layout is validated before
   `already_migrated` can be returned.
+- A write-capable store validates the whole existing layout at startup and
+  refuses legacy or mixed directories before any hashed tenant write. The
+  explicit dry-run/apply migration remains the only upgrade path.
 
 ## 4. ER2 implementation
 
@@ -153,6 +167,8 @@ named tests plus narrower adversarial cases.
 - A trusted tenant claim cannot enter the reserved `ak-` fallback namespace.
 - Decision-enabled boot requires required integration auth plus JWT secret,
   audience, and issuer, even in development posture.
+- Decision-enabled boot rejects a whitespace-padded issuer instead of booting
+  into a posture where every reviewer principal later fails validation.
 - `expected_revision` is a required strict integer, and the request must carry
   the exact current canonical EvidencePack digest.
 - The store independently binds the committed decision to the pre-commit
@@ -174,16 +190,33 @@ named tests plus narrower adversarial cases.
 - Operator logs receive only the structured store failure code; tenant
   responses contain no path, key, token, or record payload.
 
-## 5. Verification evidence
+## 5. Independent-review hardening
+
+The first runtime head was reviewed again before any merge. Six narrower
+adversarial cases were reproduced against that head and fixed in `1ee1bad0`:
+
+| Finding | Red proof | Closed behavior |
+|---|---|---|
+| Forked child `close()` released the parent `flock` | 1 focused failure | child closes only its inherited descriptor; parent lease stays exclusive |
+| Existing legacy layout was accepted until the first mixed-layout write | included in a 3-failure batch | writer startup refuses legacy/mixed layout before serving |
+| Decision-enabled boot accepted padded issuer configuration | included in a 3-failure batch | exact issuer configuration required |
+| `calibration_status` accepted values outside the design-lock enum | included in a 3-failure batch | persisted model is restricted to `uncalibrated` or `calibrated` |
+| Crash-left atomic temp files permanently broke task scans | included in a 2-failure batch | exact internal leftovers are safely ignored/cleaned under the lease |
+| First-tenant sidecar creation could leave a non-retryable half-directory | included in a 2-failure batch | staged tenant tree is atomically published or fully removed |
+
+After each red reproduction, the focused cases were rerun green. The complete
+ER1 store plus production-identity set is **41 passed** at `1ee1bad0`.
+
+## 6. Verification evidence
 
 All commands below ran locally with Python 3.11.15 at runtime head
-`6cc55841`.
+`1ee1bad0`.
 
 | Gate | Result |
 |---|---:|
-| Exact named fail-first command | **33 passed** |
-| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **126 passed** |
-| Integration-auth + production-identity regressions | **31 passed** |
+| Exact named fail-first command, including narrower additions | **38 passed** |
+| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **131 passed** |
+| Integration-auth + production-identity regressions | **32 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 test-core` | **39 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-openapi` | **5 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-core-fast` | **exit 0; 229 tests + 10 governance checks** |
@@ -217,7 +250,7 @@ expected fail-closed behavior.
 Observed warnings are pre-existing `ezdxf`/pyparsing deprecations and
 short-key warnings from test-only JWT fixtures. No test failed or was skipped.
 
-## 6. Boundary verification
+## 7. Boundary verification
 
 - The implementation diff has no ER3, ER4, capabilities endpoint,
   `eval_integrity_gate`, training/feedback, assistant, or cost-cap runtime
@@ -227,17 +260,17 @@ short-key warnings from test-only JWT fixtures. No test failed or was skipped.
   `codex/review-reuse-er1-er2-20260829` worktree.
 - PR #584 is stacked on the exact ratified #583 branch and remains for review.
 
-## 7. Remaining gates
+## 8. Remaining gates
 
 Engineering-local ER1 + ER2 implementation and verification are complete.
 This does not close the L3 release process.
 
 Still required:
 
-1. Exact-head CI on #584.
-2. Independent review of #584.
-3. Human merge authorization, if approved.
-4. Separate owner authorization before any decision enablement.
-5. Separate ER3 authorization and approved isolated data before real archive
+1. Exact-head CI on the final #584 documentation head.
+2. Owner review of the amended #584 head and explicit merge authorization.
+3. Separate owner authorization before any decision enablement.
+4. Separate ER3 implementation authorization and approved isolated data before real archive
    replay.
-6. ER4 remains deferred until the approved prerequisite boundary is met.
+5. ER4 remains deferred until ER1-ER3 prerequisites close and the owner opens
+   its implementation window.
