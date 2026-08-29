@@ -13,7 +13,12 @@ import pytest
 
 from src.core.review_reuse.canonical import canonical_sha256
 from src.core.review_reuse.evidence import build_evidence_pack, evidence_pack_digest
-from src.core.review_reuse.models import ReviewReuseTask, TaskStatus
+from src.core.review_reuse.models import (
+    CandidateDecision,
+    CandidateState,
+    ReviewReuseTask,
+    TaskStatus,
+)
 from src.core.review_reuse.store import (
     FilesystemReviewReuseStore,
     ReviewReuseStoreError,
@@ -287,6 +292,64 @@ def test_evidence_calibration_version_must_match_task(tmp_path: Path) -> None:
         _close(store)
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("state", "duplicate"),
+        (
+            "scores",
+            {
+                "geometric": 0.2,
+                "semantic": 0.1,
+                "visual": 0.05,
+                "confidence": 0.2,
+            },
+        ),
+        ("verification", {"methods": ["tampered"], "verified": False}),
+        ("provenance", {"model": "tampered"}),
+    ],
+)
+def test_task_candidate_evidence_must_match_persisted_pack(
+    tmp_path: Path,
+    field: str,
+    value: object,
+) -> None:
+    root = tmp_path / "store"
+    store = FilesystemReviewReuseStore(root)
+    task = _task("tenant-candidate-evidence")
+    task.candidates = [
+        CandidateDecision(
+            candidate_id="candidate-a",
+            candidate_source="archive",
+            state=CandidateState.similar,
+            scores={
+                "geometric": 0.81,
+                "semantic": 0.63,
+                "visual": 0.4,
+                "confidence": 0.82,
+            },
+            verification={"methods": ["geometry"], "verified": True},
+            provenance={"model": "dedup2d-v1"},
+        )
+    ]
+    task.status = TaskStatus.evidence_ready
+    task.evidence_pack = build_evidence_pack(task)
+    try:
+        _create(store, task)
+        record_path = (
+            _tenant_dir(root, task.tenant_id) / "tasks" / f"{task.task_id}.json"
+        )
+        payload = json.loads(record_path.read_text(encoding="utf-8"))
+        payload["candidates"][0][field] = value
+        record_path.write_text(json.dumps(payload), encoding="utf-8")
+
+        with pytest.raises(Exception) as raised:
+            store.get(task.tenant_id, task.task_id)
+        assert _error_code(raised.value) == "store_record_corrupt"
+    finally:
+        _close(store)
+
+
 def test_legacy_migration_rejects_nested_unknown_calibration_status(
     tmp_path: Path,
 ) -> None:
@@ -512,6 +575,57 @@ def test_create_if_absent_recovers_one_task(tmp_path: Path) -> None:
         assert [path.stem for path in task_files] == [original.task_id]
     finally:
         _close(second_store)
+
+
+def test_indexed_idempotency_replay_rejects_duplicate_owner(tmp_path: Path) -> None:
+    root = tmp_path / "store"
+    key = "duplicate-owner-key"
+    tenant_id = "tenant-duplicate-owner"
+    digest = canonical_sha256(
+        {"tenant_id": tenant_id, "source_content_sha256": "a" * 64}
+    )
+    original = _task(
+        tenant_id,
+        idempotency_key=key,
+        idempotency_digest=digest,
+    )
+    duplicate = _task(
+        tenant_id,
+        idempotency_key=key,
+        idempotency_digest=digest,
+    )
+    store = FilesystemReviewReuseStore(root)
+    try:
+        _create(store, original)
+        duplicate_path = (
+            _tenant_dir(root, tenant_id) / "tasks" / f"{duplicate.task_id}.json"
+        )
+        duplicate_path.write_text(
+            json.dumps(duplicate.model_dump(mode="json")), encoding="utf-8"
+        )
+        retry = _task(
+            tenant_id,
+            idempotency_key=key,
+            idempotency_digest=digest,
+        )
+
+        with pytest.raises(Exception) as replay_error:
+            _create(store, retry)
+        assert _error_code(replay_error.value) == "store_index_corrupt"
+
+        with pytest.raises(Exception) as lookup_error:
+            store.get_by_idempotency(tenant_id, key)
+        assert _error_code(lookup_error.value) == "store_index_corrupt"
+
+        with pytest.raises(Exception) as list_error:
+            store.list_for_tenant(tenant_id)
+        assert _error_code(list_error.value) == "store_index_corrupt"
+    finally:
+        _close(store)
+
+    with pytest.raises(Exception) as restart_error:
+        FilesystemReviewReuseStore(root)
+    assert _error_code(restart_error.value) == "store_index_corrupt"
 
 
 def test_restart_cleans_atomic_write_temporary_files(tmp_path: Path) -> None:
