@@ -7,9 +7,10 @@
 **Ratified authority**: PR #583 exact head
 `9150e06c75721bf086572ed271b68548104e8300`  
 **Runtime implementation head**:
-`1bcf275d9fe2da519fd4d75c48946be47953d92c`
-(`fix: make ReviewReuse migration metadata durable`), on top of the original
-runtime commit `6cc55841` and hardening commits `1ee1bad0` and `9494cc24`.
+`60df0f9f7f3b7bed8d98a2fca7f82de7a10fa953`
+(`fix: harden ReviewReuse migration rollback`), on top of the original runtime
+commit `6cc55841` and hardening commits `1ee1bad0`, `9494cc24`, and
+`1bcf275d`.
 
 ## 1. Authorization boundary
 
@@ -50,7 +51,7 @@ named by design-lock section 9.1:
 | Parent / authority | `9150e06c75721bf086572ed271b68548104e8300` |
 | Files | `test_review_reuse_er1_store_integrity.py`, `test_review_reuse_er2_ledger.py`, `test_review_reuse_api_integrity.py` |
 | Baseline result | **18 failed** |
-| Runtime-head result | **48 passed** |
+| Runtime-head result | **54 passed** |
 
 Exact command:
 
@@ -131,9 +132,14 @@ named tests plus narrower adversarial cases.
   held through the rename, and holds the canonical-root lease across the entire
   backup/publish swap. A competing writer cannot create or serve a replacement
   root between the two renames. Apply retains a uniquely named legacy backup
-  and restores it if the final rename fails.
-- Every backup, publish, and rollback namespace rename is followed by an
-  `fsync` of the containing directory before migration can report success.
+  and restores it after publish or durability failure.
+- Backup and successful publish namespace changes are followed by an `fsync`
+  of the containing directory. Rollback completes all recovery renames before
+  its durability barrier; a persistent rollback `fsync` retains the staged
+  migrated copy rather than deleting the last spare.
+- If backup restore fails, migration republishes the fully built staging store.
+  If both root recovery attempts fail, the legacy backup and migrated staging
+  copy remain intact for operator recovery instead of being cleaned up.
 - A directory that looks like a new layout is validated before
   `already_migrated` can be returned.
 - A write-capable store validates the whole existing layout at startup and
@@ -186,6 +192,9 @@ named tests plus narrower adversarial cases.
 - A digest-valid EvidencePack must bind both nested calibration version and
   status to the owning task; migration refuses mismatches before recomputing a
   digest.
+- Migration distinguishes missing legacy calibration metadata from explicit
+  JSON `null`: a null calibration object, version, or status is corrupt and is
+  never silently backfilled and re-signed.
 - Client-supplied derived identity fields are forbidden rather than ignored.
 - Candidate/state matrix, closed new-submission reason vocabulary, non-empty
   rationale, actor-bound idempotency, and terminal-state semantics are
@@ -248,15 +257,41 @@ compatibility case already passed. They were fixed in `1bcf275d`:
 The eight-case focused batch is **8 passed** and the complete named fail-first
 command is **48 passed** at `1bcf275d`.
 
+A fourth exact-head GitHub review at `96d1ba4b` found two migration gaps. The
+two null-field cases plus persistent rollback-`fsync` case reproduced together
+as **3 failed**; a separate backup-restore recovery case reproduced as **1
+failed**. The first repair batch made all four pass:
+
+| Finding | Red proof | Closed behavior |
+|---|---|---|
+| Rollback performed a parent `fsync` while the configured root was absent | persistent `fsync` failure left the legacy root missing | rollback restores or republishes a complete root before its durability barrier |
+| Present `calibration.version/status = null` was treated as missing | both malformed packs were accepted and re-signed | key presence is distinguished from absence and explicit null fails closed |
+| Backup restore failure could leave the configured root absent | recovery exception left only off-path artifacts | the fully validated staging store is republished as the fallback root |
+
+A read-only Grok 4.6 review then found two narrower durability/schema cases and
+one missing recovery-path assertion. The new batch reproduced **2 failed / 3
+passed** before the repair. The complete focused migration batch is now **6
+passed**:
+
+| Finding | Red proof | Closed behavior |
+|---|---|---|
+| A failed rollback `fsync` still triggered deletion of the staged spare | restored root existed but the migrated staging copy was removed | staging cleanup is allowed only after the rollback namespace is durably synced |
+| Whole-object `calibration = null` differed from live-store validation | migration backfilled and re-signed the malformed object | object null and nested nulls all fail closed; only absent legacy fields may be backfilled |
+| Both backup restore and staging republish failure lacked direct coverage | the new assertion already passed against the recovery guard | both complete copies are retained when the filesystem rejects both root recovery renames |
+
+At runtime head `60df0f9f`, the complete named fail-first command is **54
+passed** and the full ReviewReuse suite is **148 passed**.
+
 ## 6. Verification evidence
 
 Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
-`1bcf275d`.
+`60df0f9f`.
 
 | Gate | Result |
 |---|---:|
-| Exact named fail-first command, including narrower additions | **48 passed** |
-| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **142 passed** |
+| Exact named fail-first command, including narrower additions | **54 passed** |
+| Focused null/rollback/recovery batch | **6 passed** |
+| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **148 passed** |
 | Integration-auth + production-identity + pilot-preflight regressions | **44 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 test-core` | **39 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-openapi` | **5 passed** |
@@ -264,7 +299,7 @@ Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
 | JCS finite-binary64 differential vs Node `JSON.stringify` at `1ee1bad0`; canonical module unchanged at current head | **20,000 cases; 0 mismatches** |
 | Black + isort | **pass (26 files)** |
 | flake8 | **pass (26 files)** |
-| mypy | **success (12 source files)** |
+| mypy | **success (11 source/script files)** |
 | compileall | **pass** |
 | `git diff --check` | **pass** |
 
