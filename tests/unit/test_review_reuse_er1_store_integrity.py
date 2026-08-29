@@ -350,6 +350,34 @@ def test_task_candidate_evidence_must_match_persisted_pack(
         _close(store)
 
 
+def test_undecided_task_rejects_forged_pack_decision(tmp_path: Path) -> None:
+    root = tmp_path / "store"
+    store = FilesystemReviewReuseStore(root)
+    task = _task("tenant-undecided-pack")
+    task.status = TaskStatus.evidence_ready
+    task.evidence_pack = build_evidence_pack(task)
+    try:
+        _create(store, task)
+        record_path = (
+            _tenant_dir(root, task.tenant_id) / "tasks" / f"{task.task_id}.json"
+        )
+        payload = json.loads(record_path.read_text(encoding="utf-8"))
+        pack = payload["evidence_pack"]
+        pack["human_decision"] = {
+            "state": "reuse",
+            "allowed_actions": ["reuse", "revise", "new"],
+            "submitted": {"forged": True},
+        }
+        pack["evidence_pack_sha256"] = evidence_pack_digest(pack)
+        record_path.write_text(json.dumps(payload), encoding="utf-8")
+
+        with pytest.raises(Exception) as raised:
+            store.get(task.tenant_id, task.task_id)
+        assert _error_code(raised.value) == "store_record_corrupt"
+    finally:
+        _close(store)
+
+
 def test_legacy_migration_rejects_nested_unknown_calibration_status(
     tmp_path: Path,
 ) -> None:
@@ -676,6 +704,108 @@ def test_partial_tenant_creation_does_not_brick_retry(
         assert _create(store, task).task_id == task.task_id
     finally:
         _close(store)
+
+
+def test_published_tenant_fsync_failure_quarantines_until_restart(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from src.core.review_reuse import store as store_module
+
+    root = tmp_path / "store"
+    store = FilesystemReviewReuseStore(root)
+    task = _task("tenant-publish-fsync")
+    tenant_dir = _tenant_dir(root, task.tenant_id)
+    real_fsync = store_module._fsync_directory
+
+    def fail_root_fsync(path: Path) -> None:
+        if path == root:
+            raise OSError("simulated tenant publish fsync failure")
+        real_fsync(path)
+
+    monkeypatch.setattr(store_module, "_fsync_directory", fail_root_fsync)
+    try:
+        with pytest.raises(Exception) as create_error:
+            _create(store, task)
+        assert _error_code(create_error.value) == "store_record_corrupt"
+        assert tenant_dir.is_dir()
+
+        with pytest.raises(Exception) as read_error:
+            store.list_for_tenant(task.tenant_id)
+        assert _error_code(read_error.value) == "store_writer_conflict"
+
+        with pytest.raises(Exception) as retry_error:
+            _create(store, task)
+        assert _error_code(retry_error.value) == "store_writer_conflict"
+    finally:
+        _close(store)
+
+    recovery_fsyncs: list[Path] = []
+
+    def track_recovery_fsync(path: Path) -> None:
+        recovery_fsyncs.append(path)
+        real_fsync(path)
+
+    monkeypatch.setattr(store_module, "_fsync_directory", track_recovery_fsync)
+    recovered = FilesystemReviewReuseStore(root)
+    try:
+        assert root in recovery_fsyncs
+        assert _create(recovered, task).task_id == task.task_id
+    finally:
+        _close(recovered)
+
+
+def test_published_task_fsync_failure_quarantines_until_restart(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from src.core.review_reuse import store as store_module
+
+    root = tmp_path / "store"
+    store = FilesystemReviewReuseStore(root)
+    seed = _task("tenant-task-fsync")
+    task = _task(seed.tenant_id)
+    _create(store, seed)
+    tasks_dir = _tenant_dir(root, task.tenant_id) / "tasks"
+    task_path = tasks_dir / f"{task.task_id}.json"
+    real_fsync = store_module._fsync_directory
+
+    def fail_tasks_fsync(path: Path) -> None:
+        if path == tasks_dir:
+            raise OSError("simulated task publish fsync failure")
+        real_fsync(path)
+
+    monkeypatch.setattr(store_module, "_fsync_directory", fail_tasks_fsync)
+    try:
+        with pytest.raises(Exception) as create_error:
+            _create(store, task)
+        assert _error_code(create_error.value) == "store_record_corrupt"
+        assert task_path.is_file()
+
+        with pytest.raises(Exception) as read_error:
+            store.get(task.tenant_id, task.task_id)
+        assert _error_code(read_error.value) == "store_writer_conflict"
+
+        with pytest.raises(Exception) as retry_error:
+            _create(store, task)
+        assert _error_code(retry_error.value) == "store_writer_conflict"
+    finally:
+        _close(store)
+
+    recovery_fsyncs: list[Path] = []
+
+    def track_recovery_fsync(path: Path) -> None:
+        recovery_fsyncs.append(path)
+        real_fsync(path)
+
+    monkeypatch.setattr(store_module, "_fsync_directory", track_recovery_fsync)
+    recovered = FilesystemReviewReuseStore(root)
+    try:
+        assert tasks_dir in recovery_fsyncs
+        loaded = recovered.get(task.tenant_id, task.task_id)
+        assert loaded is not None and loaded.task_id == task.task_id
+    finally:
+        _close(recovered)
 
 
 def test_store_rejects_noncanonical_create_digest(tmp_path: Path) -> None:

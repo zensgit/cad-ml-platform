@@ -286,6 +286,42 @@ def test_store_cas_rejects_identity_or_candidate_rewrite() -> None:
     assert unchanged.revision == current.revision
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("calibration_version", "tampered-calibration"),
+        ("calibration_status", "calibrated"),
+    ],
+)
+def test_store_cas_freezes_reviewed_calibration(field: str, value: str) -> None:
+    store = InMemoryReviewReuseStore()
+    service = ReviewReuseService(store)
+    current = _create_ready(service)
+    altered = current.model_copy(deep=True)
+    altered.revision = current.revision + 1
+    altered.status = TaskStatus.decided
+    setattr(altered, field, value)
+    altered.human_decision = HumanDecision(
+        state=HumanDecisionState.revise,
+        reviewer_id=_REVIEWER_A,
+        reviewer_kind="validated_principal",
+        reason_codes=["needs_modification"],
+        reason_text="Reviewed evidence.",
+        candidate_id="archive-1",
+        ts=1.0,
+        reviewed_revision=current.revision,
+        evidence_pack_sha256=_pack_digest(current),
+    )
+    altered.events.append(
+        TaskEvent(event_type=TaskEventType.decision_submitted, ts=1.0, detail={})
+    )
+    altered.evidence_pack = build_evidence_pack(altered)
+
+    with pytest.raises(Exception) as raised:
+        store.put(altered, expected_revision=current.revision)
+    assert getattr(raised.value, "code", None) == "store_record_corrupt"
+
+
 def test_idempotency_key_conflicts_on_payload_change(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
