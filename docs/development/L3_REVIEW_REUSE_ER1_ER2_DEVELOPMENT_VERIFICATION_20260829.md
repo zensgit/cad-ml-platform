@@ -7,10 +7,10 @@
 **Ratified authority**: PR #583 exact head
 `9150e06c75721bf086572ed271b68548104e8300`<br>
 **Runtime implementation head**:
-`dc4879166f58fed38afab91f3f834b70465f7289`
-(`fix: bind ReviewReuse identity and ledger transitions`), on top of the
+`707dcbf7d9d34c8aa5b3cb0ef20b4b15ab6f227d`
+(`fix: reject unknown ReviewReuse record fields`), on top of the
 original runtime commit `6cc55841` and the earlier hardening chain through
-`50e49686`.
+`dc487916`.
 
 ## 1. Authorization boundary
 
@@ -51,7 +51,7 @@ named by design-lock section 9.1:
 | Parent / authority | `9150e06c75721bf086572ed271b68548104e8300` |
 | Files | `test_review_reuse_er1_store_integrity.py`, `test_review_reuse_er2_ledger.py`, `test_review_reuse_api_integrity.py` |
 | Baseline result | **18 failed** |
-| Runtime-head result | **88 passed** |
+| Runtime-head result | **96 passed** |
 
 Exact command:
 
@@ -77,6 +77,9 @@ named tests plus narrower adversarial cases.
 - Every tenant directory carries an exact four-field `tenant.json` sidecar.
 - Reads verify directory, sidecar, tenant, task id, record schema, EvidencePack
   identity, and digest ownership.
+- Task, candidate, event, and human-decision model envelopes reject unknown
+  fields on native reads and legacy migration. Contract-defined dictionary
+  payloads remain open only within their named fields.
 - Canonical lowercase hyphenated UUID task ids are the only task filenames.
 - Reads do not create tenant directories, sidecars, or indexes.
 - Lexical traversal, nested symbolic-link traversal, and out-of-root task,
@@ -456,14 +459,30 @@ At runtime head `dc487916`, the complete named fail-first command is **88
 passed**, the full ReviewReuse suite is **183 passed**, and the integration
 auth/production-identity/pilot-preflight regressions are **46 passed**.
 
+An eleventh exact-head GitHub review at
+`eb81fc3aa4fd4104e98e726d900c8cb93af1e926` found that Pydantic's default
+extra-field behavior silently discarded unknown persisted fields before ER1
+integrity validation. Test-only commit
+`c93fc5deede7d51f6f9bd9fc449be53ea267775f` reproduced **8 failed** across
+native and legacy task/candidate/event/decision envelopes. Runtime repair
+`707dcbf7d9d34c8aa5b3cb0ef20b4b15ab6f227d` closes those four model envelopes
+with `extra="forbid"`; the same focused command is **8 passed**. Named
+dictionary fields such as event detail, candidate scores/verification/
+provenance, and EvidencePack remain governed by their existing content
+contracts rather than being recursively closed by this change.
+
+At runtime head `707dcbf7`, the complete named fail-first command is **96
+passed**, the full ReviewReuse suite is **191 passed**, and the integration
+auth/production-identity/pilot-preflight regressions remain **46 passed**.
+
 ## 6. Verification evidence
 
 Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
-`dc487916`.
+`707dcbf7`.
 
 | Gate | Result |
 |---|---:|
-| Exact named fail-first command, including narrower additions | **88 passed** |
+| Exact named fail-first command, including narrower additions | **96 passed** |
 | Focused null/rollback/recovery batch | **6 passed** |
 | Focused duplicate-owner/candidate-evidence batch | **5 passed** |
 | Focused published-write quarantine/decision/calibration batch | **5 passed** (red: 5 failed at test-only `d91309df`) |
@@ -473,7 +492,8 @@ Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
 | Focused single-snapshot/candidate-vocabulary/JSON-suffix batch | **5 passed** (red: 5 failed at test-only `cf26776e`) |
 | Focused implicit-JSON duplicate-key case | **1 passed** (red: 1 failed at test-only `ed0c4302`) |
 | Focused identity/event/root/legacy-artifact batch | **11 passed** (red: 10 failed at `68d69438` plus 1 failed at `fa6ad4e1`) |
-| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **183 passed** |
+| Focused unknown record-field batch | **8 passed** (red: 8 failed at test-only `c93fc5de`) |
+| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **191 passed** |
 | Integration-auth + production-identity + pilot-preflight regressions | **46 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 test-core` | **39 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-openapi` | **5 passed** |
@@ -481,7 +501,7 @@ Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
 | JCS finite-binary64 differential vs Node `JSON.stringify` at `1ee1bad0`; canonical module unchanged at current head | **20,000 cases; 0 mismatches** |
 | Black + isort | **pass (26 format-clean files); legacy-layout `src/core/config/__init__.py` kept surgical** |
 | flake8 | **pass (27 files)** |
-| mypy | **success (4 newly changed source files)** |
+| mypy | **success (5 newly changed source files)** |
 | `py_compile` | **pass (27 changed Python files)** |
 | `git diff --check` | **pass** |
 
