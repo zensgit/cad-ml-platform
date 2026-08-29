@@ -1,6 +1,6 @@
 {
   "schema_version": "review-reuse-er3-evidence-pack-v2-contract-v1",
-  "contract_sha256": "0045bf4655558ea3ff1342706bd1af1c2eca26304821ebc19c0fe2ac7ff446db",
+  "contract_sha256": "5ae075ddeafa318234b604f6379b7967094206e3ebb68a69c79c12887628d37e",
   "canonicalization": {
     "algorithm": "sha-256",
     "function": "src.core.review_reuse.canonical.canonical_json_v1",
@@ -83,6 +83,196 @@
       "evidence_context_required": true,
       "calibration_version_nullable_only_when_status_uncalibrated": true,
       "archive_candidates_must_bind_receipts": true
+    }
+  },
+  "index_receipt_contract": {
+    "raw_response": {
+      "exact_fields": [
+        "success",
+        "drawing_id",
+        "file_hash",
+        "message",
+        "processing_time_ms",
+        "s3_key"
+      ],
+      "types_and_nullability": {
+        "success": "literal true",
+        "drawing_id": "integer >= 1; boolean forbidden",
+        "file_hash": "64 lowercase hex",
+        "message": "literal Drawing indexed successfully",
+        "processing_time_ms": "finite number >= 0; boolean forbidden",
+        "s3_key": "literal null"
+      },
+      "digest": "raw_response_sha256 is canonical_sha256 of the complete strict six-field response with no excluded field",
+      "invariants": [
+        "strict I-JSON parsing and exact-field validation happen before normalization",
+        "success is true and drawing_id is non-null",
+        "file_hash equals the manifest archive entry SHA-256",
+        "s3_key is null because upload_to_s3=false",
+        "an already-indexed message is invalid because the pre-count-zero archive has unique hashes"
+      ]
+    },
+    "normalized_receipt": {
+      "schema_version": "review-reuse-er3-index-receipt-v1",
+      "exact_fields": [
+        "schema_version",
+        "archive_entry_id",
+        "drawing_id",
+        "file_hash",
+        "success",
+        "raw_response_sha256",
+        "index_receipt_sha256"
+      ],
+      "types_and_nullability": {
+        "schema_version": "literal review-reuse-er3-index-receipt-v1",
+        "archive_entry_id": "one ratified manifest archive entry_id",
+        "drawing_id": "base-10 string of a positive integer with no leading zero",
+        "file_hash": "64 lowercase hex",
+        "success": "literal true",
+        "raw_response_sha256": "64 lowercase hex",
+        "index_receipt_sha256": "64 lowercase hex"
+      },
+      "digest_excludes": [
+        "index_receipt_sha256"
+      ],
+      "invariants": [
+        "drawing_id is the exact base-10 string conversion of raw_response.drawing_id",
+        "file_hash and success equal the validated raw response",
+        "raw_response_sha256 equals the canonical digest of the corresponding raw response artifact",
+        "index_receipt_sha256 equals canonical_sha256 of this object after removing only index_receipt_sha256"
+      ]
+    },
+    "receipt_set": {
+      "schema_version": "review-reuse-er3-index-receipt-set-v1",
+      "exact_fields": [
+        "schema_version",
+        "archive_manifest_sha256",
+        "receipts",
+        "index_receipt_set_sha256"
+      ],
+      "types_and_nullability": {
+        "schema_version": "literal review-reuse-er3-index-receipt-set-v1",
+        "archive_manifest_sha256": "64 lowercase hex",
+        "receipts": "non-empty array of normalized_receipt objects",
+        "index_receipt_set_sha256": "64 lowercase hex"
+      },
+      "receipt_order": [
+        "archive-exact-001",
+        "archive-control-001",
+        "archive-control-002"
+      ],
+      "digest_excludes": [
+        "index_receipt_set_sha256"
+      ],
+      "invariants": [
+        "receipts contains every and only ratified manifest archive entry exactly once",
+        "receipts are ordered by the manifest archive-entry order fixed above, never by drawing_id or response timing",
+        "each embedded normalized receipt includes its verified index_receipt_sha256",
+        "archive_manifest_sha256 equals the ratified manifest digest",
+        "index_receipt_set_sha256 equals canonical_sha256 of this object after removing only index_receipt_set_sha256",
+        "ReviewReuseEvidenceContextV2.index_receipt_set_sha256 and EvidencePack provenance.dataset.receipt_set_sha256 both equal this digest",
+        "each candidate provenance.index_receipt_sha256 equals the matching embedded receipt digest selected by drawing_id and file_hash"
+      ]
+    },
+    "golden_vectors": {
+      "raw_responses": [
+        {
+          "response": {
+            "success": true,
+            "drawing_id": 1,
+            "file_hash": "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c",
+            "message": "Drawing indexed successfully",
+            "processing_time_ms": 1.25,
+            "s3_key": null
+          },
+          "expected_raw_response_sha256": "73375228013d0fde26479f5bab413a0b9bd7df280ae7d1d82eb9a53895a48f18"
+        },
+        {
+          "response": {
+            "success": true,
+            "drawing_id": 2,
+            "file_hash": "c32bd82c54124d87fe0731f7cc1a05e4d0147d755d9cd98dc41a1aaa047495e6",
+            "message": "Drawing indexed successfully",
+            "processing_time_ms": 1.5,
+            "s3_key": null
+          },
+          "expected_raw_response_sha256": "c5850a783fc84cac0c2760895956979ac578cf61209113760d2aabd31791a1a8"
+        },
+        {
+          "response": {
+            "success": true,
+            "drawing_id": 3,
+            "file_hash": "9a9ca171ef968202eb69523eb0db9e8f88009cb0048a0d301dfa87076bb48d7e",
+            "message": "Drawing indexed successfully",
+            "processing_time_ms": 1.75,
+            "s3_key": null
+          },
+          "expected_raw_response_sha256": "546dbeeb36c141005e4976a280561ae4bde83f2558ce6594884e14f111582698"
+        }
+      ],
+      "normalized_receipts": [
+        {
+          "schema_version": "review-reuse-er3-index-receipt-v1",
+          "archive_entry_id": "archive-exact-001",
+          "drawing_id": "1",
+          "file_hash": "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c",
+          "success": true,
+          "raw_response_sha256": "73375228013d0fde26479f5bab413a0b9bd7df280ae7d1d82eb9a53895a48f18",
+          "index_receipt_sha256": "fca2bff78443a915ac9307ac0a4523060d0cf7e2e73ff45a1587f186fe4e3832"
+        },
+        {
+          "schema_version": "review-reuse-er3-index-receipt-v1",
+          "archive_entry_id": "archive-control-001",
+          "drawing_id": "2",
+          "file_hash": "c32bd82c54124d87fe0731f7cc1a05e4d0147d755d9cd98dc41a1aaa047495e6",
+          "success": true,
+          "raw_response_sha256": "c5850a783fc84cac0c2760895956979ac578cf61209113760d2aabd31791a1a8",
+          "index_receipt_sha256": "cf5d2595145b343629bf791f5798b2e6e0e62e1dd9b225409ddb6aae036c0b76"
+        },
+        {
+          "schema_version": "review-reuse-er3-index-receipt-v1",
+          "archive_entry_id": "archive-control-002",
+          "drawing_id": "3",
+          "file_hash": "9a9ca171ef968202eb69523eb0db9e8f88009cb0048a0d301dfa87076bb48d7e",
+          "success": true,
+          "raw_response_sha256": "546dbeeb36c141005e4976a280561ae4bde83f2558ce6594884e14f111582698",
+          "index_receipt_sha256": "32f33a331614a426989efb8df566ee9e0a542df4b54ec51f062c363f7d2dc9ff"
+        }
+      ],
+      "receipt_set": {
+        "schema_version": "review-reuse-er3-index-receipt-set-v1",
+        "archive_manifest_sha256": "7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf",
+        "receipts": [
+          {
+            "schema_version": "review-reuse-er3-index-receipt-v1",
+            "archive_entry_id": "archive-exact-001",
+            "drawing_id": "1",
+            "file_hash": "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c",
+            "success": true,
+            "raw_response_sha256": "73375228013d0fde26479f5bab413a0b9bd7df280ae7d1d82eb9a53895a48f18",
+            "index_receipt_sha256": "fca2bff78443a915ac9307ac0a4523060d0cf7e2e73ff45a1587f186fe4e3832"
+          },
+          {
+            "schema_version": "review-reuse-er3-index-receipt-v1",
+            "archive_entry_id": "archive-control-001",
+            "drawing_id": "2",
+            "file_hash": "c32bd82c54124d87fe0731f7cc1a05e4d0147d755d9cd98dc41a1aaa047495e6",
+            "success": true,
+            "raw_response_sha256": "c5850a783fc84cac0c2760895956979ac578cf61209113760d2aabd31791a1a8",
+            "index_receipt_sha256": "cf5d2595145b343629bf791f5798b2e6e0e62e1dd9b225409ddb6aae036c0b76"
+          },
+          {
+            "schema_version": "review-reuse-er3-index-receipt-v1",
+            "archive_entry_id": "archive-control-002",
+            "drawing_id": "3",
+            "file_hash": "9a9ca171ef968202eb69523eb0db9e8f88009cb0048a0d301dfa87076bb48d7e",
+            "success": true,
+            "raw_response_sha256": "546dbeeb36c141005e4976a280561ae4bde83f2558ce6594884e14f111582698",
+            "index_receipt_sha256": "32f33a331614a426989efb8df566ee9e0a542df4b54ec51f062c363f7d2dc9ff"
+          }
+        ],
+        "index_receipt_set_sha256": "4ef0230430f9095f17fcf036843a67ee26a32a794feca4346e4ce53cc4d2ce74"
+      }
     }
   },
   "envelope": {
@@ -329,7 +519,7 @@
     "conditional_invariants": [
       "source_job_id equals task_id and source values equal the persisted task source",
       "task_id, task_revision, trace_id, idempotency_key, tenant_id, and schema_version equal the persisted task and immutable selector",
-      "candidate ids are unique; every candidate provenance drawing_id and file_hash matches one successful index receipt",
+      "candidate ids are unique; every candidate provenance drawing_id, file_hash, and index_receipt_sha256 match one canonical normalized receipt",
       "the exact receipt-bound archive-exact-001 candidate is present; zero candidates or an unknown candidate is invalid",
       "candidate.state equals candidate.verification.verdict",
       "for this ratified ER3 run semantic and geometric scores and normalizations are null, visual is finite and non-null, and visual normalization is dedupcad-vision-l2-cosine-v1",
@@ -362,7 +552,7 @@
     "schema_version": "evidence-pack-v2",
     "task_id": "00000000-0000-4000-8000-000000000003",
     "task_revision": 2,
-    "evidence_pack_sha256": "3aa3ce7fc94abb80e0693bf2229d9f8c244482cc3eaa488ed80cb173462a33c4",
+    "evidence_pack_sha256": "10c306d374060b2406d2b98ca19ee7ddcaaf162c0a8f0ef59a945c46df652cb4",
     "trace_id": "00000000-0000-4000-8000-000000000004",
     "idempotency_key": "er3-golden-key",
     "source_job_id": "00000000-0000-4000-8000-000000000003",
@@ -403,7 +593,7 @@
         "provenance": {
           "drawing_id": "1",
           "file_hash": "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c",
-          "index_receipt_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "index_receipt_sha256": "fca2bff78443a915ac9307ac0a4523060d0cf7e2e73ff45a1587f186fe4e3832",
           "search_response_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
           "service_image_digest": "sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
           "score_mapping_ruleset_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
@@ -452,7 +642,7 @@
       "dataset": {
         "archive_id": "rr-er3-repository-fixture-v1",
         "manifest_sha256": "7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf",
-        "receipt_set_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        "receipt_set_sha256": "4ef0230430f9095f17fcf036843a67ee26a32a794feca4346e4ce53cc4d2ce74"
       },
       "input": {
         "query_sha256": "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c",
@@ -481,7 +671,7 @@
       "submitted": null
     }
   },
-  "golden_evidence_pack_sha256": "3aa3ce7fc94abb80e0693bf2229d9f8c244482cc3eaa488ed80cb173462a33c4",
+  "golden_evidence_pack_sha256": "10c306d374060b2406d2b98ca19ee7ddcaaf162c0a8f0ef59a945c46df652cb4",
   "limitations": [
     "The golden vector freezes serialization and digest semantics, not model quality.",
     "The ER3 runner never enables or submits a human decision.",

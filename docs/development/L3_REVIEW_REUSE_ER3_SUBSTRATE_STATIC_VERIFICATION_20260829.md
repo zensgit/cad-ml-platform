@@ -25,9 +25,9 @@ implementation, merge, decision enablement, deployment, pilot, or customer data.
 | Static attestation | `L3_REVIEW_REUSE_ER3_VISION_SUBSTRATE_ATTESTATION_20260829.json` |
 | EvidencePack v2 contract | `L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json` |
 | Archive manifest digest | `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf` |
-| Static attestation digest | `984a49d180dbfa482b5c405a6c8cb2ef7a33078c4dcc88633a566d8b75c0145e` |
-| EvidencePack v2 contract digest | `0045bf4655558ea3ff1342706bd1af1c2eca26304821ebc19c0fe2ac7ff446db` |
-| Embedded EvidencePack golden digest | `3aa3ce7fc94abb80e0693bf2229d9f8c244482cc3eaa488ed80cb173462a33c4` |
+| Static attestation digest | `6b632a2a8bb2615ab78db65e6bcf0ae57f6c32ac37110df59395208b43997283` |
+| EvidencePack v2 contract digest | `5ae075ddeafa318234b604f6379b7967094206e3ebb68a69c79c12887628d37e` |
+| Embedded EvidencePack golden digest | `10c306d374060b2406d2b98ca19ee7ddcaaf162c0a8f0ef59a945c46df652cb4` |
 | Vision OCI index | `sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251` |
 
 The manifest, attestation, contract, and embedded golden digests were recomputed
@@ -166,9 +166,26 @@ leave a mutation surface available to other host processes. The corrected
 contract uses Docker network mode `none`, publishes no TCP or Unix socket, binds
 Uvicorn to in-container loopback, and performs only fixed-argv `docker exec` and
 `docker cp` through the local Docker daemon. It additionally requires the post-
-index result to include the exact `(drawing_id, file_hash)` pair bound by the
-`archive-exact-001` receipt; a zero-hit or unknown-candidate response is failure
-even when the provider reports `success=true`.
+index result to include the exact `(drawing_id, file_hash,
+index_receipt_sha256)` triple bound by the `archive-exact-001` canonical receipt;
+a zero-hit, unknown-candidate, or receipt-digest mismatch is failure even when the
+provider reports `success=true`.
+
+An exact-head GitHub Codex review of `0b7ca4975d2ccc57890e6e408bccff873ca99712`
+then found two remaining contract defects:
+
+- candidate provenance matched only receipt identity, not the digest of that
+  exact receipt, while the receipt-set canonical preimage and ordering were not
+  frozen;
+- accepting curl timeout exit 28 could pass when outbound networking existed but
+  the fixed target silently dropped packets.
+
+The subsequent docs-only revision closes both. The v2 contract now freezes the
+strict six-field supplier response, normalized receipt, manifest-ordered receipt
+set, their exclusions and golden vectors, plus candidate/context/pack equality.
+The no-egress probe accepts only curl exit 7 with HTTP code `000`; exit 28 fails,
+and Docker `NetworkMode=none` with no attachments remains authoritative. These are
+design corrections, not runtime observations.
 
 ## 6. Commands and results
 
@@ -197,8 +214,10 @@ Results:
 - manifest canonical digest matched;
 - static attestation strict parse and canonical digest matched;
 - v2 contract strict parse, canonical digest, and embedded golden digest matched;
+- all three raw-response, normalized-receipt, and receipt-set golden vectors
+  recomputed to their stored digests;
 - source paths and endpoint semantics above matched exact revision `2fc35d60...`;
-- the design names 48 unique fail-first tests and preserves public DXF/v1 behavior;
+- the design names 50 unique fail-first tests and preserves public DXF/v1 behavior;
 - the existing canonical, EvidencePack golden, and ER1 store-integrity regression
   selection passed `120/120` under Python 3.11;
 - no runtime code was modified by this static tranche.
@@ -227,7 +246,8 @@ Therefore none of the following is claimed:
   no-egress probe exit/status contract, or the
   Docker-daemon administrative boundary;
 - observed zero/three counts or L1/L2 sizes;
-- image startup, PNG decoding, index receipts, rebuild, search, cleanup, or replay.
+- image startup, PNG decoding, real index receipts or receipt-set digests, rebuild,
+  search, cleanup, or replay.
 
 Two independent read-only Claude Code CLI review attempts (Opus, then Sonnet)
 produced no review text within bounded waits and were terminated. They made no
@@ -241,7 +261,8 @@ verification.
 ## 8. Static conclusion
 
 The fixed image is a plausible ER3 visual substrate only for manifest-bound PNG
-input and only under the corrected isolation, rebuild, cache, exact-candidate,
-score-mapping, versioned EvidencePack, and separate implementation/runtime owner
-gates. The static attestation and v2 contract are ready for review but do not
-satisfy runtime preflight and grant neither ER3 implementation nor run authority.
+input and only under the corrected isolation, rebuild, cache, canonical receipt,
+exact-candidate, score-mapping, versioned EvidencePack, and separate
+implementation/runtime owner gates. The static attestation and v2 contract are
+ready for review but do not satisfy runtime preflight and grant neither ER3
+implementation nor run authority.

@@ -247,7 +247,7 @@ network call.
 - The image digest alone is insufficient. The proposed static attestation is
   `docs/development/L3_REVIEW_REUSE_ER3_VISION_SUBSTRATE_ATTESTATION_20260829.json`
   with canonical digest
-  `984a49d180dbfa482b5c405a6c8cb2ef7a33078c4dcc88633a566d8b75c0145e`.
+  `6b632a2a8bb2615ab78db65e6bcf0ae57f6c32ac37110df59395208b43997283`.
   It binds the OCI index to source revision
   `2fc35d60ff034c9f790868c02381a9716becc942`, records both platform manifests and
   expected image IDs, enumerates search-affecting state, and identifies the
@@ -294,8 +294,10 @@ network call.
 - Before any fixture read, fixed argv first requires `curl --version` to exit 0.
   It then invokes the built-in curl as `curl --noproxy '*' --silent --show-error
   --output /dev/null --write-out '%{http_code}' --connect-timeout 2 --max-time 3
-  http://198.51.100.1:80/`. The probe must exit with curl network error 7 or 28
-  and stdout exactly `000`; exit 127 or any HTTP response is a hard failure.
+  http://198.51.100.1:80/`. The probe must exit immediately with curl error 7
+  and stdout exactly `000`; timeout exit 28, exit 127, or any HTTP response is a
+  hard failure. The probe is defense-in-depth only: `docker inspect` network mode
+  `none` and absence of attachments remain the authoritative isolation proof.
   `198.51.100.1` is the fixed TEST-NET-2 numeric probe target; DNS and a second
   probe image are not used.
 - `GET /health` through `docker exec` to in-container loopback must succeed before
@@ -316,6 +318,18 @@ network call.
   archive entry is sent to `POST /api/index/add?upload_to_s3=false` by fixed-argv
   in-container curl. A missing or failed receipt fails the run. The query entry is
   never sent to index-add.
+- Each index response is strict I-JSON with exactly `success`, `drawing_id`,
+  `file_hash`, `message`, `processing_time_ms`, and `s3_key`. The runner first
+  hashes that complete six-field response, then builds one normalized receipt
+  containing manifest `archive_entry_id`, base-10 string `drawing_id`, file hash,
+  success, raw-response digest, and its own canonical digest. The receipt digest
+  excludes only its self-digest field.
+- The receipt set contains the complete normalized receipts in exact manifest
+  archive order `archive-exact-001`, `archive-control-001`,
+  `archive-control-002`. Its digest excludes only the set self-digest. Neither
+  response timing nor provider drawing ID may reorder the set. The exact schema,
+  digest preimages, ordering, and golden vectors live in the v2 contract from
+  §5.4; ad hoc hashing of selected fields is forbidden.
 - Index rebuild through `POST /api/v2/index/rebuild` is required and its response
   recorded. With the event bus disabled, index-add persists storage records but
   does not populate the in-memory pHash and FAISS indexes.
@@ -333,9 +347,10 @@ network call.
   requested; the pre-index emptiness probe is recorded separately. Drawing-byte
   index/search commands execute exactly once; command call counts are evidence.
 - A service-level `success=true` is insufficient. Every returned candidate must
-  match one distinct `(drawing_id, file_hash)` pair from the three receipt set;
-  unknown or duplicate identities fail. The result must contain the exact pair
-  bound to `archive-exact-001`, and its file hash must equal the query hash. A
+  match one distinct `(drawing_id, file_hash, index_receipt_sha256)` triple from
+  the canonical receipt set; unknown, duplicate, or digest-mismatched identities
+  fail. The result must contain the exact triple bound to `archive-exact-001`,
+  and its file hash must equal the query hash. A
   zero-hit response, including `success=true` with empty buckets, fails with
   `archive_recall_incomplete`. This is required because the fixed engine can mask
   an L1 failure as a successful empty response.
@@ -445,11 +460,11 @@ with one immutable selector:
 The complete v2 canonical contract is
 `docs/development/L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json`
 with contract digest
-`0045bf4655558ea3ff1342706bd1af1c2eca26304821ebc19c0fe2ac7ff446db`.
+`5ae075ddeafa318234b604f6379b7967094206e3ebb68a69c79c12887628d37e`.
 It freezes exact object keys, types/nullability, list ordering, task context,
 unknown-field rejection, and digest exclusions. Its embedded golden vector has
 EvidencePack digest
-`3aa3ce7fc94abb80e0693bf2229d9f8c244482cc3eaa488ed80cb173462a33c4`.
+`10c306d374060b2406d2b98ca19ee7ddcaaf162c0a8f0ef59a945c46df652cb4`.
 The contract digest excludes only `contract_sha256`; the golden EvidencePack
 digest excludes only `evidence_pack_sha256`. Implementation copies neither value
 from prose: tests recompute both with `canonical_json_v1()` and reject any field,
@@ -467,7 +482,7 @@ success bundle together bind actual observed values or canonical digests for:
 
 - source query SHA-256;
 - archive manifest SHA-256;
-- successful index receipt set digest;
+- successful canonical index receipt and receipt-set digests;
 - search response digest;
 - service identity/version payload digest;
 - model identifier/version/digest when the service exposes it;
@@ -486,7 +501,8 @@ unstated reconstruction dependency.
 ### 5.6 Export and replay
 
 A success run writes the filesystem store, manifest copy, runtime preflight,
-redacted index/rebuild/search/service receipts, task JSON, EvidencePack JSON,
+strict raw index responses, normalized receipts and receipt set, redacted
+rebuild/search/service receipts, task JSON, EvidencePack JSON,
 EvidencePack Markdown, audit bundle, and run summary. The summary has an exact
 artifact-name-to-SHA-256 map for every artifact except itself and records command
 posture without secrets. The success stdout records the summary SHA-256; replay
@@ -561,7 +577,7 @@ baseline log showing they fail against the ratified implementation base:
 10. `test_er3_static_attestation_cannot_replace_runtime_preflight`
 11. `test_er3_requires_fresh_digest_pinned_ephemeral_vision_instance`
 12. `test_er3_container_uses_network_none_without_published_ports`
-13. `test_er3_numeric_bounded_egress_probe_requires_curl_and_network_error`
+13. `test_er3_numeric_bounded_egress_probe_requires_curl_exit_7_and_network_none`
 14. `test_er3_index_count_is_zero_then_matches_archive_entry_count`
 15. `test_er3_fresh_instance_has_zero_preindex_query_results`
 16. `test_er3_preindex_probe_cannot_poison_postindex_search_cache`
@@ -597,6 +613,8 @@ baseline log showing they fail against the ratified implementation base:
 46. `test_er3_runner_never_enables_or_submits_decisions`
 47. `test_er3_dedicated_instance_and_volumes_are_cleaned_up`
 48. `test_er3_docker_daemon_is_the_only_real_run_control_boundary`
+49. `test_er3_index_receipt_and_set_canonical_vectors_are_pinned`
+50. `test_er3_candidate_and_context_receipt_digests_match_canonical_receipts`
 
 Tests may use a deterministic fake private vision server for failure and mapping
 cases. ER3 closure additionally requires a separately owner-authorized recorded
@@ -656,13 +674,15 @@ ER3 is complete only when all of the following are true at one exact head:
 - the runtime manifest matches §4 digest
   `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf`;
 - the v2 contract and golden digests remain
-  `0045bf4655558ea3ff1342706bd1af1c2eca26304821ebc19c0fe2ac7ff446db`
-  and `3aa3ce7fc94abb80e0693bf2229d9f8c244482cc3eaa488ed80cb173462a33c4`;
+  `5ae075ddeafa318234b604f6379b7967094206e3ebb68a69c79c12887628d37e`
+  and `10c306d374060b2406d2b98ca19ee7ddcaaf162c0a8f0ef59a945c46df652cb4`;
 - existing ReviewReuse, identity, production-preflight, and core-fast suites are
   green without skips added for this tranche;
 - an approved real private service run indexes the archive and searches the
   separate query without seeds, host publication, or an unknown candidate, and
-  returns the exact receipt-bound archive candidate;
+  returns the exact receipt-digest-bound archive candidate;
+- raw response, normalized receipt, and receipt-set digests match the v2 contract
+  golden rules, and task context plus EvidencePack bind the exact set digest;
 - score dimensions, missing evidence, confidence, and provenance satisfy §5;
 - recorded export replay validates the summary and every artifact against the
   read-only persisted store without Docker/network access or any write;
@@ -687,9 +707,9 @@ Suggested implementation-only owner response:
 > repository fixture manifest digest
 > `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf`, vision image
 > `ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251`, static substrate attestation digest
-> `984a49d180dbfa482b5c405a6c8cb2ef7a33078c4dcc88633a566d8b75c0145e`, EvidencePack v2 contract digest
-> `0045bf4655558ea3ff1342706bd1af1c2eca26304821ebc19c0fe2ac7ff446db`, golden vector digest
-> `3aa3ce7fc94abb80e0693bf2229d9f8c244482cc3eaa488ed80cb173462a33c4`, the versioned
+> `6b632a2a8bb2615ab78db65e6bcf0ae57f6c32ac37110df59395208b43997283`, EvidencePack v2 contract digest
+> `5ae075ddeafa318234b604f6379b7967094206e3ebb68a69c79c12887628d37e`, golden vector digest
+> `10c306d374060b2406d2b98ca19ee7ddcaaf162c0a8f0ef59a945c46df652cb4`, the versioned
 > compatibility contract in §5.4, and the named fail-first contract
 > in §7. I do not authorize image pull/start, fixture processing, merge, decision
 > enablement, deployment, pilot, or customer data.

@@ -1,7 +1,7 @@
 {
   "schema_version": "review-reuse-er3-vision-substrate-attestation-v1",
   "attestation_status": "static_verified_runtime_unverified",
-  "attestation_sha256": "984a49d180dbfa482b5c405a6c8cb2ef7a33078c4dcc88633a566d8b75c0145e",
+  "attestation_sha256": "6b632a2a8bb2615ab78db65e6bcf0ae57f6c32ac37110df59395208b43997283",
   "image": {
     "reference": "ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
     "index_digest": "sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
@@ -169,8 +169,11 @@
         "success",
         "drawing_id",
         "file_hash",
-        "message"
+        "message",
+        "processing_time_ms",
+        "s3_key"
       ],
+      "canonicalization": "strict six-field raw response digest, normalized receipt digest excluding only index_receipt_sha256, and manifest-ordered receipt-set digest excluding only index_receipt_set_sha256; exact contract and golden vectors are in L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json",
       "required_archive_hashes": [
         "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c",
         "c32bd82c54124d87fe0731f7cc1a05e4d0147d755d9cd98dc41a1aaa047495e6",
@@ -213,7 +216,7 @@
     "command_override": "uvicorn caddedup_vision.api.main:app --host 127.0.0.1 --port 8000",
     "control_transport": "fixed-argv Docker CLI exec/copy through the local Docker daemon; the service has no host TCP or Unix-socket publication",
     "fixture_transfer": "after runtime preflight only, docker cp each approved manifest entry into its unique /tmp runtime_name and remove it after the single request",
-    "outbound_probe": "docker exec first requires curl --version to exit 0, then invokes curl --noproxy '*' --silent --show-error --output /dev/null --write-out '%{http_code}' --connect-timeout 2 --max-time 3 http://198.51.100.1:80/ inside the empty network-none container; probe must exit 7 or 28 with stdout exactly 000 before fixture bytes are read",
+    "outbound_probe": "docker exec first requires curl --version to exit 0, then invokes curl --noproxy '*' --silent --show-error --output /dev/null --write-out '%{http_code}' --connect-timeout 2 --max-time 3 http://198.51.100.1:80/ inside the empty network-none container; probe must exit 7 with stdout exactly 000 before fixture bytes are read, while timeout exit 28 fails; docker inspect NetworkMode none and no attachments remain authoritative",
     "published_port": null,
     "proxy_environment": "absent",
     "cleanup": "remove the run-labeled container with docker rm -fv, then prove no run-labeled container, volume, or network remains"
@@ -227,7 +230,7 @@
       "no anonymous or host data volume is mounted",
       "NetworkMode is none and the container has no additional network attachment",
       "no TCP or Unix-socket port is published to the host",
-      "curl --version exits 0, then the fixed numeric outbound probe exits 7 or 28 with stdout exactly 000",
+      "curl --version exits 0, then the fixed numeric outbound probe exits 7 with stdout exactly 000; exit 28 is rejected",
       "the overridden service process binds only to 127.0.0.1:8000 inside the container",
       "disabled integration flags and absent proxy variables match this attestation",
       "GET /api/stats reports total_drawings=0",
