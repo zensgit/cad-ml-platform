@@ -1,9 +1,9 @@
 # CAD Reuse Workbench — Task Board
 
-**Date**: 2026-08-08  
+**Date**: 2026-08-08 (board refresh 2026-08-29)  
 **Plan**: `CAD_REUSE_WORKBENCH_90_DAY_PLAN_20260807.md`  
 **System design**: `CAD_REUSE_WORKBENCH_SYSTEM_EXECUTE_DESIGN_20260808.md`  
-**Main baseline**: post-#562 (`origin/main`)  
+**Main baseline**: post-#565 (`origin/main`)  
 
 | Residual class | Status |
 |---|---|
@@ -35,6 +35,9 @@ Legend: **done** · **in_progress** · **residual_eng** · **residual_human** ·
 | [#560](https://github.com/zensgit/cad-ml-platform/pull/560) | Board post-#554–#558 (residual_human open) | **MERGED** |
 | [#561](https://github.com/zensgit/cad-ml-platform/pull/561) | Isolated-archive script **CLI** coverage (seed, offline, decisions off) | **MERGED** |
 | [#562](https://github.com/zensgit/cad-ml-platform/pull/562) | **JWT pilot runbook** + filesystem **store backup/cleanup** ops | **MERGED** |
+| [#563](https://github.com/zensgit/cad-ml-platform/pull/563) | Audit export **CLI** (`audit_bundle.json` + `evidence.md` by `task_id`; R2 quarantine) | **MERGED** |
+| [#564](https://github.com/zensgit/cad-ml-platform/pull/564) | Store ops **`list`** tenants (task count + `age_days`; `make review-reuse-store-list`) | **MERGED** |
+| [#565](https://github.com/zensgit/cad-ml-platform/pull/565) | Board post-#562 + pilot env **preflight** (`make review-reuse-preflight`) | **MERGED** |
 
 No further L3 runtime PR is required under the 90-day codeable scope unless the owner opens a new design-lock.  
 Track C / R11 / R12 remain **residual_human** — do not claim complete. **R2 HOLD** unchanged.
@@ -50,7 +53,7 @@ Track C / R11 / R12 remain **residual_human** — do not claim complete. **R2 HO
 | R3 | API `/api/v1/review-reuse/*` mounted | done | #547 · #551 | `src/api/v1/review_reuse.py` |
 | R4 | Decision sink **default-off** | done | #547 · #558 | `REVIEW_REUSE_DECISIONS_ENABLED` unset → 403; validated-reviewer gate tested when on |
 | R5 | Tenant isolation + quarantine (no feedback JSONL) | done | #547 · #549 · #554 | unit+API + R2 HOLD + audit-export contract |
-| R6 | Unit/API tests driving shipped code | done | #547–#562 | `tests/unit/test_review_reuse*.py` · `make test-review-reuse` |
+| R6 | Unit/API tests driving shipped code | done | #547–#565 | `tests/unit/test_review_reuse*.py` · `make test-review-reuse` |
 | R7 | Isolated-sample runbook + archive script + Make target | done | #547 · #551 · #557 · #561 | runbook + script + `make review-reuse-isolated-archive` |
 | R8 | Plan + verification MD | done | #547 | MVP plan/verification MDs |
 | R9 | OpenAPI snapshot for new routes | done | #547 · #551 | `config/openapi_schema_snapshot.json` |
@@ -90,14 +93,15 @@ Track C / R11 / R12 remain **residual_human** — do not claim complete. **R2 HO
 | ID | Task | Status | Workflow / PR | Evidence |
 |---|---|---|---|---|
 | O1 | Isolated sample checklist | done | #547 · #552 · #557 | runbook + pilot checklist + Make isolated-archive |
-| O2 | Pilot ops package (kill/rollback/export/retention) | done | #547 · #551 · #552 · #554 · #562 | Track O + audit export + JWT pilot runbook + store backup/cleanup |
+| O2 | Pilot ops package (kill/rollback/export/retention) | done | #547 · #551 · #552 · #554 · #562 · #563 · #564 | Track O + audit export API/CLI + JWT pilot runbook + store backup/cleanup/list |
 | O3 | Workbench review metrics export (+ markdown) | done | #547 · #556 · #559 | `metrics.py` + `GET .../metrics` (`json` \| `markdown`; `review_workflow` family) |
 | O4 | Kill switch documented | done | runbook §6 + Track O + pilot checklist | done |
 | O5 | Live dedup (default-off) + filesystem store docs | done | #550 | `CAD_REUSE_WORKBENCH_LIVE_DEDUP_DURABLE_STORE_20260808.md` |
 | O6 | EvidencePack golden fixtures | done | #553 | `tests/golden/review_reuse/` + `CAD_REUSE_WORKBENCH_EVIDENCE_GOLDENS_20260808.md` |
-| O7 | Operator Make targets (test + isolated-archive + store + preflight) | done | #555 · #557 · #562 | `make test-review-reuse` · `make review-reuse-isolated-archive` · store backup/cleanup · `make review-reuse-preflight` |
-| O8 | JWT pilot runbook + store backup/cleanup | done | #562 | `CAD_REUSE_WORKBENCH_JWT_PILOT_RUNBOOK_20260808.md` · `scripts/review_reuse_store_ops.py` |
-| O9 | Pilot env preflight script (advisory; dangerous-combo exit 2) | done (this PR) | preflight board | `scripts/review_reuse_pilot_preflight.py` · `make review-reuse-preflight` |
+| O7 | Operator Make targets (test + isolated-archive + store + export + preflight) | done | #555 · #557 · #562 · #563 · #564 · #565 | `make test-review-reuse` · `make review-reuse-isolated-archive` · store backup/cleanup/list · `make review-reuse-export-audit` · `make review-reuse-preflight` |
+| O8 | JWT pilot runbook + store backup/cleanup/list | done | #562 · #564 | `CAD_REUSE_WORKBENCH_JWT_PILOT_RUNBOOK_20260808.md` · `scripts/review_reuse_store_ops.py` |
+| O9 | Pilot env preflight script (advisory; dangerous-combo exit 2) | done | #565 | `scripts/review_reuse_pilot_preflight.py` · `make review-reuse-preflight` |
+| O10 | Audit export CLI by `task_id` | done | #563 | `scripts/review_reuse_export_audit.py` · `make review-reuse-export-audit` |
 
 ## Track C — Customer Pilot (P1) — **human residual** (not claimed complete)
 
@@ -136,7 +140,10 @@ Do **not** invent Track C completion evidence in docs or code.
 | SYS19 | Board post-#554–#558 | done | #560 |
 | SYS20 | Isolated-archive CLI tests | done | #561 |
 | SYS21 | JWT pilot runbook + store backup/cleanup | done | #562 |
-| SYS22 | Board post-#562 + pilot preflight script | done (this PR) | task board + `review_reuse_pilot_preflight.py` |
+| SYS22 | Board post-#562 + pilot preflight script | done | #565 |
+| SYS23 | Audit export CLI by task_id | done | #563 |
+| SYS24 | Store ops list tenants | done | #564 |
+| SYS25 | Board post-#563–#565 | done (this PR) | task board rollup; residual_human still open |
 
 ---
 
@@ -163,7 +170,7 @@ External audit residual (not eng-closed): Evaluation Hybrid superpass red on mai
 
 ---
 
-## Execution order (post-#547…#562)
+## Execution order (post-#547…#565)
 
 1. ~~Land **#547** Track R MVP~~ — **MERGED**.
 2. ~~execute-plan PR1–PR4 content~~ — folded into #547 (L3 WIP=1).
@@ -182,10 +189,13 @@ External audit residual (not eng-closed): Evaluation Hybrid superpass red on mai
 15. ~~Board post-#554–#558~~ — **#560 MERGED**.
 16. ~~Isolated-archive CLI tests~~ — **#561 MERGED**.
 17. ~~JWT pilot runbook + store backup/cleanup~~ — **#562 MERGED**.
-18. ~~Board post-#562 + pilot preflight script~~ — **this PR**.
-19. **Owner only:** R11 design-lock ratify · R12 pilot decision enable · Track C C1–C5.
-20. **External only (audit, not eng-closed):** Evaluation Hybrid superpass red on main.
-21. **Boundaries (unchanged):** **R2 HOLD** · no eval_integrity_gate replace · no cost_cap · **decision default-off** · no fake Track C · no production self-enable of decisions.
+18. ~~Audit export CLI by task_id~~ — **#563 MERGED**.
+19. ~~Store ops list tenants~~ — **#564 MERGED**.
+20. ~~Board post-#562 + pilot preflight script~~ — **#565 MERGED**.
+21. ~~Board post-#563–#565~~ — **this PR**.
+22. **Owner only:** R11 design-lock ratify · R12 pilot decision enable · Track C C1–C5.
+23. **External only (audit, not eng-closed):** Evaluation Hybrid superpass red on main.
+24. **Boundaries (unchanged):** **R2 HOLD** · no eval_integrity_gate replace · no cost_cap · **decision default-off** · no fake Track C · no production self-enable of decisions.
 
 ---
 
@@ -206,12 +216,16 @@ make review-reuse-isolated-archive
 # Advisory pilot env preflight (does NOT enable decisions; exit 2 on dangerous combos)
 make review-reuse-preflight
 
-# Filesystem store backup / cleanup dry-run (#562)
+# Filesystem store backup / cleanup dry-run / list (#562 · #564)
 make review-reuse-store-backup
 make review-reuse-store-cleanup-dry
+make review-reuse-store-list
+
+# Audit export CLI by TENANT + TASK_ID (#563; R2 quarantine; decisions stay off)
+# make review-reuse-export-audit TENANT=<tenant> TASK_ID=<uuid> OUT=/tmp/rr_audit
 ```
 
-Covered modules on main: `test_review_reuse_workbench`, `test_review_reuse_api`, `test_review_reuse_r2_hold`, `test_review_reuse_live_store`, `test_review_reuse_audit_reviewer`, `test_review_reuse_audit_export_contract`, `test_review_reuse_evidence_goldens`, `test_review_reuse_store_ops`, `test_review_reuse_pilot_preflight`.
+Covered modules on main: `test_review_reuse_workbench`, `test_review_reuse_api`, `test_review_reuse_r2_hold`, `test_review_reuse_live_store`, `test_review_reuse_audit_reviewer`, `test_review_reuse_audit_export_contract`, `test_review_reuse_evidence_goldens`, `test_review_reuse_store_ops`, `test_review_reuse_pilot_preflight`, `test_review_reuse_export_audit_script`.
 
 See also: `CAD_REUSE_WORKBENCH_EVIDENCE_GOLDENS_20260808.md`, `CAD_REUSE_WORKBENCH_PILOT_CHECKLIST_20260808.md`, `CAD_REUSE_WORKBENCH_JWT_PILOT_RUNBOOK_20260808.md`, `CAD_REUSE_WORKBENCH_EXTERNAL_GATES_AUDIT_20260808.md`.
 
