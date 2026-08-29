@@ -353,25 +353,29 @@ def _validate_task_payload(task: ReviewReuseTask) -> None:
         task_candidate_ids = [candidate.candidate_id for candidate in task.candidates]
         pack_candidates = pack.get("candidates")
         expected_pack = build_evidence_pack(task)
-        candidate_evidence_fields = (
+        evidence_envelope_fields = (
+            "schema_version",
+            "source",
             "candidates",
             "confidence",
             "evidence",
             "rejection_reasons",
             "unsupported_states",
+            "provenance",
         )
         if (
-            len(task_candidate_ids) != len(set(task_candidate_ids))
+            set(pack) != set(expected_pack)
+            or len(task_candidate_ids) != len(set(task_candidate_ids))
             or not isinstance(pack_candidates, list)
             or any(not isinstance(candidate, dict) for candidate in pack_candidates)
             or any(
                 pack.get(field) != expected_pack[field]
-                for field in candidate_evidence_fields
+                for field in evidence_envelope_fields
             )
         ):
             raise ReviewReuseStoreError(
                 "store_record_corrupt",
-                "stored EvidencePack candidates are inconsistent",
+                "stored EvidencePack envelope is inconsistent",
             )
         if pack.get("human_decision") != expected_pack["human_decision"]:
             raise ReviewReuseStoreError(
@@ -390,7 +394,7 @@ def _validate_task_payload(task: ReviewReuseTask) -> None:
             or decision.reviewer_kind != "validated_principal"
             or not _PRINCIPAL_PATTERN.fullmatch(decision.reviewer_id)
             or decision.reviewed_revision < 1
-            or decision.reviewed_revision >= task.revision
+            or decision.reviewed_revision != task.revision - 1
             or not _HEX64_PATTERN.fullmatch(decision.evidence_pack_sha256)
             or decision.reason_codes != sorted(set(decision.reason_codes))
             or decision.reason_text.strip() != decision.reason_text
@@ -427,6 +431,17 @@ def _validate_task_payload(task: ReviewReuseTask) -> None:
         ):
             raise ReviewReuseStoreError(
                 "store_record_corrupt", "stored decision semantics are invalid"
+            )
+        reviewed = task.model_copy(deep=True)
+        reviewed.status = TaskStatus.evidence_ready
+        reviewed.revision = decision.reviewed_revision
+        reviewed.human_decision = None
+        reviewed.evidence_pack = None
+        reviewed_pack = build_evidence_pack(reviewed)
+        if decision.evidence_pack_sha256 != reviewed_pack["evidence_pack_sha256"]:
+            raise ReviewReuseStoreError(
+                "store_record_corrupt",
+                "stored decision reviewed evidence is inconsistent",
             )
         if decision.idempotency_key is None:
             if decision.idempotency_digest is not None:
@@ -487,7 +502,6 @@ def _assert_mutation(
         raise ReviewReuseStoreError(
             "invalid_state_transition", "task state transition is invalid"
         )
-    _validate_task_payload(task)
     immutable = (
         "task_id",
         "tenant_id",
@@ -518,6 +532,7 @@ def _assert_mutation(
                 "revision_conflict",
                 "decision is not bound to the current EvidencePack",
             )
+    _validate_task_payload(task)
     if current.status == TaskStatus.evidence_ready and (
         task.candidates != current.candidates
         or task.calibration_version != current.calibration_version
