@@ -580,6 +580,37 @@ def test_full_store_validation_rejects_unexpected_root_artifact(
     assert _error_code(raised.value) == "store_record_corrupt"
 
 
+@pytest.mark.parametrize("artifact_kind", ["file", "directory"])
+def test_full_store_validation_rejects_unexpected_tenant_artifact(
+    tmp_path: Path,
+    artifact_kind: str,
+) -> None:
+    from src.core.review_reuse.store import migrate_legacy_store
+
+    root = tmp_path / artifact_kind
+    task = _task(f"tenant-{artifact_kind}")
+    writer = FilesystemReviewReuseStore(root)
+    try:
+        _create(writer, task)
+    finally:
+        _close(writer)
+
+    artifact = _tenant_dir(root, task.tenant_id) / "unexpected"
+    if artifact_kind == "file":
+        artifact.write_text("unexpected", encoding="utf-8")
+    else:
+        artifact.mkdir()
+
+    for operation in (
+        lambda: validated_filesystem_tenants(root),
+        lambda: FilesystemReviewReuseStore(root),
+        lambda: migrate_legacy_store(root),
+    ):
+        with pytest.raises(Exception) as raised:
+            operation()
+        assert _error_code(raised.value) == "store_record_corrupt"
+
+
 def test_legacy_migration_rejects_file_only_root(tmp_path: Path) -> None:
     from src.core.review_reuse.store import migrate_legacy_store
 
