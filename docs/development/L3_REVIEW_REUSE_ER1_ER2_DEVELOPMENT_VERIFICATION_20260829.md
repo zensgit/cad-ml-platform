@@ -7,9 +7,9 @@
 **Ratified authority**: PR #583 exact head
 `9150e06c75721bf086572ed271b68548104e8300`  
 **Runtime implementation head**:
-`1ee1bad01097dfc6dec3c774c6a5f263fe92192e`
-(`fix: harden ReviewReuse store crash recovery`), on top of the original
-runtime commit `6cc55841`.
+`9494cc24ee9e6bfa4c51c94fbae4b3a04c091f1e`
+(`fix: close ReviewReuse migration integrity gaps`), on top of the original
+runtime commit `6cc55841` and first hardening commit `1ee1bad0`.
 
 ## 1. Authorization boundary
 
@@ -50,7 +50,7 @@ named by design-lock section 9.1:
 | Parent / authority | `9150e06c75721bf086572ed271b68548104e8300` |
 | Files | `test_review_reuse_er1_store_integrity.py`, `test_review_reuse_er2_ledger.py`, `test_review_reuse_api_integrity.py` |
 | Baseline result | **18 failed** |
-| Runtime-head result | **33 passed** |
+| Runtime-head result | **40 passed** |
 
 Exact command:
 
@@ -98,7 +98,9 @@ named tests plus narrower adversarial cases.
 ### 3.3 Single writer and durable writes
 
 - A write-capable filesystem store holds a non-blocking process-lifetime
-  `flock` lease.
+  `flock` lease at a stable parent-directory path derived from the canonical
+  store root. The lease inode and pathname do not move when migration swaps the
+  store root.
 - Read-only export and operational validation use explicit read-only stores.
 - Mutations reject an inherited/forked or otherwise unavailable writer lease;
   closing an inherited handle cannot unlock the parent process lease.
@@ -122,8 +124,10 @@ named tests plus narrower adversarial cases.
 - Mixed layouts, path/embedded-identity mismatch, collisions, symbolic links,
   invalid idempotency, and unprovable decisions abort migration.
 - Apply builds a separately locked staging store, keeps the new-store lease
-  held through the rename, retains a uniquely named legacy backup, and restores
-  the backup if the final rename fails.
+  held through the rename, and holds the canonical-root lease across the entire
+  backup/publish swap. A competing writer cannot create or serve a replacement
+  root between the two renames. Apply retains a uniquely named legacy backup
+  and restores it if the final rename fails.
 - A directory that looks like a new layout is validated before
   `already_migrated` can be returned.
 - A write-capable store validates the whole existing layout at startup and
@@ -197,8 +201,8 @@ named tests plus narrower adversarial cases.
 
 ## 5. Independent-review hardening
 
-The first runtime head was reviewed again before any merge. Six narrower
-adversarial cases were reproduced against that head and fixed in `1ee1bad0`:
+The runtime was reviewed again before any merge. Six narrower adversarial cases
+were reproduced against the first runtime head and fixed in `1ee1bad0`:
 
 | Finding | Red proof | Closed behavior |
 |---|---|---|
@@ -209,23 +213,33 @@ adversarial cases were reproduced against that head and fixed in `1ee1bad0`:
 | Crash-left atomic temp files permanently broke task scans | included in a 2-failure batch | exact internal leftovers are safely ignored/cleaned under the lease |
 | First-tenant sidecar creation could leave a non-retryable half-directory | included in a 2-failure batch | staged tenant tree is atomically published or fully removed |
 
-After each red reproduction, the focused cases were rerun green. The complete
-ER1 store plus production-identity set is **41 passed** at `1ee1bad0`.
+A second exact-runtime review then found three additional cases. All three were
+reproduced together as **3 failed** and fixed in `9494cc24`:
+
+| Finding | Red proof | Closed behavior |
+|---|---|---|
+| Migration's root-local lease moved into the backup before the new root was published | included in the 3-failure batch; competing writer acquired the recreated root | migration and runtime writers share a canonical-root stable lease acquired before root creation |
+| Pilot preflight accepted a whitespace-padded issuer that runtime boot rejects | included in the 3-failure batch; preflight returned 0 | preflight reports issuer exactness and exits 2 |
+| Legacy migration re-signed an unknown nested `calibration.status` | included in the 3-failure batch; dry-run succeeded | nested calibration must equal the task's closed status before digest recomputation |
+
+After each red reproduction, the focused cases were rerun green. The three new
+cases are **3 passed** and the complete named fail-first command is **40 passed**
+at `9494cc24`.
 
 ## 6. Verification evidence
 
-All commands below ran locally with Python 3.11.15 at runtime head
-`1ee1bad0`.
+Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
+`9494cc24`.
 
 | Gate | Result |
 |---|---:|
-| Exact named fail-first command, including narrower additions | **38 passed** |
-| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **131 passed** |
-| Integration-auth + production-identity regressions | **32 passed** |
+| Exact named fail-first command, including narrower additions | **40 passed** |
+| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **134 passed** |
+| Integration-auth + production-identity + pilot-preflight regressions | **44 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 test-core` | **39 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-openapi` | **5 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-core-fast` | **exit 0; 229 tests + 10 governance checks** |
-| JCS finite-binary64 differential vs Node `JSON.stringify` | **20,000 cases; 0 mismatches** |
+| JCS finite-binary64 differential vs Node `JSON.stringify` at `1ee1bad0`; canonical module unchanged at current head | **20,000 cases; 0 mismatches** |
 | Black + isort | **pass (26 files)** |
 | flake8 | **pass (26 files)** |
 | mypy | **success (12 source files)** |
