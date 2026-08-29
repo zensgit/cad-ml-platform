@@ -8,6 +8,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import tempfile
 import threading
 import uuid
@@ -55,6 +56,35 @@ class ReviewReuseStoreError(Exception):
         super().__init__(message)
         self.code = code
         self.message = message
+
+
+def _writer_lease_path(root: Path) -> Path:
+    root_digest = hashlib.sha256(os.fsencode(str(root))).hexdigest()
+    return root.parent / f".review-reuse-writer-{root_digest}.lock"
+
+
+def _open_writer_lease(root: Path, *, message: str) -> Any:
+    lease_path = _writer_lease_path(root)
+    flags = os.O_RDWR | os.O_CREAT | os.O_NONBLOCK
+    flags |= getattr(os, "O_CLOEXEC", 0)
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(lease_path, flags, 0o600)
+    except OSError as exc:
+        raise ReviewReuseStoreError("store_writer_conflict", message) from exc
+    try:
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            raise OSError("writer lease is not a regular file")
+        lease = os.fdopen(descriptor, "a+b")
+    except Exception as exc:
+        os.close(descriptor)
+        raise ReviewReuseStoreError("store_writer_conflict", message) from exc
+    try:
+        fcntl.flock(lease.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except (BlockingIOError, OSError) as exc:
+        lease.close()
+        raise ReviewReuseStoreError("store_writer_conflict", message) from exc
+    return lease
 
 
 class ReviewReuseStoreProtocol(Protocol):
@@ -275,6 +305,15 @@ def _validate_task_payload(task: ReviewReuseTask) -> None:
         ):
             raise ReviewReuseStoreError(
                 "store_record_corrupt", "stored EvidencePack identity is inconsistent"
+            )
+        calibration = pack.get("calibration")
+        if (
+            not isinstance(calibration, dict)
+            or calibration.get("status") != task.calibration_status
+        ):
+            raise ReviewReuseStoreError(
+                "store_record_corrupt",
+                "stored EvidencePack calibration is inconsistent",
             )
         task_candidate_ids = [candidate.candidate_id for candidate in task.candidates]
         pack_candidates = pack.get("candidates")
@@ -533,19 +572,24 @@ class FilesystemReviewReuseStore:
 
     def __init__(self, root: Path | str, *, read_only: bool = False) -> None:
         raw_root = Path(root).expanduser()
-        if read_only:
-            self._root = raw_root.resolve(strict=False)
-        else:
-            raw_root.mkdir(parents=True, exist_ok=True)
-            self._root = raw_root.resolve()
         self._read_only = read_only
         self._lock = threading.RLock()
         self._healthy = True
         self._lease = None
         self._lease_pid: Optional[int] = None
-        if not read_only:
+        if read_only:
+            self._root = raw_root.resolve(strict=False)
+        else:
+            raw_root.parent.mkdir(parents=True, exist_ok=True)
+            self._root = raw_root.resolve(strict=False)
             self._acquire_writer_lease()
             try:
+                raw_root.mkdir(parents=True, exist_ok=True)
+                if raw_root.resolve() != self._root:
+                    raise ReviewReuseStoreError(
+                        "store_writer_conflict",
+                        "filesystem store root changed while acquiring writer lease",
+                    )
                 self._cleanup_stale_artifacts()
                 validated_filesystem_tenants(self._root)
             except Exception:
@@ -553,17 +597,9 @@ class FilesystemReviewReuseStore:
                 raise
 
     def _acquire_writer_lease(self) -> None:
-        lease_path = self._root / ".writer.lock"
-        _assert_store_path(self._root, lease_path, code="store_writer_conflict")
-        lease = lease_path.open("a+b")
-        try:
-            fcntl.flock(lease.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except (BlockingIOError, OSError) as exc:
-            lease.close()
-            raise ReviewReuseStoreError(
-                "store_writer_conflict", "filesystem store already has a writer"
-            ) from exc
-        self._lease = lease
+        self._lease = _open_writer_lease(
+            self._root, message="filesystem store already has a writer"
+        )
         self._lease_pid = os.getpid()
 
     def close(self) -> None:
@@ -1136,17 +1172,17 @@ def migrate_legacy_store(root: Path | str, *, apply: bool = False) -> Dict[str, 
     store_root = Path(root).expanduser().resolve(strict=False)
     if not apply:
         return _migrate_legacy_store(store_root, apply=False)
-    store_root.mkdir(parents=True, exist_ok=True)
-    lease_path = store_root / ".writer.lock"
-    _assert_store_path(store_root, lease_path, code="store_writer_conflict")
-    lease = lease_path.open("a+b")
+    store_root.parent.mkdir(parents=True, exist_ok=True)
+    lease = _open_writer_lease(
+        store_root, message="legacy migration requires the writer lease"
+    )
     try:
-        try:
-            fcntl.flock(lease.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except (BlockingIOError, OSError) as exc:
+        store_root.mkdir(parents=True, exist_ok=True)
+        if store_root.resolve() != store_root:
             raise ReviewReuseStoreError(
-                "store_writer_conflict", "legacy migration requires the writer lease"
-            ) from exc
+                "store_writer_conflict",
+                "filesystem store root changed while acquiring migration lease",
+            )
         return _migrate_legacy_store(store_root, apply=True)
     finally:
         try:
@@ -1303,8 +1339,25 @@ def _migrate_legacy_store(root: Path | str, *, apply: bool) -> Dict[str, Any]:
             if task.evidence_pack is not None:
                 pack = dict(task.evidence_pack)
                 pack["task_revision"] = task.revision
-                calibration = dict(pack.get("calibration") or {})
-                calibration.setdefault("status", task.calibration_status)
+                raw_calibration = pack.get("calibration")
+                if raw_calibration is not None and not isinstance(
+                    raw_calibration, dict
+                ):
+                    raise ReviewReuseStoreError(
+                        "store_record_corrupt",
+                        "legacy EvidencePack calibration is invalid",
+                    )
+                calibration = dict(raw_calibration or {})
+                stored_status = calibration.get("status")
+                if (
+                    stored_status is not None
+                    and stored_status != task.calibration_status
+                ):
+                    raise ReviewReuseStoreError(
+                        "store_record_corrupt",
+                        "legacy EvidencePack calibration is inconsistent",
+                    )
+                calibration["status"] = task.calibration_status
                 pack["calibration"] = calibration
                 pack["evidence_pack_sha256"] = evidence_pack_digest(pack)
                 task.evidence_pack = pack

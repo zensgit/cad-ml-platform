@@ -66,10 +66,12 @@ def read_posture(env: Optional[Mapping[str, str]] = None) -> Dict[str, object]:
     auth_mode = (
         _get(e, ENV_AUTH_MODE, "disabled") or "disabled"
     ).strip().lower() or "disabled"
+    jwt_issuer = _get(e, ENV_JWT_ISSUER)
     jwt_identity_complete = all(
         _get(e, key).strip()
         for key in (ENV_JWT_SECRET, ENV_JWT_AUDIENCE, ENV_JWT_ISSUER)
     )
+    jwt_issuer_exact = jwt_issuer == jwt_issuer.strip()
     store_integrity = "not_applicable"
     store_tenants = 0
     if store in _FILESYSTEM_BACKENDS:
@@ -105,6 +107,7 @@ def read_posture(env: Optional[Mapping[str, str]] = None) -> Dict[str, object]:
         "store_dir": store_dir,
         "integration_auth_mode": auth_mode,
         "jwt_identity_complete": jwt_identity_complete,
+        "jwt_issuer_exact": jwt_issuer_exact,
         "store_integrity": store_integrity,
         "store_tenants": store_tenants,
         "raw": {
@@ -148,6 +151,11 @@ def check_dangerous_combos(posture: Mapping[str, object]) -> List[str]:
             "DANGER: REVIEW_REUSE_DECISIONS_ENABLED=true but JWT secret, audience, "
             "or issuer is missing; validated tenant/reviewer principals cannot be built."
         )
+    elif not bool(posture.get("jwt_issuer_exact")):
+        warnings.append(
+            "DANGER: REVIEW_REUSE_DECISIONS_ENABLED=true but JWT issuer has "
+            "surrounding whitespace; runtime identity validation will reject it."
+        )
     return warnings
 
 
@@ -162,6 +170,7 @@ def format_summary(posture: Mapping[str, object], warnings: Sequence[str]) -> st
         f"  store_dir:            {posture['store_dir']}",
         f"  integration_auth_mode:{posture['integration_auth_mode']}",
         f"  jwt_identity_complete:{posture['jwt_identity_complete']}",
+        f"  jwt_issuer_exact:      {posture['jwt_issuer_exact']}",
         f"  store_integrity:       {posture['store_integrity']}",
         f"  store_tenants:         {posture['store_tenants']}",
     ]

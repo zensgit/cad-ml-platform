@@ -114,6 +114,22 @@ def test_decisions_with_incomplete_jwt_identity_exit_2(
     assert "JWT secret, audience, or issuer is missing" in text
 
 
+def test_decisions_with_padded_issuer_exit_2(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_pilot_env(monkeypatch)
+    monkeypatch.setenv("REVIEW_REUSE_DECISIONS_ENABLED", "true")
+    monkeypatch.setenv("INTEGRATION_AUTH_MODE", "required")
+    monkeypatch.setenv("INTEGRATION_JWT_SECRET", "secret")
+    monkeypatch.setenv("INTEGRATION_JWT_AUDIENCE", "audience")
+    monkeypatch.setenv("INTEGRATION_JWT_ISSUER", " issuer ")
+
+    code, text = run_preflight(os.environ)
+
+    assert code == 2
+    assert "issuer" in text.lower()
+
+
 def test_decisions_both_dangers_exit_2(monkeypatch: pytest.MonkeyPatch) -> None:
     _clear_pilot_env(monkeypatch)
     monkeypatch.setenv("REVIEW_REUSE_DECISIONS_ENABLED", "1")

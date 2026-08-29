@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import uuid
 from pathlib import Path
 
@@ -259,6 +260,27 @@ def test_calibration_status_uses_closed_vocabulary(tmp_path: Path) -> None:
         assert _error_code(raised.value) == "store_record_corrupt"
     finally:
         _close(store)
+
+
+def test_legacy_migration_rejects_nested_unknown_calibration_status(
+    tmp_path: Path,
+) -> None:
+    from src.core.review_reuse.store import migrate_legacy_store
+
+    root = tmp_path / "legacy-store"
+    task = _task("tenant-calibration")
+    task.status = TaskStatus.evidence_ready
+    task.evidence_pack = build_evidence_pack(task)
+    task.evidence_pack["calibration"]["status"] = "calibrated-ish"
+    tasks_dir = root / task.tenant_id / "tasks"
+    tasks_dir.mkdir(parents=True)
+    (tasks_dir / f"{task.task_id}.json").write_text(
+        json.dumps(task.model_dump(mode="json")), encoding="utf-8"
+    )
+
+    with pytest.raises(Exception) as raised:
+        migrate_legacy_store(root)
+    assert _error_code(raised.value) == "store_record_corrupt"
 
 
 def test_legacy_migration_aborts_on_collision(tmp_path: Path) -> None:
@@ -550,6 +572,49 @@ def test_legacy_migration_holds_new_store_lease_during_swap(
             finally:
                 if competing is not None:
                     _close(competing)
+
+    monkeypatch.setattr(store_module.os, "replace", checked_replace)
+    report = store_module.migrate_legacy_store(root, apply=True)
+
+    assert Path(report["backup"]).is_dir()
+    assert observed == ["store_writer_conflict"]
+
+
+def test_legacy_migration_lease_survives_root_backup_rename(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from src.core.review_reuse import store as store_module
+
+    root = tmp_path / "legacy-store"
+    task = _task("tenant-a")
+    tasks_dir = root / task.tenant_id / "tasks"
+    tasks_dir.mkdir(parents=True)
+    (tasks_dir / f"{task.task_id}.json").write_text(
+        json.dumps(task.model_dump(mode="json")), encoding="utf-8"
+    )
+
+    real_replace = store_module.os.replace
+    observed: list[str | None] = []
+
+    def checked_replace(source: str | Path, destination: str | Path) -> None:
+        real_replace(source, destination)
+        source_path = Path(source)
+        destination_path = Path(destination)
+        if source_path == root and destination_path.name.startswith(
+            f"{root.name}.legacy-backup-"
+        ):
+            competing = None
+            try:
+                competing = FilesystemReviewReuseStore(root)
+            except Exception as exc:
+                observed.append(_error_code(exc))
+            else:
+                observed.append(None)
+            finally:
+                if competing is not None:
+                    _close(competing)
+                    shutil.rmtree(root)
 
     monkeypatch.setattr(store_module.os, "replace", checked_replace)
     report = store_module.migrate_legacy_store(root, apply=True)
