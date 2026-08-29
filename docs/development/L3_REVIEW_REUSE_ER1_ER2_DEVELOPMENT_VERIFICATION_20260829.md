@@ -7,10 +7,10 @@
 **Ratified authority**: PR #583 exact head
 `9150e06c75721bf086572ed271b68548104e8300`<br>
 **Runtime implementation head**:
-`219438564602dabcac740ffc50d99664efbcd3d3`
-(`chore: lint ReviewReuse operator bootstraps`), on top of the
+`36175b144d75c855ca5f22efc7dbfa504544fe28`
+(`fix: fail malformed ReviewReuse adapter results safely`), on top of the
 original runtime commit `6cc55841` and the earlier hardening chain through
-`891f8e9c`.
+`21943856`.
 
 ## 1. Authorization boundary
 
@@ -51,7 +51,7 @@ named by design-lock section 9.1:
 | Parent / authority | `9150e06c75721bf086572ed271b68548104e8300` |
 | Files | `test_review_reuse_er1_store_integrity.py`, `test_review_reuse_er2_ledger.py`, `test_review_reuse_api_integrity.py` |
 | Baseline result | **18 failed** |
-| Runtime-head result | **106 passed** |
+| Runtime-head result | **108 passed** |
 
 Exact command:
 
@@ -205,6 +205,9 @@ named tests plus narrower adversarial cases.
 - Pipeline failures retain attempted events, clear invalid candidates/evidence,
   persist a safe failure code/message, and do not emit
   `evidence_pack_ready`.
+- Adapter output is checked by the same canonical snapshot validator before
+  the ready event or final CAS. Structurally valid but store-invalid candidate
+  results therefore close as a failed task instead of stranding `running`.
 
 ### 4.3 Decision and identity binding
 
@@ -522,14 +525,37 @@ passed**, the full ReviewReuse suite is **203 passed**, the integration
 auth/production-identity/pilot-preflight regressions are **47 passed**, and the
 two operator script suites are **21 passed**.
 
+A thirteenth exact-head GitHub review at
+`f314e63a6ace631467a3ff7b2e76e1b0f4847f46` found that malformed adapter
+results could pass model construction but fail only at the final store
+mutation, leaving the already-persisted revision-1 task permanently
+`running`. Test-only commit
+`722b9d3baf6dc9ac3ba74ef3258a94fef8062747` reproduced both an unknown
+candidate rejection reason and duplicate candidate id as **2 failed**: each
+case left the task running. Runtime repair
+`36175b144d75c855ca5f22efc7dbfa504544fe28` reuses the store's canonical task
+snapshot validator inside the guarded pipeline, after EvidencePack build but
+before `evidence_pack_ready` is emitted or the final CAS is attempted.
+
+Both focused cases are now **2 passed**. Rejected adapter output commits one
+revision-2 `failed` task with safe `internal_error`, no candidates, no
+EvidencePack, no `evidence_pack_ready` event, and a final `failed` event. A
+same-key replay returns that same failed task without invoking recall again.
+Final store CAS, writer-lease, and filesystem I/O errors remain outside this
+adapter-validation path, so the repair does not retry or overwrite a
+concurrent terminal mutation.
+
+At runtime head `36175b14`, the complete named fail-first command is **108
+passed** and the full ReviewReuse suite is **205 passed**.
+
 ## 6. Verification evidence
 
 Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
-`21943856`.
+`36175b14`.
 
 | Gate | Result |
 |---|---:|
-| Exact named fail-first command, including narrower additions | **106 passed** |
+| Exact named fail-first command, including narrower additions | **108 passed** |
 | Focused null/rollback/recovery batch | **6 passed** |
 | Focused duplicate-owner/candidate-evidence batch | **5 passed** |
 | Focused published-write quarantine/decision/calibration batch | **5 passed** (red: 5 failed at test-only `d91309df`) |
@@ -542,7 +568,8 @@ Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
 | Focused unknown record-field batch | **8 passed** (red: 8 failed at test-only `c93fc5de`) |
 | Focused operator direct-entrypoint batch | **2 passed** (red: 2 failed at test-only `df989064`); complete script suites **21 passed** |
 | Focused persisted decision-event batch | **11 passed** (red: 10 failed / 1 legacy-lock pass at test-only `8b104b96`) |
-| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **203 passed** |
+| Focused malformed-adapter failure batch | **2 passed** (red: 2 failed at test-only `722b9d3b`) |
+| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **205 passed** |
 | Integration-auth + production-identity + pilot-preflight regressions | **47 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 test-core` | **39 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-openapi` | **5 passed** |
