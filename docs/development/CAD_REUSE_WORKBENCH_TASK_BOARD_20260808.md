@@ -49,15 +49,15 @@ Track C / R11 / R12 remain **residual_human**; **R2 HOLD** is unchanged.
 
 | ID | Task | Status | Workflow / PR | Evidence |
 |---|---|---|---|---|
-| R1 | L3 design-lock §3.3 + default-off decision | **in_progress (PROPOSED)** | #583 | Amendment required for ER1-ER4; owner ratification remains open |
+| R1 | L3 design-lock §3.3 + default-off decision | **in_progress (PROPOSED)** | #583 | Security + contract amendment required for ER1-ER4; owner exact-head ratification remains open |
 | R2 | Domain service Task/Event/EvidencePack | **partial** | #547 | Shape exists; input, transition, ledger, and evidence semantics need ER2/ER3 |
 | R3 | API `/api/v1/review-reuse/*` mounted | done | #547 · #551 | `src/api/v1/review_reuse.py` |
-| R4 | Decision sink **default-off** | **partial** | #547 · #558 | Default-off works; candidate/reason/state/idempotency integrity needs ER2 |
+| R4 | Decision sink **default-off** | **partial** | #547 · #558 | Default-off works; validated tenant/reviewer, reviewed evidence, candidate/reason/state/idempotency integrity need ER2 |
 | R5 | Tenant isolation + quarantine (no feedback JSONL) | **blocked (P0)** | ER1 | Filesystem tenant segment collision permits cross-tenant task/idempotency lookup |
 | R6 | Unit/API tests driving shipped code | **partial** | ER1 · ER2 | 71 positive/contract tests pass; adversarial collision and ledger cases are missing |
 | R7 | Isolated-sample runbook + archive script + Make target | **partial** | ER3 | Synthetic single-file export works; first real archive/index/replay is not demonstrated |
 | R8 | Plan + verification MD | **in_progress** | #583 | Earlier closeout is superseded by this security review |
-| R9 | OpenAPI snapshot for new routes | done | #547 · #551 | `config/openapi_schema_snapshot.json` |
+| R9 | OpenAPI snapshot for new routes/errors | **partial** | #547 · #551 · ER2/ER4 | Existing routes pinned; canonical error responses and capabilities route require regeneration |
 | R10 | Live dedup2d adapter + durable store | **partial** | ER1 · ER3 | Single-node store exists; live path disables geometric verification and uses placeholder provenance |
 | R11 | Owner ratify design-lock | **residual_human** | — | owner only |
 | R12 | Pilot enable decisions | **residual_human** | — | env flag; **never** self-enable in production |
@@ -68,7 +68,7 @@ Track C / R11 / R12 remain **residual_human**; **R2 HOLD** is unchanged.
 |---|---|---|
 | **R2 HOLD** | Decision / correction evidence must **not** enter training-readable manifests; `feedback.py` JSONL is not the ledger | No feedback imports; audit export marked `audit_quarantine`; structural tests in `test_review_reuse_r2_hold.py` + audit-export contract (#554) |
 | **Decision default-off** | Decisions stay off unless owner enables for a named pilot window | `REVIEW_REUSE_DECISIONS_ENABLED` unset/false → decision POST 403 |
-| **Validated reviewer** (when decisions on) | Optional pilot gate: API-key-only subject rejected | `REVIEW_REUSE_REQUIRE_VALIDATED_REVIEWER` + API tests (#558); still not a training path |
+| **Validated tenant + reviewer** (when decisions on) | Mandatory ledger gate: API-key-derived fallback identities are read/create-only | Legacy reviewer env cannot bypass this rule; still not a training path |
 | Related | No `eval_integrity_gate` replace · no Track E model-release metrics · no `cost_cap` revive · AI has no release authority | Workbench metrics = `review_workflow` only |
 
 ---
@@ -155,10 +155,10 @@ each acceptance row requires a discriminating negative test or a recorded real r
 
 | ID | Priority | Engineering residual | Acceptance gate |
 |---|---|---|---|
-| ER1 | **P0 / L3** | Collision-safe, non-escaping tenant storage and lookup | `tenant/a` and `tenant?a` cannot share state; `..` cannot escape the storage root; every load rechecks full `tenant_id` and `task_id`; old-layout migration detects collisions; get/list/idempotency negative tests pass |
-| ER2 | **P0 / L3** | Input and atomic human-decision ledger integrity | Reject empty/oversized/unsupported input; decide only `evidence_ready` tasks; candidate-bound states reference a task candidate; rationale is non-empty; create/decision idempotency keys bind canonical payload digests; corrupt indexes fail closed; concurrent decisions use revision/CAS so only one commit succeeds |
+| ER1 | **P0 / L3** | Collision-safe, non-escaping tenant storage and lookup | `tenant-v1-<sha256>` + literal-identity sidecar separates legacy/new namespaces; `tenant/a` and `tenant?a` cannot share state; `..` cannot escape; reads never mkdir; every load rechecks sidecar/full tenant/task identity; migration is backup-first/dry-run and detects collisions/schema gaps; write-capable filesystem store holds one process-lifetime writer lease; get/list/idempotency/ops negative tests pass |
+| ER2 | **P0 / L3** | Input and atomic human-decision ledger integrity | Reject empty/oversized/unsupported input; decide only `evidence_ready` tasks with validated tenant/reviewer and matching `expected_revision`/EvidencePack digest; candidate-bound states reference a task candidate; rationale is non-empty; canonical JSON v1 binds create/decision keys; store-level `create_if_absent` recovers exactly one task; corrupt indexes/records fail closed; revision/CAS permits one decision; canonical HTTP/OpenAPI responses are pinned |
 | ER3 | **P1 / L3** | First real isolated archive and trustworthy EvidencePack | Manifest/index/query uses no seeded candidate; score dimensions retain their real source instead of aliasing one visual score; deterministic geometry is enabled or explicitly `vision_only_unverified`; missing evidence remains null; model/ruleset/archive/index/calibration versions or digests are real; export replay is recorded |
-| ER4 | **P1 / L2 after ER1-ER3** | Minimal reviewer workbench and process visibility | Task list/detail, event timeline, candidate/evidence comparison, gated decision form, unsupported-state disclosure, and audit export work without adding AI or release authority; any new auth, persistence, or decision semantics re-escalate to L3 |
+| ER4 | **P1 / L2 after ER1-ER3** | Minimal reviewer workbench and process visibility | Read-only capabilities, task list/detail, event timeline, candidate/evidence comparison, gated decision form with loaded revision/evidence digest, unsupported-state disclosure, and audit export work without adding AI or release authority; any new auth, persistence, or decision semantics re-escalate to L3 |
 
 ### Current negative evidence (2026-08-29)
 
@@ -167,6 +167,8 @@ each acceptance row requires a discriminating negative test or a recorded real r
 - A `reuse` decision accepts a candidate not present in the task and an empty rationale.
 - Reusing a create or decision idempotency key with a different payload silently returns the first result; a corrupt filesystem idempotency index is treated as empty.
 - Decision submission is an unlocked read-modify-write across `get()` and `put()`; concurrent callers can both report success while one decision/event is lost.
+- Enabling only `REVIEW_REUSE_DECISIONS_ENABLED` currently permits an API-key-derived `ak-user-*` principal to write the ledger, and the request does not bind the EvidencePack revision/digest the reviewer saw.
+- Filesystem reads create tenant directories, the old/new directory namespaces are ambiguous for 64-hex names, and the store has no enforceable single-writer lease or atomic create-if-absent recovery.
 - The live adapter aliases one visual-similarity value into `geometric`, `semantic`, and `visual`; EvidencePack then maximizes those aliases into `confidence`, while `vision_only_unverified` is never emitted.
 - The isolated-archive helper is a single-file/synthetic-seed exercise, not the first real archive required by the Day 31-60 plan.
 
@@ -182,7 +184,7 @@ Optional future (not open DAG / not blocking residual_eng):
 | Item | Notes |
 |---|---|
 | Redis multi-node task store | Beyond single-node filesystem pilot store |
-| JWT-first reviewer identity always-on | Pilot can require validated reviewer via env; production identity productization is owner-driven |
+| Production identity-provider productization | Validated tenant + reviewer remains mandatory for every decision; only broader provider/UX productization is future work |
 | PLM write-back | Explicitly out of 90-day workbench scope |
 | Decision default-on | **Forbidden** without owner R12 pilot enable + named window |
 
@@ -220,7 +222,8 @@ External audit residuals: Hybrid superpass remains red on `main` until CI1 lands
 20. ~~Board post-#562 + pilot preflight script~~ — **#565 MERGED**.
 21. **This PR:** correct the board and amend the L3 design-lock; do not merge as a completion claim.
 22. **Owner only:** ratify the amended design-lock and pin its exact head.
-23. **ER1 + ER2:** one bounded L3 runtime safety PR with fail-first negative tests.
+23. **ER1 + ER2:** one bounded L3 runtime safety PR; commit the exact named §9.1 tests first,
+    preserve their red baseline, then implement without weakening them.
 24. **ER3:** real isolated archive and EvidencePack replay PR/run after ER1/ER2.
 25. **ER4:** minimal reviewer workbench only after the safety and evidence APIs pass.
 26. **Owner only:** R12 pilot decision enable and Track C C1-C5.
@@ -257,7 +260,7 @@ make review-reuse-store-list
 
 Covered modules on main: `test_review_reuse_workbench`, `test_review_reuse_api`, `test_review_reuse_r2_hold`, `test_review_reuse_live_store`, `test_review_reuse_audit_reviewer`, `test_review_reuse_audit_export_contract`, `test_review_reuse_evidence_goldens`, `test_review_reuse_store_ops`, `test_review_reuse_pilot_preflight`, `test_review_reuse_export_audit_script`.
 
-Missing required discriminators: tenant-segment collision and root escape, loaded tenant/task mismatch, invalid/empty input, invalid task transition, unknown candidate, empty rationale, create/decision idempotency-payload mismatch, corrupt idempotency index, concurrent decision CAS, score-source aliasing, and vision-only verification disclosure.
+Missing required discriminators: tenant-segment collision/root escape/reserved fallback namespace, no-mkdir reads, sidecar and loaded tenant/task mismatch, legacy migration collision/schema abort, writer-lease conflict, atomic create recovery, invalid/empty input, invalid task transition and cancel retry, unknown candidate, empty rationale, unvalidated tenant/reviewer, stale reviewed revision/EvidencePack digest, create/decision idempotency-payload mismatch, corrupt index/record list behavior, concurrent decision CAS, canonical HTTP/OpenAPI responses, score-source aliasing, and vision-only verification disclosure.
 
 See also: `CAD_REUSE_WORKBENCH_EVIDENCE_GOLDENS_20260808.md`, `CAD_REUSE_WORKBENCH_PILOT_CHECKLIST_20260808.md`, `CAD_REUSE_WORKBENCH_JWT_PILOT_RUNBOOK_20260808.md`, `CAD_REUSE_WORKBENCH_EXTERNAL_GATES_AUDIT_20260808.md`.
 
