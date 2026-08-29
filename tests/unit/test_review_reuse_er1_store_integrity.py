@@ -425,6 +425,44 @@ def test_evidence_pack_immutable_envelope_must_match_builder(
         _close(store)
 
 
+@pytest.mark.parametrize("surface", ["create", "migration"])
+def test_candidate_rejection_reason_uses_closed_vocabulary(
+    tmp_path: Path,
+    surface: str,
+) -> None:
+    from src.core.review_reuse.store import migrate_legacy_store
+
+    root = tmp_path / surface
+    task = _task("tenant-candidate-reason")
+    task.status = TaskStatus.evidence_ready
+    task.candidates = [
+        CandidateDecision(
+            candidate_id="archive-1",
+            candidate_source="archive",
+            state=CandidateState.insufficient_evidence,
+            rejection_reasons=["not_in_vocabulary"],
+        )
+    ]
+    task.evidence_pack = build_evidence_pack(task)
+
+    if surface == "create":
+        store = FilesystemReviewReuseStore(root)
+        try:
+            with pytest.raises(Exception) as raised:
+                _create(store, task)
+        finally:
+            _close(store)
+    else:
+        tasks_dir = root / task.tenant_id / "tasks"
+        tasks_dir.mkdir(parents=True)
+        (tasks_dir / f"{task.task_id}.json").write_text(
+            json.dumps(task.model_dump(mode="json")), encoding="utf-8"
+        )
+        with pytest.raises(Exception) as raised:
+            migrate_legacy_store(root)
+    assert _error_code(raised.value) == "store_record_corrupt"
+
+
 @pytest.mark.parametrize(
     "field",
     ["reviewed_revision", "evidence_pack_sha256"],

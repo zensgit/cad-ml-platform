@@ -154,6 +154,35 @@ def test_decision_revision_fields_are_required(client: TestClient) -> None:
     _assert_domain_error(duplicate, 422, "invalid_request")
 
 
+@pytest.mark.parametrize(
+    "content_type",
+    [
+        "application/vnd.api+json",
+        "application/merge-patch+json; charset=utf-8",
+    ],
+)
+def test_json_suffix_media_types_reject_duplicate_keys(
+    client: TestClient,
+    content_type: str,
+) -> None:
+    created = _create(client)
+    assert created.status_code == 200, created.text
+    task = created.json()
+    duplicate = client.post(
+        f"/api/v1/review-reuse/tasks/{task['task_id']}/decision",
+        content=(
+            '{"state":"new","candidate_id":null,'
+            '"reason_codes":["new_part_required"],'
+            '"reason_text":"first","reason_text":"second",'
+            f'"expected_revision":{task["revision"]},'
+            '"evidence_pack_sha256":'
+            f'"{task["evidence_pack"]["evidence_pack_sha256"]}"}}'
+        ),
+        headers={"Content-Type": content_type},
+    )
+    _assert_domain_error(duplicate, 422, "invalid_request")
+
+
 def test_store_corruption_maps_to_503(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
