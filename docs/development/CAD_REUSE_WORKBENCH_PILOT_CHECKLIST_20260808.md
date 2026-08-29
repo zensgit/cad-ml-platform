@@ -74,7 +74,7 @@ All workbench flags are **default-off or memory-local** unless the operator inte
 | `REVIEW_REUSE_LIVE_DEDUP` | **unset / false** | `true` (private vision only) | When off: offline path → `insufficient_evidence` / `tool_unavailable`. When on: private `DedupCadVisionClient.search_2d` (or injected hook). Failures fail closed. **No hosted LLM.** |
 | `REVIEW_REUSE_STORE` | `memory` | `filesystem` | `memory`: process-local (lost on restart). `filesystem`: restart-safe single-node pilot under `REVIEW_REUSE_STORE_DIR`. |
 | `REVIEW_REUSE_STORE_DIR` | `data/review_reuse_tasks` | private volume path | Used only when `REVIEW_REUSE_STORE=filesystem`. |
-| `REVIEW_REUSE_REQUIRE_VALIDATED_REVIEWER` | **unset / false** | `true` when decisions on | When on **and** decisions on: reject API-key fallback reviewers (`ak-user-*`); require JWT/integration subject (`user_id` / `auth_subject`). |
+| `REVIEW_REUSE_REQUIRE_VALIDATED_REVIEWER` | legacy compatibility only | no pilot choice | Cannot weaken the mandatory validated tenant + reviewer rule. API-key fallbacks are always read/create-only. |
 
 ### Recommended postures
 
@@ -106,8 +106,11 @@ unset REVIEW_REUSE_REQUIRE_VALIDATED_REVIEWER
 
 ```bash
 export REVIEW_REUSE_DECISIONS_ENABLED=true
-export REVIEW_REUSE_REQUIRE_VALIDATED_REVIEWER=true   # recommended for pilot
-# JWT / integration identity must populate request.state.user_id or auth_subject
+export INTEGRATION_AUTH_MODE=required
+export INTEGRATION_JWT_SECRET=...
+export INTEGRATION_JWT_AUDIENCE=...
+export INTEGRATION_JWT_ISSUER=...
+# A valid Bearer JWT must provide exact string sub + tenant_id claims.
 # Restart API after env change
 ```
 
@@ -248,19 +251,31 @@ Use §3 commands with `$TASK_ID`.
 
 ### 5.4 Optional human decision (owner enable only)
 
+This command is valid only after a separate owner authorization opens a named
+decision window and the server has restarted in the full required-JWT posture
+from §2.C. It is not part of the default isolated exercise.
+
 ```bash
 export REVIEW_REUSE_DECISIONS_ENABLED=true
-export REVIEW_REUSE_REQUIRE_VALIDATED_REVIEWER=true
-# restart uvicorn with validated identity middleware for real pilot;
-# API-key-only paths are rejected when REQUIRE_VALIDATED_REVIEWER=true
+# restart uvicorn with INTEGRATION_AUTH_MODE=required and complete JWT config
+
+# Values must come from the exact EvidencePack loaded by this reviewer.
+TASK_REVISION="$(python -c 'import json; print(json.load(open("exports/evidence.json"))["task_revision"])')"
+EVIDENCE_SHA="$(python -c 'import json; print(json.load(open("exports/evidence.json"))["evidence_pack_sha256"])')"
+CANDIDATE_ID="$(python -c 'import json; print(json.load(open("exports/evidence.json"))["candidates"][0]["candidate_id"])')"
+JWT='<validated reviewer bearer token>'
 
 curl -sS -X POST \
   "http://127.0.0.1:8000/api/v1/review-reuse/tasks/${TASK_ID}/decision" \
-  -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" \
-  -d '{"state":"revise","reason_codes":["needs_dimension_check"],"reason_text":"pilot review","idempotency_key":"dec-001"}'
+  -H "X-API-Key: $API_KEY" \
+  -H "Authorization: Bearer ${JWT}" \
+  -H "Content-Type: application/json" \
+  -d "{\"state\":\"revise\",\"candidate_id\":\"${CANDIDATE_ID}\",\"expected_revision\":${TASK_REVISION},\"evidence_pack_sha256\":\"${EVIDENCE_SHA}\",\"reason_codes\":[\"needs_modification\"],\"reason_text\":\"pilot review\",\"idempotency_key\":\"dec-001\"}"
 ```
 
-When decisions remain default-off, expect **403** with `decisions_disabled` — that is correct and required.
+An API-key-only request cannot submit a decision. With valid platform/JWT
+authentication but decisions default-off, expect **403**
+`decisions_disabled`.
 
 ---
 
@@ -269,7 +284,7 @@ When decisions remain default-off, expect **403** with `decisions_disabled` — 
 | Action | Command / step |
 |---|---|
 | Disable decisions (primary kill switch) | `unset REVIEW_REUSE_DECISIONS_ENABLED` or set `=false`; **restart** process |
-| Disable validated-reviewer gate | `unset REVIEW_REUSE_REQUIRE_VALIDATED_REVIEWER` (only after decisions off if winding down pilot) |
+| Validated reviewer rule | Mandatory for every decision; the legacy env flag is not a bypass or kill switch |
 | Disable live dedup | `unset REVIEW_REUSE_LIVE_DEDUP` or `=false`; restart |
 | Stop accepting new tasks | Remove from load balancer / stop process |
 | Clear memory store | Restart process (`REVIEW_REUSE_STORE=memory`) |

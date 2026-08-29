@@ -189,6 +189,11 @@ named tests plus narrower adversarial cases.
 - Unexpected domain codes become a sanitized 500 rather than a catch-all 400.
 - Operator logs receive only the structured store failure code; tenant
   responses contain no path, key, token, or record payload.
+- Isolated/pilot/JWT runbooks no longer present API-key fallback decisions,
+  stale reason codes, raw-sub attribution, raw-tenant filesystem paths, or a
+  request missing the required revision/EvidencePack binding. Decision examples
+  require both platform API-key and validated Bearer JWT authentication and
+  remain explicitly owner-only.
 
 ## 5. Independent-review hardening
 

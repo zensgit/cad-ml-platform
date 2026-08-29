@@ -17,15 +17,19 @@
 
 ## 1. Goal
 
-Pilot decisions must attribute **validated human subjects** (JWT `sub`), not API-key fallbacks (`ak-user-*`).
+Pilot decisions must attribute **validated human principals**, not API-key
+fallbacks (`ak-user-*`).
 
 Identity is set only by integration auth middleware from a verified token:
 
 - `request.state.user_id` / `request.state.auth_subject` ← token `sub`
 - `request.state.tenant_id` ← token `tenant_id`
 
-Workbench maps those into `reviewer_id` with `reviewer_validated=True`.  
-If only `X-API-Key` is present, reviewer is `ak-user-<hash>` and **fails** when `REVIEW_REUSE_REQUIRE_VALIDATED_REVIEWER=true`.
+Workbench binds `reviewer_id` to
+`principal-v1-<sha256({identity_provider: issuer, subject: sub})>` and sets
+`reviewer_validated=True`. If only `X-API-Key` is present, reviewer is an
+API-key fallback and every decision fails, regardless of the legacy
+`REVIEW_REUSE_REQUIRE_VALIDATED_REVIEWER` setting.
 
 ---
 
@@ -50,7 +54,7 @@ Token **must** include claims: `sub`, `tenant_id`, `exp`, `iat` (see middleware)
 | Variable | Safe default | Pilot exercise | Pilot decisions (owner-approved only) |
 |---|---|---|---|
 | `REVIEW_REUSE_DECISIONS_ENABLED` | **off** | **off** | **on** for named window only |
-| `REVIEW_REUSE_REQUIRE_VALIDATED_REVIEWER` | off | off or on | **on** when decisions on |
+| `REVIEW_REUSE_REQUIRE_VALIDATED_REVIEWER` | legacy compatibility only | same | Cannot weaken mandatory validated tenant + reviewer decisions |
 | `REVIEW_REUSE_LIVE_DEDUP` | off | optional on (private vision) | same |
 | `REVIEW_REUSE_STORE` | `memory` | `filesystem` | `filesystem` |
 | `REVIEW_REUSE_STORE_DIR` | `data/review_reuse_tasks` | private volume | private volume |
@@ -80,7 +84,6 @@ export INTEGRATION_AUTH_MODE=optional   # or required if all clients have JWT
 ```bash
 # Only after design-lock ratify + written pilot enable
 export REVIEW_REUSE_DECISIONS_ENABLED=true
-export REVIEW_REUSE_REQUIRE_VALIDATED_REVIEWER=true
 export INTEGRATION_AUTH_MODE=required
 export INTEGRATION_JWT_SECRET=...
 export INTEGRATION_JWT_AUDIENCE=...
@@ -100,11 +103,17 @@ unset REVIEW_REUSE_DECISIONS_ENABLED
 
 ## 3. Operator checks (decision path)
 
-1. Without Bearer JWT, with decisions+require_validated on:  
-   `POST /api/v1/review-reuse/tasks/{id}/decision` → **403** `reviewer_not_validated`.
-2. With valid JWT (`sub` + `tenant_id`): same POST → **200**, `human_decision.reviewer_id == sub`.
-3. Decisions off: POST → **403** `decisions_disabled` regardless of JWT.
-4. Never paste decision/audit bundles into training JSONL (R2 HOLD).
+1. With `INTEGRATION_AUTH_MODE=required`, a missing Bearer JWT is rejected by
+   the platform boundary with **401** before ReviewReuse routing.
+2. A valid JWT must carry exact string `sub` + `tenant_id`, and the request
+   must also include the configured API key. The decision body requires strict
+   `expected_revision`, canonical `evidence_pack_sha256`, valid state/candidate,
+   closed reason code(s) or text, and optional idempotency key.
+3. A successful response stores a hashed `principal-v1-*` reviewer id; it does
+   not expose raw `sub` as the ledger identity.
+4. With valid platform/JWT authentication but decisions off, POST returns
+   **403** `decisions_disabled`.
+5. Never paste decision/audit bundles into training JSONL (R2 HOLD).
 
 ---
 
@@ -113,8 +122,9 @@ unset REVIEW_REUSE_DECISIONS_ENABLED
 When `REVIEW_REUSE_STORE=filesystem`, task JSON lives under:
 
 ```text
-{REVIEW_REUSE_STORE_DIR}/{tenant}/tasks/{task_id}.json
-{REVIEW_REUSE_STORE_DIR}/{tenant}/idempotency.json
+{REVIEW_REUSE_STORE_DIR}/tenant-v1-{sha256(literal_tenant_id)}/tenant.json
+{REVIEW_REUSE_STORE_DIR}/tenant-v1-{sha256(literal_tenant_id)}/tasks/{task_id}.json
+{REVIEW_REUSE_STORE_DIR}/tenant-v1-{sha256(literal_tenant_id)}/idempotency.json
 ```
 
 ### Commands

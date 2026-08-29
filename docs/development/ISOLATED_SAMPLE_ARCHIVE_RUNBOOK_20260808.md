@@ -98,16 +98,18 @@ curl -sS -H "X-API-Key: test" \
   -o exports/events.json
 ```
 
-### 5.4 Optional human decision (owner enable only)
+### 5.4 Human decision is a separate owner-only window
 
-```bash
-export REVIEW_REUSE_DECISIONS_ENABLED=true
-# restart uvicorn
-curl -sS -X POST \
-  "http://127.0.0.1:8000/api/v1/review-reuse/tasks/${TASK_ID}/decision" \
-  -H "X-API-Key: test" -H "Content-Type: application/json" \
-  -d '{"state":"revise","reason_codes":["needs_dimension_check"],"reason_text":"pilot review","idempotency_key":"dec-001"}'
-```
+This default exercise does not submit a decision. An API-key fallback identity
+is read/create-only and cannot write the decision ledger, regardless of the
+legacy `REVIEW_REUSE_REQUIRE_VALIDATED_REVIEWER` setting.
+
+If the owner separately opens a named decision window, use the required JWT
+posture in `CAD_REUSE_WORKBENCH_JWT_PILOT_RUNBOOK_20260808.md`. The request must
+carry both platform API-key authentication and a valid Bearer JWT, plus the
+loaded strict `expected_revision`, canonical `evidence_pack_sha256`, a valid
+candidate when the selected state requires one, and a reason from the closed
+decision vocabulary. This runbook does not authorize that enablement.
 
 ### 5.5 Service-level synthetic seed (tests / offline archive fixture)
 
