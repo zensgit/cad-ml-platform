@@ -173,7 +173,9 @@ def test_pipeline_failure_preserves_attempt_events_without_invalid_payload(
     ]
 
 
-@pytest.mark.parametrize("adapter_case", ["unknown_reason", "duplicate_id"])
+@pytest.mark.parametrize(
+    "adapter_case", ["unknown_reason", "duplicate_id", "noncanonical_id"]
+)
 def test_store_rejected_adapter_results_commit_failed_task(
     monkeypatch: pytest.MonkeyPatch,
     adapter_case: str,
@@ -181,7 +183,9 @@ def test_store_rejected_adapter_results_commit_failed_task(
     from src.core.review_reuse import service as service_module
 
     candidate = CandidateDecision(
-        candidate_id="archive-1",
+        candidate_id=(
+            " archive-1 " if adapter_case == "noncanonical_id" else "archive-1"
+        ),
         candidate_source="archive",
         state=CandidateState.similar,
         scores={"geometric": 0.8, "semantic": 0.7},
@@ -235,6 +239,22 @@ def test_store_rejected_adapter_results_commit_failed_task(
     assert replayed.task_id == failed.task_id
     assert replayed.status == TaskStatus.failed
     assert calls == 1
+
+
+def test_adapter_canonicalizes_candidate_id_before_persistence() -> None:
+    seed = _seed_candidate()
+    seed[0]["candidate_id"] = " archive-1 "
+
+    task = ReviewReuseService(InMemoryReviewReuseStore()).create_task(
+        tenant_id="tenant-canonical-candidate",
+        file_name="part.dxf",
+        file_bytes=b"0\nSECTION\n",
+        seed_candidates=seed,
+    )
+
+    assert task.candidates[0].candidate_id == "archive-1"
+    assert task.evidence_pack is not None
+    assert task.evidence_pack["candidates"][0]["candidate_id"] == "archive-1"
 
 
 def test_decision_requires_validated_tenant_and_reviewer(
@@ -352,7 +372,9 @@ def test_store_cas_rejects_unknown_decision_reason_code() -> None:
     assert getattr(raised.value, "code", None) == "store_record_corrupt"
 
 
-@pytest.mark.parametrize("event_case", ["wrong_type", "wrong_detail"])
+@pytest.mark.parametrize(
+    "event_case", ["wrong_type", "wrong_detail", "unrelated_prefix"]
+)
 def test_store_cas_binds_decision_event_to_transition(event_case: str) -> None:
     store = InMemoryReviewReuseStore()
     service = ReviewReuseService(store)
@@ -383,7 +405,15 @@ def test_store_cas_binds_decision_event_to_transition(event_case: str) -> None:
         detail = {}
     else:
         event_type = TaskEventType.decision_submitted
-        detail = {**expected_detail, "reviewer_id": _REVIEWER_B}
+        detail = (
+            {**expected_detail, "reviewer_id": _REVIEWER_B}
+            if event_case == "wrong_detail"
+            else expected_detail
+        )
+    if event_case == "unrelated_prefix":
+        altered.events.append(
+            TaskEvent(event_type=TaskEventType.submitted, ts=0.5, detail={})
+        )
     altered.events.append(TaskEvent(event_type=event_type, ts=1.0, detail=detail))
     altered.evidence_pack = build_evidence_pack(altered)
 
