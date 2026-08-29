@@ -34,17 +34,21 @@ class ReviewReuseRoute(APIRoute):
 
         async def route_handler(request: Request) -> Response:
             try:
+                content_type_header = request.headers.get("content-type")
                 content_type = (
-                    request.headers.get("content-type", "")
-                    .partition(";")[0]
-                    .strip()
-                    .lower()
+                    (content_type_header or "").partition(";")[0].strip().lower()
                 )
-                if content_type == "application/json" or (
-                    content_type.startswith("application/")
-                    and content_type.endswith("+json")
+                if (
+                    not content_type_header
+                    or content_type == "application/json"
+                    or (
+                        content_type.startswith("application/")
+                        and content_type.endswith("+json")
+                    )
                 ):
-                    strict_json_loads(await request.body())
+                    body = await request.body()
+                    if body:
+                        strict_json_loads(body)
                 return await handler(request)
             except CanonicalJSONError:
                 return JSONResponse(
