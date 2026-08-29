@@ -756,6 +756,9 @@ def test_persisted_decision_binds_reconstructed_reviewed_snapshot(
         ("detail", "candidate_id", "archive-other"),
         ("detail", "reviewed_revision", 1),
         ("detail", "evidence_pack_sha256", "f" * 64),
+        ("timestamp", "before_decision", None),
+        ("timestamp", "before_prior_event", None),
+        ("timestamp", "after_updated_at", None),
     ],
 )
 def test_loaded_nonempty_decision_ledger_matches_committed_decision(
@@ -776,6 +779,13 @@ def test_loaded_nonempty_decision_ledger_matches_committed_decision(
             payload["events"].pop()
         elif tamper_kind == "event_type":
             payload["events"][-1]["event_type"] = "canceled"
+        elif tamper_kind == "timestamp":
+            if field == "before_decision":
+                payload["events"][-1]["ts"] = payload["human_decision"]["ts"] - 1
+            elif field == "before_prior_event":
+                payload["events"][-1]["ts"] = payload["events"][-2]["ts"] - 1
+            else:
+                payload["events"][-1]["ts"] = payload["updated_at"] + 1
         else:
             assert field is not None
             payload["events"][-1]["detail"][field] = replacement
