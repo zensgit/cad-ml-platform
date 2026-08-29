@@ -1358,27 +1358,23 @@ def _migrate_legacy_store(root: Path | str, *, apply: bool) -> Dict[str, Any]:
                 pack = dict(task.evidence_pack)
                 pack["task_revision"] = task.revision
                 raw_calibration = pack.get("calibration")
-                if raw_calibration is not None and not isinstance(
-                    raw_calibration, dict
-                ):
+                if "calibration" in pack and not isinstance(raw_calibration, dict):
                     raise ReviewReuseStoreError(
                         "store_record_corrupt",
                         "legacy EvidencePack calibration is invalid",
                     )
                 calibration = dict(raw_calibration or {})
-                stored_version = calibration.get("version")
                 if (
-                    stored_version is not None
-                    and stored_version != task.calibration_version
+                    "version" in calibration
+                    and calibration["version"] != task.calibration_version
                 ):
                     raise ReviewReuseStoreError(
                         "store_record_corrupt",
                         "legacy EvidencePack calibration is inconsistent",
                     )
-                stored_status = calibration.get("status")
                 if (
-                    stored_status is not None
-                    and stored_status != task.calibration_status
+                    "status" in calibration
+                    and calibration["status"] != task.calibration_status
                 ):
                     raise ReviewReuseStoreError(
                         "store_record_corrupt",
@@ -1430,6 +1426,7 @@ def _migrate_legacy_store(root: Path | str, *, apply: bool) -> Dict[str, Any]:
     staging = store_root.with_name(f".{store_root.name}.migration-{uuid.uuid4().hex}")
     backup = store_root.with_name(f"{store_root.name}.legacy-backup-{uuid.uuid4().hex}")
     staging_store = FilesystemReviewReuseStore(staging)
+    cleanup_staging = True
     try:
         for task in records:
             staging_store._import_migrated(task)
@@ -1439,20 +1436,33 @@ def _migrate_legacy_store(root: Path | str, *, apply: bool) -> Dict[str, Any]:
             if store_root.exists():
                 os.replace(store_root, backup)
                 backup_created = True
+                cleanup_staging = False
                 _fsync_directory(store_root.parent)
             os.replace(staging, store_root)
             published = True
+            cleanup_staging = False
             _fsync_directory(store_root.parent)
         except OSError:
             if published and store_root.exists():
                 os.replace(store_root, staging)
+            try:
+                if backup_created and backup.exists() and not store_root.exists():
+                    os.replace(backup, store_root)
+                elif staging.exists() and not store_root.exists():
+                    os.replace(staging, store_root)
+            except OSError:
+                if staging.exists() and not store_root.exists():
+                    os.replace(staging, store_root)
+                    _fsync_directory(store_root.parent)
+                    cleanup_staging = True
+                raise
+            if store_root.exists():
                 _fsync_directory(store_root.parent)
-            if backup_created and backup.exists() and not store_root.exists():
-                os.replace(backup, store_root)
-                _fsync_directory(store_root.parent)
+                cleanup_staging = True
             raise
     except Exception:
-        shutil.rmtree(staging, ignore_errors=True)
+        if cleanup_staging:
+            shutil.rmtree(staging, ignore_errors=True)
         raise
     finally:
         staging_store.close()

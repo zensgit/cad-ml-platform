@@ -329,6 +329,32 @@ def test_legacy_migration_rejects_nested_calibration_version_mismatch(
     assert _error_code(raised.value) == "store_record_corrupt"
 
 
+@pytest.mark.parametrize("field", ["object", "version", "status"])
+def test_legacy_migration_rejects_explicit_null_calibration(
+    tmp_path: Path,
+    field: str,
+) -> None:
+    from src.core.review_reuse.store import migrate_legacy_store
+
+    root = tmp_path / "legacy-store"
+    task = _task("tenant-calibration-null")
+    task.status = TaskStatus.evidence_ready
+    task.evidence_pack = build_evidence_pack(task)
+    if field == "object":
+        task.evidence_pack["calibration"] = None
+    else:
+        task.evidence_pack["calibration"][field] = None
+    tasks_dir = root / task.tenant_id / "tasks"
+    tasks_dir.mkdir(parents=True)
+    (tasks_dir / f"{task.task_id}.json").write_text(
+        json.dumps(task.model_dump(mode="json")), encoding="utf-8"
+    )
+
+    with pytest.raises(Exception) as raised:
+        migrate_legacy_store(root)
+    assert _error_code(raised.value) == "store_record_corrupt"
+
+
 @pytest.mark.parametrize("artifact_kind", ["file", "dangling_symlink"])
 def test_full_store_validation_rejects_unexpected_root_artifact(
     tmp_path: Path,
@@ -769,6 +795,150 @@ def test_legacy_migration_fsyncs_parent_after_rollback(
 
     assert task_path.is_file()
     assert parent_fsyncs == [root.parent, root.parent]
+
+
+def test_legacy_migration_restores_backup_before_rollback_fsync(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from src.core.review_reuse import store as store_module
+
+    root = tmp_path / "legacy-store"
+    task = _task("tenant-a")
+    task_path = root / task.tenant_id / "tasks" / f"{task.task_id}.json"
+    task_path.parent.mkdir(parents=True)
+    task_path.write_text(json.dumps(task.model_dump(mode="json")), encoding="utf-8")
+    real_fsync = store_module._fsync_directory
+    parent_calls = 0
+
+    def persistent_parent_failure(path: Path) -> None:
+        nonlocal parent_calls
+        if path == root.parent:
+            parent_calls += 1
+            if parent_calls >= 2:
+                raise OSError("simulated persistent parent fsync failure")
+        real_fsync(path)
+
+    monkeypatch.setattr(store_module, "_fsync_directory", persistent_parent_failure)
+
+    with pytest.raises(OSError, match="simulated persistent parent fsync failure"):
+        store_module.migrate_legacy_store(root, apply=True)
+
+    assert task_path.is_file()
+    assert parent_calls >= 3
+    staging_dirs = list(root.parent.glob(f".{root.name}.migration-*"))
+    assert len(staging_dirs) == 1
+    migrated_store = store_module.FilesystemReviewReuseStore(staging_dirs[0])
+    try:
+        assert migrated_store.get(task.tenant_id, task.task_id) == task
+    finally:
+        migrated_store.close()
+
+
+def test_legacy_migration_republishes_staging_if_backup_restore_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from src.core.review_reuse import store as store_module
+
+    root = tmp_path / "legacy-store"
+    task = _task("tenant-a")
+    task_path = root / task.tenant_id / "tasks" / f"{task.task_id}.json"
+    task_path.parent.mkdir(parents=True)
+    task_path.write_text(json.dumps(task.model_dump(mode="json")), encoding="utf-8")
+    real_replace = store_module.os.replace
+    real_fsync = store_module._fsync_directory
+    parent_calls = 0
+
+    def failing_backup_restore(source: str | Path, destination: str | Path) -> None:
+        source_path = Path(source)
+        if (
+            source_path.name.startswith(f"{root.name}.legacy-backup-")
+            and Path(destination) == root
+        ):
+            raise OSError("simulated backup restore failure")
+        real_replace(source, destination)
+
+    def failing_publish_fsync(path: Path) -> None:
+        nonlocal parent_calls
+        if path == root.parent:
+            parent_calls += 1
+            if parent_calls == 2:
+                raise OSError("simulated publish fsync failure")
+        real_fsync(path)
+
+    monkeypatch.setattr(store_module.os, "replace", failing_backup_restore)
+    monkeypatch.setattr(store_module, "_fsync_directory", failing_publish_fsync)
+
+    with pytest.raises(OSError, match="simulated backup restore failure"):
+        store_module.migrate_legacy_store(root, apply=True)
+
+    migrated_store = store_module.FilesystemReviewReuseStore(root)
+    try:
+        assert migrated_store.get(task.tenant_id, task.task_id) == task
+    finally:
+        migrated_store.close()
+
+
+def test_legacy_migration_preserves_copies_if_all_root_recovery_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from src.core.review_reuse import store as store_module
+
+    root = tmp_path / "legacy-store"
+    task = _task("tenant-a")
+    task_path = root / task.tenant_id / "tasks" / f"{task.task_id}.json"
+    task_path.parent.mkdir(parents=True)
+    task_path.write_text(json.dumps(task.model_dump(mode="json")), encoding="utf-8")
+    real_replace = store_module.os.replace
+    real_fsync = store_module._fsync_directory
+    staging_publish_calls = 0
+    parent_calls = 0
+
+    def failing_recovery_replace(source: str | Path, destination: str | Path) -> None:
+        nonlocal staging_publish_calls
+        source_path = Path(source)
+        destination_path = Path(destination)
+        if destination_path == root and source_path.name.startswith(
+            f".{root.name}.migration-"
+        ):
+            staging_publish_calls += 1
+            if staging_publish_calls == 2:
+                raise OSError("simulated staging republish failure")
+        if destination_path == root and source_path.name.startswith(
+            f"{root.name}.legacy-backup-"
+        ):
+            raise OSError("simulated backup restore failure")
+        real_replace(source, destination)
+
+    def failing_publish_fsync(path: Path) -> None:
+        nonlocal parent_calls
+        if path == root.parent:
+            parent_calls += 1
+            if parent_calls == 2:
+                raise OSError("simulated publish fsync failure")
+        real_fsync(path)
+
+    monkeypatch.setattr(store_module.os, "replace", failing_recovery_replace)
+    monkeypatch.setattr(store_module, "_fsync_directory", failing_publish_fsync)
+
+    with pytest.raises(OSError, match="simulated staging republish failure"):
+        store_module.migrate_legacy_store(root, apply=True)
+
+    assert not root.exists()
+    staging_dirs = list(root.parent.glob(f".{root.name}.migration-*"))
+    backup_dirs = list(root.parent.glob(f"{root.name}.legacy-backup-*"))
+    assert len(staging_dirs) == 1
+    assert len(backup_dirs) == 1
+    assert (
+        backup_dirs[0] / task.tenant_id / "tasks" / f"{task.task_id}.json"
+    ).is_file()
+    migrated_store = store_module.FilesystemReviewReuseStore(staging_dirs[0])
+    try:
+        assert migrated_store.get(task.tenant_id, task.task_id) == task
+    finally:
+        migrated_store.close()
 
 
 def test_legacy_prefix_like_tenant_is_not_mistaken_for_new_layout(
