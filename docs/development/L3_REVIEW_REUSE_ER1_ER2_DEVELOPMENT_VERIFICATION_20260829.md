@@ -7,10 +7,10 @@
 **Ratified authority**: PR #583 exact head
 `9150e06c75721bf086572ed271b68548104e8300`<br>
 **Runtime implementation head**:
-`2370af34519e64362024c520a38065052628fa83`
-(`fix: bind ReviewReuse immutable evidence snapshots`), on top of the
+`d682971b1f87536cd14a9fe2c2940e4d4c0266cf`
+(`fix: enforce native ReviewReuse decision reasons`), on top of the
 original runtime commit `6cc55841` and the earlier hardening chain through
-`40b006d4`.
+`4cc75fee`.
 
 ## 1. Authorization boundary
 
@@ -51,7 +51,7 @@ named by design-lock section 9.1:
 | Parent / authority | `9150e06c75721bf086572ed271b68548104e8300` |
 | Files | `test_review_reuse_er1_store_integrity.py`, `test_review_reuse_er2_ledger.py`, `test_review_reuse_api_integrity.py` |
 | Baseline result | **18 failed** |
-| Runtime-head result | **70 passed** |
+| Runtime-head result | **74 passed** |
 
 Exact command:
 
@@ -95,6 +95,10 @@ named tests plus narrower adversarial cases.
   owners fail closed.
 - List, metrics, store ops, and pilot preflight validate the complete tenant
   record set; audit export validates its requested record and tenant index.
+- Full-store validation enumerates each hashed tenant directory and accepts
+  only `tenant.json`, optional `idempotency.json`, `tasks/`, and exact internal
+  atomic-write temporary-file shapes. Unknown tenant-level files, directories,
+  symbolic links, and entry type mismatches fail closed.
 
 ### 3.3 Single writer and durable writes
 
@@ -219,6 +223,10 @@ named tests plus narrower adversarial cases.
 - Candidate/state matrix, closed new-submission reason vocabulary, non-empty
   rationale, actor-bound idempotency, and terminal-state semantics are
   enforced.
+- The reason-code vocabulary is shared by the service and store. Native
+  `evidence_ready -> decided` CAS mutations revalidate it even when a caller
+  bypasses the service; legacy migration continues to preserve historical
+  out-of-vocabulary reason codes as required by the ratified contract.
 
 ### 4.4 HTTP and OpenAPI contract
 
@@ -353,19 +361,42 @@ can evade this class of validation; signatures, WORM storage, or an external
 audit ledger would require a separately ratified L3 design and are not claimed
 by ER1 + ER2.
 
+An eighth exact-head GitHub review at
+`87428565a6aac0292caab0f9f85be76b84a1a368` found an ER1 tenant-directory gap
+and an ER2 reason-vocabulary ambiguity:
+
+| Finding | Red proof | Closed or bounded behavior |
+|---|---|---|
+| Unknown files or directories beside tenant metadata/tasks were ignored | test-only `4a4b05c5f6c1299d0d3df79f5972df7483a3a2ca` reproduced **2 failed** across full-store validation, writer restart, and already-migrated detection | runtime `4cc75feef91e393d851d16f3f0022793d86bb1e0` classifies every tenant-level entry; both cases pass |
+| A direct native store CAS could persist a reason code rejected by the API | test-only `d06ae3c05490e648500931e9a00409480bce1a5f` reproduced **1 failed**, while the paired historical-migration compatibility case passed | runtime `d682971b1f87536cd14a9fe2c2940e4d4c0266cf` shares the vocabulary and rejects native CAS bypass; both native rejection and historical preservation pass |
+
+The review's broader load-time proposal cannot be applied without contradicting
+ratified design-lock section 5: migrated historical decisions must remain
+readable even when their reason code predates the current vocabulary. Native
+and migrated decisions have no persisted provenance discriminator today.
+Distinguishing a tampered native record from a valid historical record at load
+time therefore requires a separately ratified schema amendment such as an
+integrity-bound reason-vocabulary version or migration provenance. ER1 + ER2 do
+not claim that unratified behavior.
+
+At runtime head `d682971b`, the complete named fail-first command is **74
+passed** and the full ReviewReuse suite is **168 passed**.
+
 ## 6. Verification evidence
 
 Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
-`2370af34`.
+`d682971b`.
 
 | Gate | Result |
 |---|---:|
-| Exact named fail-first command, including narrower additions | **70 passed** |
+| Exact named fail-first command, including narrower additions | **74 passed** |
 | Focused null/rollback/recovery batch | **6 passed** |
 | Focused duplicate-owner/candidate-evidence batch | **5 passed** |
 | Focused published-write quarantine/decision/calibration batch | **5 passed** (red: 5 failed at test-only `d91309df`) |
 | Focused immutable-envelope/reviewed-snapshot batch | **6 passed** (red: 6 failed at test-only `5095f292`) |
-| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **164 passed** |
+| Focused tenant-artifact batch | **2 passed** (red: 2 failed at test-only `4a4b05c5`) |
+| Focused native/historical reason batch | **2 passed** (red: 1 failed / 1 passed at test-only `d06ae3c0`) |
+| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **168 passed** |
 | Integration-auth + production-identity + pilot-preflight regressions | **44 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 test-core` | **39 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-openapi` | **5 passed** |
@@ -408,6 +439,8 @@ short-key warnings from test-only JWT fixtures. No test failed or was skipped.
 - No repository or deployment configuration enables decisions or live dedup.
 - ER1 + ER2 do not claim cryptographic tamper evidence against a privileged
   filesystem writer; that would require a separate owner-ratified L3 design.
+- ER2 does not claim load-time native-versus-migrated reason provenance; the
+  current ratified schema cannot represent that distinction.
 - The canonical checkout remained clean; all work occurred in the isolated
   `codex/review-reuse-er1-er2-20260829` worktree.
 - PR #584 is stacked on the exact ratified #583 branch and remains for review.
@@ -426,3 +459,5 @@ Still required:
    replay.
 5. ER4 remains deferred until ER1-ER3 prerequisites close and the owner opens
    its implementation window.
+6. A separate owner-ratified schema amendment is required before load-time
+   native-versus-migrated reason provenance can be enforced.
