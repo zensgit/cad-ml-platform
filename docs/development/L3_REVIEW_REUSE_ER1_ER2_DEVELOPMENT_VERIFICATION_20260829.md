@@ -7,10 +7,10 @@
 **Ratified authority**: PR #583 exact head
 `9150e06c75721bf086572ed271b68548104e8300`  
 **Runtime implementation head**:
-`77cd2969b0f097e54628121e104eabca748a8c65`
-(`fix: bind ReviewReuse persisted ownership and evidence`), on top of the
+`40b006d43a45fd971ab5ef8059bc427ec5f1c157`
+(`fix: quarantine uncertain ReviewReuse ledger writes`), on top of the
 original runtime commit `6cc55841` and the earlier hardening chain through
-`60df0f9f`.
+`77cd2969`.
 
 ## 1. Authorization boundary
 
@@ -51,7 +51,7 @@ named by design-lock section 9.1:
 | Parent / authority | `9150e06c75721bf086572ed271b68548104e8300` |
 | Files | `test_review_reuse_er1_store_integrity.py`, `test_review_reuse_er2_ledger.py`, `test_review_reuse_api_integrity.py` |
 | Baseline result | **18 failed** |
-| Runtime-head result | **59 passed** |
+| Runtime-head result | **64 passed** |
 
 Exact command:
 
@@ -121,6 +121,13 @@ named tests plus narrower adversarial cases.
   directory.
 - A task is written before its create index. Index write failure marks the
   writer unhealthy, preventing a duplicate task until recovery.
+- If a task or first-tenant rename becomes visible but its parent-directory
+  `fsync` fails, the current store instance is quarantined. Subsequent reads
+  and writes fail with `store_writer_conflict` rather than acknowledging an
+  uncertain create or decision through an idempotent retry.
+- Writer startup establishes the recovery durability barrier before serving:
+  it removes only exact internal leftovers, then `fsync`s recognized task,
+  tenant, and root directories deepest-first before full-store validation.
 
 ### 3.4 Legacy migration
 
@@ -168,6 +175,8 @@ named tests plus narrower adversarial cases.
 - Existing events are immutable and every state mutation appends an event.
 - Immutable task identity, trace, source filename/hash, idempotency ownership,
   and reviewed candidate set cannot be rewritten during cancel or decision.
+- Once a task reaches `evidence_ready`, its reviewed candidates and calibration
+  version/status are frozen for the decision or cancel commit.
 - Concurrent cancel/decision calls permit exactly one commit.
 - Pipeline failures retain attempted events, clear invalid candidates/evidence,
   persist a safe failure code/message, and do not emit
@@ -192,6 +201,9 @@ named tests plus narrower adversarial cases.
 - A digest-valid EvidencePack must bind both nested calibration version and
   status to the owning task; migration refuses mismatches before recomputing a
   digest.
+- A persisted EvidencePack's `human_decision` block must exactly match the
+  task decision, including the undecided `null` state; recomputing the pack
+  digest cannot smuggle a decision into an undecided task.
 - Migration distinguishes missing legacy calibration metadata from explicit
   JSON `null`: a null calibration object, version, or status is corrupt and is
   never silently backfilled and re-signed.
@@ -295,17 +307,34 @@ runtime repair `77cd2969b0f097e54628121e104eabca748a8c65` made all five pass:
 At runtime head `77cd2969`, the complete named fail-first command is **59
 passed** and the full ReviewReuse suite is **153 passed**.
 
+A sixth exact-head GitHub review at `0cfd9b7f` found four remaining durability
+and evidence-freeze gaps. Follow-up test-only commit
+`d91309df1e7da90fd15575822eff70146a1ba45d` reproduced the five behavioral
+cases as **5 failed**; runtime repair
+`40b006d43a45fd971ab5ef8059bc427ec5f1c157` made the same command **5 passed**:
+
+| Finding | Red proof | Closed behavior |
+|---|---|---|
+| A task rename could succeed before its parent-directory `fsync` failed, leaving a visible but not durably acknowledged task | create failed, but the same store could immediately read/replay the visible task | the published-write failure quarantines the store; reads and writes fail closed until writer restart establishes a durability barrier |
+| First-tenant publish had the same uncertain namespace window at the store root | create failed, but the visible tenant was accepted by immediate list/retry | the published-tenant failure quarantines the store; startup `fsync`s recognized task, tenant, and root directories before validation and reuse |
+| An undecided task accepted an arbitrary digest-valid EvidencePack decision block | forged non-empty `human_decision` loaded successfully | persisted and rebuilt decision blocks must match exactly |
+| Decision/cancel CAS could change reviewed calibration metadata | version and status mutations both committed against the old reviewed digest | candidates plus calibration version/status are frozen once the current task is `evidence_ready` |
+
+At runtime head `40b006d4`, the complete named fail-first command is **64
+passed** and the full ReviewReuse suite is **158 passed**.
+
 ## 6. Verification evidence
 
 Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
-`77cd2969`.
+`40b006d4`.
 
 | Gate | Result |
 |---|---:|
-| Exact named fail-first command, including narrower additions | **59 passed** |
+| Exact named fail-first command, including narrower additions | **64 passed** |
 | Focused null/rollback/recovery batch | **6 passed** |
 | Focused duplicate-owner/candidate-evidence batch | **5 passed** |
-| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **153 passed** |
+| Focused published-write quarantine/decision/calibration batch | **5 passed** (red: 5 failed at test-only `d91309df`) |
+| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **158 passed** |
 | Integration-auth + production-identity + pilot-preflight regressions | **44 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 test-core` | **39 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-openapi` | **5 passed** |
@@ -313,7 +342,7 @@ Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
 | JCS finite-binary64 differential vs Node `JSON.stringify` at `1ee1bad0`; canonical module unchanged at current head | **20,000 cases; 0 mismatches** |
 | Black + isort | **pass (26 files)** |
 | flake8 | **pass (26 files)** |
-| mypy | **success (11 source/script files)** |
+| mypy | **success (12 source/script files)** |
 | compileall | **pass** |
 | `git diff --check` | **pass** |
 
