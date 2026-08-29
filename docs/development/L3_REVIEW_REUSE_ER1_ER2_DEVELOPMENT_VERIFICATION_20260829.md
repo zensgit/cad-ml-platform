@@ -7,10 +7,10 @@
 **Ratified authority**: PR #583 exact head
 `9150e06c75721bf086572ed271b68548104e8300`<br>
 **Runtime implementation head**:
-`707dcbf7d9d34c8aa5b3cb0ef20b4b15ab6f227d`
-(`fix: reject unknown ReviewReuse record fields`), on top of the
+`219438564602dabcac740ffc50d99664efbcd3d3`
+(`chore: lint ReviewReuse operator bootstraps`), on top of the
 original runtime commit `6cc55841` and the earlier hardening chain through
-`dc487916`.
+`891f8e9c`.
 
 ## 1. Authorization boundary
 
@@ -51,7 +51,7 @@ named by design-lock section 9.1:
 | Parent / authority | `9150e06c75721bf086572ed271b68548104e8300` |
 | Files | `test_review_reuse_er1_store_integrity.py`, `test_review_reuse_er2_ledger.py`, `test_review_reuse_api_integrity.py` |
 | Baseline result | **18 failed** |
-| Runtime-head result | **96 passed** |
+| Runtime-head result | **106 passed** |
 
 Exact command:
 
@@ -188,6 +188,15 @@ named tests plus narrower adversarial cases.
 - The final newly appended event must match the accepted old/new state
   transition. A decision event must also bind state, reviewer, candidate,
   reviewed revision, and EvidencePack digest to the committed decision.
+- Native reads, list, migration, and audit export apply the same five-field
+  binding to every non-empty decided event ledger. The final event must be
+  `decision_submitted`; deleting it, changing its type, or changing any bound
+  detail fails as `store_record_corrupt`.
+- Ratified legacy decided records with an empty event list remain readable.
+  Because the current model carries no native/migrated provenance, ER2 does
+  not claim detection when a privileged writer replaces an entire native
+  event list with `[]`; closing that ambiguity requires a separate L3 schema
+  amendment.
 - Immutable task identity, trace, source filename/hash, idempotency ownership,
   and reviewed candidate set cannot be rewritten during cancel or decision.
 - Once a task reaches `evidence_ready`, its reviewed candidates and calibration
@@ -475,14 +484,52 @@ At runtime head `707dcbf7`, the complete named fail-first command is **96
 passed**, the full ReviewReuse suite is **191 passed**, and the integration
 auth/production-identity/pilot-preflight regressions remain **46 passed**.
 
+A twelfth exact-head GitHub review at
+`93df64c041b19d00c78c6a7cc85ee110bc0c1124` found two operator-entrypoint
+failures and one persisted event-ledger integrity gap. Test-only commit
+`df989064787c4ebf6fb9ea24034f5b6faabbd9ff` reproduced the two script cases as
+**2 failed** with `ModuleNotFoundError: src`. Runtime repair
+`74ec4f37602aba267ac2d46d35c765f3eb7e6b54` made both direct entrypoints and
+their existing script suites pass. Test-only commit
+`8b104b96d8e2b275505ccd141f1f7e35124ab418` then reproduced the persisted
+ledger cases as **10 failed / 1 passed**; the one passing case was the required
+legacy empty-event compatibility lock. Runtime repair
+`891f8e9cda3aee506859bafeab982c7e80d8835f` made the full focused batch **11
+passed**:
+
+| Finding | Red proof | Closed or bounded behavior |
+|---|---|---|
+| Pilot preflight failed when Make executed the script by path without `PYTHONPATH` | direct subprocess exited before argument parsing with `ModuleNotFoundError: src` | the script bootstraps the repository root before its `src` import; direct `--help` and the real Make target pass |
+| Store backup/list/cleanup had the same direct-script import failure | the store-ops subprocess failed identically | the same narrow bootstrap is applied; direct `--help` and the real read-only list target pass |
+| Persisted decided records accepted a removed/wrong terminal event or changed decision detail, allowing audit export of contradictory history | seven load mutations, two migration modes, and audit export all failed their fail-closed assertions; legacy `events=[]` remained readable | every non-empty decided ledger is checked on load/migration/export against `decision_submitted` plus the five ratified binding fields; the all-events-empty native/migrated ambiguity remains owner-gated |
+
+The parallel entrypoint audit also reproduced the same repository-import issue
+in `review_reuse_isolated_archive_run.py`. That script is the ER3 isolated
+archive path, so it was deliberately not changed under the ER1 + ER2-only
+authorization. It remains a required ER3 fail-first item rather than hidden
+scope expansion.
+
+The event-ledger repair intentionally does not synthesize migration events or
+add an unratified provenance field. A valid migrated decided record may have
+`events=[]`; after restart the current schema cannot distinguish it from a
+native record whose complete event list was erased. Fully closing that case,
+and the earlier native-versus-historical reason-vocabulary ambiguity, requires
+one separately ratified record provenance/schema amendment or an external
+integrity anchor.
+
+At runtime head `21943856`, the complete named fail-first command is **106
+passed**, the full ReviewReuse suite is **203 passed**, the integration
+auth/production-identity/pilot-preflight regressions are **47 passed**, and the
+two operator script suites are **21 passed**.
+
 ## 6. Verification evidence
 
 Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
-`707dcbf7`.
+`21943856`.
 
 | Gate | Result |
 |---|---:|
-| Exact named fail-first command, including narrower additions | **96 passed** |
+| Exact named fail-first command, including narrower additions | **106 passed** |
 | Focused null/rollback/recovery batch | **6 passed** |
 | Focused duplicate-owner/candidate-evidence batch | **5 passed** |
 | Focused published-write quarantine/decision/calibration batch | **5 passed** (red: 5 failed at test-only `d91309df`) |
@@ -493,8 +540,10 @@ Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
 | Focused implicit-JSON duplicate-key case | **1 passed** (red: 1 failed at test-only `ed0c4302`) |
 | Focused identity/event/root/legacy-artifact batch | **11 passed** (red: 10 failed at `68d69438` plus 1 failed at `fa6ad4e1`) |
 | Focused unknown record-field batch | **8 passed** (red: 8 failed at test-only `c93fc5de`) |
-| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **191 passed** |
-| Integration-auth + production-identity + pilot-preflight regressions | **46 passed** |
+| Focused operator direct-entrypoint batch | **2 passed** (red: 2 failed at test-only `df989064`); complete script suites **21 passed** |
+| Focused persisted decision-event batch | **11 passed** (red: 10 failed / 1 legacy-lock pass at test-only `8b104b96`) |
+| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **203 passed** |
+| Integration-auth + production-identity + pilot-preflight regressions | **47 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 test-core` | **39 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-openapi` | **5 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-core-fast` | **exit 0; 229 tests + 10 governance checks** |
@@ -538,6 +587,12 @@ short-key warnings from test-only JWT fixtures. No test failed or was skipped.
   filesystem writer; that would require a separate owner-ratified L3 design.
 - ER2 does not claim load-time native-versus-migrated reason provenance; the
   current ratified schema cannot represent that distinction.
+- ER2 rejects missing or changed terminal decision events when the persisted
+  ledger is non-empty, but does not claim native-versus-migrated provenance
+  for an entirely empty ledger. The exact-head review thread remains open for
+  that separately gated schema decision.
+- The direct-entrypoint issue independently observed in the ER3 isolated
+  archive script was not repaired under this ER1 + ER2 authorization.
 - The canonical checkout remained clean; all work occurred in the isolated
   `codex/review-reuse-er1-er2-20260829` worktree.
 - PR #584 is stacked on the exact ratified #583 branch and remains for review.
@@ -556,5 +611,6 @@ Still required:
    replay.
 5. ER4 remains deferred until ER1-ER3 prerequisites close and the owner opens
    its implementation window.
-6. A separate owner-ratified schema amendment is required before load-time
-   native-versus-migrated reason provenance can be enforced.
+6. A separate owner-ratified schema/provenance amendment is required before
+   load-time native-versus-migrated reason provenance and an entirely erased
+   native event ledger can both be distinguished from valid legacy records.
