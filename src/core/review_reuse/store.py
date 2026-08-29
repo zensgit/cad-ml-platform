@@ -317,6 +317,23 @@ def _validate_create_binding(
         raise ReviewReuseStoreError(
             "store_record_corrupt", "first persisted task events are invalid"
         )
+    submitted_event, input_event = task.events
+    input_bytes = input_event.detail.get("bytes")
+    if (
+        type(submitted_event.detail.get("file_name")) is not str
+        or submitted_event.detail["file_name"] != task.source_file_name
+        or type(input_bytes) is not int
+        or input_bytes <= 0
+    ):
+        raise ReviewReuseStoreError(
+            "store_record_corrupt", "first persisted task event metadata is invalid"
+        )
+    if not (
+        0 <= task.created_at <= submitted_event.ts <= input_event.ts <= task.updated_at
+    ):
+        raise ReviewReuseStoreError(
+            "store_record_corrupt", "first persisted task event timestamps are invalid"
+        )
     validate_review_reuse_task_payload(task)
     if key is None:
         if (
