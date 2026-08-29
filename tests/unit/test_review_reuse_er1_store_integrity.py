@@ -16,9 +16,11 @@ from src.core.review_reuse.evidence import build_evidence_pack, evidence_pack_di
 from src.core.review_reuse.models import (
     CandidateDecision,
     CandidateState,
+    HumanDecisionState,
     ReviewReuseTask,
     TaskStatus,
 )
+from src.core.review_reuse.service import ReviewReuseService
 from src.core.review_reuse.store import (
     FilesystemReviewReuseStore,
     ReviewReuseStoreError,
@@ -373,6 +375,119 @@ def test_undecided_task_rejects_forged_pack_decision(tmp_path: Path) -> None:
 
         with pytest.raises(Exception) as raised:
             store.get(task.tenant_id, task.task_id)
+        assert _error_code(raised.value) == "store_record_corrupt"
+    finally:
+        _close(store)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("schema_version", "evidence-pack-v999"),
+        ("provenance", {"model": "tampered"}),
+        (
+            "source",
+            {
+                "file_name": "part.dxf",
+                "content_sha256": "a" * 64,
+                "unexpected": "smuggled",
+            },
+        ),
+    ],
+)
+def test_evidence_pack_immutable_envelope_must_match_builder(
+    tmp_path: Path,
+    field: str,
+    value: object,
+) -> None:
+    root = tmp_path / "store"
+    store = FilesystemReviewReuseStore(root)
+    task = _task("tenant-pack-envelope")
+    task.status = TaskStatus.evidence_ready
+    task.evidence_pack = build_evidence_pack(task)
+    try:
+        _create(store, task)
+        record_path = (
+            _tenant_dir(root, task.tenant_id) / "tasks" / f"{task.task_id}.json"
+        )
+        payload = json.loads(record_path.read_text(encoding="utf-8"))
+        pack = payload["evidence_pack"]
+        pack[field] = value
+        pack["evidence_pack_sha256"] = evidence_pack_digest(pack)
+        record_path.write_text(json.dumps(payload), encoding="utf-8")
+
+        with pytest.raises(Exception) as raised:
+            store.get(task.tenant_id, task.task_id)
+        assert _error_code(raised.value) == "store_record_corrupt"
+    finally:
+        _close(store)
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["reviewed_revision", "evidence_pack_sha256"],
+)
+def test_persisted_decision_binds_reconstructed_reviewed_snapshot(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    field: str,
+) -> None:
+    monkeypatch.setenv("REVIEW_REUSE_DECISIONS_ENABLED", "true")
+    root = tmp_path / "store"
+    store = FilesystemReviewReuseStore(root)
+    service = ReviewReuseService(store)
+    try:
+        ready = service.create_task(
+            tenant_id="tenant-reviewed-snapshot",
+            file_name="part.dxf",
+            file_bytes=b"0\nEOF\n",
+            seed_candidates=[
+                {
+                    "candidate_id": "archive-1",
+                    "candidate_source": "archive",
+                    "state": "similar",
+                    "scores": {"geometric": 0.8, "semantic": 0.7},
+                    "verification": {
+                        "verdict": "review",
+                        "level": "geometry",
+                        "methods": ["geometry"],
+                    },
+                    "rejection_reasons": [],
+                    "provenance": {"model": "dedup2d-v1"},
+                }
+            ],
+        )
+        assert ready.evidence_pack is not None
+        reviewed_digest = ready.evidence_pack["evidence_pack_sha256"]
+        decided = service.submit_decision(
+            tenant_id=ready.tenant_id,
+            task_id=ready.task_id,
+            state=HumanDecisionState.revise,
+            reviewer_id="principal-v1-" + "1" * 64,
+            reviewer_kind="validated_principal",
+            reason_codes=["needs_modification"],
+            reason_text="Reviewed evidence.",
+            candidate_id="archive-1",
+            idempotency_key=None,
+            tenant_validated=True,
+            reviewer_validated=True,
+            expected_revision=ready.revision,
+            evidence_pack_sha256=reviewed_digest,
+        )
+        record_path = (
+            _tenant_dir(root, decided.tenant_id) / "tasks" / f"{decided.task_id}.json"
+        )
+        payload = json.loads(record_path.read_text(encoding="utf-8"))
+        if field == "reviewed_revision":
+            payload["human_decision"][field] -= 1
+        else:
+            payload["human_decision"][field] = "f" * 64
+        tampered = ReviewReuseTask.model_validate(payload)
+        payload["evidence_pack"] = build_evidence_pack(tampered)
+        record_path.write_text(json.dumps(payload), encoding="utf-8")
+
+        with pytest.raises(Exception) as raised:
+            store.get(decided.tenant_id, decided.task_id)
         assert _error_code(raised.value) == "store_record_corrupt"
     finally:
         _close(store)
