@@ -157,6 +157,7 @@ class IntegrationAuthMiddleware(BaseHTTPMiddleware):
         request.state.user_id = subject
         request.state.auth_subject = subject
         request.state.identity_provider = self.jwt_issuer
+        request.state.review_reuse_tenant_validated = True
         request.state.review_reuse_identity_validated = bool(self.jwt_issuer)
 
         return await call_next(request)

@@ -31,6 +31,7 @@ from .models import (
     HumanDecisionState,
     RejectionReason,
     ReviewReuseTask,
+    TaskEventType,
     TaskStatus,
 )
 
@@ -60,6 +61,17 @@ _TASK_TEMP_PATTERN = re.compile(
     r"^\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
     r"[0-9a-f]{12}\.json\.[a-z0-9_]{8}(?:\.tmp)?$"
 )
+_TRANSITION_EVENTS = {
+    (TaskStatus.pending, TaskStatus.running): TaskEventType.input_validated,
+    (TaskStatus.pending, TaskStatus.failed): TaskEventType.failed,
+    (TaskStatus.pending, TaskStatus.canceled): TaskEventType.canceled,
+    (TaskStatus.running, TaskStatus.evidence_ready): TaskEventType.evidence_pack_ready,
+    (TaskStatus.running, TaskStatus.failed): TaskEventType.failed,
+    (TaskStatus.running, TaskStatus.canceled): TaskEventType.canceled,
+    (TaskStatus.evidence_ready, TaskStatus.decided): TaskEventType.decision_submitted,
+    (TaskStatus.evidence_ready, TaskStatus.canceled): TaskEventType.canceled,
+}
+_TRANSITION_EVENT_TYPES = frozenset(_TRANSITION_EVENTS.values())
 
 
 class ReviewReuseStoreError(Exception):
@@ -152,6 +164,30 @@ def _validate_tenant_directory_entries(store_root: Path, tenant_dir: Path) -> No
         )
 
 
+def _validate_legacy_tenant_directory_entries(
+    store_root: Path, tenant_dir: Path
+) -> None:
+    try:
+        entries = sorted(tenant_dir.iterdir())
+    except OSError as exc:
+        raise ReviewReuseStoreError(
+            "store_record_corrupt", "legacy tenant directory is unreadable"
+        ) from exc
+    for entry in entries:
+        _assert_store_path(store_root, entry, code="store_record_corrupt")
+        if entry.is_symlink():
+            raise ReviewReuseStoreError(
+                "store_record_corrupt", "unexpected legacy tenant artifact"
+            )
+        if entry.name == "tasks" and entry.is_dir():
+            continue
+        if entry.name == "idempotency.json" and entry.is_file():
+            continue
+        raise ReviewReuseStoreError(
+            "store_record_corrupt", "unexpected legacy tenant artifact"
+        )
+
+
 class ReviewReuseStoreProtocol(Protocol):
     def create_if_absent(
         self,
@@ -220,6 +256,19 @@ def _fsync_directory(path: Path) -> None:
         os.fsync(directory_fd)
     finally:
         os.close(directory_fd)
+
+
+def _mkdir_with_durable_parents(path: Path) -> None:
+    missing: List[Path] = []
+    current = path
+    while not current.exists():
+        missing.append(current)
+        if current.parent == current:
+            break
+        current = current.parent
+    path.mkdir(parents=True, exist_ok=True)
+    for created in missing:
+        _fsync_directory(created.parent)
 
 
 def _clone(task: ReviewReuseTask) -> ReviewReuseTask:
@@ -593,6 +642,37 @@ def _assert_mutation(
         raise ReviewReuseStoreError(
             "store_record_corrupt", "task mutation must append to its event ledger"
         )
+    appended_events = task.events[len(current.events) :]
+    expected_event = _TRANSITION_EVENTS[(current.status, task.status)]
+    if appended_events[-1].event_type != expected_event or any(
+        event.event_type in _TRANSITION_EVENT_TYPES for event in appended_events[:-1]
+    ):
+        raise ReviewReuseStoreError(
+            "store_record_corrupt", "task transition event is inconsistent"
+        )
+    if task.status == TaskStatus.decided:
+        decision = task.human_decision
+        if decision is None:  # pragma: no cover - payload validation rejects first
+            raise ReviewReuseStoreError(
+                "store_record_corrupt", "decision attribution is missing"
+            )
+        expected_detail = {
+            "state": decision.state.value,
+            "reviewer_id": decision.reviewer_id,
+            "candidate_id": decision.candidate_id,
+            "reviewed_revision": decision.reviewed_revision,
+            "evidence_pack_sha256": decision.evidence_pack_sha256,
+        }
+        detail = appended_events[-1].detail
+        if any(
+            key not in detail
+            or type(detail[key]) is not type(value)
+            or detail[key] != value
+            for key, value in expected_detail.items()
+        ):
+            raise ReviewReuseStoreError(
+                "store_record_corrupt", "decision event binding is inconsistent"
+            )
 
 
 class InMemoryReviewReuseStore:
@@ -689,11 +769,11 @@ class FilesystemReviewReuseStore:
         if read_only:
             self._root = raw_root.resolve(strict=False)
         else:
-            raw_root.parent.mkdir(parents=True, exist_ok=True)
+            _mkdir_with_durable_parents(raw_root.parent)
             self._root = raw_root.resolve(strict=False)
             self._acquire_writer_lease()
             try:
-                raw_root.mkdir(parents=True, exist_ok=True)
+                _mkdir_with_durable_parents(raw_root)
                 if raw_root.resolve() != self._root:
                     raise ReviewReuseStoreError(
                         "store_writer_conflict",
@@ -1304,12 +1384,12 @@ def migrate_legacy_store(root: Path | str, *, apply: bool = False) -> Dict[str, 
     store_root = Path(root).expanduser().resolve(strict=False)
     if not apply:
         return _migrate_legacy_store(store_root, apply=False)
-    store_root.parent.mkdir(parents=True, exist_ok=True)
+    _mkdir_with_durable_parents(store_root.parent)
     lease = _open_writer_lease(
         store_root, message="legacy migration requires the writer lease"
     )
     try:
-        store_root.mkdir(parents=True, exist_ok=True)
+        _mkdir_with_durable_parents(store_root)
         if store_root.resolve() != store_root:
             raise ReviewReuseStoreError(
                 "store_writer_conflict",
@@ -1350,6 +1430,7 @@ def _migrate_legacy_store(root: Path | str, *, apply: bool) -> Dict[str, Any]:
     tenant_origins: Dict[str, Path] = {}
     for legacy_dir in legacy_dirs:
         _assert_store_path(store_root, legacy_dir, code="store_record_corrupt")
+        _validate_legacy_tenant_directory_entries(store_root, legacy_dir)
         tasks_dir = legacy_dir / "tasks"
         _assert_store_path(store_root, tasks_dir, code="store_record_corrupt")
         if not tasks_dir.is_dir():

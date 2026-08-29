@@ -116,7 +116,7 @@ router = APIRouter(
 
 
 def _tenant_identity(request: Request, api_key: str) -> tuple[str, bool]:
-    validated = bool(getattr(request.state, "review_reuse_identity_validated", False))
+    validated = bool(getattr(request.state, "review_reuse_tenant_validated", False))
     tenant_id = getattr(request.state, "tenant_id", None)
     if validated and tenant_id is not None:
         if not isinstance(tenant_id, str):

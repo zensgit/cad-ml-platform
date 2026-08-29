@@ -1309,7 +1309,7 @@ def test_legacy_migration_fsyncs_parent_after_namespace_swaps(
     monkeypatch.setattr(store_module, "_fsync_directory", tracked_fsync)
     store_module.migrate_legacy_store(root, apply=True)
 
-    assert parent_fsyncs == [root.parent, root.parent]
+    assert parent_fsyncs == [root.parent, root.parent, root.parent]
 
 
 def test_legacy_migration_fsyncs_parent_after_rollback(
@@ -1346,7 +1346,7 @@ def test_legacy_migration_fsyncs_parent_after_rollback(
         store_module.migrate_legacy_store(root, apply=True)
 
     assert task_path.is_file()
-    assert parent_fsyncs == [root.parent, root.parent]
+    assert parent_fsyncs == [root.parent, root.parent, root.parent]
 
 
 def test_legacy_migration_restores_backup_before_rollback_fsync(
@@ -1367,7 +1367,7 @@ def test_legacy_migration_restores_backup_before_rollback_fsync(
         nonlocal parent_calls
         if path == root.parent:
             parent_calls += 1
-            if parent_calls >= 2:
+            if parent_calls >= 3:
                 raise OSError("simulated persistent parent fsync failure")
         real_fsync(path)
 
@@ -1377,7 +1377,7 @@ def test_legacy_migration_restores_backup_before_rollback_fsync(
         store_module.migrate_legacy_store(root, apply=True)
 
     assert task_path.is_file()
-    assert parent_calls >= 3
+    assert parent_calls >= 4
     staging_dirs = list(root.parent.glob(f".{root.name}.migration-*"))
     assert len(staging_dirs) == 1
     migrated_store = store_module.FilesystemReviewReuseStore(staging_dirs[0])
@@ -1415,7 +1415,7 @@ def test_legacy_migration_republishes_staging_if_backup_restore_fails(
         nonlocal parent_calls
         if path == root.parent:
             parent_calls += 1
-            if parent_calls == 2:
+            if parent_calls == 3:
                 raise OSError("simulated publish fsync failure")
         real_fsync(path)
 
@@ -1468,7 +1468,7 @@ def test_legacy_migration_preserves_copies_if_all_root_recovery_fails(
         nonlocal parent_calls
         if path == root.parent:
             parent_calls += 1
-            if parent_calls == 2:
+            if parent_calls == 3:
                 raise OSError("simulated publish fsync failure")
         real_fsync(path)
 
