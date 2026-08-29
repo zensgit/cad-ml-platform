@@ -545,6 +545,13 @@ Final store CAS, writer-lease, and filesystem I/O errors remain outside this
 adapter-validation path, so the repair does not retry or overwrite a
 concurrent terminal mutation.
 
+Two parallel read-only reviews found no blocking concurrency or idempotency
+regression. They confirmed that final-put revision/I/O failures retain their
+existing store semantics rather than entering the adapter compensation path.
+A dedicated service-level fault-injection test for that final-put boundary is
+a non-blocking test-hardening residual; existing CAS and filesystem durability
+suites continue to cover the underlying store behavior.
+
 At runtime head `36175b14`, the complete named fail-first command is **108
 passed** and the full ReviewReuse suite is **205 passed**.
 
