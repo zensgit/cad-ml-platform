@@ -81,10 +81,13 @@ def validate_boot_identity(
     mode = (integration_auth_mode or "disabled").strip().lower()
     secret = (integration_jwt_secret or "").strip()
     audience = (integration_jwt_audience or "").strip()
-    issuer = (integration_jwt_issuer or "").strip()
+    raw_issuer = integration_jwt_issuer or ""
+    issuer = raw_issuer.strip()
     decisions_enabled = (
         os.getenv("REVIEW_REUSE_DECISIONS_ENABLED", "").strip().lower() in _TRUE
     )
+    if decisions_enabled and raw_issuer != issuer:
+        return "ReviewReuse decisions require an issuer without surrounding whitespace"
     if decisions_enabled and (
         mode != "required" or not secret or not audience or not issuer
     ):

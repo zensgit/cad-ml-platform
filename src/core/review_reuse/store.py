@@ -40,6 +40,14 @@ _INDEX_FIELDS = frozenset(
 _INDEX_ENTRY_FIELDS = frozenset({"task_id", "payload_digest"})
 _PRINCIPAL_PATTERN = re.compile(r"^principal-v1-[0-9a-f]{64}$")
 _NEW_TENANT_DIR_PATTERN = re.compile(r"^tenant-v1-[0-9a-f]{64}$")
+_TENANT_STAGE_PATTERN = re.compile(r"^\.tenant-v1-[0-9a-f]{64}\.stage-[0-9a-f]{32}$")
+_METADATA_TEMP_PATTERN = re.compile(
+    r"^\.(?:tenant|idempotency)\.json\.[a-z0-9_]{8}(?:\.tmp)?$"
+)
+_TASK_TEMP_PATTERN = re.compile(
+    r"^\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
+    r"[0-9a-f]{12}\.json\.[a-z0-9_]{8}(?:\.tmp)?$"
+)
 
 
 class ReviewReuseStoreError(Exception):
@@ -109,6 +117,14 @@ def _assert_store_path(root: Path, path: Path, *, code: str) -> None:
             raise ReviewReuseStoreError(
                 code, "persistent ledger path contains a symbolic link"
             )
+
+
+def _fsync_directory(path: Path) -> None:
+    directory_fd = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(directory_fd)
+    finally:
+        os.close(directory_fd)
 
 
 def _clone(task: ReviewReuseTask) -> ReviewReuseTask:
@@ -529,6 +545,12 @@ class FilesystemReviewReuseStore:
         self._lease_pid: Optional[int] = None
         if not read_only:
             self._acquire_writer_lease()
+            try:
+                self._cleanup_stale_artifacts()
+                validated_filesystem_tenants(self._root)
+            except Exception:
+                self.close()
+                raise
 
     def _acquire_writer_lease(self) -> None:
         lease_path = self._root / ".writer.lock"
@@ -548,7 +570,8 @@ class FilesystemReviewReuseStore:
         with self._lock:
             if self._lease is not None:
                 try:
-                    fcntl.flock(self._lease.fileno(), fcntl.LOCK_UN)
+                    if self._lease_pid == os.getpid():
+                        fcntl.flock(self._lease.fileno(), fcntl.LOCK_UN)
                 finally:
                     self._lease.close()
                     self._lease = None
@@ -576,6 +599,66 @@ class FilesystemReviewReuseStore:
             raise ReviewReuseStoreError(
                 "store_writer_conflict", "filesystem writer lease is unavailable"
             )
+
+    def _cleanup_stale_artifacts(self) -> None:
+        """Remove only crash leftovers created by this store's write protocol."""
+
+        self._ensure_writer()
+        touched: set[Path] = set()
+        try:
+            for entry in sorted(self._root.iterdir()):
+                _assert_store_path(self._root, entry, code="store_record_corrupt")
+                if entry.is_symlink():
+                    raise ReviewReuseStoreError(
+                        "store_record_corrupt", "store artifact is a symbolic link"
+                    )
+                if entry.is_dir() and _TENANT_STAGE_PATTERN.fullmatch(entry.name):
+                    shutil.rmtree(entry)
+                    touched.add(self._root)
+                    continue
+                if not entry.is_dir() or not _NEW_TENANT_DIR_PATTERN.fullmatch(
+                    entry.name
+                ):
+                    continue
+
+                for candidate in sorted(entry.iterdir()):
+                    if not _METADATA_TEMP_PATTERN.fullmatch(candidate.name):
+                        continue
+                    _assert_store_path(
+                        self._root, candidate, code="store_record_corrupt"
+                    )
+                    if candidate.is_symlink() or not candidate.is_file():
+                        raise ReviewReuseStoreError(
+                            "store_record_corrupt",
+                            "atomic-write temporary artifact is invalid",
+                        )
+                    candidate.unlink()
+                    touched.add(entry)
+
+                tasks_dir = entry / "tasks"
+                if not tasks_dir.is_dir() or tasks_dir.is_symlink():
+                    continue
+                for candidate in sorted(tasks_dir.iterdir()):
+                    if not _TASK_TEMP_PATTERN.fullmatch(candidate.name):
+                        continue
+                    _assert_store_path(
+                        self._root, candidate, code="store_record_corrupt"
+                    )
+                    if candidate.is_symlink() or not candidate.is_file():
+                        raise ReviewReuseStoreError(
+                            "store_record_corrupt",
+                            "atomic-write temporary artifact is invalid",
+                        )
+                    candidate.unlink()
+                    touched.add(tasks_dir)
+            for directory in sorted(touched):
+                _fsync_directory(directory)
+        except ReviewReuseStoreError:
+            raise
+        except OSError as exc:
+            raise ReviewReuseStoreError(
+                "store_record_corrupt", "stale store artifact cleanup failed"
+            ) from exc
 
     def _tenant_digest(self, tenant_id: str) -> str:
         validate_tenant_id(tenant_id)
@@ -648,12 +731,24 @@ class FilesystemReviewReuseStore:
                     "store_record_corrupt", "tenant tasks directory is missing"
                 )
             return tenant_dir
-        tasks_dir = tenant_dir / "tasks"
-        _assert_store_path(self._root, tasks_dir, code="store_record_corrupt")
-        tasks_dir.mkdir(parents=True, exist_ok=False)
-        self._atomic_write_json(
-            tenant_dir / "tenant.json", self._sidecar_payload(tenant_id)
-        )
+        staging = self._root / (f".{tenant_dir.name}.stage-{uuid.uuid4().hex}")
+        _assert_store_path(self._root, staging, code="store_record_corrupt")
+        try:
+            staging.mkdir(exist_ok=False)
+            (staging / "tasks").mkdir(exist_ok=False)
+            self._atomic_write_json(
+                staging / "tenant.json", self._sidecar_payload(tenant_id)
+            )
+            os.replace(staging, tenant_dir)
+            _fsync_directory(self._root)
+        except ReviewReuseStoreError:
+            shutil.rmtree(staging, ignore_errors=True)
+            raise
+        except OSError as exc:
+            shutil.rmtree(staging, ignore_errors=True)
+            raise ReviewReuseStoreError(
+                "store_record_corrupt", "tenant ledger initialization failed"
+            ) from exc
         return tenant_dir
 
     def _validate_loaded_task(
@@ -769,18 +864,18 @@ class FilesystemReviewReuseStore:
         temporary: Optional[Path] = None
         try:
             with tempfile.NamedTemporaryFile(
-                mode="wb", dir=path.parent, prefix=f".{path.name}.", delete=False
+                mode="wb",
+                dir=path.parent,
+                prefix=f".{path.name}.",
+                suffix=".tmp",
+                delete=False,
             ) as handle:
                 temporary = Path(handle.name)
                 handle.write(encoded)
                 handle.flush()
                 os.fsync(handle.fileno())
             os.replace(temporary, path)
-            directory_fd = os.open(path.parent, os.O_RDONLY)
-            try:
-                os.fsync(directory_fd)
-            finally:
-                os.close(directory_fd)
+            _fsync_directory(path.parent)
         except OSError as exc:
             if temporary is not None:
                 temporary.unlink(missing_ok=True)
@@ -963,6 +1058,12 @@ class FilesystemReviewReuseStore:
                 )
             tasks: List[ReviewReuseTask] = []
             for path in sorted(tasks_dir.iterdir()):
+                if path.is_symlink():
+                    raise ReviewReuseStoreError(
+                        "store_record_corrupt", "unexpected task record entry"
+                    )
+                if _TASK_TEMP_PATTERN.fullmatch(path.name) and path.is_file():
+                    continue
                 if not path.is_file() or path.suffix != ".json":
                     raise ReviewReuseStoreError(
                         "store_record_corrupt", "unexpected task record entry"
@@ -996,6 +1097,12 @@ def validated_filesystem_tenants(root: Path | str) -> List[Tuple[str, Path]]:
         for tenant_dir in sorted(
             path for path in store_root.iterdir() if path.is_dir()
         ):
+            if tenant_dir.is_symlink():
+                raise ReviewReuseStoreError(
+                    "store_record_corrupt", "tenant ledger path is a symbolic link"
+                )
+            if _TENANT_STAGE_PATTERN.fullmatch(tenant_dir.name):
+                continue
             if not _NEW_TENANT_DIR_PATTERN.fullmatch(tenant_dir.name):
                 raise ReviewReuseStoreError(
                     "store_record_corrupt",

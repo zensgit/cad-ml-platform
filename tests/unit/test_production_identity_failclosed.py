@@ -231,6 +231,21 @@ def test_decision_enabled_boot_requires_complete_validated_identity(
     )
 
 
+def test_decision_enabled_boot_rejects_padded_issuer(monkeypatch) -> None:
+    from src.api.production_identity import validate_boot_identity
+
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.setenv("REVIEW_REUSE_DECISIONS_ENABLED", "true")
+    err = validate_boot_identity(
+        integration_auth_mode="required",
+        integration_jwt_secret="secret",
+        integration_jwt_audience="audience",
+        integration_jwt_issuer=" issuer ",
+    )
+    assert err is not None
+    assert "issuer" in err.lower()
+
+
 def test_pytest_without_opt_in_is_production(monkeypatch) -> None:
     """Golden: without ENVIRONMENT=development the posture is production."""
     from src.api.production_identity import is_production_posture

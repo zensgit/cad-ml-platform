@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import uuid
 from pathlib import Path
 
@@ -12,7 +13,10 @@ import pytest
 from src.core.review_reuse.canonical import canonical_sha256
 from src.core.review_reuse.evidence import build_evidence_pack
 from src.core.review_reuse.models import ReviewReuseTask, TaskStatus
-from src.core.review_reuse.store import FilesystemReviewReuseStore
+from src.core.review_reuse.store import (
+    FilesystemReviewReuseStore,
+    ReviewReuseStoreError,
+)
 
 
 def _task(
@@ -237,6 +241,26 @@ def test_non_i_json_is_rejected_on_write_and_read(tmp_path: Path) -> None:
         _close(read_store)
 
 
+def test_calibration_status_uses_closed_vocabulary(tmp_path: Path) -> None:
+    root = tmp_path / "store"
+    store = FilesystemReviewReuseStore(root)
+    task = _task("tenant-calibration")
+    try:
+        _create(store, task)
+        record_path = (
+            _tenant_dir(root, task.tenant_id) / "tasks" / f"{task.task_id}.json"
+        )
+        payload = json.loads(record_path.read_text(encoding="utf-8"))
+        payload["calibration_status"] = "calibrated-ish"
+        record_path.write_text(json.dumps(payload), encoding="utf-8")
+
+        with pytest.raises(Exception) as raised:
+            store.get(task.tenant_id, task.task_id)
+        assert _error_code(raised.value) == "store_record_corrupt"
+    finally:
+        _close(store)
+
+
 def test_legacy_migration_aborts_on_collision(tmp_path: Path) -> None:
     from src.core.review_reuse import store as store_module
 
@@ -270,6 +294,52 @@ def test_second_writer_is_rejected(tmp_path: Path) -> None:
         assert _error_code(raised.value) == "store_writer_conflict"
     finally:
         _close(first)
+
+
+def test_writer_refuses_unmigrated_store_before_writes(tmp_path: Path) -> None:
+    from src.core.review_reuse.store import migrate_legacy_store
+
+    root = tmp_path / "legacy-store"
+    task = _task("tenant-legacy")
+    tasks_dir = root / task.tenant_id / "tasks"
+    tasks_dir.mkdir(parents=True)
+    (tasks_dir / f"{task.task_id}.json").write_text(
+        json.dumps(task.model_dump(mode="json")), encoding="utf-8"
+    )
+
+    with pytest.raises(Exception) as raised:
+        FilesystemReviewReuseStore(root)
+    assert _error_code(raised.value) == "store_record_corrupt"
+    assert list(root.glob("tenant-v1-*")) == []
+
+    report = migrate_legacy_store(root, apply=True)
+    assert report["tasks"] == 1
+    migrated = FilesystemReviewReuseStore(root)
+    try:
+        assert migrated.get(task.tenant_id, task.task_id) is not None
+    finally:
+        _close(migrated)
+
+
+@pytest.mark.skipif(not hasattr(os, "fork"), reason="requires POSIX fork semantics")
+def test_forked_child_close_does_not_release_parent_writer_lease(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "store"
+    parent = FilesystemReviewReuseStore(root)
+    child_pid = os.fork()
+    if child_pid == 0:  # pragma: no cover - assertion runs in the parent
+        parent.close()
+        os._exit(0)
+
+    try:
+        _pid, status = os.waitpid(child_pid, 0)
+        assert os.waitstatus_to_exitcode(status) == 0
+        with pytest.raises(Exception) as raised:
+            FilesystemReviewReuseStore(root)
+        assert _error_code(raised.value) == "store_writer_conflict"
+    finally:
+        _close(parent)
 
 
 def test_create_if_absent_recovers_one_task(tmp_path: Path) -> None:
@@ -310,6 +380,56 @@ def test_create_if_absent_recovers_one_task(tmp_path: Path) -> None:
         assert [path.stem for path in task_files] == [original.task_id]
     finally:
         _close(second_store)
+
+
+def test_restart_cleans_atomic_write_temporary_files(tmp_path: Path) -> None:
+    root = tmp_path / "store"
+    task = _task("tenant-temp-recovery")
+    writer = FilesystemReviewReuseStore(root)
+    try:
+        _create(writer, task)
+    finally:
+        _close(writer)
+
+    tasks_dir = _tenant_dir(root, task.tenant_id) / "tasks"
+    stale = tasks_dir / f".{task.task_id}.json.deadbeef"
+    stale.write_text("partial", encoding="utf-8")
+
+    recovered = FilesystemReviewReuseStore(root)
+    try:
+        assert recovered.list_for_tenant(task.tenant_id)[0].task_id == task.task_id
+        assert not stale.exists()
+    finally:
+        _close(recovered)
+
+
+def test_partial_tenant_creation_does_not_brick_retry(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "store"
+    store = FilesystemReviewReuseStore(root)
+    task = _task("tenant-staging")
+    tenant_dir = _tenant_dir(root, task.tenant_id)
+    original_write = store._atomic_write_json
+
+    def fail_sidecar(path: Path, payload: object) -> None:
+        if path.name == "tenant.json":
+            raise ReviewReuseStoreError(
+                "store_record_corrupt", "simulated sidecar failure"
+            )
+        original_write(path, payload)
+
+    monkeypatch.setattr(store, "_atomic_write_json", fail_sidecar)
+    try:
+        with pytest.raises(ReviewReuseStoreError):
+            _create(store, task)
+        assert not tenant_dir.exists()
+
+        monkeypatch.setattr(store, "_atomic_write_json", original_write)
+        assert _create(store, task).task_id == task.task_id
+    finally:
+        _close(store)
 
 
 def test_store_rejects_noncanonical_create_digest(tmp_path: Path) -> None:
