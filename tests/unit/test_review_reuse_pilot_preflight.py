@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import subprocess
+import sys
 from pathlib import Path
 from typing import Dict
 
@@ -14,6 +16,25 @@ from scripts.review_reuse_pilot_preflight import (
     read_posture,
     run_preflight,
 )
+
+
+def test_script_entrypoint_resolves_repo_imports() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    env = dict(os.environ)
+    env.pop("PYTHONPATH", None)
+    env["PYTHONNOUSERSITE"] = "1"
+
+    result = subprocess.run(
+        [sys.executable, str(repo_root / "scripts/review_reuse_pilot_preflight.py"), "--help"],
+        cwd=repo_root,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "ModuleNotFoundError" not in result.stderr
 
 
 def _clear_pilot_env(monkeypatch: pytest.MonkeyPatch) -> None:

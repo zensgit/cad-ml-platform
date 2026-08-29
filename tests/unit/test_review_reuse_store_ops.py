@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import subprocess
+import sys
 import tarfile
 import time
 from pathlib import Path
@@ -18,6 +20,25 @@ from scripts.review_reuse_store_ops import (
 )
 from src.core.review_reuse.service import ReviewReuseService
 from src.core.review_reuse.store import FilesystemReviewReuseStore
+
+
+def test_script_entrypoint_resolves_repo_imports() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    env = dict(os.environ)
+    env.pop("PYTHONPATH", None)
+    env["PYTHONNOUSERSITE"] = "1"
+
+    result = subprocess.run(
+        [sys.executable, str(repo_root / "scripts/review_reuse_store_ops.py"), "--help"],
+        cwd=repo_root,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "ModuleNotFoundError" not in result.stderr
 
 
 def _tenant_dir(store: Path, tenant: str) -> Path:
