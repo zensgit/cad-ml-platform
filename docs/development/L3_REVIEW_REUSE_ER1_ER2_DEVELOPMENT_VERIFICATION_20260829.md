@@ -7,11 +7,11 @@
 **Ratified authority**: PR #583 exact head
 `9150e06c75721bf086572ed271b68548104e8300`<br>
 **Runtime implementation head**:
-`572f7d04ea6f339f8e715aabb2a2222e4199e485`
-(`fix: harden ReviewReuse request and native ledger boundaries`), on top of
-candidate/event repair `00618205`, malformed-adapter repair `36175b14`, the
-original runtime commit `6cc55841`, and the earlier hardening chain through
-`21943856`.
+`487c1c58dfbd72db96f06eab0e8aa9a684578ab9`
+(`fix: bind ReviewReuse initial event metadata`), on top of request/native
+ledger repair `572f7d04`, candidate/event repair `00618205`,
+malformed-adapter repair `36175b14`, the original runtime commit `6cc55841`,
+and the earlier hardening chain through `21943856`.
 
 ## 1. Authorization boundary
 
@@ -52,7 +52,7 @@ named by design-lock section 9.1:
 | Parent / authority | `9150e06c75721bf086572ed271b68548104e8300` |
 | Files | `test_review_reuse_er1_store_integrity.py`, `test_review_reuse_er2_ledger.py`, `test_review_reuse_api_integrity.py` |
 | Baseline result | **18 failed** |
-| Runtime-head result | **116 passed** |
+| Runtime-head result | **121 passed** |
 
 Exact command:
 
@@ -593,14 +593,32 @@ made the focused batch **5 passed**. The complete named fail-first command is
 now **116 passed**, the full ReviewReuse suite is **213 passed**, and the
 identity/production/preflight regressions remain **47 passed**.
 
+A subsequent independent read-only Sol audit at documentation head
+`7b7edf948f74deb84f58a6f92137d46cec0d75a8` found that direct native create
+could still persist forged initial event metadata despite the new type
+sequence check. Test-only commit
+`1af3587abdbfd628110c825aad69ea39b81dbd3a` reproduced five cases as **5
+failed**: mismatched submitted file name, zero bytes, boolean bytes,
+out-of-order events, and an event timestamp after `updated_at`. Runtime repair
+`487c1c58dfbd72db96f06eab0e8aa9a684578ab9` binds the submitted file name to
+the task, requires a non-boolean positive integer byte count, and enforces
+`0 <= created_at <= submitted.ts <= input_validated.ts <= updated_at` for the
+native revision-1 snapshot. The focused initial-ledger batch is **7 passed**.
+
+The ratified `TaskEvent.detail` dictionary remains extensible; this repair
+validates the named native-create bindings without inventing a closed detail
+schema or changing `_import_migrated`. The complete named fail-first command
+is now **121 passed**, the full ReviewReuse suite is **218 passed**, and the
+identity/production/preflight regressions remain **47 passed**.
+
 ## 6. Verification evidence
 
 Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
-`572f7d04`.
+`487c1c58`.
 
 | Gate | Result |
 |---|---:|
-| Exact named fail-first command, including narrower additions | **116 passed** |
+| Exact named fail-first command, including narrower additions | **121 passed** |
 | Focused null/rollback/recovery batch | **6 passed** |
 | Focused duplicate-owner/candidate-evidence batch | **5 passed** |
 | Focused published-write quarantine/decision/calibration batch | **5 passed** (red: 5 failed at test-only `d91309df`) |
@@ -616,7 +634,8 @@ Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
 | Focused malformed-adapter failure batch | **2 passed** (red: 2 failed at test-only `722b9d3b`) |
 | Focused candidate/event canonicalization batch | **7 passed** (red: 3 failed / 4 passed at test-only `ba7b4137`) |
 | Focused bounded-body/native-ledger/legacy-layout batch | **5 passed** (red: 5 failed at test-only `783d3996`) |
-| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **213 passed** |
+| Focused initial-event metadata batch | **7 passed** (red: 5 failed at test-only `1af3587a`) |
+| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **218 passed** |
 | Integration-auth + production-identity + pilot-preflight regressions | **47 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 test-core` | **39 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-openapi` | **5 passed** |
@@ -665,6 +684,13 @@ short-key warnings from test-only JWT fixtures. No test failed or was skipped.
   ledger is non-empty, but does not claim native-versus-migrated provenance
   for an entirely empty ledger. The exact-head review thread remains open for
   that separately gated schema decision.
+- Initial event detail remains an extensible dictionary under the ratified
+  contract. Native create binds the required file-name and byte-count fields;
+  closing all detail keys would require a separate contract amendment.
+- The 64 KiB decision-body ceiling is enforced while the ASGI request stream
+  is consumed. Whether a deployment proxy or ASGI server buffers the complete
+  body before application code runs remains a deployment-chain verification
+  gate, not a claim of this local test suite.
 - The direct-entrypoint issue independently observed in the ER3 isolated
   archive script was not repaired under this ER1 + ER2 authorization.
 - The canonical checkout remained clean; all work occurred in the isolated
