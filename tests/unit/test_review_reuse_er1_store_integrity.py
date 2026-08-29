@@ -16,6 +16,7 @@ from src.core.review_reuse.evidence import build_evidence_pack, evidence_pack_di
 from src.core.review_reuse.models import (
     CandidateDecision,
     CandidateState,
+    HumanDecision,
     HumanDecisionState,
     ReviewReuseTask,
     TaskStatus,
@@ -1036,6 +1037,56 @@ def test_legacy_migration_dry_run_then_apply(tmp_path: Path) -> None:
         )
         replayed = reader.get_by_idempotency(task.tenant_id, "legacy-key")
         assert replayed is not None and replayed.task_id == task.task_id
+    finally:
+        _close(reader)
+
+
+def test_legacy_migration_preserves_historical_decision_reason_code(
+    tmp_path: Path,
+) -> None:
+    from src.core.review_reuse.store import migrate_legacy_store
+
+    root = tmp_path / "legacy-store"
+    task = _task("tenant-historical-reason")
+    task.candidates = [
+        CandidateDecision(
+            candidate_id="archive-1",
+            candidate_source="archive",
+            state=CandidateState.similar,
+        )
+    ]
+    task.status = TaskStatus.evidence_ready
+    task.revision = 2
+    task.evidence_pack = build_evidence_pack(task)
+    reviewed_digest = task.evidence_pack["evidence_pack_sha256"]
+    task.human_decision = HumanDecision(
+        state=HumanDecisionState.revise,
+        reviewer_id="principal-v1-" + "a" * 64,
+        reviewer_kind="validated_principal",
+        reason_codes=["historical_reason"],
+        reason_text="Preserve historical vocabulary.",
+        candidate_id="archive-1",
+        ts=1.0,
+        reviewed_revision=task.revision,
+        evidence_pack_sha256=reviewed_digest,
+    )
+    task.status = TaskStatus.decided
+    task.revision += 1
+    task.evidence_pack = build_evidence_pack(task)
+    tasks_dir = root / task.tenant_id / "tasks"
+    tasks_dir.mkdir(parents=True)
+    (tasks_dir / f"{task.task_id}.json").write_text(
+        json.dumps(task.model_dump(mode="json")), encoding="utf-8"
+    )
+
+    report = migrate_legacy_store(root, apply=True)
+    assert report["tasks"] == 1
+    reader = FilesystemReviewReuseStore(root, read_only=True)
+    try:
+        migrated = reader.get(task.tenant_id, task.task_id)
+        assert migrated is not None
+        assert migrated.human_decision is not None
+        assert migrated.human_decision.reason_codes == ["historical_reason"]
     finally:
         _close(reader)
 

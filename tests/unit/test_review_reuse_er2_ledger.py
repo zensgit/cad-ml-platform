@@ -258,6 +258,34 @@ def test_store_cas_rejects_forged_reviewed_evidence_binding() -> None:
     assert unchanged.human_decision is None
 
 
+def test_store_cas_rejects_unknown_decision_reason_code() -> None:
+    store = InMemoryReviewReuseStore()
+    service = ReviewReuseService(store)
+    current = _create_ready(service)
+    altered = current.model_copy(deep=True)
+    altered.revision = current.revision + 1
+    altered.status = TaskStatus.decided
+    altered.human_decision = HumanDecision(
+        state=HumanDecisionState.revise,
+        reviewer_id=_REVIEWER_A,
+        reviewer_kind="validated_principal",
+        reason_codes=["not_in_vocabulary"],
+        reason_text="Bypassed service validation.",
+        candidate_id="archive-1",
+        ts=1.0,
+        reviewed_revision=current.revision,
+        evidence_pack_sha256=_pack_digest(current),
+    )
+    altered.events.append(
+        TaskEvent(event_type=TaskEventType.decision_submitted, ts=1.0, detail={})
+    )
+    altered.evidence_pack = build_evidence_pack(altered)
+
+    with pytest.raises(Exception) as raised:
+        store.put(altered, expected_revision=current.revision)
+    assert getattr(raised.value, "code", None) == "store_record_corrupt"
+
+
 def test_store_cas_rejects_identity_or_candidate_rewrite() -> None:
     store = InMemoryReviewReuseStore()
     service = ReviewReuseService(store)
