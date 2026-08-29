@@ -1,14 +1,14 @@
 # CAD Reuse Workbench — Task Board
 
-**Date**: 2026-08-08 (board refresh 2026-08-29)  
-**Plan**: `CAD_REUSE_WORKBENCH_90_DAY_PLAN_20260807.md`  
-**System design**: `CAD_REUSE_WORKBENCH_SYSTEM_EXECUTE_DESIGN_20260808.md`  
-**Main baseline**: post-#565 (`origin/main`)  
+**Date**: 2026-08-08 (security review refresh 2026-08-29)
+**Plan**: `CAD_REUSE_WORKBENCH_90_DAY_PLAN_20260807.md`
+**System design**: `CAD_REUSE_WORKBENCH_SYSTEM_EXECUTE_DESIGN_20260808.md`
+**Main baseline**: post-#565 (`origin/main@22e3c77c`)
 
 | Residual class | Status |
 |---|---|
-| **residual_eng open** | **none** (optional future only — not open codeable DAG) |
-| **residual_human** | R11 design-lock ratify · R12 decision enable · Track C C1–C5 |
+| **residual_eng open** | **ER1-ER4** (tenant isolation, ledger/input integrity, real archive evidence, reviewer workbench) |
+| **residual_human** | R11 amended design-lock ratify · R12 decision enable · Track C C1-C5 |
 | **Holds (explicit)** | **R2 HOLD** (no training-path reuse) · **decision default-off** (`REVIEW_REUSE_DECISIONS_ENABLED` unset → 403) |
 
 Legend: **done** · **in_progress** · **residual_eng** · **residual_human** · **blocked** · **optional_future**
@@ -39,8 +39,9 @@ Legend: **done** · **in_progress** · **residual_eng** · **residual_human** ·
 | [#564](https://github.com/zensgit/cad-ml-platform/pull/564) | Store ops **`list`** tenants (task count + `age_days`; `make review-reuse-store-list`) | **MERGED** |
 | [#565](https://github.com/zensgit/cad-ml-platform/pull/565) | Board post-#562 + pilot env **preflight** (`make review-reuse-preflight`) | **MERGED** |
 
-No further L3 runtime PR is required under the 90-day codeable scope unless the owner opens a new design-lock.  
-Track C / R11 / R12 remain **residual_human** — do not claim complete. **R2 HOLD** unchanged.
+The 2026-08-29 negative review invalidated the earlier `residual_eng: none` claim.
+No L3 runtime repair PR may open until the amended design-lock is owner-ratified.
+Track C / R11 / R12 remain **residual_human**; **R2 HOLD** is unchanged.
 
 ---
 
@@ -48,16 +49,16 @@ Track C / R11 / R12 remain **residual_human** — do not claim complete. **R2 HO
 
 | ID | Task | Status | Workflow / PR | Evidence |
 |---|---|---|---|---|
-| R1 | L3 design-lock §3.3 + default-off decision | done (PROPOSED) | #547 | `L3_REVIEW_REUSE_WORKBENCH_DESIGNLOCK_20260808.md` |
-| R2 | Domain service Task/Event/EvidencePack | done | #547 | `src/core/review_reuse/` |
+| R1 | L3 design-lock §3.3 + default-off decision | **in_progress (PROPOSED)** | #583 | Amendment required for ER1-ER4; owner ratification remains open |
+| R2 | Domain service Task/Event/EvidencePack | **partial** | #547 | Shape exists; input, transition, ledger, and evidence semantics need ER2/ER3 |
 | R3 | API `/api/v1/review-reuse/*` mounted | done | #547 · #551 | `src/api/v1/review_reuse.py` |
-| R4 | Decision sink **default-off** | done | #547 · #558 | `REVIEW_REUSE_DECISIONS_ENABLED` unset → 403; validated-reviewer gate tested when on |
-| R5 | Tenant isolation + quarantine (no feedback JSONL) | done | #547 · #549 · #554 | unit+API + R2 HOLD + audit-export contract |
-| R6 | Unit/API tests driving shipped code | done | #547–#565 | `tests/unit/test_review_reuse*.py` · `make test-review-reuse` |
-| R7 | Isolated-sample runbook + archive script + Make target | done | #547 · #551 · #557 · #561 | runbook + script + `make review-reuse-isolated-archive` |
-| R8 | Plan + verification MD | done | #547 | MVP plan/verification MDs |
+| R4 | Decision sink **default-off** | **partial** | #547 · #558 | Default-off works; candidate/reason/state/idempotency integrity needs ER2 |
+| R5 | Tenant isolation + quarantine (no feedback JSONL) | **blocked (P0)** | ER1 | Filesystem tenant segment collision permits cross-tenant task/idempotency lookup |
+| R6 | Unit/API tests driving shipped code | **partial** | ER1 · ER2 | 71 positive/contract tests pass; adversarial collision and ledger cases are missing |
+| R7 | Isolated-sample runbook + archive script + Make target | **partial** | ER3 | Synthetic single-file export works; first real archive/index/replay is not demonstrated |
+| R8 | Plan + verification MD | **in_progress** | #583 | Earlier closeout is superseded by this security review |
 | R9 | OpenAPI snapshot for new routes | done | #547 · #551 | `config/openapi_schema_snapshot.json` |
-| R10 | Live dedup2d adapter + durable store | done | #547 · #550 | default-off live hook; memory/filesystem store |
+| R10 | Live dedup2d adapter + durable store | **partial** | ER1 · ER3 | Single-node store exists; live path disables geometric verification and uses placeholder provenance |
 | R11 | Owner ratify design-lock | **residual_human** | — | owner only |
 | R12 | Pilot enable decisions | **residual_human** | — | env flag; **never** self-enable in production |
 
@@ -143,13 +144,38 @@ Do **not** invent Track C completion evidence in docs or code.
 | SYS22 | Board post-#562 + pilot preflight script | done | #565 |
 | SYS23 | Audit export CLI by task_id | done | #563 |
 | SYS24 | Store ops list tenants | done | #564 |
-| SYS25 | Board post-#563–#565 | done (this PR) | task board rollup; residual_human still open |
+| SYS25 | Security review board correction | in_progress (this PR) | Reopen ER1-ER4; retain residual_human and R2 HOLD |
 
 ---
 
 ## residual_eng
 
-**Open: none.**
+The following items are open. `make test-review-reuse` passing does not close them;
+each acceptance row requires a discriminating negative test or a recorded real run.
+
+| ID | Priority | Engineering residual | Acceptance gate |
+|---|---|---|---|
+| ER1 | **P0 / L3** | Collision-safe, non-escaping tenant storage and lookup | `tenant/a` and `tenant?a` cannot share state; `..` cannot escape the storage root; every load rechecks full `tenant_id` and `task_id`; old-layout migration detects collisions; get/list/idempotency negative tests pass |
+| ER2 | **P0 / L3** | Input and atomic human-decision ledger integrity | Reject empty/oversized/unsupported input; decide only `evidence_ready` tasks; candidate-bound states reference a task candidate; rationale is non-empty; create/decision idempotency keys bind canonical payload digests; corrupt indexes fail closed; concurrent decisions use revision/CAS so only one commit succeeds |
+| ER3 | **P1 / L3** | First real isolated archive and trustworthy EvidencePack | Manifest/index/query uses no seeded candidate; score dimensions retain their real source instead of aliasing one visual score; deterministic geometry is enabled or explicitly `vision_only_unverified`; missing evidence remains null; model/ruleset/archive/index/calibration versions or digests are real; export replay is recorded |
+| ER4 | **P1 / L2 after ER1-ER3** | Minimal reviewer workbench and process visibility | Task list/detail, event timeline, candidate/evidence comparison, gated decision form, unsupported-state disclosure, and audit export work without adding AI or release authority; any new auth, persistence, or decision semantics re-escalate to L3 |
+
+### Current negative evidence (2026-08-29)
+
+- Filesystem collision: a task written as `tenant/a` is readable through `tenant?a`; tenant segment `..` resolves outside its tenant directory.
+- Empty bytes still emit `input_validated`.
+- A `reuse` decision accepts a candidate not present in the task and an empty rationale.
+- Reusing a create or decision idempotency key with a different payload silently returns the first result; a corrupt filesystem idempotency index is treated as empty.
+- Decision submission is an unlocked read-modify-write across `get()` and `put()`; concurrent callers can both report success while one decision/event is lost.
+- The live adapter aliases one visual-similarity value into `geometric`, `semantic`, and `visual`; EvidencePack then maximizes those aliases into `confidence`, while `vision_only_unverified` is never emitted.
+- The isolated-archive helper is a single-file/synthetic-seed exercise, not the first real archive required by the Day 31-60 plan.
+
+### CI residuals (separate from Track R)
+
+| ID | Status | Required closeout |
+|---|---|---|
+| CI1 | [#581](https://github.com/zensgit/cad-ml-platform/pull/581) is Draft, mergeable, exact-head checks green | Owner review/undraft/merge; keep qualified real data fail-closed |
+| CI2 | Evaluation Soft-Mode Smoke dispatcher fails in scheduled runs | Repair repository-variable access/dispatch design without weakening strict evaluation behavior |
 
 Optional future (not open DAG / not blocking residual_eng):
 
@@ -166,7 +192,7 @@ Optional future (not open DAG / not blocking residual_eng):
 2. **R12** — Explicit pilot enable of decisions (`REVIEW_REUSE_DECISIONS_ENABLED`) for a named window only.
 3. **Track C C1–C5** — Contacts, sample conversations, named reviewer, isolated customer archive, measured pilot / commercial next step.
 
-External audit residual (not eng-closed): Evaluation Hybrid superpass red on main (eval owners; not Track R).
+External audit residuals: Hybrid superpass remains red on `main` until CI1 lands; Soft-Mode Smoke remains independently red under CI2.
 
 ---
 
@@ -192,10 +218,14 @@ External audit residual (not eng-closed): Evaluation Hybrid superpass red on mai
 18. ~~Audit export CLI by task_id~~ — **#563 MERGED**.
 19. ~~Store ops list tenants~~ — **#564 MERGED**.
 20. ~~Board post-#562 + pilot preflight script~~ — **#565 MERGED**.
-21. ~~Board post-#563–#565~~ — **this PR**.
-22. **Owner only:** R11 design-lock ratify · R12 pilot decision enable · Track C C1–C5.
-23. **External only (audit, not eng-closed):** Evaluation Hybrid superpass red on main.
-24. **Boundaries (unchanged):** **R2 HOLD** · no eval_integrity_gate replace · no cost_cap · **decision default-off** · no fake Track C · no production self-enable of decisions.
+21. **This PR:** correct the board and amend the L3 design-lock; do not merge as a completion claim.
+22. **Owner only:** ratify the amended design-lock and pin its exact head.
+23. **ER1 + ER2:** one bounded L3 runtime safety PR with fail-first negative tests.
+24. **ER3:** real isolated archive and EvidencePack replay PR/run after ER1/ER2.
+25. **ER4:** minimal reviewer workbench only after the safety and evidence APIs pass.
+26. **Owner only:** R12 pilot decision enable and Track C C1-C5.
+27. **CI owners:** land #581 and repair Soft-Mode Smoke as separate changes.
+28. **Boundaries (unchanged):** **R2 HOLD** · no `eval_integrity_gate` replace · no `cost_cap` · **decision default-off** · no fake Track C · no production self-enable of decisions.
 
 ---
 
@@ -227,6 +257,8 @@ make review-reuse-store-list
 
 Covered modules on main: `test_review_reuse_workbench`, `test_review_reuse_api`, `test_review_reuse_r2_hold`, `test_review_reuse_live_store`, `test_review_reuse_audit_reviewer`, `test_review_reuse_audit_export_contract`, `test_review_reuse_evidence_goldens`, `test_review_reuse_store_ops`, `test_review_reuse_pilot_preflight`, `test_review_reuse_export_audit_script`.
 
+Missing required discriminators: tenant-segment collision and root escape, loaded tenant/task mismatch, invalid/empty input, invalid task transition, unknown candidate, empty rationale, create/decision idempotency-payload mismatch, corrupt idempotency index, concurrent decision CAS, score-source aliasing, and vision-only verification disclosure.
+
 See also: `CAD_REUSE_WORKBENCH_EVIDENCE_GOLDENS_20260808.md`, `CAD_REUSE_WORKBENCH_PILOT_CHECKLIST_20260808.md`, `CAD_REUSE_WORKBENCH_JWT_PILOT_RUNBOOK_20260808.md`, `CAD_REUSE_WORKBENCH_EXTERNAL_GATES_AUDIT_20260808.md`.
 
 ---
@@ -242,4 +274,4 @@ See also: `CAD_REUSE_WORKBENCH_EVIDENCE_GOLDENS_20260808.md`, `CAD_REUSE_WORKBEN
 /execute-plan docs/development/CAD_REUSE_WORKBENCH_SYSTEM_EXECUTE_DESIGN_20260808.md --no-graphite --auto-pr --concurrency 2
 ```
 
-Do **not** run implement agents that invent Track C evidence or flip decision default-on.
+Do **not** open an L3 runtime implementation PR before owner ratification. Do not invent Track C evidence or flip decisions default-on.
