@@ -393,6 +393,7 @@ def test_undecided_task_rejects_forged_pack_decision(tmp_path: Path) -> None:
                 "unexpected": "smuggled",
             },
         ),
+        ("unexpected", {"smuggled": True}),
     ],
 )
 def test_evidence_pack_immutable_envelope_must_match_builder(
