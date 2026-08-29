@@ -306,6 +306,17 @@ def _validate_create_binding(
         raise ReviewReuseStoreError(
             "store_record_corrupt", "first persisted task revision must be 1"
         )
+    if task.status != TaskStatus.running:
+        raise ReviewReuseStoreError(
+            "store_record_corrupt", "first persisted task status must be running"
+        )
+    if tuple(event.event_type for event in task.events) != (
+        TaskEventType.submitted,
+        TaskEventType.input_validated,
+    ):
+        raise ReviewReuseStoreError(
+            "store_record_corrupt", "first persisted task events are invalid"
+        )
     validate_review_reuse_task_payload(task)
     if key is None:
         if (
@@ -1439,7 +1450,10 @@ def _migrate_legacy_store(root: Path | str, *, apply: bool) -> Dict[str, Any]:
     records: List[ReviewReuseTask] = []
     directories = _validated_root_directories(store_root)
     new_layout_dirs = [
-        path for path in directories if _NEW_TENANT_DIR_PATTERN.fullmatch(path.name)
+        path
+        for path in directories
+        if _NEW_TENANT_DIR_PATTERN.fullmatch(path.name)
+        and (path / "tenant.json").is_file()
     ]
     legacy_dirs = [path for path in directories if path not in new_layout_dirs]
     if new_layout_dirs:

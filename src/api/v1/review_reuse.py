@@ -25,29 +25,62 @@ from src.core.review_reuse.service import (
 
 logger = logging.getLogger(__name__)
 
+_DECISION_JSON_MAX_BYTES = 64 * 1024
+
+
+async def _read_limited_request_body(request: Request, *, limit: int) -> bytes:
+    content_length = request.headers.get("content-length")
+    if content_length is not None:
+        try:
+            declared_length = int(content_length)
+        except ValueError:
+            declared_length = 0
+        if declared_length > limit:
+            raise ReviewReuseError(
+                "input_too_large", "decision request exceeds the body limit"
+            )
+
+    chunks: List[bytes] = []
+    total = 0
+    async for chunk in request.stream():
+        total += len(chunk)
+        if total > limit:
+            raise ReviewReuseError(
+                "input_too_large", "decision request exceeds the body limit"
+            )
+        chunks.append(chunk)
+    body = b"".join(chunks)
+    request._body = body
+    return body
+
 
 class ReviewReuseRoute(APIRoute):
     """Keep framework request errors inside the ReviewReuse error contract."""
 
     def get_route_handler(self) -> Callable[[Request], Awaitable[Response]]:
         handler = super().get_route_handler()
+        strict_decision_body = self.methods == {"POST"} and self.path.endswith(
+            "/decision"
+        )
 
         async def route_handler(request: Request) -> Response:
             try:
-                content_type_header = request.headers.get("content-type")
-                content_type = (
-                    (content_type_header or "").partition(";")[0].strip().lower()
-                )
-                if (
-                    not content_type_header
-                    or content_type == "application/json"
-                    or (
-                        content_type.startswith("application/")
-                        and content_type.endswith("+json")
+                if strict_decision_body:
+                    body = await _read_limited_request_body(
+                        request, limit=_DECISION_JSON_MAX_BYTES
                     )
-                ):
-                    body = await request.body()
-                    if body:
+                    content_type_header = request.headers.get("content-type")
+                    content_type = (
+                        (content_type_header or "").partition(";")[0].strip().lower()
+                    )
+                    if body and (
+                        not content_type_header
+                        or content_type == "application/json"
+                        or (
+                            content_type.startswith("application/")
+                            and content_type.endswith("+json")
+                        )
+                    ):
                         strict_json_loads(body)
                 return await handler(request)
             except CanonicalJSONError:
