@@ -7,10 +7,10 @@
 **Ratified authority**: PR #583 exact head
 `9150e06c75721bf086572ed271b68548104e8300`<br>
 **Runtime implementation head**:
-`50e49686c02fdc386a1345a7783fe636155171f4`
-(`fix: parse implicit ReviewReuse JSON strictly`), on top of the
+`dc4879166f58fed38afab91f3f834b70465f7289`
+(`fix: bind ReviewReuse identity and ledger transitions`), on top of the
 original runtime commit `6cc55841` and the earlier hardening chain through
-`352bab81`.
+`50e49686`.
 
 ## 1. Authorization boundary
 
@@ -51,7 +51,7 @@ named by design-lock section 9.1:
 | Parent / authority | `9150e06c75721bf086572ed271b68548104e8300` |
 | Files | `test_review_reuse_er1_store_integrity.py`, `test_review_reuse_er2_ledger.py`, `test_review_reuse_api_integrity.py` |
 | Baseline result | **18 failed** |
-| Runtime-head result | **79 passed** |
+| Runtime-head result | **88 passed** |
 
 Exact command:
 
@@ -111,6 +111,8 @@ named tests plus narrower adversarial cases.
   closing an inherited handle cannot unlock the parent process lease.
 - Writes use unique same-directory temporary files, file `fsync`, atomic
   replacement, and parent-directory `fsync`.
+- Creating a store, staging root, or previously missing ancestor chain fsyncs
+  every containing namespace entry before the root can be acknowledged.
 - Startup removes only exact internal atomic-write leftovers while unknown
   files and symbolic links continue to fail closed. Read scans ignore only the
   same exact temporary-file shape, so an interrupted write cannot permanently
@@ -139,6 +141,9 @@ named tests plus narrower adversarial cases.
   data replacement.
 - Mixed layouts, path/embedded-identity mismatch, collisions, symbolic links,
   invalid idempotency, and unprovable decisions abort migration.
+- Each legacy tenant directory is closed to the recognized `tasks/` directory
+  and optional `idempotency.json`; unknown sibling files, directories, links,
+  and special entries abort both dry-run and apply before any root swap.
 - Apply builds a separately locked staging store, keeps the new-store lease
   held through the rename, and holds the canonical-root lease across the entire
   backup/publish swap. A competing writer cannot create or serve a replacement
@@ -177,6 +182,9 @@ named tests plus narrower adversarial cases.
 - Every persisted mutation is a store-level CAS and increments revision by
   exactly one.
 - Existing events are immutable and every state mutation appends an event.
+- The final newly appended event must match the accepted old/new state
+  transition. A decision event must also bind state, reviewer, candidate,
+  reviewed revision, and EvidencePack digest to the committed decision.
 - Immutable task identity, trace, source filename/hash, idempotency ownership,
   and reviewed candidate set cannot be rewritten during cancel or decision.
 - Once a task reaches `evidence_ready`, its reviewed candidates and calibration
@@ -191,6 +199,11 @@ named tests plus narrower adversarial cases.
 - Decision submission remains default-off.
 - A write requires both a validated tenant and a
   `principal-v1-<sha256({issuer, subject})>` reviewer.
+- A successfully signature-verified JWT establishes tenant isolation even
+  when optional posture has no configured issuer; reviewer-principal trust
+  remains independently issuer-bound and therefore unavailable in that case.
+- The active settings class declares JWT audience and issuer, so environment
+  values used by boot validation are also visible to the middleware.
 - JWT `tenant_id` and `sub` must be exact strings; numeric claims are not
   string-coerced into trusted identities.
 - A trusted tenant claim cannot enter the reserved `ak-` fallback namespace.
@@ -418,14 +431,39 @@ untouched. The focused case is **1 passed**.
 At runtime head `50e49686`, the complete named fail-first command is **79
 passed** and the full ReviewReuse suite is **174 passed**.
 
+A tenth exact-head GitHub review at
+`cc7d1e4e6be0249f6dc6916faa708103927957b9` found four remaining ER1/ER2
+integrity gaps. Test-only commit
+`68d6943880c3d2efa536dbdbca372d32073b3e12` reproduced the ten behavioral
+cases as **10 failed**. A companion active-settings case in test-only commit
+`fa6ad4e1c3ff05594a7c4c8375f6abd1188404a6` reproduced separately as **1
+failed**. Runtime repair
+`dc4879166f58fed38afab91f3f834b70465f7289` made the combined focused command
+**11 passed**:
+
+| Finding | Red proof | Closed behavior |
+|---|---|---|
+| Optional verified JWTs without a configured issuer collapsed distinct signed tenants into the shared API-key namespace | two tenant identity cases failed; the active settings companion also failed to load audience/issuer | tenant trust is separated from reviewer-principal trust, and the active settings class exposes both verifier fields |
+| A newly created store root or ancestor chain was not durably linked from its parent | writable-store and migration bootstrap fsync assertions both failed | each created namespace component is followed by an fsync of its containing directory |
+| Direct CAS could accept a state transition with a contradictory terminal event or decision detail | wrong event type and wrong reviewer detail both committed | the appended suffix has one transition-closing event in terminal position, with decision attribution bound to the task |
+| Legacy migration silently ignored unknown tenant sibling artifacts | file/directory cases passed dry-run and apply | a closed legacy entry allowlist rejects all four cases before any swap |
+
+Existing migration fault-injection assertions were advanced by one parent
+fsync to account for the new durable staging-root creation barrier; their
+backup, publish, rollback, and spare-preservation semantics remain unchanged.
+
+At runtime head `dc487916`, the complete named fail-first command is **88
+passed**, the full ReviewReuse suite is **183 passed**, and the integration
+auth/production-identity/pilot-preflight regressions are **46 passed**.
+
 ## 6. Verification evidence
 
 Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
-`50e49686`.
+`dc487916`.
 
 | Gate | Result |
 |---|---:|
-| Exact named fail-first command, including narrower additions | **79 passed** |
+| Exact named fail-first command, including narrower additions | **88 passed** |
 | Focused null/rollback/recovery batch | **6 passed** |
 | Focused duplicate-owner/candidate-evidence batch | **5 passed** |
 | Focused published-write quarantine/decision/calibration batch | **5 passed** (red: 5 failed at test-only `d91309df`) |
@@ -434,16 +472,17 @@ Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
 | Focused native/historical reason batch | **2 passed** (red: 1 failed / 1 passed at test-only `d06ae3c0`) |
 | Focused single-snapshot/candidate-vocabulary/JSON-suffix batch | **5 passed** (red: 5 failed at test-only `cf26776e`) |
 | Focused implicit-JSON duplicate-key case | **1 passed** (red: 1 failed at test-only `ed0c4302`) |
-| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **174 passed** |
-| Integration-auth + production-identity + pilot-preflight regressions | **44 passed** |
+| Focused identity/event/root/legacy-artifact batch | **11 passed** (red: 10 failed at `68d69438` plus 1 failed at `fa6ad4e1`) |
+| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **183 passed** |
+| Integration-auth + production-identity + pilot-preflight regressions | **46 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 test-core` | **39 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-openapi` | **5 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-core-fast` | **exit 0; 229 tests + 10 governance checks** |
 | JCS finite-binary64 differential vs Node `JSON.stringify` at `1ee1bad0`; canonical module unchanged at current head | **20,000 cases; 0 mismatches** |
-| Black + isort | **pass (26 files)** |
-| flake8 | **pass (26 files)** |
-| mypy | **success (3 newly changed source files; API rerun at `50e49686`)** |
-| `py_compile` | **pass (26 changed Python files)** |
+| Black + isort | **pass (26 format-clean files); legacy-layout `src/core/config/__init__.py` kept surgical** |
+| flake8 | **pass (27 files)** |
+| mypy | **success (4 newly changed source files)** |
+| `py_compile` | **pass (27 changed Python files)** |
 | `git diff --check` | **pass** |
 
 The OpenAPI snapshot was regenerated only after explicit development posture:
