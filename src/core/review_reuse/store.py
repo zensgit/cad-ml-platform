@@ -373,6 +373,11 @@ def _validate_task_payload(task: ReviewReuseTask) -> None:
                 "store_record_corrupt",
                 "stored EvidencePack candidates are inconsistent",
             )
+        if pack.get("human_decision") != expected_pack["human_decision"]:
+            raise ReviewReuseStoreError(
+                "store_record_corrupt",
+                "stored decision and EvidencePack are inconsistent",
+            )
     decision = task.human_decision
     if decision is None:
         if task.status == TaskStatus.decided:
@@ -513,12 +518,13 @@ def _assert_mutation(
                 "revision_conflict",
                 "decision is not bound to the current EvidencePack",
             )
-    if (
-        current.status == TaskStatus.evidence_ready
-        and task.candidates != current.candidates
+    if current.status == TaskStatus.evidence_ready and (
+        task.candidates != current.candidates
+        or task.calibration_version != current.calibration_version
+        or task.calibration_status != current.calibration_status
     ):
         raise ReviewReuseStoreError(
-            "store_record_corrupt", "reviewed candidates cannot change at commit"
+            "store_record_corrupt", "reviewed evidence cannot change at commit"
         )
     current_events = [event.model_dump(mode="json") for event in current.events]
     next_events = [event.model_dump(mode="json") for event in task.events]
@@ -671,21 +677,23 @@ class FilesystemReviewReuseStore:
             pass
 
     def _ensure_writer(self) -> None:
-        if (
-            self._read_only
-            or self._lease is None
-            or self._lease_pid != os.getpid()
-            or not self._healthy
-        ):
+        self._ensure_healthy()
+        if self._read_only or self._lease is None or self._lease_pid != os.getpid():
             raise ReviewReuseStoreError(
                 "store_writer_conflict", "filesystem writer lease is unavailable"
+            )
+
+    def _ensure_healthy(self) -> None:
+        if not self._healthy:
+            raise ReviewReuseStoreError(
+                "store_writer_conflict", "filesystem store is quarantined"
             )
 
     def _cleanup_stale_artifacts(self) -> None:
         """Remove only crash leftovers created by this store's write protocol."""
 
         self._ensure_writer()
-        touched: set[Path] = set()
+        touched: set[Path] = {self._root}
         try:
             for entry in sorted(self._root.iterdir()):
                 _assert_store_path(self._root, entry, code="store_record_corrupt")
@@ -701,6 +709,7 @@ class FilesystemReviewReuseStore:
                     entry.name
                 ):
                     continue
+                touched.add(entry)
 
                 for candidate in sorted(entry.iterdir()):
                     if not _METADATA_TEMP_PATTERN.fullmatch(candidate.name):
@@ -719,6 +728,7 @@ class FilesystemReviewReuseStore:
                 tasks_dir = entry / "tasks"
                 if not tasks_dir.is_dir() or tasks_dir.is_symlink():
                     continue
+                touched.add(tasks_dir)
                 for candidate in sorted(tasks_dir.iterdir()):
                     if not _TASK_TEMP_PATTERN.fullmatch(candidate.name):
                         continue
@@ -732,7 +742,9 @@ class FilesystemReviewReuseStore:
                         )
                     candidate.unlink()
                     touched.add(tasks_dir)
-            for directory in sorted(touched):
+            for directory in sorted(
+                touched, key=lambda item: len(item.parts), reverse=True
+            ):
                 _fsync_directory(directory)
         except ReviewReuseStoreError:
             raise
@@ -814,6 +826,7 @@ class FilesystemReviewReuseStore:
             return tenant_dir
         staging = self._root / (f".{tenant_dir.name}.stage-{uuid.uuid4().hex}")
         _assert_store_path(self._root, staging, code="store_record_corrupt")
+        published = False
         try:
             staging.mkdir(exist_ok=False)
             (staging / "tasks").mkdir(exist_ok=False)
@@ -821,11 +834,14 @@ class FilesystemReviewReuseStore:
                 staging / "tenant.json", self._sidecar_payload(tenant_id)
             )
             os.replace(staging, tenant_dir)
+            published = True
             _fsync_directory(self._root)
         except ReviewReuseStoreError:
             shutil.rmtree(staging, ignore_errors=True)
             raise
         except OSError as exc:
+            if published:
+                self._healthy = False
             shutil.rmtree(staging, ignore_errors=True)
             raise ReviewReuseStoreError(
                 "store_record_corrupt", "tenant ledger initialization failed"
@@ -943,6 +959,7 @@ class FilesystemReviewReuseStore:
                 "store_record_corrupt", "persistent ledger payload is invalid"
             ) from exc
         temporary: Optional[Path] = None
+        published = False
         try:
             with tempfile.NamedTemporaryFile(
                 mode="wb",
@@ -956,8 +973,11 @@ class FilesystemReviewReuseStore:
                 handle.flush()
                 os.fsync(handle.fileno())
             os.replace(temporary, path)
+            published = True
             _fsync_directory(path.parent)
         except OSError as exc:
+            if published:
+                self._healthy = False
             if temporary is not None:
                 temporary.unlink(missing_ok=True)
             raise ReviewReuseStoreError(
@@ -1099,6 +1119,7 @@ class FilesystemReviewReuseStore:
         if canonical_task_id(task_id) is None:
             return None
         with self._lock:
+            self._ensure_healthy()
             if self._load_sidecar(tenant_id) is None:
                 return None
             self._load_index(tenant_id)
@@ -1117,6 +1138,7 @@ class FilesystemReviewReuseStore:
         validate_tenant_id(tenant_id)
         _validate_key(key)
         with self._lock:
+            self._ensure_healthy()
             index = self._load_index(tenant_id)
             if index is None:
                 return None
@@ -1133,6 +1155,7 @@ class FilesystemReviewReuseStore:
     def list_for_tenant(self, tenant_id: str) -> List[ReviewReuseTask]:
         validate_tenant_id(tenant_id)
         with self._lock:
+            self._ensure_healthy()
             if self._load_sidecar(tenant_id) is None:
                 return []
             self._load_index(tenant_id)
