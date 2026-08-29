@@ -1,11 +1,11 @@
 # L3 ReviewReuse ER1 + ER2 - Development and Verification
 
-**Date**: 2026-08-29  
-**Status**: IMPLEMENTED / FOR REVIEW; not merged, enabled, deployed, or piloted  
-**PR**: https://github.com/zensgit/cad-ml-platform/pull/584  
-**Stacked base**: `docs/workbench-board-post-565-20260829`  
+**Date**: 2026-08-29<br>
+**Status**: IMPLEMENTED / FOR REVIEW; not merged, enabled, deployed, or piloted<br>
+**PR**: https://github.com/zensgit/cad-ml-platform/pull/584<br>
+**Stacked base**: `docs/workbench-board-post-565-20260829`<br>
 **Ratified authority**: PR #583 exact head
-`9150e06c75721bf086572ed271b68548104e8300`  
+`9150e06c75721bf086572ed271b68548104e8300`<br>
 **Runtime implementation head**:
 `2370af34519e64362024c520a38065052628fa83`
 (`fix: bind ReviewReuse immutable evidence snapshots`), on top of the
