@@ -187,6 +187,43 @@ def test_native_create_requires_canonical_initial_event_ledger(
     assert _error_code(raised.value) == "store_record_corrupt"
 
 
+@pytest.mark.parametrize(
+    "case",
+    ["file_name", "zero_bytes", "boolean_bytes", "event_order", "future_event"],
+)
+def test_native_create_binds_initial_event_metadata(case: str) -> None:
+    store = InMemoryReviewReuseStore()
+    task = _task("tenant-native-event-metadata")
+    task.updated_at = 2.0
+    task.events = [
+        TaskEvent(
+            event_type=TaskEventType.submitted,
+            ts=1.0,
+            detail={"file_name": task.source_file_name},
+        ),
+        TaskEvent(
+            event_type=TaskEventType.input_validated,
+            ts=1.5,
+            detail={"bytes": 1},
+        ),
+    ]
+    if case == "file_name":
+        task.events[0].detail["file_name"] = "forged.dxf"
+    elif case == "zero_bytes":
+        task.events[1].detail["bytes"] = 0
+    elif case == "boolean_bytes":
+        task.events[1].detail["bytes"] = True
+    elif case == "event_order":
+        task.events[0].ts = 1.75
+    else:
+        task.events[1].ts = 3.0
+
+    with pytest.raises(Exception) as raised:
+        store.create_if_absent(task, key=None, digest=None)
+
+    assert _error_code(raised.value) == "store_record_corrupt"
+
+
 def test_dotdot_cannot_escape_store_root(tmp_path: Path) -> None:
     root = tmp_path / "container" / "store"
     store = FilesystemReviewReuseStore(root)
