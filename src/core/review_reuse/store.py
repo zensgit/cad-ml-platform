@@ -29,6 +29,7 @@ from .evidence import (
 from .models import (
     DECISION_REASON_CODES,
     HumanDecisionState,
+    RejectionReason,
     ReviewReuseTask,
     TaskStatus,
 )
@@ -49,6 +50,7 @@ _INDEX_FIELDS = frozenset(
 )
 _INDEX_ENTRY_FIELDS = frozenset({"task_id", "payload_digest"})
 _PRINCIPAL_PATTERN = re.compile(r"^principal-v1-[0-9a-f]{64}$")
+_REJECTION_REASON_CODES = frozenset(reason.value for reason in RejectionReason)
 _NEW_TENANT_DIR_PATTERN = re.compile(r"^tenant-v1-[0-9a-f]{64}$")
 _TENANT_STAGE_PATTERN = re.compile(r"^\.tenant-v1-[0-9a-f]{64}\.stage-[0-9a-f]{32}$")
 _METADATA_TEMP_PATTERN = re.compile(
@@ -333,6 +335,14 @@ def _validate_task_payload(task: ReviewReuseTask) -> None:
     if not _HEX64_PATTERN.fullmatch(task.source_content_sha256):
         raise ReviewReuseStoreError(
             "store_record_corrupt", "stored source digest is invalid"
+        )
+    if any(
+        reason not in _REJECTION_REASON_CODES
+        for candidate in task.candidates
+        for reason in candidate.rejection_reasons
+    ):
+        raise ReviewReuseStoreError(
+            "store_record_corrupt", "stored candidate rejection reason is invalid"
         )
     pack = task.evidence_pack
     if task.status in {TaskStatus.evidence_ready, TaskStatus.decided} and pack is None:

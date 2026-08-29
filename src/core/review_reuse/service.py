@@ -177,6 +177,25 @@ def _normalized_idempotency_key(key: Optional[str]) -> Optional[str]:
     return normalized
 
 
+def _evidence_pack_from_task(
+    task: ReviewReuseTask, *, as_markdown: bool
+) -> Tuple[Dict[str, Any], Optional[str]]:
+    if not task.evidence_pack:
+        raise ReviewReuseError("not_ready", "evidence pack not ready")
+    try:
+        digest_valid = evidence_pack_digest_is_valid(task.evidence_pack)
+    except (CanonicalJSONError, TypeError, ValueError) as exc:
+        raise ReviewReuseError(
+            "store_record_corrupt", "persisted EvidencePack digest is invalid"
+        ) from exc
+    if not digest_valid:
+        raise ReviewReuseError(
+            "store_record_corrupt", "persisted EvidencePack digest is invalid"
+        )
+    markdown = evidence_pack_markdown(task.evidence_pack) if as_markdown else None
+    return task.evidence_pack, markdown
+
+
 class ReviewReuseService:
     def __init__(self, store: ReviewReuseStoreProtocol) -> None:
         self.store = store
@@ -344,20 +363,7 @@ class ReviewReuseService:
         self, tenant_id: str, task_id: str, *, as_markdown: bool = False
     ) -> Tuple[Dict[str, Any], Optional[str]]:
         task = self.get_task(tenant_id, task_id)
-        if not task.evidence_pack:
-            raise ReviewReuseError("not_ready", "evidence pack not ready")
-        try:
-            digest_valid = evidence_pack_digest_is_valid(task.evidence_pack)
-        except (CanonicalJSONError, TypeError, ValueError) as exc:
-            raise ReviewReuseError(
-                "store_record_corrupt", "persisted EvidencePack digest is invalid"
-            ) from exc
-        if not digest_valid:
-            raise ReviewReuseError(
-                "store_record_corrupt", "persisted EvidencePack digest is invalid"
-            )
-        markdown = evidence_pack_markdown(task.evidence_pack) if as_markdown else None
-        return task.evidence_pack, markdown
+        return _evidence_pack_from_task(task, as_markdown=as_markdown)
 
     def metrics(self, tenant_id: str) -> Dict[str, Any]:
         try:
@@ -372,9 +378,7 @@ class ReviewReuseService:
         pack: Optional[Dict[str, Any]] = None
         markdown = ""
         if task.evidence_pack is not None:
-            pack, rendered = self.get_evidence_pack(
-                tenant_id, task_id, as_markdown=True
-            )
+            pack, rendered = _evidence_pack_from_task(task, as_markdown=True)
             markdown = rendered or ""
         return {
             "schema_version": "review-reuse-audit-bundle-v1",
