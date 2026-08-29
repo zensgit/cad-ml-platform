@@ -18,7 +18,7 @@
 | Task events closed set | `TaskEventType` + unit assert on create path |
 | EvidencePack JSON + Markdown | `evidence.py` + API `format=markdown` test + consumer smoke |
 | Decision default-off | `REVIEW_REUSE_DECISIONS_ENABLED`; unit + API 403 + decision_gate.log |
-| Tenant isolation | unit `test_tenant_isolation` + API different keys |
+| Tenant isolation | **Historical evidence superseded:** those tests missed tenant-segment collision/root escape; current status is ER1 P0 |
 | Isolated-archive / synthetic e2e | seed candidates unit test + service smoke + runbook |
 | No retrain / eval_integrity touch | `boundary_check.log` — no such paths in PR diff |
 | Isolated sample runbook | `ISOLATED_SAMPLE_ARCHIVE_RUNBOOK_20260808.md` |
@@ -100,7 +100,7 @@ STATUS=PASS
 |---|---|---|
 | R1 | Decision default-off | PASS |
 | R2 | No feedback training path | PASS (no feedback JSONL in workbench) |
-| R3 | Tenant isolation | PASS |
+| R3 | Tenant isolation | HISTORICAL PASS; **SUPERSEDED / current FAIL** — #583 found tenant-segment collision and root escape; ER1 is P0 |
 | R4 | §3.3 fields present | PASS |
 | R5 | No eval_integrity_gate edit | PASS (absent from `git diff origin/main...HEAD`) |
 | R6 | No model-release metrics | PASS |
@@ -113,6 +113,11 @@ PR path set (after OpenAPI fix): workbench sources, docs, tests, workflow, `.env
 
 ## 5. Residuals
 
+> **Superseded status note (2026-08-29):** this report records the 2026-08-08
+> verification run, but its `residual_eng: none` conclusion was disproved by the
+> adversarial review in #583. The current authority is
+> `CAD_REUSE_WORKBENCH_TASK_BOARD_20260808.md`, which reopens ER1-ER4.
+
 | Item | Status |
 |---|---|
 | Owner ratify design-lock | residual_human (PROPOSED) |
@@ -122,7 +127,7 @@ PR path set (after OpenAPI fix): workbench sources, docs, tests, workflow, `.env
 | Track O pilot ops package | done on #547 — `TRACK_O_PILOT_OPS_PACKAGE_20260808.md` |
 | System task board + execute design | done — board flipped post-#547 merge |
 | Customer Track C | residual_human |
-| Live dedup adapter / metrics export | **done** on #547 (`dedup_adapter.py`, `metrics.py`) — no residual_eng PR |
+| Live dedup adapter / metrics export | Historical #547 shape delivered; score/provenance honesty remains ER3 in the current board |
 | Day 61–90 measured pilot package | residual_human / eng support |
 
 ---
@@ -154,13 +159,14 @@ Workflow next_actions (owner / residual, not eng self-complete): design-lock rat
 |---|---|
 | overall `ok` | **true** |
 | phase | all |
-| inventory | Track R MVP + residual audits/ops/system **engineering-done**; #547 **merged** |
-| residual_eng open | **none** (R10 + O3 shipped in #547) |
+| inventory | Historical run reported engineering-done; #547 **merged**; superseded by #583 security review |
+| residual_eng open | Historical result: **none**; current result: **ER1-ER4** in the task board |
 | residual_human | R11 design-lock ratify, R12 decision enable, Track C C1–C5 |
 | execute_plan_design | `CAD_REUSE_WORKBENCH_SYSTEM_EXECUTE_DESIGN_20260808.md` |
 | report | `scratch/workbench_system_report.md` |
 
-Post-merge: residual_eng stack cleared; no second L3 runtime PR required for PR3/PR4.
+The historical post-merge claim that no second L3 runtime PR was required is superseded.
+ER1+ER2 now require one bounded L3 safety PR after exact-head owner ratification.
 
 Scheduled task: `cad-reuse-workbench-gap-check` (weekdays 09:30 Asia/Shanghai).
 
