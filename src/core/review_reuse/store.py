@@ -299,7 +299,7 @@ def _validate_create_binding(
         raise ReviewReuseStoreError(
             "store_record_corrupt", "first persisted task revision must be 1"
         )
-    _validate_task_payload(task)
+    validate_review_reuse_task_payload(task)
     if key is None:
         if (
             digest is not None
@@ -401,7 +401,9 @@ def _validate_decision_event_binding(task: ReviewReuseTask) -> None:
         )
 
 
-def _validate_task_payload(task: ReviewReuseTask) -> None:
+def validate_review_reuse_task_payload(task: ReviewReuseTask) -> None:
+    """Validate one self-contained task snapshot before persistence."""
+
     try:
         canonical_json_v1(task.model_dump(mode="json"))
     except (CanonicalJSONError, TypeError, UnicodeError, ValueError) as exc:
@@ -652,7 +654,7 @@ def _assert_mutation(
             raise ReviewReuseStoreError(
                 "store_record_corrupt", "decision reason code is invalid"
             )
-    _validate_task_payload(task)
+    validate_review_reuse_task_payload(task)
     if current.status == TaskStatus.evidence_ready and (
         task.candidates != current.candidates
         or task.calibration_version != current.calibration_version
@@ -1002,7 +1004,7 @@ class FilesystemReviewReuseStore:
             raise ReviewReuseStoreError(
                 "store_record_corrupt", "stored task metadata is invalid"
             )
-        _validate_task_payload(task)
+        validate_review_reuse_task_payload(task)
         _validate_stored_create_idempotency(task)
 
     def _load_task_path(
@@ -1219,7 +1221,7 @@ class FilesystemReviewReuseStore:
             raise ReviewReuseStoreError(
                 "store_record_corrupt", "migrated task identity is invalid"
             )
-        _validate_task_payload(task)
+        validate_review_reuse_task_payload(task)
         with self._lock:
             self._ensure_writer()
             self._ensure_tenant(task.tenant_id)
@@ -1581,7 +1583,7 @@ def _migrate_legacy_store(root: Path | str, *, apply: bool) -> Dict[str, Any]:
                 pack["calibration"] = calibration
                 pack["evidence_pack_sha256"] = evidence_pack_digest(pack)
                 task.evidence_pack = pack
-            _validate_task_payload(task)
+            validate_review_reuse_task_payload(task)
             _validate_stored_create_idempotency(task)
             directory_records.append(task)
             records.append(task)

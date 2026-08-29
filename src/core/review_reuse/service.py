@@ -32,6 +32,7 @@ from .store import (
     ReviewReuseStoreError,
     ReviewReuseStoreProtocol,
     create_review_reuse_store,
+    validate_review_reuse_task_payload,
     validate_tenant_id,
 )
 
@@ -290,6 +291,7 @@ class ReviewReuseService:
             task.revision = base_revision + 1
             task.status = TaskStatus.evidence_ready
             task.evidence_pack = build_evidence_pack(task)
+            validate_review_reuse_task_payload(task)
             task = self._emit(
                 task,
                 TaskEventType.evidence_pack_ready,
