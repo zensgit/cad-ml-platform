@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TaskStatus(str, Enum):
@@ -71,12 +71,16 @@ class RejectionReason(str, Enum):
 
 
 class TaskEvent(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     event_type: TaskEventType
     ts: float
     detail: Dict[str, Any] = Field(default_factory=dict)
 
 
 class CandidateDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     candidate_id: str
     candidate_source: str = "archive"
     state: CandidateState
@@ -87,6 +91,8 @@ class CandidateDecision(BaseModel):
 
 
 class HumanDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     state: HumanDecisionState
     reviewer_id: str
     reviewer_kind: str = "validated_principal"
@@ -101,6 +107,8 @@ class HumanDecision(BaseModel):
 
 
 class ReviewReuseTask(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     task_id: str
     tenant_id: str
     status: TaskStatus
