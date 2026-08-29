@@ -21,7 +21,11 @@ from .canonical import (
     canonical_sha256,
     strict_json_loads,
 )
-from .evidence import evidence_pack_digest, evidence_pack_digest_is_valid
+from .evidence import (
+    build_evidence_pack,
+    evidence_pack_digest,
+    evidence_pack_digest_is_valid,
+)
 from .models import HumanDecisionState, ReviewReuseTask, TaskStatus
 
 ENV_STORE = "REVIEW_REUSE_STORE"
@@ -348,12 +352,22 @@ def _validate_task_payload(task: ReviewReuseTask) -> None:
             )
         task_candidate_ids = [candidate.candidate_id for candidate in task.candidates]
         pack_candidates = pack.get("candidates")
+        expected_pack = build_evidence_pack(task)
+        candidate_evidence_fields = (
+            "candidates",
+            "confidence",
+            "evidence",
+            "rejection_reasons",
+            "unsupported_states",
+        )
         if (
             len(task_candidate_ids) != len(set(task_candidate_ids))
             or not isinstance(pack_candidates, list)
             or any(not isinstance(candidate, dict) for candidate in pack_candidates)
-            or [candidate.get("candidate_id") for candidate in pack_candidates]
-            != task_candidate_ids
+            or any(
+                pack.get(field) != expected_pack[field]
+                for field in candidate_evidence_fields
+            )
         ):
             raise ReviewReuseStoreError(
                 "store_record_corrupt",
@@ -985,6 +999,7 @@ class FilesystemReviewReuseStore:
             self._ensure_tenant(task.tenant_id)
             index = self._load_index(task.tenant_id)
             if key is not None:
+                matches = self._scan_key(task.tenant_id, key)
                 entry = (index or {"entries": {}})["entries"].get(key)
                 if entry is not None:
                     if entry["payload_digest"] != digest:
@@ -992,14 +1007,13 @@ class FilesystemReviewReuseStore:
                             "idempotency_key_conflict",
                             "idempotency key is bound to another payload",
                         )
-                    existing = self.get(task.tenant_id, entry["task_id"])
-                    if existing is None:  # guarded by index validation
+                    if len(matches) != 1 or matches[0].task_id != entry["task_id"]:
                         raise ReviewReuseStoreError(
-                            "store_index_corrupt", "idempotency owner is missing"
+                            "store_index_corrupt",
+                            "idempotency ownership is inconsistent",
                         )
-                    return existing
+                    return matches[0]
 
-                matches = self._scan_key(task.tenant_id, key)
                 if len(matches) > 1:
                     raise ReviewReuseStoreError(
                         "store_index_corrupt", "duplicate idempotency owners found"
@@ -1109,7 +1123,12 @@ class FilesystemReviewReuseStore:
             entry = index["entries"].get(key)
             if entry is None:
                 return None
-            return self.get(tenant_id, entry["task_id"])
+            matches = self._scan_key(tenant_id, key)
+            if len(matches) != 1 or matches[0].task_id != entry["task_id"]:
+                raise ReviewReuseStoreError(
+                    "store_index_corrupt", "idempotency ownership is inconsistent"
+                )
+            return matches[0]
 
     def list_for_tenant(self, tenant_id: str) -> List[ReviewReuseTask]:
         validate_tenant_id(tenant_id)
@@ -1144,6 +1163,15 @@ class FilesystemReviewReuseStore:
                     _clone(
                         self._load_task_path(path, tenant_id=tenant_id, task_id=task_id)
                     )
+                )
+            idempotency_keys = [
+                task.idempotency_key
+                for task in tasks
+                if task.idempotency_key is not None
+            ]
+            if len(idempotency_keys) != len(set(idempotency_keys)):
+                raise ReviewReuseStoreError(
+                    "store_index_corrupt", "duplicate idempotency owners found"
                 )
             return tasks
 
