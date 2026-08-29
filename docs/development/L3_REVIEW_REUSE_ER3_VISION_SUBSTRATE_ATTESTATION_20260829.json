@@ -1,0 +1,240 @@
+{
+  "schema_version": "review-reuse-er3-vision-substrate-attestation-v1",
+  "attestation_status": "static_verified_runtime_unverified",
+  "attestation_sha256": "45a5b9eeedc4442467dd3cadbbe8ee5c2e68f5a21e8ef7e8f04b1458c80db3be",
+  "image": {
+    "reference": "ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
+    "index_digest": "sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
+    "index_media_type": "application/vnd.oci.image.index.v1+json",
+    "platforms": [
+      {
+        "os": "linux",
+        "architecture": "amd64",
+        "manifest_digest": "sha256:036db4725b5578689d76c1ced933aa9438bd628e257387515e214de5a838ce20",
+        "docker_image_id_expected": "sha256:9d056adc789ee0980de046205f0bb009c57a36a5a94ea329c2971e5cecf30bc0",
+        "provenance_manifest_digest": "sha256:b2020afa39ef4d09881d169ef22ccf2590e79be93018400543bf3161f07b22a6",
+        "provenance_statement_layer_digest": "sha256:1fd52fd641704c20d678c4133741a3800e6cf0f1b84b3e98c150cb4dc82517a0"
+      },
+      {
+        "os": "linux",
+        "architecture": "arm64",
+        "manifest_digest": "sha256:c81c77d8672aa36854e9cf0d650f689958266d8b86297abf1c39358038e84689",
+        "docker_image_id_expected": "sha256:6895fa7587fa7e1e541e3eb0f440bef94715e631d8a116a3ab2e7b3dcd76a838",
+        "provenance_manifest_digest": "sha256:4b62e8e6b887343f0222f4a2de205f0a4ad00fc7e35d81a5152b2c3ff2c02ba7",
+        "provenance_statement_layer_digest": "sha256:17910b237e2d192e8ef8423c26cf129340a8eb8019ae128801e8df60da8cb59b"
+      }
+    ],
+    "provenance": {
+      "predicate_type": "https://slsa.dev/provenance/v0.2",
+      "source_repository": "https://github.com/zensgit/dedupcad-vision.git",
+      "source_revision": "2fc35d60ff034c9f790868c02381a9716becc942",
+      "subject_version": "1.1.1",
+      "reproducible": false,
+      "materials_complete": false
+    }
+  },
+  "source_contract": {
+    "working_directory": "/app",
+    "user": "appuser",
+    "command": [
+      "uvicorn",
+      "caddedup_vision.api.main:app",
+      "--host",
+      "0.0.0.0",
+      "--port",
+      "8000"
+    ],
+    "declared_volumes": [
+      "/app/data",
+      "/app/indexes",
+      "/app/logs"
+    ],
+    "reported_versions": {
+      "provenance_subject": "1.1.1",
+      "pyproject": "1.1.0",
+      "health_and_openapi": "0.2.0",
+      "authority": "image index digest plus source revision"
+    },
+    "input_media": {
+      "index_endpoint": "POST /api/index/add",
+      "search_endpoint": "POST /api/v2/search",
+      "er3_media_type": "image/png",
+      "direct_dxf_supported_by_these_endpoints": false,
+      "reason": "Both endpoints pass the uploaded file directly to pyvips, Pillow, and OpenCV image loaders; they do not invoke the separate ezdxf geometry routes."
+    }
+  },
+  "mutable_paths": [
+    {
+      "path": "/app/data",
+      "kind": "declared_volume_and_search_state_root",
+      "tmpfs_target": "/app/data",
+      "required": true,
+      "configuration": {
+        "VISION_STORAGE_MODE": "filesystem",
+        "VISION_CACHE_DIR": "/app/data/vision_cache"
+      },
+      "known_contents": [
+        "vision_cache/drawings/*.json",
+        "vision_cache/drawings/*.npy",
+        "vision_cache/history/*.jsonl",
+        "phash_index.pkl",
+        "faiss_index/index.faiss",
+        "faiss_index/id_mapping.pkl",
+        "licenses.db",
+        "update_logs.db",
+        "review_queue.db"
+      ]
+    },
+    {
+      "path": "/app/indexes",
+      "kind": "declared_volume_unused_by_exact_source_revision",
+      "tmpfs_target": "/app/indexes",
+      "required": true,
+      "configuration": {},
+      "known_contents": []
+    },
+    {
+      "path": "/app/logs",
+      "kind": "declared_volume_with_stdout_logging_selected",
+      "tmpfs_target": "/app/logs",
+      "required": true,
+      "configuration": {
+        "LOG_OUTPUT": "stdout"
+      },
+      "known_contents": []
+    },
+    {
+      "path": "/tmp",
+      "kind": "request_tempfiles_and_local_file_storage_fallback",
+      "tmpfs_target": "/tmp",
+      "required": true,
+      "configuration": {
+        "HOME": "/tmp/home",
+        "XDG_CACHE_HOME": "/tmp/xdg-cache",
+        "MPLCONFIGDIR": "/tmp/matplotlib",
+        "TELEMETRY_DIR": "/tmp/telemetry"
+      },
+      "known_contents": [
+        "temporary index and search uploads",
+        "dedupcad-storage/"
+      ]
+    }
+  ],
+  "in_memory_state": [
+    {
+      "name": "FilesystemBackend._drawings",
+      "effect": "authoritative drawing map loaded from VISION_CACHE_DIR and updated by index-add",
+      "reset": "fresh process plus empty /app/data tmpfs"
+    },
+    {
+      "name": "PHashIndex and FAISSIndex",
+      "effect": "L1 and L2 search candidates",
+      "reset": "fresh process plus empty /app/data tmpfs; explicit rebuild after three index-add receipts"
+    },
+    {
+      "name": "routes_progressive._search_cache",
+      "effect": "five-minute response cache keyed by query bytes and search options",
+      "reset": "fresh process; pre-index uses (fast,1,false,false,false) and post-index uses (balanced,5,false,false,true), ordered as mode,max_results,compute_diff,enable_ml,enable_geometric; both tuples are recorded"
+    }
+  ],
+  "integration_flags": {
+    "S3_ENABLED": "false",
+    "EVENT_BUS_ENABLED": "false",
+    "EVENT_BUS_USE_LOCAL": "true",
+    "ML_PLATFORM_ENABLED": "false",
+    "GEOMETRIC_ENABLED": "false",
+    "OTEL_ENABLED": "false",
+    "RATE_LIMIT_ENABLED": "false",
+    "RATE_LIMIT_STORAGE": "memory",
+    "PROMETHEUS_ENABLED": "false",
+    "S3_ACCESS_KEY": "absent",
+    "S3_SECRET_KEY": "absent",
+    "HTTP_PROXY": "absent",
+    "HTTPS_PROXY": "absent",
+    "ALL_PROXY": "absent",
+    "http_proxy": "absent",
+    "https_proxy": "absent",
+    "all_proxy": "absent"
+  },
+  "authoritative_cardinality": {
+    "count_endpoint": "GET /api/stats",
+    "count_json_pointer": "/stats/total_drawings",
+    "count_source": "FilesystemBackend.get_stats() length of its loaded drawing map",
+    "expected_pre_index_count": 0,
+    "expected_post_index_count": 3,
+    "list_endpoint": null,
+    "identifier_binding": {
+      "source": "the complete set of three successful POST /api/index/add receipts on a pre-count-zero instance",
+      "required_fields": [
+        "success",
+        "drawing_id",
+        "file_hash",
+        "message"
+      ],
+      "required_archive_hashes": [
+        "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c",
+        "c32bd82c54124d87fe0731f7cc1a05e4d0147d755d9cd98dc41a1aaa047495e6",
+        "9a9ca171ef968202eb69523eb0db9e8f88009cb0048a0d301dfa87076bb48d7e"
+      ]
+    },
+    "rebuild": {
+      "endpoint": "POST /api/v2/index/rebuild",
+      "required": true,
+      "reason": "With EVENT_BUS_ENABLED=false, index-add persists drawing records but does not populate the in-memory pHash and FAISS indexes."
+    },
+    "index_layer_observation": {
+      "endpoint": "GET /health",
+      "json_pointers": [
+        "/indexes/l1_phash/size",
+        "/indexes/l2_faiss/size"
+      ],
+      "expected_pre_index_sizes": [
+        0,
+        0
+      ],
+      "expected_post_rebuild_sizes": [
+        3,
+        3
+      ],
+      "required_for_er3": true,
+      "authority": "required readiness evidence; storage count and index receipts remain the drawing-cardinality and identity authority"
+    }
+  },
+  "runtime_posture": {
+    "container_filesystem": "read_only",
+    "host_data_mounts": [],
+    "tmpfs_targets": [
+      "/app/data",
+      "/app/indexes",
+      "/app/logs",
+      "/tmp"
+    ],
+    "docker_network": "new run-scoped internal network",
+    "outbound_probe": "built-in curl runs inside the still-empty vision container and must fail before fixture bytes are read; no second probe image is pulled",
+    "published_port": "127.0.0.1:<run-scoped-port>:8000",
+    "proxy_environment": "absent",
+    "cleanup": "remove the run-labeled container and network, then prove no run-labeled container, volume, or network remains"
+  },
+  "runtime_preflight": {
+    "status": "required_not_run",
+    "must_precede_fixture_read": true,
+    "required_observations": [
+      "selected platform manifest and actual Docker image ID match this attestation",
+      "all four tmpfs targets and read-only root are present",
+      "no anonymous or host data volume is mounted",
+      "network Internal=true and outbound probe fails",
+      "port HostIp is literal loopback",
+      "disabled integration flags and absent proxy variables match this attestation",
+      "GET /api/stats reports total_drawings=0",
+      "GET /health reports both in-memory index sizes=0"
+    ]
+  },
+  "limitations": [
+    "This is static source and OCI metadata evidence, not a container runtime receipt.",
+    "The fixed image has no VISION_INDEX_CLEAN_START switch; freshness depends on the attested tmpfs and zero-count preflight.",
+    "The service has no drawing-list endpoint; exact post-index identities are bound by the receipt set plus authoritative count three.",
+    "Index-add creates an in-memory LocalEventBus even with EVENT_BUS_ENABLED=false; EVENT_BUS_USE_LOCAL=true and runtime inspection prevent a Redis path, and explicit rebuild remains required because no index handlers are registered.",
+    "The image reports three inconsistent version strings, so only the image digest and source revision identify the substrate.",
+    "No image pull, container start, fixture processing, model-quality evaluation, customer-data use, merge, deployment, decision enablement, or pilot is authorized by this attestation."
+  ]
+}
