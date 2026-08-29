@@ -7,10 +7,10 @@
 **Ratified authority**: PR #583 exact head
 `9150e06c75721bf086572ed271b68548104e8300`  
 **Runtime implementation head**:
-`40b006d43a45fd971ab5ef8059bc427ec5f1c157`
-(`fix: quarantine uncertain ReviewReuse ledger writes`), on top of the
+`2370af34519e64362024c520a38065052628fa83`
+(`fix: bind ReviewReuse immutable evidence snapshots`), on top of the
 original runtime commit `6cc55841` and the earlier hardening chain through
-`77cd2969`.
+`40b006d4`.
 
 ## 1. Authorization boundary
 
@@ -51,7 +51,7 @@ named by design-lock section 9.1:
 | Parent / authority | `9150e06c75721bf086572ed271b68548104e8300` |
 | Files | `test_review_reuse_er1_store_integrity.py`, `test_review_reuse_er2_ledger.py`, `test_review_reuse_api_integrity.py` |
 | Baseline result | **18 failed** |
-| Runtime-head result | **64 passed** |
+| Runtime-head result | **70 passed** |
 
 Exact command:
 
@@ -201,9 +201,17 @@ named tests plus narrower adversarial cases.
 - A digest-valid EvidencePack must bind both nested calibration version and
   status to the owning task; migration refuses mismatches before recomputing a
   digest.
+- A persisted EvidencePack must have exactly the builder-defined top-level key
+  set, and its schema, source, candidate evidence, confidence, rejection,
+  unsupported-state, and provenance envelopes must equal the canonical
+  builder output. Re-signing changed or extra fields does not make them valid.
 - A persisted EvidencePack's `human_decision` block must exactly match the
   task decision, including the undecided `null` state; recomputing the pack
   digest cannot smuggle a decision into an undecided task.
+- A persisted decision must identify exactly the preceding task revision. Its
+  reviewed digest must equal the canonical EvidencePack reconstructed for that
+  pre-decision `evidence_ready` snapshot, including decisions without an
+  idempotency key.
 - Migration distinguishes missing legacy calibration metadata from explicit
   JSON `null`: a null calibration object, version, or status is corrupt and is
   never silently backfilled and re-signed.
@@ -323,18 +331,41 @@ cases as **5 failed**; runtime repair
 At runtime head `40b006d4`, the complete named fail-first command is **64
 passed** and the full ReviewReuse suite is **158 passed**.
 
+A seventh exact-head GitHub review at
+`1a89573f3983253c4ac421f5e44e8fc729dfdf35` found two more persisted-integrity
+gaps. Test-only commits `738102645c666d3e404176118d355fcb5434b187`
+and `5095f2926eaeec2e82872d9558ae484be73dc74f` reproduced all six behavioral
+cases as **6 failed** against the prior runtime. Runtime repair
+`2370af34519e64362024c520a38065052628fa83` made the focused batch **6 passed**:
+
+| Finding | Red proof | Closed behavior |
+|---|---|---|
+| A digest-valid pack could replace `schema_version`, top-level `provenance`, or the exact `source` envelope, and could add unknown top-level fields | four changed/re-signed packs loaded successfully | the pack key set and every builder-derived evidence envelope must exactly match canonical builder output |
+| An unkeyed persisted decision could replace `reviewed_revision` or `evidence_pack_sha256`, rebuild the final pack, and pass | both changed/rebuilt decided records loaded successfully | the reviewed revision is exactly the previous revision and its digest must match the reconstructed pre-decision canonical pack |
+
+At runtime head `2370af34`, the complete named fail-first command is **70
+passed** and the full ReviewReuse suite is **164 passed**.
+
+This is application-level consistency validation for the store managed by this
+service. The EvidencePack digest is an unkeyed SHA-256, not a MAC or external
+integrity anchor. A privileged actor that rewrites every mutually checked copy
+can evade this class of validation; signatures, WORM storage, or an external
+audit ledger would require a separately ratified L3 design and are not claimed
+by ER1 + ER2.
+
 ## 6. Verification evidence
 
 Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
-`40b006d4`.
+`2370af34`.
 
 | Gate | Result |
 |---|---:|
-| Exact named fail-first command, including narrower additions | **64 passed** |
+| Exact named fail-first command, including narrower additions | **70 passed** |
 | Focused null/rollback/recovery batch | **6 passed** |
 | Focused duplicate-owner/candidate-evidence batch | **5 passed** |
 | Focused published-write quarantine/decision/calibration batch | **5 passed** (red: 5 failed at test-only `d91309df`) |
-| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **158 passed** |
+| Focused immutable-envelope/reviewed-snapshot batch | **6 passed** (red: 6 failed at test-only `5095f292`) |
+| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **164 passed** |
 | Integration-auth + production-identity + pilot-preflight regressions | **44 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 test-core` | **39 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-openapi` | **5 passed** |
@@ -375,6 +406,8 @@ short-key warnings from test-only JWT fixtures. No test failed or was skipped.
   `eval_integrity_gate`, training/feedback, assistant, or cost-cap runtime
   changes.
 - No repository or deployment configuration enables decisions or live dedup.
+- ER1 + ER2 do not claim cryptographic tamper evidence against a privileged
+  filesystem writer; that would require a separate owner-ratified L3 design.
 - The canonical checkout remained clean; all work occurred in the isolated
   `codex/review-reuse-er1-er2-20260829` worktree.
 - PR #584 is stacked on the exact ratified #583 branch and remains for review.
