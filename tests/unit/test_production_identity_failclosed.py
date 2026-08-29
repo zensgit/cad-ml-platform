@@ -201,6 +201,18 @@ def test_boot_ok_with_full_production_config(monkeypatch) -> None:
     assert err is None
 
 
+def test_active_settings_loads_jwt_audience_and_issuer(monkeypatch) -> None:
+    from src.core.config import Settings
+
+    monkeypatch.setenv("INTEGRATION_JWT_AUDIENCE", "cad-ml-audience")
+    monkeypatch.setenv("INTEGRATION_JWT_ISSUER", "cad-ml-issuer")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.INTEGRATION_JWT_AUDIENCE == "cad-ml-audience"
+    assert settings.INTEGRATION_JWT_ISSUER == "cad-ml-issuer"
+
+
 def test_boot_ok_in_development_with_disabled_auth(monkeypatch) -> None:
     from src.api.production_identity import validate_boot_identity
 
