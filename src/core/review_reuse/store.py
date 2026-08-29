@@ -87,6 +87,36 @@ def _open_writer_lease(root: Path, *, message: str) -> Any:
     return lease
 
 
+def _validated_root_directories(store_root: Path) -> List[Path]:
+    if not store_root.exists():
+        return []
+    if not store_root.is_dir():
+        raise ReviewReuseStoreError(
+            "store_record_corrupt", "filesystem store root is not a directory"
+        )
+    directories: List[Path] = []
+    try:
+        entries = sorted(store_root.iterdir())
+    except OSError as exc:
+        raise ReviewReuseStoreError(
+            "store_record_corrupt", "filesystem store root is unreadable"
+        ) from exc
+    for entry in entries:
+        if entry.is_symlink():
+            raise ReviewReuseStoreError(
+                "store_record_corrupt", "unexpected store root artifact"
+            )
+        if entry.is_dir():
+            directories.append(entry)
+            continue
+        if entry.name == ".writer.lock" and entry.is_file():
+            continue
+        raise ReviewReuseStoreError(
+            "store_record_corrupt", "unexpected store root artifact"
+        )
+    return directories
+
+
 class ReviewReuseStoreProtocol(Protocol):
     def create_if_absent(
         self,
@@ -309,6 +339,7 @@ def _validate_task_payload(task: ReviewReuseTask) -> None:
         calibration = pack.get("calibration")
         if (
             not isinstance(calibration, dict)
+            or calibration.get("version") != task.calibration_version
             or calibration.get("status") != task.calibration_status
         ):
             raise ReviewReuseStoreError(
@@ -1121,22 +1152,13 @@ def validated_filesystem_tenants(root: Path | str) -> List[Tuple[str, Path]]:
     """Resolve literal tenant identities and validate every persisted artifact."""
 
     store_root = Path(root).expanduser().resolve(strict=False)
-    if not store_root.exists():
+    directories = _validated_root_directories(store_root)
+    if not directories:
         return []
-    if not store_root.is_dir():
-        raise ReviewReuseStoreError(
-            "store_record_corrupt", "filesystem store root is not a directory"
-        )
     reader = FilesystemReviewReuseStore(store_root, read_only=True)
     tenants: List[Tuple[str, Path]] = []
     try:
-        for tenant_dir in sorted(
-            path for path in store_root.iterdir() if path.is_dir()
-        ):
-            if tenant_dir.is_symlink():
-                raise ReviewReuseStoreError(
-                    "store_record_corrupt", "tenant ledger path is a symbolic link"
-                )
+        for tenant_dir in directories:
             if _TENANT_STAGE_PATTERN.fullmatch(tenant_dir.name):
                 continue
             if not _NEW_TENANT_DIR_PATTERN.fullmatch(tenant_dir.name):
@@ -1196,11 +1218,7 @@ def _migrate_legacy_store(root: Path | str, *, apply: bool) -> Dict[str, Any]:
 
     store_root = Path(root).expanduser().resolve(strict=False)
     records: List[ReviewReuseTask] = []
-    directories = (
-        [path for path in sorted(store_root.iterdir()) if path.is_dir()]
-        if store_root.exists()
-        else []
-    )
+    directories = _validated_root_directories(store_root)
     new_layout_dirs = [
         path for path in directories if _NEW_TENANT_DIR_PATTERN.fullmatch(path.name)
     ]
@@ -1348,6 +1366,15 @@ def _migrate_legacy_store(root: Path | str, *, apply: bool) -> Dict[str, Any]:
                         "legacy EvidencePack calibration is invalid",
                     )
                 calibration = dict(raw_calibration or {})
+                stored_version = calibration.get("version")
+                if (
+                    stored_version is not None
+                    and stored_version != task.calibration_version
+                ):
+                    raise ReviewReuseStoreError(
+                        "store_record_corrupt",
+                        "legacy EvidencePack calibration is inconsistent",
+                    )
                 stored_status = calibration.get("status")
                 if (
                     stored_status is not None
@@ -1357,6 +1384,7 @@ def _migrate_legacy_store(root: Path | str, *, apply: bool) -> Dict[str, Any]:
                         "store_record_corrupt",
                         "legacy EvidencePack calibration is inconsistent",
                     )
+                calibration["version"] = task.calibration_version
                 calibration["status"] = task.calibration_status
                 pack["calibration"] = calibration
                 pack["evidence_pack_sha256"] = evidence_pack_digest(pack)
@@ -1405,14 +1433,23 @@ def _migrate_legacy_store(root: Path | str, *, apply: bool) -> Dict[str, Any]:
     try:
         for task in records:
             staging_store._import_migrated(task)
-        if store_root.exists():
-            os.replace(store_root, backup)
+        backup_created = False
+        published = False
         try:
-            # Keep the staging writer lease held as its inode moves into place.
+            if store_root.exists():
+                os.replace(store_root, backup)
+                backup_created = True
+                _fsync_directory(store_root.parent)
             os.replace(staging, store_root)
+            published = True
+            _fsync_directory(store_root.parent)
         except OSError:
-            if backup.exists() and not store_root.exists():
+            if published and store_root.exists():
+                os.replace(store_root, staging)
+                _fsync_directory(store_root.parent)
+            if backup_created and backup.exists() and not store_root.exists():
                 os.replace(backup, store_root)
+                _fsync_directory(store_root.parent)
             raise
     except Exception:
         shutil.rmtree(staging, ignore_errors=True)

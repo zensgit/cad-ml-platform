@@ -12,11 +12,12 @@ from pathlib import Path
 import pytest
 
 from src.core.review_reuse.canonical import canonical_sha256
-from src.core.review_reuse.evidence import build_evidence_pack
+from src.core.review_reuse.evidence import build_evidence_pack, evidence_pack_digest
 from src.core.review_reuse.models import ReviewReuseTask, TaskStatus
 from src.core.review_reuse.store import (
     FilesystemReviewReuseStore,
     ReviewReuseStoreError,
+    validated_filesystem_tenants,
 )
 
 
@@ -262,6 +263,30 @@ def test_calibration_status_uses_closed_vocabulary(tmp_path: Path) -> None:
         _close(store)
 
 
+def test_evidence_calibration_version_must_match_task(tmp_path: Path) -> None:
+    root = tmp_path / "store"
+    store = FilesystemReviewReuseStore(root)
+    task = _task("tenant-calibration-version")
+    task.status = TaskStatus.evidence_ready
+    task.evidence_pack = build_evidence_pack(task)
+    try:
+        _create(store, task)
+        record_path = (
+            _tenant_dir(root, task.tenant_id) / "tasks" / f"{task.task_id}.json"
+        )
+        payload = json.loads(record_path.read_text(encoding="utf-8"))
+        pack = payload["evidence_pack"]
+        pack["calibration"]["version"] = "mismatched-calibration"
+        pack["evidence_pack_sha256"] = evidence_pack_digest(pack)
+        record_path.write_text(json.dumps(payload), encoding="utf-8")
+
+        with pytest.raises(Exception) as raised:
+            store.get(task.tenant_id, task.task_id)
+        assert _error_code(raised.value) == "store_record_corrupt"
+    finally:
+        _close(store)
+
+
 def test_legacy_migration_rejects_nested_unknown_calibration_status(
     tmp_path: Path,
 ) -> None:
@@ -281,6 +306,65 @@ def test_legacy_migration_rejects_nested_unknown_calibration_status(
     with pytest.raises(Exception) as raised:
         migrate_legacy_store(root)
     assert _error_code(raised.value) == "store_record_corrupt"
+
+
+def test_legacy_migration_rejects_nested_calibration_version_mismatch(
+    tmp_path: Path,
+) -> None:
+    from src.core.review_reuse.store import migrate_legacy_store
+
+    root = tmp_path / "legacy-store"
+    task = _task("tenant-calibration-version")
+    task.status = TaskStatus.evidence_ready
+    task.evidence_pack = build_evidence_pack(task)
+    task.evidence_pack["calibration"]["version"] = "mismatched-calibration"
+    tasks_dir = root / task.tenant_id / "tasks"
+    tasks_dir.mkdir(parents=True)
+    (tasks_dir / f"{task.task_id}.json").write_text(
+        json.dumps(task.model_dump(mode="json")), encoding="utf-8"
+    )
+
+    with pytest.raises(Exception) as raised:
+        migrate_legacy_store(root)
+    assert _error_code(raised.value) == "store_record_corrupt"
+
+
+@pytest.mark.parametrize("artifact_kind", ["file", "dangling_symlink"])
+def test_full_store_validation_rejects_unexpected_root_artifact(
+    tmp_path: Path,
+    artifact_kind: str,
+) -> None:
+    root = tmp_path / artifact_kind
+    root.mkdir()
+    artifact = root / "unexpected"
+    if artifact_kind == "file":
+        artifact.write_text("unexpected", encoding="utf-8")
+    else:
+        artifact.symlink_to(root / "missing")
+
+    with pytest.raises(Exception) as raised:
+        validated_filesystem_tenants(root)
+    assert _error_code(raised.value) == "store_record_corrupt"
+
+
+def test_legacy_migration_rejects_file_only_root(tmp_path: Path) -> None:
+    from src.core.review_reuse.store import migrate_legacy_store
+
+    root = tmp_path / "legacy-store"
+    root.mkdir()
+    (root / "unexpected").write_text("unexpected", encoding="utf-8")
+
+    with pytest.raises(Exception) as raised:
+        migrate_legacy_store(root)
+    assert _error_code(raised.value) == "store_record_corrupt"
+
+
+def test_root_validation_allows_legacy_internal_writer_lock(tmp_path: Path) -> None:
+    root = tmp_path / "store"
+    root.mkdir()
+    (root / ".writer.lock").touch()
+
+    assert validated_filesystem_tenants(root) == []
 
 
 def test_legacy_migration_aborts_on_collision(tmp_path: Path) -> None:
@@ -621,6 +705,70 @@ def test_legacy_migration_lease_survives_root_backup_rename(
 
     assert Path(report["backup"]).is_dir()
     assert observed == ["store_writer_conflict"]
+
+
+def test_legacy_migration_fsyncs_parent_after_namespace_swaps(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from src.core.review_reuse import store as store_module
+
+    root = tmp_path / "legacy-store"
+    task = _task("tenant-a")
+    tasks_dir = root / task.tenant_id / "tasks"
+    tasks_dir.mkdir(parents=True)
+    (tasks_dir / f"{task.task_id}.json").write_text(
+        json.dumps(task.model_dump(mode="json")), encoding="utf-8"
+    )
+    real_fsync = store_module._fsync_directory
+    parent_fsyncs: list[Path] = []
+
+    def tracked_fsync(path: Path) -> None:
+        real_fsync(path)
+        if path == root.parent:
+            parent_fsyncs.append(path)
+
+    monkeypatch.setattr(store_module, "_fsync_directory", tracked_fsync)
+    store_module.migrate_legacy_store(root, apply=True)
+
+    assert parent_fsyncs == [root.parent, root.parent]
+
+
+def test_legacy_migration_fsyncs_parent_after_rollback(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from src.core.review_reuse import store as store_module
+
+    root = tmp_path / "legacy-store"
+    task = _task("tenant-a")
+    task_path = root / task.tenant_id / "tasks" / f"{task.task_id}.json"
+    task_path.parent.mkdir(parents=True)
+    task_path.write_text(json.dumps(task.model_dump(mode="json")), encoding="utf-8")
+    real_replace = store_module.os.replace
+    real_fsync = store_module._fsync_directory
+    parent_fsyncs: list[Path] = []
+
+    def failing_publish(source: str | Path, destination: str | Path) -> None:
+        if Path(destination) == root and Path(source).name.startswith(
+            f".{root.name}.migration-"
+        ):
+            raise OSError("simulated publish failure")
+        real_replace(source, destination)
+
+    def tracked_fsync(path: Path) -> None:
+        real_fsync(path)
+        if path == root.parent:
+            parent_fsyncs.append(path)
+
+    monkeypatch.setattr(store_module.os, "replace", failing_publish)
+    monkeypatch.setattr(store_module, "_fsync_directory", tracked_fsync)
+
+    with pytest.raises(OSError, match="simulated publish failure"):
+        store_module.migrate_legacy_store(root, apply=True)
+
+    assert task_path.is_file()
+    assert parent_fsyncs == [root.parent, root.parent]
 
 
 def test_legacy_prefix_like_tenant_is_not_mistaken_for_new_layout(
