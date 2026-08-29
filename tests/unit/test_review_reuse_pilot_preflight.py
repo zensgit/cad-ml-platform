@@ -24,7 +24,11 @@ def test_script_entrypoint_resolves_repo_imports() -> None:
     env.pop("PYTHONPATH", None)
 
     result = subprocess.run(
-        [sys.executable, str(repo_root / "scripts/review_reuse_pilot_preflight.py"), "--help"],
+        [
+            sys.executable,
+            str(repo_root / "scripts/review_reuse_pilot_preflight.py"),
+            "--help",
+        ],
         cwd=repo_root,
         env=env,
         capture_output=True,

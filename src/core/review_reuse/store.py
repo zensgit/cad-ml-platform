@@ -374,6 +374,33 @@ def _validate_stored_create_idempotency(task: ReviewReuseTask) -> None:
         )
 
 
+def _validate_decision_event_binding(task: ReviewReuseTask) -> None:
+    if task.status != TaskStatus.decided or not task.events:
+        return
+    decision = task.human_decision
+    if decision is None:
+        raise ReviewReuseStoreError(
+            "store_record_corrupt", "decision attribution is missing"
+        )
+    expected_detail = {
+        "state": decision.state.value,
+        "reviewer_id": decision.reviewer_id,
+        "candidate_id": decision.candidate_id,
+        "reviewed_revision": decision.reviewed_revision,
+        "evidence_pack_sha256": decision.evidence_pack_sha256,
+    }
+    event = task.events[-1]
+    if event.event_type != TaskEventType.decision_submitted or any(
+        key not in event.detail
+        or type(event.detail[key]) is not type(value)
+        or event.detail[key] != value
+        for key, value in expected_detail.items()
+    ):
+        raise ReviewReuseStoreError(
+            "store_record_corrupt", "decision event binding is inconsistent"
+        )
+
+
 def _validate_task_payload(task: ReviewReuseTask) -> None:
     try:
         canonical_json_v1(task.model_dump(mode="json"))
@@ -562,6 +589,7 @@ def _validate_task_payload(task: ReviewReuseTask) -> None:
                 "store_record_corrupt",
                 "stored decision and EvidencePack are inconsistent",
             )
+    _validate_decision_event_binding(task)
 
 
 def _assert_mutation(
@@ -650,29 +678,6 @@ def _assert_mutation(
         raise ReviewReuseStoreError(
             "store_record_corrupt", "task transition event is inconsistent"
         )
-    if task.status == TaskStatus.decided:
-        decision = task.human_decision
-        if decision is None:  # pragma: no cover - payload validation rejects first
-            raise ReviewReuseStoreError(
-                "store_record_corrupt", "decision attribution is missing"
-            )
-        expected_detail = {
-            "state": decision.state.value,
-            "reviewer_id": decision.reviewer_id,
-            "candidate_id": decision.candidate_id,
-            "reviewed_revision": decision.reviewed_revision,
-            "evidence_pack_sha256": decision.evidence_pack_sha256,
-        }
-        detail = appended_events[-1].detail
-        if any(
-            key not in detail
-            or type(detail[key]) is not type(value)
-            or detail[key] != value
-            for key, value in expected_detail.items()
-        ):
-            raise ReviewReuseStoreError(
-                "store_record_corrupt", "decision event binding is inconsistent"
-            )
 
 
 class InMemoryReviewReuseStore:
