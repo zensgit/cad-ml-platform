@@ -80,6 +80,53 @@ def _create(
     )
 
 
+def _create_decided_task(
+    root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    tenant_id: str,
+) -> tuple[FilesystemReviewReuseStore, ReviewReuseService, ReviewReuseTask, Path]:
+    monkeypatch.setenv("REVIEW_REUSE_DECISIONS_ENABLED", "true")
+    store = FilesystemReviewReuseStore(root)
+    service = ReviewReuseService(store)
+    ready = service.create_task(
+        tenant_id=tenant_id,
+        file_name="part.dxf",
+        file_bytes=b"0\nEOF\n",
+        seed_candidates=[
+            {
+                "candidate_id": "archive-1",
+                "candidate_source": "archive",
+                "state": "similar",
+                "scores": {"geometric": 0.8},
+                "verification": {"verdict": "review"},
+                "rejection_reasons": [],
+                "provenance": {"model": "dedup2d-v1"},
+            }
+        ],
+    )
+    assert ready.evidence_pack is not None
+    decided = service.submit_decision(
+        tenant_id=ready.tenant_id,
+        task_id=ready.task_id,
+        state=HumanDecisionState.revise,
+        reviewer_id="principal-v1-" + "1" * 64,
+        reviewer_kind="validated_principal",
+        reason_codes=["needs_modification"],
+        reason_text="Reviewed evidence.",
+        candidate_id="archive-1",
+        idempotency_key=None,
+        tenant_validated=True,
+        reviewer_validated=True,
+        expected_revision=ready.revision,
+        evidence_pack_sha256=ready.evidence_pack["evidence_pack_sha256"],
+    )
+    record_path = (
+        _tenant_dir(root, decided.tenant_id) / "tasks" / f"{decided.task_id}.json"
+    )
+    return store, service, decided, record_path
+
+
 def test_tenant_segments_do_not_collide(tmp_path: Path) -> None:
     root = tmp_path / "store"
     store = FilesystemReviewReuseStore(root)
@@ -613,6 +660,98 @@ def test_persisted_decision_binds_reconstructed_reviewed_snapshot(
 
         with pytest.raises(Exception) as raised:
             store.get(decided.tenant_id, decided.task_id)
+        assert _error_code(raised.value) == "store_record_corrupt"
+    finally:
+        _close(store)
+
+
+@pytest.mark.parametrize(
+    ("tamper_kind", "field", "replacement"),
+    [
+        ("remove", None, None),
+        ("event_type", None, None),
+        ("detail", "state", "new"),
+        ("detail", "reviewer_id", "principal-v1-" + "2" * 64),
+        ("detail", "candidate_id", "archive-other"),
+        ("detail", "reviewed_revision", 1),
+        ("detail", "evidence_pack_sha256", "f" * 64),
+    ],
+)
+def test_loaded_nonempty_decision_ledger_matches_committed_decision(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    tamper_kind: str,
+    field: str | None,
+    replacement: object,
+) -> None:
+    root = tmp_path / "store"
+    store, _, decided, record_path = _create_decided_task(
+        root, monkeypatch, tenant_id="tenant-loaded-ledger"
+    )
+    try:
+        payload = json.loads(record_path.read_text(encoding="utf-8"))
+        assert payload["events"][-1]["event_type"] == "decision_submitted"
+        if tamper_kind == "remove":
+            payload["events"].pop()
+        elif tamper_kind == "event_type":
+            payload["events"][-1]["event_type"] = "canceled"
+        else:
+            assert field is not None
+            payload["events"][-1]["detail"][field] = replacement
+        record_path.write_text(json.dumps(payload), encoding="utf-8")
+
+        with pytest.raises(Exception) as raised:
+            store.get(decided.tenant_id, decided.task_id)
+        assert _error_code(raised.value) == "store_record_corrupt"
+    finally:
+        _close(store)
+
+
+@pytest.mark.parametrize("apply", [False, True])
+def test_legacy_migration_rejects_nonempty_unbound_decision_ledger(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    apply: bool,
+) -> None:
+    from src.core.review_reuse.store import migrate_legacy_store
+
+    source = tmp_path / "source"
+    store, _, decided, record_path = _create_decided_task(
+        source, monkeypatch, tenant_id="tenant-legacy-ledger"
+    )
+    try:
+        payload = json.loads(record_path.read_text(encoding="utf-8"))
+    finally:
+        _close(store)
+    payload["events"][-1]["detail"]["reviewer_id"] = "principal-v1-" + "2" * 64
+
+    legacy_root = tmp_path / "legacy"
+    legacy_tasks = legacy_root / decided.tenant_id / "tasks"
+    legacy_tasks.mkdir(parents=True)
+    (legacy_tasks / f"{decided.task_id}.json").write_text(
+        json.dumps(payload), encoding="utf-8"
+    )
+
+    with pytest.raises(Exception) as raised:
+        migrate_legacy_store(legacy_root, apply=apply)
+    assert _error_code(raised.value) == "store_record_corrupt"
+
+
+def test_audit_export_fails_closed_for_removed_decision_event(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "store"
+    store, service, decided, record_path = _create_decided_task(
+        root, monkeypatch, tenant_id="tenant-audit-ledger"
+    )
+    try:
+        payload = json.loads(record_path.read_text(encoding="utf-8"))
+        payload["events"].pop()
+        record_path.write_text(json.dumps(payload), encoding="utf-8")
+
+        with pytest.raises(Exception) as raised:
+            service.export_audit_bundle(decided.tenant_id, decided.task_id)
         assert _error_code(raised.value) == "store_record_corrupt"
     finally:
         _close(store)
@@ -1282,6 +1421,7 @@ def test_legacy_migration_preserves_historical_decision_reason_code(
         assert migrated is not None
         assert migrated.human_decision is not None
         assert migrated.human_decision.reason_codes == ["historical_reason"]
+        assert migrated.events == []
     finally:
         _close(reader)
 
