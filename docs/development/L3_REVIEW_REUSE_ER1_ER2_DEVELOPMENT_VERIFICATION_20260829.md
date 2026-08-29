@@ -7,10 +7,11 @@
 **Ratified authority**: PR #583 exact head
 `9150e06c75721bf086572ed271b68548104e8300`<br>
 **Runtime implementation head**:
-`00618205c09b689820944ba3577c3be1e1e42651`
-(`fix: canonicalize ReviewReuse candidates and events`), on top of malformed
-adapter repair `36175b14`, the original runtime commit `6cc55841`, and the
-earlier hardening chain through `21943856`.
+`572f7d04ea6f339f8e715aabb2a2222e4199e485`
+(`fix: harden ReviewReuse request and native ledger boundaries`), on top of
+candidate/event repair `00618205`, malformed-adapter repair `36175b14`, the
+original runtime commit `6cc55841`, and the earlier hardening chain through
+`21943856`.
 
 ## 1. Authorization boundary
 
@@ -51,7 +52,7 @@ named by design-lock section 9.1:
 | Parent / authority | `9150e06c75721bf086572ed271b68548104e8300` |
 | Files | `test_review_reuse_er1_store_integrity.py`, `test_review_reuse_er2_ledger.py`, `test_review_reuse_api_integrity.py` |
 | Baseline result | **18 failed** |
-| Runtime-head result | **111 passed** |
+| Runtime-head result | **116 passed** |
 
 Exact command:
 
@@ -574,14 +575,32 @@ made the focused batch **7 passed**. The complete named fail-first command is
 now **111 passed**, the full ReviewReuse suite is **208 passed**, and the
 identity/production/preflight regressions remain **47 passed**.
 
+A fifteenth exact-head GitHub review (`5057978816`) at
+`277a9b138d893d71233e6d07e168c9ad64f37ba8` found three remaining bounded
+ER1/ER2 review comments covering four gaps. Test-only commit
+`783d3996be55d8ce1392d0874a6836e64cee0939` added five behavioral assertions
+and reproduced them as **5 failed**:
+
+| Finding | Red proof | Closed behavior |
+|---|---|---|
+| Strict JSON parsing applied to every ReviewReuse route and buffered an unauthenticated GET body before the platform auth boundary | a body-bearing unauthenticated GET returned canonical 422 instead of the existing platform 401 | only the decision POST receives strict JSON handling; bodyless routes proceed directly to their existing dependency/auth flow |
+| The decision JSON route had no pre-buffer body limit | a request larger than 64 KiB reached JSON/model validation and returned 422 | the decision body is read incrementally with a fixed 64 KiB ceiling and returns canonical `input_too_large` / 413 before full buffering |
+| Direct native create accepted a non-running revision-1 snapshot or a missing/arbitrary initial event ledger | empty and duplicate-submitted event ledgers both committed | native create requires status `running` and exactly `[submitted, input_validated]`; the separate migrated-record import path retains historical compatibility |
+| A valid legacy literal tenant id shaped exactly like a new hashed directory name was misclassified as already migrated | migration treated the legacy directory as a corrupt new layout | new layout classification requires both the hashed directory form and its `tenant.json` sidecar; the sidecar and complete layout are then validated by the existing fail-closed path |
+
+Runtime repair `572f7d04ea6f339f8e715aabb2a2222e4199e485`
+made the focused batch **5 passed**. The complete named fail-first command is
+now **116 passed**, the full ReviewReuse suite is **213 passed**, and the
+identity/production/preflight regressions remain **47 passed**.
+
 ## 6. Verification evidence
 
 Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
-`00618205`.
+`572f7d04`.
 
 | Gate | Result |
 |---|---:|
-| Exact named fail-first command, including narrower additions | **111 passed** |
+| Exact named fail-first command, including narrower additions | **116 passed** |
 | Focused null/rollback/recovery batch | **6 passed** |
 | Focused duplicate-owner/candidate-evidence batch | **5 passed** |
 | Focused published-write quarantine/decision/calibration batch | **5 passed** (red: 5 failed at test-only `d91309df`) |
@@ -596,7 +615,8 @@ Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
 | Focused persisted decision-event batch | **11 passed** (red: 10 failed / 1 legacy-lock pass at test-only `8b104b96`) |
 | Focused malformed-adapter failure batch | **2 passed** (red: 2 failed at test-only `722b9d3b`) |
 | Focused candidate/event canonicalization batch | **7 passed** (red: 3 failed / 4 passed at test-only `ba7b4137`) |
-| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **208 passed** |
+| Focused bounded-body/native-ledger/legacy-layout batch | **5 passed** (red: 5 failed at test-only `783d3996`) |
+| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **213 passed** |
 | Integration-auth + production-identity + pilot-preflight regressions | **47 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 test-core` | **39 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-openapi` | **5 passed** |
