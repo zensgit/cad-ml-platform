@@ -1,7 +1,7 @@
 {
   "schema_version": "review-reuse-er3-vision-substrate-attestation-v1",
   "attestation_status": "static_verified_runtime_unverified",
-  "attestation_sha256": "45a5b9eeedc4442467dd3cadbbe8ee5c2e68f5a21e8ef7e8f04b1458c80db3be",
+  "attestation_sha256": "984a49d180dbfa482b5c405a6c8cb2ef7a33078c4dcc88633a566d8b75c0145e",
   "image": {
     "reference": "ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
     "index_digest": "sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
@@ -209,11 +209,14 @@
       "/app/logs",
       "/tmp"
     ],
-    "docker_network": "new run-scoped internal network",
-    "outbound_probe": "built-in curl runs inside the still-empty vision container and must fail before fixture bytes are read; no second probe image is pulled",
-    "published_port": "127.0.0.1:<run-scoped-port>:8000",
+    "docker_network": "network mode none",
+    "command_override": "uvicorn caddedup_vision.api.main:app --host 127.0.0.1 --port 8000",
+    "control_transport": "fixed-argv Docker CLI exec/copy through the local Docker daemon; the service has no host TCP or Unix-socket publication",
+    "fixture_transfer": "after runtime preflight only, docker cp each approved manifest entry into its unique /tmp runtime_name and remove it after the single request",
+    "outbound_probe": "docker exec first requires curl --version to exit 0, then invokes curl --noproxy '*' --silent --show-error --output /dev/null --write-out '%{http_code}' --connect-timeout 2 --max-time 3 http://198.51.100.1:80/ inside the empty network-none container; probe must exit 7 or 28 with stdout exactly 000 before fixture bytes are read",
+    "published_port": null,
     "proxy_environment": "absent",
-    "cleanup": "remove the run-labeled container and network, then prove no run-labeled container, volume, or network remains"
+    "cleanup": "remove the run-labeled container with docker rm -fv, then prove no run-labeled container, volume, or network remains"
   },
   "runtime_preflight": {
     "status": "required_not_run",
@@ -222,8 +225,10 @@
       "selected platform manifest and actual Docker image ID match this attestation",
       "all four tmpfs targets and read-only root are present",
       "no anonymous or host data volume is mounted",
-      "network Internal=true and outbound probe fails",
-      "port HostIp is literal loopback",
+      "NetworkMode is none and the container has no additional network attachment",
+      "no TCP or Unix-socket port is published to the host",
+      "curl --version exits 0, then the fixed numeric outbound probe exits 7 or 28 with stdout exactly 000",
+      "the overridden service process binds only to 127.0.0.1:8000 inside the container",
       "disabled integration flags and absent proxy variables match this attestation",
       "GET /api/stats reports total_drawings=0",
       "GET /health reports both in-memory index sizes=0"
@@ -233,6 +238,7 @@
     "This is static source and OCI metadata evidence, not a container runtime receipt.",
     "The fixed image has no VISION_INDEX_CLEAN_START switch; freshness depends on the attested tmpfs and zero-count preflight.",
     "The service has no drawing-list endpoint; exact post-index identities are bound by the receipt set plus authoritative count three.",
+    "The fixed service has no authentication on index or rebuild routes; network-none plus no host publication makes the local Docker daemon the administrative capability boundary for this isolated run.",
     "Index-add creates an in-memory LocalEventBus even with EVENT_BUS_ENABLED=false; EVENT_BUS_USE_LOCAL=true and runtime inspection prevent a Redis path, and explicit rebuild remains required because no index handlers are registered.",
     "The image reports three inconsistent version strings, so only the image digest and source revision identify the substrate.",
     "No image pull, container start, fixture processing, model-quality evaluation, customer-data use, merge, deployment, decision enablement, or pilot is authorized by this attestation."

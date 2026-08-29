@@ -1,0 +1,490 @@
+{
+  "schema_version": "review-reuse-er3-evidence-pack-v2-contract-v1",
+  "contract_sha256": "0045bf4655558ea3ff1342706bd1af1c2eca26304821ebc19c0fe2ac7ff446db",
+  "canonicalization": {
+    "algorithm": "sha-256",
+    "function": "src.core.review_reuse.canonical.canonical_json_v1",
+    "contract_digest_excludes": [
+      "contract_sha256"
+    ],
+    "evidence_pack_digest_excludes": [
+      "evidence_pack_sha256"
+    ],
+    "unknown_fields": "forbid recursively for every object named by exact_object_fields; every listed field is required"
+  },
+  "task_contract": {
+    "selector_field": "evidence_pack_schema_version",
+    "selector_value": "evidence-pack-v2",
+    "legacy_default": "evidence-pack-v1",
+    "public_create_switch": false,
+    "source_media_type": "image/png",
+    "persisted_context_field": "evidence_context",
+    "persisted_context_schema_version": "review-reuse-evidence-context-v2",
+    "persisted_context_exact_fields": [
+      "schema_version",
+      "source_media_type",
+      "archive_id",
+      "archive_manifest_sha256",
+      "index_receipt_set_sha256",
+      "search_response_sha256",
+      "service_identity_sha256",
+      "vision_image_digest",
+      "vision_source_revision",
+      "score_mapping_ruleset_sha256",
+      "model_identifier",
+      "model_version",
+      "model_digest",
+      "model_unavailable_reason",
+      "calibration_version",
+      "calibration_digest",
+      "calibration_unavailable_reason",
+      "runtime_preflight_sha256",
+      "run_id",
+      "repository_commit",
+      "runner_version"
+    ],
+    "persisted_context_types_and_nullability": {
+      "schema_version": "literal review-reuse-evidence-context-v2",
+      "source_media_type": "literal image/png",
+      "archive_id": "non-empty string",
+      "archive_manifest_sha256": "64 lowercase hex",
+      "index_receipt_set_sha256": "64 lowercase hex",
+      "search_response_sha256": "64 lowercase hex",
+      "service_identity_sha256": "64 lowercase hex",
+      "vision_image_digest": "literal sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
+      "vision_source_revision": "40 lowercase hex",
+      "score_mapping_ruleset_sha256": "64 lowercase hex",
+      "model_identifier": "non-empty string or null",
+      "model_version": "non-empty string or null",
+      "model_digest": "64 lowercase hex or null",
+      "model_unavailable_reason": "non-empty string or null",
+      "calibration_version": "non-empty string or null",
+      "calibration_digest": "64 lowercase hex or null",
+      "calibration_unavailable_reason": "non-empty string or null",
+      "runtime_preflight_sha256": "64 lowercase hex",
+      "run_id": "non-empty string",
+      "repository_commit": "40 lowercase hex",
+      "runner_version": "non-empty string"
+    },
+    "persisted_context_invariants": [
+      "all persisted_context_exact_fields are present and no other field is accepted",
+      "archive_id and archive_manifest_sha256 equal the ratified manifest",
+      "model_identifier, model_version, and model_digest are all null exactly when model_unavailable_reason is non-null",
+      "calibration_version and calibration_digest are both null exactly when calibration_unavailable_reason is non-null",
+      "context calibration values equal the task and EvidencePack calibration values",
+      "context digests and identifiers equal the corresponding candidate and pack provenance values"
+    ],
+    "v1_constraints": {
+      "evidence_context": null,
+      "calibration_version_nullable": false,
+      "builder_and_mapper_frozen": true
+    },
+    "v2_constraints": {
+      "evidence_context_required": true,
+      "calibration_version_nullable_only_when_status_uncalibrated": true,
+      "archive_candidates_must_bind_receipts": true
+    }
+  },
+  "envelope": {
+    "exact_top_level_fields": [
+      "schema_version",
+      "task_id",
+      "task_revision",
+      "evidence_pack_sha256",
+      "trace_id",
+      "idempotency_key",
+      "source_job_id",
+      "tenant_id",
+      "source",
+      "candidates",
+      "confidence",
+      "calibration",
+      "evidence",
+      "rejection_reasons",
+      "unsupported_states",
+      "provenance",
+      "human_decision"
+    ],
+    "exact_object_fields": {
+      "source": [
+        "file_name",
+        "content_sha256",
+        "media_type"
+      ],
+      "candidate": [
+        "candidate_id",
+        "candidate_source",
+        "state",
+        "scores",
+        "score_normalization",
+        "verification",
+        "rejection_reasons",
+        "provenance"
+      ],
+      "scores": [
+        "geometric",
+        "semantic",
+        "visual"
+      ],
+      "score_normalization": [
+        "geometric",
+        "semantic",
+        "visual"
+      ],
+      "verification": [
+        "verdict",
+        "level",
+        "methods",
+        "status",
+        "reason_code"
+      ],
+      "candidate_provenance": [
+        "drawing_id",
+        "file_hash",
+        "index_receipt_sha256",
+        "search_response_sha256",
+        "service_image_digest",
+        "score_mapping_ruleset_sha256"
+      ],
+      "confidence": [
+        "score",
+        "band",
+        "source_dimension",
+        "method",
+        "verified",
+        "reason_code"
+      ],
+      "calibration": [
+        "version",
+        "digest",
+        "status",
+        "reason_code"
+      ],
+      "evidence_item": [
+        "candidate_id",
+        "kind",
+        "summary",
+        "source_digest"
+      ],
+      "provenance": [
+        "model",
+        "ruleset",
+        "dataset",
+        "input",
+        "service",
+        "run"
+      ],
+      "provenance_model": [
+        "identifier",
+        "version",
+        "digest",
+        "reason_code"
+      ],
+      "provenance_ruleset": [
+        "identifier",
+        "digest"
+      ],
+      "provenance_dataset": [
+        "archive_id",
+        "manifest_sha256",
+        "receipt_set_sha256"
+      ],
+      "provenance_input": [
+        "query_sha256",
+        "media_type"
+      ],
+      "provenance_service": [
+        "image_digest",
+        "source_revision",
+        "identity_payload_sha256",
+        "search_response_sha256"
+      ],
+      "provenance_run": [
+        "run_id",
+        "runtime_preflight_sha256",
+        "repository_commit",
+        "runner_version"
+      ],
+      "human_decision": [
+        "state",
+        "allowed_actions",
+        "submitted"
+      ],
+      "submitted_decision": [
+        "state",
+        "reviewer_id",
+        "reviewer_kind",
+        "reason_codes",
+        "reason_text",
+        "candidate_id",
+        "ts",
+        "idempotency_key",
+        "idempotency_digest",
+        "reviewed_revision",
+        "evidence_pack_sha256"
+      ]
+    },
+    "types_and_nullability": {
+      "schema_version": "literal evidence-pack-v2",
+      "task_id": "non-empty string",
+      "task_revision": "integer >= 1; boolean forbidden",
+      "evidence_pack_sha256": "64 lowercase hex",
+      "trace_id": "non-empty string",
+      "idempotency_key": "non-empty string with length <= 128 or null",
+      "source_job_id": "non-empty string",
+      "tenant_id": "non-empty string",
+      "source": "source object",
+      "source.file_name": "non-empty string ending .png",
+      "source.content_sha256": "64 lowercase hex",
+      "source.media_type": "literal image/png",
+      "candidates": "non-empty array of candidate objects for a successful ER3 run",
+      "candidate": "candidate object",
+      "candidate.candidate_id": "non-empty string",
+      "candidate.candidate_source": "literal repository_fixture_archive",
+      "candidate.state": "duplicate, similar, different, or insufficient_evidence",
+      "candidate.scores": "scores object",
+      "candidate.scores.geometric": "finite number in [0,1] or null",
+      "candidate.scores.semantic": "finite number in [0,1] or null",
+      "candidate.scores.visual": "finite number in [0,1] or null",
+      "candidate.score_normalization": "score_normalization object",
+      "candidate.score_normalization.geometric": "non-empty string or null",
+      "candidate.score_normalization.semantic": "non-empty string or null",
+      "candidate.score_normalization.visual": "non-empty string or null",
+      "candidate.verification": "verification object",
+      "candidate.verification.verdict": "duplicate, similar, different, or insufficient_evidence",
+      "candidate.verification.level": "integer >= 1 or null; boolean forbidden",
+      "candidate.verification.methods": "array of unique non-empty strings",
+      "candidate.verification.status": "verified or unverified",
+      "candidate.verification.reason_code": "non-empty string or null",
+      "candidate.rejection_reasons": "array of unique non-empty strings",
+      "candidate.provenance": "candidate_provenance object",
+      "candidate.provenance.drawing_id": "non-empty string",
+      "candidate.provenance.file_hash": "64 lowercase hex",
+      "candidate.provenance.index_receipt_sha256": "64 lowercase hex",
+      "candidate.provenance.search_response_sha256": "64 lowercase hex",
+      "candidate.provenance.service_image_digest": "literal sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
+      "candidate.provenance.score_mapping_ruleset_sha256": "64 lowercase hex",
+      "confidence": "confidence object",
+      "confidence.score": "finite number in [0,1] or null",
+      "confidence.band": "low, medium, high, or null",
+      "confidence.source_dimension": "geometric, semantic, visual, aggregate, or null",
+      "confidence.method": "non-empty string or null",
+      "confidence.verified": "boolean",
+      "confidence.reason_code": "non-empty string or null",
+      "calibration": "calibration object",
+      "calibration.version": "non-empty string or null",
+      "calibration.digest": "64 lowercase hex or null",
+      "calibration.status": "uncalibrated or calibrated",
+      "calibration.reason_code": "non-empty string or null",
+      "evidence": "array of evidence_item objects",
+      "evidence_item": "evidence_item object",
+      "evidence_item.candidate_id": "non-empty string",
+      "evidence_item.kind": "literal vision_match",
+      "evidence_item.summary": "non-empty string",
+      "evidence_item.source_digest": "64 lowercase hex",
+      "rejection_reasons": "array of unique non-empty strings",
+      "unsupported_states": "array of unique candidate_id strings",
+      "provenance": "provenance object",
+      "provenance.model": "provenance_model object",
+      "provenance.model.identifier": "non-empty string or null",
+      "provenance.model.version": "non-empty string or null",
+      "provenance.model.digest": "64 lowercase hex or null",
+      "provenance.model.reason_code": "non-empty string or null",
+      "provenance.ruleset": "provenance_ruleset object",
+      "provenance.ruleset.identifier": "non-empty string",
+      "provenance.ruleset.digest": "64 lowercase hex",
+      "provenance.dataset": "provenance_dataset object",
+      "provenance.dataset.archive_id": "non-empty string",
+      "provenance.dataset.manifest_sha256": "64 lowercase hex",
+      "provenance.dataset.receipt_set_sha256": "64 lowercase hex",
+      "provenance.input": "provenance_input object",
+      "provenance.input.query_sha256": "64 lowercase hex",
+      "provenance.input.media_type": "literal image/png",
+      "provenance.service": "provenance_service object",
+      "provenance.service.image_digest": "literal sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
+      "provenance.service.source_revision": "40 lowercase hex",
+      "provenance.service.identity_payload_sha256": "64 lowercase hex",
+      "provenance.service.search_response_sha256": "64 lowercase hex",
+      "provenance.run": "provenance_run object",
+      "provenance.run.run_id": "non-empty string",
+      "provenance.run.runtime_preflight_sha256": "64 lowercase hex",
+      "provenance.run.repository_commit": "40 lowercase hex",
+      "provenance.run.runner_version": "non-empty string",
+      "human_decision": "human_decision object",
+      "human_decision.state": "reuse, revise, new, reject_candidate, need_more_info, or null",
+      "human_decision.allowed_actions": "exact array [reuse, revise, new]",
+      "human_decision.submitted": "submitted_decision object or null",
+      "submitted_decision.state": "reuse, revise, new, reject_candidate, or need_more_info",
+      "submitted_decision.reviewer_id": "non-empty string",
+      "submitted_decision.reviewer_kind": "non-empty string",
+      "submitted_decision.reason_codes": "array of unique values from the existing DECISION_REASON_CODES contract",
+      "submitted_decision.reason_text": "string",
+      "submitted_decision.candidate_id": "non-empty string or null",
+      "submitted_decision.ts": "finite number >= 0",
+      "submitted_decision.idempotency_key": "non-empty string with length <= 128 or null",
+      "submitted_decision.idempotency_digest": "64 lowercase hex or null",
+      "submitted_decision.reviewed_revision": "integer >= 1; boolean forbidden",
+      "submitted_decision.evidence_pack_sha256": "64 lowercase hex"
+    },
+    "conditional_invariants": [
+      "source_job_id equals task_id and source values equal the persisted task source",
+      "task_id, task_revision, trace_id, idempotency_key, tenant_id, and schema_version equal the persisted task and immutable selector",
+      "candidate ids are unique; every candidate provenance drawing_id and file_hash matches one successful index receipt",
+      "the exact receipt-bound archive-exact-001 candidate is present; zero candidates or an unknown candidate is invalid",
+      "candidate.state equals candidate.verification.verdict",
+      "for this ratified ER3 run semantic and geometric scores and normalizations are null, visual is finite and non-null, and visual normalization is dedupcad-vision-l2-cosine-v1",
+      "for this ratified ER3 run verification.status is unverified and reason_code is vision_only_unverified because deterministic geometry is unavailable",
+      "uncalibrated requires null confidence score, band, source_dimension, and method; confidence.verified false; null calibration version and digest; and non-null reason codes",
+      "calibrated requires non-null confidence score, band, source_dimension, method, calibration version, and calibration digest",
+      "evidence has exactly one item per candidate in candidate order and every source_digest equals the candidate search_response_sha256",
+      "rejection_reasons is the sorted unique union of candidate rejection reasons",
+      "unsupported_states contains exactly the candidate ids whose state is insufficient_evidence or whose verification.status is unverified",
+      "pack provenance values equal the persisted evidence context and source values",
+      "human_decision.state is null exactly when human_decision.submitted is null; otherwise state equals submitted.state",
+      "submitted_decision.evidence_pack_sha256 equals the prior reviewed pack digest, not the current decided pack digest, and reviewed_revision is less than the current decided task revision",
+      "submitted decision idempotency key and digest are both null or both non-null",
+      "evidence_pack_sha256 equals canonical_sha256 of the complete pack after removing only evidence_pack_sha256"
+    ],
+    "ordering": {
+      "candidates": "persisted ReviewReuseTask candidate order",
+      "evidence": "same candidate order",
+      "verification.methods": "vision-l1-phash then vision-l2-faiss then any later evidenced methods",
+      "rejection_reasons": "sorted unique strings",
+      "unsupported_states": "candidate order",
+      "human_decision.allowed_actions": [
+        "reuse",
+        "revise",
+        "new"
+      ]
+    }
+  },
+  "golden_vector": {
+    "schema_version": "evidence-pack-v2",
+    "task_id": "00000000-0000-4000-8000-000000000003",
+    "task_revision": 2,
+    "evidence_pack_sha256": "3aa3ce7fc94abb80e0693bf2229d9f8c244482cc3eaa488ed80cb173462a33c4",
+    "trace_id": "00000000-0000-4000-8000-000000000004",
+    "idempotency_key": "er3-golden-key",
+    "source_job_id": "00000000-0000-4000-8000-000000000003",
+    "tenant_id": "tenant-er3-contract",
+    "source": {
+      "file_name": "query-exact-001.png",
+      "content_sha256": "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c",
+      "media_type": "image/png"
+    },
+    "candidates": [
+      {
+        "candidate_id": "1",
+        "candidate_source": "repository_fixture_archive",
+        "state": "similar",
+        "scores": {
+          "geometric": null,
+          "semantic": null,
+          "visual": 1.0
+        },
+        "score_normalization": {
+          "geometric": null,
+          "semantic": null,
+          "visual": "dedupcad-vision-l2-cosine-v1"
+        },
+        "verification": {
+          "verdict": "similar",
+          "level": 2,
+          "methods": [
+            "vision-l1-phash",
+            "vision-l2-faiss"
+          ],
+          "status": "unverified",
+          "reason_code": "vision_only_unverified"
+        },
+        "rejection_reasons": [
+          "vision_only_unverified"
+        ],
+        "provenance": {
+          "drawing_id": "1",
+          "file_hash": "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c",
+          "index_receipt_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "search_response_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "service_image_digest": "sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
+          "score_mapping_ruleset_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      }
+    ],
+    "confidence": {
+      "score": null,
+      "band": null,
+      "source_dimension": null,
+      "method": null,
+      "verified": false,
+      "reason_code": "uncalibrated_visual_only"
+    },
+    "calibration": {
+      "version": null,
+      "digest": null,
+      "status": "uncalibrated",
+      "reason_code": "calibration_artifact_unavailable"
+    },
+    "evidence": [
+      {
+        "candidate_id": "1",
+        "kind": "vision_match",
+        "summary": "L1/L2 visual match; deterministic geometry unavailable",
+        "source_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    ],
+    "rejection_reasons": [
+      "vision_only_unverified"
+    ],
+    "unsupported_states": [
+      "1"
+    ],
+    "provenance": {
+      "model": {
+        "identifier": null,
+        "version": null,
+        "digest": null,
+        "reason_code": "model_metadata_unavailable"
+      },
+      "ruleset": {
+        "identifier": "review-reuse-er3-score-map-v1",
+        "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "dataset": {
+        "archive_id": "rr-er3-repository-fixture-v1",
+        "manifest_sha256": "7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf",
+        "receipt_set_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "input": {
+        "query_sha256": "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c",
+        "media_type": "image/png"
+      },
+      "service": {
+        "image_digest": "sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
+        "source_revision": "2fc35d60ff034c9f790868c02381a9716becc942",
+        "identity_payload_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "search_response_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "run": {
+        "run_id": "rr-er3-golden-vector",
+        "runtime_preflight_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "repository_commit": "0000000000000000000000000000000000000000",
+        "runner_version": "review-reuse-er3-runner-v1"
+      }
+    },
+    "human_decision": {
+      "state": null,
+      "allowed_actions": [
+        "reuse",
+        "revise",
+        "new"
+      ],
+      "submitted": null
+    }
+  },
+  "golden_evidence_pack_sha256": "3aa3ce7fc94abb80e0693bf2229d9f8c244482cc3eaa488ed80cb173462a33c4",
+  "limitations": [
+    "The golden vector freezes serialization and digest semantics, not model quality.",
+    "The ER3 runner never enables or submits a human decision.",
+    "A non-null submitted decision remains governed by the existing HumanDecision and decision-CAS contract."
+  ]
+}

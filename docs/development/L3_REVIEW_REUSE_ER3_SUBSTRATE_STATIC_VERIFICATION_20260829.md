@@ -23,13 +23,18 @@ implementation, merge, decision enablement, deployment, pilot, or customer data.
 |---|---|
 | Design lock | `L3_REVIEW_REUSE_ER3_DESIGNLOCK_20260829.md` |
 | Static attestation | `L3_REVIEW_REUSE_ER3_VISION_SUBSTRATE_ATTESTATION_20260829.json` |
+| EvidencePack v2 contract | `L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json` |
 | Archive manifest digest | `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf` |
-| Static attestation digest | `45a5b9eeedc4442467dd3cadbbe8ee5c2e68f5a21e8ef7e8f04b1458c80db3be` |
+| Static attestation digest | `984a49d180dbfa482b5c405a6c8cb2ef7a33078c4dcc88633a566d8b75c0145e` |
+| EvidencePack v2 contract digest | `0045bf4655558ea3ff1342706bd1af1c2eca26304821ebc19c0fe2ac7ff446db` |
+| Embedded EvidencePack golden digest | `3aa3ce7fc94abb80e0693bf2229d9f8c244482cc3eaa488ed80cb173462a33c4` |
 | Vision OCI index | `sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251` |
 
-Both displayed digests were recomputed with
-`src.core.review_reuse.canonical.canonical_sha256()` after removing only their
-respective self-digest field. Strict I-JSON parsing passed.
+The manifest, attestation, contract, and embedded golden digests were recomputed
+with `src.core.review_reuse.canonical.canonical_sha256()` after removing only
+their respective self-digest field. Strict I-JSON parsing passed for both JSON
+artifacts. The golden vector is a serialization and digest vector, not model-
+quality evidence.
 
 ## 2. OCI and source binding
 
@@ -51,6 +56,9 @@ Exact source evidence:
 
 - `Dockerfile:48-68` copies only source/package metadata, runs as `appuser`, and
   declares `/app/data`, `/app/indexes`, and `/app/logs` volumes.
+- `Dockerfile:37-42,70-72` installs curl in the runtime stage and uses it for the
+  image health check. Runtime preflight must still prove `curl --version` succeeds
+  before accepting the bounded no-egress probe result.
 - `Dockerfile:77-78` starts Uvicorn on container port 8000.
 - `pyproject.toml:5-49` identifies package version and image-processing
   dependencies.
@@ -131,6 +139,37 @@ confidence are provider aggregates. The v2 mapping therefore uses only
 evidence, emits null semantic/geometric values for disabled L3/L4, and does not
 relabel provider aggregate similarity/confidence as calibrated product values.
 
+The first design draft still left four implementation choices underspecified:
+
+- the exact v2 object keys, types, nullability, ordering, digest exclusions, and
+  legacy v1 boundary;
+- how a manifest-bound PNG enters the internal ER3 flow while the public
+  `ReviewReuseService.create_task()` and HTTP create route correctly remain
+  DXF-only;
+- which persisted record is the replay fact source and how every exported
+  artifact is verified without a second network call or store write;
+- how task responses and EvidencePack responses prove that the immutable schema
+  selector matches the stored pack.
+
+The added v2 contract closes those choices with recursively forbidden unknown
+fields, a persisted context schema, selector-conditioned calibration, a golden
+digest vector, and exact task/pack/provenance invariants. The design keeps public
+create on v1 and proposes one internal manifest-bound PNG seam only. Replay starts
+from the read-only store after verifying the externally bound summary and every
+artifact digest. Dedicated API response models, a discriminated v1/v2 pack union,
+and property-level OpenAPI tests are mandatory; a generic dictionary response or
+snapshot-only check is insufficient.
+
+Source review also confirmed that the fixed vision service has no authentication
+dependency on index-add or rebuild. A host-loopback listener would therefore
+leave a mutation surface available to other host processes. The corrected
+contract uses Docker network mode `none`, publishes no TCP or Unix socket, binds
+Uvicorn to in-container loopback, and performs only fixed-argv `docker exec` and
+`docker cp` through the local Docker daemon. It additionally requires the post-
+index result to include the exact `(drawing_id, file_hash)` pair bound by the
+`archive-exact-001` receipt; a zero-hit or unknown-candidate response is failure
+even when the provider reports `success=true`.
+
 ## 6. Commands and results
 
 The static verification used read-only commands equivalent to:
@@ -143,6 +182,12 @@ sha256sum tests/vision/fixtures/cad_features/cad_line.png \
   tests/vision/fixtures/cad_features/cad_arc.png
 python3 -m json.tool \
   docs/development/L3_REVIEW_REUSE_ER3_VISION_SUBSTRATE_ATTESTATION_20260829.json
+python3 -m json.tool \
+  docs/development/L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json
+/opt/homebrew/bin/python3.11 -m pytest -q \
+  tests/unit/test_review_reuse_canonical.py \
+  tests/unit/test_review_reuse_evidence_goldens.py \
+  tests/unit/test_review_reuse_er1_store_integrity.py
 git diff --check
 ```
 
@@ -151,8 +196,17 @@ Results:
 - fixture byte sizes and SHA-256 values matched the proposed manifest;
 - manifest canonical digest matched;
 - static attestation strict parse and canonical digest matched;
+- v2 contract strict parse, canonical digest, and embedded golden digest matched;
 - source paths and endpoint semantics above matched exact revision `2fc35d60...`;
+- the design names 48 unique fail-first tests and preserves public DXF/v1 behavior;
+- the existing canonical, EvidencePack golden, and ER1 store-integrity regression
+  selection passed `120/120` under Python 3.11;
 - no runtime code was modified by this static tranche.
+
+An initial invocation through `/usr/bin/python3` used Python 3.9.6 and failed in
+test setup while FastAPI evaluated a repository `str | None` annotation. It did
+not execute the selected tests. The repository CI uses Python 3.10/3.11; the
+recorded result above is the rerun through the installed Python 3.11 interpreter.
 
 ## 7. Explicitly unverified
 
@@ -167,18 +221,27 @@ Therefore none of the following is claimed:
 
 - selected runtime platform or actual Docker image ID;
 - read-only root/tmpfs/anonymous-volume posture;
-- `Internal=true`, loopback port binding, or outbound-probe failure;
+- Docker network mode `none`, absence of additional attachments or host-published
+  TCP/Unix sockets, or the in-container loopback bind;
+- fixed-argv Docker control, curl availability plus the exact numeric bounded
+  no-egress probe exit/status contract, or the
+  Docker-daemon administrative boundary;
 - observed zero/three counts or L1/L2 sizes;
 - image startup, PNG decoding, index receipts, rebuild, search, cleanup, or replay.
 
 Two independent read-only Claude Code CLI review attempts (Opus, then Sonnet)
 produced no review text within bounded waits and were terminated. They made no
 file changes. This is recorded as **independent review not completed**, not a
-passing second opinion.
+passing second opinion. Separate bounded read-only Sol and Terra reviews did
+complete. Their source-confirmed findings drove the v2 contract, internal PNG
+seam, replay fact chain, no-host-publication control, and exact receipt-bound
+candidate requirements above. Those reviews are design evidence only, not runtime
+verification.
 
 ## 8. Static conclusion
 
-The fixed image is a plausible ER3 visual substrate only for PNG input and only
-under the corrected isolation, rebuild, cache, score-mapping, and two-owner-gate
-contract. The static attestation is ready for review but does not satisfy runtime
-preflight and does not grant ER3 implementation or run authority.
+The fixed image is a plausible ER3 visual substrate only for manifest-bound PNG
+input and only under the corrected isolation, rebuild, cache, exact-candidate,
+score-mapping, versioned EvidencePack, and separate implementation/runtime owner
+gates. The static attestation and v2 contract are ready for review but do not
+satisfy runtime preflight and grant neither ER3 implementation nor run authority.

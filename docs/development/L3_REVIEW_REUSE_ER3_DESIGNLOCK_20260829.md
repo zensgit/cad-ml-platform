@@ -18,15 +18,16 @@ The current owner authorization covers ER1+ER2 only.
 
 ## 1. Decision requested
 
-ER3 implementation ratification must name all five of the following:
+ER3 implementation ratification must name all six of the following:
 
 1. the exact implementation base SHA;
 2. the exact repository-fixture manifest from §4;
 3. the digest-pinned private vision image from §5.2;
 4. the static substrate attestation exact path and digest from §5.2;
-5. the fail-first contract in §7.
+5. the exact EvidencePack v2 contract path and digest from §5.4;
+6. the fail-first contract in §7.
 
-Without all five, ER3 implementation remains blocked. Ratification of this
+Without all six, ER3 implementation remains blocked. Ratification of this
 document authorizes only fail-first implementation and mock-backed verification.
 It does not authorize pulling or starting the vision image, sending fixture
 bytes, merging any PR, setting `REVIEW_REUSE_DECISIONS_ENABLED`, deployment,
@@ -233,9 +234,10 @@ network call.
   the expected Docker image ID for each supported platform; a later runtime
   preflight must record and match the actual selected platform and image ID. The
   repository's current CI supplies the image/config candidate, not the isolation
-  contract: ER3 additionally requires a run-scoped Docker `--internal` network,
-  loopback-only host port binding, explicit ephemeral data mounts, and verified
-  cleanup. The service runs with `S3_ENABLED=false`, `EVENT_BUS_ENABLED=false`,
+  contract: ER3 additionally requires Docker `--network none`, no host TCP or
+  Unix-socket publication, fixed-argv `docker exec` control, explicit ephemeral
+  data mounts, and verified cleanup. The service runs with
+  `S3_ENABLED=false`, `EVENT_BUS_ENABLED=false`,
   `ML_PLATFORM_ENABLED=false`, `GEOMETRIC_ENABLED=false`, and `OTEL_ENABLED=false`.
   §5.3 therefore requires visual-only disclosure.
 - The current CI candidate is
@@ -245,7 +247,7 @@ network call.
 - The image digest alone is insufficient. The proposed static attestation is
   `docs/development/L3_REVIEW_REUSE_ER3_VISION_SUBSTRATE_ATTESTATION_20260829.json`
   with canonical digest
-  `45a5b9eeedc4442467dd3cadbbe8ee5c2e68f5a21e8ef7e8f04b1458c80db3be`.
+  `984a49d180dbfa482b5c405a6c8cb2ef7a33078c4dcc88633a566d8b75c0145e`.
   It binds the OCI index to source revision
   `2fc35d60ff034c9f790868c02381a9716becc942`, records both platform manifests and
   expected image IDs, enumerates search-affecting state, and identifies the
@@ -266,27 +268,38 @@ network call.
   mutable database/index/cache paths; the env/config binding and `tmpfs` target
   for each path; disabled integration flags; the authoritative pre/post indexed-
   drawing count plus receipt mechanism and response schema; expected zero and
-  post-index counts; network/read-only/port/cleanup posture; and
+  post-index counts; network/read-only/control/cleanup posture; and
   `attestation_sha256`. Additional fields are also contract-bound by the
   canonical digest; changing, adding, or removing any field requires a new
   design-lock head and owner response. Its digest excludes only
   `attestation_sha256` itself.
-- The service binds only to a literal loopback address, for example
-  `127.0.0.1:58001`. URL credentials, DNS hostnames, redirects, proxy inheritance,
-  and non-loopback destinations are rejected. The ER3 HTTP transport uses
-  `trust_env=False` so `HTTP_PROXY`/`HTTPS_PROXY` cannot redirect drawing bytes.
+- The container command is overridden to bind the service only to
+  `127.0.0.1:8000` inside the container. No port or socket is published to the
+  host. The fixed service has no authentication on index/rebuild routes, so a
+  host-loopback port is not an isolation boundary and is forbidden.
+- The real-run control transport is fixed-argv `docker exec`/`docker cp` through
+  the local Docker daemon. Docker-daemon access is the administrative capability
+  boundary. The runner never uses `shell=True`, never accepts a container name,
+  path, URL, or command fragment from the manifest, and validates every copied
+  destination against the manifest's unique `runtime_name`. Mock HTTP transports
+  remain test-only and use `trust_env=False` with no retries.
 - The runtime preflight verifies the attested paths against image/runtime
   inspection; maps `/app/data`, `/app/indexes`, `/app/logs`, and `/tmp` to
   run-scoped `tmpfs`; runs the container filesystem read-only; mounts no host data
-  path; labels the container/network with the run ID; and records `docker inspect`
+  path; labels the container with the run ID; and records `docker inspect`
   evidence. Explicit tmpfs overrides are required for all three image-declared
   volumes so Docker cannot create anonymous data volumes. An undeclared mutable
-  search path is a hard failure. The internal network must report `Internal=true`;
-  an outbound HTTP probe executed inside the still-empty vision container with its
-  built-in `curl` must fail; the vision port binding must report host IP
-  `127.0.0.1`. No second probe image is pulled.
-- `health()` must succeed before index mutation and its response is recorded
-  after secret-safe field filtering.
+  search path is a hard failure. `docker inspect` must report network mode `none`,
+  no additional network attachment, and no published TCP or Unix socket.
+- Before any fixture read, fixed argv first requires `curl --version` to exit 0.
+  It then invokes the built-in curl as `curl --noproxy '*' --silent --show-error
+  --output /dev/null --write-out '%{http_code}' --connect-timeout 2 --max-time 3
+  http://198.51.100.1:80/`. The probe must exit with curl network error 7 or 28
+  and stdout exactly `000`; exit 127 or any HTTP response is a hard failure.
+  `198.51.100.1` is the fixed TEST-NET-2 numeric probe target; DNS and a second
+  probe image are not used.
+- `GET /health` through `docker exec` to in-container loopback must succeed before
+  index mutation and its response is recorded after secret-safe field filtering.
 - Before index-add, `GET /api/stats` at JSON pointer
   `/stats/total_drawings` must report zero. The runner also searches the approved
   query and requires zero candidates, but that query is supplementary evidence
@@ -298,8 +311,11 @@ network call.
   compute diff, ML, and geometry. The runner records both tuples and asserts their
   derived cache keys differ. Reusing the same tuple would permit a stale
   zero-result cache hit and is a hard failure.
-- Every archive entry is sent through `index_add_2d(..., upload_to_s3=False)`.
-  A missing or failed receipt fails the run.
+- After preflight only, each approved archive/query entry is copied to its unique
+  `/tmp/<runtime_name>` and removed immediately after its single request. Every
+  archive entry is sent to `POST /api/index/add?upload_to_s3=false` by fixed-argv
+  in-container curl. A missing or failed receipt fails the run. The query entry is
+  never sent to index-add.
 - Index rebuild through `POST /api/v2/index/rebuild` is required and its response
   recorded. With the event bus disabled, index-add persists storage records but
   does not populate the in-memory pHash and FAISS indexes.
@@ -315,14 +331,21 @@ network call.
 - The post-index ReviewReuse search runs only after all archive receipts succeed.
   The query is sent exactly once on that product path with geometric verification
   requested; the pre-index emptiness probe is recorded separately. Drawing-byte
-  index/search requests use a no-retry client (`retry_max_attempts=1`); transport
-  call counts are evidence. Health-only retries do not carry drawing bytes.
+  index/search commands execute exactly once; command call counts are evidence.
+- A service-level `success=true` is insufficient. Every returned candidate must
+  match one distinct `(drawing_id, file_hash)` pair from the three receipt set;
+  unknown or duplicate identities fail. The result must contain the exact pair
+  bound to `archive-exact-001`, and its file hash must equal the query hash. A
+  zero-hit response, including `success=true` with empty buckets, fails with
+  `archive_recall_incomplete`. This is required because the fixed engine can mask
+  an L1 failure as a successful empty response.
 - Health, index, rebuild, or search failure produces a non-zero exit and a
   structured failure record. It must not produce a success bundle through the
   ordinary offline `insufficient_evidence` fallback.
 - No hosted LLM, external object store, training API, or other egress is allowed.
 - The dedicated service is stopped with `docker rm -fv`, then every run-labeled
-  container, volume, and network is proven absent. Cleanup failure is recorded
+  container, volume, and network is proven absent. No run network is expected;
+  its presence is itself a failure. Cleanup failure is recorded
   and prevents a clean ER3 closeout claim.
 
 ### 5.3 Score and verification semantics
@@ -363,20 +386,37 @@ records and reviewed digests.
 The proposed implementation adds a version-dispatched `evidence-pack-v2` path
 with one immutable selector:
 
+- Public `POST /api/v1/review-reuse/tasks` remains a v1-only DXF entrypoint and
+  continues to return 415 for PNG. The internal runner calls the non-HTTP
+  `ReviewReuseService.create_er3_archive_task()` seam with a strict
+  `ER3ArchiveTaskInput`. That object accepts only the manifest-bound query PNG,
+  mapped receipt-bound candidates, and the persisted v2 evidence context. It
+  rejects seed candidates and never renames PNG bytes to `.dxf`.
+- `create_er3_archive_task()` and public `create_task()` delegate task/event/CAS
+  mechanics to one private implementation; the ER3 seam does not fork the legal
+  lifecycle. It does not call the legacy recall mapper or ordinary offline
+  fallback and cannot turn a failed archive run into `insufficient_evidence`.
 - `ReviewReuseTask.evidence_pack_schema_version` is a required-in-memory
   `Literal["evidence-pack-v1", "evidence-pack-v2"]` field. A persisted legacy
   record that lacks it loads as v1. Unknown values fail closed.
+- `ReviewReuseTask.evidence_context` is a strict optional
+  `ReviewReuseEvidenceContextV2` model. Its exact fields are frozen by the
+  contract below. V1 requires it to be null; v2 requires it before the first
+  persisted snapshot. Candidate receipt/search provenance remains in each strict
+  candidate while the context carries the complete run-level digest bindings.
 - The selector is set before the revision-1 pending/running task is first
   persisted and cannot change for the task lifetime. Store create, put, CAS,
   recovery, cancellation, decision reconstruction, and load validation all use
   the task-level selector; they never infer it from a missing or newer pack.
 - Existing and default API tasks remain v1 and reproduce the exact current raw
   hit mapping, canonical pack bytes, and digest. Only the internal ER3 runner
-  explicitly requests v2. The additive task field is exposed honestly in task
-  responses: create/get/cancel/decision use the existing `ReviewReuseTask` model
-  instead of `Dict[str, Any]`, and list summary includes the selector. This
-  requires an updated OpenAPI snapshot plus a property-level contract test, but
-  adds no public request switch and does not alter decision request fields.
+  explicitly requests v2. API task responses use a dedicated required-field
+  `ReviewReuseTaskResponse`; EvidencePack responses use a v1/v2 discriminated
+  union keyed by `schema_version`. Create/get/cancel/decision and list summary all
+  expose the required selector, and a non-null pack must match it. The public
+  create request exposes no selector or media override. This requires an updated
+  OpenAPI snapshot plus property-level tests; decision request fields do not
+  change.
 - A v1 keyed create retains the exact current digest preimage:
   `{"tenant_id": <tenant>, "source_content_sha256": <sha256>}`.
 - A v2 keyed create uses exactly that object plus
@@ -394,6 +434,26 @@ with one immutable selector:
 - Old v1 running, evidence-ready, canceled, and decided fixtures must load and
   retain their exact idempotency/pack/decision digests before and after this
   tranche. No existing pack is silently upgraded.
+- Calibration validation is selector-conditioned. V1 continues to require its
+  current non-null `calibration_version`; a null v1 value is corrupt even if a
+  rebuilt v1 pack would also be null. For the approved uncalibrated v2 run,
+  version and digest are both null with an explicit reason. A calibrated v2 pack
+  requires both non-null. Selector, context, pack schema, calibration, or
+  provenance mismatch fails closed on create, load, CAS, cancellation, decision
+  reconstruction, and replay.
+
+The complete v2 canonical contract is
+`docs/development/L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json`
+with contract digest
+`0045bf4655558ea3ff1342706bd1af1c2eca26304821ebc19c0fe2ac7ff446db`.
+It freezes exact object keys, types/nullability, list ordering, task context,
+unknown-field rejection, and digest exclusions. Its embedded golden vector has
+EvidencePack digest
+`3aa3ce7fc94abb80e0693bf2229d9f8c244482cc3eaa488ed80cb173462a33c4`.
+The contract digest excludes only `contract_sha256`; the golden EvidencePack
+digest excludes only `evidence_pack_sha256`. Implementation copies neither value
+from prose: tests recompute both with `canonical_json_v1()` and reject any field,
+type, ordering, nullability, or digest drift.
 
 This is a narrowly scoped L3 compatibility change. Owner ratification must
 explicitly approve it; otherwise ER3 implementation may not start. Even after
@@ -402,7 +462,8 @@ repository-fixture-run owner gate in §10.
 
 ### 5.5 Provenance
 
-The success bundle must bind actual observed values or canonical digests for:
+The strict persisted `ReviewReuseEvidenceContextV2`, candidate provenance, and
+success bundle together bind actual observed values or canonical digests for:
 
 - source query SHA-256;
 - archive manifest SHA-256;
@@ -417,20 +478,40 @@ The success bundle must bind actual observed values or canonical digests for:
 
 Placeholder values do not satisfy this contract. If a value required to support
 the claim is unavailable, the field remains null with a structured reason. A run
-that cannot establish archive/index/search provenance cannot close ER3.
+that cannot establish archive/index/search provenance cannot close ER3. Every
+field needed to rebuild the v2 EvidencePack after process restart lives in the
+task or its candidates; exported receipts are evidence bound by digest, not an
+unstated reconstruction dependency.
 
 ### 5.6 Export and replay
 
-A success run writes a manifest copy, redacted service receipts, task JSON,
-EvidencePack JSON, EvidencePack Markdown, audit bundle, and run summary. The
-summary records each artifact SHA-256 and the command posture without secrets.
+A success run writes the filesystem store, manifest copy, runtime preflight,
+redacted index/rebuild/search/service receipts, task JSON, EvidencePack JSON,
+EvidencePack Markdown, audit bundle, and run summary. The summary has an exact
+artifact-name-to-SHA-256 map for every artifact except itself and records command
+posture without secrets. The success stdout records the summary SHA-256; replay
+requires it as `--summary-sha256` rather than trusting the file that names its own
+children.
 
-Replay loads the persisted task, re-emits and digest-verifies the immutable
-persisted EvidencePack JSON, and regenerates only Markdown and audit rendering.
-It does not rebuild canonical pack JSON and does not call the index or search
-service. EvidencePack digest, candidate identifiers/scores/reasons/provenance,
-and security posture must match the recorded run. Timestamps already bound to
-the stored task are preserved; replay does not create new events.
+Replay has one ordered fact chain:
+
+1. strictly parse the summary and match the required externally supplied summary
+   SHA-256;
+2. hash every named artifact before opening the store and reject missing, extra,
+   renamed, or mismatched artifacts;
+3. open the run filesystem store in explicit read-only mode and load the exact
+   `(tenant_id, task_id)` through ordinary selector-dispatched store validation;
+4. require canonical equality among the loaded task, exported task JSON, the
+   task-embedded pack, and independent EvidencePack JSON;
+5. validate the pack and contract/golden rules, then regenerate only Markdown and
+   audit rendering and require byte equality with their recorded artifacts;
+6. hash the store tree before and after replay and require no write, event,
+   revision, or file change.
+
+Replay never rebuilds the canonical pack JSON, calls Docker/index/search, or uses
+an exported EvidencePack as the primary fact source. Each artifact class and the
+summary hash have independent tamper tests. Any mismatch fails before emitting a
+success report.
 
 ## 6. Failure taxonomy
 
@@ -440,19 +521,21 @@ The CLI exits non-zero with a structured `status="failed"` and one stable
 - `manifest_invalid`
 - `manifest_content_drift`
 - `archive_input_media_invalid`
-- `endpoint_not_private`
+- `archive_control_transport_invalid`
 - `archive_substrate_unattested`
 - `archive_runtime_preflight_failed`
 - `archive_instance_not_isolated`
 - `archive_index_cardinality_unavailable`
 - `archive_index_readiness_failed`
 - `archive_search_cache_unsafe`
+- `archive_recall_incomplete`
 - `vision_health_unavailable`
 - `archive_index_failed`
 - `archive_rebuild_failed`
 - `archive_search_failed`
 - `archive_provenance_unavailable`
 - `score_source_invalid`
+- `evidence_contract_invalid`
 - `export_replay_mismatch`
 - `archive_cleanup_failed`
 
@@ -472,34 +555,48 @@ baseline log showing they fail against the ratified implementation base:
 4. `test_er3_manifest_rejects_path_escape_hash_drift_and_duplicate_roles`
 5. `test_er3_query_is_not_added_to_archive_index`
 6. `test_er3_real_mode_rejects_seed_candidates`
-7. `test_er3_endpoint_must_be_private_and_credential_free`
-8. `test_er3_requires_attested_index_roots_and_cardinality_contract`
-9. `test_er3_static_attestation_cannot_replace_runtime_preflight`
-10. `test_er3_requires_fresh_digest_pinned_ephemeral_vision_instance`
-11. `test_er3_index_count_is_zero_then_matches_archive_entry_count`
-12. `test_er3_fresh_instance_has_zero_preindex_query_results`
-13. `test_er3_preindex_probe_cannot_poison_postindex_search_cache`
-14. `test_er3_http_transport_ignores_proxy_environment`
-15. `test_er3_drawing_requests_are_not_retried`
-16. `test_er3_index_add_disables_object_store_upload`
-17. `test_er3_health_index_and_search_fail_closed`
-18. `test_er3_visual_score_is_not_copied_to_semantic_or_geometric`
-19. `test_er3_missing_geometry_is_null_and_marks_vision_only_unverified`
-20. `test_er3_uncalibrated_run_does_not_emit_confidence`
-21. `test_er3_provenance_rejects_placeholders_and_binds_observed_digests`
-22. `test_er3_task_selector_is_immutable_and_legacy_defaults_to_v1`
-23. `test_er3_v1_raw_mapping_pack_and_decision_digests_are_unchanged`
-24. `test_er3_v1_and_v2_create_digest_preimages_are_exact`
-25. `test_er3_store_dispatches_v1_and_v2_without_silent_upgrade`
-26. `test_er3_cancel_and_decision_reconstruction_retain_task_selector`
-27. `test_er3_unknown_evidence_pack_version_fails_closed`
-28. `test_er3_openapi_exposes_selector_without_public_create_switch`
-29. `test_er3_replay_reemits_persisted_pack_without_network_calls`
-30. `test_er3_json_markdown_and_audit_export_are_consistent`
-31. `test_er3_runner_never_enables_or_submits_decisions`
-32. `test_er3_container_is_loopback_internal_network_and_no_egress`
-33. `test_er3_dedicated_instance_and_volumes_are_cleaned_up`
-34. `test_er3_rebuild_populates_both_index_layers`
+7. `test_er3_real_transport_has_no_host_endpoint_or_socket`
+8. `test_er3_docker_exec_uses_fixed_argv_noproxy_and_no_shell`
+9. `test_er3_requires_attested_index_roots_and_cardinality_contract`
+10. `test_er3_static_attestation_cannot_replace_runtime_preflight`
+11. `test_er3_requires_fresh_digest_pinned_ephemeral_vision_instance`
+12. `test_er3_container_uses_network_none_without_published_ports`
+13. `test_er3_numeric_bounded_egress_probe_requires_curl_and_network_error`
+14. `test_er3_index_count_is_zero_then_matches_archive_entry_count`
+15. `test_er3_fresh_instance_has_zero_preindex_query_results`
+16. `test_er3_preindex_probe_cannot_poison_postindex_search_cache`
+17. `test_er3_drawing_commands_execute_exactly_once`
+18. `test_er3_index_add_disables_object_store_upload`
+19. `test_er3_health_index_and_search_fail_closed`
+20. `test_er3_rebuild_populates_both_index_layers`
+21. `test_er3_postindex_search_requires_receipt_bound_exact_candidate`
+22. `test_er3_success_true_with_empty_or_unknown_candidates_fails`
+23. `test_er3_visual_score_is_not_copied_to_semantic_or_geometric`
+24. `test_er3_missing_geometry_is_null_and_marks_vision_only_unverified`
+25. `test_er3_uncalibrated_run_does_not_emit_confidence`
+26. `test_er3_provenance_rejects_placeholders_and_binds_observed_digests`
+27. `test_er3_internal_v2_accepts_only_manifest_bound_png`
+28. `test_er3_public_v1_api_still_rejects_same_png_with_415`
+29. `test_er3_v2_never_disguises_png_as_dxf`
+30. `test_er3_v2_contract_and_golden_digests_are_pinned`
+31. `test_er3_v2_envelope_forbids_unknown_fields_and_type_drift`
+32. `test_er3_v2_persisted_context_rebuilds_identical_pack_after_restart`
+33. `test_er3_task_selector_is_immutable_and_legacy_defaults_to_v1`
+34. `test_er3_v1_raw_mapping_pack_and_decision_digests_are_unchanged`
+35. `test_er3_v1_and_v2_create_digest_preimages_are_exact`
+36. `test_er3_store_dispatches_v1_and_v2_without_silent_upgrade`
+37. `test_er3_cancel_and_decision_reconstruction_retain_task_selector`
+38. `test_er3_unknown_evidence_pack_version_fails_closed`
+39. `test_er3_v1_rejects_null_calibration_while_v2_uncalibrated_requires_null`
+40. `test_er3_selector_context_pack_and_calibration_tampering_fail_closed`
+41. `test_er3_openapi_requires_selector_and_matching_pack_without_create_switch`
+42. `test_er3_replay_reemits_persisted_pack_without_network_calls`
+43. `test_er3_replay_verifies_store_task_pack_summary_and_artifact_hashes`
+44. `test_er3_replay_rejects_each_tampered_artifact_without_network`
+45. `test_er3_json_markdown_and_audit_export_are_consistent`
+46. `test_er3_runner_never_enables_or_submits_decisions`
+47. `test_er3_dedicated_instance_and_volumes_are_cleaned_up`
+48. `test_er3_docker_daemon_is_the_only_real_run_control_boundary`
 
 Tests may use a deterministic fake private vision server for failure and mapping
 cases. ER3 closure additionally requires a separately owner-authorized recorded
@@ -517,24 +614,24 @@ Only after ratification:
 - new `src/core/review_reuse/er3_archive.py`
 - new `src/core/review_reuse/evidence_v2.py`
 - new `src/core/review_reuse/evidence_dispatch.py`
-- `src/core/dedupcad_vision.py` only to permit an explicit proxy-free transport
-  without changing the default posture of other callers
 - `src/core/review_reuse/service.py` and `store.py` only for the explicit v1/v2
-  selector, dispatch, and idempotency rules in §5.4
-- `src/core/review_reuse/models.py` only for the immutable selector and nullable
-  v2 calibration version described in §5.3-§5.4
-- `src/api/v1/review_reuse.py` only to replace generic task response models with
-  `ReviewReuseTask` and add the selector to `TaskSummary`; request models and
-  decision semantics remain unchanged
+  selector, internal manifest-bound PNG seam, read-only replay, dispatch,
+  context validation, and idempotency rules in §5.4-§5.6
+- `src/core/review_reuse/models.py` only for the immutable selector, strict v2
+  evidence context, and selector-conditioned calibration described in §5.3-§5.4
+- `src/api/v1/review_reuse.py` only to add strict task/EvidencePack response
+  models and the selector to `TaskSummary`; public create and decision request
+  models and decision semantics remain unchanged
 - `config/openapi_schema_snapshot.json` for the newly documented task component;
   the named property-level test, not the snapshot alone, proves selector exposure
 - `tests/unit/test_review_reuse_er3_archive.py`
 - the exact §4 manifest under `tests/fixtures/review_reuse_er3/`
 - one ER3 development/verification document
 
-The static substrate attestation is an input to implementation and remains
-byte-identical. Updating it, changing the fixture manifest object from §4, or
-changing the pinned image requires a new design-lock head and owner response.
+The static substrate attestation and EvidencePack v2 contract are inputs to
+implementation and remain byte-identical. Updating either, changing the fixture
+manifest object from §4, or changing the pinned image requires a new design-lock
+head and owner response.
 
 The existing v1 files `dedup_live.py`, `dedup_adapter.py`, `evidence.py`, and
 `canonical.py` remain byte-identical. If dispatch cannot be added without editing
@@ -558,14 +655,19 @@ ER3 is complete only when all of the following are true at one exact head:
   transition;
 - the runtime manifest matches §4 digest
   `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf`;
+- the v2 contract and golden digests remain
+  `0045bf4655558ea3ff1342706bd1af1c2eca26304821ebc19c0fe2ac7ff446db`
+  and `3aa3ce7fc94abb80e0693bf2229d9f8c244482cc3eaa488ed80cb173462a33c4`;
 - existing ReviewReuse, identity, production-preflight, and core-fast suites are
   green without skips added for this tranche;
 - an approved real private service run indexes the archive and searches the
-  separate query without seeds;
+  separate query without seeds, host publication, or an unknown candidate, and
+  returns the exact receipt-bound archive candidate;
 - score dimensions, missing evidence, confidence, and provenance satisfy §5;
-- recorded export replay passes without network access;
+- recorded export replay validates the summary and every artifact against the
+  read-only persisted store without Docker/network access or any write;
 - the development/verification document records exact SHA, commands, results,
-  artifact digests, endpoint posture, and remaining limits;
+  artifact digests, control-transport posture, and remaining limits;
 - exact-head CI and independent review have no unresolved failing finding.
 
 Even after those gates pass, the result proves only the controlled ER3 engine
@@ -585,8 +687,10 @@ Suggested implementation-only owner response:
 > repository fixture manifest digest
 > `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf`, vision image
 > `ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251`, static substrate attestation digest
-> `45a5b9eeedc4442467dd3cadbbe8ee5c2e68f5a21e8ef7e8f04b1458c80db3be`, the versioned
-> EvidencePack compatibility contract in §5.4, and the named fail-first contract
+> `984a49d180dbfa482b5c405a6c8cb2ef7a33078c4dcc88633a566d8b75c0145e`, EvidencePack v2 contract digest
+> `0045bf4655558ea3ff1342706bd1af1c2eca26304821ebc19c0fe2ac7ff446db`, golden vector digest
+> `3aa3ce7fc94abb80e0693bf2229d9f8c244482cc3eaa488ed80cb173462a33c4`, the versioned
+> compatibility contract in §5.4, and the named fail-first contract
 > in §7. I do not authorize image pull/start, fixture processing, merge, decision
 > enablement, deployment, pilot, or customer data.
 
@@ -599,7 +703,8 @@ Suggested repository-fixture-run owner response after implementation review:
 > deployment, pilot, customer data, or any other image/service.
 
 Until the first response names the exact document head, base, fixture manifest,
-vision image digest, static attestation digest, and fail-first contract, this
+vision image digest, static attestation digest, EvidencePack v2 contract digest,
+golden vector digest, and fail-first contract, this
 document remains a proposal and implementation must not start. Until the second
 response names the implementation exact head and reviewed command, the image must
 not be pulled or started and fixture bytes must not be processed.
