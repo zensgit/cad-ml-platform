@@ -29,6 +29,8 @@ REQUIRED_TOP_KEYS = frozenset(
     {
         "schema_version",
         "task_id",
+        "task_revision",
+        "evidence_pack_sha256",
         "trace_id",
         "idempotency_key",
         "source_job_id",
@@ -59,7 +61,7 @@ REQUIRED_CANDIDATE_KEYS = frozenset(
 REQUIRED_SCORE_KEYS = frozenset({"geometric", "semantic"})
 REQUIRED_VERIFICATION_KEYS = frozenset({"verdict", "level", "methods"})
 REQUIRED_CONFIDENCE_KEYS = frozenset({"score", "band"})
-REQUIRED_CALIBRATION_KEYS = frozenset({"version"})
+REQUIRED_CALIBRATION_KEYS = frozenset({"version", "status"})
 REQUIRED_PROVENANCE_KEYS = frozenset({"model", "ruleset", "dataset", "input"})
 REQUIRED_HUMAN_DECISION_KEYS = frozenset({"state", "allowed_actions"})
 
@@ -87,9 +89,9 @@ def _assert_section_33_fields(pack: Dict[str, Any], *, label: str) -> None:
     assert not missing, f"{label}: missing top-level keys {sorted(missing)}"
 
     assert pack["schema_version"] == "evidence-pack-v1", label
-    assert isinstance(pack["candidates"], list) and pack["candidates"], (
-        f"{label}: candidates must be a non-empty list"
-    )
+    assert (
+        isinstance(pack["candidates"], list) and pack["candidates"]
+    ), f"{label}: candidates must be a non-empty list"
 
     conf = pack["confidence"]
     assert REQUIRED_CONFIDENCE_KEYS <= set(conf.keys()), f"{label}: confidence"
@@ -99,9 +101,11 @@ def _assert_section_33_fields(pack: Dict[str, Any], *, label: str) -> None:
     assert REQUIRED_PROVENANCE_KEYS <= set(prov.keys()), f"{label}: provenance"
     hd = pack["human_decision"]
     assert REQUIRED_HUMAN_DECISION_KEYS <= set(hd.keys()), f"{label}: human_decision"
-    assert hd["allowed_actions"] == ["reuse", "revise", "new"], (
-        f"{label}: strategy-center allowed_actions"
-    )
+    assert hd["allowed_actions"] == [
+        "reuse",
+        "revise",
+        "new",
+    ], f"{label}: strategy-center allowed_actions"
 
     for i, c in enumerate(pack["candidates"]):
         clabel = f"{label}.candidates[{i}]"
@@ -140,10 +144,13 @@ def _task_from_golden_pack(pack: Dict[str, Any]) -> ReviewReuseTask:
         source_file_name=source.get("file_name") or "",
         source_content_sha256=source.get("content_sha256") or "",
         idempotency_key=pack.get("idempotency_key"),
+        revision=pack.get("task_revision") or 1,
         trace_id=pack["trace_id"],
         candidates=candidates,
         calibration_version=(pack.get("calibration") or {}).get("version")
         or "workbench-mvp-0",
+        calibration_status=(pack.get("calibration") or {}).get("status")
+        or "uncalibrated",
     )
 
 
@@ -180,9 +187,9 @@ class TestEvidencePackGoldenFixtures:
         expected = payload["evidence_pack"]
         task = _task_from_golden_pack(expected)
         rebuilt = build_evidence_pack(task)
-        assert rebuilt == expected, (
-            f"{case_id}: build_evidence_pack output drifted from golden fixture"
-        )
+        assert (
+            rebuilt == expected
+        ), f"{case_id}: build_evidence_pack output drifted from golden fixture"
 
     def test_all_goldens_load_without_network(self) -> None:
         """Smoke: every evidence_pack_*.json is valid JSON with §3.3 keys."""
@@ -192,7 +199,9 @@ class TestEvidencePackGoldenFixtures:
             _assert_section_33_fields(payload["evidence_pack"], label=path.name)
 
     def test_insufficient_evidence_has_rejection_reason(self) -> None:
-        payload = _load_golden(GOLDEN_DIR / EXPECTED_CASE_FILES["insufficient_evidence"])
+        payload = _load_golden(
+            GOLDEN_DIR / EXPECTED_CASE_FILES["insufficient_evidence"]
+        )
         pack = payload["evidence_pack"]
         assert "tool_unavailable" in pack["rejection_reasons"]
         assert pack["unsupported_states"], "insufficient_evidence ids must be listed"

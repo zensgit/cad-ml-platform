@@ -9,6 +9,8 @@ from pathlib import Path
 
 import pytest
 
+from src.core.review_reuse.canonical import canonical_sha256
+from src.core.review_reuse.evidence import build_evidence_pack
 from src.core.review_reuse.models import ReviewReuseTask, TaskStatus
 from src.core.review_reuse.store import FilesystemReviewReuseStore
 
@@ -23,7 +25,7 @@ def _task(
     return ReviewReuseTask(
         task_id=task_id or str(uuid.uuid4()),
         tenant_id=tenant_id,
-        status=TaskStatus.evidence_ready,
+        status=TaskStatus.running,
         created_at=1.0,
         updated_at=1.0,
         source_file_name="part.dxf",
@@ -96,6 +98,29 @@ def test_dotdot_cannot_escape_store_root(tmp_path: Path) -> None:
         _close(store)
 
 
+def test_tasks_symlink_cannot_escape_store_root(tmp_path: Path) -> None:
+    root = tmp_path / "container" / "store"
+    store = FilesystemReviewReuseStore(root)
+    task = _task("tenant-symlink")
+    tenant_dir = _tenant_dir(root, task.tenant_id)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    try:
+        tenant_dir.mkdir()
+        (tenant_dir / "tenant.json").write_text(
+            json.dumps(store._sidecar_payload(task.tenant_id)),
+            encoding="utf-8",
+        )
+        (tenant_dir / "tasks").symlink_to(outside, target_is_directory=True)
+
+        with pytest.raises(Exception) as raised:
+            _create(store, task)
+        assert _error_code(raised.value) == "store_record_corrupt"
+        assert list(outside.iterdir()) == []
+    finally:
+        _close(store)
+
+
 def test_reads_do_not_create_tenant_paths(tmp_path: Path) -> None:
     root = tmp_path / "store"
     store = FilesystemReviewReuseStore(root)
@@ -135,7 +160,9 @@ def test_corrupt_index_and_record_fail_closed(tmp_path: Path) -> None:
     indexed = _task(
         "tenant-index",
         idempotency_key="create-key",
-        idempotency_digest="b" * 64,
+        idempotency_digest=canonical_sha256(
+            {"tenant_id": "tenant-index", "source_content_sha256": "a" * 64}
+        ),
     )
     try:
         _create(index_store, indexed)
@@ -144,6 +171,9 @@ def test_corrupt_index_and_record_fail_closed(tmp_path: Path) -> None:
         with pytest.raises(Exception) as index_error:
             index_store.get_by_idempotency(indexed.tenant_id, "create-key")
         assert _error_code(index_error.value) == "store_index_corrupt"
+        with pytest.raises(Exception) as list_error:
+            index_store.list_for_tenant(indexed.tenant_id)
+        assert _error_code(list_error.value) == "store_index_corrupt"
     finally:
         _close(index_store)
 
@@ -163,6 +193,48 @@ def test_corrupt_index_and_record_fail_closed(tmp_path: Path) -> None:
         assert _error_code(record_error.value) == "store_record_corrupt"
     finally:
         _close(record_store)
+
+
+def test_non_i_json_is_rejected_on_write_and_read(tmp_path: Path) -> None:
+    write_root = tmp_path / "write-store"
+    write_store = FilesystemReviewReuseStore(write_root)
+    invalid = _task("tenant-write")
+    invalid.updated_at = float("nan")
+    try:
+        with pytest.raises(Exception) as write_error:
+            _create(write_store, invalid)
+        assert _error_code(write_error.value) == "store_record_corrupt"
+    finally:
+        _close(write_store)
+
+    read_root = tmp_path / "read-store"
+    read_store = FilesystemReviewReuseStore(read_root)
+    stored = _task("tenant-read")
+    try:
+        _create(read_store, stored)
+        record_path = (
+            _tenant_dir(read_root, stored.tenant_id)
+            / "tasks"
+            / f"{stored.task_id}.json"
+        )
+        original_payload = record_path.read_text(encoding="utf-8")
+        record_path.write_text(
+            original_payload.replace('"updated_at":1.0', '"updated_at":NaN'),
+            encoding="utf-8",
+        )
+        with pytest.raises(Exception) as read_error:
+            read_store.get(stored.tenant_id, stored.task_id)
+        assert _error_code(read_error.value) == "store_record_corrupt"
+
+        record_path.write_text(
+            original_payload.replace('"task_id":', '"task_id":"duplicate","task_id":'),
+            encoding="utf-8",
+        )
+        with pytest.raises(Exception) as duplicate_error:
+            read_store.get(stored.tenant_id, stored.task_id)
+        assert _error_code(duplicate_error.value) == "store_record_corrupt"
+    finally:
+        _close(read_store)
 
 
 def test_legacy_migration_aborts_on_collision(tmp_path: Path) -> None:
@@ -203,7 +275,9 @@ def test_second_writer_is_rejected(tmp_path: Path) -> None:
 def test_create_if_absent_recovers_one_task(tmp_path: Path) -> None:
     root = tmp_path / "store"
     key = "recover-key"
-    digest = "c" * 64
+    digest = canonical_sha256(
+        {"tenant_id": "tenant-recovery", "source_content_sha256": "a" * 64}
+    )
     original = _task(
         "tenant-recovery",
         idempotency_key=key,
@@ -236,3 +310,183 @@ def test_create_if_absent_recovers_one_task(tmp_path: Path) -> None:
         assert [path.stem for path in task_files] == [original.task_id]
     finally:
         _close(second_store)
+
+
+def test_store_rejects_noncanonical_create_digest(tmp_path: Path) -> None:
+    store = FilesystemReviewReuseStore(tmp_path / "store")
+    task = _task(
+        "tenant-digest",
+        idempotency_key="create-key",
+        idempotency_digest="f" * 64,
+    )
+    try:
+        with pytest.raises(Exception) as raised:
+            _create(store, task)
+        assert _error_code(raised.value) == "store_record_corrupt"
+        assert store.list_for_tenant(task.tenant_id) == []
+    finally:
+        _close(store)
+
+
+def test_evidence_digest_tampering_fails_closed(tmp_path: Path) -> None:
+    root = tmp_path / "store"
+    store = FilesystemReviewReuseStore(root)
+    task = _task("tenant-evidence")
+    task.status = TaskStatus.evidence_ready
+    task.evidence_pack = build_evidence_pack(task)
+    try:
+        _create(store, task)
+        record_path = (
+            _tenant_dir(root, task.tenant_id) / "tasks" / f"{task.task_id}.json"
+        )
+        payload = json.loads(record_path.read_text(encoding="utf-8"))
+        payload["evidence_pack"]["confidence"]["band"] = "tampered"
+        record_path.write_text(json.dumps(payload), encoding="utf-8")
+
+        with pytest.raises(Exception) as raised:
+            store.get(task.tenant_id, task.task_id)
+        assert _error_code(raised.value) == "store_record_corrupt"
+    finally:
+        _close(store)
+
+
+def test_legacy_migration_dry_run_then_apply(tmp_path: Path) -> None:
+    from src.core.review_reuse.store import migrate_legacy_store
+
+    root = tmp_path / "legacy-store"
+    tasks_dir = root / "tenant-a" / "tasks"
+    tasks_dir.mkdir(parents=True)
+    task = _task(
+        "tenant-a",
+        idempotency_key="legacy-key",
+        idempotency_digest="d" * 64,
+    )
+    (tasks_dir / f"{task.task_id}.json").write_text(
+        json.dumps(task.model_dump(mode="json")), encoding="utf-8"
+    )
+    (root / "tenant-a" / "idempotency.json").write_text(
+        json.dumps({"legacy-key": task.task_id}), encoding="utf-8"
+    )
+
+    dry_run = migrate_legacy_store(root)
+    assert dry_run == {
+        "apply": False,
+        "legacy_directories": 1,
+        "tasks": 1,
+        "tenants": 1,
+    }
+    assert list(root.glob("tenant-v1-*")) == []
+
+    applied = migrate_legacy_store(root, apply=True)
+    backup = Path(applied["backup"])
+    assert backup.is_dir()
+    assert (backup / "tenant-a" / "tasks" / f"{task.task_id}.json").is_file()
+    reader = FilesystemReviewReuseStore(root, read_only=True)
+    try:
+        migrated = reader.get(task.tenant_id, task.task_id)
+        assert migrated is not None
+        assert migrated.idempotency_digest == canonical_sha256(
+            {
+                "tenant_id": task.tenant_id,
+                "source_content_sha256": task.source_content_sha256,
+            }
+        )
+        replayed = reader.get_by_idempotency(task.tenant_id, "legacy-key")
+        assert replayed is not None and replayed.task_id == task.task_id
+    finally:
+        _close(reader)
+
+
+def test_legacy_migration_holds_new_store_lease_during_swap(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from src.core.review_reuse import store as store_module
+
+    root = tmp_path / "legacy-store"
+    task = _task("tenant-a")
+    tasks_dir = root / task.tenant_id / "tasks"
+    tasks_dir.mkdir(parents=True)
+    (tasks_dir / f"{task.task_id}.json").write_text(
+        json.dumps(task.model_dump(mode="json")), encoding="utf-8"
+    )
+
+    real_replace = store_module.os.replace
+    observed: list[str | None] = []
+
+    def checked_replace(source: str | Path, destination: str | Path) -> None:
+        real_replace(source, destination)
+        source_path = Path(source)
+        if Path(destination) == root and source_path.name.startswith(
+            f".{root.name}.migration-"
+        ):
+            competing = None
+            try:
+                competing = FilesystemReviewReuseStore(root)
+            except Exception as exc:
+                observed.append(_error_code(exc))
+            else:
+                observed.append(None)
+            finally:
+                if competing is not None:
+                    _close(competing)
+
+    monkeypatch.setattr(store_module.os, "replace", checked_replace)
+    report = store_module.migrate_legacy_store(root, apply=True)
+
+    assert Path(report["backup"]).is_dir()
+    assert observed == ["store_writer_conflict"]
+
+
+def test_legacy_prefix_like_tenant_is_not_mistaken_for_new_layout(
+    tmp_path: Path,
+) -> None:
+    from src.core.review_reuse.store import migrate_legacy_store
+
+    root = tmp_path / "legacy-store"
+    tenant_id = "tenant-v1-legacy"
+    task = _task(tenant_id)
+    tasks_dir = root / tenant_id / "tasks"
+    tasks_dir.mkdir(parents=True)
+    (tasks_dir / f"{task.task_id}.json").write_text(
+        json.dumps(task.model_dump(mode="json")), encoding="utf-8"
+    )
+
+    report = migrate_legacy_store(root)
+    assert "already_migrated" not in report
+    assert report["legacy_directories"] == 1
+    assert report["tasks"] == 1
+
+
+def test_legacy_path_identity_mismatch_fails_closed(tmp_path: Path) -> None:
+    from src.core.review_reuse.store import migrate_legacy_store
+
+    root = tmp_path / "legacy-store"
+    task = _task("tenant-b")
+    tasks_dir = root / "tenant-a" / "tasks"
+    tasks_dir.mkdir(parents=True)
+    (tasks_dir / f"{task.task_id}.json").write_text(
+        json.dumps(task.model_dump(mode="json")), encoding="utf-8"
+    )
+
+    with pytest.raises(Exception) as raised:
+        migrate_legacy_store(root)
+    assert _error_code(raised.value) == "store_record_corrupt"
+
+
+def test_legacy_invalid_idempotency_key_fails_dry_run(tmp_path: Path) -> None:
+    from src.core.review_reuse.store import migrate_legacy_store
+
+    root = tmp_path / "legacy-store"
+    task = _task("tenant-a")
+    task.idempotency_key = " "
+    task.idempotency_digest = "d" * 64
+    tasks_dir = root / task.tenant_id / "tasks"
+    tasks_dir.mkdir(parents=True)
+    (tasks_dir / f"{task.task_id}.json").write_text(
+        json.dumps(task.model_dump(mode="json")), encoding="utf-8"
+    )
+
+    with pytest.raises(Exception) as raised:
+        migrate_legacy_store(root)
+    assert _error_code(raised.value) == "store_record_corrupt"

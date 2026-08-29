@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+from .canonical import canonical_sha256
 from .models import CandidateDecision, ReviewReuseTask
 
 
@@ -34,6 +35,7 @@ def build_evidence_pack(task: ReviewReuseTask) -> Dict[str, Any]:
     pack: Dict[str, Any] = {
         "schema_version": "evidence-pack-v1",
         "task_id": task.task_id,
+        "task_revision": task.revision,
         "trace_id": task.trace_id,
         "idempotency_key": task.idempotency_key,
         "source_job_id": task.task_id,
@@ -47,7 +49,10 @@ def build_evidence_pack(task: ReviewReuseTask) -> Dict[str, Any]:
             "score": _top_confidence(task.candidates),
             "band": _confidence_band(_top_confidence(task.candidates)),
         },
-        "calibration": {"version": task.calibration_version},
+        "calibration": {
+            "version": task.calibration_version,
+            "status": task.calibration_status,
+        },
         "evidence": _evidence_items(task.candidates),
         "rejection_reasons": _aggregate_rejections(task.candidates),
         "unsupported_states": [
@@ -64,10 +69,26 @@ def build_evidence_pack(task: ReviewReuseTask) -> Dict[str, Any]:
         "human_decision": {
             "state": task.human_decision.state.value if task.human_decision else None,
             "allowed_actions": ["reuse", "revise", "new"],
-            "submitted": task.human_decision.model_dump() if task.human_decision else None,
+            "submitted": (
+                task.human_decision.model_dump(mode="json")
+                if task.human_decision
+                else None
+            ),
         },
     }
+    pack["evidence_pack_sha256"] = evidence_pack_digest(pack)
     return pack
+
+
+def evidence_pack_digest(pack: Dict[str, Any]) -> str:
+    digest_payload = dict(pack)
+    digest_payload.pop("evidence_pack_sha256", None)
+    return canonical_sha256(digest_payload)
+
+
+def evidence_pack_digest_is_valid(pack: Dict[str, Any]) -> bool:
+    stored = pack.get("evidence_pack_sha256")
+    return isinstance(stored, str) and stored == evidence_pack_digest(pack)
 
 
 def evidence_pack_markdown(pack: Dict[str, Any]) -> str:
@@ -75,6 +96,8 @@ def evidence_pack_markdown(pack: Dict[str, Any]) -> str:
         f"# EvidencePack — task `{pack.get('task_id')}`",
         "",
         f"- trace_id: `{pack.get('trace_id')}`",
+        f"- task_revision: `{pack.get('task_revision')}`",
+        f"- evidence_pack_sha256: `{pack.get('evidence_pack_sha256')}`",
         f"- source: `{pack.get('source', {}).get('file_name')}`",
         f"- content_sha256: `{pack.get('source', {}).get('content_sha256')}`",
         f"- calibration: `{pack.get('calibration', {}).get('version')}`",

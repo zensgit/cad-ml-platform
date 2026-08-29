@@ -22,6 +22,8 @@ from src.core.review_reuse.service import (
 )
 from src.core.review_reuse.store import ReviewReuseStore
 
+_REVIEWER = "principal-v1-" + "a" * 64
+
 
 def _svc() -> ReviewReuseService:
     return ReviewReuseService(ReviewReuseStore())
@@ -43,6 +45,17 @@ def _seed_similar() -> List[Dict[str, Any]]:
             "decision_source": "synthetic-fixture",
         }
     ]
+
+
+def _decision_binding(task: Any) -> Dict[str, Any]:
+    return {
+        "reviewer_id": _REVIEWER,
+        "reviewer_kind": "validated_principal",
+        "tenant_validated": True,
+        "reviewer_validated": True,
+        "expected_revision": task.revision,
+        "evidence_pack_sha256": task.evidence_pack["evidence_pack_sha256"],
+    }
 
 
 class TestDecisionsEnabled:
@@ -145,7 +158,7 @@ class TestDecisionGate:
                 tenant_id="t-a",
                 task_id=task.task_id,
                 state=HumanDecisionState.reuse,
-                reviewer_id="reviewer-1",
+                **_decision_binding(task),
             )
         assert ei.value.code == "decisions_disabled"
 
@@ -162,10 +175,11 @@ class TestDecisionGate:
             tenant_id="t-a",
             task_id=task.task_id,
             state=HumanDecisionState.revise,
-            reviewer_id="reviewer-1",
-            reason_codes=["needs_check"],
+            reason_codes=["needs_modification"],
+            reason_text="Candidate needs modification.",
             candidate_id="arch-001",
             idempotency_key="dec-1",
+            **_decision_binding(task),
         )
         assert d1.status == TaskStatus.decided
         assert d1.human_decision is not None
@@ -176,8 +190,11 @@ class TestDecisionGate:
             tenant_id="t-a",
             task_id=task.task_id,
             state=HumanDecisionState.revise,
-            reviewer_id="reviewer-1",
+            reason_codes=["needs_modification"],
+            reason_text="Candidate needs modification.",
+            candidate_id="arch-001",
             idempotency_key="dec-1",
+            **_decision_binding(task),
         )
         assert d2.task_id == d1.task_id
 
@@ -186,8 +203,10 @@ class TestDecisionGate:
                 tenant_id="t-a",
                 task_id=task.task_id,
                 state=HumanDecisionState.new,
-                reviewer_id="reviewer-1",
+                reason_codes=["new_part_required"],
+                reason_text="Create a new part.",
                 idempotency_key="dec-2",
+                **_decision_binding(task),
             )
         assert ei.value.code == "already_decided"
 
@@ -208,9 +227,11 @@ class TestDecisionGate:
                 tenant_id="t-a",
                 task_id=task.task_id,
                 state=HumanDecisionState.new,
-                reviewer_id="r1",
+                reason_codes=["new_part_required"],
+                reason_text="Create a new part.",
+                **_decision_binding(task),
             )
-        assert ei.value.code == "canceled"
+        assert ei.value.code == "invalid_state_transition"
 
 
 class TestEvidenceBuilder:

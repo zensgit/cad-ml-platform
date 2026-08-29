@@ -1,5 +1,5 @@
 {
-  "components_schema_count": 258,
+  "components_schema_count": 261,
   "components_schema_names": [
     "ActiveLearningSample",
     "AlternativeItem",
@@ -161,6 +161,7 @@
     "OcrResponse",
     "OcrResult",
     "OrphanCleanupResponse",
+    "PlatformAuthErrorResponse",
     "PreferredDiameterResponse",
     "PreferredDiametersListResponse",
     "ProcessRecommendationResponse",
@@ -197,6 +198,8 @@
     "ReviewQueueResponse",
     "ReviewQueueStatsResponse",
     "ReviewQueueSummaryResponse",
+    "ReviewReuseErrorDetail",
+    "ReviewReuseErrorResponse",
     "SampleStatus",
     "SimilarResponse",
     "SimilarResult",
@@ -1813,7 +1816,16 @@
         "operationId": "review_metrics_api_v1_review_reuse_metrics_get",
         "responses": [
           "200",
-          "422"
+          "400",
+          "401",
+          "403",
+          "404",
+          "409",
+          "413",
+          "415",
+          "422",
+          "500",
+          "503"
         ]
       }
     },
@@ -1823,7 +1835,16 @@
         "operationId": "list_tasks_api_v1_review_reuse_tasks_get",
         "responses": [
           "200",
-          "422"
+          "400",
+          "401",
+          "403",
+          "404",
+          "409",
+          "413",
+          "415",
+          "422",
+          "500",
+          "503"
         ]
       },
       "post": {
@@ -1831,7 +1852,16 @@
         "operationId": "create_task_api_v1_review_reuse_tasks_post",
         "responses": [
           "200",
-          "422"
+          "400",
+          "401",
+          "403",
+          "404",
+          "409",
+          "413",
+          "415",
+          "422",
+          "500",
+          "503"
         ]
       }
     },
@@ -1841,7 +1871,16 @@
         "operationId": "get_task_api_v1_review_reuse_tasks__task_id__get",
         "responses": [
           "200",
-          "422"
+          "400",
+          "401",
+          "403",
+          "404",
+          "409",
+          "413",
+          "415",
+          "422",
+          "500",
+          "503"
         ]
       }
     },
@@ -1851,7 +1890,16 @@
         "operationId": "audit_export_api_v1_review_reuse_tasks__task_id__audit_export_get",
         "responses": [
           "200",
-          "422"
+          "400",
+          "401",
+          "403",
+          "404",
+          "409",
+          "413",
+          "415",
+          "422",
+          "500",
+          "503"
         ]
       }
     },
@@ -1861,7 +1909,16 @@
         "operationId": "cancel_task_api_v1_review_reuse_tasks__task_id__cancel_post",
         "responses": [
           "200",
-          "422"
+          "400",
+          "401",
+          "403",
+          "404",
+          "409",
+          "413",
+          "415",
+          "422",
+          "500",
+          "503"
         ]
       }
     },
@@ -1871,7 +1928,16 @@
         "operationId": "submit_decision_api_v1_review_reuse_tasks__task_id__decision_post",
         "responses": [
           "200",
-          "422"
+          "400",
+          "401",
+          "403",
+          "404",
+          "409",
+          "413",
+          "415",
+          "422",
+          "500",
+          "503"
         ]
       }
     },
@@ -1881,7 +1947,16 @@
         "operationId": "list_events_api_v1_review_reuse_tasks__task_id__events_get",
         "responses": [
           "200",
-          "422"
+          "400",
+          "401",
+          "403",
+          "404",
+          "409",
+          "413",
+          "415",
+          "422",
+          "500",
+          "503"
         ]
       }
     },
@@ -1891,7 +1966,16 @@
         "operationId": "get_evidence_pack_api_v1_review_reuse_tasks__task_id__evidence_pack_get",
         "responses": [
           "200",
-          "422"
+          "400",
+          "401",
+          "403",
+          "404",
+          "409",
+          "413",
+          "415",
+          "422",
+          "500",
+          "503"
         ]
       }
     },

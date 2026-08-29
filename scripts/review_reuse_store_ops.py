@@ -3,8 +3,9 @@
 
 Layout (see FilesystemReviewReuseStore)::
 
-  {store_dir}/{tenant}/tasks/*.json
-  {store_dir}/{tenant}/idempotency.json
+  {store_dir}/tenant-v1-<sha256>/tenant.json
+  {store_dir}/tenant-v1-<sha256>/tasks/*.json
+  {store_dir}/tenant-v1-<sha256>/idempotency.json
 
 Does not enable decisions, touch training JSONL, or call network services.
 """
@@ -20,13 +21,17 @@ import tarfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
+
+from src.core.review_reuse.store import (
+    FilesystemReviewReuseStore,
+    ReviewReuseStoreError,
+    validated_filesystem_tenants,
+)
 
 
-def _tenant_dirs(store_dir: Path) -> List[Path]:
-    if not store_dir.is_dir():
-        return []
-    return sorted(p for p in store_dir.iterdir() if p.is_dir() and not p.name.startswith("."))
+def _tenant_dirs(store_dir: Path) -> List[Tuple[str, Path]]:
+    return validated_filesystem_tenants(store_dir)
 
 
 def _task_files(tenant_dir: Path) -> List[Path]:
@@ -77,7 +82,7 @@ def collect_tenant_summaries(
     now_ts = time.time() if now is None else now
     store_dir = store_dir.resolve()
     rows: List[Dict[str, Any]] = []
-    for tdir in _tenant_dirs(store_dir):
+    for tenant_id, tdir in _tenant_dirs(store_dir):
         task_files = _task_files(tdir)
         newest = _newest_task_mtime(tdir)
         age_days: Optional[float]
@@ -87,7 +92,7 @@ def collect_tenant_summaries(
             age_days = (now_ts - newest) / 86400.0
         rows.append(
             {
-                "tenant": tdir.name,
+                "tenant": tenant_id,
                 "task_count": len(task_files),
                 "age_days": age_days,
             }
@@ -97,7 +102,11 @@ def collect_tenant_summaries(
 
 def cmd_list(store_dir: Path, *, as_json: bool = False) -> int:
     store_dir = store_dir.resolve()
-    rows = collect_tenant_summaries(store_dir)
+    try:
+        rows = collect_tenant_summaries(store_dir)
+    except ReviewReuseStoreError as exc:
+        print(f"store integrity failure: {exc.code}", file=sys.stderr)
+        return 2
     if as_json:
         payload = {
             "store_dir": str(store_dir),
@@ -134,6 +143,11 @@ def cmd_backup(store_dir: Path, out_dir: Path) -> int:
     if not store_dir.is_dir():
         print(f"store_dir missing (nothing to backup): {store_dir}", file=sys.stderr)
         return 1
+    try:
+        _tenant_dirs(store_dir)
+    except ReviewReuseStoreError as exc:
+        print(f"store integrity failure: {exc.code}", file=sys.stderr)
+        return 2
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     archive = out_dir / f"review_reuse_store_{ts}.tar.gz"
     with tarfile.open(archive, "w:gz") as tar:
@@ -155,32 +169,53 @@ def cmd_cleanup(
         print(f"store_dir missing: {store_dir}", file=sys.stderr)
         return 1
     cutoff = time.time() - (older_than_days * 86400.0)
-    tenants = _tenant_dirs(store_dir)
-    if tenant:
-        tenants = [t for t in tenants if t.name == tenant]
-        if not tenants:
-            print(f"tenant not found: {tenant}", file=sys.stderr)
-            return 1
+    writer: Optional[FilesystemReviewReuseStore] = None
+    try:
+        if not dry_run:
+            writer = FilesystemReviewReuseStore(store_dir)
+        tenants = _tenant_dirs(store_dir)
+        if tenant:
+            tenants = [item for item in tenants if item[0] == tenant]
+            if not tenants:
+                if writer is not None:
+                    writer.close()
+                print(f"tenant not found: {tenant}", file=sys.stderr)
+                return 1
+    except ReviewReuseStoreError as exc:
+        if writer is not None:
+            writer.close()
+        print(f"store integrity failure: {exc.code}", file=sys.stderr)
+        return 2
 
     removed = 0
     listed = 0
-    for tdir in tenants:
-        newest = _newest_mtime(tdir)
-        if newest is None:
-            continue
-        if newest > cutoff:
-            continue
-        listed += 1
-        age_days = (time.time() - newest) / 86400.0
-        if dry_run:
-            print(f"would_delete tenant={tdir.name} age_days={age_days:.1f} path={tdir}")
-        else:
-            shutil.rmtree(tdir)
-            print(f"deleted tenant={tdir.name} age_days={age_days:.1f}")
-            removed += 1
+    try:
+        for tenant_id, tdir in tenants:
+            newest = _newest_mtime(tdir)
+            if newest is None:
+                continue
+            if newest > cutoff:
+                continue
+            listed += 1
+            age_days = (time.time() - newest) / 86400.0
+            if dry_run:
+                print(
+                    f"would_delete tenant={tenant_id} "
+                    f"age_days={age_days:.1f} path={tdir}"
+                )
+            else:
+                shutil.rmtree(tdir)
+                print(f"deleted tenant={tenant_id} age_days={age_days:.1f}")
+                removed += 1
+    finally:
+        if writer is not None:
+            writer.close()
 
     mode = "dry_run" if dry_run else "apply"
-    print(f"cleanup mode={mode} candidates={listed} deleted={removed} older_than_days={older_than_days}")
+    print(
+        f"cleanup mode={mode} candidates={listed} deleted={removed} "
+        f"older_than_days={older_than_days}"
+    )
     return 0
 
 
@@ -212,7 +247,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         action="store_true",
         help="Actually delete (overrides --dry-run)",
     )
-    p_clean.add_argument("--tenant", default=None, help="Limit to one tenant segment")
+    p_clean.add_argument(
+        "--tenant", default=None, help="Limit to one literal tenant id"
+    )
 
     p_list = sub.add_parser(
         "list",

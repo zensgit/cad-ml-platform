@@ -103,16 +103,25 @@ def test_decision_default_off_403(client: TestClient) -> None:
         "/api/v1/review-reuse/tasks",
         files={"file": ("a.dxf", b"x", "application/octet-stream")},
     )
-    task_id = r.json()["task_id"]
+    task = r.json()
+    task_id = task["task_id"]
     dec = client.post(
         f"/api/v1/review-reuse/tasks/{task_id}/decision",
-        json={"state": "reuse", "reason_text": "nope"},
+        json={
+            "state": "new",
+            "reason_codes": ["new_part_required"],
+            "reason_text": "nope",
+            "expected_revision": task["revision"],
+            "evidence_pack_sha256": task["evidence_pack"]["evidence_pack_sha256"],
+        },
     )
     assert dec.status_code == 403
     assert dec.json()["detail"]["code"] == "decisions_disabled"
 
 
-def test_decision_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_decision_enabled_still_rejects_api_key_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("ENVIRONMENT", "development")
     monkeypatch.setenv("API_KEY", "test")
     monkeypatch.setenv("REVIEW_REUSE_DECISIONS_ENABLED", "true")
@@ -128,20 +137,20 @@ def test_decision_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
             "/api/v1/review-reuse/tasks",
             files={"file": ("a.dxf", b"x", "application/octet-stream")},
         )
-        task_id = r.json()["task_id"]
+        task = r.json()
+        task_id = task["task_id"]
         dec = client.post(
             f"/api/v1/review-reuse/tasks/{task_id}/decision",
             json={
-                "state": "revise",
-                "reason_codes": ["needs_check"],
+                "state": "new",
+                "reason_codes": ["new_part_required"],
                 "idempotency_key": "d1",
+                "expected_revision": task["revision"],
+                "evidence_pack_sha256": task["evidence_pack"]["evidence_pack_sha256"],
             },
         )
-        assert dec.status_code == 200, dec.text
-        assert dec.json()["status"] == "decided"
-        assert dec.json()["human_decision"]["state"] == "revise"
-        # Default API-key path uses ak-user-* fallback (not JWT-validated).
-        assert dec.json()["human_decision"]["reviewer_id"].startswith("ak-user-")
+        assert dec.status_code == 403, dec.text
+        assert dec.json()["detail"]["code"] == "tenant_not_validated"
 
 
 def test_decision_require_validated_reviewer_api_key_403(
@@ -149,45 +158,8 @@ def test_decision_require_validated_reviewer_api_key_403(
 ) -> None:
     """Decisions on + require validated reviewer: API-key-only → 403.
 
-    Without JWT/user_id on request.state, _reviewer_id returns ak-user-* with
+    With a validated tenant but no JWT subject, reviewer identity is fallback
     validated=False (R2 HOLD: pilot must not accept key-only identity).
-    """
-    monkeypatch.setenv("ENVIRONMENT", "development")
-    monkeypatch.setenv("API_KEY", "test")
-    monkeypatch.setenv("REVIEW_REUSE_DECISIONS_ENABLED", "true")
-    monkeypatch.setenv("REVIEW_REUSE_REQUIRE_VALIDATED_REVIEWER", "true")
-    from src.core.review_reuse import service as svc_mod
-    from src.core.review_reuse.store import InMemoryReviewReuseStore
-
-    svc_mod.reset_review_reuse_store_for_tests(InMemoryReviewReuseStore())
-    from src.main import app
-
-    with TestClient(app, headers={"X-API-Key": "test"}) as client:
-        r = client.post(
-            "/api/v1/review-reuse/tasks",
-            files={"file": ("a.dxf", b"x", "application/octet-stream")},
-        )
-        assert r.status_code == 200, r.text
-        task_id = r.json()["task_id"]
-        dec = client.post(
-            f"/api/v1/review-reuse/tasks/{task_id}/decision",
-            json={"state": "reuse", "reason_text": "no jwt subject"},
-        )
-        assert dec.status_code == 403, dec.text
-        detail = dec.json()["detail"]
-        assert detail["code"] == "reviewer_not_validated"
-        assert "ak-user" in detail.get("message", "").lower() or "validated" in detail.get(
-            "message", ""
-        ).lower()
-
-
-def test_decision_require_validated_reviewer_with_jwt_subject(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Decisions on + require validated: JWT/integration subject → 200.
-
-    Patches _reviewer_id to simulate middleware-set user_id/auth_subject
-    without standing up full OIDC (simplest reliable TestClient path).
     """
     monkeypatch.setenv("ENVIRONMENT", "development")
     monkeypatch.setenv("API_KEY", "test")
@@ -201,9 +173,7 @@ def test_decision_require_validated_reviewer_with_jwt_subject(
     from src.main import app
 
     monkeypatch.setattr(
-        rr_api,
-        "_reviewer_id",
-        lambda request, api_key: ("jwt-sub-123", True),
+        rr_api, "_tenant_identity", lambda request, api_key: ("tenant-jwt", True)
     )
 
     with TestClient(app, headers={"X-API-Key": "test"}) as client:
@@ -212,20 +182,71 @@ def test_decision_require_validated_reviewer_with_jwt_subject(
             files={"file": ("a.dxf", b"x", "application/octet-stream")},
         )
         assert r.status_code == 200, r.text
-        task_id = r.json()["task_id"]
+        task = r.json()
+        task_id = task["task_id"]
         dec = client.post(
             f"/api/v1/review-reuse/tasks/{task_id}/decision",
             json={
-                "state": "revise",
-                "reason_codes": ["validated_ok"],
+                "state": "new",
+                "reason_codes": ["new_part_required"],
+                "reason_text": "no jwt subject",
+                "expected_revision": task["revision"],
+                "evidence_pack_sha256": task["evidence_pack"]["evidence_pack_sha256"],
+            },
+        )
+        assert dec.status_code == 403, dec.text
+        detail = dec.json()["detail"]
+        assert detail["code"] == "reviewer_not_validated"
+
+
+def test_decision_require_validated_reviewer_with_jwt_subject(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Decisions on + validated tenant/reviewer principals → 200."""
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.setenv("API_KEY", "test")
+    monkeypatch.setenv("REVIEW_REUSE_DECISIONS_ENABLED", "true")
+    monkeypatch.setenv("REVIEW_REUSE_REQUIRE_VALIDATED_REVIEWER", "true")
+    from src.core.review_reuse import service as svc_mod
+    from src.core.review_reuse.store import InMemoryReviewReuseStore
+
+    svc_mod.reset_review_reuse_store_for_tests(InMemoryReviewReuseStore())
+    import src.api.v1.review_reuse as rr_api
+    from src.main import app
+
+    reviewer_id = "principal-v1-" + "a" * 64
+    monkeypatch.setattr(
+        rr_api, "_tenant_identity", lambda request, api_key: ("tenant-jwt", True)
+    )
+    monkeypatch.setattr(
+        rr_api,
+        "_reviewer_identity",
+        lambda request, api_key: (reviewer_id, "validated_principal", True),
+    )
+
+    with TestClient(app, headers={"X-API-Key": "test"}) as client:
+        r = client.post(
+            "/api/v1/review-reuse/tasks",
+            files={"file": ("a.dxf", b"x", "application/octet-stream")},
+        )
+        assert r.status_code == 200, r.text
+        task = r.json()
+        task_id = task["task_id"]
+        dec = client.post(
+            f"/api/v1/review-reuse/tasks/{task_id}/decision",
+            json={
+                "state": "new",
+                "reason_codes": ["new_part_required"],
                 "idempotency_key": "validated-d1",
+                "expected_revision": task["revision"],
+                "evidence_pack_sha256": task["evidence_pack"]["evidence_pack_sha256"],
             },
         )
         assert dec.status_code == 200, dec.text
         body = dec.json()
         assert body["status"] == "decided"
-        assert body["human_decision"]["state"] == "revise"
-        assert body["human_decision"]["reviewer_id"] == "jwt-sub-123"
+        assert body["human_decision"]["state"] == "new"
+        assert body["human_decision"]["reviewer_id"] == reviewer_id
 
 
 def test_tenant_isolation_different_api_keys(monkeypatch: pytest.MonkeyPatch) -> None:

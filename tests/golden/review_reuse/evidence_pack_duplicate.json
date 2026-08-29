@@ -7,6 +7,8 @@
   "evidence_pack": {
     "schema_version": "evidence-pack-v1",
     "task_id": "task-golden-duplicate-0001",
+    "task_revision": 1,
+    "evidence_pack_sha256": "52174f63e5a928c9c0d5b648aab78e0f5dd617ed5841db69cddcf4bef386bf7c",
     "trace_id": "trace-golden-duplicate-0001",
     "idempotency_key": "idem-golden-duplicate-0001",
     "source_job_id": "task-golden-duplicate-0001",
@@ -46,7 +48,8 @@
       "band": "high"
     },
     "calibration": {
-      "version": "workbench-mvp-0"
+      "version": "workbench-mvp-0",
+      "status": "uncalibrated"
     },
     "evidence": [
       {

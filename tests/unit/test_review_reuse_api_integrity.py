@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -116,10 +117,47 @@ def test_decision_revision_fields_are_required(client: TestClient) -> None:
     )
     _assert_domain_error(malformed, 422, "invalid_request")
 
+    for coerced_revision in (True, 1.0, "1"):
+        coerced = client.post(
+            f"/api/v1/review-reuse/tasks/{task_id}/decision",
+            json={
+                "state": "new",
+                "reason_codes": ["new_part_required"],
+                "reason_text": "Reviewed.",
+                "expected_revision": coerced_revision,
+                "evidence_pack_sha256": "a" * 64,
+            },
+        )
+        _assert_domain_error(coerced, 422, "invalid_request")
+
+    forged_identity = client.post(
+        f"/api/v1/review-reuse/tasks/{task_id}/decision",
+        json={
+            "state": "new",
+            "reason_codes": ["new_part_required"],
+            "reason_text": "Reviewed.",
+            "expected_revision": 1,
+            "evidence_pack_sha256": "a" * 64,
+            "reviewer_id": "principal-v1-" + ("f" * 64),
+        },
+    )
+    _assert_domain_error(forged_identity, 422, "invalid_request")
+
+    duplicate = client.post(
+        f"/api/v1/review-reuse/tasks/{task_id}/decision",
+        content=(
+            '{"state":"new","state":"reuse","expected_revision":1,'
+            '"evidence_pack_sha256":"' + ("a" * 64) + '"}'
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+    _assert_domain_error(duplicate, 422, "invalid_request")
+
 
 def test_store_corruption_maps_to_503(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     monkeypatch.setenv("ENVIRONMENT", "development")
     monkeypatch.setenv("API_KEY", "test")
@@ -150,8 +188,55 @@ def test_store_corruption_maps_to_503(
 
             response = test_client.get(f"/api/v1/review-reuse/tasks/{task_id}")
             _assert_domain_error(response, 503, "store_record_corrupt")
+            assert "review_reuse_store_failure code=store_record_corrupt" in caplog.text
     finally:
         close = getattr(store, "close", None)
         if close is not None:
             close()
         service_module.reset_review_reuse_store_for_tests(InMemoryReviewReuseStore())
+
+
+def test_trusted_tenant_claim_cannot_use_fallback_namespace() -> None:
+    from src.api.v1.review_reuse import _tenant_identity
+    from src.core.review_reuse.service import ReviewReuseError
+
+    request = SimpleNamespace(
+        state=SimpleNamespace(
+            review_reuse_identity_validated=True,
+            tenant_id="ak-forged-tenant",
+        )
+    )
+    with pytest.raises(ReviewReuseError) as raised:
+        _tenant_identity(request, "api-key")
+    assert raised.value.code == "tenant_invalid"
+
+    request.state.tenant_id = 123
+    with pytest.raises(ReviewReuseError) as non_string:
+        _tenant_identity(request, "api-key")
+    assert non_string.value.code == "tenant_invalid"
+
+
+def test_openapi_documents_platform_and_domain_error_boundaries(
+    client: TestClient,
+) -> None:
+    schema = client.get("/openapi.json").json()
+    responses = schema["paths"]["/api/v1/review-reuse/tasks/{task_id}/decision"][
+        "post"
+    ]["responses"]
+    assert {
+        "200",
+        "400",
+        "401",
+        "403",
+        "404",
+        "409",
+        "413",
+        "415",
+        "422",
+        "500",
+        "503",
+    } <= set(responses)
+    auth_schema = responses["401"]["content"]["application/json"]["schema"]
+    domain_schema = responses["409"]["content"]["application/json"]["schema"]
+    assert auth_schema["$ref"].endswith("/PlatformAuthErrorResponse")
+    assert domain_schema["$ref"].endswith("/ReviewReuseErrorResponse")

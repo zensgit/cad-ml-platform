@@ -11,11 +11,11 @@ import time
 from contextlib import asynccontextmanager
 from typing import Any, Callable
 
+import uvicorn
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import PlainTextResponse
-import uvicorn
 
 from src.api import api_router
 from src.api.health_models import (
@@ -30,6 +30,7 @@ from src.api.health_utils import (
     record_health_request,
 )
 from src.api.middleware.integration_auth import IntegrationAuthMiddleware
+from src.api.production_identity import refuse_boot_if_invalid
 from src.core.config import get_settings
 from src.core.providers import bootstrap_core_provider_registry
 from src.core.similarity import (  # type: ignore
@@ -42,7 +43,6 @@ from src.tasks.orphan_scan import orphan_scan_loop
 from src.utils.cache import get_client as get_redis_client
 from src.utils.cache import init_redis
 from src.utils.logging import setup_logging
-from src.api.production_identity import refuse_boot_if_invalid
 
 _metrics_enabled = metrics_enabled()
 if _metrics_enabled:
@@ -152,6 +152,9 @@ async def lifespan(app: FastAPI):
     # 启动时
     logger.info("Starting CAD ML Platform...")
     _validate_optional_feature_flags()
+    from src.core.review_reuse.service import get_review_reuse_store
+
+    get_review_reuse_store()
     try:
         snapshot = bootstrap_core_provider_registry()
         logger.info(
@@ -358,6 +361,9 @@ async def lifespan(app: FastAPI):
 
     # 关闭时
     logger.info("Shutting down CAD ML Platform...")
+    from src.core.review_reuse.service import close_review_reuse_store
+
+    close_review_reuse_store()
     # 清理资源
     try:
         _prune_handle.cancel()
@@ -556,12 +562,12 @@ async def _run_readiness_check(
 async def readiness_check(response: Response):
     """就绪检查"""
     start = time.perf_counter()
-    from src.models.loader import models_readiness_check
-    from src.utils.cache import redis_healthy
     from src.core.providers.readiness import (
         check_provider_readiness,
         load_provider_readiness_config_from_env,
     )
+    from src.models.loader import models_readiness_check
+    from src.utils.cache import redis_healthy
 
     required_providers, optional_providers = load_provider_readiness_config_from_env()
     providers_enabled = bool(required_providers or optional_providers)

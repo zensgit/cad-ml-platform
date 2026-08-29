@@ -17,6 +17,8 @@ from src.core.review_reuse.service import (
 )
 from src.core.review_reuse.store import InMemoryReviewReuseStore
 
+_REVIEWER = "principal-v1-" + "a" * 64
+
 
 def test_export_audit_bundle() -> None:
     svc = ReviewReuseService(InMemoryReviewReuseStore())
@@ -52,7 +54,11 @@ def test_require_validated_reviewer(monkeypatch: pytest.MonkeyPatch) -> None:
             task_id=task.task_id,
             state=HumanDecisionState.reuse,
             reviewer_id="ak-user-deadbeef",
+            reviewer_kind="api_key_fallback",
+            tenant_validated=True,
             reviewer_validated=False,
+            expected_revision=task.revision,
+            evidence_pack_sha256=task.evidence_pack["evidence_pack_sha256"],
         )
     assert ei.value.code == "reviewer_not_validated"
 
@@ -60,8 +66,15 @@ def test_require_validated_reviewer(monkeypatch: pytest.MonkeyPatch) -> None:
         tenant_id="t",
         task_id=task.task_id,
         state=HumanDecisionState.revise,
-        reviewer_id="jwt-sub-123",
+        reviewer_id=_REVIEWER,
+        reviewer_kind="validated_principal",
+        tenant_validated=True,
         reviewer_validated=True,
+        expected_revision=task.revision,
+        evidence_pack_sha256=task.evidence_pack["evidence_pack_sha256"],
+        candidate_id=task.candidates[0].candidate_id,
+        reason_codes=["needs_modification"],
+        reason_text="Reviewed evidence.",
     )
     assert ok.status == TaskStatus.decided
 

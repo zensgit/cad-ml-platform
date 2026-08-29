@@ -76,11 +76,15 @@ class CandidateDecision(BaseModel):
 class HumanDecision(BaseModel):
     state: HumanDecisionState
     reviewer_id: str
+    reviewer_kind: str = "validated_principal"
     reason_codes: List[str] = Field(default_factory=list)
     reason_text: str = ""
     candidate_id: Optional[str] = None
     ts: float
     idempotency_key: Optional[str] = None
+    idempotency_digest: Optional[str] = None
+    reviewed_revision: int = Field(default=1, ge=1, strict=True)
+    evidence_pack_sha256: str = ""
 
 
 class ReviewReuseTask(BaseModel):
@@ -92,10 +96,14 @@ class ReviewReuseTask(BaseModel):
     source_file_name: str = ""
     source_content_sha256: str = ""
     idempotency_key: Optional[str] = None
+    idempotency_digest: Optional[str] = None
+    revision: int = Field(default=1, ge=1, strict=True)
     trace_id: str
     candidates: List[CandidateDecision] = Field(default_factory=list)
     events: List[TaskEvent] = Field(default_factory=list)
     evidence_pack: Optional[Dict[str, Any]] = None
     human_decision: Optional[HumanDecision] = None
     error: Optional[str] = None
+    error_code: Optional[str] = None
     calibration_version: str = "workbench-mvp-0"
+    calibration_status: str = "uncalibrated"

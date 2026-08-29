@@ -24,6 +24,7 @@ def _clear_posture(monkeypatch):
         "API_KEY",
         "API_KEYS",
         "X_API_KEY",
+        "REVIEW_REUSE_DECISIONS_ENABLED",
     ):
         monkeypatch.delenv(v, raising=False)
     yield
@@ -61,14 +62,16 @@ def test_api_key_missing_header_401_via_http_path(monkeypatch) -> None:
     """
     from fastapi.testclient import TestClient
 
-    from src.main import app
-
     monkeypatch.setenv("ENVIRONMENT", "development")
     monkeypatch.setenv("API_KEY", "test")
+    from src.main import app
+
     # Client with NO default auth headers — forces the real missing-header path.
     client = TestClient(app)
     # Pick a non-public route that requires get_api_key.
-    resp = client.get("/api/v1/tolerance/it", params={"diameter_mm": 25, "grade": "IT7"})
+    resp = client.get(
+        "/api/v1/tolerance/it", params={"diameter_mm": 25, "grade": "IT7"}
+    )
     assert resp.status_code == 401
     assert "API Key" in resp.json().get("detail", "")
 
@@ -77,10 +80,10 @@ def test_api_key_wrong_header_401_via_http_path(monkeypatch) -> None:
     """Golden: attacker-chosen key through real HTTP path → 401."""
     from fastapi.testclient import TestClient
 
-    from src.main import app
-
     monkeypatch.setenv("ENVIRONMENT", "development")
     monkeypatch.setenv("API_KEY", "test")
+    from src.main import app
+
     client = TestClient(app)
     resp = client.get(
         "/api/v1/tolerance/it",
@@ -119,7 +122,7 @@ def test_api_key_accepts_configured_secret(monkeypatch) -> None:
 
 
 def test_dev_posture_accepts_harness_test_key(monkeypatch) -> None:
-    from src.api.dependencies import get_api_key, get_admin_token
+    from src.api.dependencies import get_admin_token, get_api_key
 
     monkeypatch.setenv("ENVIRONMENT", "development")
     # No API_KEY → harness default set {test}
@@ -204,6 +207,28 @@ def test_boot_ok_in_development_with_disabled_auth(monkeypatch) -> None:
     monkeypatch.setenv("ENVIRONMENT", "development")
     err = validate_boot_identity(integration_auth_mode="disabled")
     assert err is None
+
+
+def test_decision_enabled_boot_requires_complete_validated_identity(
+    monkeypatch,
+) -> None:
+    from src.api.production_identity import validate_boot_identity
+
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.setenv("REVIEW_REUSE_DECISIONS_ENABLED", "true")
+    err = validate_boot_identity(integration_auth_mode="optional")
+    assert err is not None
+    assert "ReviewReuse decisions require" in err
+
+    assert (
+        validate_boot_identity(
+            integration_auth_mode="required",
+            integration_jwt_secret="secret",
+            integration_jwt_audience="audience",
+            integration_jwt_issuer="issuer",
+        )
+        is None
+    )
 
 
 def test_pytest_without_opt_in_is_production(monkeypatch) -> None:

@@ -24,8 +24,10 @@ _TRUE = frozenset({"1", "true", "yes", "on"})
 
 def deployment_env_raw() -> str:
     return (
-        os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or os.getenv("ENV") or ""
-    ).strip().lower()
+        (os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or os.getenv("ENV") or "")
+        .strip()
+        .lower()
+    )
 
 
 def is_development_opt_in() -> bool:
@@ -43,10 +45,7 @@ def is_production_posture() -> bool:
 def configured_api_keys() -> Set[str]:
     """Expected API keys from env (API_KEYS comma-list, or API_KEY / X_API_KEY)."""
     raw = (
-        os.getenv("API_KEYS")
-        or os.getenv("API_KEY")
-        or os.getenv("X_API_KEY")
-        or ""
+        os.getenv("API_KEYS") or os.getenv("API_KEY") or os.getenv("X_API_KEY") or ""
     ).strip()
     if not raw:
         return set()
@@ -79,18 +78,28 @@ def validate_boot_identity(
     integration_jwt_issuer: str = "",
 ) -> Optional[str]:
     """Return an error string if production boot must refuse; else None."""
+    mode = (integration_auth_mode or "disabled").strip().lower()
+    secret = (integration_jwt_secret or "").strip()
+    audience = (integration_jwt_audience or "").strip()
+    issuer = (integration_jwt_issuer or "").strip()
+    decisions_enabled = (
+        os.getenv("REVIEW_REUSE_DECISIONS_ENABLED", "").strip().lower() in _TRUE
+    )
+    if decisions_enabled and (
+        mode != "required" or not secret or not audience or not issuer
+    ):
+        return (
+            "ReviewReuse decisions require INTEGRATION_AUTH_MODE=required and complete "
+            "JWT secret, audience, and issuer configuration"
+        )
     if not is_production_posture():
         return None
 
     keys = configured_api_keys()
     if not keys:
-        return (
-            "production posture: API_KEY/API_KEYS unset — refuse to boot"
-        )
+        return "production posture: API_KEY/API_KEYS unset — refuse to boot"
     if INSECURE_DEFAULT in keys:
-        return (
-            f"production posture: API_KEY/API_KEYS must not include {INSECURE_DEFAULT!r}"
-        )
+        return f"production posture: API_KEY/API_KEYS must not include {INSECURE_DEFAULT!r}"
 
     admin = configured_admin_token()
     if not admin or admin == INSECURE_DEFAULT:
@@ -98,15 +107,8 @@ def validate_boot_identity(
             "production posture: ADMIN_TOKEN unset or insecure default — refuse to boot"
         )
 
-    mode = (integration_auth_mode or "disabled").strip().lower()
     if mode == "disabled":
-        return (
-            "production posture: INTEGRATION_AUTH_MODE=disabled is not allowed — refuse to boot"
-        )
-
-    secret = (integration_jwt_secret or "").strip()
-    audience = (integration_jwt_audience or "").strip()
-    issuer = (integration_jwt_issuer or "").strip()
+        return "production posture: INTEGRATION_AUTH_MODE=disabled is not allowed — refuse to boot"
 
     if mode == "required":
         if not secret or not audience or not issuer:

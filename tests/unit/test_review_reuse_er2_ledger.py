@@ -8,10 +8,20 @@ from typing import Any, Dict, List
 
 import pytest
 
-from src.core.review_reuse.models import HumanDecisionState, TaskStatus
-from src.core.review_reuse.service import ReviewReuseError, ReviewReuseService
+from src.core.review_reuse.evidence import build_evidence_pack
+from src.core.review_reuse.models import (
+    HumanDecision,
+    HumanDecisionState,
+    TaskEvent,
+    TaskEventType,
+    TaskStatus,
+)
+from src.core.review_reuse.service import (
+    ReviewReuseError,
+    ReviewReuseService,
+    canonical_reviewer_principal,
+)
 from src.core.review_reuse.store import InMemoryReviewReuseStore
-
 
 _REVIEWER_A = "principal-v1-" + "a" * 64
 _REVIEWER_B = "principal-v1-" + "b" * 64
@@ -84,7 +94,7 @@ def _submit(
         state=state,
         reviewer_id=reviewer_id,
         reviewer_kind=reviewer_kind,
-        reason_codes=reason_codes or ["needs_modification"],
+        reason_codes=(["needs_modification"] if reason_codes is None else reason_codes),
         reason_text=reason_text,
         candidate_id=candidate_id,
         idempotency_key=idempotency_key,
@@ -120,6 +130,45 @@ def test_empty_oversized_and_unsupported_input_do_not_persist(
             )
         assert raised.value.code == expected_code
         assert store.list_for_tenant("tenant-a") == []
+
+
+def test_reviewer_principal_is_bound_to_identity_provider() -> None:
+    first = canonical_reviewer_principal("issuer-a", "shared-subject")
+    second = canonical_reviewer_principal("issuer-b", "shared-subject")
+    assert first.startswith("principal-v1-")
+    assert second.startswith("principal-v1-")
+    assert first != second
+
+
+def test_pipeline_failure_preserves_attempt_events_without_invalid_payload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.core.review_reuse import service as service_module
+
+    store = InMemoryReviewReuseStore()
+    service = ReviewReuseService(store)
+
+    def fail_evidence(_task: Any) -> Dict[str, Any]:
+        raise RuntimeError("synthetic evidence failure")
+
+    monkeypatch.setattr(service_module, "build_evidence_pack", fail_evidence)
+    with pytest.raises(ReviewReuseError) as raised:
+        _create_ready(service)
+    assert raised.value.code == "internal_error"
+
+    [failed] = service.list_tasks("tenant-a")
+    assert failed.status == TaskStatus.failed
+    assert failed.revision == 2
+    assert failed.candidates == []
+    assert failed.evidence_pack is None
+    assert [event.event_type.value for event in failed.events][-6:] == [
+        "input_validated",
+        "recall_started",
+        "recall_completed",
+        "precision_started",
+        "precision_completed",
+        "failed",
+    ]
 
 
 def test_decision_requires_validated_tenant_and_reviewer(
@@ -175,6 +224,66 @@ def test_decision_requires_current_revision_and_evidence_digest(
     assert decided.human_decision is not None
     assert decided.human_decision.reviewed_revision == initial_revision
     assert decided.human_decision.evidence_pack_sha256 == digest
+
+
+def test_store_cas_rejects_forged_reviewed_evidence_binding() -> None:
+    store = InMemoryReviewReuseStore()
+    service = ReviewReuseService(store)
+    current = _create_ready(service)
+    forged = current.model_copy(deep=True)
+    forged.revision = current.revision + 1
+    forged.status = TaskStatus.decided
+    forged.human_decision = HumanDecision(
+        state=HumanDecisionState.new,
+        reviewer_id=_REVIEWER_A,
+        reviewer_kind="validated_principal",
+        reason_codes=["new_part_required"],
+        reason_text="Forged binding.",
+        candidate_id=None,
+        ts=1.0,
+        reviewed_revision=current.revision - 1,
+        evidence_pack_sha256="f" * 64,
+    )
+    forged.events.append(
+        TaskEvent(event_type=TaskEventType.decision_submitted, ts=1.0, detail={})
+    )
+    forged.evidence_pack = build_evidence_pack(forged)
+
+    with pytest.raises(Exception) as raised:
+        store.put(forged, expected_revision=current.revision)
+    assert getattr(raised.value, "code", None) == "revision_conflict"
+    unchanged = store.get(current.tenant_id, current.task_id)
+    assert unchanged is not None
+    assert unchanged.revision == current.revision
+    assert unchanged.human_decision is None
+
+
+def test_store_cas_rejects_identity_or_candidate_rewrite() -> None:
+    store = InMemoryReviewReuseStore()
+    service = ReviewReuseService(store)
+    current = _create_ready(service)
+
+    for field, replacement in (
+        ("trace_id", "00000000-0000-0000-0000-000000000000"),
+        ("source_file_name", "renamed.dxf"),
+        ("candidates", []),
+    ):
+        altered = current.model_copy(deep=True)
+        altered.revision = current.revision + 1
+        altered.status = TaskStatus.canceled
+        setattr(altered, field, replacement)
+        altered.events.append(
+            TaskEvent(event_type=TaskEventType.canceled, ts=1.0, detail={})
+        )
+        altered.evidence_pack = build_evidence_pack(altered)
+
+        with pytest.raises(Exception) as raised:
+            store.put(altered, expected_revision=current.revision)
+        assert getattr(raised.value, "code", None) == "store_record_corrupt"
+
+    unchanged = store.get(current.tenant_id, current.task_id)
+    assert unchanged is not None
+    assert unchanged.revision == current.revision
 
 
 def test_idempotency_key_conflicts_on_payload_change(
