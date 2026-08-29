@@ -48,6 +48,9 @@ def _build_app(settings: SimpleNamespace) -> FastAPI:
             "review_reuse_identity_validated": getattr(
                 request.state, "review_reuse_identity_validated", None
             ),
+            "review_reuse_tenant_validated": getattr(
+                request.state, "review_reuse_tenant_validated", None
+            ),
         }
 
     return app
@@ -146,6 +149,26 @@ def test_required_valid_token_sets_state_from_sub() -> None:
     assert payload["tenant_id"] == "tenant-1"
     assert payload["identity_provider"] == "cad-ml-issuer"
     assert payload["review_reuse_identity_validated"] is True
+    assert payload["review_reuse_tenant_validated"] is True
+
+
+def test_optional_verified_token_without_issuer_still_validates_tenant() -> None:
+    settings = _make_settings(mode="optional", issuer="")
+    token = _encode(
+        _full_claims(tenant_id="tenant-signed"),
+        settings.INTEGRATION_JWT_SECRET,
+        settings.INTEGRATION_JWT_ALG,
+    )
+    client = TestClient(_build_app(settings), headers={"X-API-Key": "shared-key"})
+
+    response = client.get("/private", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["tenant_id"] == "tenant-signed"
+    assert payload["review_reuse_tenant_validated"] is True
+    assert payload["review_reuse_identity_validated"] is False
+    assert payload["identity_provider"] is None
 
 
 def test_required_user_header_mismatch_rejected() -> None:
@@ -215,6 +238,7 @@ def test_disabled_mode_does_not_set_trusted_identity_from_headers() -> None:
     assert payload["user_id"] is None
     assert payload["tenant_id"] is None
     assert payload["review_reuse_identity_validated"] is None
+    assert payload["review_reuse_tenant_validated"] is None
 
 
 def test_optional_without_token_does_not_trust_headers() -> None:

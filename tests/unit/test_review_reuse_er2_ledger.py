@@ -286,6 +286,46 @@ def test_store_cas_rejects_unknown_decision_reason_code() -> None:
     assert getattr(raised.value, "code", None) == "store_record_corrupt"
 
 
+@pytest.mark.parametrize("event_case", ["wrong_type", "wrong_detail"])
+def test_store_cas_binds_decision_event_to_transition(event_case: str) -> None:
+    store = InMemoryReviewReuseStore()
+    service = ReviewReuseService(store)
+    current = _create_ready(service)
+    altered = current.model_copy(deep=True)
+    altered.revision = current.revision + 1
+    altered.status = TaskStatus.decided
+    altered.human_decision = HumanDecision(
+        state=HumanDecisionState.revise,
+        reviewer_id=_REVIEWER_A,
+        reviewer_kind="validated_principal",
+        reason_codes=["needs_modification"],
+        reason_text="Reviewed evidence.",
+        candidate_id="archive-1",
+        ts=1.0,
+        reviewed_revision=current.revision,
+        evidence_pack_sha256=_pack_digest(current),
+    )
+    expected_detail = {
+        "state": "revise",
+        "reviewer_id": _REVIEWER_A,
+        "candidate_id": "archive-1",
+        "reviewed_revision": current.revision,
+        "evidence_pack_sha256": _pack_digest(current),
+    }
+    if event_case == "wrong_type":
+        event_type = TaskEventType.canceled
+        detail = {}
+    else:
+        event_type = TaskEventType.decision_submitted
+        detail = {**expected_detail, "reviewer_id": _REVIEWER_B}
+    altered.events.append(TaskEvent(event_type=event_type, ts=1.0, detail=detail))
+    altered.evidence_pack = build_evidence_pack(altered)
+
+    with pytest.raises(Exception) as raised:
+        store.put(altered, expected_revision=current.revision)
+    assert getattr(raised.value, "code", None) == "store_record_corrupt"
+
+
 def test_store_cas_rejects_identity_or_candidate_rewrite() -> None:
     store = InMemoryReviewReuseStore()
     service = ReviewReuseService(store)

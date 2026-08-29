@@ -251,6 +251,7 @@ def test_trusted_tenant_claim_cannot_use_fallback_namespace() -> None:
 
     request = SimpleNamespace(
         state=SimpleNamespace(
+            review_reuse_tenant_validated=True,
             review_reuse_identity_validated=True,
             tenant_id="ak-forged-tenant",
         )
@@ -263,6 +264,28 @@ def test_trusted_tenant_claim_cannot_use_fallback_namespace() -> None:
     with pytest.raises(ReviewReuseError) as non_string:
         _tenant_identity(request, "api-key")
     assert non_string.value.code == "tenant_invalid"
+
+
+def test_verified_tenant_does_not_fall_back_without_reviewer_issuer() -> None:
+    from src.api.v1.review_reuse import _tenant_identity
+
+    first = SimpleNamespace(
+        state=SimpleNamespace(
+            review_reuse_tenant_validated=True,
+            review_reuse_identity_validated=False,
+            tenant_id="tenant-a",
+        )
+    )
+    second = SimpleNamespace(
+        state=SimpleNamespace(
+            review_reuse_tenant_validated=True,
+            review_reuse_identity_validated=False,
+            tenant_id="tenant-b",
+        )
+    )
+
+    assert _tenant_identity(first, "shared-api-key") == ("tenant-a", True)
+    assert _tenant_identity(second, "shared-api-key") == ("tenant-b", True)
 
 
 def test_openapi_documents_platform_and_domain_error_boundaries(

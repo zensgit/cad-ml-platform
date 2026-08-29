@@ -662,6 +662,35 @@ def test_legacy_migration_rejects_file_only_root(tmp_path: Path) -> None:
     assert _error_code(raised.value) == "store_record_corrupt"
 
 
+@pytest.mark.parametrize("apply", [False, True])
+@pytest.mark.parametrize("artifact_kind", ["file", "directory"])
+def test_legacy_migration_rejects_unknown_tenant_artifact_before_swap(
+    tmp_path: Path,
+    artifact_kind: str,
+    apply: bool,
+) -> None:
+    from src.core.review_reuse.store import migrate_legacy_store
+
+    root = tmp_path / f"legacy-{artifact_kind}-{apply}"
+    task = _task("tenant-a")
+    task_path = root / task.tenant_id / "tasks" / f"{task.task_id}.json"
+    task_path.parent.mkdir(parents=True)
+    task_path.write_text(json.dumps(task.model_dump(mode="json")), encoding="utf-8")
+    artifact = root / task.tenant_id / "unexpected"
+    if artifact_kind == "file":
+        artifact.write_text("unexpected", encoding="utf-8")
+    else:
+        artifact.mkdir()
+
+    with pytest.raises(Exception) as raised:
+        migrate_legacy_store(root, apply=apply)
+
+    assert _error_code(raised.value) == "store_record_corrupt"
+    assert task_path.is_file()
+    assert list(root.glob("tenant-v1-*")) == []
+    assert list(root.parent.glob(f"{root.name}.legacy-backup-*")) == []
+
+
 def test_root_validation_allows_legacy_internal_writer_lock(tmp_path: Path) -> None:
     root = tmp_path / "store"
     root.mkdir()
@@ -890,6 +919,49 @@ def test_partial_tenant_creation_does_not_brick_retry(
         assert _create(store, task).task_id == task.task_id
     finally:
         _close(store)
+
+
+def test_new_store_root_fsyncs_each_created_parent_namespace(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from src.core.review_reuse import store as store_module
+
+    root = tmp_path / "missing-a" / "missing-b" / "store"
+    real_fsync = store_module._fsync_directory
+    fsynced: list[Path] = []
+
+    def tracked_fsync(path: Path) -> None:
+        fsynced.append(path)
+        real_fsync(path)
+
+    monkeypatch.setattr(store_module, "_fsync_directory", tracked_fsync)
+    store = FilesystemReviewReuseStore(root)
+    try:
+        assert {tmp_path, root.parent.parent, root.parent} <= set(fsynced)
+    finally:
+        _close(store)
+
+
+def test_migration_bootstrap_fsyncs_each_created_parent_namespace(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from src.core.review_reuse import store as store_module
+
+    root = tmp_path / "migration-a" / "migration-b" / "store"
+    real_fsync = store_module._fsync_directory
+    fsynced: list[Path] = []
+
+    def tracked_fsync(path: Path) -> None:
+        fsynced.append(path)
+        real_fsync(path)
+
+    monkeypatch.setattr(store_module, "_fsync_directory", tracked_fsync)
+    report = store_module.migrate_legacy_store(root, apply=True)
+
+    assert report["apply"] is True
+    assert {tmp_path, root.parent.parent, root.parent} <= set(fsynced)
 
 
 def test_published_tenant_fsync_failure_quarantines_until_restart(
