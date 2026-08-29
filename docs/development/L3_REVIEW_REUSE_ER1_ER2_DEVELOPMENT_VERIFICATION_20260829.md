@@ -7,10 +7,10 @@
 **Ratified authority**: PR #583 exact head
 `9150e06c75721bf086572ed271b68548104e8300`<br>
 **Runtime implementation head**:
-`d682971b1f87536cd14a9fe2c2940e4d4c0266cf`
-(`fix: enforce native ReviewReuse decision reasons`), on top of the
+`352bab81c07804c68eb7471ab96a6faeb8fefd7f`
+(`fix: keep ReviewReuse exports and vocabularies canonical`), on top of the
 original runtime commit `6cc55841` and the earlier hardening chain through
-`4cc75fee`.
+`d682971b`.
 
 ## 1. Authorization boundary
 
@@ -51,7 +51,7 @@ named by design-lock section 9.1:
 | Parent / authority | `9150e06c75721bf086572ed271b68548104e8300` |
 | Files | `test_review_reuse_er1_store_integrity.py`, `test_review_reuse_er2_ledger.py`, `test_review_reuse_api_integrity.py` |
 | Baseline result | **18 failed** |
-| Runtime-head result | **74 passed** |
+| Runtime-head result | **78 passed** |
 
 Exact command:
 
@@ -212,6 +212,11 @@ named tests plus narrower adversarial cases.
 - A persisted EvidencePack's `human_decision` block must exactly match the
   task decision, including the undecided `null` state; recomputing the pack
   digest cannot smuggle a decision into an undecided task.
+- Audit export validates and renders the EvidencePack from the same task
+  snapshot used for the exported task and event ledger. A concurrent decision
+  or cancel cannot create a mixed-revision bundle through a second read.
+- Candidate rejection reasons are checked against the ratified closed
+  vocabulary before native persistence and legacy migration acceptance.
 - A persisted decision must identify exactly the preceding task revision. Its
   reviewed digest must equal the canonical EvidencePack reconstructed for that
   pre-decision `evidence_ready` snapshot, including decisions without an
@@ -237,6 +242,8 @@ named tests plus narrower adversarial cases.
 - Domain 400/403/404/409/413/415/422/500/503 responses are documented for all
   ReviewReuse routes.
 - Unexpected domain codes become a sanitized 500 rather than a catch-all 400.
+- Duplicate-key rejection applies to both `application/json` and
+  `application/*+json` request media types, including parameters.
 - Operator logs receive only the structured store failure code; tenant
   responses contain no path, key, token, or record payload.
 - Isolated/pilot/JWT runbooks no longer present API-key fallback decisions,
@@ -382,21 +389,38 @@ not claim that unratified behavior.
 At runtime head `d682971b`, the complete named fail-first command is **74
 passed** and the full ReviewReuse suite is **168 passed**.
 
+A ninth exact-head GitHub review at
+`b7633aad9a66a0e8d2bbd3cbcc2d1466dcf6874a` found three ER2 consistency and
+validation gaps. Test-only commit
+`cf26776edd5b27b40b029264343cd931b8afe267` reproduced the five behavioral
+cases as **5 failed**; runtime repair
+`352bab81c07804c68eb7471ab96a6faeb8fefd7f` made the same command **5 passed**:
+
+| Finding | Red proof | Closed behavior |
+|---|---|---|
+| Audit export read the task twice and could combine task/events from one revision with EvidencePack/Markdown from another | staged snapshots caused two reads and a mixed revision | export validates and renders from one immutable task snapshot |
+| Candidate rejection reasons accepted arbitrary strings in native persistence and legacy migration | create and migration both accepted an unknown reason | store validation rejects reasons outside the `RejectionReason` vocabulary on both paths |
+| `application/*+json` bodies bypassed duplicate-key parsing | vendor and merge-patch JSON reached the disabled decision gate instead of failing request validation | all application JSON suffix media types use the strict parser before FastAPI model parsing |
+
+At runtime head `352bab81`, the complete named fail-first command is **78
+passed** and the full ReviewReuse suite is **173 passed**.
+
 ## 6. Verification evidence
 
 Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
-`d682971b`.
+`352bab81`.
 
 | Gate | Result |
 |---|---:|
-| Exact named fail-first command, including narrower additions | **74 passed** |
+| Exact named fail-first command, including narrower additions | **78 passed** |
 | Focused null/rollback/recovery batch | **6 passed** |
 | Focused duplicate-owner/candidate-evidence batch | **5 passed** |
 | Focused published-write quarantine/decision/calibration batch | **5 passed** (red: 5 failed at test-only `d91309df`) |
 | Focused immutable-envelope/reviewed-snapshot batch | **6 passed** (red: 6 failed at test-only `5095f292`) |
 | Focused tenant-artifact batch | **2 passed** (red: 2 failed at test-only `4a4b05c5`) |
 | Focused native/historical reason batch | **2 passed** (red: 1 failed / 1 passed at test-only `d06ae3c0`) |
-| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **168 passed** |
+| Focused single-snapshot/candidate-vocabulary/JSON-suffix batch | **5 passed** (red: 5 failed at test-only `cf26776e`) |
+| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **173 passed** |
 | Integration-auth + production-identity + pilot-preflight regressions | **44 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 test-core` | **39 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-openapi` | **5 passed** |
@@ -404,8 +428,8 @@ Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
 | JCS finite-binary64 differential vs Node `JSON.stringify` at `1ee1bad0`; canonical module unchanged at current head | **20,000 cases; 0 mismatches** |
 | Black + isort | **pass (26 files)** |
 | flake8 | **pass (26 files)** |
-| mypy | **success (12 source/script files)** |
-| compileall | **pass** |
+| mypy | **success (3 newly changed source files)** |
+| `py_compile` | **pass (26 changed Python files)** |
 | `git diff --check` | **pass** |
 
 The OpenAPI snapshot was regenerated only after explicit development posture:
