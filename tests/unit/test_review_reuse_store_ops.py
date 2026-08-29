@@ -26,7 +26,6 @@ def test_script_entrypoint_resolves_repo_imports() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     env = dict(os.environ)
     env.pop("PYTHONPATH", None)
-    env["PYTHONNOUSERSITE"] = "1"
 
     result = subprocess.run(
         [sys.executable, str(repo_root / "scripts/review_reuse_store_ops.py"), "--help"],
@@ -38,6 +37,7 @@ def test_script_entrypoint_resolves_repo_imports() -> None:
     )
 
     assert result.returncode == 0, result.stderr
+    assert "usage:" in result.stdout
     assert "ModuleNotFoundError" not in result.stderr
 
 
