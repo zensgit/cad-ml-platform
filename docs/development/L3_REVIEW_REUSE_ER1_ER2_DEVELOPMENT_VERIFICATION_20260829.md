@@ -7,9 +7,9 @@
 **Ratified authority**: PR #583 exact head
 `9150e06c75721bf086572ed271b68548104e8300`  
 **Runtime implementation head**:
-`9494cc24ee9e6bfa4c51c94fbae4b3a04c091f1e`
-(`fix: close ReviewReuse migration integrity gaps`), on top of the original
-runtime commit `6cc55841` and first hardening commit `1ee1bad0`.
+`1bcf275d9fe2da519fd4d75c48946be47953d92c`
+(`fix: make ReviewReuse migration metadata durable`), on top of the original
+runtime commit `6cc55841` and hardening commits `1ee1bad0` and `9494cc24`.
 
 ## 1. Authorization boundary
 
@@ -50,7 +50,7 @@ named by design-lock section 9.1:
 | Parent / authority | `9150e06c75721bf086572ed271b68548104e8300` |
 | Files | `test_review_reuse_er1_store_integrity.py`, `test_review_reuse_er2_ledger.py`, `test_review_reuse_api_integrity.py` |
 | Baseline result | **18 failed** |
-| Runtime-head result | **40 passed** |
+| Runtime-head result | **48 passed** |
 
 Exact command:
 
@@ -110,6 +110,10 @@ named tests plus narrower adversarial cases.
   files and symbolic links continue to fail closed. Read scans ignore only the
   same exact temporary-file shape, so an interrupted write cannot permanently
   block list, metrics, or idempotency recovery.
+- Full-store validation enumerates every root entry. It accepts only recognized
+  tenant/staging directories and the exact legacy internal `.writer.lock`
+  regular file; unexpected files, special files, and symbolic links fail
+  writer startup, preflight, and migration.
 - A first tenant is assembled under an exact hidden staging name and atomically
   published only after `tasks/` and `tenant.json` are durable. Failed staging
   is removed and a retry starts from an absent tenant rather than a partial
@@ -128,6 +132,8 @@ named tests plus narrower adversarial cases.
   backup/publish swap. A competing writer cannot create or serve a replacement
   root between the two renames. Apply retains a uniquely named legacy backup
   and restores it if the final rename fails.
+- Every backup, publish, and rollback namespace rename is followed by an
+  `fsync` of the containing directory before migration can report success.
 - A directory that looks like a new layout is validated before
   `already_migrated` can be returned.
 - A write-capable store validates the whole existing layout at startup and
@@ -177,6 +183,9 @@ named tests plus narrower adversarial cases.
   the exact current canonical EvidencePack digest.
 - The store independently binds the committed decision to the pre-commit
   revision and EvidencePack digest.
+- A digest-valid EvidencePack must bind both nested calibration version and
+  status to the owning task; migration refuses mismatches before recomputing a
+  digest.
 - Client-supplied derived identity fields are forbidden rather than ignored.
 - Candidate/state matrix, closed new-submission reason vocabulary, non-empty
   rationale, actor-bound idempotency, and terminal-state semantics are
@@ -226,15 +235,28 @@ After each red reproduction, the focused cases were rerun green. The three new
 cases are **3 passed** and the complete named fail-first command is **40 passed**
 at `9494cc24`.
 
+A third exact-head review found three more ER1 integrity gaps. Seven behavioral
+cases reproduced the defects as **7 failed** while one explicit legacy-lock
+compatibility case already passed. They were fixed in `1bcf275d`:
+
+| Finding | Red proof | Closed behavior |
+|---|---|---|
+| Migration root renames were not durable across power loss | success and rollback fsync assertions both failed | backup, publish, and rollback renames fsync the store parent |
+| Digest-valid nested calibration version could differ from the task | persisted-read and migration cases both succeeded | version and status are bound to the task before acceptance or re-signing |
+| Full-store validation ignored unknown root files and dangling symlinks | read validation and file-only migration cases succeeded | every root entry is classified; only tenant/staging directories and exact legacy lock are accepted |
+
+The eight-case focused batch is **8 passed** and the complete named fail-first
+command is **48 passed** at `1bcf275d`.
+
 ## 6. Verification evidence
 
 Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
-`9494cc24`.
+`1bcf275d`.
 
 | Gate | Result |
 |---|---:|
-| Exact named fail-first command, including narrower additions | **40 passed** |
-| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **134 passed** |
+| Exact named fail-first command, including narrower additions | **48 passed** |
+| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **142 passed** |
 | Integration-auth + production-identity + pilot-preflight regressions | **44 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 test-core` | **39 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-openapi` | **5 passed** |
