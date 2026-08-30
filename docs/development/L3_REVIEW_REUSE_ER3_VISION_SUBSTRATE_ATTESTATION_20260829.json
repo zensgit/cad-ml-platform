@@ -1,7 +1,7 @@
 {
   "schema_version": "review-reuse-er3-vision-substrate-attestation-v1",
   "attestation_status": "static_verified_runtime_unverified",
-  "attestation_sha256": "77c60489bf6ff50e96f6fadcf123e55f5a652361c5a3af5591f46e7df61b7484",
+  "attestation_sha256": "2d32ff91eb0f42079541f85dbc926f144c13bf1cbbe8ba2b720164fe4329f28e",
   "image": {
     "reference": "ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
     "index_digest": "sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
@@ -389,7 +389,7 @@
         "argument": "required absolute --docker-bin",
         "source_resolution": "walk the complete parent chain by trusted directory FD, open the final target with O_RDONLY|O_CLOEXEC|O_NOFOLLOW, require a regular executable not group/other writable, and match the Gate-C parent-chain and source SHA-256",
         "private_copy": "before revision 1 copy only bytes from the opened source FD to <run-root>/control/docker using exclusive create, mode 0500, file and directory fsync; reopen relative to the retained mode-0700 control-directory FD and bind canonical path, device, inode, mode, size, and SHA-256",
-        "execution": "the source path is never executed; argv[0] is always the private copy, immediately revalidated before each spawn; source/private rename, identity, mode, size, or digest drift fails",
+        "execution": "the source path is never executed; argv[0] is always the private copy, immediately revalidated before each spawn; source/private rename, identity, mode, size, or digest drift fails; each command receipt retains the freshly observed private-binary and socket identity digests",
         "trust_boundary": "the private parent is writable only by the trusted runner UID; same-UID compromise is outside the boundary",
         "post_resolution_argv": "argv[1:3] is exactly [--host, <Gate-C endpoint>]; PATH lookup, --context, credential-helper use, and shell execution are forbidden"
       },
@@ -397,6 +397,8 @@
         "operation",
         "argv",
         "environment_sha256",
+        "docker_private_binary_identity_sha256",
+        "docker_socket_identity_sha256",
         "stdin_sha256",
         "stdin_size_bytes",
         "exit_code",
@@ -710,7 +712,7 @@
       "size_bytes": 67108864
     },
     "command_override": "uvicorn caddedup_vision.api.main:app --host 127.0.0.1 --port 8000",
-    "control_transport": "every Docker command uses the verified private executable copy, explicit Gate-C --host endpoint, exact API-version child environment, and revalidated socket identity; active/default context is never consulted; every command is represented by the closed command receipt and raw stdin/stdout/stderr streams, and the service has no host TCP or Unix-socket publication",
+    "control_transport": "every Docker command uses the verified private executable copy, explicit Gate-C --host endpoint, exact API-version child environment, and freshly revalidated socket and private-binary identities retained in that command receipt; active/default context is never consulted; every command is represented by the closed command receipt and raw stdin/stdout/stderr streams, and the service has no host TCP or Unix-socket publication",
     "fixture_input_policy": {
       "source_path_prefix": "tests/vision/fixtures/cad_features/",
       "source_path_shape": "exactly one basename ending .png after the fixed prefix",
@@ -731,7 +733,7 @@
       "verified_fixture_set": "canonical inputs/verified-fixture-set.json binds all four manifest entries, all three unique sources, observed sizes/digests, manifest order, entry/unique-source counts, and a self-excluding digest before any transfer"
     },
     "fixture_transfer": "after runtime preflight only, each unique tracked source is securely opened once under fixture_input_policy; the complete verified-fixture-set digest is persisted before execute; fixed docker cp - receives a deterministic exact one-regular-file POSIX ustar stream whose raw stdin bytes, size, whole-tar digest, member metadata, and transferred-content digest are retained; each archive entry is copied once and removed after its one index request, while the query buffer is copied and removed in two separate transfer/request pairs",
-    "control_operation_seal": "every Docker command has a closed exact-argv/environment/stdin/exit/stdout/stderr receipt whose canonical JSON and raw stdin/stdout/stderr are required artifacts; every drawing-affecting docker cp and docker exec is bracketed by distinct fresh inspect receipts whose command JSON, raw streams, raw HostConfig and Config.Env digests, globally unique observation sequence, and normalized strict projection are retained; equal projection digests are allowed but cached/replayed observations are not; each copy also binds whole-tar and transferred-content SHA-256; all ordered receipts are bound by runtime_seal_receipt_sha256",
+    "control_operation_seal": "every Docker command has a closed exact-argv/environment/fresh-private-binary-identity/fresh-socket-identity/stdin/exit/stdout/stderr receipt whose canonical JSON and raw stdin/stdout/stderr are required artifacts; every drawing-affecting docker cp and docker exec is bracketed by distinct fresh inspect receipts whose command JSON, raw streams, raw HostConfig and Config.Env digests, globally unique observation sequence, and normalized strict projection are retained; equal projection digests are allowed but cached/replayed observations are not; each copy also binds whole-tar and transferred-content SHA-256; all ordered receipts are bound by runtime_seal_receipt_sha256",
     "outbound_probe": "docker exec first requires curl --version to exit 0, then invokes exactly source_contract.fixed_http_argv.no_egress_probe inside the empty network-none container; that argv is separate from common_prefix, has max-time 3 and write-out %{http_code} without a leading newline, and must exit 7 with stdout exactly 000 before fixture bytes are opened; timeout exit 28 fails and docker inspect NetworkMode none with no attachments remains authoritative",
     "published_port": null,
     "proxy_environment": "absent",
@@ -755,7 +757,7 @@
       "disabled integration flags and absent proxy variables match this attestation",
       "GET /api/stats reports total_drawings=0",
       "GET /health reports both in-memory index sizes=0",
-      "the runtime seal binds every Docker command raw stdin/stdout/stderr and fresh one-to-one inspect receipt/raw stream around drawing-affecting cp/exec operations; copy stdin is an exact replayable one-member ustar artifact; only after preflight are fixtures opened through directory FDs, the complete verified-fixture-set digest persisted, and immutable bytes used for the pre-index query"
+      "the runtime seal binds every Docker command exact argv, controlled-environment artifact, fresh private-binary/socket identity digests, raw stdin/stdout/stderr, and fresh one-to-one inspect receipt/raw stream around drawing-affecting cp/exec operations; copy stdin is an exact replayable one-member ustar artifact; only after preflight are fixtures opened through directory FDs, the complete verified-fixture-set digest persisted, and immutable bytes used for the pre-index query"
     ]
   },
   "limitations": [

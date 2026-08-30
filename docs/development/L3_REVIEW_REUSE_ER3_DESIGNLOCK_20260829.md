@@ -270,14 +270,21 @@ descriptor identity mismatch fails with no fixture transfer.
   owner-supplied value. A canonical repository-state object binds the hashed
   root realpath, observed/authorized heads, reviewed-command digest, empty-status
   digest, and clean result into the runtime preflight. Mismatch fails before any
-  Docker or fixture operation.
+  Docker or fixture operation. These arguments are integrity pins only: they do
+  not authenticate an owner or prove ratification. Gate C remains an out-of-band
+  GitHub/operator governance decision; the runner must never infer authority from
+  caller-provided values. A future machine-verifiable signature/authorization
+  artifact would require a separate L3 design lock and is not part of ER3.
 - A new run uses a fresh filesystem store root, tenant, output directory, and
   idempotency key. Before checking or creating `--out`, every ER3 subcommand opens
   and exclusively locks the same directory-FD-relative sibling
   `.<run-root-basename>.review-reuse-er3.lock`; it is a mode-`0600`, owner-matching,
-  single-link regular file outside the run root. The run-level lease stays held
-  through classification, store close, inventory, atomic summary rename, and
-  parent-directory fsync. A competing `er3-run`, `er3-recover`, or `er3-finalize`
+  single-link regular file outside the run root. The path is permanent: no ER3
+  command may unlink, rename, truncate, or replace it. The locked FD and directory
+  entry must retain the same device/inode/link/mode/owner identity before every
+  lifecycle phase. The run-level lease stays held through classification, store
+  export-freeze, inventory, atomic summary rename, and parent-directory fsync. A
+  competing `er3-run`, `er3-recover`, or `er3-finalize`
   returns `archive_run_writer_conflict` before reading mutable run state or invoking
   Docker. `--out` is created mode `0700` through the trusted parent directory FD
   and contains every store/control/export artifact. An existing root is accepted
@@ -289,7 +296,8 @@ descriptor identity mismatch fails with no fixture transfer.
   dedicated recovery/finalize/corruption reason; they never start a new run or
   re-execute drawing effects.
 - Real mode rejects ambient `REVIEW_REUSE_STORE`, `REVIEW_REUSE_STORE_DIR`,
-  `REVIEW_REUSE_LIVE_DEDUP`, `DEDUPCAD_VISION_URL`, all upper/lower-case proxy
+  `REVIEW_REUSE_LIVE_DEDUP`, `REVIEW_REUSE_DECISIONS_ENABLED`,
+  `DEDUPCAD_VISION_URL`, all upper/lower-case proxy
   variables, and `DOCKER_HOST`, `DOCKER_CONTEXT`, `DOCKER_TLS_VERIFY`,
   `DOCKER_CERT_PATH`, `DOCKER_CONFIG`, `DOCKER_API_VERSION`, and
   `DOCKER_DEFAULT_PLATFORM`, and every environment key beginning `PYTHON`.
@@ -299,8 +307,9 @@ descriptor identity mismatch fails with no fixture transfer.
   context, proxy, or platform selection. It constructs the store
   and archive controller explicitly and never calls an environment-selected
   store or live-dedup factory.
-- The runner removes and asserts absence of
-  `REVIEW_REUSE_DECISIONS_ENABLED`; no decision endpoint is called.
+- Presence of `REVIEW_REUSE_DECISIONS_ENABLED` in the parent environment is a
+  hard `archive_host_environment_invalid` failure; it is never silently removed.
+  The controlled child environment never sets it, and no decision endpoint is called.
 - Real mode rejects `--seed-similar`, non-empty `seed_candidates`, and synthetic
   fallback success.
 
@@ -326,9 +335,9 @@ descriptor identity mismatch fails with no fixture transfer.
 - The image digest alone is insufficient. The proposed static attestation is
   `docs/development/L3_REVIEW_REUSE_ER3_VISION_SUBSTRATE_ATTESTATION_20260829.json`
   with canonical digest
-  `77c60489bf6ff50e96f6fadcf123e55f5a652361c5a3af5591f46e7df61b7484`.
+  `2d32ff91eb0f42079541f85dbc926f144c13bf1cbbe8ba2b720164fe4329f28e`.
   Its reviewed raw-file SHA-256 is
-  `64c933725eb02c23f4284bf6a948c8309d7fefbfec489e6bd7c62eef41a8d4b2`.
+  `23680e3625c6d87d083998e8cdcfdb9004dd19350db81755c133f4eeb88ceb68`.
   It binds the OCI index to source revision
   `2fc35d60ff034c9f790868c02381a9716becc942`, records both platform manifests and
   expected image IDs, enumerates search-affecting state, and identifies the
@@ -380,13 +389,18 @@ descriptor identity mismatch fails with no fixture transfer.
   `--resource-owner-id <64-lowercase-hex>`. Before pull/create, three fixed label-
   filtered Docker list commands must prove zero matching containers, volumes, and
   networks. Together with version, pull, image inspect, create, start, and initial
-  inspect, these form exactly nine setup command receipts. Every created resource
-  carries both labels. The create receipt's exact container ID and any observed
-  labeled volume/network IDs are fsynced immediately in
-  `receipts/preflight/resource-ownership.json`; if a crash precedes that journal,
-  the prior zero proof plus both unguessable labels is the ownership authority.
-  Recovery on the exact bound daemon removes only this owned ID/set and fails on
-  any foreign, missing-proof, duplicate, or ambiguous label match.
+  inspect, these form exactly nine setup command receipts. The contract contains
+  the exact argv matrix for all nine; `golden-setup` is not a live command or an
+  authorization shortcut. Every created resource carries both labels. Before each
+  of all 79 Docker commands (9 setup, 22 operations, 44 inspections, 4 cleanup),
+  `state/run-journal.json` is canonicalized and fsynced with the operation, exact
+  argv digest, class-local sequence, and `prepared` stage. Subprocess result and
+  fresh control identities are journaled before receipt artifacts, then the full
+  artifact group is fsynced before the journal marks it complete. This creates the
+  only accepted partial-root grammar. Destructive recovery requires all three
+  complete zero-proof receipts plus the exact journaled ID or one unique dual-label
+  match; ambiguity, missing proof, an unjournaled artifact, or a non-prefix group
+  returns `archive_run_recovery_evidence_incomplete` with no deletion.
 - The required absolute `--docker-bin` source is resolved through the same
   directory-FD/no-symlink policy, including its complete parent chain, to a
   regular executable rejected if group/other writable. Its canonical realpath,
@@ -398,8 +412,12 @@ descriptor identity mismatch fails with no fixture transfer.
   Docker command revalidates and executes only this private copy; its parent is
   writable only by the trusted runner UID, and same-UID compromise is outside the
   boundary. Source/private rename, inode, mode, size, or hash drift fails before
-  spawn. Every Docker command uses the private path as `argv[0]` and
-  `--host <owner-bound-endpoint>` as the next two arguments; the child environment sets only the controlled empty
+  spawn. Every Docker command receipt retains the freshly observed private-binary
+  and socket identity digests; a one-time preflight identity cannot substitute.
+  Every command uses the private path as `argv[0]` and `--host
+  <owner-bound-endpoint>` as the next two arguments. The child environment has
+  exactly five keys and its complete canonical preimage is retained at
+  `receipts/preflight/docker-environment.json`; it sets only the controlled empty
   `DOCKER_CONFIG` and exact `DOCKER_API_VERSION=1.43` additions and never uses an
   ambient context, PATH lookup, credential helper, or shell. The canonical
   `docker_control_sha256` binds the source/private binary identities,
@@ -445,8 +463,12 @@ descriptor identity mismatch fails with no fixture transfer.
   after the raw array passes.
 - Every Docker control operation after endpoint resolution, including image
   inspection, create, start, `cp`, `exec`, cleanup, and labeled-resource listing,
-  has a closed command receipt with exact argv, integer exit code, and raw
-  stdout/stderr SHA-256. Every drawing-affecting `docker cp` and `docker exec` is
+  has a closed ten-field command receipt with exact argv, controlled-environment
+  digest, freshly observed private-binary/socket identity digests, integer exit
+  code, and raw stdin/stdout/stderr SHA-256. The contract freezes the real setup
+  and all 22 operation argv matrices plus every dynamic value source; synthetic
+  serialization streams never authorize a command. Every drawing-affecting
+  `docker cp` and `docker exec` is
   additionally wrapped by freshly executed before/after normalized `docker
   inspect` commands. Each inspection receipt binds a globally unique observation
   sequence, exact inspect argv and stream digests, and the canonical strict-
@@ -720,8 +742,13 @@ with one immutable selector:
   ownership, Docker-control, operation, success-intent, summary, ignored, linked,
   special, or extra path may exist. Every byte, mode, owner, digest, tenant/task
   identity, revision-1 event prefix, selector, idempotency preimage, and
-  `ER3RunBinding` must match. The CAS winner that appends `recall_started` is the
-  sole controller owner. Any persisted v2 running task that contains
+  `ER3RunBinding` must match. Classification is ordered and mutually exclusive:
+  a parsed revision-1-or-later task cannot be relabeled initialization-incomplete;
+  exact revision-2 canceled and revision-3/4 failed roots have dedicated terminal
+  branches, while only journal/receipt-prefix-valid revision-2/3 roots are
+  recovery-required. Every other partial or extra shape is authorization mismatch.
+  The CAS winner that appends `recall_started` is the sole controller owner. Any
+  persisted v2 running task that contains
   `recall_started` but no terminal event is an interrupted run. Create retry,
   idempotency retry, restart, and ordinary `er3-run` must never call prepare or
   execute again for it.
@@ -732,10 +759,13 @@ with one immutable selector:
   below is the only transition out of an interrupted revision-2/3 task. Tests must
   cover cancel/controller/CAS/crash races and prove no terminal `canceled` task can
   retain journaled or run-id/resource-owner-id pair-labeled resources.
-- Only explicit `er3-recover` may acquire the external run-level lease and then
-  the store writer lease, validate the exact
-  tenant/task/run binding, remove only journaled or uniquely pair-labeled owned
-  resources, prove every
+- Only explicit `er3-recover` may acquire the persistent-inode run-level lease and
+  then the store writer lease, validate the exact tenant/task/run binding and the
+  machine-readable recovery prefix grammar. Each setup/operation/inspection/cleanup
+  command is tested at `prepared`, `result_recorded`, every artifact-prefix,
+  receipt-complete, journal-complete, and task-CAS crash boundary. Only a grammar-
+  accepted root may remove journaled or uniquely dual-label owned resources and
+  prove every
   container/volume/network resource absent, and CAS the interrupted task to
   `failed` with `code="archive_run_interrupted"`, `recovered=true`, and
   `cleanup_status="verified_absent"`. Recovery never opens fixture bytes, calls
@@ -748,9 +778,12 @@ with one immutable selector:
   reason code, not a public API response. Only explicit `er3-finalize` may acquire
   the external run-level lease and then the store writer lease, verify the immutable binding,
   success intent, revision-4 store task, complete pre-summary artifact bytes,
-  verified-absent owned resources, and absence of a conflicting summary; close
-  only the store, keep the run-level lease, snapshot inventory, atomically publish
-  and parent-fsync the deterministic summary, then release the run-level lease. It performs
+  verified-absent owned resources, and absence of a conflicting summary. It enters
+  a narrowly authorized store export-freeze that holds the store's in-process lock
+  and writer lease, proves exactly one tenant sidecar, one named task, and the
+  optional one-binding idempotency index, snapshots the full inventory, atomically
+  publishes and parent-fsyncs the deterministic summary, then closes the store and
+  releases the run-level lease. It performs
   no Docker, fixture, index/search, task transition, pack reconstruction, or
   external call. A mismatch leaves revision 4 unchanged and returns
   `archive_completion_incomplete`; it never creates a second output root or
@@ -802,13 +835,13 @@ with one immutable selector:
 The complete v2 canonical contract is
 `docs/development/L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json`
 with contract digest
-`8817647bb629f83ddf1c56e8a707de3a1e1fae8c3f26e522f2a1cc63a6e744ba`.
+`59f51f4a4b442c81a0431135291a44f41f178335b0de3e615245e0e01e8224e9`.
 Its reviewed raw-file SHA-256 is
-`ef8fc9e9c0a826675c3c953d44359799c850277d72d84468f713622365f38663`.
+`87ecaf430438e52fda7c8e8f3c4abc0f9eac07388306f6fcdcb7fa48f197d158`.
 It freezes exact object keys, types/nullability, list ordering, task context,
 unknown-field rejection, and digest exclusions. Its embedded golden vector has
 EvidencePack digest
-`defad64d0e51d8c475ee9b881b3e8603a38300d0f489f0b83421ae2d102e402e`.
+`b012ad952a83b4ed29b402818440b364985613a20199c54389e3bc5e5c91c104`.
 The contract digest excludes only `contract_sha256`; the golden EvidencePack
 digest excludes only `evidence_pack_sha256`. Implementation copies neither value
 from prose: tests recompute both with `canonical_json_v1()` and reject any field,
@@ -855,9 +888,9 @@ field schemas, invariants, and non-placeholder golden for each critical digest:
 - strict runtime inspect projection:
   `c907c2aa218065321eba9ac471a4436286f363632809fcbd8c15a8c6838cf927`;
 - runtime preflight:
-  `f62ccc130ec28b47c0e8125fdc32e73cfb92faedb69e5b2675e6f4d6227dd22e`;
+  `c9290dde847d946d96e1212740bac982bb764279b26fe5712cf35494b9c48e21`;
 - continuous runtime seal:
-  `d9ca54ef8f9e13ef4163aa587d74dedaffaf7efefeb90f9478d9996218f5f45d`.
+  `939bc5e9334738aa249af8c9825d7c5c9b94b7f8a0852cde4ec379a23e4da500`.
 
 Those values are serialization vectors, not expected live observations. A live
 run exports and hashes its own complete named preimages. All-zero, one-character
@@ -899,9 +932,13 @@ JSON, EvidencePack Markdown, audit bundle, store writer lease, and run summary.
 The separate run-level lease remains outside the run root and is not an artifact.
 The v2 contract freezes every required non-store artifact path template, count,
 encoding, and digest relationship; only files beneath the explicit filesystem
-store have a dynamic path family. Before inventory, the runner closes the store
-and proves its lease is a zero-byte regular file while retaining the external
-run-level lease through summary rename and parent fsync. `run-summary.json` is
+store use one closed tenant/task/idempotency family. `control/docker`, the exact
+Docker environment preimage, and the final run journal are mandatory long-lived
+artifacts. Before inventory, the runner enters the store export-freeze and proves
+its zero-byte writer lease remains held while retaining the external run-level
+lease through summary rename and parent fsync. Both locked FDs must still match
+their permanent path device/inode; neither lease path may be unlinked, renamed,
+truncated, or replaced. `run-summary.json` is
 canonical JSON with exactly these top-level fields:
 `schema_version`, `status`, `run_id`, `tenant_id`, `task_id`, `task_revision`,
 `evidence_pack_sha256`, `archive_manifest_sha256`,
@@ -911,7 +948,7 @@ canonical JSON with exactly these top-level fields:
 `writer_lease`, and `artifacts`. For success, schema is
 `review-reuse-er3-run-summary-v1`, status is `succeeded`, and task revision is 4.
 `writer_lease` has exactly `relative_path`, `sha256`, `size_bytes`, and
-`closed_before_snapshot`; `artifacts` is the lexicographically keyed map from
+`held_through_summary_fsync`; `artifacts` is the lexicographically keyed map from
 every other regular file's ASCII POSIX relative path to an exact
 `{sha256,size_bytes}` object. Missing any required template instance, duplicate
 sequence/ordinal, or adding a non-store file outside the closed template set fails.
@@ -923,8 +960,14 @@ Artifact paths forbid absolute paths, empty segments, `.`, `..`, backslashes,
 non-ASCII bytes, and duplicate normalized results. Recursive `lstat` accepts only
 directories and regular files with `st_nlink == 1`; symlink, hardlink, socket,
 FIFO, device, path escape, missing file, or extra file fails. The store root and
-store writer lease are relative paths below the run root, and that lease is included
-in the artifact map; the external run-level lease is deliberately excluded.
+store writer lease are relative paths below the run root, and that lease is
+included in the artifact map. Its open FD and path `lstat` identity,
+owner, mode, link count, and zero size must remain equal from store-lock acquisition
+through summary parent fsync. The store subtree must contain exactly
+one hashed tenant directory, one sidecar, one task, and only the conditional
+single-binding idempotency index; another tenant/task/index or any staging/temp
+entry fails. The external run-level lease is deliberately excluded but its stable
+inode remains locked through summary fsync.
 
 The v2 Markdown bytes are frozen as:
 
@@ -938,9 +981,9 @@ b"Canonical evidence (null remains unavailable):\n\n    " \
 Pretty JSON, `repr`, locale, wall-clock time, or host paths are forbidden.
 `evidence.md` equals those bytes; the audit bundle Markdown is their strict UTF-8
 decode. The golden bytes are 3,556 bytes with SHA-256
-`6cd0ca34a0d7e30160a993e2cf0343c095e91569624b5a83f568ab7cbb42a4da`.
+`c91711621d0853f113c701f313c47e8cf3f229900b498f04a9bb941db36d760e`.
 The minimal run-summary serialization vector has digest
-`9e636edbdb2225ddb59f723734c1766f97da4b0c5b4aecdbfe6bbc52d1c0788b`.
+`2c30944a625ec5002114ea716239598f5a7db5f67606301de2797f0e4512d5fc`.
 V1 rendering remains byte-identical.
 
 Replay has one ordered fact chain:
@@ -999,6 +1042,9 @@ The CLI exits non-zero with a structured `status="failed"` and one stable
 - `archive_recall_incomplete`
 - `archive_run_interrupted`
 - `archive_run_initialization_incomplete`
+- `archive_run_terminal_canceled`
+- `archive_run_terminal_failed`
+- `archive_run_recovery_evidence_incomplete`
 - `archive_run_writer_conflict`
 - `archive_run_recovery_required`
 - `archive_run_finalize_required`
@@ -1139,14 +1185,33 @@ pull, start, or fixture processing. ER3 closure additionally requires a separate
 run against the dedicated pinned `dedupcad-vision` container and the approved
 manifest. Mock-only green tests are not closure evidence.
 
-The runtime-base log is a fail-first matrix, not a claim that compatibility tests
-which already protect v1 must become red. `pytest --collect-only` must enumerate
-exactly the 106 node IDs above. The matrix records each node ID as expected-red or
-expected-existing-pass against `af72d0ec02b5...`; every ER3 implementation claim
-must be red for its named missing behavior, while existing v1/public compatibility
-guards may remain green. The aggregate baseline must exit nonzero. Collection
-failure, import failure, deselection, skip, xfail, or an unclassified node is not
-valid fail-first evidence.
+The runtime-base log is governed by
+`lifecycle_contract.implementation_ancestry.gate_a_fail_first_matrix`, not by a
+Gate-A author's judgment. Against exact base `af72d0ec02b5...`, tests 28 and 34
+are the only `expected-existing-pass` nodes; the other 104 are `expected-red` at
+their exact `missing_behavior::<test-id-suffix>` boundary. The contract contains
+all 106 `test_id -> expected_baseline -> reason_code -> required_failure_boundary`
+entries and their 104/2 summary. `pytest --collect-only` must enumerate that exact
+set; the aggregate baseline exits nonzero. Collection/import failure, deselection,
+skip, xfail, xpass, unexpected pass/fail, duplicate, or unclassified node is
+invalid evidence.
+
+The only classifier implementation is
+`tests/verification/review_reuse_er3_contract_verifier.py`. Gate A runs it with the
+ratified contract path, exact runtime-base SHA, collected-node JSON, and pytest
+report JSON; it emits one strict
+`review-reuse-er3-gate-a-verification-v1` JSON object containing the baseline SHA,
+106/104/2 counts, every classified entry, zero skipped/xfail/unclassified values,
+and an aggregate `valid=false` fail-first result. It must hardcode the owner-
+ratified contract canonical/raw digests; reading expected values solely from the
+contract's own self-digest is forbidden.
+
+Within the fixed 106 node IDs, tests 67, 79-81, 84, 86, 97, 104, and 106 are
+parameterized to cover respectively out-of-band Gate-C integrity, closed store/
+control/environment/journal inventory, persistent lease inode, real argv plus
+per-command identities, the exact environment artifact, fail-first classification,
+mutually exclusive terminal/root states, and every journaled crash boundary. No
+extra unclassified node substitutes for these required parameter sets.
 
 At least one mutation case must make each Python import, locality, private Docker
 binary/endpoint/argv/stdin, fresh-inspection, raw HostConfig/Config.Env, fixture-
@@ -1171,6 +1236,8 @@ The first owner response may authorize only these new files:
 - synthetic Docker-inspect/API-v1.43 and receipt-stream fixtures below that same
   fixture directory, each with a digest named by the test-only verification doc;
 - `.github/workflows/review-reuse-er3-contract.yml` with the contract below;
+- `tests/verification/review_reuse_er3_contract_verifier.py`, the sole baseline
+  classifier and canonical/digest verifier named above;
 - one Gate-A fail-first verification document.
 
 Gate A forbids changes to `src/`, `scripts/review_reuse_isolated_archive_run.py`,
@@ -1197,7 +1264,9 @@ Gate B may authorize:
 - new `src/core/review_reuse/evidence_dispatch.py`
 - `src/core/review_reuse/service.py` and `store.py` only for the explicit v1/v2
   selector, internal manifest-bound PNG seam, read-only replay, dispatch,
-  context validation, and idempotency rules in §5.4-§5.6
+  context validation, idempotency rules, persistent run/store lease-inode
+  validation, and the narrow export-freeze that keeps the writer lease held
+  through summary fsync in §5.4-§5.6
 - `src/core/review_reuse/models.py` only for the immutable selector,
   `ER3RunBinding`, `input_content_verified` event, strict v2 evidence context, and
   selector-conditioned calibration described in §5.3-§5.4
@@ -1223,7 +1292,9 @@ The workflow has `name: ReviewReuse ER3 Contract`, job id/name `er3-contract`, a
 shell suffix such as `|| true`. One gate step asserts the collected node-ID set is
 exactly the 106 ratified names and that the run reports zero skipped, xfailed,
 xpassed, deselected, or collection errors. Separate exact commands run the
-canonical/digest verifier and the frozen ER1/ER2/v1 regression selection. The
+canonical/digest verifier at
+`tests/verification/review_reuse_er3_contract_verifier.py` and the frozen
+ER1/ER2/v1 regression selection. The
 verifier hardcodes the owner-ratified canonical and raw-byte digests rather than
 reading expected values only from each artifact's own self-digest field. Before
 merge can ever be considered, repository branch protection must independently
@@ -1266,8 +1337,8 @@ ER3 is complete only when all of the following are true at one exact head:
 - the runtime manifest matches §4 digest
   `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf`;
 - the v2 contract and golden digests remain
-  `8817647bb629f83ddf1c56e8a707de3a1e1fae8c3f26e522f2a1cc63a6e744ba`
-  and `defad64d0e51d8c475ee9b881b3e8603a38300d0f489f0b83421ae2d102e402e`;
+  `59f51f4a4b442c81a0431135291a44f41f178335b0de3e615245e0e01e8224e9`
+  and `b012ad952a83b4ed29b402818440b364985613a20199c54389e3bc5e5c91c104`;
 - existing ReviewReuse, identity, production-preflight, and core-fast suites are
   green without skips added for this tranche;
 - an approved real private service run indexes the archive and searches the
@@ -1319,7 +1390,9 @@ exact Gate-A fail-first matrix:
 > merge, decision enablement, deployment, pilot, or customer data.
 
 Suggested Gate-C repository-fixture-run owner response after exact-head Gate-B
-implementation review:
+implementation review. This response is an out-of-band human governance artifact;
+`--authorized-head` and the other CLI arguments enforce integrity only and cannot
+authenticate that the owner issued this response:
 
 > I authorize one ER3 repository-fixture run at implementation exact head `<sha>`
 > using only the ratified manifest/image/contracts; absolute Python interpreter,

@@ -25,11 +25,11 @@ implementation, merge, decision enablement, deployment, pilot, or customer data.
 | Static attestation | `L3_REVIEW_REUSE_ER3_VISION_SUBSTRATE_ATTESTATION_20260829.json` |
 | EvidencePack v2 contract | `L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json` |
 | Embedded manifest proposal canonical digest; no manifest file exists at this docs-only head | `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf` |
-| Static attestation digest | `77c60489bf6ff50e96f6fadcf123e55f5a652361c5a3af5591f46e7df61b7484` |
-| Static attestation raw file SHA-256 | `64c933725eb02c23f4284bf6a948c8309d7fefbfec489e6bd7c62eef41a8d4b2` |
-| EvidencePack v2 contract digest | `8817647bb629f83ddf1c56e8a707de3a1e1fae8c3f26e522f2a1cc63a6e744ba` |
-| EvidencePack v2 contract raw file SHA-256 | `ef8fc9e9c0a826675c3c953d44359799c850277d72d84468f713622365f38663` |
-| Embedded EvidencePack golden digest | `defad64d0e51d8c475ee9b881b3e8603a38300d0f489f0b83421ae2d102e402e` |
+| Static attestation digest | `2d32ff91eb0f42079541f85dbc926f144c13bf1cbbe8ba2b720164fe4329f28e` |
+| Static attestation raw file SHA-256 | `23680e3625c6d87d083998e8cdcfdb9004dd19350db81755c133f4eeb88ceb68` |
+| EvidencePack v2 contract digest | `59f51f4a4b442c81a0431135291a44f41f178335b0de3e615245e0e01e8224e9` |
+| EvidencePack v2 contract raw file SHA-256 | `87ecaf430438e52fda7c8e8f3c4abc0f9eac07388306f6fcdcb7fa48f197d158` |
+| Embedded EvidencePack golden digest | `b012ad952a83b4ed29b402818440b364985613a20199c54389e3bc5e5c91c104` |
 | Verified fixture-set golden digest | `536113fa48ac2f692635959bd5f1d0f8ac92faff1fc8ab9f27679a5f474e51b1` |
 | Vision OCI index | `sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251` |
 
@@ -50,14 +50,16 @@ quality or runtime evidence. The critical provenance vectors are:
 | Docker socket identity | `494b331e50b32565a2d20eda74afc69a5cb698e53be47363701046b9ab80d850` |
 | Raw HostConfig v1.43 | `9ab001ac45b9fdbedb61dc2180864659298ed5acda1f28333a8196824cea3bae` |
 | Raw Config.Env | `cad77eb9bd322cb3082639d8e287f488afc85d2e03d2cb56922698cf63018a19` |
-| Resource ownership | `16aab6c71ec7d2fbb443e6e2e0d57b29055c0bfd3f0b7b0eacaed71c18c1250b` |
-| Docker control plane | `d96befb4e6b7c3952a8dce22d269fda9d6b8747654417d3f5ef0cb9e5080d5a5` |
+| Resource ownership | `103acb5087f3624731243d89dc1cb210dfd2c039d0ac24894def8acd28dbcd9d` |
+| Docker control plane | `ef6802d6138b19db4f580a75ac83fdf99b6d04e2bd3c56199d4e0484ca6c5ea7` |
+| Exact Docker child-environment artifact | `571117807ac16fa31fd8cb124a55a2263f050bb04db25fb94b08774f6b53d51d` |
+| Final run-journal artifact | `615ec0ac25a4ca8edd83bacc589d4f411390ab544e3a9c71e2e625a85f547031` |
 | Strict runtime inspect projection | `c907c2aa218065321eba9ac471a4436286f363632809fcbd8c15a8c6838cf927` |
-| Runtime preflight | `f62ccc130ec28b47c0e8125fdc32e73cfb92faedb69e5b2675e6f4d6227dd22e` |
-| Continuous runtime seal | `d9ca54ef8f9e13ef4163aa587d74dedaffaf7efefeb90f9478d9996218f5f45d` |
-| EvidencePack v2 Markdown bytes | `6cd0ca34a0d7e30160a993e2cf0343c095e91569624b5a83f568ab7cbb42a4da` |
-| Success-intent golden vector | `eb647504e2fa6e7fefb1e61e070ebf7ada63a468eaffff8e64eb026dbb506050` |
-| Run-summary golden vector | `9e636edbdb2225ddb59f723734c1766f97da4b0c5b4aecdbfe6bbc52d1c0788b` |
+| Runtime preflight | `c9290dde847d946d96e1212740bac982bb764279b26fe5712cf35494b9c48e21` |
+| Continuous runtime seal | `939bc5e9334738aa249af8c9825d7c5c9b94b7f8a0852cde4ec379a23e4da500` |
+| EvidencePack v2 Markdown bytes | `c91711621d0853f113c701f313c47e8cf3f229900b498f04a9bb941db36d760e` |
+| Success-intent golden vector | `1542e9a7ecaca4edeb7bc06b210c4ab0d91923a5f547c2be1bc8aaf97e68dfc4` |
+| Run-summary golden vector | `2c30944a625ec5002114ea716239598f5a7db5f67606301de2797f0e4512d5fc` |
 
 ## 2. OCI and source binding
 
@@ -319,6 +321,18 @@ endpoint/socket/API binding, API-v1.43 raw mapping, directory-FD opens, complete
 verified-fixture-set and replay artifacts, and corrected documentation. These are
 still proposed docs-only contracts and require another exact-head review.
 
+The next exact-head read-only review of `aa11654dd07ec4f53a058ed76a93f230763a6e11`
+also returned `REQUEST_CHANGES`. Direct source and contract checks confirmed that
+the existing-root classifier was not mutually exclusive, recovery had no durable
+command-prefix journal, the run lease could be unlinked and recreated, the closed
+store inventory and terminal canceled/failed states were incomplete, the Docker
+child-environment preimage and per-command binary/socket identities were not
+artifact-bound, setup/operation vectors still admitted synthetic argv, and the
+106 Gate-A nodes lacked a sole machine classifier with an exact baseline map.
+This working revision closes those design defects, including permanent run/store
+lease inode rules and out-of-band Gate-C authority. It still requires a fresh
+review of the new exact head; this paragraph is not ratification.
+
 ## 6. Commands and results
 
 The static verification used read-only commands equivalent to:
@@ -360,18 +374,26 @@ Results:
   receipts, 44 distinct inspection receipts, cleanup-command receipts,
   continuous seal, EvidencePack, deterministic Markdown, run summary, and
   whole-contract golden preimages recomputed to their stored digests;
-- a read-only cross-artifact verifier passed `224/224`, including contract and
-  attestation raw/self digests, the API-v1.43 raw HostConfig key closure,
-  revision-bound fixture-set, exact Docker child environment, nine setup command
-  receipts, all operation/inspection/cleanup receipts, artifact-family counts,
-  106 named tests, and docs-only changed-path scope;
-- a separate machine-readable receipt-derivation verifier passed `81/81`: the
-  contract itself now exposes the exact operation argv/environment/stdin/exit/
-  stream derivation plus complete inspect and cleanup command preimages, so all
-  22 operation, 44 inspect, and four cleanup digests can be recomputed without
-  relying on an unstated generator convention;
+- a read-only cross-artifact verifier passed `30/30` closure categories, including
+  contract/attestation self digests, exact closed store/control/environment/journal
+  inventory, persistent lease semantics, mutually exclusive root classification,
+  106-entry Gate-A matrix with the exact 104-red/2-existing-pass split, and every
+  downstream EvidencePack/intent/summary digest;
+- a separate machine-readable receipt derivation passed `79/79`: all nine setup,
+  22 operation, 44 fresh-inspection, and four cleanup receipts recomputed from
+  their complete ten-field preimages. Setup and operation receipts now use exact
+  real Docker argv matrices and each receipt binds fresh private-binary/socket
+  identities; synthetic stream bytes remain serialization vectors only;
 - source paths and endpoint semantics above matched exact revision `2fc35d60...`;
-- the design names 106 unique fail-first/regression tests and preserves public DXF/v1 behavior;
+- the design names 106 unique fail-first/regression tests, fixes tests 28 and 34 as
+  the only existing-pass baseline nodes, maps every other node to a named missing-
+  behavior boundary, and preserves public DXF/v1 behavior;
+- the recovery classifier now has mutually exclusive initialization, terminal,
+  resumable, recovery, finalize, complete, and mismatch branches; only a durable
+  run-journal plus exact command-artifact prefix can authorize cleanup;
+- the filesystem store is a closed one-tenant/one-task/optional-index inventory;
+  its permanent writer-lease path and locked FD must retain the same validated
+  inode while the export-freeze remains held through summary parent fsync;
 - the existing canonical, EvidencePack golden, and ER1 store-integrity regression
   selection passed `121/121` under Python 3.11;
 - the complete existing ReviewReuse unit selection passed `222/222` under Python
@@ -402,20 +424,22 @@ Therefore none of the following is claimed:
   host volume, closed HostConfig, or process-user/command/workdir/environment posture;
 - Docker network mode `none`, absence of additional attachments or host-published
   TCP/Unix sockets, or the in-container loopback bind;
-- fixed-argv Docker control, operation-by-operation inspect seal, curl availability
+- fixed-argv Docker control execution, freshly observed per-command identities,
+  operation-by-operation inspect seal, curl availability
   plus the exact numeric bounded no-egress probe exit/status contract, or the
   local-unix Docker-daemon administrative boundary;
 - observed zero/three counts or L1/L2 sizes;
 - image startup, PNG decoding, real index receipts or receipt-set digests, rebuild,
   search, cleanup, or replay.
 
-The focused local round completed through Sol, Terra, Luna, and the Claude CLI
-canonical models `claude-opus-5`, `claude-sonnet-5`, and `claude-fable-5`. Kimi
-K3 returned a weekly-quota 403 and supplied no result. Grok 4.6 reached source
-inspection but remained in provider retry and supplied no final finding, so it
-is not counted as a completed review.
-Direct source checks, not model agreement alone, drive corrections. The
-`657b27d1...` exact-head review was `REQUEST_CHANGES`, not approval; a separate
+Across earlier snapshots, Sol, Terra, Luna, and the Claude CLI models supplied
+advisory reviews. On `aa11654d...`, Sol/Terra/Luna and Sonnet returned results;
+Opus and Fable did not run because the configured CLI budget was insufficient.
+Kimi K3 returned a weekly-quota 403 and supplied no result. Grok 4.6 reached
+source inspection but ended in provider network failure and supplied no final
+finding. Failed or unavailable invocations are not counted as reviews.
+Direct source checks, not model agreement alone, drive corrections. Both
+`657b27d1...` and `aa11654d...` were `REQUEST_CHANGES`, not approvals; a separate
 read-only review of the next exact head is required before ratification. None of
 these model reviews is runtime verification.
 

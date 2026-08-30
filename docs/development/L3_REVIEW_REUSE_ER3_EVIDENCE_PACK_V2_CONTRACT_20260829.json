@@ -1,6 +1,6 @@
 {
   "schema_version": "review-reuse-er3-evidence-pack-v2-contract-v1",
-  "contract_sha256": "8817647bb629f83ddf1c56e8a707de3a1e1fae8c3f26e522f2a1cc63a6e744ba",
+  "contract_sha256": "59f51f4a4b442c81a0431135291a44f41f178335b0de3e615245e0e01e8224e9",
   "canonicalization": {
     "algorithm": "sha-256",
     "function": "src.core.review_reuse.canonical.canonical_json_v1",
@@ -32,7 +32,7 @@
     "archive_manifest_sha256": "7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf",
     "vision_image_digest": "sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
     "vision_source_revision": "2fc35d60ff034c9f790868c02381a9716becc942",
-    "static_attestation_sha256": "77c60489bf6ff50e96f6fadcf123e55f5a652361c5a3af5591f46e7df61b7484",
+    "static_attestation_sha256": "2d32ff91eb0f42079541f85dbc926f144c13bf1cbbe8ba2b720164fe4329f28e",
     "score_mapping_ruleset_identifier": "review-reuse-er3-score-map-v1"
   },
   "task_contract": {
@@ -227,7 +227,7 @@
           "precision_completed",
           "evidence_pack_ready"
         ],
-        "controller_action": "write and fsync success intent plus every immutable non-summary success artifact before CAS; close store, snapshot, and write summary after CAS",
+        "controller_action": "write and fsync success intent plus every immutable non-summary success artifact before CAS; enter the store export-freeze while retaining its writer lease, close the exact store inventory, publish and parent-fsync summary, then release the store and run leases",
         "evidence_context": "complete ReviewReuseEvidenceContextV2"
       }
     ],
@@ -256,16 +256,29 @@
       "a CAS loser never invokes prepare or execute",
       "v2 revision 2 or 3 cancel returns archive_run_recovery_required without a state change; only revision 1 may use ordinary cancel",
       "revision 1 binds the exact Python control, Docker source parent/content, private Docker content/identity, socket parent/identity, run/resource-owner IDs, endpoint/API/platform, and reviewed process argv required by recovery",
-      "revision 4 without a verified externally hash-bound summary requires er3-finalize and can never invoke Docker or transition the task again"
+      "revision 4 without a verified externally hash-bound summary requires er3-finalize and can never invoke Docker or transition the task again; the store writer lease and export-freeze remain held through summary parent fsync"
     ],
     "existing_root_classifier": {
+      "evaluation_order": [
+        "new",
+        "initialization_incomplete",
+        "terminal_canceled",
+        "terminal_failed",
+        "revision_one_resume",
+        "revision_two_or_three",
+        "revision_four_without_summary",
+        "complete",
+        "mismatch_or_unknown"
+      ],
       "new": "nonexistent output root; create mode 0700 through a trusted parent directory FD",
-      "initialization_incomplete": "any existing root without one exact valid revision-1 task and the closed revision_one_resume inventory returns archive_run_initialization_incomplete; ordinary er3-run never repairs, deletes, or resumes a partial private-copy/store publication",
+      "initialization_incomplete": "only a strict initialization prefix before one exact valid revision-1 task exists; a parsed revision-1-or-later task can never match this branch; return archive_run_initialization_incomplete without repair, deletion, or Docker",
+      "terminal_canceled": "exact revision-2 canceled task with the revision-1 no-side-effect inventory and legal submitted,input_validated,canceled event prefix returns archive_run_terminal_canceled; no resume, recovery, finalization, or Docker is allowed",
+      "terminal_failed": "exact revision-3-or-4 failed task with legal failed event prefix, verified-absent owned resources, closed run-journal/receipt inventory, and no success summary returns archive_run_terminal_failed; no resume, recovery, finalization, or Docker is allowed",
       "revision_one_resume": "resume only the exact revision_one_resume inventory with matching tenant/idempotency/ER3RunBinding and no setup/resource/operation artifact",
-      "revision_two_or_three": "return archive_run_recovery_required; ordinary er3-run never invokes prepare or execute",
+      "revision_two_or_three": "return archive_run_recovery_required only when recovery_prefix_grammar accepts the exact task, journal, and complete-or-journaled command prefix; ordinary er3-run never invokes prepare or execute",
       "revision_four_without_summary": "return archive_run_finalize_required; only er3-finalize may publish the intent-bound bundle and summary",
-      "complete": "reject as already complete",
-      "mismatch_or_unknown": "fail archive_run_authorization_mismatch or export_replay_mismatch without creating another root or invoking Docker"
+      "complete": "reject as already complete only after externally hash-bound summary and complete closed inventory validate",
+      "mismatch_or_unknown": "fail archive_run_authorization_mismatch or export_replay_mismatch without creating another root, mutating artifacts, or invoking Docker"
     },
     "pre_side_effect_inventories": {
       "classification_lock": "every root existence check, creation, classification, resume, recovery, finalization, inventory snapshot, and summary publication occurs while holding run_artifact_contract.run_level_lease outside the run root",
@@ -297,17 +310,171 @@
       "unknown_directory_or_file": "fail archive_run_authorization_mismatch without mutation"
     },
     "interrupted_run": {
-      "predicate": "v2 running task has an immutable er3_run_binding, contains recall_started, and has no terminal event",
+      "predicate": "v2 running task is revision 2 or 3, has immutable er3_run_binding and recall_started, has no terminal event, and the exact recovery_prefix_grammar validates",
       "automatic_retry_policy": "create retry, idempotency retry, restart, and ordinary er3-run never invoke prepare or execute again",
       "recovery_subcommand": "er3-recover",
-      "successful_recovery": "acquire the run-level lease then the store writer lease, validate every persisted tenant/task/ER3RunBinding identity and absence of a live controller, use only the private Docker copy and exact bound socket, then remove only journaled or uniquely run-id/resource-owner-id pair-labeled resources after the nine-setup-receipt zero proof, prove container/volume/network absence, and CAS to failed with code archive_run_interrupted, recovered true, cleanup_status verified_absent",
+      "successful_recovery": "acquire the persistent-inode run-level lease then the store writer lease, validate every tenant/task/ER3RunBinding identity and the closed journal/receipt prefix, use only the private Docker copy and exact bound socket, remove only journaled or uniquely pair-labeled resources authorized by the durable zero proof, prove container/volume/network absence, close the journal, and CAS to failed with code archive_run_interrupted, recovered true, cleanup_status verified_absent",
       "recovery_prohibitions": "never open fixture bytes, invoke index/search, rebuild evidence, or emit a success summary",
       "cleanup_failure": "leave task running, exit archive_cleanup_failed, and allow only another explicit recovery attempt"
+    },
+    "recovery_prefix_grammar": {
+      "schema_version": "review-reuse-er3-recovery-prefix-grammar-v1",
+      "journal_path": "state/run-journal.json",
+      "journal_exact_fields": [
+        "schema_version",
+        "run_id",
+        "resource_owner_id",
+        "task_revision",
+        "phase",
+        "pending_command",
+        "completed_setup_sequences",
+        "completed_operation_sequences",
+        "completed_inspection_sequences",
+        "completed_cleanup_sequences",
+        "created_container_id",
+        "cleanup_status"
+      ],
+      "journal_publication": "exclusive canonical JSON plus file and parent-directory fsync; before every one of the 9 setup, 22 sealed-operation, 44 inspection, and 4 cleanup commands persist phase, class-local sequence, operation, exact argv digest, and pending_command stage=prepared; after subprocess return persist stage=result_recorded with exact stream/exit/control identity digests before publishing receipt artifacts; after the complete artifact group is fsynced append its receipt digest and clear pending_command",
+      "atomic_artifact_group_order": [
+        "command.json",
+        "stdin.bin",
+        "stdout.bin",
+        "stderr.bin",
+        "inspect.json when class is inspection"
+      ],
+      "revision_two_valid_prefix": "exact revision-2 running task plus complete revision-1 inventory, one valid run journal, a zero-to-nine complete setup-command prefix, and at most one journaled pending setup command whose present artifact files are an exact complete prefix of the group order; no operation or success artifact is allowed",
+      "revision_three_valid_prefix": "exact revision-3 running task plus complete accepted revision-2 preflight, one valid run journal, a zero-to-twenty-two sealed-operation prefix with exactly two complete fresh inspection groups around each completed operation, and at most one journaled pending inspection or operation group; no evidence-ready task, success intent, or summary exists",
+      "cleanup_prefix": "explicit recovery may append only a zero-to-four complete cleanup prefix in docker-rm, container-list, volume-list, network-list order; a journaled pending cleanup command is accepted only under the same prepared/result_recorded/artifact-prefix rule",
+      "ownership_authority": "destructive cleanup requires all three complete zero-proof list receipts plus either the journaled exact created ID or exactly one resource matching both unguessable labels; before zero proof, on an ambiguous match, or on journal identity drift, recovery performs no deletion and returns archive_run_recovery_evidence_incomplete",
+      "invalid_partial_policy": "an unjournaled command artifact, non-prefix group, second pending command, truncated or mismatched completed artifact, task/journal sequence disagreement, or extra path is mismatch_or_unknown; automated recovery performs no destructive action",
+      "crash_matrix_requirement": "Gate A parameterizes every setup command and every operation/inspection/cleanup command at prepared, result_recorded, each artifact-prefix, receipt-complete, journal-complete, and task-CAS boundaries; only grammar-accepted prefixes may reach cleanup",
+      "golden_terminal_journal": {
+        "schema_version": "review-reuse-er3-run-journal-v1",
+        "run_id": "rr-er3-0123456789abcdef0123456789abcdef",
+        "resource_owner_id": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "task_revision": 4,
+        "phase": "cleanup_verified",
+        "pending_command": null,
+        "completed_setup_sequences": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "completed_operation_sequences": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22
+        ],
+        "completed_inspection_sequences": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44
+        ],
+        "completed_cleanup_sequences": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "created_container_id": "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28",
+        "cleanup_status": "verified_absent"
+      },
+      "phase_literals": [
+        "setup",
+        "execute",
+        "cleanup",
+        "cleanup_verified"
+      ],
+      "pending_command_exact_fields": [
+        "command_class",
+        "sequence",
+        "operation",
+        "argv_sha256",
+        "stage",
+        "environment_sha256",
+        "docker_private_binary_identity_sha256",
+        "docker_socket_identity_sha256",
+        "exit_code",
+        "stdin_sha256",
+        "stdin_size_bytes",
+        "stdout_sha256",
+        "stderr_sha256",
+        "artifact_prefix_count"
+      ],
+      "pending_command_types": "command_class is setup|operation|inspection|cleanup; sequence is the class-local bounded positive integer; operation is the closed identifier; argv/environment/control identities and all result digests are 64 lowercase hex; stage is prepared|result_recorded; prepared requires exit/stream fields null and artifact_prefix_count 0; result_recorded requires integer exit, exact stream values, and artifact_prefix_count 0..4 or 0..5 only for inspection",
+      "completed_sequence_rules": "each completed list is a duplicate-free contiguous prefix starting at 1 with maxima 9,22,44,4; its receipt paths and digests must exist completely and pending_command, when non-null, is exactly the next class-local sequence allowed by the global chronology",
+      "journal_integrity": "strict I-JSON with exact fields and no self-authentication claim; before a success summary its authority comes from exclusive lease, durable ordered publication, task/binding equality, and closed artifact-prefix validation; corruption or ambiguity fails without deletion; the final summary later binds its exact bytes externally"
     },
     "completion_finalize": {
       "predicate": "v2 task is revision 4 evidence_ready, success-intent is durable and exact, and no valid externally hash-bound run-summary exists",
       "subcommand": "er3-finalize",
-      "actions": "acquire the run-level lease then the store writer lease; validate ER3RunBinding, revision-4 store task, success-intent, every pre-summary artifact, and verified-absent owned resources; close only the store, snapshot inventory, atomically publish and parent-fsync the deterministic summary, then release the run-level lease",
+      "actions": "acquire the persistent-inode run-level lease then the store writer lease; validate ER3RunBinding, revision-4 store task, success-intent, every pre-summary artifact, closed store inventory, and verified-absent owned resources; enter the store export-freeze without closing its lease, atomically publish and parent-fsync the deterministic summary, then close the store and release the run-level lease",
       "prohibitions": "no Docker, fixture open, index/search, task event/revision, pack reconstruction, second output root, or external call",
       "failure": "leave revision 4 and artifacts unchanged and return archive_completion_incomplete",
       "idempotency": "if the exact summary already exists and its externally supplied digest matches, report already complete without writing"
@@ -315,7 +482,774 @@
     "implementation_ancestry": {
       "runtime_base": "af72d0ec02b5d2dc1d92508539bc89ba857245a8",
       "required_chain": "runtime_base -> owner-ratified design-lock head -> accepted Gate-A fail-first head -> Gate-B implementation head",
-      "fail_first_baseline": "Gate A adds only the ratified tests, manifest/synthetic fixtures, workflow, and verification document; Gate B remains blocked until the owner accepts that exact classified head"
+      "fail_first_baseline": "Gate A adds only the ratified tests, manifest/synthetic fixtures, workflow, and verification document; Gate B remains blocked until the owner accepts that exact classified head",
+      "gate_a_fail_first_matrix": {
+        "schema_version": "review-reuse-er3-gate-a-fail-first-v1",
+        "baseline_head": "af72d0ec02b5d2dc1d92508539bc89ba857245a8",
+        "verifier_path": "tests/verification/review_reuse_er3_contract_verifier.py",
+        "test_file": "tests/unit/test_review_reuse_er3_archive.py",
+        "entry_exact_fields": [
+          "sequence",
+          "test_id",
+          "expected_baseline",
+          "reason_code",
+          "required_failure_boundary"
+        ],
+        "entries": [
+          {
+            "sequence": 1,
+            "test_id": "test_er3_cli_bootstraps_without_pythonpath",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::cli_bootstraps_without_pythonpath"
+          },
+          {
+            "sequence": 2,
+            "test_id": "test_er3_exact_manifest_digest_and_file_metadata_are_pinned",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::exact_manifest_digest_and_file_metadata_are_pinned"
+          },
+          {
+            "sequence": 3,
+            "test_id": "test_er3_manifest_uses_png_media_and_rejects_direct_dxf",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::manifest_uses_png_media_and_rejects_direct_dxf"
+          },
+          {
+            "sequence": 4,
+            "test_id": "test_er3_manifest_rejects_path_escape_hash_drift_and_duplicate_roles",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::manifest_rejects_path_escape_hash_drift_and_duplicate_roles"
+          },
+          {
+            "sequence": 5,
+            "test_id": "test_er3_query_is_not_added_to_archive_index",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::query_is_not_added_to_archive_index"
+          },
+          {
+            "sequence": 6,
+            "test_id": "test_er3_real_mode_rejects_seed_candidates",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::real_mode_rejects_seed_candidates"
+          },
+          {
+            "sequence": 7,
+            "test_id": "test_er3_real_transport_has_no_host_endpoint_or_socket",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::real_transport_has_no_host_endpoint_or_socket"
+          },
+          {
+            "sequence": 8,
+            "test_id": "test_er3_docker_exec_uses_fixed_argv_noproxy_and_no_shell",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::docker_exec_uses_fixed_argv_noproxy_and_no_shell"
+          },
+          {
+            "sequence": 9,
+            "test_id": "test_er3_requires_attested_index_roots_and_cardinality_contract",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::requires_attested_index_roots_and_cardinality_contract"
+          },
+          {
+            "sequence": 10,
+            "test_id": "test_er3_static_attestation_cannot_replace_runtime_preflight",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::static_attestation_cannot_replace_runtime_preflight"
+          },
+          {
+            "sequence": 11,
+            "test_id": "test_er3_requires_fresh_digest_pinned_ephemeral_vision_instance",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::requires_fresh_digest_pinned_ephemeral_vision_instance"
+          },
+          {
+            "sequence": 12,
+            "test_id": "test_er3_container_uses_network_none_without_published_ports",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::container_uses_network_none_without_published_ports"
+          },
+          {
+            "sequence": 13,
+            "test_id": "test_er3_numeric_bounded_egress_probe_requires_curl_exit_7_and_network_none",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::numeric_bounded_egress_probe_requires_curl_exit_7_and_network_none"
+          },
+          {
+            "sequence": 14,
+            "test_id": "test_er3_index_count_is_zero_then_matches_archive_entry_count",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::index_count_is_zero_then_matches_archive_entry_count"
+          },
+          {
+            "sequence": 15,
+            "test_id": "test_er3_fresh_instance_has_zero_preindex_query_results",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::fresh_instance_has_zero_preindex_query_results"
+          },
+          {
+            "sequence": 16,
+            "test_id": "test_er3_preindex_probe_cannot_poison_postindex_search_cache",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::preindex_probe_cannot_poison_postindex_search_cache"
+          },
+          {
+            "sequence": 17,
+            "test_id": "test_er3_drawing_commands_execute_exactly_once",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::drawing_commands_execute_exactly_once"
+          },
+          {
+            "sequence": 18,
+            "test_id": "test_er3_index_add_disables_object_store_upload",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::index_add_disables_object_store_upload"
+          },
+          {
+            "sequence": 19,
+            "test_id": "test_er3_health_index_and_search_fail_closed",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::health_index_and_search_fail_closed"
+          },
+          {
+            "sequence": 20,
+            "test_id": "test_er3_rebuild_populates_both_index_layers",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::rebuild_populates_both_index_layers"
+          },
+          {
+            "sequence": 21,
+            "test_id": "test_er3_postindex_search_requires_receipt_bound_exact_candidate",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::postindex_search_requires_receipt_bound_exact_candidate"
+          },
+          {
+            "sequence": 22,
+            "test_id": "test_er3_success_true_with_empty_or_unknown_candidates_fails",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::success_true_with_empty_or_unknown_candidates_fails"
+          },
+          {
+            "sequence": 23,
+            "test_id": "test_er3_visual_score_is_not_copied_to_semantic_or_geometric",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::visual_score_is_not_copied_to_semantic_or_geometric"
+          },
+          {
+            "sequence": 24,
+            "test_id": "test_er3_missing_geometry_is_null_and_marks_vision_only_unverified",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::missing_geometry_is_null_and_marks_vision_only_unverified"
+          },
+          {
+            "sequence": 25,
+            "test_id": "test_er3_uncalibrated_run_does_not_emit_confidence",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::uncalibrated_run_does_not_emit_confidence"
+          },
+          {
+            "sequence": 26,
+            "test_id": "test_er3_provenance_rejects_placeholders_and_binds_observed_digests",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::provenance_rejects_placeholders_and_binds_observed_digests"
+          },
+          {
+            "sequence": 27,
+            "test_id": "test_er3_internal_v2_accepts_only_manifest_bound_png",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_engine_or_substrate_contract_absent",
+            "required_failure_boundary": "missing_behavior::internal_v2_accepts_only_manifest_bound_png"
+          },
+          {
+            "sequence": 28,
+            "test_id": "test_er3_public_v1_api_still_rejects_same_png_with_415",
+            "expected_baseline": "expected-existing-pass",
+            "reason_code": "v1_public_png_rejection_present",
+            "required_failure_boundary": "existing_guard_passes"
+          },
+          {
+            "sequence": 29,
+            "test_id": "test_er3_v2_never_disguises_png_as_dxf",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_selector_or_contract_absent",
+            "required_failure_boundary": "missing_behavior::v2_never_disguises_png_as_dxf"
+          },
+          {
+            "sequence": 30,
+            "test_id": "test_er3_v2_contract_and_golden_digests_are_pinned",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_selector_or_contract_absent",
+            "required_failure_boundary": "missing_behavior::v2_contract_and_golden_digests_are_pinned"
+          },
+          {
+            "sequence": 31,
+            "test_id": "test_er3_v2_envelope_forbids_unknown_fields_and_type_drift",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_selector_or_contract_absent",
+            "required_failure_boundary": "missing_behavior::v2_envelope_forbids_unknown_fields_and_type_drift"
+          },
+          {
+            "sequence": 32,
+            "test_id": "test_er3_v2_persisted_context_rebuilds_identical_pack_after_restart",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_selector_or_contract_absent",
+            "required_failure_boundary": "missing_behavior::v2_persisted_context_rebuilds_identical_pack_after_restart"
+          },
+          {
+            "sequence": 33,
+            "test_id": "test_er3_task_selector_is_immutable_and_legacy_defaults_to_v1",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_selector_or_contract_absent",
+            "required_failure_boundary": "missing_behavior::task_selector_is_immutable_and_legacy_defaults_to_v1"
+          },
+          {
+            "sequence": 34,
+            "test_id": "test_er3_v1_raw_mapping_pack_and_decision_digests_are_unchanged",
+            "expected_baseline": "expected-existing-pass",
+            "reason_code": "v1_digest_compatibility_present",
+            "required_failure_boundary": "existing_guard_passes"
+          },
+          {
+            "sequence": 35,
+            "test_id": "test_er3_v1_and_v2_create_digest_preimages_are_exact",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::v1_and_v2_create_digest_preimages_are_exact"
+          },
+          {
+            "sequence": 36,
+            "test_id": "test_er3_store_dispatches_v1_and_v2_without_silent_upgrade",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::store_dispatches_v1_and_v2_without_silent_upgrade"
+          },
+          {
+            "sequence": 37,
+            "test_id": "test_er3_cancel_and_decision_reconstruction_retain_task_selector",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::cancel_and_decision_reconstruction_retain_task_selector"
+          },
+          {
+            "sequence": 38,
+            "test_id": "test_er3_unknown_evidence_pack_version_fails_closed",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::unknown_evidence_pack_version_fails_closed"
+          },
+          {
+            "sequence": 39,
+            "test_id": "test_er3_v1_rejects_null_calibration_while_v2_uncalibrated_requires_null",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::v1_rejects_null_calibration_while_v2_uncalibrated_requires_null"
+          },
+          {
+            "sequence": 40,
+            "test_id": "test_er3_selector_context_pack_and_calibration_tampering_fail_closed",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::selector_context_pack_and_calibration_tampering_fail_closed"
+          },
+          {
+            "sequence": 41,
+            "test_id": "test_er3_openapi_requires_selector_and_matching_pack_without_create_switch",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::openapi_requires_selector_and_matching_pack_without_create_switch"
+          },
+          {
+            "sequence": 42,
+            "test_id": "test_er3_replay_reemits_persisted_pack_without_network_calls",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::replay_reemits_persisted_pack_without_network_calls"
+          },
+          {
+            "sequence": 43,
+            "test_id": "test_er3_replay_verifies_store_task_pack_summary_and_artifact_hashes",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::replay_verifies_store_task_pack_summary_and_artifact_hashes"
+          },
+          {
+            "sequence": 44,
+            "test_id": "test_er3_replay_rejects_each_tampered_artifact_without_network",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::replay_rejects_each_tampered_artifact_without_network"
+          },
+          {
+            "sequence": 45,
+            "test_id": "test_er3_json_markdown_and_audit_export_are_consistent",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::json_markdown_and_audit_export_are_consistent"
+          },
+          {
+            "sequence": 46,
+            "test_id": "test_er3_runner_never_enables_or_submits_decisions",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::runner_never_enables_or_submits_decisions"
+          },
+          {
+            "sequence": 47,
+            "test_id": "test_er3_dedicated_instance_and_volumes_are_cleaned_up",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::dedicated_instance_and_volumes_are_cleaned_up"
+          },
+          {
+            "sequence": 48,
+            "test_id": "test_er3_docker_daemon_is_the_only_real_run_control_boundary",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::docker_daemon_is_the_only_real_run_control_boundary"
+          },
+          {
+            "sequence": 49,
+            "test_id": "test_er3_index_receipt_and_set_canonical_vectors_are_pinned",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::index_receipt_and_set_canonical_vectors_are_pinned"
+          },
+          {
+            "sequence": 50,
+            "test_id": "test_er3_candidate_and_context_receipt_digests_match_canonical_receipts",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::candidate_and_context_receipt_digests_match_canonical_receipts"
+          },
+          {
+            "sequence": 51,
+            "test_id": "test_er3_index_add_requires_fixed_user_name_and_upload_query",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::index_add_requires_fixed_user_name_and_upload_query"
+          },
+          {
+            "sequence": 52,
+            "test_id": "test_er3_rejects_remote_or_environment_overridden_docker_endpoint",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::rejects_remote_or_environment_overridden_docker_endpoint"
+          },
+          {
+            "sequence": 53,
+            "test_id": "test_er3_host_config_forbids_privilege_caps_devices_namespaces_and_binds",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::host_config_forbids_privilege_caps_devices_namespaces_and_binds"
+          },
+          {
+            "sequence": 54,
+            "test_id": "test_er3_private_shm_and_all_mutable_paths_are_isolated",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::private_shm_and_all_mutable_paths_are_isolated"
+          },
+          {
+            "sequence": 55,
+            "test_id": "test_er3_rejects_ambient_store_live_provider_proxy_and_existing_output",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::rejects_ambient_store_live_provider_proxy_and_existing_output"
+          },
+          {
+            "sequence": 56,
+            "test_id": "test_er3_query_transfer_search_and_removal_happen_exactly_twice",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::query_transfer_search_and_removal_happen_exactly_twice"
+          },
+          {
+            "sequence": 57,
+            "test_id": "test_er3_critical_provenance_preimages_and_golden_digests_are_pinned",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::critical_provenance_preimages_and_golden_digests_are_pinned"
+          },
+          {
+            "sequence": 58,
+            "test_id": "test_er3_visual_only_ruleset_does_not_copy_supplier_duplicate_verdict",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::visual_only_ruleset_does_not_copy_supplier_duplicate_verdict"
+          },
+          {
+            "sequence": 59,
+            "test_id": "test_er3_live_success_rejects_zero_repeated_or_unbound_digest_placeholders",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::live_success_rejects_zero_repeated_or_unbound_digest_placeholders"
+          },
+          {
+            "sequence": 60,
+            "test_id": "test_er3_archive_controller_execution_is_bracketed_by_recall_events",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::archive_controller_execution_is_bracketed_by_recall_events"
+          },
+          {
+            "sequence": 61,
+            "test_id": "test_er3_v2_running_context_is_null_then_required_for_evidence_ready",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::v2_running_context_is_null_then_required_for_evidence_ready"
+          },
+          {
+            "sequence": 62,
+            "test_id": "test_er3_runtime_posture_drift_between_control_operations_aborts",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::runtime_posture_drift_between_control_operations_aborts"
+          },
+          {
+            "sequence": 63,
+            "test_id": "test_er3_replay_is_an_explicit_read_only_script_subcommand",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::replay_is_an_explicit_read_only_script_subcommand"
+          },
+          {
+            "sequence": 64,
+            "test_id": "test_er3_v2_decision_vocabulary_does_not_claim_runtime_availability",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::v2_decision_vocabulary_does_not_claim_runtime_availability"
+          },
+          {
+            "sequence": 65,
+            "test_id": "test_er3_v2_reviewer_kind_and_rejection_vocabularies_are_closed",
+            "expected_baseline": "expected-red",
+            "reason_code": "v2_store_pack_or_replay_contract_absent",
+            "required_failure_boundary": "missing_behavior::v2_reviewer_kind_and_rejection_vocabularies_are_closed"
+          },
+          {
+            "sequence": 66,
+            "test_id": "test_er3_required_ci_gate_runs_exact_fail_first_contract",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::required_ci_gate_runs_exact_fail_first_contract"
+          },
+          {
+            "sequence": 67,
+            "test_id": "test_er3_run_requires_clean_exact_authorized_head_and_reviewed_command",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::run_requires_clean_exact_authorized_head_and_reviewed_command"
+          },
+          {
+            "sequence": 68,
+            "test_id": "test_er3_runtime_preflight_binds_static_attestation_digest",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::runtime_preflight_binds_static_attestation_digest"
+          },
+          {
+            "sequence": 69,
+            "test_id": "test_er3_inspect_projection_binds_image_command_user_lifecycle_and_network_state",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::inspect_projection_binds_image_command_user_lifecycle_and_network_state"
+          },
+          {
+            "sequence": 70,
+            "test_id": "test_er3_fixture_bytes_are_loaded_only_after_preflight_and_before_transfer",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::fixture_bytes_are_loaded_only_after_preflight_and_before_transfer"
+          },
+          {
+            "sequence": 71,
+            "test_id": "test_er3_transfer_content_hashes_bind_the_exact_manifest_bytes",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::transfer_content_hashes_bind_the_exact_manifest_bytes"
+          },
+          {
+            "sequence": 72,
+            "test_id": "test_er3_legacy_cli_remains_v1_only_and_er3_subcommands_never_fallback",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::legacy_cli_remains_v1_only_and_er3_subcommands_never_fallback"
+          },
+          {
+            "sequence": 73,
+            "test_id": "test_er3_cleanup_failure_emits_no_success_bundle",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::cleanup_failure_emits_no_success_bundle"
+          },
+          {
+            "sequence": 74,
+            "test_id": "test_er3_revision_one_input_validated_is_manifest_metadata_only",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::revision_one_input_validated_is_manifest_metadata_only"
+          },
+          {
+            "sequence": 75,
+            "test_id": "test_er3_fixture_content_verified_is_durable_after_preflight_before_transfer",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::fixture_content_verified_is_durable_after_preflight_before_transfer"
+          },
+          {
+            "sequence": 76,
+            "test_id": "test_er3_recall_started_is_durable_before_archive_controller",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::recall_started_is_durable_before_archive_controller"
+          },
+          {
+            "sequence": 77,
+            "test_id": "test_er3_interrupted_running_task_never_reinvokes_archive_controller",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::interrupted_running_task_never_reinvokes_archive_controller"
+          },
+          {
+            "sequence": 78,
+            "test_id": "test_er3_interrupted_run_recovery_cleans_then_fails_without_success_bundle",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::interrupted_run_recovery_cleans_then_fails_without_success_bundle"
+          },
+          {
+            "sequence": 79,
+            "test_id": "test_er3_run_summary_schema_and_complete_artifact_inventory_are_exact",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::run_summary_schema_and_complete_artifact_inventory_are_exact"
+          },
+          {
+            "sequence": 80,
+            "test_id": "test_er3_run_summary_rejects_path_escape_symlink_hardlink_and_extra_artifact",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::run_summary_rejects_path_escape_symlink_hardlink_and_extra_artifact"
+          },
+          {
+            "sequence": 81,
+            "test_id": "test_er3_run_lease_blocks_finalize_race_while_store_lease_is_inventory_bound",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::run_lease_blocks_finalize_race_while_store_lease_is_inventory_bound"
+          },
+          {
+            "sequence": 82,
+            "test_id": "test_er3_v2_markdown_bytes_are_deterministic_and_audit_identical",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::v2_markdown_bytes_are_deterministic_and_audit_identical"
+          },
+          {
+            "sequence": 83,
+            "test_id": "test_er3_implementation_ancestry_descends_from_updated_er1_er2_and_design_lock_heads",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::implementation_ancestry_descends_from_updated_er1_er2_and_design_lock_heads"
+          },
+          {
+            "sequence": 84,
+            "test_id": "test_er3_control_receipts_bind_full_argv_endpoint_socket_api_binary_and_streams",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::control_receipts_bind_full_argv_endpoint_socket_api_binary_and_streams"
+          },
+          {
+            "sequence": 85,
+            "test_id": "test_er3_inspect_receipts_are_fresh_one_to_one_and_not_cached",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::inspect_receipts_are_fresh_one_to_one_and_not_cached"
+          },
+          {
+            "sequence": 86,
+            "test_id": "test_er3_docker_client_environment_and_binary_quarantine_fail_closed",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::docker_client_environment_and_binary_quarantine_fail_closed"
+          },
+          {
+            "sequence": 87,
+            "test_id": "test_er3_closed_host_config_rejects_unlisted_or_relaxed_controls",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::closed_host_config_rejects_unlisted_or_relaxed_controls"
+          },
+          {
+            "sequence": 88,
+            "test_id": "test_er3_fixture_paths_runtime_names_and_reads_are_nofollow_regular_and_bounded",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::fixture_paths_runtime_names_and_reads_are_nofollow_regular_and_bounded"
+          },
+          {
+            "sequence": 89,
+            "test_id": "test_er3_out_rejects_symlink_components_and_enforces_new_mode_0700_root",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::out_rejects_symlink_components_and_enforces_new_mode_0700_root"
+          },
+          {
+            "sequence": 90,
+            "test_id": "test_er3_revision_one_persists_run_binding_and_v2_create_digest_binds_it",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::revision_one_persists_run_binding_and_v2_create_digest_binds_it"
+          },
+          {
+            "sequence": 91,
+            "test_id": "test_er3_active_v2_cancel_conflicts_and_cannot_escape_recovery",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::active_v2_cancel_conflicts_and_cannot_escape_recovery"
+          },
+          {
+            "sequence": 92,
+            "test_id": "test_er3_owner_bound_socket_identity_api_version_and_empty_docker_config_are_exact",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::owner_bound_socket_identity_api_version_and_empty_docker_config_are_exact"
+          },
+          {
+            "sequence": 93,
+            "test_id": "test_er3_raw_hostconfig_v143_mapping_rejects_unknown_missing_and_neutral_drift",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::raw_hostconfig_v143_mapping_rejects_unknown_missing_and_neutral_drift"
+          },
+          {
+            "sequence": 94,
+            "test_id": "test_er3_fixture_open_uses_directory_fd_chain_and_rejects_ancestor_swap",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::fixture_open_uses_directory_fd_chain_and_rejects_ancestor_swap"
+          },
+          {
+            "sequence": 95,
+            "test_id": "test_er3_verified_fixture_set_binds_every_manifest_entry_before_execute",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::verified_fixture_set_binds_every_manifest_entry_before_execute"
+          },
+          {
+            "sequence": 96,
+            "test_id": "test_er3_replay_recomputes_every_command_stream_inspect_and_cleanup_receipt",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::replay_recomputes_every_command_stream_inspect_and_cleanup_receipt"
+          },
+          {
+            "sequence": 97,
+            "test_id": "test_er3_gate_a_collects_classified_nodes_without_src_or_runner_changes",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::gate_a_collects_classified_nodes_without_src_or_runner_changes"
+          },
+          {
+            "sequence": 98,
+            "test_id": "test_er3_python_bootstrap_rejects_shadow_src_pythonhome_user_site_and_pth",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::python_bootstrap_rejects_shadow_src_pythonhome_user_site_and_pth"
+          },
+          {
+            "sequence": 99,
+            "test_id": "test_er3_private_docker_copy_blocks_source_rename_between_check_and_spawn",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::private_docker_copy_blocks_source_rename_between_check_and_spawn"
+          },
+          {
+            "sequence": 100,
+            "test_id": "test_er3_copy_stdin_ustar_artifact_rejects_extra_member_metadata_and_trailing_bytes",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::copy_stdin_ustar_artifact_rejects_extra_member_metadata_and_trailing_bytes"
+          },
+          {
+            "sequence": 101,
+            "test_id": "test_er3_raw_config_env_rejects_duplicate_unknown_missing_order_and_value_drift",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::raw_config_env_rejects_duplicate_unknown_missing_order_and_value_drift"
+          },
+          {
+            "sequence": 102,
+            "test_id": "test_er3_external_json_rejects_underflow_overflow_and_lossy_binary64_numbers",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::external_json_rejects_underflow_overflow_and_lossy_binary64_numbers"
+          },
+          {
+            "sequence": 103,
+            "test_id": "test_er3_revision_one_binds_python_binary_socket_parent_and_owner_id_for_recovery",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::revision_one_binds_python_binary_socket_parent_and_owner_id_for_recovery"
+          },
+          {
+            "sequence": 104,
+            "test_id": "test_er3_existing_root_resumes_only_revision_one_and_finalizes_only_revision_four",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::existing_root_resumes_only_revision_one_and_finalizes_only_revision_four"
+          },
+          {
+            "sequence": 105,
+            "test_id": "test_er3_event_enum_and_api_conflict_map_cover_verified_finalize_and_recovery",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::event_enum_and_api_conflict_map_cover_verified_finalize_and_recovery"
+          },
+          {
+            "sequence": 106,
+            "test_id": "test_er3_run_id_zero_label_proof_and_resource_journal_are_exclusive",
+            "expected_baseline": "expected-red",
+            "reason_code": "er3_gate_runtime_control_or_recovery_absent",
+            "required_failure_boundary": "missing_behavior::run_id_zero_label_proof_and_resource_journal_are_exclusive"
+          }
+        ],
+        "summary": {
+          "total": 106,
+          "expected_red": 104,
+          "expected_existing_pass": 2,
+          "skipped": 0,
+          "xfailed": 0,
+          "unclassified": 0
+        },
+        "aggregate_requirement": "pytest exits nonzero because all 104 expected-red nodes fail at their named ordinary assertion boundary; the two named v1 compatibility nodes pass",
+        "invalid_evidence": "collection/import failure, deselection, skip, xfail, unexpected pass/fail, missing node, duplicate node, or reason-boundary mismatch"
+      }
     }
   },
   "verified_fixture_set_contract": {
@@ -415,15 +1349,15 @@
       "relative_path",
       "sha256",
       "size_bytes",
-      "closed_before_snapshot"
+      "held_through_summary_fsync"
     ],
     "run_level_lease": {
       "path": "a sibling .<run-root-basename>.review-reuse-er3.lock below the same trusted parent directory; it is outside the run root and therefore outside artifacts",
-      "open_policy": "open directory-FD-relative with O_RDWR|O_CREAT|O_CLOEXEC|O_NOFOLLOW mode 0600; require one owner-matching regular file with st_nlink 1 and no group/other write bit",
-      "locking": "nonblocking exclusive flock acquired before checking or creating the run root and retained across classification, all task/Docker work, store close, inventory, atomic run-summary rename, and parent-directory fsync",
+      "open_policy": "open directory-FD-relative with O_RDWR|O_CREAT|O_CLOEXEC|O_NOFOLLOW mode 0600; require one owner-matching regular file with st_nlink 1 and no group/other write bit; record the directory-entry and locked-FD device/inode and require equality",
+      "locking": "nonblocking exclusive flock acquired before checking or creating the run root and retained across classification, all task/Docker work, store export-freeze/inventory, atomic run-summary rename, and parent-directory fsync; before each phase revalidate that the persistent path still names the locked device/inode",
       "reentry": "er3-run, er3-recover, and er3-finalize use the same derived lease path; a loser returns archive_run_writer_conflict without reading mutable run state or invoking Docker",
-      "release": "release only after durable summary publication or a fully persisted failure/recovery outcome; process death releases the kernel lock but never changes lifecycle classification",
-      "inventory_relationship": "the store writer lease is closed and inventory-bound inside the run root; the still-held run-level lease is deliberately external and cannot race the summary snapshot"
+      "release": "unlock/close only after durable summary publication or a fully persisted failure/recovery outcome; never unlink, rename, truncate, or replace the lease path; process death releases the kernel lock but the permanent directory entry preserves one-inode locking semantics",
+      "inventory_relationship": "the store writer lease and in-process export-freeze remain held while the exact closed store and run inventories are hashed and through summary parent fsync; the still-held run-level lease is external and its persistent inode is revalidated"
     },
     "artifact_value_exact_fields": [
       "sha256",
@@ -465,14 +1399,14 @@
         "tenant_id": "tenant-er3-contract",
         "task_id": "00000000-0000-4000-8000-000000000003",
         "task_revision": 4,
-        "task_artifact_sha256": "22e4bd82764e72f05dedc1ff1cf31ae7f2697cd816f813f2143c0a50f0368fad",
-        "evidence_pack_artifact_sha256": "ca9465536df8e83f78296191e2b8bcaa82de6356aa38eb26921b628698cc38b8",
-        "evidence_pack_sha256": "defad64d0e51d8c475ee9b881b3e8603a38300d0f489f0b83421ae2d102e402e",
-        "runtime_preflight_sha256": "f62ccc130ec28b47c0e8125fdc32e73cfb92faedb69e5b2675e6f4d6227dd22e",
-        "runtime_seal_receipt_sha256": "d9ca54ef8f9e13ef4163aa587d74dedaffaf7efefeb90f9478d9996218f5f45d",
-        "resource_ownership_sha256": "16aab6c71ec7d2fbb443e6e2e0d57b29055c0bfd3f0b7b0eacaed71c18c1250b",
-        "pre_summary_artifacts_sha256": "89caf1612720df46118693cecc6a2049ebce75371eb63d1a8875e6d455454b2f",
-        "success_intent_sha256": "eb647504e2fa6e7fefb1e61e070ebf7ada63a468eaffff8e64eb026dbb506050"
+        "task_artifact_sha256": "020e4bbeca40538098ef9d8907a41f03a56eb482940652360cc1f18f5ad34f81",
+        "evidence_pack_artifact_sha256": "8673cbc5a08c38b97259f1a6d2a2940e582e1f77c79246f87d0a15c4bc39e3b3",
+        "evidence_pack_sha256": "b012ad952a83b4ed29b402818440b364985613a20199c54389e3bc5e5c91c104",
+        "runtime_preflight_sha256": "c9290dde847d946d96e1212740bac982bb764279b26fe5712cf35494b9c48e21",
+        "runtime_seal_receipt_sha256": "939bc5e9334738aa249af8c9825d7c5c9b94b7f8a0852cde4ec379a23e4da500",
+        "resource_ownership_sha256": "103acb5087f3624731243d89dc1cb210dfd2c039d0ac24894def8acd28dbcd9d",
+        "pre_summary_artifacts_sha256": "447219564e965299fa237ee1bbb57083580077933592130009f62e0dd4d4a92d",
+        "success_intent_sha256": "1542e9a7ecaca4edeb7bc06b210c4ab0d91923a5f547c2be1bc8aaf97e68dfc4"
       },
       "golden_external_preimages": {
         "task_artifact": {
@@ -500,33 +1434,51 @@
             "selected_platform": "linux/amd64",
             "runner_version": "review-reuse-er3-runner-v1"
           },
-          "evidence_pack_sha256": "defad64d0e51d8c475ee9b881b3e8603a38300d0f489f0b83421ae2d102e402e",
-          "runtime_preflight_sha256": "f62ccc130ec28b47c0e8125fdc32e73cfb92faedb69e5b2675e6f4d6227dd22e",
-          "runtime_seal_receipt_sha256": "d9ca54ef8f9e13ef4163aa587d74dedaffaf7efefeb90f9478d9996218f5f45d"
+          "evidence_pack_sha256": "b012ad952a83b4ed29b402818440b364985613a20199c54389e3bc5e5c91c104",
+          "runtime_preflight_sha256": "c9290dde847d946d96e1212740bac982bb764279b26fe5712cf35494b9c48e21",
+          "runtime_seal_receipt_sha256": "939bc5e9334738aa249af8c9825d7c5c9b94b7f8a0852cde4ec379a23e4da500"
         },
         "pre_summary_artifacts": {
+          "control/docker": {
+            "sha256": "0c4837a5e2ee8043dca1cc470b10d9cea3c3ceb0104ad6057adee9c2b99640d0",
+            "size_bytes": 23
+          },
           "evidence/evidence-pack.json": {
-            "sha256": "ca9465536df8e83f78296191e2b8bcaa82de6356aa38eb26921b628698cc38b8",
+            "sha256": "8673cbc5a08c38b97259f1a6d2a2940e582e1f77c79246f87d0a15c4bc39e3b3",
             "size_bytes": 3472
           },
           "evidence/evidence.md": {
-            "sha256": "6cd0ca34a0d7e30160a993e2cf0343c095e91569624b5a83f568ab7cbb42a4da",
+            "sha256": "c91711621d0853f113c701f313c47e8cf3f229900b498f04a9bb941db36d760e",
             "size_bytes": 3556
           },
+          "receipts/preflight/docker-environment.json": {
+            "sha256": "571117807ac16fa31fd8cb124a55a2263f050bb04db25fb94b08774f6b53d51d",
+            "size_bytes": 188
+          },
+          "state/run-journal.json": {
+            "sha256": "615ec0ac25a4ca8edd83bacc589d4f411390ab544e3a9c71e2e625a85f547031",
+            "size_bytes": 720
+          },
           "task/task.json": {
-            "sha256": "22e4bd82764e72f05dedc1ff1cf31ae7f2697cd816f813f2143c0a50f0368fad",
+            "sha256": "020e4bbeca40538098ef9d8907a41f03a56eb482940652360cc1f18f5ad34f81",
             "size_bytes": 1770
           }
         },
-        "scope": "serialization-only completion vector; Gate B tests must replace task_artifact with exact persisted ReviewReuseTask v2 bytes"
+        "scope": "serialization-only completion vector that includes the long-lived control, environment-preimage, and journal singletons; it is not a valid live bundle and Gate B must prove the full closed live inventory",
+        "artifact_sources": {
+          "control/docker": "runtime_preflight.golden_external_preimages.docker_source_binary bytes",
+          "receipts/preflight/docker-environment.json": "canonical_json_v1(runtime_preflight.golden_external_preimages.docker_subprocess_environment)",
+          "state/run-journal.json": "lifecycle_contract.recovery_prefix_grammar.golden_terminal_journal"
+        }
       }
     },
     "path_contract": "ASCII POSIX relative path with no absolute prefix, empty segment, dot segment, dot-dot segment, backslash, or duplicate normalization",
-    "inventory_contract": "while the external run-level lease remains held and after store.close, recursively lstat the complete run root; accept only directories and st_nlink==1 regular files; include every regular file including the zero-byte store writer lease; reject symlink, hardlink, socket, FIFO, device, missing file, and extra file",
+    "inventory_contract": "while the external run-level lease, store writer lease, and store export-freeze remain held, recursively lstat the complete run root; accept only directories and st_nlink==1 regular files; close state/store to the exact tenant/task/idempotency inventory below and include the zero-byte store writer lease; reject symlink, hardlink, socket, FIFO, device, temporary, staging, missing, or extra path; publish and parent-fsync summary before releasing either lease",
     "summary_exclusion": "run-summary.json is the only excluded artifact and is canonicalized and written last",
-    "replay_contract": "verify externally supplied summary SHA-256 and full inventory before store open; recompute every command receipt from canonical JSON plus raw stdin/stdout/stderr, each copy ustar, every inspect receipt and strict raw HostConfig/Config.Env projection from recorded inspect stdout, every cleanup receipt, Python/Docker/socket/resource ownership, success intent, verified-fixture-set, preflight, seal, index/search/service/ruleset binding; then repeat full inventory after replay without Docker or writes",
+    "replay_contract": "verify externally supplied summary SHA-256 and full inventory before store open; recompute every command receipt from canonical JSON plus raw stdin/stdout/stderr, each copy ustar, every inspect receipt and strict raw HostConfig/Config.Env projection from recorded inspect stdout, every cleanup receipt, Python/Docker/socket/resource ownership, success intent, verified-fixture-set, preflight, seal, index/search/service/ruleset binding; prove the store contains exactly one tenant sidecar, one named task and its optional one-binding idempotency index; then repeat full inventory after replay without Docker or writes",
     "golden_scope": "minimal serialization vector only; its explicit golden task projection is not runtime evidence; a live artifacts map contains every run-root regular file except run-summary.json",
     "live_required_singletons": [
+      "control/docker",
       "inputs/archive-manifest.json",
       "inputs/verified-fixture-set.json",
       "receipts/preflight/python-control.json",
@@ -534,6 +1486,7 @@
       "receipts/preflight/docker-source-binary-identity.json",
       "receipts/preflight/docker-private-binary-identity.json",
       "receipts/preflight/docker-socket-identity.json",
+      "receipts/preflight/docker-environment.json",
       "receipts/preflight/resource-ownership.json",
       "receipts/preflight/docker-control.json",
       "receipts/preflight/runtime-preflight.json",
@@ -546,7 +1499,8 @@
       "evidence/evidence-pack.json",
       "evidence/evidence.md",
       "evidence/audit-bundle.json",
-      "state/success-intent.json"
+      "state/success-intent.json",
+      "state/run-journal.json"
     ],
     "live_required_artifact_families": [
       {
@@ -554,28 +1508,28 @@
         "count": 9,
         "files_per_instance": 4,
         "path_template": "receipts/setup/{sequence:02d}-{operation}.{command.json|stdin.bin|stdout.bin|stderr.bin}",
-        "validation": "canonical command JSON digest is recomputed from exact argv/environment/stdin/exit/stdout/stderr and raw stream artifacts; the first three operations prove zero matching pair-labeled resources"
+        "validation": "canonical command JSON digest is recomputed from exact argv/environment/stdin/exit/stdout/stderr and raw stream artifacts; the first three operations prove zero matching pair-labeled resources; the ten-field command receipt also binds freshly observed private-binary and socket identities"
       },
       {
         "family": "sealed_operation_command",
         "count": 22,
         "files_per_instance": 4,
         "path_template": "receipts/operations/{sequence:02d}-{operation}.{command.json|stdin.bin|stdout.bin|stderr.bin}",
-        "validation": "one complete four-file group per sealed operation; copy stdin is the exact one-member ustar artifact"
+        "validation": "one complete four-file group per sealed operation; copy stdin is the exact one-member ustar artifact; the ten-field command receipt also binds freshly observed private-binary and socket identities"
       },
       {
         "family": "fresh_inspection",
         "count": 44,
         "files_per_instance": 5,
         "path_template": "receipts/inspect/{observation_sequence:02d}.{command.json|stdin.bin|stdout.bin|stderr.bin|inspect.json}",
-        "validation": "each five-file group recomputes a command receipt, strict raw HostConfig/Config.Env and normalized projection digest, and unique inspect receipt"
+        "validation": "each five-file group recomputes a command receipt, strict raw HostConfig/Config.Env and normalized projection digest, and unique inspect receipt; its nested ten-field command receipt binds freshly observed private-binary and socket identities"
       },
       {
         "family": "cleanup_command",
         "count": 4,
         "files_per_instance": 4,
         "path_template": "receipts/cleanup/{sequence:02d}-{operation}.{command.json|stdin.bin|stdout.bin|stderr.bin}",
-        "validation": "one complete four-file group for docker_rm and each pair-labeled resource-list operation"
+        "validation": "one complete four-file group for docker_rm and each pair-labeled resource-list operation; the ten-field command receipt also binds freshly observed private-binary and socket identities"
       },
       {
         "family": "index_raw_response",
@@ -592,7 +1546,23 @@
         "validation": "self-excluding normalized receipt digest"
       }
     ],
-    "dynamic_store_family": "only regular files rooted below state/store plus the exact zero-byte store writer lease may have implementation-dependent paths; the external run-level lease is not an artifact; every non-store path is closed above and any missing/extra instance fails",
+    "closed_store_family": {
+      "required_directories": [
+        "state/store",
+        "state/store/tenant-v1-<sha256(tenant_id)>",
+        "state/store/tenant-v1-<sha256(tenant_id)>/tasks"
+      ],
+      "required_files": [
+        "state/.review-reuse-writer-<sha256(state/store-realpath)>.lock",
+        "state/store/tenant-v1-<sha256(tenant_id)>/tenant.json",
+        "state/store/tenant-v1-<sha256(tenant_id)>/tasks/<task_id>.json"
+      ],
+      "conditional_file": "state/store/tenant-v1-<sha256(tenant_id)>/idempotency.json exists iff the task idempotency key is non-null and contains exactly that one task binding",
+      "cardinality": "exactly one tenant directory, one task file, zero or one idempotency index, and no other store file or directory",
+      "writer_lease_inode_policy": "the store writer lease path is a permanent directory entry: never unlink, rename, truncate, or replace it; from store-lock acquisition through run-summary parent fsync, require the open locked FD and lstat of the path to retain equal device/inode, st_nlink 1, regular-file mode 0600, expected owner, and zero size",
+      "freeze_seam": "Gate B may add only a store export-freeze that holds the existing in-process lock and writer lease, validates and fsyncs the exact inventory, permits no mutation, and exits only after summary parent fsync",
+      "forbidden": "other tenant/task/index, migration/staging/temp file, ignored entry, symlink, hardlink, special file, or mutation after freeze begins"
+    },
     "golden_summary": {
       "schema_version": "review-reuse-er3-run-summary-v1",
       "status": "succeeded",
@@ -600,11 +1570,11 @@
       "tenant_id": "tenant-er3-contract",
       "task_id": "00000000-0000-4000-8000-000000000003",
       "task_revision": 4,
-      "evidence_pack_sha256": "defad64d0e51d8c475ee9b881b3e8603a38300d0f489f0b83421ae2d102e402e",
+      "evidence_pack_sha256": "b012ad952a83b4ed29b402818440b364985613a20199c54389e3bc5e5c91c104",
       "archive_manifest_sha256": "7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf",
-      "runtime_preflight_sha256": "f62ccc130ec28b47c0e8125fdc32e73cfb92faedb69e5b2675e6f4d6227dd22e",
-      "runtime_seal_receipt_sha256": "d9ca54ef8f9e13ef4163aa587d74dedaffaf7efefeb90f9478d9996218f5f45d",
-      "success_intent_sha256": "eb647504e2fa6e7fefb1e61e070ebf7ada63a468eaffff8e64eb026dbb506050",
+      "runtime_preflight_sha256": "c9290dde847d946d96e1212740bac982bb764279b26fe5712cf35494b9c48e21",
+      "runtime_seal_receipt_sha256": "939bc5e9334738aa249af8c9825d7c5c9b94b7f8a0852cde4ec379a23e4da500",
+      "success_intent_sha256": "1542e9a7ecaca4edeb7bc06b210c4ab0d91923a5f547c2be1bc8aaf97e68dfc4",
       "repository_commit": "af72d0ec02b5d2dc1d92508539bc89ba857245a8",
       "reviewed_command_sha256": "2f0394cef55cec77dfaca3aa20c5f6c8501d0827080b8fc19a3238d76702bf91",
       "runner_version": "review-reuse-er3-runner-v1",
@@ -613,39 +1583,51 @@
         "relative_path": "state/.review-reuse-writer-golden.lock",
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "size_bytes": 0,
-        "closed_before_snapshot": true
+        "held_through_summary_fsync": true
       },
       "artifacts": {
+        "control/docker": {
+          "sha256": "0c4837a5e2ee8043dca1cc470b10d9cea3c3ceb0104ad6057adee9c2b99640d0",
+          "size_bytes": 23
+        },
         "evidence/evidence-pack.json": {
-          "sha256": "ca9465536df8e83f78296191e2b8bcaa82de6356aa38eb26921b628698cc38b8",
+          "sha256": "8673cbc5a08c38b97259f1a6d2a2940e582e1f77c79246f87d0a15c4bc39e3b3",
           "size_bytes": 3472
         },
         "evidence/evidence.md": {
-          "sha256": "6cd0ca34a0d7e30160a993e2cf0343c095e91569624b5a83f568ab7cbb42a4da",
+          "sha256": "c91711621d0853f113c701f313c47e8cf3f229900b498f04a9bb941db36d760e",
           "size_bytes": 3556
         },
-        "task/task.json": {
-          "sha256": "22e4bd82764e72f05dedc1ff1cf31ae7f2697cd816f813f2143c0a50f0368fad",
-          "size_bytes": 1770
+        "receipts/preflight/docker-environment.json": {
+          "sha256": "571117807ac16fa31fd8cb124a55a2263f050bb04db25fb94b08774f6b53d51d",
+          "size_bytes": 188
         },
         "state/.review-reuse-writer-golden.lock": {
           "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "size_bytes": 0
         },
+        "state/run-journal.json": {
+          "sha256": "615ec0ac25a4ca8edd83bacc589d4f411390ab544e3a9c71e2e625a85f547031",
+          "size_bytes": 720
+        },
         "state/success-intent.json": {
-          "sha256": "e2cfa6730838ddb19bb652e19713611313a26b7f15b554ae9255591e941beb36",
+          "sha256": "c5f8f60c1d91f0303e1a30d0ba05bffdd28fc97865219bc13e18bce507d1c4ce",
           "size_bytes": 961
+        },
+        "task/task.json": {
+          "sha256": "020e4bbeca40538098ef9d8907a41f03a56eb482940652360cc1f18f5ad34f81",
+          "size_bytes": 1770
         }
       }
     },
-    "golden_summary_sha256": "9e636edbdb2225ddb59f723734c1766f97da4b0c5b4aecdbfe6bbc52d1c0788b"
+    "golden_summary_sha256": "2c30944a625ec5002114ea716239598f5a7db5f67606301de2797f0e4512d5fc"
   },
   "markdown_contract": {
     "media_type": "text/markdown; charset=utf-8",
     "exact_expression": "b\"# ReviewReuse EvidencePack v2\\n\\n\" + b\"Canonical evidence (null remains unavailable):\\n\\n    \" + canonical_json_v1(validated_persisted_pack) + b\"\\n\"",
     "source": "validated persisted EvidencePack selected by the immutable task selector",
     "golden_markdown_size_bytes": 3556,
-    "golden_markdown_sha256": "6cd0ca34a0d7e30160a993e2cf0343c095e91569624b5a83f568ab7cbb42a4da",
+    "golden_markdown_sha256": "c91711621d0853f113c701f313c47e8cf3f229900b498f04a9bb941db36d760e",
     "invariants": [
       "evidence.md equals the exact expression bytes",
       "audit bundle Markdown is the strict UTF-8 decode of those bytes",
@@ -1181,9 +2163,9 @@
         "run_id": "rr-er3-0123456789abcdef0123456789abcdef",
         "resource_owner_id": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         "preexisting_list_receipt_sha256s": [
-          "51ccf5323ffeafb3d8dd243e458c483db8804688015d901df022e1d06eaa960f",
-          "104f9f48a43cf7d23e0f8aff58136fa1093d7e90cb8986cee13dd269995efafa",
-          "97461f1fc96e6e37a1300ebb206207bdc8d25c708a91bfa3e90587c08fc08a21"
+          "89ad9420e458cf6ea54bff46e2f19b1878d31aee429e5460ede3e4ae42a42c43",
+          "283b1dc1feec234b2ef5eef4c16680fd7bf809935752c6aa32abab087ab92bf2",
+          "272a35542d3aeb20599f8b3ea0a2732ef9e1c5732125fb28dd339e91a64c472c"
         ],
         "preexisting_container_ids": [],
         "preexisting_volume_ids": [],
@@ -1192,13 +2174,15 @@
         "created_volume_ids": [],
         "created_network_ids": []
       },
-      "golden_sha256": "16aab6c71ec7d2fbb443e6e2e0d57b29055c0bfd3f0b7b0eacaed71c18c1250b"
+      "golden_sha256": "103acb5087f3624731243d89dc1cb210dfd2c039d0ac24894def8acd28dbcd9d"
     },
     "docker_command_receipt": {
       "exact_fields": [
         "operation",
         "argv",
         "environment_sha256",
+        "docker_private_binary_identity_sha256",
+        "docker_socket_identity_sha256",
         "stdin_sha256",
         "stdin_size_bytes",
         "exit_code",
@@ -1213,12 +2197,15 @@
         "stdin_size_bytes": "exact non-negative integer raw stdin length; boolean forbidden",
         "exit_code": "integer; boolean forbidden",
         "stdout_sha256": "raw stdout byte SHA-256",
-        "stderr_sha256": "raw stderr byte SHA-256"
+        "stderr_sha256": "raw stderr byte SHA-256",
+        "docker_private_binary_identity_sha256": "64 lowercase hex freshly observed immediately before this spawn and equal to the run binding/control identity",
+        "docker_socket_identity_sha256": "64 lowercase hex freshly observed immediately before this spawn and equal to the Gate-C/run-binding socket identity"
       },
-      "digest": "docker_command_receipt_sha256 is canonical_sha256 of the complete strict eight-field object with no excluded field",
+      "digest": "docker_command_receipt_sha256 is canonical_sha256 of the complete strict ten-field object with no excluded field",
       "invariants": [
         "active/default Docker context is never queried; the endpoint, API version, platform, and socket identity come only from the Gate-C reviewed command/binding",
         "every command uses the verified absolute binary followed by exact --host and the owner-bound endpoint, with the exact controlled child environment",
+        "fresh private-binary and socket identities are recomputed immediately before each spawn, retained in the receipt, and drift prevents spawn",
         "PATH lookup, --context, credential-helper use, shell execution, and untemplated arguments are forbidden",
         "the command receipt JSON plus exact raw stdin, stdout, and stderr bytes are mandatory run artifacts and replay recomputes all stream hashes and stdin size before the receipt digest",
         "docker cp stdin is one exact regular-file POSIX ustar artifact whose whole-tar digest/size and member content digest are independently bound; every other command has empty stdin",
@@ -1461,7 +2448,7 @@
         "docker_control.socket_identity_sha256": "64 lowercase hex recomputed from canonical path, parent-chain digest, device/inode, owner/group, and mode before every Docker command and equal to Gate C",
         "docker_control.docker_api_version": "literal 1.43 equal to the persisted ER3RunBinding and controlled child environment",
         "docker_control.docker_config_realpath_sha256": "64 lowercase hex over the runner-created empty mode-0700 config-directory realpath object; directory stays empty",
-        "docker_control.docker_environment_sha256": "64 lowercase hex over exact keys DOCKER_API_VERSION, DOCKER_CONFIG, HOME, LANG, and LC_ALL; no inherited variable exists",
+        "docker_control.docker_environment_sha256": "64 lowercase hex over and exactly reproducible from receipts/preflight/docker-environment.json with keys DOCKER_API_VERSION, DOCKER_CONFIG, HOME, LANG, and LC_ALL; no inherited variable exists",
         "docker_control.selected_platform": "linux/amd64 or linux/arm64 equal to Gate C, ER3RunBinding, and image.selected_platform",
         "docker_control.server_version": "non-empty observed string",
         "docker_control.docker_source_binary_realpath": "owner-bound canonical absolute regular source executable path; never executed",
@@ -1504,6 +2491,7 @@
       "invariants": [
         "stdlib-only Python bootstrap completes before src import or Docker validation; observed_head equals authorized_head, Python control and reviewed process argv match Gate C/ER3RunBinding, status_porcelain_sha256 is the empty-byte digest, and clean is true",
         "docker_control endpoint/socket parent/identity, API version, platform, source/private binary, resource owner, and empty config are owner-bound; all seven Docker overrides and every PYTHON-prefixed parent variable are absent; context is never queried; nine setup receipts and raw stdin/stdout/stderr are recomputed; first three prove zero label matches, server_version comes from docker_version, pull is digest-pinned, and docker_control/resource ownership digests verify",
+        "receipts/preflight/docker-environment.json is the exact canonical five-key child environment preimage and its digest equals docker_control.docker_environment_sha256 and every command receipt environment_sha256",
         "image.static_attestation_sha256 equals ratified_run_bindings and image/container image IDs equal the selected static-attestation platform",
         "container command, process user, working directory, lifecycle, exact pair labels, network attachments, published ports, complete raw API-v1.43 HostConfig and ordered unique-name Config.Env digests, normalized host_config, mounts, and integration/credential/proxy projection equal the closed static-attestation contracts",
         "the numeric no-egress probe exits 7 with stdout 000 and the pre-index health, index sizes, and storage count are all zero before any fixture byte is opened",
@@ -1768,7 +2756,7 @@
             "docker_container_start",
             "docker_container_inspect_initial"
           ],
-          "argv": "first three use zero_proof_argv; remaining six use [/tmp/review-reuse-er3-golden/control/docker,--host,unix:///var/run/docker.sock,golden-setup,<operation>]",
+          "argv": "exactly setup_argv_matrix[operation].golden_argv; live substitution sources are closed per entry and no additional option is permitted",
           "environment_sha256": "canonical_sha256 of golden_external_preimages.docker_subprocess_environment",
           "stdin": "empty bytes for every setup command",
           "exit_code": 0,
@@ -1816,7 +2804,285 @@
               "--format",
               "{{.ID}}"
             ]
-          }
+          },
+          "docker_private_binary_identity_sha256": "freshly observed before each setup spawn; golden value from docker_private_binary_identity",
+          "docker_socket_identity_sha256": "freshly observed before each setup spawn; golden value from docker_socket_identity",
+          "setup_argv_matrix": [
+            {
+              "sequence": 1,
+              "operation": "docker_container_list_preexisting",
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "container",
+                "ls",
+                "--all",
+                "--filter",
+                "label=com.zensgit.review-reuse-er3.run-id=rr-er3-0123456789abcdef0123456789abcdef",
+                "--filter",
+                "label=com.zensgit.review-reuse-er3.resource-owner-id=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                "--format",
+                "{{.ID}}"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<run_id>": "ER3RunBinding.run_id",
+                "<resource_owner_id>": "ER3RunBinding.resource_owner_id",
+                "<platform>": "ER3RunBinding.selected_platform",
+                "<image_reference>": "ratified attestation image.reference",
+                "<container_id>": "resource-ownership created_container_id for start/inspect only"
+              }
+            },
+            {
+              "sequence": 2,
+              "operation": "docker_volume_list_preexisting",
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "volume",
+                "ls",
+                "--filter",
+                "label=com.zensgit.review-reuse-er3.run-id=rr-er3-0123456789abcdef0123456789abcdef",
+                "--filter",
+                "label=com.zensgit.review-reuse-er3.resource-owner-id=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                "--format",
+                "{{.Name}}"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<run_id>": "ER3RunBinding.run_id",
+                "<resource_owner_id>": "ER3RunBinding.resource_owner_id",
+                "<platform>": "ER3RunBinding.selected_platform",
+                "<image_reference>": "ratified attestation image.reference",
+                "<container_id>": "resource-ownership created_container_id for start/inspect only"
+              }
+            },
+            {
+              "sequence": 3,
+              "operation": "docker_network_list_preexisting",
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "network",
+                "ls",
+                "--filter",
+                "label=com.zensgit.review-reuse-er3.run-id=rr-er3-0123456789abcdef0123456789abcdef",
+                "--filter",
+                "label=com.zensgit.review-reuse-er3.resource-owner-id=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                "--format",
+                "{{.ID}}"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<run_id>": "ER3RunBinding.run_id",
+                "<resource_owner_id>": "ER3RunBinding.resource_owner_id",
+                "<platform>": "ER3RunBinding.selected_platform",
+                "<image_reference>": "ratified attestation image.reference",
+                "<container_id>": "resource-ownership created_container_id for start/inspect only"
+              }
+            },
+            {
+              "sequence": 4,
+              "operation": "docker_version",
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "version",
+                "--format",
+                "{{.Server.Version}}"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<run_id>": "ER3RunBinding.run_id",
+                "<resource_owner_id>": "ER3RunBinding.resource_owner_id",
+                "<platform>": "ER3RunBinding.selected_platform",
+                "<image_reference>": "ratified attestation image.reference",
+                "<container_id>": "resource-ownership created_container_id for start/inspect only"
+              }
+            },
+            {
+              "sequence": 5,
+              "operation": "docker_image_pull",
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "image",
+                "pull",
+                "--platform",
+                "linux/amd64",
+                "ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<run_id>": "ER3RunBinding.run_id",
+                "<resource_owner_id>": "ER3RunBinding.resource_owner_id",
+                "<platform>": "ER3RunBinding.selected_platform",
+                "<image_reference>": "ratified attestation image.reference",
+                "<container_id>": "resource-ownership created_container_id for start/inspect only"
+              }
+            },
+            {
+              "sequence": 6,
+              "operation": "docker_image_inspect",
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "image",
+                "inspect",
+                "--format",
+                "{{json .}}",
+                "ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<run_id>": "ER3RunBinding.run_id",
+                "<resource_owner_id>": "ER3RunBinding.resource_owner_id",
+                "<platform>": "ER3RunBinding.selected_platform",
+                "<image_reference>": "ratified attestation image.reference",
+                "<container_id>": "resource-ownership created_container_id for start/inspect only"
+              }
+            },
+            {
+              "sequence": 7,
+              "operation": "docker_container_create",
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "container",
+                "create",
+                "--name",
+                "rr-er3-0123456789abcdef0123456789abcdef",
+                "--platform",
+                "linux/amd64",
+                "--label",
+                "com.zensgit.review-reuse-er3.run-id=rr-er3-0123456789abcdef0123456789abcdef",
+                "--label",
+                "com.zensgit.review-reuse-er3.resource-owner-id=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                "--network",
+                "none",
+                "--read-only",
+                "--cap-drop",
+                "ALL",
+                "--security-opt",
+                "no-new-privileges",
+                "--ipc",
+                "private",
+                "--cgroupns",
+                "private",
+                "--runtime",
+                "runc",
+                "--pids-limit",
+                "256",
+                "--shm-size",
+                "67108864",
+                "--log-driver",
+                "none",
+                "--tmpfs",
+                "/app/data:rw,nosuid,nodev",
+                "--tmpfs",
+                "/app/indexes:rw,nosuid,nodev",
+                "--tmpfs",
+                "/app/logs:rw,nosuid,nodev",
+                "--tmpfs",
+                "/tmp:rw,nosuid,nodev",
+                "--env",
+                "S3_ENABLED=false",
+                "--env",
+                "EVENT_BUS_ENABLED=false",
+                "--env",
+                "EVENT_BUS_USE_LOCAL=true",
+                "--env",
+                "ML_PLATFORM_ENABLED=false",
+                "--env",
+                "GEOMETRIC_ENABLED=false",
+                "--env",
+                "OTEL_ENABLED=false",
+                "--env",
+                "RATE_LIMIT_ENABLED=false",
+                "--env",
+                "RATE_LIMIT_STORAGE=memory",
+                "--env",
+                "PROMETHEUS_ENABLED=false",
+                "--user",
+                "appuser",
+                "--workdir",
+                "/app",
+                "--entrypoint",
+                "uvicorn",
+                "ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
+                "caddedup_vision.api.main:app",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                "8000"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<run_id>": "ER3RunBinding.run_id",
+                "<resource_owner_id>": "ER3RunBinding.resource_owner_id",
+                "<platform>": "ER3RunBinding.selected_platform",
+                "<image_reference>": "ratified attestation image.reference",
+                "<container_id>": "resource-ownership created_container_id for start/inspect only"
+              }
+            },
+            {
+              "sequence": 8,
+              "operation": "docker_container_start",
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "container",
+                "start",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<run_id>": "ER3RunBinding.run_id",
+                "<resource_owner_id>": "ER3RunBinding.resource_owner_id",
+                "<platform>": "ER3RunBinding.selected_platform",
+                "<image_reference>": "ratified attestation image.reference",
+                "<container_id>": "resource-ownership created_container_id for start/inspect only"
+              }
+            },
+            {
+              "sequence": 9,
+              "operation": "docker_container_inspect_initial",
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "inspect",
+                "--type",
+                "container",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<run_id>": "ER3RunBinding.run_id",
+                "<resource_owner_id>": "ER3RunBinding.resource_owner_id",
+                "<platform>": "ER3RunBinding.selected_platform",
+                "<image_reference>": "ratified attestation image.reference",
+                "<container_id>": "resource-ownership created_container_id for start/inspect only"
+              }
+            }
+          ]
         },
         "status_porcelain": "empty byte string; raw SHA-256, not canonical JSON",
         "raw_config_env": [
@@ -1856,6 +3122,8 @@
               "{{.ID}}"
             ],
             "environment_sha256": "571117807ac16fa31fd8cb124a55a2263f050bb04db25fb94b08774f6b53d51d",
+            "docker_private_binary_identity_sha256": "966ab0eb9fc0af586d858d84f1d785fdd8310ff6a1153b1f4d3d64544d006a60",
+            "docker_socket_identity_sha256": "494b331e50b32565a2d20eda74afc69a5cb698e53be47363701046b9ab80d850",
             "stdin_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "stdin_size_bytes": 0,
             "exit_code": 0,
@@ -1878,6 +3146,8 @@
               "{{.Name}}"
             ],
             "environment_sha256": "571117807ac16fa31fd8cb124a55a2263f050bb04db25fb94b08774f6b53d51d",
+            "docker_private_binary_identity_sha256": "966ab0eb9fc0af586d858d84f1d785fdd8310ff6a1153b1f4d3d64544d006a60",
+            "docker_socket_identity_sha256": "494b331e50b32565a2d20eda74afc69a5cb698e53be47363701046b9ab80d850",
             "stdin_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "stdin_size_bytes": 0,
             "exit_code": 0,
@@ -1900,6 +3170,8 @@
               "{{.ID}}"
             ],
             "environment_sha256": "571117807ac16fa31fd8cb124a55a2263f050bb04db25fb94b08774f6b53d51d",
+            "docker_private_binary_identity_sha256": "966ab0eb9fc0af586d858d84f1d785fdd8310ff6a1153b1f4d3d64544d006a60",
+            "docker_socket_identity_sha256": "494b331e50b32565a2d20eda74afc69a5cb698e53be47363701046b9ab80d850",
             "stdin_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "stdin_size_bytes": 0,
             "exit_code": 0,
@@ -1912,10 +3184,13 @@
               "/tmp/review-reuse-er3-golden/control/docker",
               "--host",
               "unix:///var/run/docker.sock",
-              "golden-setup",
-              "docker_version"
+              "version",
+              "--format",
+              "{{.Server.Version}}"
             ],
             "environment_sha256": "571117807ac16fa31fd8cb124a55a2263f050bb04db25fb94b08774f6b53d51d",
+            "docker_private_binary_identity_sha256": "966ab0eb9fc0af586d858d84f1d785fdd8310ff6a1153b1f4d3d64544d006a60",
+            "docker_socket_identity_sha256": "494b331e50b32565a2d20eda74afc69a5cb698e53be47363701046b9ab80d850",
             "stdin_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "stdin_size_bytes": 0,
             "exit_code": 0,
@@ -1928,10 +3203,15 @@
               "/tmp/review-reuse-er3-golden/control/docker",
               "--host",
               "unix:///var/run/docker.sock",
-              "golden-setup",
-              "docker_image_pull"
+              "image",
+              "pull",
+              "--platform",
+              "linux/amd64",
+              "ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251"
             ],
             "environment_sha256": "571117807ac16fa31fd8cb124a55a2263f050bb04db25fb94b08774f6b53d51d",
+            "docker_private_binary_identity_sha256": "966ab0eb9fc0af586d858d84f1d785fdd8310ff6a1153b1f4d3d64544d006a60",
+            "docker_socket_identity_sha256": "494b331e50b32565a2d20eda74afc69a5cb698e53be47363701046b9ab80d850",
             "stdin_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "stdin_size_bytes": 0,
             "exit_code": 0,
@@ -1944,10 +3224,15 @@
               "/tmp/review-reuse-er3-golden/control/docker",
               "--host",
               "unix:///var/run/docker.sock",
-              "golden-setup",
-              "docker_image_inspect"
+              "image",
+              "inspect",
+              "--format",
+              "{{json .}}",
+              "ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251"
             ],
             "environment_sha256": "571117807ac16fa31fd8cb124a55a2263f050bb04db25fb94b08774f6b53d51d",
+            "docker_private_binary_identity_sha256": "966ab0eb9fc0af586d858d84f1d785fdd8310ff6a1153b1f4d3d64544d006a60",
+            "docker_socket_identity_sha256": "494b331e50b32565a2d20eda74afc69a5cb698e53be47363701046b9ab80d850",
             "stdin_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "stdin_size_bytes": 0,
             "exit_code": 0,
@@ -1960,10 +3245,77 @@
               "/tmp/review-reuse-er3-golden/control/docker",
               "--host",
               "unix:///var/run/docker.sock",
-              "golden-setup",
-              "docker_container_create"
+              "container",
+              "create",
+              "--name",
+              "rr-er3-0123456789abcdef0123456789abcdef",
+              "--platform",
+              "linux/amd64",
+              "--label",
+              "com.zensgit.review-reuse-er3.run-id=rr-er3-0123456789abcdef0123456789abcdef",
+              "--label",
+              "com.zensgit.review-reuse-er3.resource-owner-id=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+              "--network",
+              "none",
+              "--read-only",
+              "--cap-drop",
+              "ALL",
+              "--security-opt",
+              "no-new-privileges",
+              "--ipc",
+              "private",
+              "--cgroupns",
+              "private",
+              "--runtime",
+              "runc",
+              "--pids-limit",
+              "256",
+              "--shm-size",
+              "67108864",
+              "--log-driver",
+              "none",
+              "--tmpfs",
+              "/app/data:rw,nosuid,nodev",
+              "--tmpfs",
+              "/app/indexes:rw,nosuid,nodev",
+              "--tmpfs",
+              "/app/logs:rw,nosuid,nodev",
+              "--tmpfs",
+              "/tmp:rw,nosuid,nodev",
+              "--env",
+              "S3_ENABLED=false",
+              "--env",
+              "EVENT_BUS_ENABLED=false",
+              "--env",
+              "EVENT_BUS_USE_LOCAL=true",
+              "--env",
+              "ML_PLATFORM_ENABLED=false",
+              "--env",
+              "GEOMETRIC_ENABLED=false",
+              "--env",
+              "OTEL_ENABLED=false",
+              "--env",
+              "RATE_LIMIT_ENABLED=false",
+              "--env",
+              "RATE_LIMIT_STORAGE=memory",
+              "--env",
+              "PROMETHEUS_ENABLED=false",
+              "--user",
+              "appuser",
+              "--workdir",
+              "/app",
+              "--entrypoint",
+              "uvicorn",
+              "ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
+              "caddedup_vision.api.main:app",
+              "--host",
+              "127.0.0.1",
+              "--port",
+              "8000"
             ],
             "environment_sha256": "571117807ac16fa31fd8cb124a55a2263f050bb04db25fb94b08774f6b53d51d",
+            "docker_private_binary_identity_sha256": "966ab0eb9fc0af586d858d84f1d785fdd8310ff6a1153b1f4d3d64544d006a60",
+            "docker_socket_identity_sha256": "494b331e50b32565a2d20eda74afc69a5cb698e53be47363701046b9ab80d850",
             "stdin_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "stdin_size_bytes": 0,
             "exit_code": 0,
@@ -1976,10 +3328,13 @@
               "/tmp/review-reuse-er3-golden/control/docker",
               "--host",
               "unix:///var/run/docker.sock",
-              "golden-setup",
-              "docker_container_start"
+              "container",
+              "start",
+              "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28"
             ],
             "environment_sha256": "571117807ac16fa31fd8cb124a55a2263f050bb04db25fb94b08774f6b53d51d",
+            "docker_private_binary_identity_sha256": "966ab0eb9fc0af586d858d84f1d785fdd8310ff6a1153b1f4d3d64544d006a60",
+            "docker_socket_identity_sha256": "494b331e50b32565a2d20eda74afc69a5cb698e53be47363701046b9ab80d850",
             "stdin_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "stdin_size_bytes": 0,
             "exit_code": 0,
@@ -1992,10 +3347,14 @@
               "/tmp/review-reuse-er3-golden/control/docker",
               "--host",
               "unix:///var/run/docker.sock",
-              "golden-setup",
-              "docker_container_inspect_initial"
+              "inspect",
+              "--type",
+              "container",
+              "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28"
             ],
             "environment_sha256": "571117807ac16fa31fd8cb124a55a2263f050bb04db25fb94b08774f6b53d51d",
+            "docker_private_binary_identity_sha256": "966ab0eb9fc0af586d858d84f1d785fdd8310ff6a1153b1f4d3d64544d006a60",
+            "docker_socket_identity_sha256": "494b331e50b32565a2d20eda74afc69a5cb698e53be47363701046b9ab80d850",
             "stdin_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "stdin_size_bytes": 0,
             "exit_code": 0,
@@ -2114,17 +3473,17 @@
           "docker_private_binary_sha256": "0c4837a5e2ee8043dca1cc470b10d9cea3c3ceb0104ad6057adee9c2b99640d0",
           "docker_private_binary_identity_sha256": "966ab0eb9fc0af586d858d84f1d785fdd8310ff6a1153b1f4d3d64544d006a60",
           "resource_owner_id": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-          "resource_ownership_sha256": "16aab6c71ec7d2fbb443e6e2e0d57b29055c0bfd3f0b7b0eacaed71c18c1250b",
+          "resource_ownership_sha256": "103acb5087f3624731243d89dc1cb210dfd2c039d0ac24894def8acd28dbcd9d",
           "setup_command_receipt_sha256s": [
-            "51ccf5323ffeafb3d8dd243e458c483db8804688015d901df022e1d06eaa960f",
-            "104f9f48a43cf7d23e0f8aff58136fa1093d7e90cb8986cee13dd269995efafa",
-            "97461f1fc96e6e37a1300ebb206207bdc8d25c708a91bfa3e90587c08fc08a21",
-            "fe7bcce10a77bb3ea1cf5d8ab34dc1990711f2e05c50ba066b6ae595fc8bcd6c",
-            "52833c0c4f5b5d358b6ed63db909fdb434f4290131bc78d502f32536008fdbc3",
-            "4ba92e90a4087bbbd624f52dfee8757307597165077a5ca14f411828b889ae8c",
-            "f814b9f57ae83a95b8d62083ed76c29a1323586165b942a31cef9ce446186fa1",
-            "7b5788435089ccfea033d79261fd8a0d4c939c85d7203bf3d099ed3e0ead7700",
-            "0951a5f5c3c1dffce83dbcc5ef88b2346bdb1aebac9a3ecb9af154bb26fd6b40"
+            "89ad9420e458cf6ea54bff46e2f19b1878d31aee429e5460ede3e4ae42a42c43",
+            "283b1dc1feec234b2ef5eef4c16680fd7bf809935752c6aa32abab087ab92bf2",
+            "272a35542d3aeb20599f8b3ea0a2732ef9e1c5732125fb28dd339e91a64c472c",
+            "d4b157580a17d4938dc9748f19152c79471decc5526858c06a12690df015e93d",
+            "85f4a7a720d7f1ce67da6dce1f175fbef8c238975a86ed20125aaf847bc87563",
+            "77d8dc3c4ed1228f622c69f9bc30bc914843580ef3cdbb5f7f9cb6ce5f3e4f91",
+            "10c169a8bd63b6f57915dd2cab056efaee66ff8f5df509e8f8fc586e9b0146ca",
+            "e03df88fdfe6cf192cd127fbec254576800907fe213e7904f6a6d2be9e2dd525",
+            "e282dc9a2b7d4f3597475a7ae4153433f7e8ebc60d0f85f3e63ee3b9fcfab288"
           ],
           "parent_environment_absent": [
             "DOCKER_HOST",
@@ -2135,14 +3494,14 @@
             "DOCKER_API_VERSION",
             "DOCKER_DEFAULT_PLATFORM"
           ],
-          "docker_control_sha256": "d96befb4e6b7c3952a8dce22d269fda9d6b8747654417d3f5ef0cb9e5080d5a5"
+          "docker_control_sha256": "ef6802d6138b19db4f580a75ac83fdf99b6d04e2bd3c56199d4e0484ca6c5ea7"
         },
         "image": {
           "index_digest": "sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
           "selected_platform": "linux/amd64",
           "platform_manifest_digest": "sha256:036db4725b5578689d76c1ced933aa9438bd628e257387515e214de5a838ce20",
           "docker_image_id": "sha256:9d056adc789ee0980de046205f0bb009c57a36a5a94ea329c2971e5cecf30bc0",
-          "static_attestation_sha256": "77c60489bf6ff50e96f6fadcf123e55f5a652361c5a3af5591f46e7df61b7484"
+          "static_attestation_sha256": "2d32ff91eb0f42079541f85dbc926f144c13bf1cbbe8ba2b720164fe4329f28e"
         },
         "container": {
           "container_id": "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28",
@@ -2294,7 +3653,7 @@
           "storage_count": 0
         }
       },
-      "golden_sha256": "f62ccc130ec28b47c0e8125fdc32e73cfb92faedb69e5b2675e6f4d6227dd22e"
+      "golden_sha256": "c9290dde847d946d96e1212740bac982bb764279b26fe5712cf35494b9c48e21"
     },
     "runtime_seal": {
       "digest_field": "runtime_seal_receipt_sha256",
@@ -2382,6 +3741,8 @@
             "operation",
             "argv",
             "environment_sha256",
+            "docker_private_binary_identity_sha256",
+            "docker_socket_identity_sha256",
             "stdin_sha256",
             "stdin_size_bytes",
             "exit_code",
@@ -2389,25 +3750,676 @@
             "stderr_sha256"
           ],
           "operation_source": "the matching golden_preimage.sealed_operations item operation",
-          "argv_prefix": [
-            "/tmp/review-reuse-er3-golden/control/docker",
-            "--host",
-            "unix:///var/run/docker.sock",
-            "golden-operation"
-          ],
-          "argv_suffix_sources": [
-            "sealed_operation.operation",
-            "base-10 sealed_operation.ordinal"
+          "live_operation_argv_matrix": [
+            {
+              "sequence": 1,
+              "operation": "docker_exec_curl_version",
+              "ordinal": 1,
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "exec",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28",
+                "curl",
+                "--version"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<container_id>": "resource-ownership created_container_id",
+                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+              }
+            },
+            {
+              "sequence": 2,
+              "operation": "docker_exec_egress_probe",
+              "ordinal": 1,
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "exec",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28",
+                "curl",
+                "--noproxy",
+                "*",
+                "--proto",
+                "=http",
+                "--silent",
+                "--show-error",
+                "--output",
+                "/dev/null",
+                "--write-out",
+                "%{http_code}",
+                "--connect-timeout",
+                "2",
+                "--max-time",
+                "3",
+                "--max-redirs",
+                "0",
+                "http://198.51.100.1:80/"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<container_id>": "resource-ownership created_container_id",
+                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+              }
+            },
+            {
+              "sequence": 3,
+              "operation": "docker_exec_health",
+              "ordinal": 1,
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "exec",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28",
+                "curl",
+                "--noproxy",
+                "*",
+                "--proto",
+                "=http",
+                "--fail-with-body",
+                "--silent",
+                "--show-error",
+                "--write-out",
+                "\\n%{http_code}",
+                "--connect-timeout",
+                "2",
+                "--max-time",
+                "30",
+                "--max-redirs",
+                "0",
+                "--request",
+                "GET",
+                "http://127.0.0.1:8000/health"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<container_id>": "resource-ownership created_container_id",
+                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+              }
+            },
+            {
+              "sequence": 4,
+              "operation": "docker_exec_stats",
+              "ordinal": 1,
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "exec",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28",
+                "curl",
+                "--noproxy",
+                "*",
+                "--proto",
+                "=http",
+                "--fail-with-body",
+                "--silent",
+                "--show-error",
+                "--write-out",
+                "\\n%{http_code}",
+                "--connect-timeout",
+                "2",
+                "--max-time",
+                "30",
+                "--max-redirs",
+                "0",
+                "--request",
+                "GET",
+                "http://127.0.0.1:8000/api/stats"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<container_id>": "resource-ownership created_container_id",
+                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+              }
+            },
+            {
+              "sequence": 5,
+              "operation": "docker_cp_query",
+              "ordinal": 1,
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "cp",
+                "-",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28:/tmp/query-exact-001.png"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<container_id>": "resource-ownership created_container_id",
+                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+              }
+            },
+            {
+              "sequence": 6,
+              "operation": "docker_exec_search",
+              "ordinal": 1,
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "exec",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28",
+                "curl",
+                "--noproxy",
+                "*",
+                "--proto",
+                "=http",
+                "--fail-with-body",
+                "--silent",
+                "--show-error",
+                "--write-out",
+                "\\n%{http_code}",
+                "--connect-timeout",
+                "2",
+                "--max-time",
+                "30",
+                "--max-redirs",
+                "0",
+                "--request",
+                "POST",
+                "--form",
+                "file=@/tmp/query-exact-001.png;type=image/png",
+                "--form",
+                "mode=fast",
+                "--form",
+                "max_results=1",
+                "--form",
+                "compute_diff=false",
+                "--form",
+                "enable_ml=false",
+                "--form",
+                "enable_geometric=false",
+                "http://127.0.0.1:8000/api/v2/search"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<container_id>": "resource-ownership created_container_id",
+                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+              }
+            },
+            {
+              "sequence": 7,
+              "operation": "docker_exec_remove_query",
+              "ordinal": 1,
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "exec",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28",
+                "rm",
+                "--",
+                "/tmp/query-exact-001.png"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<container_id>": "resource-ownership created_container_id",
+                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+              }
+            },
+            {
+              "sequence": 8,
+              "operation": "docker_cp_archive",
+              "ordinal": 1,
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "cp",
+                "-",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28:/tmp/archive-exact-001.png"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<container_id>": "resource-ownership created_container_id",
+                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+              }
+            },
+            {
+              "sequence": 9,
+              "operation": "docker_exec_index_add",
+              "ordinal": 1,
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "exec",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28",
+                "curl",
+                "--noproxy",
+                "*",
+                "--proto",
+                "=http",
+                "--fail-with-body",
+                "--silent",
+                "--show-error",
+                "--write-out",
+                "\\n%{http_code}",
+                "--connect-timeout",
+                "2",
+                "--max-time",
+                "30",
+                "--max-redirs",
+                "0",
+                "--request",
+                "POST",
+                "--form",
+                "file=@/tmp/archive-exact-001.png;type=image/png",
+                "http://127.0.0.1:8000/api/index/add?user_name=review-reuse-er3-fixture&upload_to_s3=false"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<container_id>": "resource-ownership created_container_id",
+                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+              }
+            },
+            {
+              "sequence": 10,
+              "operation": "docker_exec_remove_archive",
+              "ordinal": 1,
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "exec",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28",
+                "rm",
+                "--",
+                "/tmp/archive-exact-001.png"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<container_id>": "resource-ownership created_container_id",
+                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+              }
+            },
+            {
+              "sequence": 11,
+              "operation": "docker_cp_archive",
+              "ordinal": 2,
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "cp",
+                "-",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28:/tmp/archive-control-001.png"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<container_id>": "resource-ownership created_container_id",
+                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+              }
+            },
+            {
+              "sequence": 12,
+              "operation": "docker_exec_index_add",
+              "ordinal": 2,
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "exec",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28",
+                "curl",
+                "--noproxy",
+                "*",
+                "--proto",
+                "=http",
+                "--fail-with-body",
+                "--silent",
+                "--show-error",
+                "--write-out",
+                "\\n%{http_code}",
+                "--connect-timeout",
+                "2",
+                "--max-time",
+                "30",
+                "--max-redirs",
+                "0",
+                "--request",
+                "POST",
+                "--form",
+                "file=@/tmp/archive-control-001.png;type=image/png",
+                "http://127.0.0.1:8000/api/index/add?user_name=review-reuse-er3-fixture&upload_to_s3=false"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<container_id>": "resource-ownership created_container_id",
+                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+              }
+            },
+            {
+              "sequence": 13,
+              "operation": "docker_exec_remove_archive",
+              "ordinal": 2,
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "exec",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28",
+                "rm",
+                "--",
+                "/tmp/archive-control-001.png"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<container_id>": "resource-ownership created_container_id",
+                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+              }
+            },
+            {
+              "sequence": 14,
+              "operation": "docker_cp_archive",
+              "ordinal": 3,
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "cp",
+                "-",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28:/tmp/archive-control-002.png"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<container_id>": "resource-ownership created_container_id",
+                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+              }
+            },
+            {
+              "sequence": 15,
+              "operation": "docker_exec_index_add",
+              "ordinal": 3,
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "exec",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28",
+                "curl",
+                "--noproxy",
+                "*",
+                "--proto",
+                "=http",
+                "--fail-with-body",
+                "--silent",
+                "--show-error",
+                "--write-out",
+                "\\n%{http_code}",
+                "--connect-timeout",
+                "2",
+                "--max-time",
+                "30",
+                "--max-redirs",
+                "0",
+                "--request",
+                "POST",
+                "--form",
+                "file=@/tmp/archive-control-002.png;type=image/png",
+                "http://127.0.0.1:8000/api/index/add?user_name=review-reuse-er3-fixture&upload_to_s3=false"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<container_id>": "resource-ownership created_container_id",
+                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+              }
+            },
+            {
+              "sequence": 16,
+              "operation": "docker_exec_remove_archive",
+              "ordinal": 3,
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "exec",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28",
+                "rm",
+                "--",
+                "/tmp/archive-control-002.png"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<container_id>": "resource-ownership created_container_id",
+                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+              }
+            },
+            {
+              "sequence": 17,
+              "operation": "docker_exec_rebuild",
+              "ordinal": 1,
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "exec",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28",
+                "curl",
+                "--noproxy",
+                "*",
+                "--proto",
+                "=http",
+                "--fail-with-body",
+                "--silent",
+                "--show-error",
+                "--write-out",
+                "\\n%{http_code}",
+                "--connect-timeout",
+                "2",
+                "--max-time",
+                "30",
+                "--max-redirs",
+                "0",
+                "--request",
+                "POST",
+                "http://127.0.0.1:8000/api/v2/index/rebuild"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<container_id>": "resource-ownership created_container_id",
+                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+              }
+            },
+            {
+              "sequence": 18,
+              "operation": "docker_exec_stats",
+              "ordinal": 2,
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "exec",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28",
+                "curl",
+                "--noproxy",
+                "*",
+                "--proto",
+                "=http",
+                "--fail-with-body",
+                "--silent",
+                "--show-error",
+                "--write-out",
+                "\\n%{http_code}",
+                "--connect-timeout",
+                "2",
+                "--max-time",
+                "30",
+                "--max-redirs",
+                "0",
+                "--request",
+                "GET",
+                "http://127.0.0.1:8000/api/stats"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<container_id>": "resource-ownership created_container_id",
+                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+              }
+            },
+            {
+              "sequence": 19,
+              "operation": "docker_exec_health",
+              "ordinal": 2,
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "exec",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28",
+                "curl",
+                "--noproxy",
+                "*",
+                "--proto",
+                "=http",
+                "--fail-with-body",
+                "--silent",
+                "--show-error",
+                "--write-out",
+                "\\n%{http_code}",
+                "--connect-timeout",
+                "2",
+                "--max-time",
+                "30",
+                "--max-redirs",
+                "0",
+                "--request",
+                "GET",
+                "http://127.0.0.1:8000/health"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<container_id>": "resource-ownership created_container_id",
+                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+              }
+            },
+            {
+              "sequence": 20,
+              "operation": "docker_cp_query",
+              "ordinal": 2,
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "cp",
+                "-",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28:/tmp/query-exact-001.png"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<container_id>": "resource-ownership created_container_id",
+                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+              }
+            },
+            {
+              "sequence": 21,
+              "operation": "docker_exec_search",
+              "ordinal": 2,
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "exec",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28",
+                "curl",
+                "--noproxy",
+                "*",
+                "--proto",
+                "=http",
+                "--fail-with-body",
+                "--silent",
+                "--show-error",
+                "--write-out",
+                "\\n%{http_code}",
+                "--connect-timeout",
+                "2",
+                "--max-time",
+                "30",
+                "--max-redirs",
+                "0",
+                "--request",
+                "POST",
+                "--form",
+                "file=@/tmp/query-exact-001.png;type=image/png",
+                "--form",
+                "mode=balanced",
+                "--form",
+                "max_results=5",
+                "--form",
+                "compute_diff=false",
+                "--form",
+                "enable_ml=false",
+                "--form",
+                "enable_geometric=true",
+                "http://127.0.0.1:8000/api/v2/search"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<container_id>": "resource-ownership created_container_id",
+                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+              }
+            },
+            {
+              "sequence": 22,
+              "operation": "docker_exec_remove_query",
+              "ordinal": 2,
+              "golden_argv": [
+                "/tmp/review-reuse-er3-golden/control/docker",
+                "--host",
+                "unix:///var/run/docker.sock",
+                "exec",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28",
+                "rm",
+                "--",
+                "/tmp/query-exact-001.png"
+              ],
+              "live_substitution_sources": {
+                "<private_docker>": "fixed run-root control/docker identity",
+                "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
+                "<container_id>": "resource-ownership created_container_id",
+                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+              }
+            }
           ],
           "environment_sha256": "571117807ac16fa31fd8cb124a55a2263f050bb04db25fb94b08774f6b53d51d",
+          "docker_private_binary_identity_sha256": "966ab0eb9fc0af586d858d84f1d785fdd8310ff6a1153b1f4d3d64544d006a60",
+          "docker_socket_identity_sha256": "494b331e50b32565a2d20eda74afc69a5cb698e53be47363701046b9ab80d850",
           "stdin_sha256_source": "sealed_operation.stdin_sha256",
           "stdin_size_bytes_source": "sealed_operation.stdin_size_bytes",
           "exit_code_default": 0,
           "exit_code_overrides": {
             "docker_exec_egress_probe": 7
           },
-          "stdout_bytes_utf8_template": "golden-op:{sealed_operation.sequence}:stdout\n",
-          "stderr_bytes_utf8_template": "golden-op:{sealed_operation.sequence}:stderr\n"
+          "stdout_bytes_utf8_template": "golden-op:{sealed_operation.sequence}:stdout\\n",
+          "stderr_bytes_utf8_template": "golden-op:{sealed_operation.sequence}:stderr\\n",
+          "scope": "golden streams are serialization-only; argv shape and substitutions are the closed live command contract"
         },
         "inspect_command_receipt_preimage": {
           "operation": "docker_inspect_continuous",
@@ -2421,6 +4433,8 @@
             "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28"
           ],
           "environment_sha256": "571117807ac16fa31fd8cb124a55a2263f050bb04db25fb94b08774f6b53d51d",
+          "docker_private_binary_identity_sha256": "966ab0eb9fc0af586d858d84f1d785fdd8310ff6a1153b1f4d3d64544d006a60",
+          "docker_socket_identity_sha256": "494b331e50b32565a2d20eda74afc69a5cb698e53be47363701046b9ab80d850",
           "stdin_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "stdin_size_bytes": 0,
           "exit_code": 0,
@@ -2430,7 +4444,7 @@
         "inspect_receipts": {
           "observation_sequence_first": 1,
           "observation_sequence_last": 44,
-          "docker_command_receipt_sha256_source": "canonical_sha256(inspect_command_receipt_preimage)",
+          "docker_command_receipt_sha256_source": "canonical_sha256(complete ten-field inspect_command_receipt_preimage with fresh identities)",
           "strict_projection_sha256": "c907c2aa218065321eba9ac471a4436286f363632809fcbd8c15a8c6838cf927"
         },
         "cleanup_command_receipt_preimages": {
@@ -2447,6 +4461,8 @@
               "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28"
             ],
             "environment_sha256": "571117807ac16fa31fd8cb124a55a2263f050bb04db25fb94b08774f6b53d51d",
+            "docker_private_binary_identity_sha256": "966ab0eb9fc0af586d858d84f1d785fdd8310ff6a1153b1f4d3d64544d006a60",
+            "docker_socket_identity_sha256": "494b331e50b32565a2d20eda74afc69a5cb698e53be47363701046b9ab80d850",
             "stdin_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "stdin_size_bytes": 0,
             "exit_code": 0,
@@ -2470,6 +4486,8 @@
               "{{.ID}}"
             ],
             "environment_sha256": "571117807ac16fa31fd8cb124a55a2263f050bb04db25fb94b08774f6b53d51d",
+            "docker_private_binary_identity_sha256": "966ab0eb9fc0af586d858d84f1d785fdd8310ff6a1153b1f4d3d64544d006a60",
+            "docker_socket_identity_sha256": "494b331e50b32565a2d20eda74afc69a5cb698e53be47363701046b9ab80d850",
             "stdin_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "stdin_size_bytes": 0,
             "exit_code": 0,
@@ -2492,6 +4510,8 @@
               "{{.Name}}"
             ],
             "environment_sha256": "571117807ac16fa31fd8cb124a55a2263f050bb04db25fb94b08774f6b53d51d",
+            "docker_private_binary_identity_sha256": "966ab0eb9fc0af586d858d84f1d785fdd8310ff6a1153b1f4d3d64544d006a60",
+            "docker_socket_identity_sha256": "494b331e50b32565a2d20eda74afc69a5cb698e53be47363701046b9ab80d850",
             "stdin_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "stdin_size_bytes": 0,
             "exit_code": 0,
@@ -2514,6 +4534,8 @@
               "{{.ID}}"
             ],
             "environment_sha256": "571117807ac16fa31fd8cb124a55a2263f050bb04db25fb94b08774f6b53d51d",
+            "docker_private_binary_identity_sha256": "966ab0eb9fc0af586d858d84f1d785fdd8310ff6a1153b1f4d3d64544d006a60",
+            "docker_socket_identity_sha256": "494b331e50b32565a2d20eda74afc69a5cb698e53be47363701046b9ab80d850",
             "stdin_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "stdin_size_bytes": 0,
             "exit_code": 0,
@@ -2524,12 +4546,12 @@
         "purpose": "serialization-only deterministic vectors; live receipts use observed exact argv and raw streams"
       },
       "strict_projection_golden_sha256": "c907c2aa218065321eba9ac471a4436286f363632809fcbd8c15a8c6838cf927",
-      "golden_inspect_command_receipt_sha256": "69ee1ba8c83745a86b02f48861d8d659373496d8b396d262a429b1de3363cff1",
+      "golden_inspect_command_receipt_sha256": "16c1aac7c4e18a3879906c617091f030b4b032c0e84c8c399265f7d085b0824d",
       "golden_preimage": {
         "schema_version": "review-reuse-er3-runtime-seal-v1",
         "run_id": "rr-er3-0123456789abcdef0123456789abcdef",
-        "runtime_preflight_sha256": "f62ccc130ec28b47c0e8125fdc32e73cfb92faedb69e5b2675e6f4d6227dd22e",
-        "docker_control_sha256": "d96befb4e6b7c3952a8dce22d269fda9d6b8747654417d3f5ef0cb9e5080d5a5",
+        "runtime_preflight_sha256": "c9290dde847d946d96e1212740bac982bb764279b26fe5712cf35494b9c48e21",
+        "docker_control_sha256": "ef6802d6138b19db4f580a75ac83fdf99b6d04e2bd3c56199d4e0484ca6c5ea7",
         "sealed_operations": [
           {
             "sequence": 1,
@@ -2753,74 +4775,74 @@
           }
         ],
         "command_receipt_sha256s": [
-          "a921b1625819ebae1a8e007e565fb1e771711b2b2b059211e6c5e45752140b43",
-          "c5fe918da3886f1eeeb9691b02f529dcc0efb5e2ad08360c000f6419d39ef82c",
-          "41b999363de9e5e9350bb7b9cc5cd589fb9b60346c7ce1118f41754dca415a3f",
-          "9824c42e214035b7caaf9609c9186e1776a6c10a7b306b016f91907d701ab7b5",
-          "a51f11d2c2f6f11657950ffc64729932c0844551dae0f663797844412413f605",
-          "61f7e6fc1fe3d7cecb4fd4c844e8f7002c366990e38095d2b775f84091c9b911",
-          "94d9c0fb34f6b4a73c03b72b4ea8e72a3e7e3ef3555a52e7f05f88d6b75dfbcd",
-          "99e2f5425876fc5a7066b17f29dd5190e3057fc396d52e99069fe920fb794315",
-          "d4b67db37f1f9c56cb8ad1be88379c446b9f57f0f54256ae7e71a5a402e14866",
-          "2ac5c4df24200242c95246fb4d78ab22a7103de7280ed1642181a449aa409025",
-          "e0538696c700d1d1847b9f3150c61eb1c724f9c2b44515a3eeeb03749620bb66",
-          "de7f30be1f2403db55b18629fa41c985f2b363aef64814be569d4b6498f136f3",
-          "488bf153405163e70b3893c798cbab422cf0842bac05b1a8ccbeb1d462253b1d",
-          "e24cca8bbacda4f866cec2d05e0e91a24b341f1afa651aa35405d428ef37f43d",
-          "759548c9d71b32dfc1c5b6ba1d0160fd82cd3d979bbd550124bbca0f92719bfa",
-          "c8a4c106af2603848871d7fc4be763649afdde660b5250ebb568585f8245ba93",
-          "2ce80dd073f65e6a00c28ae6631d9dc3b211ccf6208e42589357447b687507f7",
-          "ceb96ae85445a1593b05009ca01f643eb18522207eca44a3799443bd882e43d9",
-          "f953ad901187159707afb6e2b9a63f69f8905f631f5f51822b80d6811e37743d",
-          "f309426457efbfe0969646ac58062d8c0a210ee444b12fbeaafcc418f5698847",
-          "e7552c5aedb239275f263eb500ff746b9eabccf975f7b205cdf9925a1d3f09a0",
-          "e573ab789c53f289492f09c39243f58a932988e88d6f1268676d6d7361a01453"
+          "0c4c17918bec9b99d3c1b2caadc566aa2e2446ec09b3f9b87169bdab5fb42db6",
+          "870e6374a6e3e8fe2ae39c7f37c26397f8a27f36ad50e0ccf54b34995a2fd59f",
+          "26d418918e1280f0708a6144864d267c221de6dd193008f0f9d771a015251ba7",
+          "6bcc6284bb07ecd4931a497252aa3945fa5b9525b9e7d8ce868270ff697f0c6f",
+          "5d02c54792c95dadc088af1a37018f04b30c8ce61310956087bfcc6893d7934e",
+          "aa886ac3e6692fc43339bbeedce198335600fd938f3ad2bf6f7d72f9d0d17f4f",
+          "9d291359bda387c68682d0383739f649b1c1a2a46047f2aad4f8e8f339746271",
+          "69f8fc3317fcdf932c50f834796dcb64b6e7d22e9bb94ad729122508fc6f4583",
+          "42c206c9470641c453c72c774ef5c2a02ab95b0d4f7089d4b4d4e431816007f4",
+          "1689aa2688521427588cdc16ea5b6e7f223c0637b57e87d17a76b1441d7e54c1",
+          "5bdabbb74f6dadd49c0855c0393ad36c3d9c71aa381e37316797b5178f88fdf4",
+          "5a39424597ad41a4d41a9bdf637059e4b8af192cebf33b4353b9a05ceddc8134",
+          "7627f9a5f568995615682e5efa086016f6f701b2058fbf1f2f7997774cfe1341",
+          "60326e09c86a717eaab92ce26c6178b3f661687455f82e0885e1796c981f0a6c",
+          "d0ef8b6b8a01d93ad90d96e1aa227e24e6ae9fbfc3618307bf8a35016cd00769",
+          "b7326b8cff2768c9a26811bf9f7c0e6f38626089f6b01ab53ac219cd62830345",
+          "748f5e3f9085618c4465f4614b3d685a7450823d1777d9801226914695205593",
+          "cc041628bac578adf7c621b8e56853fc4d56a6b5f941b00907861ae7b9c25781",
+          "229f56ea2d33b8ea08193130eaa7f92a67296041186e22ed0736ec62ca403ab6",
+          "e1149b43785256530a8f6f8ef3a3d4dd754ac97904d19eedb0bce9a0f301681c",
+          "00e459d0e7ba96e0ab86744b95fd90f82f59df658062142a48103b3ad67af5f7",
+          "6a97a2423db5b2b5a1e9cf114e74aad2d6ba2d202a74d0a12b996ebf4d564458"
         ],
         "inspect_receipt_sha256s": [
-          "48cfeeb6f634dd51f383782d0d0ca4d468ebc1c1516ddb5aeed77b7c0f6d3eb2",
-          "ff2074eb7bca4677ca93fb9ff46d86302bb8f643ee693f000f1fc29ae5f93534",
-          "a73fa9a2924cce80cad569573ac1c79c707b26d0fa16742838a40f8e9189e67a",
-          "602c0b7991c1df88888fae615d902875bb94ade3e9a259e7a850d762f006d811",
-          "b0be763281cb60a1f1216fb101d7b1ba64c55b0b151c753a20e2afa813efdf88",
-          "59812bdec202a05dd25cf2cbc69ce017aac87988f40ca7aa5bb7f045584b5a71",
-          "9f985857c403964ab3d841148943f779e959778fc51add3849267ddc7ef46d53",
-          "93925a53e49c98bfea781774580ff4de4ae42e3b9e87686a30864e007f17e125",
-          "c442d94d9dc5849f10d832267909b5ea926f453bb6ba7afcacc0dbf8073abeb6",
-          "16abd36b63ab548df614d7518350b6f74060a293e346c490bf9d7eae7bb25830",
-          "1a05f3bdbb36dbcccf8de4735f73c295721e46fd71fe38037e3c73980adcf911",
-          "21031fc4bf11792f7214a6398720bac6ecb9e5b0bd5fe19ab9e5d5157f8dec08",
-          "a4b113a5c2f5b274a6111864b037551b45c504a0eb7130ce79a9245cf64b0522",
-          "981c8e49d2f14dfd80c99b2556bed6acc66544dd59a1f7bca9fec823fb3a3172",
-          "525fa5b6c03a3b30e0bd7203ee33bee265369f1854fc56f0d47db4fd443850a0",
-          "fffb4aa51fd9ae1db018aec2be65a627193361db8a6433aada8bd0b7631e8e52",
-          "e9cbe0ecbbc9b8343504c72c05827205209c60a8a567d5092f828746c294f5e9",
-          "63b00f4d7ae3311ec444a2e1d9bc26dfe28135b9a7ecd942f751c5918ad14a7d",
-          "e5025fbd985bace00a799eff0b6da982f6790e34d1282ad50dd4bb0d1e07802d",
-          "6c1a4a1b2618beffc6c6311dd182d6f88733e0ed6f31d8858d6b5723f4c29d53",
-          "ddc1f4dd1d0eb4ba4a80e83e0740a5969da1e771b0b6ce63ad0ed23386311229",
-          "5ab709851dd77ccaa6931e94328ce3514c1277e331e48b021166a086a41dcc29",
-          "cd55ee47b02be1d4e45f1cfa9c0cadc3c61d72f6adaab7ee9f2b010d24af6fea",
-          "c007bd37ed16d1f12ff1ccbec7069bc8b38f39743178353ee40b8ba8f23d2bf9",
-          "6a8623719767e2846492cc9e21fb07cc1824692a825573994a3f293e95fae78f",
-          "1ccc0c9ec6c8d02607c19a439297d5bd4589ec5b6fcaf727607e583ae6374a0c",
-          "156728a345ee15f7efaec67802021c0f02bcb27721b41e301521f7ffbf088b12",
-          "c493a1ab64d6f0f3f89ece838e629823263667b6d4481d5fc9678ffa305d23ff",
-          "758bc9ab00e41b99c21a49f7aef8e9bf6c73a53af4b32f1dbe062778291e5a32",
-          "e3b7e26e75353165510fa0386202d7b2aab3397eb932d283e131952cc3b2988f",
-          "a62767dc4457678944cff73e23a20eb40118207ee0fe9a30c798e757fe40fd1a",
-          "615d69aa9dc486ef6aa9a8f793a6e342323ce5fc51f0295d1d8745c865f93fbe",
-          "05a079e617a83f947585031ff4bca95b1d6782078fbc01f6c68dca37da91090f",
-          "098246fc97b39b1f5ea568b08f9d5c8f6f56ab3e984385f0a4068e4d8c90eb3a",
-          "e0f9ba83c65473bbd3c672bbe479a7e764a68576f460fcbf3e61ffb29b0a45b7",
-          "6ee3f16a6bbab26f9674384c7d9484c6818e9f69303e5c9a9dd0dbfda4718df5",
-          "5962e34ea67a72b30d9f6dcef5eb6d9093ee915ec28920d14fd4318d8e9d51d7",
-          "9d37a21748a1ab7f0960303a942a57594bc4f3c2774557fde5c82566eb048953",
-          "15e50a961cd91362c1a20b8e0a0fb8ab31ca84854d56c7acf7054ddb99cc9ddb",
-          "f9b4af13038aa4c3ec30b8d0dddb283c523091f22fab14b4c73bd055dad9f28d",
-          "75db64857bba062315309cf3a9f730afd0086b14e113f80f3d40f48274bed095",
-          "b89e6e4657f5a334aef7f0248e5d7534c86c9e634647b6cec2682586ec9d82f0",
-          "5ff18ed058e920e873fb255de06425261e93bef38d5cb6271cb7652637a5b926",
-          "2cce8e7752f7b608c88e5e5173dd818def2afebf6bfb7435c36972ae49117d42"
+          "3ca831a9440b44113cce18ba2f91df508d4e234663ddb8db37e942932e691897",
+          "c97db276d0a1e54867b371a9c89f3045b4bcaf61fffb189a067955aa7e0ddd05",
+          "50d234c15de8f538aec36f54cfcaa552a4eb5869c68ca9a36a3b06b7d360142a",
+          "fe844180423a0ba55890ea8331ba8dd355b7c084a872555c15cf38cda4a10a38",
+          "9b4838295a8ee17ea1e24317e4621cd9ff304ca8200acf7c4465ec84cacb6a43",
+          "317eecd52024076dea82ef36ae24fed8b665d97b5dccbc4df7c16dbee691ea90",
+          "f615bed830c3d58bf112511ff599515dfebeb7194e6155b2f3f26beae7a8c301",
+          "83c2dc68649db61b0d081e1d4be77d5bfd05226a40df495d2c391dd686c7b36f",
+          "d9795ca1a17eac1e0989ad921e32a95931e76ab451525b52b629c92275af93cf",
+          "cdaf37affeeccbc5f81233544e767e4e5418528747ebab4801e4451707483b2a",
+          "931d784f4e19cdf3b75d5ba5076c960c8f93a45d51c2d830555a54742de17b4d",
+          "176322444bc9df86657ac4fae758d264710becfd21eb2cee355e3e86c049bc5d",
+          "8a99c8fb9097ed7d269df68aa8569d1e1b4e317b111c5cf6a569b5dde0a89a0e",
+          "da64e0f910feccebe9fd3b014526e1447ce3c38257b2f147fc0ec01bd9aaa1fc",
+          "4b0fc2fabd25827b6587eca9a67235a9c75e8982f2e6a12593ca0b98208b3d80",
+          "41994ebd5412e318e6e76f5d47b1a561940aa9d8d2c702e4c8c950962aa98c46",
+          "9596a4ddbf689ca76c568bb7295a6255a55875a326b5e5e53069c86ae728c4e7",
+          "86aacacd76904cbc8302892714da601d6b011af5324e1625a235721e7c00617e",
+          "5d3f1cfaabc73e7e55972d7e7f994128984f287f6a4085adcd99c79fe49b99d3",
+          "f12ba35bd28a36c1a278d26631e49058a41b9989134289d3323045ffe59a5eda",
+          "e1f1b616d0d338e5abc7fc087ddae2cfeee851f76371a6427682501501cf4b05",
+          "6aa2611056942509350e7512ffa8ac9ccf8e5673cd0e4fd7dca63d026f1e5c0b",
+          "a502e45ace2e5366a0ddccf3e0520b6f04530f331137ec0da56ffb6e9a79f70a",
+          "72a3ac42daf5c7d868d11c0315db8c3f097181c8936cbef74499ad217755798f",
+          "510be1af8e9ca923e138172db5ebaa40d0abfcbe1d9fd90e0ec2b4cc06d33c24",
+          "f87b10894cddc4f869b70a8cb06638aa51ff456d7a392088fd0ef61f4192c23a",
+          "328fd959c1d4f773121796a017da559e912da253f42fd9e1455c1224a53f5464",
+          "098300e2742f24e5c83d0d303d582bdc058d9498064e3acf97fb23ed6b4d6b67",
+          "05fdd71d1f4452ceb6233356d77cc6ec2c9a3b4350d7c6d96332a9325847f80d",
+          "3f3919133dec1b71d101dc2af491921b1b6d851babf6fbbc7b922c0263e39e6a",
+          "a532c79a2298d9b03673122aa17120c75df069487349fcfc07a6ee401017b86b",
+          "9bee9890413f01fb5041b9fcd15bb2793e9d6dfebce46e26a5085c0753aadcc8",
+          "aeb3b3e9f75250e85ccf24ca4887cea52508aa9ade6a865fd0f84efe717df477",
+          "a47afd11838d6f813d767eca596cde7ebf157d3c17d97f0dacfca111211fa5b1",
+          "1e565a84b0ff9d9fda8b04e8261392df7211ea99d49edf73b2f74489b774cdb3",
+          "4546103c2b4e470a6afddd6822bf2de97c5bfeed6c1ebb0548fa757e195a243a",
+          "45a52d8fb425422ae946739d08e0b8ba331a18d91eb1a60e2c6d583cba730ad1",
+          "bac58b698026009aa4f51e7c21dd908c7b443fd028c1e7c6e24216b83e745e00",
+          "0b3d5b30a3d4552e4c78b9324ecd05c3f3da488d52239dafe4aa2de90e92b6b4",
+          "bc0cb19d6ef6240c50d037a3339fd31cc9778ce62fb429465307164d7a887c56",
+          "642c8bc62919225ac248cf30e6c76f8ff4bb9132a5f757ba77c2126ef99f367e",
+          "da47eb3b1c30a33ecf590b463296e3ffa8cf14f54998abc4e19b96d545bd8818",
+          "f2ac71a21e2ce0d8f35c054ace444e51553b025240e572f1195f4b41f546591a",
+          "e32be899eedee2a3981e47721b7054ad9edb119e7cde2f26bb01631c394c2ead"
         ],
         "command_counts": {
           "curl_version_requests": 1,
@@ -2836,17 +4858,17 @@
           "rebuild_requests": 1
         },
         "cleanup": {
-          "docker_rm_command_receipt_sha256": "9ec8bd568a2202e6d6c8209649e7647b32117858d66ef751ffae50aa804fd0f9",
-          "labeled_container_list_command_receipt_sha256": "d1e1f8ada60f0ba85fb78449ff5702cc40017c390f6c1acd4592dea8d3a8ab6d",
-          "labeled_volume_list_command_receipt_sha256": "fb8373b842c66844f564716ddf170969bb6e1b3e27da0a4090a5aeae4897c95f",
-          "labeled_network_list_command_receipt_sha256": "5ac3818c8942a51416d77bde99084bd3207e63412fc7d493a1f33edc28b1c03a",
+          "docker_rm_command_receipt_sha256": "62692a0cc32f491670372eb528f5fd463f021d4d11fe949053bae36334c29a50",
+          "labeled_container_list_command_receipt_sha256": "20a745818a5f12a5850c0bf3495d1b7b6b003349e5b89bbffe1ce5ea9a834617",
+          "labeled_volume_list_command_receipt_sha256": "61f4deed0284d8928867e7f02db07bbfcaf5f849aa2f5d78b057362a1bc68082",
+          "labeled_network_list_command_receipt_sha256": "f37d77b986bb33cdb173ee9126d7439dd18a9dd2f850fd70d838ab2698fcae87",
           "docker_rm_exit_code": 0,
           "remaining_labeled_containers": 0,
           "remaining_labeled_volumes": 0,
           "remaining_labeled_networks": 0
         }
       },
-      "golden_sha256": "d9ca54ef8f9e13ef4163aa587d74dedaffaf7efefeb90f9478d9996218f5f45d"
+      "golden_sha256": "939bc5e9334738aa249af8c9825d7c5c9b94b7f8a0852cde4ec379a23e4da500"
     }
   },
   "envelope": {
@@ -3140,7 +5162,7 @@
     "schema_version": "evidence-pack-v2",
     "task_id": "00000000-0000-4000-8000-000000000003",
     "task_revision": 4,
-    "evidence_pack_sha256": "defad64d0e51d8c475ee9b881b3e8603a38300d0f489f0b83421ae2d102e402e",
+    "evidence_pack_sha256": "b012ad952a83b4ed29b402818440b364985613a20199c54389e3bc5e5c91c104",
     "trace_id": "00000000-0000-4000-8000-000000000004",
     "idempotency_key": "er3-golden-key",
     "source_job_id": "00000000-0000-4000-8000-000000000003",
@@ -3245,8 +5267,8 @@
       },
       "run": {
         "run_id": "rr-er3-0123456789abcdef0123456789abcdef",
-        "runtime_preflight_sha256": "f62ccc130ec28b47c0e8125fdc32e73cfb92faedb69e5b2675e6f4d6227dd22e",
-        "runtime_seal_receipt_sha256": "d9ca54ef8f9e13ef4163aa587d74dedaffaf7efefeb90f9478d9996218f5f45d",
+        "runtime_preflight_sha256": "c9290dde847d946d96e1212740bac982bb764279b26fe5712cf35494b9c48e21",
+        "runtime_seal_receipt_sha256": "939bc5e9334738aa249af8c9825d7c5c9b94b7f8a0852cde4ec379a23e4da500",
         "repository_commit": "af72d0ec02b5d2dc1d92508539bc89ba857245a8",
         "runner_version": "review-reuse-er3-runner-v1"
       }
@@ -3263,7 +5285,7 @@
       "submitted": null
     }
   },
-  "golden_evidence_pack_sha256": "defad64d0e51d8c475ee9b881b3e8603a38300d0f489f0b83421ae2d102e402e",
+  "golden_evidence_pack_sha256": "b012ad952a83b4ed29b402818440b364985613a20199c54389e3bc5e5c91c104",
   "limitations": [
     "The golden vector and provenance receipt goldens freeze serialization and digest semantics, not model quality or observed runtime values.",
     "The ER3 runner never enables or submits a human decision.",
