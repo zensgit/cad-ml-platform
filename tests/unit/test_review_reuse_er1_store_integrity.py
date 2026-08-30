@@ -520,6 +520,14 @@ def test_undecided_task_rejects_forged_pack_decision(tmp_path: Path) -> None:
                 "unexpected": "smuggled",
             },
         ),
+        (
+            "calibration",
+            {
+                "version": "workbench-mvp-0",
+                "status": "uncalibrated",
+                "unexpected": "smuggled",
+            },
+        ),
         ("unexpected", {"smuggled": True}),
     ],
 )
