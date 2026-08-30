@@ -523,6 +523,7 @@ def validate_review_reuse_task_payload(task: ReviewReuseTask) -> None:
             "source",
             "candidates",
             "confidence",
+            "calibration",
             "evidence",
             "rejection_reasons",
             "unsupported_states",
