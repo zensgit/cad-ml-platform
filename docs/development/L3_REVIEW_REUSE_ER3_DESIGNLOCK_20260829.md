@@ -944,9 +944,9 @@ with one immutable selector:
 The complete v2 canonical contract is
 `docs/development/L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json`
 with contract digest
-`2aaa059dfc6609da2f14da5d487fd9b9ef3b111c65cbab9a5d9a9cd4d2e82a95`.
+`680c596d315061424a32d160d95131b7da9acc1a02a238397b2f83c40da8a372`.
 Its reviewed raw-file SHA-256 is
-`ef82f65da6679d2a643061cc4b84e6ad704877790de956fcf486f4066ed87037`.
+`9f30ee2c2f4e57180538ce493d28e21c7b8f8e75061cbafeabfad1a5153e1e96`.
 It freezes exact object keys, types/nullability, list ordering, task context,
 unknown-field rejection, and digest exclusions. Its embedded golden vector has
 EvidencePack digest
@@ -1331,20 +1331,31 @@ The verifier observes the candidate Gate-A checkout's exact commit; this is an
 evidence subject, not owner acceptance. It resolves runtime base, ratified design-
 lock head, and candidate head as raw commit objects and proves
 `runtime-base -> design-lock -> candidate-Gate-A`. Every Git command uses one
-reviewed absolute binary, `--no-replace-objects`, a closed five-key environment,
-and no ambient repository/object setting. Replacement refs and grafts must be
-absent and the repository must be non-shallow. The verifier independently
-recomputes every consumed SHA-1 commit/tree/blob ID from its raw object header/body,
-walks raw parent links for ancestry, and walks raw trees for deltas and
+reviewed absolute binary, `--no-pager`, `--no-optional-locks`,
+`--no-replace-objects`, `--no-ext-diff` where accepted, a closed five-key
+environment, and fixed helper-disabling `-c` values. System/global config is
+disabled. Repository-local config is independently enumerated with origin/scope,
+must contain only the contract's inert `core`/`remote`/`branch` allowlist, and is
+bound into a strict repository-identity receipt; include/includeIf, worktree
+config, aliases, filters, helpers, hooks, pagers, alternates, and every other key
+fail. Replacement refs, grafts, and alternates must be absent and the repository
+must be non-shallow. The verifier independently recomputes every consumed
+non-quarantined SHA-1 commit/tree/blob ID from its raw object header/body, walks raw
+parent links for ancestry, and walks raw trees for deltas and fixture-elided
 materialization; `merge-base` and `diff` are corroborating receipts only.
 
-It materializes the runtime-base raw tree into an empty execution root, rejecting
-pre-existing bytes, sparse/filter output, alternate objects, and any skip-worktree
-or assume-unchanged flag. From the exact candidate Gate-A object, it overlays only the blob at
+It materializes a fixture-elided projection of the runtime-base raw tree into an
+empty execution root, rejecting pre-existing bytes, sparse/filter output,
+alternate objects, and any skip-worktree or assume-unchanged flag. The verifier
+walks only tree entries below `tests/vision/fixtures/cad_features`, records the
+directory tree ID and the three child path/mode/blob IDs, and never requests those
+blob bodies, types, sizes, headers, or raw hashes. Every other materialized regular
+file retains path/mode/blob/size/raw-SHA-256 evidence. From the exact candidate
+Gate-A object, it overlays only the blob at
 `tests/unit/test_review_reuse_er3_archive.py`; no contract, fixture, verifier,
-workflow, helper, runtime, or source path may be copied into that execution root. The
-verifier executes from a separate read-only export of its exact candidate-head Git
-blob, and reads the ratified contract from the exact design-lock Git object
+workflow, helper, runtime, or source path may be copied into that execution root.
+The verifier executes from a separate read-only export of its exact candidate-head
+Git blob, and reads the ratified contract from the exact design-lock Git object
 outside the execution root.
 
 Both pytest phases use an owner-reviewed absolute Python 3.11 interpreter under
@@ -1352,10 +1363,12 @@ Both pytest phases use an owner-reviewed absolute Python 3.11 interpreter under
 manifest, exact argv/environment, final `sys.path`, and every source/test/dependency
 import mapping are digest-bound; user site, `.pth`, editable/zip installs,
 `PYTHONPATH`, `PYTHONHOME`, CWD imports, and unknown roots fail. The materialized
-source is read-only. A root-owned mode-`000` empty directory is deny-mounted over
-`tests/vision/fixtures/cad_features`; as the test UID, fixed negative `openat`
-probes for the three PNGs must return `EACCES`, and the test sees neither pre-opened
-fixture FDs nor Git objects. Fixture bytes are not opened or statted.
+source is read-only. The materializer creates only an empty trusted mountpoint at
+the quarantined fixture path; a root-owned mode-`000` empty directory is then
+deny-mounted there. As the test UID, fixed negative `openat` probes for the three
+PNG names must return `EACCES`, and the test sees neither pre-opened fixture FDs
+nor Git objects. Fixture payload bytes are never opened, statted, inflated, sized,
+hashed, or materialized by either privileged setup or the test.
 
 Pytest runs as a distinct unprivileged UID. One private mode-`0700` tmpfs scratch
 root outside source is its only writable location and supplies `TMPDIR` and
@@ -1363,9 +1376,13 @@ root outside source is its only writable location and supplies `TMPDIR` and
 separate report root and captures pytest events; the test cannot write that root.
 Mount, fixture-deny, negative-open, scratch, interpreter/import, supervisor-capture,
 and pre/post materialization receipts are all bound into each execution object. A
-second empty root is materialized from the candidate Gate-A tree and runs without
-overlay under the same policy. Any Git-view, object, import, read-deny, scratch,
-mount, pre/post, overlay, or report-capture mismatch is invalid evidence.
+second empty fixture-elided root is materialized from the candidate Gate-A tree and
+runs without overlay under the same policy. Any Git-view, object, import,
+read-deny, scratch,
+mount, pre/post, overlay, receipt-preimage, or report-capture mismatch is invalid
+evidence. Every execution digest resolves through the contract's exact retained
+path, raw-versus-canonical encoding, and closed receipt schema; a generic
+"hash the named artifact" convention is not accepted.
 
 The only classifier implementation is
 `tests/verification/review_reuse_er3_contract_verifier.py`. Gate A runs its exact
@@ -1375,7 +1392,11 @@ pytest phases itself, and captures their event evidence into a test-unwritable
 report root; it does not trust a test-authored JSON report. It emits one strict
 `review-reuse-er3-gate-a-verification-v1` JSON object outside the candidate commit,
 with recursively closed fields, types/nullability, enums, ordering, and every
-sub-digest preimage frozen in the machine contract. It contains a candidate
+sub-digest preimage frozen in the machine contract. It binds a strict producer CI
+identity sourced only from the protected GitHub Actions context and immutable event
+payload: repository name/ID, pull-request head, workflow path, run/attempt, fixed
+`er3-contract` job, and artifact name. The raw-object candidate head must match that
+producer head, and no workflow input or caller override is accepted. It contains a candidate
 artifact-set object for the exact eight singleton design/runbook/workflow/test/
 manifest/attestation/verifier artifacts plus every additional strict-JSON fixture,
 and binds that object with its own self-excluding canonical digest. It also contains
@@ -1518,17 +1539,30 @@ xpassed, deselected, or collection errors. Separate exact commands run the
 canonical/digest verifier at
 `tests/verification/review_reuse_er3_contract_verifier.py` and the frozen
 ER1/ER2/v1 regression selection. Gate B receives the owner-named accepted head,
-repository/workflow blob, run/attempt/job/artifact IDs, artifact archive digest,
+GitHub repository name/numeric ID, workflow blob, run/attempt/job/artifact IDs,
+artifact archive digest,
 strict report raw/full-canonical/self-excluding verification digests, frozen
 candidate artifact-set digest, and protected accepted-evidence digest only through
 an owner-protected CI environment consumed by the already-frozen workflow. Branch
-files, PR fields, caller values, or the Markdown runbook cannot substitute.
+files, PR fields, caller values, unrelated CI IDs, or the Markdown runbook cannot
+substitute.
 
 In Gate B, the accepted verifier runs from its exact Gate-A Git object outside the
 implementation execution root, retrieves and byte-verifies that immutable evidence
-artifact, proves the full raw-object chain `runtime-base -> design-lock -> Gate-A ->
-implementation`, validates the closed Gate-B path delta, and compares exactly the
-eight singleton artifacts plus every additional strict-JSON synthetic fixture
+artifact, and first uses authenticated GitHub API run, run-attempt jobs, and
+artifact metadata to build the strict CI-lineage receipt. Repository name/ID,
+accepted head, workflow path/blob, run/attempt, fixed `er3-contract` job, and
+artifact must form one chain; the unexpired artifact must belong to that run and
+match the downloaded archive digest. The frozen workflow has one evidence-producing
+job and one digest-pinned upload step, closing the job-to-artifact join. Exact raw
+API responses plus the normalized canonical lineage receipt are retained and
+digest-bound. Every lineage value must also equal the report's protected producer
+identity, closing cross-attempt artifact substitution. Syntactically valid
+unrelated IDs fail. The verifier then proves the
+full raw-object chain `runtime-base ->
+design-lock -> Gate-A -> implementation`, validates the closed Gate-B path delta,
+and compares exactly the eight singleton artifacts plus every additional strict-
+JSON synthetic fixture
 against the separate candidate artifact-set object frozen in the accepted Gate-A
 report. The Gate-B comparison has its own digest and is not equated to the earlier
 Gate-A artifact-set digest. It emits the strict
@@ -1578,7 +1612,7 @@ ER3 is complete only when all of the following are true at one exact head:
 - the runtime manifest matches §4 digest
   `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf`;
 - the v2 contract and golden digests remain
-  `2aaa059dfc6609da2f14da5d487fd9b9ef3b111c65cbab9a5d9a9cd4d2e82a95`
+  `680c596d315061424a32d160d95131b7da9acc1a02a238397b2f83c40da8a372`
   and `422e23da3589b24a5539a3d6546cac98ba692046ea14930b179dd9f7fe1b9f7f`;
 - existing ReviewReuse, identity, production-preflight, and core-fast suites are
   green without skips added for this tranche;
@@ -1621,8 +1655,8 @@ Suggested Gate-A fail-first-only owner response:
 > EvidencePack v2 contract
 > `docs/development/L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json`
 > canonical/raw digests
-> `2aaa059dfc6609da2f14da5d487fd9b9ef3b111c65cbab9a5d9a9cd4d2e82a95` /
-> `ef82f65da6679d2a643061cc4b84e6ad704877790de956fcf486f4066ed87037`,
+> `680c596d315061424a32d160d95131b7da9acc1a02a238397b2f83c40da8a372` /
+> `9f30ee2c2f4e57180538ce493d28e21c7b8f8e75061cbafeabfad1a5153e1e96`,
 > and golden EvidencePack digest
 > `422e23da3589b24a5539a3d6546cac98ba692046ea14930b179dd9f7fe1b9f7f`.
 > I authorize only §8.1 and its exact 106-node fail-first contract: the new test
@@ -1641,7 +1675,8 @@ exact Gate-A fail-first matrix:
 
 > I accept Gate-A exact head `<gate-a-sha>` and authorize only §8.2 ER3 runtime
 > implementation descending from `<design-lock-sha> -> <gate-a-sha>`. For repository
-> `zensgit/cad-ml-platform`, I accept workflow
+> `zensgit/cad-ml-platform` with numeric repository ID `<repository-id>`, I accept
+> workflow
 > `.github/workflows/review-reuse-er3-contract.yml` at blob `<workflow-blob>`, run
 > `<run-id>` / attempt `<attempt>` / job `<job-id>` / artifact `<artifact-id>`, fixed
 > artifact `review-reuse-er3-gate-a-evidence` with archive SHA-256

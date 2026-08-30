@@ -2,7 +2,7 @@
   "schema_version": "review-reuse-er3-evidence-pack-v2-contract-v1",
   "contract_status": "proposed_not_ratified",
   "runtime_authority": "none",
-  "contract_sha256": "2aaa059dfc6609da2f14da5d487fd9b9ef3b111c65cbab9a5d9a9cd4d2e82a95",
+  "contract_sha256": "680c596d315061424a32d160d95131b7da9acc1a02a238397b2f83c40da8a372",
   "canonicalization": {
     "algorithm": "sha-256",
     "function": "src.core.review_reuse.canonical.canonical_json_v1",
@@ -507,6 +507,460 @@
       "runtime_base": "af72d0ec02b5d2dc1d92508539bc89ba857245a8",
       "required_chain": "runtime_base -> owner-ratified design-lock head -> accepted Gate-A fail-first head -> Gate-B implementation head",
       "fail_first_baseline": "Gate A adds only the ratified tests, manifest/synthetic fixtures, workflow, and verification document; Gate B remains blocked until the owner accepts that exact classified head",
+      "git_repository_identity_receipt_contract": {
+        "schema_version": "review-reuse-er3-git-repository-identity-v1",
+        "exact_fields": [
+          "schema_version",
+          "repository",
+          "repository_id",
+          "git_directory",
+          "common_directory",
+          "object_format",
+          "local_config_entries",
+          "worktree_config_absent",
+          "replacement_refs_empty",
+          "grafts_absent",
+          "alternates_absent",
+          "shallow_repository",
+          "repository_identity_sha256"
+        ],
+        "filesystem_identity_exact_fields": [
+          "realpath_sha256",
+          "device",
+          "inode",
+          "owner_uid",
+          "group_gid",
+          "mode"
+        ],
+        "local_config_entry_exact_fields": [
+          "scope",
+          "origin_sha256",
+          "key",
+          "value_sha256"
+        ],
+        "types_and_nullability": {
+          "schema_version": "fixed review-reuse-er3-git-repository-identity-v1",
+          "repository": "fixed zensgit/cad-ml-platform",
+          "repository_id": "positive GitHub repository integer, boolean forbidden",
+          "git_directory": "strict filesystem identity object",
+          "common_directory": "strict filesystem identity object",
+          "object_format": "fixed sha1",
+          "local_config_entries": "array of strict local-config entries sorted by scope, key, origin_sha256, and value_sha256",
+          "worktree_config_absent": "boolean literal true",
+          "replacement_refs_empty": "boolean literal true",
+          "grafts_absent": "boolean literal true",
+          "alternates_absent": "boolean literal true",
+          "shallow_repository": "boolean literal false",
+          "repository_identity_sha256": "64-lowercase-hex SHA-256"
+        },
+        "filesystem_identity_types_and_nullability": {
+          "realpath_sha256": "64-lowercase-hex SHA-256 over the canonical absolute realpath string without exporting the path",
+          "device": "non-negative integer, boolean forbidden",
+          "inode": "positive integer, boolean forbidden",
+          "owner_uid": "non-negative integer, boolean forbidden",
+          "group_gid": "non-negative integer, boolean forbidden",
+          "mode": "four-digit octal permission string"
+        },
+        "local_config_entry_types_and_nullability": {
+          "scope": "fixed local",
+          "origin_sha256": "64-lowercase-hex SHA-256 of the canonical config-file realpath",
+          "key": "one inert allowlisted key",
+          "value_sha256": "64-lowercase-hex SHA-256 of the raw UTF-8 value"
+        },
+        "inert_local_config_allowlist": [
+          "branch.<name>.merge",
+          "branch.<name>.remote",
+          "core.bare",
+          "core.filemode",
+          "core.ignorecase",
+          "core.logallrefupdates",
+          "core.precomposeunicode",
+          "core.repositoryformatversion",
+          "remote.<name>.fetch",
+          "remote.<name>.url"
+        ],
+        "local_config_rule": "before any Git invocation, the stdlib-only verifier resolves the Git/common directories by directory-FD/no-symlink traversal, reads the local config as inert bytes without include expansion, and rejects include/includeIf, extensions.worktreeConfig, config.worktree, alias, credential, protocol, filter, diff, merge, pager, hooksPath, fsmonitor, alternates, object-format override, executable/helper command, and every key outside inert_local_config_allowlist. A later git config --local --no-includes --show-origin --show-scope corroboration must equal the parsed set. Remote URL values are never exported, only hashed. The verifier then uses only the fixed raw-object/read-only command allowlist with absolute Git, --no-pager, --no-optional-locks, --no-replace-objects, --no-ext-diff where accepted, core.fsmonitor=false, core.hooksPath=/dev/null, and core.pager=cat. Authoritative commit/tree/blob parsing is stdlib-only over no-replace raw object bytes and never invokes checkout filters, hooks, helpers, aliases, network, or repository executables.",
+        "digest_rule": "repository_identity_sha256 is canonical_sha256 of the complete strict receipt after removing only repository_identity_sha256; the retained canonical receipt is mandatory evidence for both Gate A and Gate B"
+      },
+      "execution_evidence_preimage_contract": {
+        "schema_version": "review-reuse-er3-execution-evidence-preimages-v1",
+        "phase_tokens": [
+          "runtime_base",
+          "gate_a_head",
+          "implementation"
+        ],
+        "digest_artifact_map": {
+          "materialization_manifest_sha256": "canonical_json_v1 receipts/<phase>/materialization-manifest.json using materialization_manifest",
+          "pre_status_sha256": "raw bytes receipts/<phase>/pre-status.stdout",
+          "post_status_sha256": "raw bytes receipts/<phase>/post-status.stdout",
+          "pre_index_flags_sha256": "raw bytes receipts/<phase>/pre-index-flags.stdout",
+          "post_index_flags_sha256": "raw bytes receipts/<phase>/post-index-flags.stdout",
+          "pre_tree_manifest_sha256": "canonical_json_v1 receipts/<phase>/pre-tree-manifest.json using tree_manifest",
+          "post_tree_manifest_sha256": "canonical_json_v1 receipts/<phase>/post-tree-manifest.json using tree_manifest",
+          "mount_receipt_sha256": "canonical_json_v1 receipts/<phase>/source-mount.json using mount_receipt",
+          "fixture_deny_receipt_sha256": "canonical_json_v1 receipts/<phase>/fixture-deny-mount.json using mount_receipt",
+          "fixture_negative_open_receipt_sha256": "canonical_json_v1 receipts/<phase>/fixture-negative-open.json using fixture_negative_open_receipt",
+          "python_control_sha256": "canonical_json_v1 receipts/<phase>/python-control.json using python_control_receipt",
+          "dependency_manifest_sha256": "canonical_json_v1 receipts/<phase>/dependency-manifest.json using file_manifest",
+          "import_map_sha256": "canonical_json_v1 receipts/<phase>/import-map.json using import_map_receipt",
+          "closed_environment_sha256": "canonical_json_v1 receipts/<phase>/closed-environment.json using closed_environment_receipt",
+          "pytest_argv_sha256": "canonical_json_v1 receipts/<phase>/pytest-argv.json using string_array_receipt",
+          "scratch_mount_receipt_sha256": "canonical_json_v1 receipts/<phase>/scratch-mount.json using mount_receipt",
+          "scratch_pre_inventory_sha256": "canonical_json_v1 receipts/<phase>/scratch-pre-inventory.json using file_manifest",
+          "scratch_post_inventory_sha256": "canonical_json_v1 receipts/<phase>/scratch-post-inventory.json using file_manifest",
+          "supervisor_capture_receipt_sha256": "canonical_json_v1 receipts/<phase>/supervisor-capture.json using supervisor_capture_receipt",
+          "pytest_report_sha256": "raw bytes receipts/<phase>/pytest-report.json",
+          "collected_node_ids_sha256": "canonical_json_v1 receipts/<phase>/collected-node-ids.json using string_array_receipt"
+        },
+        "common_receipt_exact_fields": [
+          "schema_version",
+          "phase"
+        ],
+        "materialization_manifest_exact_fields": [
+          "schema_version",
+          "phase",
+          "resolved_commit",
+          "resolved_tree",
+          "entries",
+          "quarantined_fixture_subtree"
+        ],
+        "materialized_entry_exact_fields": [
+          "path",
+          "git_mode",
+          "blob_id",
+          "size_bytes",
+          "raw_sha256"
+        ],
+        "quarantined_fixture_subtree_exact_fields": [
+          "path",
+          "tree_id",
+          "entries"
+        ],
+        "quarantined_fixture_entry_exact_fields": [
+          "path",
+          "git_mode",
+          "blob_id"
+        ],
+        "tree_manifest_exact_fields": [
+          "schema_version",
+          "phase",
+          "timing",
+          "entries",
+          "quarantined_fixture_subtree"
+        ],
+        "mount_receipt_exact_fields": [
+          "schema_version",
+          "phase",
+          "purpose",
+          "source_identity_sha256",
+          "target_sha256",
+          "filesystem_type",
+          "mount_flags",
+          "owner_uid",
+          "owner_gid",
+          "mode",
+          "verified"
+        ],
+        "fixture_negative_open_receipt_exact_fields": [
+          "schema_version",
+          "phase",
+          "execution_uid",
+          "probes"
+        ],
+        "fixture_probe_exact_fields": [
+          "path",
+          "syscall",
+          "flags",
+          "result_errno"
+        ],
+        "python_control_receipt_exact_fields": [
+          "schema_version",
+          "phase",
+          "interpreter_identity_sha256",
+          "interpreter_version",
+          "isolated_flag",
+          "no_site_flag",
+          "dependency_root_identity_sha256",
+          "final_sys_path",
+          "import_map_sha256",
+          "closed_environment_sha256",
+          "pytest_argv_sha256"
+        ],
+        "file_manifest_exact_fields": [
+          "schema_version",
+          "phase",
+          "purpose",
+          "entries"
+        ],
+        "file_manifest_entry_exact_fields": [
+          "path",
+          "kind",
+          "mode",
+          "size_bytes",
+          "raw_sha256"
+        ],
+        "import_map_receipt_exact_fields": [
+          "schema_version",
+          "phase",
+          "entries"
+        ],
+        "import_map_entry_exact_fields": [
+          "module",
+          "origin",
+          "root_class",
+          "raw_sha256"
+        ],
+        "closed_environment_receipt_exact_fields": [
+          "schema_version",
+          "phase",
+          "environment"
+        ],
+        "closed_python_environment_exact_fields": [
+          "HOME",
+          "LANG",
+          "LC_ALL",
+          "PYTHONDONTWRITEBYTECODE",
+          "PYTHONHASHSEED",
+          "TMPDIR"
+        ],
+        "string_array_receipt_exact_fields": [
+          "schema_version",
+          "phase",
+          "purpose",
+          "values"
+        ],
+        "supervisor_capture_receipt_exact_fields": [
+          "schema_version",
+          "phase",
+          "supervisor_uid",
+          "execution_uid",
+          "report_root_identity_sha256",
+          "test_writable",
+          "pytest_report_raw_sha256",
+          "event_count",
+          "complete"
+        ],
+        "materialization_manifest_types_and_nullability": {
+          "schema_version": "fixed review-reuse-er3-materialization-manifest-v1",
+          "phase": "one phase_tokens string",
+          "resolved_commit": "40-lowercase-hex SHA-1 object ID",
+          "resolved_tree": "40-lowercase-hex SHA-1 object ID",
+          "entries": "non-empty array of strict materialized entries sorted bytewise by path",
+          "quarantined_fixture_subtree": "strict quarantined fixture subtree object"
+        },
+        "materialized_entry_types_and_nullability": {
+          "path": "normalized repository-relative UTF-8 path outside the quarantined fixture prefix",
+          "git_mode": "fixed 100644 or 100755",
+          "blob_id": "40-lowercase-hex SHA-1 object ID",
+          "size_bytes": "non-negative integer, boolean forbidden",
+          "raw_sha256": "64-lowercase-hex SHA-256 of the bytes written once from blob_id"
+        },
+        "quarantined_fixture_subtree_types_and_nullability": {
+          "path": "fixed tests/vision/fixtures/cad_features",
+          "tree_id": "40-lowercase-hex SHA-1 tree object ID obtained only from its parent tree entry",
+          "entries": "exact three strict quarantined fixture entries sorted bytewise by path"
+        },
+        "quarantined_fixture_entry_types_and_nullability": {
+          "path": "one of cad_arc.png, cad_circle.png, or cad_line.png below the fixed quarantined path",
+          "git_mode": "fixed 100644",
+          "blob_id": "40-lowercase-hex SHA-1 blob object ID obtained only from the fixture-directory tree entry"
+        },
+        "tree_manifest_types_and_nullability": {
+          "schema_version": "fixed review-reuse-er3-tree-manifest-v1",
+          "phase": "one phase_tokens string",
+          "timing": "fixed pre or post",
+          "entries": "strict materialized-entry array exactly equal to materialization_manifest.entries",
+          "quarantined_fixture_subtree": "strict object exactly equal to materialization_manifest.quarantined_fixture_subtree"
+        },
+        "mount_receipt_types_and_nullability": {
+          "schema_version": "fixed review-reuse-er3-mount-receipt-v1",
+          "phase": "one phase_tokens string",
+          "purpose": "one of source_read_only, fixture_deny, or scratch",
+          "source_identity_sha256": "64-lowercase-hex SHA-256 of the strict source filesystem identity object",
+          "target_sha256": "64-lowercase-hex SHA-256 of the canonical absolute target string",
+          "filesystem_type": "non-empty observed string",
+          "mount_flags": "non-empty bytewise-sorted unique array of strings equal to the purpose-specific required flags",
+          "owner_uid": "non-negative integer, boolean forbidden",
+          "owner_gid": "non-negative integer, boolean forbidden",
+          "mode": "four-digit octal permission string",
+          "verified": "boolean literal true"
+        },
+        "fixture_negative_open_receipt_types_and_nullability": {
+          "schema_version": "fixed review-reuse-er3-fixture-negative-open-v1",
+          "phase": "one phase_tokens string",
+          "execution_uid": "positive unprivileged integer distinct from supervisor UID, boolean forbidden",
+          "probes": "exact three strict fixture probes sorted bytewise by path"
+        },
+        "fixture_probe_types_and_nullability": {
+          "path": "one fixed quarantined PNG path",
+          "syscall": "fixed openat",
+          "flags": "fixed ordered array [O_RDONLY, O_CLOEXEC, O_NOFOLLOW]",
+          "result_errno": "fixed EACCES"
+        },
+        "python_control_receipt_types_and_nullability": {
+          "schema_version": "fixed review-reuse-er3-python-control-v1",
+          "phase": "one phase_tokens string",
+          "interpreter_identity_sha256": "64-lowercase-hex SHA-256 of the strict interpreter filesystem identity plus raw bytes",
+          "interpreter_version": "exact Python 3.11.x observed string",
+          "isolated_flag": "boolean literal true for -I",
+          "no_site_flag": "boolean literal true for -S",
+          "dependency_root_identity_sha256": "64-lowercase-hex SHA-256 of the strict sealed dependency-root filesystem identity",
+          "final_sys_path": "ordered array of canonical absolute paths limited to materialized source, sealed dependency root, and stdlib",
+          "import_map_sha256": "64-lowercase-hex SHA-256 equal to the corresponding digest_artifact_map artifact",
+          "closed_environment_sha256": "64-lowercase-hex SHA-256 equal to the corresponding digest_artifact_map artifact",
+          "pytest_argv_sha256": "64-lowercase-hex SHA-256 equal to the corresponding digest_artifact_map artifact"
+        },
+        "file_manifest_types_and_nullability": {
+          "schema_version": "fixed review-reuse-er3-file-manifest-v1",
+          "phase": "one phase_tokens string",
+          "purpose": "one of dependency, scratch_pre, or scratch_post",
+          "entries": "array of strict file-manifest entries sorted bytewise by path"
+        },
+        "file_manifest_entry_types_and_nullability": {
+          "path": "normalized root-relative UTF-8 path",
+          "kind": "fixed regular or directory",
+          "mode": "four-digit octal permission string",
+          "size_bytes": "non-negative integer for regular, null for directory; boolean forbidden",
+          "raw_sha256": "64-lowercase-hex SHA-256 for regular, null for directory"
+        },
+        "import_map_receipt_types_and_nullability": {
+          "schema_version": "fixed review-reuse-er3-import-map-v1",
+          "phase": "one phase_tokens string",
+          "entries": "non-empty array of strict import-map entries sorted bytewise by module"
+        },
+        "import_map_entry_types_and_nullability": {
+          "module": "non-empty Python module name",
+          "origin": "canonical absolute origin string or fixed built-in/frozen literal",
+          "root_class": "one of materialized_source, sealed_dependency, or stdlib",
+          "raw_sha256": "64-lowercase-hex SHA-256 for a regular source file, null only for built-in/frozen"
+        },
+        "closed_environment_receipt_types_and_nullability": {
+          "schema_version": "fixed review-reuse-er3-closed-python-environment-v1",
+          "phase": "one phase_tokens string",
+          "environment": "strict six-string object matching closed_python_environment_exact_fields"
+        },
+        "closed_python_environment_types_and_values": {
+          "HOME": "canonical absolute private empty mode-0700 directory",
+          "LANG": "fixed C.UTF-8",
+          "LC_ALL": "fixed C.UTF-8",
+          "PYTHONDONTWRITEBYTECODE": "fixed 1",
+          "PYTHONHASHSEED": "fixed 0",
+          "TMPDIR": "canonical absolute sealed scratch-root path"
+        },
+        "string_array_receipt_types_and_nullability": {
+          "schema_version": "fixed review-reuse-er3-string-array-v1",
+          "phase": "one phase_tokens string",
+          "purpose": "fixed pytest_argv or collected_node_ids",
+          "values": "ordered array of non-empty strings governed by purpose"
+        },
+        "supervisor_capture_receipt_types_and_nullability": {
+          "schema_version": "fixed review-reuse-er3-supervisor-capture-v1",
+          "phase": "one phase_tokens string",
+          "supervisor_uid": "non-negative privileged integer distinct from execution_uid, boolean forbidden",
+          "execution_uid": "positive unprivileged integer distinct from supervisor_uid, boolean forbidden",
+          "report_root_identity_sha256": "64-lowercase-hex SHA-256 of the strict report-root filesystem identity",
+          "test_writable": "boolean literal false",
+          "pytest_report_raw_sha256": "64-lowercase-hex SHA-256 equal to pytest_report_sha256",
+          "event_count": "positive integer equal to the complete captured pytest event count, boolean forbidden",
+          "complete": "boolean literal true"
+        },
+        "types_and_invariants": {
+          "schema_version": "each schema_version is the fixed named v1 schema for its receipt kind",
+          "phase": "one phase_tokens string and equal to the enclosing execution object",
+          "digests": "every digest is 64 lowercase hex and is recomputed from the exact encoding/path in digest_artifact_map",
+          "paths": "normalized repository-relative or run-root-relative UTF-8 path as the named schema requires; arrays are bytewise path-sorted",
+          "materialized_entries": "strict non-empty array of regular non-quarantined Git entries; git_mode is 100644 or 100755, blob_id is 40 lowercase hex, size_bytes is non-negative integer with boolean forbidden, and raw_sha256 is the SHA-256 of bytes written once from that verified blob",
+          "quarantined_fixture_subtree": "exact path tests/vision/fixtures/cad_features, its raw tree ID, and the exact bytewise-sorted three path/mode/blob-ID entries for cad_arc.png, cad_circle.png, and cad_line.png; no size, blob type/body, raw SHA-256, stat result, or materialized payload is permitted",
+          "tree_manifest": "pre and post canonical objects differ only in timing pre or post; entries and quarantined_fixture_subtree equal the materialization manifest",
+          "mount_receipt": "purpose is source_read_only, fixture_deny, or scratch; identities are 64 lowercase hex; flags are a bytewise-sorted unique array; uid/gid are non-negative integers; mode is four-digit octal; verified is literal true",
+          "fixture_negative_open": "execution_uid is the unprivileged test UID and probes are the exact three bytewise path-sorted openat O_RDONLY|O_CLOEXEC|O_NOFOLLOW probes, each with result_errno fixed EACCES",
+          "python_control": "interpreter version is exact Python 3.11.x, isolated_flag and no_site_flag are literal true, final_sys_path is an ordered array of canonical absolute paths limited to the materialized source, sealed dependency root, and stdlib, and every digest names the corresponding retained receipt",
+          "file_manifest": "purpose is dependency, scratch_pre, or scratch_post; entries are strict and bytewise path-sorted; kind is regular or directory; mode is four-digit octal; regular files have non-negative size and raw SHA-256 while directories have size/raw_sha256 null",
+          "import_map": "entries sort bytewise by module; module/origin are non-empty strings; root_class is materialized_source, sealed_dependency, or stdlib; raw_sha256 is 64 lowercase hex for regular source bytes or null only for built-in/frozen modules",
+          "closed_environment": "environment is the exact six-string closed_python_environment_exact_fields object; HOME is a private empty mode-0700 directory, LANG/LC_ALL are C.UTF-8, PYTHONDONTWRITEBYTECODE is 1, PYTHONHASHSEED is 0, TMPDIR is the sealed scratch root, and no additional variable is inherited",
+          "string_array": "purpose is pytest_argv or collected_node_ids and values is an ordered array of non-empty strings; argv is the exact reviewed absolute interpreter,-I,-S,bootstrap/test arguments and node IDs are the exact phase-specific 106 IDs",
+          "supervisor_capture": "UIDs are distinct non-negative integers, report root identity and raw report digest are 64 lowercase hex, test_writable is literal false, event_count is the exact observed pytest event count, and complete is literal true",
+          "raw_streams": "status/index-flags/pytest-report fields hash the exact retained raw bytes without newline normalization or JSON reserialization"
+        },
+        "fixture_quarantine_rule": "the privileged verifier walks only commit and tree objects for tests/vision/fixtures/cad_features, records the directory tree ID plus the three child path/mode/blob IDs, and never requests, opens, stats, inflates, sizes, hashes, or materializes those blob bodies. It materializes every other authorized tree entry into an empty root, creates an empty trusted mountpoint at the fixed directory path, then applies the root-owned mode-000 deny mount before the test namespace is entered. Materialization and pre/post manifests cover only non-quarantined payloads plus the body-free quarantined subtree projection. Any fixture blob-body access is invalid evidence."
+      },
+      "gate_b_ci_lineage_receipt_contract": {
+        "schema_version": "review-reuse-er3-gate-a-ci-lineage-v1",
+        "exact_fields": [
+          "schema_version",
+          "repository",
+          "repository_id",
+          "accepted_gate_a_head",
+          "workflow_path",
+          "workflow_blob_id",
+          "workflow_run_id",
+          "workflow_run_attempt",
+          "workflow_run_head_sha",
+          "workflow_run_repository_id",
+          "workflow_run_path",
+          "workflow_run_event",
+          "workflow_run_conclusion",
+          "job_id",
+          "job_name",
+          "job_run_id",
+          "job_run_attempt",
+          "job_head_sha",
+          "job_conclusion",
+          "artifact_id",
+          "artifact_name",
+          "artifact_run_id",
+          "artifact_expired",
+          "artifact_archive_sha256",
+          "report_raw_sha256",
+          "workflow_run_metadata_raw_sha256",
+          "jobs_metadata_raw_sha256",
+          "artifact_metadata_raw_sha256",
+          "ci_lineage_receipt_sha256"
+        ],
+        "types_and_nullability": {
+          "schema_version": "fixed review-reuse-er3-gate-a-ci-lineage-v1",
+          "repository": "fixed zensgit/cad-ml-platform",
+          "repository_id": "positive GitHub repository integer, boolean forbidden",
+          "accepted_gate_a_head": "40-lowercase-hex SHA-1 object ID",
+          "workflow_path": "fixed .github/workflows/review-reuse-er3-contract.yml",
+          "workflow_blob_id": "40-lowercase-hex SHA-1 object ID",
+          "workflow_run_id": "positive integer, boolean forbidden",
+          "workflow_run_attempt": "positive integer, boolean forbidden",
+          "workflow_run_head_sha": "40-lowercase-hex SHA-1 object ID",
+          "workflow_run_repository_id": "positive integer, boolean forbidden",
+          "workflow_run_path": "fixed .github/workflows/review-reuse-er3-contract.yml",
+          "workflow_run_event": "fixed pull_request",
+          "workflow_run_conclusion": "fixed success",
+          "job_id": "positive integer, boolean forbidden",
+          "job_name": "fixed er3-contract",
+          "job_run_id": "positive integer, boolean forbidden",
+          "job_run_attempt": "positive integer, boolean forbidden",
+          "job_head_sha": "40-lowercase-hex SHA-1 object ID",
+          "job_conclusion": "fixed success",
+          "artifact_id": "positive integer, boolean forbidden",
+          "artifact_name": "fixed review-reuse-er3-gate-a-evidence",
+          "artifact_run_id": "positive integer, boolean forbidden",
+          "artifact_expired": "boolean literal false",
+          "artifact_archive_sha256": "64-lowercase-hex SHA-256 of retrieved archive raw bytes",
+          "report_raw_sha256": "64-lowercase-hex SHA-256 of the exact report member raw bytes",
+          "workflow_run_metadata_raw_sha256": "64-lowercase-hex SHA-256 of the retained GitHub API run response body",
+          "jobs_metadata_raw_sha256": "64-lowercase-hex SHA-256 of the retained GitHub API run-attempt jobs response body",
+          "artifact_metadata_raw_sha256": "64-lowercase-hex SHA-256 of the retained GitHub API artifact response body",
+          "ci_lineage_receipt_sha256": "64-lowercase-hex SHA-256"
+        },
+        "relationship_invariants": [
+          "repository/repository_id equal the owner-protected accepted evidence and every normalized GitHub API repository identity",
+          "workflow_run_id/attempt equal the owner-protected values; the retrieved run belongs to that repository, has head_sha equal accepted_gate_a_head, path equal workflow_path, event pull_request, and conclusion success",
+          "workflow_blob_id equals the candidate artifact-set entry for workflow_path and the raw-tree blob at accepted_gate_a_head",
+          "job_id is present exactly once in the retrieved jobs-for-run-attempt response; its run/attempt/head/name/conclusion equal workflow_run_id/workflow_run_attempt/accepted_gate_a_head/er3-contract/success",
+          "artifact_id is retrieved from the same repository and has workflow_run.id equal workflow_run_id, name equal artifact_name, expired false, and downloaded raw archive digest equal artifact_archive_sha256",
+          "the accepted workflow blob contains exactly one evidence-producing job named er3-contract and exactly one digest-pinned upload-artifact step for artifact_name, so an artifact belonging to that run can only be emitted by the accepted job",
+          "the strict report producer_ci_identity repository/ID/head/workflow/run/attempt/job/artifact values equal this lineage receipt and the owner-protected accepted evidence, closing rerun-attempt substitution",
+          "the archive contains exactly one report_path member plus the closed retained-receipt inventory; report raw/full-canonical/self-excluding and candidate artifact-set digests equal owner-protected accepted evidence"
+        ],
+        "source_rule": "Gate B obtains the run, run-attempt jobs, and artifact metadata through authenticated GitHub API requests in the owner-protected environment, rejects redirects/repository mismatch/expired artifacts, retains exact response bodies outside the implementation tree, normalizes only the fields in this strict receipt, and validates every relationship before executing implementation tests. Branch files, PR metadata, workflow inputs, caller values, or syntactically valid unrelated IDs cannot satisfy this receipt.",
+        "digest_rule": "ci_lineage_receipt_sha256 is canonical_sha256 of the complete strict receipt after removing only ci_lineage_receipt_sha256"
+      },
       "gate_a_fail_first_matrix": {
         "schema_version": "review-reuse-er3-gate-a-fail-first-v1",
         "baseline_head": "af72d0ec02b5d2dc1d92508539bc89ba857245a8",
@@ -1296,24 +1750,24 @@
         "aggregate_requirement": "the sole candidate-Gate-A test-file overlay against runtime_base has 104 exact-marker failures and only sequences 28/34 passing; the clean candidate Gate-A head has 100 exact-marker failures and sequences 2/28/30/34/66/97 passing; both closed executions collect the same 106 nodes, bind the complete strict report evidence, and exit nonzero",
         "invalid_evidence": "collection/import/setup/teardown failure, generic assertion or exception, wrong longrepr marker, deselection, skip, xfail, unexpected pass/fail, missing node, duplicate node, or unclassified result",
         "baseline_execution_contract": {
-          "runtime_base_worktree": "fresh execution root materialized only from the resolved baseline commit/tree Git objects into an empty directory; no pre-existing worktree bytes, sparse-checkout, smudge/filter result, alternate object store, skip-worktree bit, or assume-unchanged bit is accepted",
+          "runtime_base_worktree": "fresh fixture-elided execution root materialized only from the resolved baseline commit/tree Git objects into an empty directory under execution_evidence_preimage_contract.fixture_quarantine_rule; no CAD fixture blob body, pre-existing worktree byte, sparse-checkout, smudge/filter result, alternate object store, skip-worktree bit, or assume-unchanged bit is accepted",
           "base_overlay_paths": [
             "tests/unit/test_review_reuse_er3_archive.py"
           ],
           "overlay_rule": "copy only the exact test_file Git blob from the candidate Gate-A head into the runtime-base worktree; no fixture, contract, verifier, workflow, helper, runtime, or source file is overlaid, and the test file must collect and reach each named failure boundary without those Gate-A-only artifacts",
           "external_verifier_rule": "execute the exact verifier_path Git blob from a separate read-only export of the candidate Gate-A head; read the ratified contract as the exact Git blob from the ratified design-lock head outside the base worktree; neither external artifact is added to the runtime-base checkout",
-          "worktree_proof": "record baseline commit/tree/source-status/index flags before materialization, candidate Gate-A and ratified-design-lock commit/tree IDs, and Git blob IDs plus raw SHA-256 for test/verifier/contract; prove the empty execution root was materialized from exactly that tree, overlay exactly test_file with the candidate-head blob, seal the tree read-only before pytest, and prove identical path/mode/blob/raw-byte manifests afterward; reports/cache/bytecode stay outside the execution root",
+          "worktree_proof": "record baseline commit/tree/source-status/index flags before materialization, candidate Gate-A and ratified-design-lock commit/tree IDs, and Git blob IDs plus raw SHA-256 for test/verifier/contract; prove the empty execution root contains exactly the non-quarantined projection of that tree, overlay exactly test_file with the candidate-head blob, retain the body-free CAD fixture subtree path/mode/blob-ID projection, seal the tree read-only before pytest, and prove identical pre/post path/mode/blob/raw-byte manifests for only non-quarantined payloads under execution_evidence_preimage_contract; reports/cache/bytecode stay outside the execution root",
           "pytest_rule": "the privileged external verifier launches the exact absolute interpreter/bootstrap/pytest argv for only test_file, with PYTHONDONTWRITEBYTECODE=1, disabled pytest cache, and --basetemp below the sealed scratch root; the supervisor captures exactly 106 node results and classifies every phase/outcome/marker",
-          "gate_a_head_rule": "materialize the candidate Gate-A commit/tree Git objects into a second empty execution root, run the same test_file under the same OS-enforced read-only/unprivileged policy with no overlay, and bind commit/tree, source clean/index-flag state, execution UID/mount proof, exact materialization manifests, test/verifier/contract blob identities, collected nodes, and report before and after pytest",
-          "invalid_evidence": "non-commit or wrong/dirty head, replacement/graft/shallow view, raw-object or ancestry mismatch, wrong tree, skip-worktree/assume-unchanged path, writable source, missing fixture deny, privileged test, open Git object directory, ambient/import-path drift, unsealed dependency, any second overlay, missing/extra/untracked path, changed blob, pre/post drift, test-writable supervisor report, source import from scratch/dependency, or any node/report mismatch",
+          "gate_a_head_rule": "materialize the candidate Gate-A commit/tree Git objects into a second empty fixture-elided execution root, run the same test_file under the same OS-enforced read-only/unprivileged policy with no overlay, and bind commit/tree, source clean/index-flag state, execution UID/mount proof, exact non-quarantined materialization manifests, body-free CAD fixture subtree projection, test/verifier/contract blob identities, collected nodes, and report before and after pytest",
+          "invalid_evidence": "non-commit or wrong/dirty head, replacement/graft/shallow view, non-allowlisted or included local/worktree Git config, raw-object or ancestry mismatch, wrong tree, CAD fixture blob-body access, skip-worktree/assume-unchanged path, writable source, missing fixture deny, privileged test, open Git object directory, ambient/import-path drift, unsealed dependency, any second overlay, missing/extra/untracked non-quarantined path, changed blob, pre/post drift, test-writable supervisor report, source import from scratch/dependency, ambiguous evidence digest preimage, or any node/report mismatch",
           "object_and_ancestry_proof": "using the reviewed absolute Git binary and closed environment, require baseline_head, owner-ratified design-lock head, and candidate Gate-A head to resolve as commits; record each commit/tree ID; require merge-base --is-ancestor baseline_head ratified-design-lock and ratified-design-lock candidate-Gate-A to exit 0; retain exact argv/exit/stdout/stderr receipts and bind them into the report",
-          "execution_immutability": "after exact-object materialization and the sole test-file overlay are verified, execute pytest through closed_python_execution as a distinct unprivileged UID in an OS-enforced namespace: source is read-only, the CAD fixture directory is deny-mounted, Git objects are absent, scratch is the only test-writable root, and the supervisor report root is not test-writable. The test has no capability, sudo path, writable source bind, mount permission, or alternate import/read source.",
-          "pre_post_execution_proof": "before and after pytest, the privileged verifier records resolved commit/tree, empty source status, index-flag scan, read-only mount identity/options, execution UID, exact overlay blob, and an exact path/mode/blob/raw-SHA-256 manifest derived independently from the named Git tree and materialized execution root; both snapshots and manifests must be identical and the report root remains outside the tree",
+          "execution_immutability": "after exact-object fixture-elided materialization and the sole test-file overlay are verified, execute pytest through closed_python_execution as a distinct unprivileged UID in an OS-enforced namespace: source is read-only, the empty CAD fixture mountpoint is deny-mounted, Git objects are absent, scratch is the only test-writable root, and the supervisor report root is not test-writable. The test has no capability, sudo path, writable source bind, mount permission, or alternate import/read source.",
+          "pre_post_execution_proof": "before and after pytest, the privileged verifier records resolved commit/tree, empty source status, index-flag scan, read-only mount identity/options, execution UID, exact overlay blob, exact path/mode/blob/raw-SHA-256 manifests for only materialized non-quarantined files, and the body-free CAD fixture subtree path/mode/blob-ID projection; every digest uses execution_evidence_preimage_contract, both snapshots are identical, and the report root remains outside the tree",
           "gate_a_candidate_source": "Gate A reports the exact commit observed from the candidate checkout and independently resolves it as a raw commit object; event metadata is only a locator and grants no authority. The report remains candidate evidence until a later owner response accepts that exact head plus the out-of-commit report identity.",
-          "git_view_quarantine": "every Git invocation uses one reviewed absolute binary, --no-replace-objects, -c core.fsmonitor=false, -c core.pager=cat, -C the verified repository, and the exact closed environment GIT_CONFIG_NOSYSTEM=1, GIT_CONFIG_GLOBAL=/dev/null, GIT_NO_REPLACE_OBJECTS=1, LANG=C.UTF-8, LC_ALL=C.UTF-8; no HOME, PATH, GIT_DIR, GIT_WORK_TREE, object-directory, alternates, namespace, or ambient Git value is present. refs/replace is empty, .git/info/grafts is absent, and rev-parse --is-shallow-repository is false.",
-          "raw_object_verification": "require object format sha1; for every commit/tree/blob consumed, read the no-replace raw object type, size, header, and body, independently recompute SHA-1 over '<type> <size>\\0<body>', and compare the named object ID. Independently walk raw commit parent IDs for both ancestry proofs and raw tree entries for both path deltas/materializations; Git merge-base/diff output is corroborating receipt evidence, never sole authority.",
+          "git_view_quarantine": "every Git invocation uses one reviewed absolute binary, --no-pager, --no-optional-locks, --no-replace-objects, --no-ext-diff where accepted, -c core.fsmonitor=false, -c core.hooksPath=/dev/null, -c core.pager=cat, -C the verified repository, and the exact closed environment GIT_CONFIG_NOSYSTEM=1, GIT_CONFIG_GLOBAL=/dev/null, GIT_NO_REPLACE_OBJECTS=1, LANG=C.UTF-8, LC_ALL=C.UTF-8; no HOME, PATH, GIT_DIR, GIT_WORK_TREE, object-directory, alternates, namespace, or ambient Git environment value is present. Local repository config is not trusted: it must satisfy git_repository_identity_receipt_contract's inert allowlist with no include/worktree/helper setting and is digest-bound before use. refs/replace is empty, .git/info/grafts is absent, object alternates are absent, and rev-parse --is-shallow-repository is false.",
+          "raw_object_verification": "require object format sha1; for every consumed non-quarantined commit/tree/blob, read the no-replace raw object type, size, header, and body, independently recompute SHA-1 over '<type> <size>\\0<body>', and compare the named object ID. Independently walk raw commit parent IDs for both ancestry proofs and raw tree entries for both path deltas/materializations; for the quarantined CAD fixture subtree consume tree entries and blob IDs only and never request blob type, size, header, or body. Git merge-base/diff output is corroborating receipt evidence, never sole authority.",
           "closed_python_execution": "use an owner-reviewed absolute Python 3.11 interpreter under -I -S and a trusted stdlib-only bootstrap. Bind interpreter realpath/parent-chain/device/inode/mode/size/SHA-256, the exact sealed dependency-root path/mode/blob/raw-SHA manifest, closed environment, exact pytest argv, final sys.path, and import map. Materialized source/test modules must resolve only below the execution root; pytest and declared third-party modules resolve only below the sealed dependency root. CWD, user site, .pth, editable installs, zip imports, PYTHONPATH, PYTHONHOME, PYTHONSTARTUP, and any unknown import root fail.",
-          "fixture_read_denial": "inside each test mount namespace, bind a root-owned mode-000 empty directory read-only/noexec/nodev/nosuid over tests/vision/fixtures/cad_features before dropping to the test UID; expose no pre-opened fixture FD or Git object directory. As that UID, three fixed negative openat probes for cad_line.png, cad_circle.png, and cad_arc.png must each return EACCES without reading or statting underlying bytes. Bind mountinfo, directory identity, probe argv/result, and fixture-deny receipt into the execution report.",
+          "fixture_read_denial": "the privileged materializer follows execution_evidence_preimage_contract.fixture_quarantine_rule, creates only an empty trusted mountpoint at tests/vision/fixtures/cad_features, and never reads or stats the three fixture blob bodies. Inside each test mount namespace, bind a root-owned mode-000 empty directory read-only/noexec/nodev/nosuid over that mountpoint before dropping to the test UID; expose no pre-opened fixture FD or Git object directory. As that UID, three fixed negative openat probes for cad_line.png, cad_circle.png, and cad_arc.png must each return EACCES without reading or statting underlying payload bytes. Bind mountinfo, directory identity, probe argv/result, and fixture-deny receipt into the execution report.",
           "scratch_and_report_roots": "provide one separate private mode-0700 tmpfs scratch root owned by the unprivileged test UID for TMPDIR, pytest --basetemp, and synthetic filesystem tests. The materialized execution tree and privileged supervisor report root remain unwritable to that UID. Pytest events are captured by the supervisor into the report root; scratch paths may never enter source/materialization manifests or imports, and their pre/post inventories are separately receipt-bound."
         },
         "gate_reason_code_namespace": "entries[].reason_code is a fail-first classification namespace used only by the Gate-A verifier; it is not a runtime CLI failure code and never substitutes for the failure taxonomy in design-lock section 6",
@@ -1324,6 +1778,7 @@
             "baseline_head",
             "ratified_design_lock_head",
             "candidate_gate_a_head",
+            "producer_ci_identity",
             "git_object_proof",
             "candidate_gate_a_artifacts",
             "runtime_base_execution",
@@ -1363,6 +1818,17 @@
             "raw_object_manifest_sha256",
             "command_receipts",
             "command_receipts_sha256"
+          ],
+          "producer_ci_identity_exact_fields": [
+            "schema_version",
+            "repository",
+            "repository_id",
+            "candidate_gate_a_head",
+            "workflow_path",
+            "workflow_run_id",
+            "workflow_run_attempt",
+            "job_name",
+            "artifact_name"
           ],
           "execution_exact_fields": [
             "resolved_commit",
@@ -1437,12 +1903,13 @@
             "unclassified"
           ],
           "digest_rule": "verification_sha256 is canonical_sha256 of the complete strict report after removing only verification_sha256",
-          "valid_semantics": "literal true only when both nonzero pytest aggregates match every expected fail-first/pass outcome and all closed-Git-view, raw-object, ancestry, allowed-delta, closed-Python/import, fixture-deny, scratch/report, materialization, candidate-artifact freeze, classification, and digest proofs pass; this is candidate evidence and never self-ratifies",
+          "valid_semantics": "literal true only when both nonzero pytest aggregates match every expected fail-first/pass outcome and all protected producer identity, closed-Git-view, raw-object, ancestry, allowed-delta, closed-Python/import, fixture-deny, scratch/report, materialization, candidate-artifact freeze, classification, and digest proofs pass; this is candidate evidence and never self-ratifies",
           "types_and_nullability": {
             "schema_version": "fixed review-reuse-er3-gate-a-verification-v1",
             "baseline_head": "40-lowercase-hex SHA-1 object ID",
             "ratified_design_lock_head": "40-lowercase-hex SHA-1 object ID",
             "candidate_gate_a_head": "40-lowercase-hex SHA-1 object ID",
+            "producer_ci_identity": "strict non-null producer CI identity object",
             "git_object_proof": "strict non-null object",
             "candidate_gate_a_artifacts": "strict non-null candidate artifact-set object",
             "runtime_base_execution": "strict non-null execution object",
@@ -1452,6 +1919,18 @@
             "valid": "boolean",
             "verification_sha256": "64-lowercase-hex SHA-256"
           },
+          "producer_ci_identity_types_and_nullability": {
+            "schema_version": "fixed review-reuse-er3-gate-a-producer-ci-identity-v1",
+            "repository": "fixed zensgit/cad-ml-platform from the protected GitHub Actions context",
+            "repository_id": "positive GitHub repository integer from the protected GitHub Actions context, boolean forbidden",
+            "candidate_gate_a_head": "40-lowercase-hex pull-request head SHA equal to the raw-object-resolved report candidate_gate_a_head",
+            "workflow_path": "fixed .github/workflows/review-reuse-er3-contract.yml",
+            "workflow_run_id": "positive GITHUB_RUN_ID integer, boolean forbidden",
+            "workflow_run_attempt": "positive GITHUB_RUN_ATTEMPT integer, boolean forbidden",
+            "job_name": "fixed GITHUB_JOB value er3-contract",
+            "artifact_name": "fixed review-reuse-er3-gate-a-evidence"
+          },
+          "producer_ci_identity_source": "the frozen workflow passes no caller override for these values. The external verifier reads repository/name/ID, pull-request head SHA, workflow path, run ID, run attempt, and job name only from the GitHub Actions default context/environment and the immutable event payload, verifies the checked-out/raw-object candidate head equality, and emits them inside the self-digest-bound report before the sole upload step. Local execution, workflow input, PR text, branch file, or caller environment cannot produce accepted evidence.",
           "git_object_proof_types_and_nullability": {
             "baseline_commit": "40-lowercase-hex SHA-1 object ID",
             "baseline_tree": "40-lowercase-hex SHA-1 object ID",
@@ -1464,7 +1943,7 @@
             "contract_blob_id": "40-lowercase-hex SHA-1 object ID",
             "candidate_contract_blob_id": "40-lowercase-hex SHA-1 object ID",
             "object_format": "fixed sha1",
-            "repository_identity_sha256": "64-lowercase-hex SHA-256",
+            "repository_identity_sha256": "64-lowercase-hex SHA-256 recomputed from git_repository_identity_receipt_contract",
             "replace_refs_empty": "boolean literal true",
             "grafts_absent": "boolean literal true",
             "shallow_repository": "boolean literal false",
@@ -1661,11 +2140,12 @@
           "candidate_gate_a_artifact_set_rule": "entries are selected exactly by candidate_gate_a_artifact_selection, sorted bytewise by path, and bind the candidate commit's raw tree mode/blob/size plus raw bytes; artifact_set_sha256 is canonical_sha256 of the complete strict object after removing only artifact_set_sha256",
           "ordering": "canonical object keys sort lexicographically; path deltas sort bytewise by path; raw objects sort by object_id; command receipts sort by sequence; candidate artifact entries sort bytewise by path; classified entries sort runtime_base then gate_a_head and sequence 1..106",
           "digest_preimages": {
+            "repository_identity_sha256": "canonical_sha256 of the retained strict git_repository_identity_receipt_contract object after removing only repository_identity_sha256",
             "design_to_candidate_diff_tree_sha256": "canonical_sha256 of design_to_candidate_path_delta",
             "raw_object_manifest_sha256": "canonical_sha256 of raw_object_manifest",
             "command_receipts_sha256": "canonical_sha256 of command_receipts",
             "candidate_gate_a_artifacts.artifact_set_sha256": "canonical_sha256 of candidate_gate_a_artifacts after removing only artifact_set_sha256",
-            "materialization_and_execution_sha256_fields": "SHA-256 of the exact raw or canonical artifact named by each field; every artifact is retained in the CI evidence bundle",
+            "materialization_and_execution_sha256_fields": "each field is recomputed from the exact path, encoding, and closed schema in execution_evidence_preimage_contract.digest_artifact_map; every named artifact is retained in the CI evidence bundle",
             "verification_sha256": "canonical_sha256 of the complete strict report after removing only verification_sha256"
           }
         },
@@ -1677,6 +2157,7 @@
             "ratified_design_lock_head",
             "implementation_head",
             "accepted_gate_a_evidence",
+            "ci_lineage_receipt_sha256",
             "git_object_proof",
             "immutable_gate_a_artifacts",
             "accepted_gate_a_verification_sha256",
@@ -1814,10 +2295,10 @@
           ],
           "invariants": [
             "the exact accepted Gate-A verifier Git blob validates this report from outside the implementation root",
-            "accepted evidence identity plus report raw, full-canonical, and self-excluding verification digests equal owner-protected inputs and the retrieved immutable CI artifact bytes; its accepted head and frozen artifact-set digest equal the candidate head and candidate artifact-set digest inside that strict report",
+            "accepted evidence identity plus report raw, full-canonical, and self-excluding verification digests equal owner-protected inputs and the retrieved immutable CI artifact bytes; gate_b_ci_lineage_receipt_contract proves repository/head/workflow/run/attempt/job/artifact same-run and same-attempt lineage against the report producer_ci_identity before tests, and the accepted head and frozen artifact-set digest equal the candidate head and candidate artifact-set digest inside that strict report",
             "the full baseline->design->accepted-Gate-A->implementation raw-object ancestry and both accepted deltas validate under the quarantined Git view",
             "every accepted-side selected entry exactly equals the candidate artifact-set entry frozen in the accepted Gate-A report, every selected design, contract, attestation, runbook, workflow, test, fixture, and verifier blob/mode/raw SHA-256 is identical at the implementation head, and comparison_sha256 binds that separate comparison object",
-            "the implementation execution satisfies the same closed Python/import, fixture-deny, scratch/supervisor, raw-object materialization, and read-only constraints with overlay_paths empty",
+            "the implementation execution satisfies the same closed Python/import, fixture-elided materialization, fixture-deny, scratch/supervisor, receipt-preimage, raw-object, and read-only constraints with overlay_paths empty",
             "the unchanged 106-node file reports 106 pass with zero failed/skip/xfail/xpass/deselect/collection/unclassified values",
             "valid true requires every invariant; green pytest, matching names, a caller digest, or a branch-provided report is insufficient"
           ],
@@ -1828,6 +2309,7 @@
             "ratified_design_lock_head": "40-lowercase-hex SHA-1 object ID",
             "implementation_head": "40-lowercase-hex SHA-1 object ID",
             "accepted_gate_a_evidence": "strict non-null accepted evidence object",
+            "ci_lineage_receipt_sha256": "64-lowercase-hex SHA-256 recomputed from gate_b_ci_lineage_receipt_contract",
             "git_object_proof": "strict non-null object",
             "immutable_gate_a_artifacts": "strict non-null artifact-set object",
             "accepted_gate_a_verification_sha256": "64-lowercase-hex SHA-256",
@@ -1840,6 +2322,7 @@
           "accepted_gate_a_evidence_exact_fields": [
             "schema_version",
             "repository",
+            "repository_id",
             "accepted_gate_a_head",
             "workflow_path",
             "workflow_blob_id",
@@ -1859,6 +2342,7 @@
           "accepted_gate_a_evidence_types_and_nullability": {
             "schema_version": "fixed review-reuse-er3-gate-a-accepted-evidence-v1",
             "repository": "fixed zensgit/cad-ml-platform",
+            "repository_id": "positive GitHub repository integer, boolean forbidden and equal to the accepted CI lineage receipt",
             "accepted_gate_a_head": "40-lowercase-hex SHA-1 object ID equal to the retrieved report candidate_gate_a_head",
             "workflow_path": "fixed .github/workflows/review-reuse-er3-contract.yml",
             "workflow_blob_id": "40-lowercase-hex SHA-1 object ID",
@@ -1875,7 +2359,7 @@
             "frozen_artifact_set_sha256": "64-lowercase-hex SHA-256 equal to the accepted Gate-A report candidate artifact-set digest",
             "protected_input_sha256": "64-lowercase-hex SHA-256"
           },
-          "accepted_gate_a_evidence_source": "Gate-A emits the strict report and retained receipts as an immutable out-of-commit CI artifact after the candidate commit exists. The later owner Gate-B authorization names every evidence-identity field and loads that exact object into an owner-protected CI environment; report_raw_sha256 binds raw file bytes, report_canonical_sha256 binds canonical bytes including the self-excluding verification_sha256 field, and report_verification_sha256 equals that field. Branch files, PR metadata, caller values, or the pre-execution Markdown runbook cannot substitute. protected_input_sha256 is canonical_sha256 of the accepted evidence object after removing only protected_input_sha256.",
+          "accepted_gate_a_evidence_source": "Gate-A emits the strict report and retained receipts as an immutable out-of-commit CI artifact after the candidate commit exists. The later owner Gate-B authorization names every evidence-identity field and loads that exact object into an owner-protected CI environment; Gate B independently builds and validates gate_b_ci_lineage_receipt_contract before tests. report_raw_sha256 binds raw file bytes, report_canonical_sha256 binds canonical bytes including the self-excluding verification_sha256 field, and report_verification_sha256 equals that field. Branch files, PR metadata, caller values, syntactically valid unrelated CI IDs, or the pre-execution Markdown runbook cannot substitute. protected_input_sha256 is canonical_sha256 of the accepted evidence object after removing only protected_input_sha256.",
           "git_object_proof_types_and_nullability": {
             "baseline_commit": "40-lowercase-hex SHA-1 object ID",
             "baseline_tree": "40-lowercase-hex SHA-1 object ID",
@@ -1886,7 +2370,7 @@
             "implementation_commit": "40-lowercase-hex SHA-1 object ID",
             "implementation_tree": "40-lowercase-hex SHA-1 object ID",
             "object_format": "fixed sha1",
-            "repository_identity_sha256": "64-lowercase-hex SHA-256",
+            "repository_identity_sha256": "64-lowercase-hex SHA-256 recomputed from git_repository_identity_receipt_contract",
             "replace_refs_empty": "boolean literal true",
             "grafts_absent": "boolean literal true",
             "shallow_repository": "boolean literal false",
@@ -2050,12 +2534,14 @@
           "ordering": "path deltas and immutable entries sort bytewise by path; raw objects sort by object_id; command receipts sort by sequence; classified entries sort by sequence 1..106",
           "digest_preimages": {
             "accepted_gate_a_evidence.protected_input_sha256": "canonical_sha256 of accepted_gate_a_evidence after removing only protected_input_sha256",
+            "ci_lineage_receipt_sha256": "canonical_sha256 of the complete strict gate_b_ci_lineage_receipt_contract object after removing only ci_lineage_receipt_sha256",
+            "repository_identity_sha256": "canonical_sha256 of the retained strict git_repository_identity_receipt_contract object after removing only repository_identity_sha256",
             "gate_a_to_implementation_diff_tree_sha256": "canonical_sha256 of gate_a_to_implementation_path_delta",
             "raw_object_manifest_sha256": "canonical_sha256 of raw_object_manifest",
             "command_receipts_sha256": "canonical_sha256 of command_receipts",
             "immutable_gate_a_artifacts.accepted_artifact_set_sha256": "must equal accepted_gate_a_evidence.frozen_artifact_set_sha256 and the accepted Gate-A report candidate_gate_a_artifacts.artifact_set_sha256",
             "immutable_gate_a_artifacts.comparison_sha256": "canonical_sha256 of the complete immutable_gate_a_artifacts object after removing only comparison_sha256",
-            "materialization_and_execution_sha256_fields": "SHA-256 of the exact retained raw or canonical artifact named by each field",
+            "materialization_and_execution_sha256_fields": "each field is recomputed from the exact retained path, encoding, and closed schema in execution_evidence_preimage_contract.digest_artifact_map",
             "verification_sha256": "canonical_sha256 of the complete strict report after removing only verification_sha256"
           }
         },
@@ -3394,7 +3880,11 @@
         "docker_control.setup_command_receipt_sha256s": "exact ordered nine-element array for zero pair-labeled container/volume/network lists, server version, image pull, image inspect, container create, container start, and initial container inspect",
         "docker_control.parent_environment_absent": "exact ordered array [DOCKER_HOST, DOCKER_CONTEXT, DOCKER_TLS_VERIFY, DOCKER_CERT_PATH, DOCKER_CONFIG, DOCKER_API_VERSION, DOCKER_DEFAULT_PLATFORM]",
         "docker_control.docker_control_sha256": "canonical_sha256 of the complete docker_control object after removing only docker_control_sha256",
-        "image fields": "exact selected static-attestation platform values plus the canonical owner-ratified static-attestation digest",
+        "image.index_digest": "sha256: followed by 64 lowercase hex and exactly equal to the owner-ratified OCI index digest",
+        "image.selected_platform": "literal linux/amd64 or linux/arm64 equal to docker_control.selected_platform and the selected static-attestation platform",
+        "image.platform_manifest_digest": "sha256: followed by 64 lowercase hex and exactly equal to the selected static-attestation platform manifest digest",
+        "image.docker_image_id": "sha256: followed by 64 lowercase hex and exactly equal to the selected static-attestation Docker image ID",
+        "image.static_attestation_sha256": "64 lowercase hex equal to the owner-ratified canonical static-attestation digest",
         "container.container_id": "64 lowercase hex",
         "container.name": "run-id-derived non-empty string",
         "container.labels": "exact object with com.zensgit.review-reuse-er3.run-id=<run_id> and com.zensgit.review-reuse-er3.resource-owner-id=<resource_owner_id>",

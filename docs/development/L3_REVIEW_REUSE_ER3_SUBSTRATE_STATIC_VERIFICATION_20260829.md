@@ -27,8 +27,8 @@ implementation, merge, decision enablement, deployment, pilot, or customer data.
 | Embedded manifest proposal canonical digest; no manifest file exists at this docs-only head | `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf` |
 | Static attestation digest | `4707f793f3597ebe12da4c6474bbb25208ccd9b1de48920a27c5ca083babe6cd` |
 | Static attestation raw file SHA-256 | `5d7e15aa82d714ad371e106deb3c6310cfc82c3062731392bfb3a6c2db175d94` |
-| EvidencePack v2 contract digest | `2aaa059dfc6609da2f14da5d487fd9b9ef3b111c65cbab9a5d9a9cd4d2e82a95` |
-| EvidencePack v2 contract raw file SHA-256 | `ef82f65da6679d2a643061cc4b84e6ad704877790de956fcf486f4066ed87037` |
+| EvidencePack v2 contract digest | `680c596d315061424a32d160d95131b7da9acc1a02a238397b2f83c40da8a372` |
+| EvidencePack v2 contract raw file SHA-256 | `9f30ee2c2f4e57180538ce493d28e21c7b8f8e75061cbafeabfad1a5153e1e96` |
 | Embedded EvidencePack golden digest | `422e23da3589b24a5539a3d6546cac98ba692046ea14930b179dd9f7fe1b9f7f` |
 | Verified fixture-set golden digest | `536113fa48ac2f692635959bd5f1d0f8ac92faff1fc8ab9f27679a5f474e51b1` |
 | Vision OCI index | `sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251` |
@@ -432,6 +432,33 @@ a durable nonzero command or final labeled-resource residue is cleanup-failed; o
 complete zero-residue evidence is verified-absent and eligible for the no-Docker
 failed-task CAS. These are still proposed contracts, not runtime observations.
 
+Independent review of docs-only head `bad84870a6a9b8a8cd0a0bc09c02bae7ea0fe111`
+then found five additional implementability gaps. Full-tree materialization could
+not coexist with the stated zero-read fixture boundary; owner-protected CI IDs were
+typed and hashed but not joined to one repository/head/workflow/run/attempt/job/
+artifact lineage; repository-local Git config remained ambient; execution and
+repository receipt digests lacked unique preimage schemas; and the five
+`runtime_preflight.image` fields lacked field-level types/nullability. Sol classified
+the first two as P1 and the Git/preimage gaps as P2; Luna independently classified
+the image map as P2. Terra found no additional issue. Kimi K3 returned its weekly-
+quota 403 and Grok 4.6 did not produce a usable final review; neither is counted as
+evidence.
+
+The current candidate closes all five without authorizing runtime. Gate-A
+materialization is now a fixture-elided projection: only the fixture subtree's tree
+and child path/mode/blob IDs are bound, while its blob bodies are never requested,
+opened, statted, inflated, sized, hashed, or materialized. Local Git config is
+parsed as inert data before Git use, restricted to a closed non-executable
+allowlist, and bound into a strict repository-identity receipt. Gate B validates a
+canonical CI-lineage receipt against authenticated GitHub run, run-attempt jobs,
+and artifact metadata before tests, including the frozen workflow blob and fixed
+single evidence-producing job. The self-digest-bound Gate-A report also carries a
+protected producer identity, so the later lineage comparison closes rerun-attempt
+substitution. All 21 execution digest fields now map to exact
+retained paths, raw/canonical encodings, and closed receipt schemas, and every
+runtime-preflight image field has an explicit type. These remain design contracts,
+not Gate-A, Gate-B, or runtime evidence.
+
 ## 6. Commands and results
 
 The recorded verification commands are shown below. The source and fixture reads
@@ -468,6 +495,9 @@ PYTHONDONTWRITEBYTECODE=1 /opt/homebrew/bin/python3.11 -m pytest -q \
   -p no:cacheprovider tests/unit/test_review_reuse_*.py
 # A temporary no-fixture verifier independently recomputed 128 named closure
 # categories and all 49 command-receipt preimages from the checked-out JSON.
+# A second no-fixture hardening verifier checked 73/73 fixture-quarantine,
+# Git-config/repository-identity, CI-lineage, receipt-preimage, and image-schema
+# invariants.
 # A localhost-only HTTP harness sent 36 synthetic bytes through:
 /usr/bin/curl --disable --form \
   'file=@-;filename=synthetic.png;type=image/png' http://127.0.0.1:<ephemeral>/upload
@@ -505,6 +535,14 @@ Results:
   multipart stdin transport, four recovery selectors with fixed 3/3/4/5-command
   shapes, read-only replay
   lease, and every downstream digest;
+- the additional no-fixture hardening verifier passed `73/73`: repository identity
+  has strict top-level/filesystem/config schemas; local config is parsed before Git
+  and fail-closed outside the inert allowlist; all 21 execution digests have exact
+  retained paths, encodings, and one-to-one receipt field/type maps; the fixture
+  projection contains no payload size/hash/body field; Gate-B CI lineage closes
+  repository/head/workflow/run/attempt/job/artifact joins, matches the report's
+  protected producer identity, and rejects unrelated or cross-attempt IDs; and all
+  five `runtime_preflight.image.*` fields have explicit types;
 - machine-readable receipt derivation passed `49/49`: all nine setup,
   12 operation, 24 fresh-inspection, and four cleanup receipts recomputed from
   their complete ten-field preimages. Setup and operation receipts now use exact
