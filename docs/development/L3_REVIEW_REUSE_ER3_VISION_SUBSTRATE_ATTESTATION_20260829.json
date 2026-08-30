@@ -1,7 +1,7 @@
 {
   "schema_version": "review-reuse-er3-vision-substrate-attestation-v1",
   "attestation_status": "static_verified_runtime_unverified",
-  "attestation_sha256": "1f2edf43a3e0e33e2b9c3f95a7594d6c14a7b364b903ffc75f6c84bbbe0ff0e1",
+  "attestation_sha256": "651bbdb9c056cdcc0a8b9d2a38d8d9bb0230537ec01d0911a9628613cf8aa283",
   "image": {
     "reference": "ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
     "index_digest": "sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
@@ -378,7 +378,7 @@
     "command_override": "uvicorn caddedup_vision.api.main:app --host 127.0.0.1 --port 8000",
     "control_transport": "fixed-argv Docker CLI exec/copy through the local Docker daemon; the service has no host TCP or Unix-socket publication",
     "fixture_transfer": "after runtime preflight only, each tracked fixture is opened once into an immutable manifest-verified byte buffer; fixed docker cp - receives a deterministic in-memory tar stream from those exact bytes; each archive entry is copied once and removed after its one index request, while the query buffer is copied and removed in two separate transfer/request pairs for the pre-index probe and post-index product query",
-    "control_operation_seal": "every docker cp and docker exec is bracketed by a normalized inspect projection; the projection binds image identity, command argv, labels, process user, host configuration, mounts, running state, start timestamp, restart count, network attachments, published ports, and integration environment; each copy also binds the transferred content SHA-256; drift fails before the next drawing-byte operation and ordered checkpoints are bound by runtime_seal_receipt_sha256",
+    "control_operation_seal": "every docker cp and docker exec is bracketed by a normalized inspect projection; the projection binds image identity, command argv, working directory, labels, process user, host configuration, mounts, running state, start timestamp, restart count, network attachments, published ports, and the complete normalized integration/credential/proxy environment; each copy also binds the transferred content SHA-256; drift fails before the next drawing-byte operation and ordered checkpoints are bound by runtime_seal_receipt_sha256",
     "outbound_probe": "docker exec first requires curl --version to exit 0, then invokes curl --noproxy '*' --silent --show-error --output /dev/null --write-out '%{http_code}' --connect-timeout 2 --max-time 3 http://198.51.100.1:80/ inside the empty network-none container; probe must exit 7 with stdout exactly 000 before fixture bytes are opened, while timeout exit 28 fails; docker inspect NetworkMode none and no attachments remain authoritative",
     "published_port": null,
     "proxy_environment": "absent",
@@ -391,7 +391,7 @@
       "the owner-authorized exact repository head, reviewed-command digest, and clean tracked/index/untracked state are verified before Docker context resolution",
       "Docker override environment variables are absent and the active context resolves to one local absolute unix URI; remote TCP, HTTP, HTTPS, SSH, npipe, credential-bearing, or relative endpoints are rejected",
       "selected platform manifest, actual Docker image ID, and this canonical static-attestation digest match the owner-ratified values",
-      "the normalized HostConfig equals runtime_posture.normalized_host_config, the process user is appuser, and command argv equals the loopback-only override",
+      "the normalized HostConfig equals runtime_posture.normalized_host_config, the process user is appuser, working directory is /app, and command argv equals the loopback-only override",
       "all four explicit tmpfs targets, private /dev/shm, and read-only root are present",
       "no anonymous or host data volume is mounted",
       "NetworkMode is none and the container has no additional network attachment",

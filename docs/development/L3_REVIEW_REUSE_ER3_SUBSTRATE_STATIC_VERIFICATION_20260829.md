@@ -25,9 +25,9 @@ implementation, merge, decision enablement, deployment, pilot, or customer data.
 | Static attestation | `L3_REVIEW_REUSE_ER3_VISION_SUBSTRATE_ATTESTATION_20260829.json` |
 | EvidencePack v2 contract | `L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json` |
 | Archive manifest digest | `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf` |
-| Static attestation digest | `1f2edf43a3e0e33e2b9c3f95a7594d6c14a7b364b903ffc75f6c84bbbe0ff0e1` |
-| EvidencePack v2 contract digest | `f4ab789c45468060d5184f564a46111572242e1b35595a211b34bf9d24ad33ab` |
-| Embedded EvidencePack golden digest | `e5ca2fbedbb2ea933cb45bd533178c74b6493664a88ed2aacab1160edac64ad3` |
+| Static attestation digest | `651bbdb9c056cdcc0a8b9d2a38d8d9bb0230537ec01d0911a9628613cf8aa283` |
+| EvidencePack v2 contract digest | `8f493d69051cff60e0fbdd3e974c8d2223228adddc984aaf2cb8a1f6f5633346` |
+| Embedded EvidencePack golden digest | `2ce278bc1c00d72fa8cfb64f5a5604a49590b45704824663d2bdfc3b922e2bf2` |
 | Vision OCI index | `sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251` |
 
 The manifest, attestation, contract, and embedded golden digests were recomputed
@@ -41,9 +41,9 @@ quality or runtime evidence. The critical provenance vectors are:
 | Post-index search response receipt | `b4ff738ada27842e09ff22791b52cc504860f589d23e6cbcc18bc9e542975602` |
 | Service identity | `b9defaaa4689ea63652663cc5431c8c431a23a89d31f4f0227908ee49278660e` |
 | Score-mapping ruleset | `ccee15b504054a1cd3def3f6531babbc41a72742d3d2dbb8e35efd57337afd11` |
-| Strict runtime inspect projection | `7be596942fc9eb216486f2e9d5d27b2b64db38b6631333492824f97d04d9006c` |
-| Runtime preflight | `c10fac5578c452474e0658ebe2c218d1e5f4e4f8674015401e272159ae9df2eb` |
-| Continuous runtime seal | `00d174d649c3105e0136cf83980364a1dee5376b03073fe490901ef5265fb5d4` |
+| Strict runtime inspect projection | `524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748` |
+| Runtime preflight | `875d76db424d2f3b9bb2871583475e8b29765012358b8c579eb8543a23705206` |
+| Continuous runtime seal | `35b64f944cbdaa39307c632426002279027aafadf6c94535f3fb3cc3e06d6af4` |
 
 ## 2. OCI and source binding
 
@@ -255,9 +255,20 @@ This revision closes those design defects by checking manifest structure before
 Docker, opening and hashing fixture bytes only after preflight, transferring only
 immutable verified buffers, binding each copy digest, expanding the strict inspect
 projection, binding clean exact-head/command evidence into preflight, and preserving
-the bare synthetic invocation as v1-only compatibility while making both ER3 modes
-explicit and non-fallback. It also aligns cleanup failure semantics and the owner
+the bare synthetic invocation's argument/control flow plus frozen v1 EvidencePack
+while making both ER3 modes explicit and non-fallback. It also aligns cleanup failure semantics and the owner
 ratification paths. These remain design contracts, not runtime observations.
+
+The first clean exact-head follow-up at `f6f6db05a381e8e6135ebaa469bad223a09e34dd`
+then found three remaining P2 contract gaps: the inspect projection omitted `/app`
+and eleven attested environment values/absence markers; §1 counted six gate items
+while §10 required seven; and whole-output byte compatibility was impossible once
+legacy tasks gained an explicit v1 selector. A parallel Sonnet review also found
+that the fail-first gate did not explicitly authorize pure Docker subprocess mocks.
+This revision closes all four without authorizing a daemon connection: the strict
+projection now binds the complete attested environment and working directory, the
+gate count is seven, legacy compatibility is narrowly stated, and §7 permits only
+mocked Docker CLI/inspect responses before the second owner gate.
 
 ## 6. Commands and results
 
@@ -319,7 +330,7 @@ Therefore none of the following is claimed:
 - selected runtime platform or actual Docker image ID;
 - active Docker context/endpoint locality or server identity;
 - read-only root, four explicit tmpfs mounts, private `/dev/shm`, no anonymous/
-  host volume, closed HostConfig, or process-user/command posture;
+  host volume, closed HostConfig, or process-user/command/workdir/environment posture;
 - Docker network mode `none`, absence of additional attachments or host-published
   TCP/Unix sockets, or the in-container loopback bind;
 - fixed-argv Docker control, operation-by-operation inspect seal, curl availability

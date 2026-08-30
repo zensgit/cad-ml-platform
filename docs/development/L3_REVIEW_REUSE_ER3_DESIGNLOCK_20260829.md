@@ -18,16 +18,17 @@ The current owner authorization covers ER1+ER2 only.
 
 ## 1. Decision requested
 
-ER3 implementation ratification must name all six of the following:
+ER3 implementation ratification must name all seven of the following:
 
 1. the exact implementation base SHA;
 2. the exact repository-fixture manifest from §4;
 3. the digest-pinned private vision image from §5.2;
 4. the static substrate attestation exact path and digest from §5.2;
 5. the exact EvidencePack v2 contract path and digest from §5.4;
-6. the fail-first contract in §7.
+6. the embedded EvidencePack golden-vector digest from §5.4;
+7. the fail-first contract in §7.
 
-Without all six, ER3 implementation remains blocked. Ratification of this
+Without all seven, ER3 implementation remains blocked. Ratification of this
 document authorizes only fail-first implementation and mock-backed verification.
 It does not authorize pulling or starting the vision image, sending fixture
 bytes, merging any PR, setting `REVIEW_REUSE_DECISIONS_ENABLED`, deployment,
@@ -283,7 +284,7 @@ request. Drift fails with no fixture transfer.
 - The image digest alone is insufficient. The proposed static attestation is
   `docs/development/L3_REVIEW_REUSE_ER3_VISION_SUBSTRATE_ATTESTATION_20260829.json`
   with canonical digest
-  `1f2edf43a3e0e33e2b9c3f95a7594d6c14a7b364b903ffc75f6c84bbbe0ff0e1`.
+  `651bbdb9c056cdcc0a8b9d2a38d8d9bb0230537ec01d0911a9628613cf8aa283`.
   It binds the OCI index to source revision
   `2fc35d60ff034c9f790868c02381a9716becc942`, records both platform manifests and
   expected image IDs, enumerates search-affecting state, and identifies the
@@ -343,9 +344,10 @@ request. Drift fails with no fixture transfer.
   accepted.
 - Every `docker cp` and `docker exec` is wrapped by before/after normalized
   `docker inspect` projections. The strict projection binds image ID, command
-  argv, process user, container ID/label, HostConfig, mounts, running state,
-  start timestamp, restart count, network attachments, published ports, and
-  integration environment. Drift aborts before the next drawing-byte operation.
+  argv, `/app` working directory, process user, container ID/label, HostConfig,
+  mounts, running state, start timestamp, restart count, network attachments,
+  published ports, and every attested integration/credential/proxy value or
+  absence marker. Drift aborts before the next drawing-byte operation.
   The ordered checkpoints, transferred-content hashes, and command counts are
   hashed into `runtime_seal_receipt_sha256`; the one-time preflight digest cannot
   substitute for this continuous seal.
@@ -573,11 +575,11 @@ with one immutable selector:
 The complete v2 canonical contract is
 `docs/development/L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json`
 with contract digest
-`f4ab789c45468060d5184f564a46111572242e1b35595a211b34bf9d24ad33ab`.
+`8f493d69051cff60e0fbdd3e974c8d2223228adddc984aaf2cb8a1f6f5633346`.
 It freezes exact object keys, types/nullability, list ordering, task context,
 unknown-field rejection, and digest exclusions. Its embedded golden vector has
 EvidencePack digest
-`e5ca2fbedbb2ea933cb45bd533178c74b6493664a88ed2aacab1160edac64ad3`.
+`2ce278bc1c00d72fa8cfb64f5a5604a49590b45704824663d2bdfc3b922e2bf2`.
 The contract digest excludes only `contract_sha256`; the golden EvidencePack
 digest excludes only `evidence_pack_sha256`. Implementation copies neither value
 from prose: tests recompute both with `canonical_json_v1()` and reject any field,
@@ -621,9 +623,9 @@ field schemas, invariants, and non-placeholder golden for each critical digest:
 - score mapping ruleset:
   `ccee15b504054a1cd3def3f6531babbc41a72742d3d2dbb8e35efd57337afd11`;
 - runtime preflight:
-  `c10fac5578c452474e0658ebe2c218d1e5f4e4f8674015401e272159ae9df2eb`;
+  `875d76db424d2f3b9bb2871583475e8b29765012358b8c579eb8543a23705206`;
 - continuous runtime seal:
-  `00d174d649c3105e0136cf83980364a1dee5376b03073fe490901ef5265fb5d4`.
+  `35b64f944cbdaa39307c632426002279027aafadf6c94535f3fb3cc3e06d6af4`.
 
 Those values are serialization vectors, not expected live observations. A live
 run exports and hashes its own complete named preimages. All-zero, one-character
@@ -639,11 +641,13 @@ not an unstated reconstruction dependency.
 ### 5.6 Export and replay
 
 `scripts/review_reuse_isolated_archive_run.py` owns two explicit ER3 subcommands:
-`er3-run` and `er3-replay`. The current no-subcommand invocation remains the
-byte-compatible v1 synthetic path used by the existing Makefile target and
-regression tests; it is never an ER3 mode or success fallback. Any argv beginning
-with `er3-run` or `er3-replay` is parsed exclusively as that mode and fails
-closed instead of falling through to legacy behavior. Replay support is
+`er3-run` and `er3-replay`. The current no-subcommand invocation retains its v1
+argument/control-flow compatibility for the existing Makefile target and
+regression tests, and its v1 EvidencePack bytes/digest remain frozen. Whole task
+JSON and audit exports may add the required explicit v1 selector; they are not
+claimed byte-identical. The bare path is never an ER3 mode or success fallback.
+Any argv beginning with `er3-run` or `er3-replay` is parsed exclusively as that
+mode and fails closed instead of falling through to legacy behavior. Replay support is
 implemented in that already locked script plus the named ER3 modules from §8; it
 may not introduce an unnamed module.
 
@@ -793,8 +797,10 @@ baseline log showing they fail against the ratified implementation base:
 72. `test_er3_legacy_cli_remains_v1_only_and_er3_subcommands_never_fallback`
 73. `test_er3_cleanup_failure_emits_no_success_bundle`
 
-Tests may use a deterministic fake private vision server for failure and mapping
-cases. ER3 closure additionally requires a separately owner-authorized recorded
+Tests may use a deterministic fake private vision server and pure mocked Docker
+CLI/subprocess/inspect responses for failure, mapping, and isolation-posture cases.
+The first gate does not authorize a Docker-daemon connection, image inspection,
+pull, start, or fixture processing. ER3 closure additionally requires a separately owner-authorized recorded
 run against the dedicated pinned `dedupcad-vision` container and the approved
 manifest. Mock-only green tests are not closure evidence.
 
@@ -810,8 +816,10 @@ Only after ratification:
 
 - `scripts/review_reuse_isolated_archive_run.py` only for the explicit `er3-run`
   and read-only `er3-replay` subcommands; the existing bare/no-subcommand
-  synthetic v1 behavior remains byte-compatible for current Makefile/tests, is
-  never an ER3 mode, and can never receive fallback from an ER3 subcommand
+  synthetic v1 behavior retains argument/control-flow compatibility and frozen
+  v1 EvidencePack bytes/digest for current Makefile/tests, is never an ER3 mode,
+  and can never receive fallback from an ER3 subcommand; whole task/audit exports
+  may add the explicit v1 selector and are not claimed byte-identical
 - new `src/core/review_reuse/er3_archive.py`
 - new `src/core/review_reuse/evidence_v2.py`
 - new `src/core/review_reuse/evidence_dispatch.py`
@@ -868,8 +876,8 @@ ER3 is complete only when all of the following are true at one exact head:
 - the runtime manifest matches §4 digest
   `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf`;
 - the v2 contract and golden digests remain
-  `f4ab789c45468060d5184f564a46111572242e1b35595a211b34bf9d24ad33ab`
-  and `e5ca2fbedbb2ea933cb45bd533178c74b6493664a88ed2aacab1160edac64ad3`;
+  `8f493d69051cff60e0fbdd3e974c8d2223228adddc984aaf2cb8a1f6f5633346`
+  and `2ce278bc1c00d72fa8cfb64f5a5604a49590b45704824663d2bdfc3b922e2bf2`;
 - existing ReviewReuse, identity, production-preflight, and core-fast suites are
   green without skips added for this tranche;
 - an approved real private service run indexes the archive and searches the
@@ -905,10 +913,10 @@ Suggested implementation-only owner response:
 > `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf`, vision image
 > `ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251`, static substrate attestation
 > `docs/development/L3_REVIEW_REUSE_ER3_VISION_SUBSTRATE_ATTESTATION_20260829.json` digest
-> `1f2edf43a3e0e33e2b9c3f95a7594d6c14a7b364b903ffc75f6c84bbbe0ff0e1`, EvidencePack v2 contract
+> `651bbdb9c056cdcc0a8b9d2a38d8d9bb0230537ec01d0911a9628613cf8aa283`, EvidencePack v2 contract
 > `docs/development/L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json` digest
-> `f4ab789c45468060d5184f564a46111572242e1b35595a211b34bf9d24ad33ab`, golden vector digest
-> `e5ca2fbedbb2ea933cb45bd533178c74b6493664a88ed2aacab1160edac64ad3`, the versioned
+> `8f493d69051cff60e0fbdd3e974c8d2223228adddc984aaf2cb8a1f6f5633346`, golden vector digest
+> `2ce278bc1c00d72fa8cfb64f5a5604a49590b45704824663d2bdfc3b922e2bf2`, the versioned
 > compatibility contract in §5.4, and the named fail-first contract
 > in §7. I do not authorize image pull/start, fixture processing, merge, decision
 > enablement, deployment, pilot, or customer data.
