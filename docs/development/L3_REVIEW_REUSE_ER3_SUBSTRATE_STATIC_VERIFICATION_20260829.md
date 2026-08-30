@@ -24,12 +24,13 @@ implementation, merge, decision enablement, deployment, pilot, or customer data.
 | Design lock | `L3_REVIEW_REUSE_ER3_DESIGNLOCK_20260829.md` |
 | Static attestation | `L3_REVIEW_REUSE_ER3_VISION_SUBSTRATE_ATTESTATION_20260829.json` |
 | EvidencePack v2 contract | `L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json` |
-| Archive manifest digest | `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf` |
-| Static attestation digest | `988138a75031d78916ad388e1580012a50f8ac9bf5b97a9461a67d9ed2231228` |
-| Static attestation raw file SHA-256 | `76ab3d92eafdb386f6f3588308da4b1e45d4830fb902fb1b6059a43df86a865c` |
-| EvidencePack v2 contract digest | `2d5039d261f63d3e5db2d8da0579184540886871899641d1e4f816418c22accd` |
-| EvidencePack v2 contract raw file SHA-256 | `29f14b41971b728bf0c8481e66641792749c2d72b333bfc2e34fe364c687fd22` |
-| Embedded EvidencePack golden digest | `96891fe5d32cd3ed65be22bb741e2d935240a127823e6a74215b6c7d2a04329d` |
+| Embedded manifest proposal canonical digest; no manifest file exists at this docs-only head | `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf` |
+| Static attestation digest | `524829459cdbb2d45d507bffe0598fc7918266cce4e7bcfa43fdf4b5181e803f` |
+| Static attestation raw file SHA-256 | `c9782fc38c9608f79d888d81c40f4e07eb8f518f76242fbb6566caa82f38aa6c` |
+| EvidencePack v2 contract digest | `edc13f1ce4d8ee72d9e5aec2c686958050726ef17ee64813ad34f67cb44d2c77` |
+| EvidencePack v2 contract raw file SHA-256 | `ac3097d25bbb26444337258a47665c20e0f4eb88698a9c7652e76bae641ae9b6` |
+| Embedded EvidencePack golden digest | `285d68826a9addae41d949d0b45a077e5dd7dd27d7b30eb327e72dca2db6de63` |
+| Verified fixture-set golden digest | `536113fa48ac2f692635959bd5f1d0f8ac92faff1fc8ab9f27679a5f474e51b1` |
 | Vision OCI index | `sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251` |
 
 The manifest, attestation, contract, and embedded golden digests were recomputed
@@ -44,12 +45,15 @@ quality or runtime evidence. The critical provenance vectors are:
 | Post-index search response receipt | `b4ff738ada27842e09ff22791b52cc504860f589d23e6cbcc18bc9e542975602` |
 | Service identity | `b9defaaa4689ea63652663cc5431c8c431a23a89d31f4f0227908ee49278660e` |
 | Score-mapping ruleset | `ccee15b504054a1cd3def3f6531babbc41a72742d3d2dbb8e35efd57337afd11` |
-| Docker control plane | `5e89a5509a6c04f857be74421e835495331537596dfdfa26547b4f9b6cdc70f4` |
-| Strict runtime inspect projection | `e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20` |
-| Runtime preflight | `84bd2e9461baf20ed04102533a04464625f1a524b14477a65f3d43688ceef541` |
-| Continuous runtime seal | `d55c2d781d03f8b267b65fefd1cc2a37fe296d411567b255bc3c5c3d0a0a1230` |
-| EvidencePack v2 Markdown bytes | `1410bdc7cf1953c569ee16459724d83e866d04f5bfbd64b62c0477186c7a2460` |
-| Run-summary golden vector | `9f18176f0052ebf5f52310adc253f152c9b9c52150861bf25a15132e33a645dd` |
+| Reviewed command | `3bf9772d4296c728b9725ae97cba18e826fd11a7b811795f78b19874fd3ce570` |
+| Docker socket identity | `494b331e50b32565a2d20eda74afc69a5cb698e53be47363701046b9ab80d850` |
+| Raw HostConfig v1.43 | `9ab001ac45b9fdbedb61dc2180864659298ed5acda1f28333a8196824cea3bae` |
+| Docker control plane | `d1244eebbe0692815ca6d3fd4b4c7ef4bb2fcd1a7946a1c1a362ed4a19f5f715` |
+| Strict runtime inspect projection | `4049ca2cd23bdf6dc28232acdb16392de18998dbcdf1afc50278fda03d4aba4e` |
+| Runtime preflight | `b359048dba66b587e30e002375d29c794459a5f153bbffaf43fd45966dce90f4` |
+| Continuous runtime seal | `225f042bea06120960143f5b683a0eec1ac05f3ecddf095e0ca9f147bc0285ba` |
+| EvidencePack v2 Markdown bytes | `18442928731bc898ff8e6fd9ff2722e607ca18a8a166db3f08a35769ffb42e8e` |
+| Run-summary golden vector | `841a21be3c9da5591d1732be0f1bd95c6e82acd705d6d6fc33f74d9d1cb19dba` |
 
 ## 2. OCI and source binding
 
@@ -131,13 +135,15 @@ explicit run-scoped tmpfs mounts over a read-only root. `/dev/shm` must remain a
 private non-host-bound tmpfs with private IPC. Explicit tmpfs overrides also
 prevent image-declared anonymous volumes.
 
-The revised control-plane contract rejects every Docker endpoint/context/TLS
-environment override and accepts only an active context resolved to a local
-absolute `unix://` URI. Its normalized HostConfig projection closes privilege,
-capabilities, host namespaces, devices, binds, Docker/socket publication, ports,
+The revised control-plane contract rejects every ambient Docker
+endpoint/context/TLS/config/API/platform override and never reads an active/default
+context. Gate C must instead bind an exact absolute `unix://` endpoint, socket and
+parent-chain identity, API version, platform, binary, and reviewed command. Its
+API-v1.43 raw HostConfig key contract plus normalized projection closes privilege,
+resources, host namespaces, devices, binds, Docker/socket publication, ports,
 extra hosts, and restart policy. Because the daemon is shared administrative
-state, every copy/exec is bracketed by before/after inspect projections and bound
-into a continuous runtime-seal receipt; a one-time preflight is insufficient.
+state, every copy/exec is bracketed by before/after inspect projections and raw
+stream artifacts bound into a continuous runtime-seal receipt.
 
 With `EVENT_BUS_ENABLED=false`, `events/event_bus.py:700-729` selects an in-memory
 LocalEventBus and does not create Redis. Index-add still publishes to that local
@@ -241,7 +247,7 @@ This revision closes those design defects with fixed query/curl argv, local-unix
 Docker resolution, a closed HostConfig projection, operation-by-operation seal,
 host-environment quarantine, two explicit query transfer pairs, a service-
 bracketed archive controller lifecycle, explicit script replay subcommand,
-closed vocabularies, five canonical provenance receipt/ruleset preimages, and a
+closed vocabularies, canonical provenance receipt/ruleset preimages, and a
 named ER3 CI gate. They remain proposed contracts, not runtime observations.
 
 A focused local read-only review of that expanded draft then confirmed five more
@@ -274,7 +280,7 @@ that the fail-first gate did not explicitly authorize pure Docker subprocess moc
 This revision closes all four without authorizing a daemon connection: the strict
 projection now binds the complete attested environment and working directory, the
 gate count is seven, legacy compatibility is narrowly stated, and §7 permits only
-mocked Docker CLI/inspect responses before the second owner gate.
+mocked Docker CLI/inspect responses before the then-proposed runtime gate.
 
 A later exact-source review after #584 advanced to `af72d0ec02b5...` found a
 second set of pre-ratification gaps: `input_validated` could not be truthful while
@@ -293,6 +299,18 @@ the required ancestry as #584 runtime base -> ratified design-lock head ->
 implementation head. These are proposed contracts only. No ER3 test, runtime
 module, Docker operation, fixture read, or owner action was performed.
 
+An exact-head Sol/Terra/Luna review of `657b27d1e294c8ca85d4cd4fb000e959c84fcd05`
+then rejected ratification because running tasks had no revision-1 run binding,
+active cancel could escape recovery, fail-first and runtime authority were combined,
+local-unix context resolution did not bind a trusted socket, raw HostConfig mapping
+and receipt artifacts were incomplete, ancestor-directory TOCTOU remained, revision
+3 bound only one observed hash, probe argv conflicted, and strict-verification/
+manifest wording was ambiguous. The current revision responds by splitting Gates
+A/B/C; adding immutable `ER3RunBinding`, cancel/recovery constraints, explicit
+endpoint/socket/API binding, API-v1.43 raw mapping, directory-FD opens, complete
+verified-fixture-set and replay artifacts, and corrected documentation. These are
+still proposed docs-only contracts and require another exact-head review.
+
 ## 6. Commands and results
 
 The static verification used read-only commands equivalent to:
@@ -303,10 +321,15 @@ git grep -n <pattern> 2fc35d60ff034c9f790868c02381a9716becc942 -- src Dockerfile
 sha256sum tests/vision/fixtures/cad_features/cad_line.png \
   tests/vision/fixtures/cad_features/cad_circle.png \
   tests/vision/fixtures/cad_features/cad_arc.png
-python3 -m json.tool \
-  docs/development/L3_REVIEW_REUSE_ER3_VISION_SUBSTRATE_ATTESTATION_20260829.json
-python3 -m json.tool \
-  docs/development/L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json
+/opt/homebrew/bin/python3.11 - <<'PY'
+from pathlib import Path
+from src.core.review_reuse.canonical import strict_json_loads
+for path in (
+    Path("docs/development/L3_REVIEW_REUSE_ER3_VISION_SUBSTRATE_ATTESTATION_20260829.json"),
+    Path("docs/development/L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json"),
+):
+    strict_json_loads(path.read_bytes())
+PY
 /opt/homebrew/bin/python3.11 -m pytest -q \
   tests/unit/test_review_reuse_canonical.py \
   tests/unit/test_review_reuse_evidence_goldens.py \
@@ -317,8 +340,9 @@ git diff --check
 
 Results:
 
-- fixture byte sizes and SHA-256 values matched the proposed manifest;
-- manifest canonical digest matched;
+- fixture byte sizes and SHA-256 values matched the embedded manifest proposal;
+- embedded manifest proposal canonical digest matched; no physical manifest file
+  or raw manifest-file SHA is claimed at this docs-only head;
 - static attestation strict parse and canonical digest matched;
 - v2 contract strict parse, canonical digest, and embedded golden digest matched;
 - all three raw-response, normalized-receipt, and receipt-set golden vectors
@@ -328,8 +352,13 @@ Results:
   receipts, 44 distinct inspection receipts, cleanup-command receipts,
   continuous seal, EvidencePack, deterministic Markdown, run summary, and
   whole-contract golden preimages recomputed to their stored digests;
+- a read-only cross-artifact verifier passed `104/104`, including contract and
+  attestation raw/self digests, the API-v1.43 raw HostConfig key closure,
+  revision-bound fixture-set, exact Docker child environment, six setup command
+  receipts, all operation/inspection/cleanup receipts, artifact-family counts,
+  97 named tests, and docs-only changed-path scope;
 - source paths and endpoint semantics above matched exact revision `2fc35d60...`;
-- the design names 89 unique fail-first/regression tests and preserves public DXF/v1 behavior;
+- the design names 97 unique fail-first/regression tests and preserves public DXF/v1 behavior;
 - the existing canonical, EvidencePack golden, and ER1 store-integrity regression
   selection passed `121/121` under Python 3.11;
 - the complete existing ReviewReuse unit selection passed `222/222` under Python
@@ -353,7 +382,7 @@ Is the docker daemon running?
 Therefore none of the following is claimed:
 
 - selected runtime platform or actual Docker image ID;
-- active Docker context/endpoint locality or server identity;
+- Gate-C Docker endpoint/socket locality, API version, or server identity;
 - read-only root, four explicit tmpfs mounts, private `/dev/shm`, no anonymous/
   host volume, closed HostConfig, or process-user/command/workdir/environment posture;
 - Docker network mode `none`, absence of additional attachments or host-published
@@ -370,10 +399,10 @@ canonical models `claude-opus-5`, `claude-sonnet-5`, and `claude-fable-5`. Kimi
 K3 returned a weekly-quota 403 and supplied no result. Grok 4.6 reached source
 inspection but remained in provider retry and supplied no final finding, so it
 is not counted as a completed review.
-Direct source checks, not model agreement alone, confirmed every correction
-applied in this revision. A separate read-only review of the new exact head is
-still required before ratification. These reviews are design evidence only, not
-runtime verification.
+Direct source checks, not model agreement alone, drive corrections. The
+`657b27d1...` exact-head review was `REQUEST_CHANGES`, not approval; a separate
+read-only review of the next exact head is required before ratification. None of
+these model reviews is runtime verification.
 
 ## 8. Static conclusion
 
