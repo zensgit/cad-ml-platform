@@ -27,9 +27,9 @@ implementation, merge, decision enablement, deployment, pilot, or customer data.
 | Embedded manifest proposal canonical digest; no manifest file exists at this docs-only head | `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf` |
 | Static attestation digest | `2d32ff91eb0f42079541f85dbc926f144c13bf1cbbe8ba2b720164fe4329f28e` |
 | Static attestation raw file SHA-256 | `23680e3625c6d87d083998e8cdcfdb9004dd19350db81755c133f4eeb88ceb68` |
-| EvidencePack v2 contract digest | `59f51f4a4b442c81a0431135291a44f41f178335b0de3e615245e0e01e8224e9` |
-| EvidencePack v2 contract raw file SHA-256 | `87ecaf430438e52fda7c8e8f3c4abc0f9eac07388306f6fcdcb7fa48f197d158` |
-| Embedded EvidencePack golden digest | `b012ad952a83b4ed29b402818440b364985613a20199c54389e3bc5e5c91c104` |
+| EvidencePack v2 contract digest | `6ea8dd50bb825c763542a376d9e5fdf52a3c4234c30828b8bc213cc49e6823b7` |
+| EvidencePack v2 contract raw file SHA-256 | `28094627c439be318c0b8c5042c856f2d9e251d240d9e0959d12c474695f1bb0` |
+| Embedded EvidencePack golden digest | `cf70bf614b3552f89d5d8e99afc27c0ede8a0952409978ed628f3a0918c88c0b` |
 | Verified fixture-set golden digest | `536113fa48ac2f692635959bd5f1d0f8ac92faff1fc8ab9f27679a5f474e51b1` |
 | Vision OCI index | `sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251` |
 
@@ -53,13 +53,14 @@ quality or runtime evidence. The critical provenance vectors are:
 | Resource ownership | `103acb5087f3624731243d89dc1cb210dfd2c039d0ac24894def8acd28dbcd9d` |
 | Docker control plane | `ef6802d6138b19db4f580a75ac83fdf99b6d04e2bd3c56199d4e0484ca6c5ea7` |
 | Exact Docker child-environment artifact | `571117807ac16fa31fd8cb124a55a2263f050bb04db25fb94b08774f6b53d51d` |
+| Isolated stage-writer script bytes | `a70cc364be7886ed9d1fad5b50fdfb2465306b64ff93102b927bdbb7b468286a` |
 | Final run-journal artifact | `615ec0ac25a4ca8edd83bacc589d4f411390ab544e3a9c71e2e625a85f547031` |
 | Strict runtime inspect projection | `c907c2aa218065321eba9ac471a4436286f363632809fcbd8c15a8c6838cf927` |
 | Runtime preflight | `c9290dde847d946d96e1212740bac982bb764279b26fe5712cf35494b9c48e21` |
-| Continuous runtime seal | `939bc5e9334738aa249af8c9825d7c5c9b94b7f8a0852cde4ec379a23e4da500` |
-| EvidencePack v2 Markdown bytes | `c91711621d0853f113c701f313c47e8cf3f229900b498f04a9bb941db36d760e` |
-| Success-intent golden vector | `1542e9a7ecaca4edeb7bc06b210c4ab0d91923a5f547c2be1bc8aaf97e68dfc4` |
-| Run-summary golden vector | `2c30944a625ec5002114ea716239598f5a7db5f67606301de2797f0e4512d5fc` |
+| Continuous runtime seal | `a51801dd66536ccb02fb2ca60b5ba59dd401f20ebb0f3f23002d46aa53d3fb63` |
+| EvidencePack v2 Markdown bytes | `0a4e87c1327d2376578eea65803669e7e2b49f8cb7fa0677654ef1b5fa50f2a9` |
+| Success-intent golden vector | `f1d99a4609158f6aebecd94b4c6fd77517cc0abf693db346cffd3e4b90d0de6c` |
+| Run-summary golden vector | `d7e4e333e82b6081f5b7bb78b082b657a3fb4a36c5e8193b1da48b5d1256a1bf` |
 
 ## 2. OCI and source binding
 
@@ -208,8 +209,8 @@ Source review also confirmed that the fixed vision service has no authentication
 dependency on index-add or rebuild. A host-loopback listener would therefore
 leave a mutation surface available to other host processes. The corrected
 contract uses Docker network mode `none`, publishes no TCP or Unix socket, binds
-Uvicorn to in-container loopback, and performs only fixed-argv `docker exec` and
-`docker cp` through the local Docker daemon. It additionally requires the post-
+Uvicorn to in-container loopback, and performs only fixed-argv `docker exec`
+through the local Docker daemon. It additionally requires the post-
 index result to include the exact `(drawing_id, file_hash,
 index_receipt_sha256)` triple bound by the `archive-exact-001` canonical receipt;
 a zero-hit, unknown-candidate, or receipt-digest mismatch is failure even when the
@@ -304,10 +305,12 @@ HostConfig, exact run-summary inventory, and deterministic Markdown. It also bin
 the required ancestry as #584 runtime base -> ratified design-lock head ->
 implementation head. These are proposed contracts only. No ER3 test, runtime
 module, Docker operation, runtime fixture transfer/decoding/index/search, or owner
-action was performed. The static verification read the three tracked fixture files
-only to compute the sizes and SHA-256 values recorded in §3 and to reconstruct the
-deterministic in-memory ustar serialization vectors. It did not decode an image,
-load a model, build an index, call search, or expose fixture bytes to a runtime.
+action was performed. The initial static verification read the three tracked
+fixture files only to compute the sizes and SHA-256 values recorded in §3 and the
+then-current in-memory ustar serialization vectors. This hardening did not reopen
+those files: it reused the already recorded exact sizes and content hashes while
+replacing tar transfer with raw stdin staging. Neither pass decoded an image,
+loaded a model, built an index, called search, or exposed fixture bytes to a runtime.
 
 An exact-head Sol/Terra/Luna review of `657b27d1e294c8ca85d4cd4fb000e959c84fcd05`
 then rejected ratification because running tasks had no revision-1 run binding,
@@ -333,6 +336,38 @@ This working revision closes those design defects, including permanent run/store
 lease inode rules and out-of-band Gate-C authority. It still requires a fresh
 review of the new exact head; this paragraph is not ratification.
 
+The next exact-head review of `9b145763add5132da14c13739f9ac90adc3684a2`
+used independent Sonnet 5, Opus 5, Sol, Terra, and Luna reads. Kimi K3, Grok 4.6,
+and Fable 5 produced no usable review because their local services returned quota,
+retry, or budget failures; they are not counted as evidence. The usable reviews
+found one stale Docker-control digest, unpinned Git/environment authority, torn
+journal and summary publication windows, revision-2/3 recovery grammars that
+rejected their own pre-CAS artifacts, no post-create recovery discovery, a summary
+overwrite path, a replay/finalize race, an open output-directory inventory, a
+runtime-base/Gate-A expectation collision, and a root-owned mode-0600 fixture that
+the default `appuser` curl/rm operations could not read or remove. A final direct
+check against the Docker CLI contract first found that stdin tar extraction
+requires a directory while the proposed copy argv named a full destination file.
+The subsequent official Docker corner-case check was stricter: `docker cp` does
+not support container `tmpfs`/mount resources, while the sealed HostConfig makes
+`/tmp` exactly such a mount. See the
+[Docker CLI `cp` corner cases](https://docs.docker.com/reference/cli/docker/container/cp/#corner-cases).
+
+This working revision closes those design findings without opening runtime scope.
+It introduces proposed/not-ratified machine status, exact Git and trusted-output-
+parent controls, atomic journal and no-replace summary candidates, ordered phase-
+artifact recovery plus receipt-bound label discovery, shared replay locking, exact
+directory closure, separate 104/2 runtime-base and 100/6 Gate-A-head maps with
+authenticated pytest failure markers, and a five-sequence fixed `docker exec -i`
+writer that creates manifest-bound fixture paths as the attested `appuser`.
+The writer is digest-pinned, isolated with `-I -S`, uses
+`O_EXCL|O_NOFOLLOW`, verifies exact size/EOF/SHA-256 and file metadata, fsyncs
+success, and removes its own path on failure. No operation contains a `--user`
+override; the cap-drop-all, no-new-privileges, network-none, read-only-root
+posture remains unchanged. All affected operation receipts, continuous
+seal, EvidencePack, Markdown, task, intent, summary, and contract digests were
+recomputed. This is still FOR REVIEW, docs-only, and runtime-unverified.
+
 ## 6. Commands and results
 
 The static verification used read-only commands equivalent to:
@@ -357,6 +392,8 @@ PY
   tests/unit/test_review_reuse_evidence_goldens.py \
   tests/unit/test_review_reuse_er1_store_integrity.py
 /opt/homebrew/bin/python3.11 -m pytest -q tests/unit/test_review_reuse_*.py
+# Extract the exact stage_writer_contract.script_utf8 and run it only against
+# temporary synthetic bytes: success, short, trailing, wrong-hash, pre-existing.
 git diff --check
 ```
 
@@ -374,23 +411,38 @@ Results:
   receipts, 44 distinct inspection receipts, cleanup-command receipts,
   continuous seal, EvidencePack, deterministic Markdown, run summary, and
   whole-contract golden preimages recomputed to their stored digests;
-- a read-only cross-artifact verifier passed `30/30` closure categories, including
+- the earlier read-only cross-artifact verifier passed `30/30` closure categories,
+  and the current hardened verifier passed `42/42`, including
   contract/attestation self digests, exact closed store/control/environment/journal
-  inventory, persistent lease semantics, mutually exclusive root classification,
-  106-entry Gate-A matrix with the exact 104-red/2-existing-pass split, and every
-  downstream EvidencePack/intent/summary digest;
+  inventory, trusted Git/output-parent controls, atomic journal/summary publication,
+  persistent shared/exclusive lease semantics, mutually exclusive root
+  classification, the 106-entry Gate-A matrix with exact 104-red/2-existing-pass
+  runtime-base and 100-red/6-pass Gate-A-head splits, fixed appuser stage-writer
+  transport with no Docker-copy/root override, and every downstream
+  EvidencePack/intent/summary digest;
 - a separate machine-readable receipt derivation passed `79/79`: all nine setup,
   22 operation, 44 fresh-inspection, and four cleanup receipts recomputed from
   their complete ten-field preimages. Setup and operation receipts now use exact
   real Docker argv matrices and each receipt binds fresh private-binary/socket
   identities; synthetic stream bytes remain serialization vectors only;
+- the five fixed stage operations alone contain `exec -i` plus the digest-pinned
+  isolated writer; all 22 operations omit `--user`, stage stdin equals the
+  verified content digest/size, and the resulting operation receipts plus all
+  downstream digests recomputed exactly;
+- the exact writer script passed `5/5` synthetic temporary-file cases: one
+  mode-`0600` success plus fail-closed short input, trailing input, wrong digest,
+  and pre-existing-path preservation; no repository fixture or Docker runtime was
+  used by this micro-verification;
 - source paths and endpoint semantics above matched exact revision `2fc35d60...`;
 - the design names 106 unique fail-first/regression tests, fixes tests 28 and 34 as
-  the only existing-pass baseline nodes, maps every other node to a named missing-
-  behavior boundary, and preserves public DXF/v1 behavior;
+  the only runtime-base existing-pass nodes, fixes sequences 2/28/30/34/66/97 as
+  the six Gate-A-head passes, maps every red node to one exact pytest failure marker,
+  and preserves public DXF/v1 behavior;
 - the recovery classifier now has mutually exclusive initialization, terminal,
-  resumable, recovery, finalize, complete, and mismatch branches; only a durable
-  run-journal plus exact command-artifact prefix can authorize cleanup;
+  resumable, recovery, finalize, complete, and mismatch branches; only an
+  atomically published journal plus exact command/phase-artifact prefix can
+  authorize cleanup, and a post-create/pre-journal crash requires a separately
+  journaled dual-label discovery receipt;
 - the filesystem store is a closed one-tenant/one-task/optional-index inventory;
   its permanent writer-lease path and locked FD must retain the same validated
   inode while the export-freeze remains held through summary parent fsync;

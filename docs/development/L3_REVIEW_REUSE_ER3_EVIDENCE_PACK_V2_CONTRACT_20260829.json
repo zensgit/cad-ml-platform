@@ -1,6 +1,8 @@
 {
   "schema_version": "review-reuse-er3-evidence-pack-v2-contract-v1",
-  "contract_sha256": "59f51f4a4b442c81a0431135291a44f41f178335b0de3e615245e0e01e8224e9",
+  "contract_status": "proposed_not_ratified",
+  "runtime_authority": "none",
+  "contract_sha256": "6ea8dd50bb825c763542a376d9e5fdf52a3c4234c30828b8bc213cc49e6823b7",
   "canonicalization": {
     "algorithm": "sha-256",
     "function": "src.core.review_reuse.canonical.canonical_json_v1",
@@ -27,7 +29,7 @@
       ]
     }
   },
-  "ratified_run_bindings": {
+  "proposed_run_bindings": {
     "archive_id": "rr-er3-repository-fixture-v1",
     "archive_manifest_sha256": "7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf",
     "vision_image_digest": "sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
@@ -66,7 +68,7 @@
       "schema_version": "literal review-reuse-er3-run-binding-v1",
       "run_id": "ASCII matching ^rr-er3-[0-9a-f]{32}$",
       "resource_owner_id": "64 lowercase hex independent of run_id",
-      "archive_manifest_sha256": "64 lowercase hex equal to ratified_run_bindings",
+      "archive_manifest_sha256": "64 lowercase hex equal to proposed_run_bindings after exact-head owner ratification",
       "authorized_head": "40 lowercase hex",
       "reviewed_command_sha256": "64 lowercase hex",
       "python_control_sha256": "64 lowercase hex over the owner-bound -I -S interpreter/import bootstrap",
@@ -85,6 +87,7 @@
       "v1 requires er3_run_binding null; v2 requires the complete binding from revision 1 through every terminal state",
       "the binding is immutable under put, CAS, cancel, recovery, decision reconstruction, and load",
       "run/resource-owner ids, manifest, head, reviewed command, Python control, source parent/content, private Docker content/identity, socket parent/identity, endpoint, API version, platform, and runner version equal the reviewed command and all later preflight, context, pack, ownership, and summary values",
+      "run_id is generated from a fresh 128-bit CSPRNG draw, is rejected if its output root or any pair-labeled daemon resource already exists, and is never reused across attempts",
       "resource_owner_id is generated from an independent CSPRNG draw, is not derived from run_id, and differs from every run-id token",
       "the complete normalized binding is included in the v2 create idempotency preimage even when the idempotency key is null"
     ],
@@ -140,7 +143,7 @@
     },
     "persisted_context_invariants": [
       "all persisted_context_exact_fields are present and no other field is accepted",
-      "archive_id, archive_manifest_sha256, vision_image_digest, and vision_source_revision equal ratified_run_bindings",
+      "archive_id, archive_manifest_sha256, vision_image_digest, and vision_source_revision equal proposed_run_bindings after exact-head owner ratification",
       "exactly one model branch is valid: model_identifier, model_version, and model_digest are all non-null while model_unavailable_reason is null, or all three metadata fields are null while model_unavailable_reason is non-null",
       "exactly one calibration branch is valid: calibration_version and calibration_digest are both non-null while calibration_unavailable_reason is null, or both artifact fields are null while calibration_unavailable_reason is non-null",
       "context calibration values equal the task and EvidencePack calibration values",
@@ -273,12 +276,12 @@
       "new": "nonexistent output root; create mode 0700 through a trusted parent directory FD",
       "initialization_incomplete": "only a strict initialization prefix before one exact valid revision-1 task exists; a parsed revision-1-or-later task can never match this branch; return archive_run_initialization_incomplete without repair, deletion, or Docker",
       "terminal_canceled": "exact revision-2 canceled task with the revision-1 no-side-effect inventory and legal submitted,input_validated,canceled event prefix returns archive_run_terminal_canceled; no resume, recovery, finalization, or Docker is allowed",
-      "terminal_failed": "exact revision-3-or-4 failed task with legal failed event prefix, verified-absent owned resources, closed run-journal/receipt inventory, and no success summary returns archive_run_terminal_failed; no resume, recovery, finalization, or Docker is allowed",
+      "terminal_failed": "exact revision-3-or-4 failed task with legal failed event prefix, verified-absent owned resources, closed run-journal/receipt inventory, no success summary, and either no pre-CAS success artifact or the exact immutable revision-3 forensic prefix already present before recovery returns archive_run_terminal_failed; retained forensic evidence/success-intent bytes are never exposed as a successful bundle and no resume, recovery, finalization, replay-success, or Docker is allowed",
       "revision_one_resume": "resume only the exact revision_one_resume inventory with matching tenant/idempotency/ER3RunBinding and no setup/resource/operation artifact",
       "revision_two_or_three": "return archive_run_recovery_required only when recovery_prefix_grammar accepts the exact task, journal, and complete-or-journaled command prefix; ordinary er3-run never invokes prepare or execute",
-      "revision_four_without_summary": "return archive_run_finalize_required; only er3-finalize may publish the intent-bound bundle and summary",
-      "complete": "reject as already complete only after externally hash-bound summary and complete closed inventory validate",
-      "mismatch_or_unknown": "fail archive_run_authorization_mismatch or export_replay_mismatch without creating another root, mutating artifacts, or invoking Docker"
+      "revision_four_without_summary": "return archive_run_finalize_required only when run-summary.json is absent and the exact summary_publication candidate grammar is empty or recoverable; only er3-finalize may publish the intent-bound summary",
+      "complete": "reject as already complete only after externally hash-bound summary and complete closed inventory validate; normalize only the exact same-inode summary-candidate crash state under the exclusive lease",
+      "mismatch_or_unknown": "a preexisting unbound, malformed, mismatched, linked, special, or independently-inoded summary is included here and is never replaced; fail archive_run_authorization_mismatch or export_replay_mismatch without creating another root, mutating ordinary artifacts, or invoking Docker"
     },
     "pre_side_effect_inventories": {
       "classification_lock": "every root existence check, creation, classification, resume, recovery, finalization, inventory snapshot, and summary publication occurs while holding run_artifact_contract.run_level_lease outside the run root",
@@ -313,13 +316,14 @@
       "predicate": "v2 running task is revision 2 or 3, has immutable er3_run_binding and recall_started, has no terminal event, and the exact recovery_prefix_grammar validates",
       "automatic_retry_policy": "create retry, idempotency retry, restart, and ordinary er3-run never invoke prepare or execute again",
       "recovery_subcommand": "er3-recover",
-      "successful_recovery": "acquire the persistent-inode run-level lease then the store writer lease, validate every tenant/task/ER3RunBinding identity and the closed journal/receipt prefix, use only the private Docker copy and exact bound socket, remove only journaled or uniquely pair-labeled resources authorized by the durable zero proof, prove container/volume/network absence, close the journal, and CAS to failed with code archive_run_interrupted, recovered true, cleanup_status verified_absent",
+      "successful_recovery": "acquire the persistent-inode run-level lease then the store writer lease, validate every tenant/task/ER3RunBinding identity and the closed journal/receipt/phase-artifact prefix, use only the private Docker copy and exact bound socket, remove only journaled or uniquely pair-labeled resources authorized by the durable zero proof, prove container/volume/network absence, retain any exact immutable pre-revision-4 success-artifact prefix as forensic bytes without publishing a summary, close the journal, and CAS to failed with code archive_run_interrupted, recovered true, cleanup_status verified_absent",
       "recovery_prohibitions": "never open fixture bytes, invoke index/search, rebuild evidence, or emit a success summary",
       "cleanup_failure": "leave task running, exit archive_cleanup_failed, and allow only another explicit recovery attempt"
     },
     "recovery_prefix_grammar": {
       "schema_version": "review-reuse-er3-recovery-prefix-grammar-v1",
       "journal_path": "state/run-journal.json",
+      "journal_candidate_path": "state/.run-journal.next",
       "journal_exact_fields": [
         "schema_version",
         "run_id",
@@ -334,7 +338,8 @@
         "created_container_id",
         "cleanup_status"
       ],
-      "journal_publication": "exclusive canonical JSON plus file and parent-directory fsync; before every one of the 9 setup, 22 sealed-operation, 44 inspection, and 4 cleanup commands persist phase, class-local sequence, operation, exact argv digest, and pending_command stage=prepared; after subprocess return persist stage=result_recorded with exact stream/exit/control identity digests before publishing receipt artifacts; after the complete artifact group is fsynced append its receipt digest and clear pending_command",
+      "journal_publication": "under the exclusive run lease, create state/.run-journal.next with O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOFOLLOW mode 0600, write one complete canonical candidate, fsync its FD, validate it as exactly one legal successor of the current journal, atomically os.replace it over state/run-journal.json through retained directory FDs, and fsync state; never truncate or rewrite the authoritative journal in place; before every one of the 9 setup, 22 sealed-operation, 44 inspection, and 4 ordinary cleanup commands persist phase, class-local sequence, operation, exact argv digest, and pending_command stage=prepared; after subprocess return persist stage=result_recorded with exact stream/exit/control identity digests before publishing receipt artifacts; after the complete artifact group is fsynced append its receipt digest and clear pending_command",
+      "journal_candidate_recovery": "state/.run-journal.next is the sole conditional partial journal path: with the exclusive run lease held, a missing current journal accepts only the exact initial candidate; when current is valid, a complete candidate must be exactly one legal successor and is promoted, an incomplete bounded regular candidate is unlinked and state fsynced without Docker or task mutation, and any complete non-successor, linked/special/oversized candidate, second temp path, or invalid current journal is mismatch_or_unknown with no deletion; terminal success and failed inventories forbid the candidate",
       "atomic_artifact_group_order": [
         "command.json",
         "stdin.bin",
@@ -342,11 +347,33 @@
         "stderr.bin",
         "inspect.json when class is inspection"
       ],
-      "revision_two_valid_prefix": "exact revision-2 running task plus complete revision-1 inventory, one valid run journal, a zero-to-nine complete setup-command prefix, and at most one journaled pending setup command whose present artifact files are an exact complete prefix of the group order; no operation or success artifact is allowed",
-      "revision_three_valid_prefix": "exact revision-3 running task plus complete accepted revision-2 preflight, one valid run journal, a zero-to-twenty-two sealed-operation prefix with exactly two complete fresh inspection groups around each completed operation, and at most one journaled pending inspection or operation group; no evidence-ready task, success intent, or summary exists",
-      "cleanup_prefix": "explicit recovery may append only a zero-to-four complete cleanup prefix in docker-rm, container-list, volume-list, network-list order; a journaled pending cleanup command is accepted only under the same prepared/result_recorded/artifact-prefix rule",
-      "ownership_authority": "destructive cleanup requires all three complete zero-proof list receipts plus either the journaled exact created ID or exactly one resource matching both unguessable labels; before zero proof, on an ambiguous match, or on journal identity drift, recovery performs no deletion and returns archive_run_recovery_evidence_incomplete",
-      "invalid_partial_policy": "an unjournaled command artifact, non-prefix group, second pending command, truncated or mismatched completed artifact, task/journal sequence disagreement, or extra path is mismatch_or_unknown; automated recovery performs no destructive action",
+      "revision_two_phase_artifact_order": [
+        "mode-0700 empty docker-config-empty and docker-home-empty directories, then receipts/preflight/docker-environment.json before setup command 1",
+        "setup command groups 1..3 establish the three zero proofs",
+        "setup command groups 4..7 through container create",
+        "receipts/preflight/resource-ownership.json immediately after setup command 7 result identifies the created container",
+        "setup command groups 8..9 start and inspect the container",
+        "receipts/preflight/docker-control.json",
+        "receipts/preflight/runtime-preflight.json",
+        "inputs/verified-fixture-set.json"
+      ],
+      "revision_two_valid_prefix": "exact revision-2 running task plus complete revision-1 inventory, one valid journal or its sole atomic candidate state, and one exact prefix of revision_two_phase_artifact_order; command positions accept at most the one journaled pending setup group and its exact artifact-file prefix; each non-command artifact appears only after all named prerequisites and is itself complete, canonical, fsynced, and cross-bound; inputs/verified-fixture-set.json may exist before the revision-3 CAS; no operation, evidence, success-intent, or summary artifact is allowed",
+      "revision_three_command_chronology": "for operation n=1..22 the sole global command order is inspection sequence 2n-1, operation sequence n, inspection sequence 2n; a valid prefix may stop or hold the sole pending command at any one of those three positions, so a completed before-inspection never requires the operation and a completed operation never requires its after-inspection until that next prefix position",
+      "revision_three_phase_artifact_order": [
+        "complete accepted revision-2 prepare artifacts including inputs/verified-fixture-set.json",
+        "the exact revision_three_command_chronology prefix with index raw and normalized response pairs emitted only after their corresponding successful index-add operations",
+        "receipts/index/receipt-set.json only after all three index pairs",
+        "receipts/search/post-index.json only after the post-index search operation",
+        "receipts/service-identity.json and receipts/score-mapping-ruleset.json only after their complete source receipts",
+        "ordinary cleanup command prefix and verified-absent resource state",
+        "receipts/runtime-seal.json only after all 22 operations, 44 inspections, and required cleanup receipts",
+        "task/task.json, evidence/evidence-pack.json, evidence/evidence.md, evidence/audit-bundle.json, and state/success-intent.json as an exact fsynced pre-revision-4 success-artifact prefix"
+      ],
+      "revision_three_valid_prefix": "exact revision-3 running task plus one exact prefix of revision_three_phase_artifact_order; command positions accept at most one journaled pending inspection, operation, cleanup, or recovery-discovery command and its exact artifact-file prefix; derived and success artifacts appear only at their named prerequisite boundary and a complete success-intent before the revision-4 CAS remains a recoverable revision-3 prefix; no revision-4 store task or run-summary exists",
+      "recovery_discovery_prefix": "only when setup zero proofs are complete but a created container ID is absent because create may have succeeded before result_recorded publication, er3-recover first records one fixed pair-label-filtered container-list command under receipts/recovery-discovery; zero matches proves no delete is needed, exactly one dual-label match binds the cleanup target, and any second match, volume/network match, malformed result, or command failure returns archive_run_recovery_evidence_incomplete without deletion; recovery-discovery receipts are journaled with the same atomic command protocol, are allowed only in interrupted/terminal-failed roots, and never occur in a successful inventory",
+      "cleanup_prefix": "after any required recovery-discovery receipt, explicit recovery may append only a zero-to-four complete ordinary cleanup prefix in docker-rm, container-list, volume-list, network-list order; docker-rm is omitted only when the durable created ID and the discovery result both prove no owned container exists; a journaled pending cleanup command is accepted only under the same prepared/result_recorded/artifact-prefix rule",
+      "ownership_authority": "destructive cleanup requires all three complete setup zero-proof list receipts plus either the journaled exact created ID or the exact one-container recovery-discovery result matching both unguessable labels; before zero proof, on zero-or-ambiguous authority, on any pair-labeled volume/network, or on journal/control identity drift, recovery performs no deletion and returns archive_run_recovery_evidence_incomplete",
+      "invalid_partial_policy": "an unjournaled command artifact outside the sole journal-candidate rule, non-prefix command or phase artifact, second pending command, truncated or mismatched completed artifact, task/journal sequence disagreement, forbidden success/summary entry, or extra path is mismatch_or_unknown; automated recovery performs no destructive action",
       "crash_matrix_requirement": "Gate A parameterizes every setup command and every operation/inspection/cleanup command at prepared, result_recorded, each artifact-prefix, receipt-complete, journal-complete, and task-CAS boundaries; only grammar-accepted prefixes may reach cleanup",
       "golden_terminal_journal": {
         "schema_version": "review-reuse-er3-run-journal-v1",
@@ -472,12 +499,12 @@
       "journal_integrity": "strict I-JSON with exact fields and no self-authentication claim; before a success summary its authority comes from exclusive lease, durable ordered publication, task/binding equality, and closed artifact-prefix validation; corruption or ambiguity fails without deletion; the final summary later binds its exact bytes externally"
     },
     "completion_finalize": {
-      "predicate": "v2 task is revision 4 evidence_ready, success-intent is durable and exact, and no valid externally hash-bound run-summary exists",
+      "predicate": "v2 task is revision 4 evidence_ready, success-intent is durable and exact, and the run-summary.json directory entry is absent; any existing exact externally hash-bound summary is complete, while any existing unbound, malformed, mismatched, linked, or special summary is mismatch_or_unknown and is never replaced",
       "subcommand": "er3-finalize",
-      "actions": "acquire the persistent-inode run-level lease then the store writer lease; validate ER3RunBinding, revision-4 store task, success-intent, every pre-summary artifact, closed store inventory, and verified-absent owned resources; enter the store export-freeze without closing its lease, atomically publish and parent-fsync the deterministic summary, then close the store and release the run-level lease",
+      "actions": "acquire the persistent-inode exclusive run-level lease then the store writer lease; validate ER3RunBinding, revision-4 store task, success-intent, every pre-summary artifact, closed store inventory, and verified-absent owned resources; enter the store export-freeze without closing its lease; publish through run_artifact_contract.summary_publication without replacing any existing summary entry; then close the store and release the run-level lease",
       "prohibitions": "no Docker, fixture open, index/search, task event/revision, pack reconstruction, second output root, or external call",
       "failure": "leave revision 4 and artifacts unchanged and return archive_completion_incomplete",
-      "idempotency": "if the exact summary already exists and its externally supplied digest matches, report already complete without writing"
+      "idempotency": "if the exact summary already exists and its externally supplied digest matches, report already complete without writing; a conflicting existing entry always fails without overwrite, unlink, or repair"
     },
     "implementation_ancestry": {
       "runtime_base": "af72d0ec02b5d2dc1d92508539bc89ba857245a8",
@@ -1191,10 +1218,10 @@
           },
           {
             "sequence": 100,
-            "test_id": "test_er3_copy_stdin_ustar_artifact_rejects_extra_member_metadata_and_trailing_bytes",
+            "test_id": "test_er3_stage_writer_rejects_short_trailing_hash_existing_path_and_metadata_drift",
             "expected_baseline": "expected-red",
             "reason_code": "er3_gate_runtime_control_or_recovery_absent",
-            "required_failure_boundary": "missing_behavior::copy_stdin_ustar_artifact_rejects_extra_member_metadata_and_trailing_bytes"
+            "required_failure_boundary": "missing_behavior::stage_writer_rejects_short_trailing_hash_existing_path_and_metadata_drift"
           },
           {
             "sequence": 101,
@@ -1247,8 +1274,30 @@
           "xfailed": 0,
           "unclassified": 0
         },
-        "aggregate_requirement": "pytest exits nonzero because all 104 expected-red nodes fail at their named ordinary assertion boundary; the two named v1 compatibility nodes pass",
-        "invalid_evidence": "collection/import failure, deselection, skip, xfail, unexpected pass/fail, missing node, duplicate node, or reason-boundary mismatch"
+        "gate_a_head_expected_existing_pass_sequences": [
+          2,
+          28,
+          30,
+          34,
+          66,
+          97
+        ],
+        "gate_a_head_expectation_rule": "at the fail-first Gate-A head, the six named sequences pass because the ratified manifest/contract, existing v1 guards, required workflow, and classifier self-check are present; every other entry remains expected-red at its unchanged required_failure_boundary",
+        "gate_a_head_summary": {
+          "total": 106,
+          "expected_red": 100,
+          "expected_pass": 6,
+          "skipped": 0,
+          "xfailed": 0,
+          "unclassified": 0
+        },
+        "failure_boundary_report_contract": {
+          "test_action": "an expected-red node reaches its named missing behavior and calls pytest.fail(required_failure_boundary, pytrace=False); no generic assertion, import/collection/setup/teardown error, or earlier exception is accepted",
+          "pytest_json_report": "the node has setup=passed, call=failed, teardown=passed, and call.longrepr is exactly Failed: <required_failure_boundary>",
+          "verifier_action": "compare every exact node ID, phase outcome, and longrepr to the frozen matrix; a nonzero aggregate exit alone is never evidence"
+        },
+        "aggregate_requirement": "against runtime_base, 104 nodes fail at exact markers and sequences 28/34 pass; at the Gate-A head, 100 nodes fail at those same exact markers and sequences 2/28/30/34/66/97 pass; both runs have exact collection and nonzero pytest exit",
+        "invalid_evidence": "collection/import/setup/teardown failure, generic assertion or exception, wrong longrepr marker, deselection, skip, xfail, unexpected pass/fail, missing node, duplicate node, or unclassified result"
       }
     }
   },
@@ -1351,12 +1400,18 @@
       "size_bytes",
       "held_through_summary_fsync"
     ],
+    "trusted_output_parent": {
+      "path_policy": "--out is absolute and lexically normalized; every existing parent component is opened from a trusted root by retained directory FD with O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW, owned by root or the trusted runner, and not group/other writable",
+      "identity_policy": "bind the complete parent-chain identities plus final parent device/inode and run-root basename; revalidate path-entry-to-FD identity before lease access, classification, root creation, recovery/finalization, inventory, and summary publication",
+      "alias_policy": "lease naming uses only the validated parent directory entry and validated run-root basename, so aliases resolving to the same parent device/inode cannot create an independent writer lease",
+      "creation_policy": "create a nonexistent run root directory-FD-relative with mode 0700 and reject any preexisting symlink, hardlink-like alias, non-directory, owner/mode drift, or mutable untrusted ancestor"
+    },
     "run_level_lease": {
       "path": "a sibling .<run-root-basename>.review-reuse-er3.lock below the same trusted parent directory; it is outside the run root and therefore outside artifacts",
       "open_policy": "open directory-FD-relative with O_RDWR|O_CREAT|O_CLOEXEC|O_NOFOLLOW mode 0600; require one owner-matching regular file with st_nlink 1 and no group/other write bit; record the directory-entry and locked-FD device/inode and require equality",
-      "locking": "nonblocking exclusive flock acquired before checking or creating the run root and retained across classification, all task/Docker work, store export-freeze/inventory, atomic run-summary rename, and parent-directory fsync; before each phase revalidate that the persistent path still names the locked device/inode",
-      "reentry": "er3-run, er3-recover, and er3-finalize use the same derived lease path; a loser returns archive_run_writer_conflict without reading mutable run state or invoking Docker",
-      "release": "unlock/close only after durable summary publication or a fully persisted failure/recovery outcome; never unlink, rename, truncate, or replace the lease path; process death releases the kernel lock but the permanent directory entry preserves one-inode locking semantics",
+      "locking": "er3-run, er3-recover, and er3-finalize acquire nonblocking exclusive flock before checking or creating the run root and retain it across classification, all task/Docker work, store export-freeze/inventory, summary publication, and parent-directory fsync; er3-replay acquires nonblocking shared flock for its complete two-inventory read; before each phase revalidate that the persistent path still names the locked device/inode",
+      "reentry": "all four ER3 subcommands use the same derived lease path; an exclusive-lock loser or replay that cannot acquire its shared lock returns archive_run_writer_conflict before reading mutable run state or invoking Docker; concurrent read-only replays may share the lease",
+      "release": "mutators unlock/close only after durable summary publication or a fully persisted failure/recovery outcome; replay releases only after its second unchanged inventory; never unlink, rename, truncate, or replace the lease path; process death releases the kernel lock but the permanent directory entry preserves one-inode locking semantics",
       "inventory_relationship": "the store writer lease and in-process export-freeze remain held while the exact closed store and run inventories are hashed and through summary parent fsync; the still-held run-level lease is external and its persistent inode is revalidated"
     },
     "artifact_value_exact_fields": [
@@ -1399,14 +1454,14 @@
         "tenant_id": "tenant-er3-contract",
         "task_id": "00000000-0000-4000-8000-000000000003",
         "task_revision": 4,
-        "task_artifact_sha256": "020e4bbeca40538098ef9d8907a41f03a56eb482940652360cc1f18f5ad34f81",
-        "evidence_pack_artifact_sha256": "8673cbc5a08c38b97259f1a6d2a2940e582e1f77c79246f87d0a15c4bc39e3b3",
-        "evidence_pack_sha256": "b012ad952a83b4ed29b402818440b364985613a20199c54389e3bc5e5c91c104",
+        "task_artifact_sha256": "095b23e159c46d3e29c2975fa369496c882c14609da7c3d0729343f004e3c445",
+        "evidence_pack_artifact_sha256": "72a2d6321a118ad86e0d31f45080d35938ca9805e01f1ebe5bca85cb55571587",
+        "evidence_pack_sha256": "cf70bf614b3552f89d5d8e99afc27c0ede8a0952409978ed628f3a0918c88c0b",
         "runtime_preflight_sha256": "c9290dde847d946d96e1212740bac982bb764279b26fe5712cf35494b9c48e21",
-        "runtime_seal_receipt_sha256": "939bc5e9334738aa249af8c9825d7c5c9b94b7f8a0852cde4ec379a23e4da500",
+        "runtime_seal_receipt_sha256": "a51801dd66536ccb02fb2ca60b5ba59dd401f20ebb0f3f23002d46aa53d3fb63",
         "resource_ownership_sha256": "103acb5087f3624731243d89dc1cb210dfd2c039d0ac24894def8acd28dbcd9d",
-        "pre_summary_artifacts_sha256": "447219564e965299fa237ee1bbb57083580077933592130009f62e0dd4d4a92d",
-        "success_intent_sha256": "1542e9a7ecaca4edeb7bc06b210c4ab0d91923a5f547c2be1bc8aaf97e68dfc4"
+        "pre_summary_artifacts_sha256": "06c17106321b4b6823ff36b34f4676825330bf513f0799d4b09cc0ed0b571c14",
+        "success_intent_sha256": "f1d99a4609158f6aebecd94b4c6fd77517cc0abf693db346cffd3e4b90d0de6c"
       },
       "golden_external_preimages": {
         "task_artifact": {
@@ -1434,9 +1489,9 @@
             "selected_platform": "linux/amd64",
             "runner_version": "review-reuse-er3-runner-v1"
           },
-          "evidence_pack_sha256": "b012ad952a83b4ed29b402818440b364985613a20199c54389e3bc5e5c91c104",
+          "evidence_pack_sha256": "cf70bf614b3552f89d5d8e99afc27c0ede8a0952409978ed628f3a0918c88c0b",
           "runtime_preflight_sha256": "c9290dde847d946d96e1212740bac982bb764279b26fe5712cf35494b9c48e21",
-          "runtime_seal_receipt_sha256": "939bc5e9334738aa249af8c9825d7c5c9b94b7f8a0852cde4ec379a23e4da500"
+          "runtime_seal_receipt_sha256": "a51801dd66536ccb02fb2ca60b5ba59dd401f20ebb0f3f23002d46aa53d3fb63"
         },
         "pre_summary_artifacts": {
           "control/docker": {
@@ -1444,11 +1499,11 @@
             "size_bytes": 23
           },
           "evidence/evidence-pack.json": {
-            "sha256": "8673cbc5a08c38b97259f1a6d2a2940e582e1f77c79246f87d0a15c4bc39e3b3",
+            "sha256": "72a2d6321a118ad86e0d31f45080d35938ca9805e01f1ebe5bca85cb55571587",
             "size_bytes": 3472
           },
           "evidence/evidence.md": {
-            "sha256": "c91711621d0853f113c701f313c47e8cf3f229900b498f04a9bb941db36d760e",
+            "sha256": "0a4e87c1327d2376578eea65803669e7e2b49f8cb7fa0677654ef1b5fa50f2a9",
             "size_bytes": 3556
           },
           "receipts/preflight/docker-environment.json": {
@@ -1460,7 +1515,7 @@
             "size_bytes": 720
           },
           "task/task.json": {
-            "sha256": "020e4bbeca40538098ef9d8907a41f03a56eb482940652360cc1f18f5ad34f81",
+            "sha256": "095b23e159c46d3e29c2975fa369496c882c14609da7c3d0729343f004e3c445",
             "size_bytes": 1770
           }
         },
@@ -1473,16 +1528,45 @@
       }
     },
     "path_contract": "ASCII POSIX relative path with no absolute prefix, empty segment, dot segment, dot-dot segment, backslash, or duplicate normalization",
-    "inventory_contract": "while the external run-level lease, store writer lease, and store export-freeze remain held, recursively lstat the complete run root; accept only directories and st_nlink==1 regular files; close state/store to the exact tenant/task/idempotency inventory below and include the zero-byte store writer lease; reject symlink, hardlink, socket, FIFO, device, temporary, staging, missing, or extra path; publish and parent-fsync summary before releasing either lease",
-    "summary_exclusion": "run-summary.json is the only excluded artifact and is canonicalized and written last",
-    "replay_contract": "verify externally supplied summary SHA-256 and full inventory before store open; recompute every command receipt from canonical JSON plus raw stdin/stdout/stderr, each copy ustar, every inspect receipt and strict raw HostConfig/Config.Env projection from recorded inspect stdout, every cleanup receipt, Python/Docker/socket/resource ownership, success intent, verified-fixture-set, preflight, seal, index/search/service/ruleset binding; prove the store contains exactly one tenant sidecar, one named task and its optional one-binding idempotency index; then repeat full inventory after replay without Docker or writes",
+    "inventory_contract": "while the external run-level lease, store writer lease, and store export-freeze remain held, recursively lstat the complete run root; require exactly live_required_directories plus the dynamic closed_store_family directories and accept only st_nlink==1 regular files admitted by live_required_singletons, live_required_artifact_families, and closed_store_family; close state/store to the exact tenant/task/idempotency inventory and include the zero-byte store writer lease; reject symlink, hardlink, socket, FIFO, device, temporary, staging, missing, extra, or unlisted empty path; publish and parent-fsync summary before releasing either lease",
+    "summary_exclusion": "run-summary.json is the only excluded final artifact and is canonicalized and written last; .run-summary.next is allowed only by summary_publication and is forbidden in every closed success or failed inventory",
+    "summary_publication": {
+      "candidate_path": ".run-summary.next",
+      "precondition": "under exclusive run/store leases and export-freeze, run-summary.json is absent and the exact canonical summary bytes are deterministically bound by the revision-4 task, success intent, and freshly closed pre-summary inventory",
+      "write_protocol": "create the fixed candidate directory-FD-relative with O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOFOLLOW mode 0600, write all bytes, fsync the file, validate bytes/owner/mode/device/link count, then use no-replace os.link with source and destination directory FDs to create run-summary.json; EEXIST is a conflict, never an overwrite; fsync the run-root directory, unlink the candidate, fsync the directory again, require the summary path to be one mode-0600 regular file with st_nlink 1 and exact bytes, and only then release the leases",
+      "crash_reentry": "with the exclusive lease held, candidate-only accepts only an owner-matching bounded regular file: an incomplete candidate is unlinked and directory-fsynced before a deterministic retry, while a complete exact candidate resumes the no-replace link step; candidate plus summary is accepted only when both entries name the same inode and exact intent-bound bytes, after which candidate is unlinked and directory-fsynced; any independent, malformed, mismatched, linked, special, or preexisting summary entry fails without replacing or unlinking that summary",
+      "closed_inventory": "neither candidate nor any other temp/staging entry may remain when success or terminal failure is classified"
+    },
+    "replay_contract": "acquire the shared run-level lease before the first root read and retain it through the repeated final inventory; verify externally supplied summary SHA-256 and full inventory before store open; recompute every command receipt from canonical JSON plus raw stdin/stdout/stderr, each stage operation's raw stdin and fixed writer argv, every inspect receipt and strict raw HostConfig/Config.Env projection from recorded inspect stdout, every cleanup receipt, Python/Git/Docker/socket/resource ownership, success intent, verified-fixture-set, preflight, seal, index/search/service/ruleset binding; prove the store contains exactly one tenant sidecar, one named task and its optional one-binding idempotency index; then repeat full inventory after replay without Docker or writes; host absolute paths in recorded control receipts make a bundle verifiable only on the originating host unless a future separately designed portable export rewrites them",
     "golden_scope": "minimal serialization vector only; its explicit golden task projection is not runtime evidence; a live artifacts map contains every run-root regular file except run-summary.json",
+    "live_required_directories": [
+      "control",
+      "docker-config-empty",
+      "docker-home-empty",
+      "evidence",
+      "inputs",
+      "receipts",
+      "receipts/cleanup",
+      "receipts/index",
+      "receipts/index/normalized",
+      "receipts/index/raw",
+      "receipts/inspect",
+      "receipts/operations",
+      "receipts/preflight",
+      "receipts/search",
+      "receipts/setup",
+      "state",
+      "task"
+    ],
+    "empty_directory_invariants": "docker-config-empty and docker-home-empty are mode-0700 owner-matching directories and remain recursively empty before and after every Docker command and at final inventory; every other non-store directory is present exactly once and contains only paths admitted by live_required_singletons or live_required_artifact_families; no additional empty directory is accepted",
     "live_required_singletons": [
       "control/docker",
       "inputs/archive-manifest.json",
       "inputs/verified-fixture-set.json",
       "receipts/preflight/python-control.json",
       "receipts/preflight/repository-state.json",
+      "receipts/preflight/repository-control.json",
+      "receipts/preflight/repository-control.json",
       "receipts/preflight/docker-source-binary-identity.json",
       "receipts/preflight/docker-private-binary-identity.json",
       "receipts/preflight/docker-socket-identity.json",
@@ -1515,7 +1599,7 @@
         "count": 22,
         "files_per_instance": 4,
         "path_template": "receipts/operations/{sequence:02d}-{operation}.{command.json|stdin.bin|stdout.bin|stderr.bin}",
-        "validation": "one complete four-file group per sealed operation; copy stdin is the exact one-member ustar artifact; the ten-field command receipt also binds freshly observed private-binary and socket identities"
+        "validation": "one complete four-file group per sealed operation; stage stdin is the exact verified manifest content and every non-stage stdin is empty; the ten-field command receipt also binds freshly observed private-binary and socket identities"
       },
       {
         "family": "fresh_inspection",
@@ -1570,11 +1654,11 @@
       "tenant_id": "tenant-er3-contract",
       "task_id": "00000000-0000-4000-8000-000000000003",
       "task_revision": 4,
-      "evidence_pack_sha256": "b012ad952a83b4ed29b402818440b364985613a20199c54389e3bc5e5c91c104",
+      "evidence_pack_sha256": "cf70bf614b3552f89d5d8e99afc27c0ede8a0952409978ed628f3a0918c88c0b",
       "archive_manifest_sha256": "7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf",
       "runtime_preflight_sha256": "c9290dde847d946d96e1212740bac982bb764279b26fe5712cf35494b9c48e21",
-      "runtime_seal_receipt_sha256": "939bc5e9334738aa249af8c9825d7c5c9b94b7f8a0852cde4ec379a23e4da500",
-      "success_intent_sha256": "1542e9a7ecaca4edeb7bc06b210c4ab0d91923a5f547c2be1bc8aaf97e68dfc4",
+      "runtime_seal_receipt_sha256": "a51801dd66536ccb02fb2ca60b5ba59dd401f20ebb0f3f23002d46aa53d3fb63",
+      "success_intent_sha256": "f1d99a4609158f6aebecd94b4c6fd77517cc0abf693db346cffd3e4b90d0de6c",
       "repository_commit": "af72d0ec02b5d2dc1d92508539bc89ba857245a8",
       "reviewed_command_sha256": "2f0394cef55cec77dfaca3aa20c5f6c8501d0827080b8fc19a3238d76702bf91",
       "runner_version": "review-reuse-er3-runner-v1",
@@ -1591,11 +1675,11 @@
           "size_bytes": 23
         },
         "evidence/evidence-pack.json": {
-          "sha256": "8673cbc5a08c38b97259f1a6d2a2940e582e1f77c79246f87d0a15c4bc39e3b3",
+          "sha256": "72a2d6321a118ad86e0d31f45080d35938ca9805e01f1ebe5bca85cb55571587",
           "size_bytes": 3472
         },
         "evidence/evidence.md": {
-          "sha256": "c91711621d0853f113c701f313c47e8cf3f229900b498f04a9bb941db36d760e",
+          "sha256": "0a4e87c1327d2376578eea65803669e7e2b49f8cb7fa0677654ef1b5fa50f2a9",
           "size_bytes": 3556
         },
         "receipts/preflight/docker-environment.json": {
@@ -1611,23 +1695,23 @@
           "size_bytes": 720
         },
         "state/success-intent.json": {
-          "sha256": "c5f8f60c1d91f0303e1a30d0ba05bffdd28fc97865219bc13e18bce507d1c4ce",
+          "sha256": "56c098310dbe259bf5f868888394575b922230ab2221368d2eec54f3bb0983e4",
           "size_bytes": 961
         },
         "task/task.json": {
-          "sha256": "020e4bbeca40538098ef9d8907a41f03a56eb482940652360cc1f18f5ad34f81",
+          "sha256": "095b23e159c46d3e29c2975fa369496c882c14609da7c3d0729343f004e3c445",
           "size_bytes": 1770
         }
       }
     },
-    "golden_summary_sha256": "2c30944a625ec5002114ea716239598f5a7db5f67606301de2797f0e4512d5fc"
+    "golden_summary_sha256": "d7e4e333e82b6081f5b7bb78b082b657a3fb4a36c5e8193b1da48b5d1256a1bf"
   },
   "markdown_contract": {
     "media_type": "text/markdown; charset=utf-8",
     "exact_expression": "b\"# ReviewReuse EvidencePack v2\\n\\n\" + b\"Canonical evidence (null remains unavailable):\\n\\n    \" + canonical_json_v1(validated_persisted_pack) + b\"\\n\"",
     "source": "validated persisted EvidencePack selected by the immutable task selector",
     "golden_markdown_size_bytes": 3556,
-    "golden_markdown_sha256": "c91711621d0853f113c701f313c47e8cf3f229900b498f04a9bb941db36d760e",
+    "golden_markdown_sha256": "0a4e87c1327d2376578eea65803669e7e2b49f8cb7fa0677654ef1b5fa50f2a9",
     "invariants": [
       "evidence.md equals the exact expression bytes",
       "audit bundle Markdown is the strict UTF-8 decode of those bytes",
@@ -2070,7 +2154,7 @@
         "health_identity.version": "literal 0.2.0"
       },
       "invariants": [
-        "image and source fields equal ratified_run_bindings and the selected platform entry in the static attestation",
+        "image and source fields equal proposed_run_bindings after exact-head owner ratification and the selected platform entry in the static attestation",
         "reported_versions is the exact static three-version observation and health_identity is projected from GET /health without index counts",
         "service_identity_sha256 equals canonical_sha256 of the complete eight-field identity object with no excluded field"
       ],
@@ -2207,48 +2291,50 @@
         "every command uses the verified absolute binary followed by exact --host and the owner-bound endpoint, with the exact controlled child environment",
         "fresh private-binary and socket identities are recomputed immediately before each spawn, retained in the receipt, and drift prevents spawn",
         "PATH lookup, --context, credential-helper use, shell execution, and untemplated arguments are forbidden",
+        "all 22 operations use docker exec without --user; the five fixed -i stage operations run as the attested container Config.User appuser and create one 0600 regular file with O_EXCL|O_NOFOLLOW, while the matching curl/rm operations therefore remain appuser and no root override exists",
         "the command receipt JSON plus exact raw stdin, stdout, and stderr bytes are mandatory run artifacts and replay recomputes all stream hashes and stdin size before the receipt digest",
-        "docker cp stdin is one exact regular-file POSIX ustar artifact whose whole-tar digest/size and member content digest are independently bound; every other command has empty stdin",
+        "stage-operation stdin is the exact verified manifest content whose raw digest and size equal transferred_content_sha256 and observed_size_bytes; every non-stage command has empty stdin",
+        "each stage argv uses literal /opt/venv/bin/python -I -S -c plus the exact script bytes, /tmp/<runtime_name>, base-10 observed_size_bytes, and observed SHA-256 from the verified fixture set; no shell, docker cp, alternate path, or user-supplied code is permitted",
         "nonzero exit is invalid except the exact egress-probe docker exec exit 7"
       ],
-      "copy_ustar_contract": {
-        "format": "POSIX ustar, 512-byte blocks, no PAX or GNU extension",
-        "header_fields": {
-          "name": "ASCII runtime_name, NUL padded to 100 bytes",
-          "mode": "0000600 followed by NUL",
-          "uid_gid": "0000000 followed by NUL for each",
-          "size_mtime": "eleven canonical octal digits followed by NUL; mtime is zero",
-          "checksum": "six canonical octal digits followed by NUL and space, computed with eight spaces in the checksum field",
-          "typeflag": "literal 0 regular file",
-          "magic_version": "ustar\\0 and 00",
-          "uname_gname_link_prefix": "all zero bytes",
-          "devmajor_devminor": "0000000 followed by NUL for each"
-        },
-        "body": "exact verified member bytes, zero padded to a 512-byte boundary, followed by exactly two 512-byte zero blocks and no trailing byte",
+      "stage_writer_contract": {
+        "transport": "docker exec -i; docker cp is forbidden because /tmp is an attested tmpfs mount",
+        "interpreter": "/opt/venv/bin/python",
+        "python_flags": [
+          "-I",
+          "-S"
+        ],
+        "script_utf8": "import hashlib\nimport os\nimport stat\nimport sys\n\npath, size_text, expected = sys.argv[1:]\nsize = int(size_text, 10)\nflags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW\nfd = os.open(path, flags, 0o600)\nok = False\ntry:\n    digest = hashlib.sha256()\n    remaining = size\n    while remaining:\n        chunk = sys.stdin.buffer.read(min(65536, remaining))\n        if not chunk:\n            raise RuntimeError(\"short stdin\")\n        digest.update(chunk)\n        view = memoryview(chunk)\n        while view:\n            written = os.write(fd, view)\n            if written <= 0:\n                raise RuntimeError(\"short write\")\n            view = view[written:]\n        remaining -= len(chunk)\n    if sys.stdin.buffer.read(1):\n        raise RuntimeError(\"trailing stdin\")\n    os.fchmod(fd, 0o600)\n    os.fsync(fd)\n    metadata = os.fstat(fd)\n    if not stat.S_ISREG(metadata.st_mode):\n        raise RuntimeError(\"not regular\")\n    if stat.S_IMODE(metadata.st_mode) != 0o600:\n        raise RuntimeError(\"mode mismatch\")\n    if metadata.st_nlink != 1 or metadata.st_size != size:\n        raise RuntimeError(\"metadata mismatch\")\n    if metadata.st_uid != os.geteuid() or metadata.st_gid != os.getegid():\n        raise RuntimeError(\"owner mismatch\")\n    if digest.hexdigest() != expected:\n        raise RuntimeError(\"digest mismatch\")\n    ok = True\nfinally:\n    os.close(fd)\n    if not ok:\n        try:\n            os.unlink(path)\n        except FileNotFoundError:\n            pass\n",
+        "script_sha256": "a70cc364be7886ed9d1fad5b50fdfb2465306b64ff93102b927bdbb7b468286a",
+        "path_rule": "literal /tmp/ plus the manifest-validated ASCII runtime_name; slash, dot segment, symlink, pre-existing path, alternate directory, and caller-selected path are forbidden",
+        "input_rule": "read exactly observed_size_bytes from raw stdin, reject short input or one trailing byte, and require SHA-256 equal to observed_sha256 before success",
+        "file_rule": "open once with O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW as attested appuser, force mode 0600, fsync, and require regular mode 0600, nlink one, exact size, and uid/gid equal to the writer effective ids",
+        "failure_rule": "any validation, write, fsync, metadata, size, EOF, or digest failure exits nonzero and removes only the path created by this invocation; the run then enters ordinary fail-closed cleanup",
+        "success_stream_rule": "successful writer stdout and stderr are empty in live execution; golden receipt stream templates remain serialization-only vectors",
         "golden_vectors": [
           {
             "runtime_name": "query-exact-001.png",
-            "member_content_sha256": "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c",
-            "stdin_sha256": "1b8175247cb1d857ca1aa8c08fec7cdf579919d853040abda938d3e102e42780",
-            "stdin_size_bytes": 2048
+            "content_sha256": "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c",
+            "stdin_sha256": "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c",
+            "stdin_size_bytes": 235
           },
           {
             "runtime_name": "archive-exact-001.png",
-            "member_content_sha256": "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c",
-            "stdin_sha256": "4eee73d0fcd04c118c9ed3958c1c48071008b699c3f015161c7939284e411bfc",
-            "stdin_size_bytes": 2048
+            "content_sha256": "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c",
+            "stdin_sha256": "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c",
+            "stdin_size_bytes": 235
           },
           {
             "runtime_name": "archive-control-001.png",
-            "member_content_sha256": "c32bd82c54124d87fe0731f7cc1a05e4d0147d755d9cd98dc41a1aaa047495e6",
-            "stdin_sha256": "02047e86f57a77dec5eedfece5d07958241db5616c13f203c64a926ae515e3d6",
-            "stdin_size_bytes": 2048
+            "content_sha256": "c32bd82c54124d87fe0731f7cc1a05e4d0147d755d9cd98dc41a1aaa047495e6",
+            "stdin_sha256": "c32bd82c54124d87fe0731f7cc1a05e4d0147d755d9cd98dc41a1aaa047495e6",
+            "stdin_size_bytes": 368
           },
           {
             "runtime_name": "archive-control-002.png",
-            "member_content_sha256": "9a9ca171ef968202eb69523eb0db9e8f88009cb0048a0d301dfa87076bb48d7e",
-            "stdin_sha256": "58739110df27e81554f4f1482c5b3213854c8acf77f3784ea146792b3cec0a44",
-            "stdin_size_bytes": 2048
+            "content_sha256": "9a9ca171ef968202eb69523eb0db9e8f88009cb0048a0d301dfa87076bb48d7e",
+            "stdin_sha256": "9a9ca171ef968202eb69523eb0db9e8f88009cb0048a0d301dfa87076bb48d7e",
+            "stdin_size_bytes": 493
           }
         ]
       }
@@ -2275,6 +2361,63 @@
     "runtime_preflight": {
       "digest_field": "runtime_preflight_sha256",
       "preimage_schema_version": "review-reuse-er3-runtime-preflight-v1",
+      "repository_control_contract": {
+        "schema_version": "review-reuse-er3-repository-control-v1",
+        "artifact_path": "receipts/preflight/repository-control.json",
+        "exact_fields": [
+          "schema_version",
+          "git_binary",
+          "repository_root",
+          "child_environment",
+          "head_command",
+          "status_command",
+          "repository_control_sha256"
+        ],
+        "git_binary_exact_fields": [
+          "realpath",
+          "parent_chain_sha256",
+          "device",
+          "inode",
+          "mode",
+          "size_bytes",
+          "sha256",
+          "owner_uid",
+          "group_gid"
+        ],
+        "repository_root_exact_fields": [
+          "realpath_sha256",
+          "parent_chain_sha256",
+          "device",
+          "inode",
+          "mode",
+          "owner_uid",
+          "group_gid"
+        ],
+        "command_exact_fields": [
+          "operation",
+          "argv",
+          "environment_sha256",
+          "stdin_sha256",
+          "stdin_size_bytes",
+          "exit_code",
+          "stdout_sha256",
+          "stderr_sha256"
+        ],
+        "digest_rule": "repository_control_sha256 is canonical_sha256 of the complete strict object after removing only repository_control_sha256; every nested object rejects unknown or missing fields",
+        "git_binary_policy": "owner supplies one absolute --git-bin; walk every component by directory FD with O_NOFOLLOW, require a regular executable owned by root or the trusted runner and not group/other writable, bind realpath/parent-chain/device/inode/mode/size/SHA-256, and revalidate immediately before each spawn",
+        "exact_commands": [
+          "<git-bin> --no-optional-locks -c core.fsmonitor=false -c core.pager=cat -C <repository-root> rev-parse --verify HEAD",
+          "<git-bin> --no-optional-locks -c core.fsmonitor=false -c core.pager=cat -C <repository-root> status --porcelain=v1 --untracked-files=all --ignored=no"
+        ],
+        "child_environment": {
+          "GIT_CONFIG_NOSYSTEM": "1",
+          "GIT_CONFIG_GLOBAL": "/dev/null",
+          "LANG": "C.UTF-8",
+          "LC_ALL": "C.UTF-8"
+        },
+        "launcher_environment": "Gate C launches with a closed allowlist; LD_*, DYLD_*, GIT_*, PYTHON*, proxy, Docker, ReviewReuse store/decision, and provider keys are absent; the OS loader and approved same-UID runner remain trusted",
+        "artifact_invariants": "strict canonical JSON binds both exact argv arrays, raw stdin/stdout/stderr digests and exits, Git binary and repository-parent identities, closed child environment digest, observed/authorized head equality, and empty status; shell, PATH lookup, hook, fsmonitor, config, pager, alias, or repository-supplied executable use fails before task/Docker/fixture activity"
+      },
       "exact_fields": [
         "schema_version",
         "run_id",
@@ -2492,7 +2635,7 @@
         "stdlib-only Python bootstrap completes before src import or Docker validation; observed_head equals authorized_head, Python control and reviewed process argv match Gate C/ER3RunBinding, status_porcelain_sha256 is the empty-byte digest, and clean is true",
         "docker_control endpoint/socket parent/identity, API version, platform, source/private binary, resource owner, and empty config are owner-bound; all seven Docker overrides and every PYTHON-prefixed parent variable are absent; context is never queried; nine setup receipts and raw stdin/stdout/stderr are recomputed; first three prove zero label matches, server_version comes from docker_version, pull is digest-pinned, and docker_control/resource ownership digests verify",
         "receipts/preflight/docker-environment.json is the exact canonical five-key child environment preimage and its digest equals docker_control.docker_environment_sha256 and every command receipt environment_sha256",
-        "image.static_attestation_sha256 equals ratified_run_bindings and image/container image IDs equal the selected static-attestation platform",
+        "image.static_attestation_sha256 equals proposed_run_bindings after exact-head owner ratification and image/container image IDs equal the selected static-attestation platform",
         "container command, process user, working directory, lifecycle, exact pair labels, network attachments, published ports, complete raw API-v1.43 HostConfig and ordered unique-name Config.Env digests, normalized host_config, mounts, and integration/credential/proxy projection equal the closed static-attestation contracts",
         "the numeric no-egress probe exits 7 with stdout 000 and the pre-index health, index sizes, and storage count are all zero before any fixture byte is opened",
         "runtime_preflight_sha256 equals canonical_sha256 of the complete seven-field preimage with no excluded field"
@@ -3713,23 +3856,24 @@
         "command_receipt_sha256s": "one 64-lowercase-hex Docker command receipt digest per sealed operation in identical order",
         "inspect_receipt_sha256s": "two unique 64-lowercase-hex inspect receipt digests per sealed operation in exact before/after order",
         "sealed_operation.sequence": "contiguous integer >= 1; boolean forbidden",
-        "sealed_operation.operation": "one fixed docker_cp_* or docker_exec_* operation identifier",
+        "sealed_operation.operation": "one fixed docker_exec_* operation identifier, including docker_exec_stage_query or docker_exec_stage_archive",
         "sealed_operation.ordinal": "integer >= 1; boolean forbidden",
-        "sealed_operation.transferred_content_sha256": "64 lowercase manifest content hash for docker_cp_* operations and literal null for docker_exec_* operations",
+        "sealed_operation.transferred_content_sha256": "64 lowercase manifest content hash for docker_exec_stage_* operations and literal null for all other docker_exec_* operations",
         "sealed_operation.before_inspect_sha256": "64 lowercase strict projection digest parsed from the matching before inspect receipt",
         "sealed_operation.after_inspect_sha256": "64 lowercase strict projection digest parsed from the matching after inspect receipt and equal in security posture to its before projection",
         "command_counts values": "exact non-negative integers; booleans forbidden",
         "cleanup command receipt fields": "four distinct 64-lowercase-hex strict Docker command receipt digests",
         "cleanup count and exit values": "literal integer 0",
-        "sealed_operation.stdin_sha256": "whole raw one-member ustar SHA-256 for docker_cp_* and empty-byte SHA-256 for docker_exec_*",
-        "sealed_operation.stdin_size_bytes": "exact raw stdin byte count; positive for docker_cp_* and zero for docker_exec_*; boolean forbidden"
+        "sealed_operation.stdin_sha256": "raw manifest content SHA-256 for docker_exec_stage_* and empty-byte SHA-256 for all other docker_exec_*",
+        "sealed_operation.stdin_size_bytes": "exact observed manifest byte count for docker_exec_stage_* and zero for all other docker_exec_*; boolean forbidden"
       },
       "invariants": [
         "the nth command_receipt_sha256 binds the nth sealed operation's exact verified-private-binary/endpoint argv, environment, stdin digest/size, integer exit, and raw stdout/stderr digests",
         "the two inspect_receipt_sha256s at positions 2n and 2n+1 bind distinct fresh before/after inspect subprocess receipts for the nth sealed operation; no digest or observation sequence repeats",
-        "every docker cp and docker exec operation is bracketed by normalized inspect projections and any security-posture drift aborts before the next drawing-byte operation",
-        "each docker_cp_* operation transfers one deterministic exact ustar artifact, binds whole-tar digest/size plus manifest member digest, and each docker_exec_* binds empty stdin",
+        "every docker exec operation is bracketed by normalized inspect projections and any security-posture drift aborts before the next drawing-byte operation",
+        "each docker_exec_stage_* operation transfers exact verified raw bytes through the fixed isolated writer and binds stdin digest/size plus manifest content digest; every other docker_exec_* binds empty stdin",
         "sealed_operations preserve execution order and sequence is contiguous from one",
+        "a command receipt is not standalone chronology authority: repeated identical command/stream receipts are allowed only at their exact sequence-named artifact paths and are disambiguated by the journal's class-local sequence plus the ordered sealed_operations and distinct before/after inspect receipts",
         "every before/after projection digest is recomputed from the corresponding exported inspect command stdout whose exact field shape is runtime_preflight.container; equal projection digests do not permit inspect receipt reuse",
         "command_counts bind one curl-version check and egress probe, two health and stats requests, three archive transfers/index requests/removals, two query transfers/search requests/removals, and one rebuild",
         "cleanup binds exact journaled-ID docker container rm plus three exact run-id/resource-owner-id pair-filter list commands, then proves zero pair-labeled containers, volumes, and networks",
@@ -3883,21 +4027,32 @@
             },
             {
               "sequence": 5,
-              "operation": "docker_cp_query",
+              "operation": "docker_exec_stage_query",
               "ordinal": 1,
               "golden_argv": [
                 "/tmp/review-reuse-er3-golden/control/docker",
                 "--host",
                 "unix:///var/run/docker.sock",
-                "cp",
-                "-",
-                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28:/tmp/query-exact-001.png"
+                "exec",
+                "-i",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28",
+                "/opt/venv/bin/python",
+                "-I",
+                "-S",
+                "-c",
+                "import hashlib\nimport os\nimport stat\nimport sys\n\npath, size_text, expected = sys.argv[1:]\nsize = int(size_text, 10)\nflags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW\nfd = os.open(path, flags, 0o600)\nok = False\ntry:\n    digest = hashlib.sha256()\n    remaining = size\n    while remaining:\n        chunk = sys.stdin.buffer.read(min(65536, remaining))\n        if not chunk:\n            raise RuntimeError(\"short stdin\")\n        digest.update(chunk)\n        view = memoryview(chunk)\n        while view:\n            written = os.write(fd, view)\n            if written <= 0:\n                raise RuntimeError(\"short write\")\n            view = view[written:]\n        remaining -= len(chunk)\n    if sys.stdin.buffer.read(1):\n        raise RuntimeError(\"trailing stdin\")\n    os.fchmod(fd, 0o600)\n    os.fsync(fd)\n    metadata = os.fstat(fd)\n    if not stat.S_ISREG(metadata.st_mode):\n        raise RuntimeError(\"not regular\")\n    if stat.S_IMODE(metadata.st_mode) != 0o600:\n        raise RuntimeError(\"mode mismatch\")\n    if metadata.st_nlink != 1 or metadata.st_size != size:\n        raise RuntimeError(\"metadata mismatch\")\n    if metadata.st_uid != os.geteuid() or metadata.st_gid != os.getegid():\n        raise RuntimeError(\"owner mismatch\")\n    if digest.hexdigest() != expected:\n        raise RuntimeError(\"digest mismatch\")\n    ok = True\nfinally:\n    os.close(fd)\n    if not ok:\n        try:\n            os.unlink(path)\n        except FileNotFoundError:\n            pass\n",
+                "/tmp/query-exact-001.png",
+                "235",
+                "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c"
               ],
               "live_substitution_sources": {
                 "<private_docker>": "fixed run-root control/docker identity",
                 "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
                 "<container_id>": "resource-ownership created_container_id",
-                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+                "<stage_writer_code>": "exact stage_writer_contract.script_utf8 with matching script_sha256",
+                "<runtime_path>": "literal /tmp/ plus verified-fixture-set runtime_name fixed by sequence and ordinal",
+                "<size>": "verified-fixture-set observed_size_bytes fixed by sequence and ordinal",
+                "<sha256>": "verified-fixture-set observed_sha256 fixed by sequence and ordinal"
               }
             },
             {
@@ -3972,21 +4127,32 @@
             },
             {
               "sequence": 8,
-              "operation": "docker_cp_archive",
+              "operation": "docker_exec_stage_archive",
               "ordinal": 1,
               "golden_argv": [
                 "/tmp/review-reuse-er3-golden/control/docker",
                 "--host",
                 "unix:///var/run/docker.sock",
-                "cp",
-                "-",
-                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28:/tmp/archive-exact-001.png"
+                "exec",
+                "-i",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28",
+                "/opt/venv/bin/python",
+                "-I",
+                "-S",
+                "-c",
+                "import hashlib\nimport os\nimport stat\nimport sys\n\npath, size_text, expected = sys.argv[1:]\nsize = int(size_text, 10)\nflags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW\nfd = os.open(path, flags, 0o600)\nok = False\ntry:\n    digest = hashlib.sha256()\n    remaining = size\n    while remaining:\n        chunk = sys.stdin.buffer.read(min(65536, remaining))\n        if not chunk:\n            raise RuntimeError(\"short stdin\")\n        digest.update(chunk)\n        view = memoryview(chunk)\n        while view:\n            written = os.write(fd, view)\n            if written <= 0:\n                raise RuntimeError(\"short write\")\n            view = view[written:]\n        remaining -= len(chunk)\n    if sys.stdin.buffer.read(1):\n        raise RuntimeError(\"trailing stdin\")\n    os.fchmod(fd, 0o600)\n    os.fsync(fd)\n    metadata = os.fstat(fd)\n    if not stat.S_ISREG(metadata.st_mode):\n        raise RuntimeError(\"not regular\")\n    if stat.S_IMODE(metadata.st_mode) != 0o600:\n        raise RuntimeError(\"mode mismatch\")\n    if metadata.st_nlink != 1 or metadata.st_size != size:\n        raise RuntimeError(\"metadata mismatch\")\n    if metadata.st_uid != os.geteuid() or metadata.st_gid != os.getegid():\n        raise RuntimeError(\"owner mismatch\")\n    if digest.hexdigest() != expected:\n        raise RuntimeError(\"digest mismatch\")\n    ok = True\nfinally:\n    os.close(fd)\n    if not ok:\n        try:\n            os.unlink(path)\n        except FileNotFoundError:\n            pass\n",
+                "/tmp/archive-exact-001.png",
+                "235",
+                "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c"
               ],
               "live_substitution_sources": {
                 "<private_docker>": "fixed run-root control/docker identity",
                 "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
                 "<container_id>": "resource-ownership created_container_id",
-                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+                "<stage_writer_code>": "exact stage_writer_contract.script_utf8 with matching script_sha256",
+                "<runtime_path>": "literal /tmp/ plus verified-fixture-set runtime_name fixed by sequence and ordinal",
+                "<size>": "verified-fixture-set observed_size_bytes fixed by sequence and ordinal",
+                "<sha256>": "verified-fixture-set observed_sha256 fixed by sequence and ordinal"
               }
             },
             {
@@ -4051,21 +4217,32 @@
             },
             {
               "sequence": 11,
-              "operation": "docker_cp_archive",
+              "operation": "docker_exec_stage_archive",
               "ordinal": 2,
               "golden_argv": [
                 "/tmp/review-reuse-er3-golden/control/docker",
                 "--host",
                 "unix:///var/run/docker.sock",
-                "cp",
-                "-",
-                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28:/tmp/archive-control-001.png"
+                "exec",
+                "-i",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28",
+                "/opt/venv/bin/python",
+                "-I",
+                "-S",
+                "-c",
+                "import hashlib\nimport os\nimport stat\nimport sys\n\npath, size_text, expected = sys.argv[1:]\nsize = int(size_text, 10)\nflags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW\nfd = os.open(path, flags, 0o600)\nok = False\ntry:\n    digest = hashlib.sha256()\n    remaining = size\n    while remaining:\n        chunk = sys.stdin.buffer.read(min(65536, remaining))\n        if not chunk:\n            raise RuntimeError(\"short stdin\")\n        digest.update(chunk)\n        view = memoryview(chunk)\n        while view:\n            written = os.write(fd, view)\n            if written <= 0:\n                raise RuntimeError(\"short write\")\n            view = view[written:]\n        remaining -= len(chunk)\n    if sys.stdin.buffer.read(1):\n        raise RuntimeError(\"trailing stdin\")\n    os.fchmod(fd, 0o600)\n    os.fsync(fd)\n    metadata = os.fstat(fd)\n    if not stat.S_ISREG(metadata.st_mode):\n        raise RuntimeError(\"not regular\")\n    if stat.S_IMODE(metadata.st_mode) != 0o600:\n        raise RuntimeError(\"mode mismatch\")\n    if metadata.st_nlink != 1 or metadata.st_size != size:\n        raise RuntimeError(\"metadata mismatch\")\n    if metadata.st_uid != os.geteuid() or metadata.st_gid != os.getegid():\n        raise RuntimeError(\"owner mismatch\")\n    if digest.hexdigest() != expected:\n        raise RuntimeError(\"digest mismatch\")\n    ok = True\nfinally:\n    os.close(fd)\n    if not ok:\n        try:\n            os.unlink(path)\n        except FileNotFoundError:\n            pass\n",
+                "/tmp/archive-control-001.png",
+                "368",
+                "c32bd82c54124d87fe0731f7cc1a05e4d0147d755d9cd98dc41a1aaa047495e6"
               ],
               "live_substitution_sources": {
                 "<private_docker>": "fixed run-root control/docker identity",
                 "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
                 "<container_id>": "resource-ownership created_container_id",
-                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+                "<stage_writer_code>": "exact stage_writer_contract.script_utf8 with matching script_sha256",
+                "<runtime_path>": "literal /tmp/ plus verified-fixture-set runtime_name fixed by sequence and ordinal",
+                "<size>": "verified-fixture-set observed_size_bytes fixed by sequence and ordinal",
+                "<sha256>": "verified-fixture-set observed_sha256 fixed by sequence and ordinal"
               }
             },
             {
@@ -4130,21 +4307,32 @@
             },
             {
               "sequence": 14,
-              "operation": "docker_cp_archive",
+              "operation": "docker_exec_stage_archive",
               "ordinal": 3,
               "golden_argv": [
                 "/tmp/review-reuse-er3-golden/control/docker",
                 "--host",
                 "unix:///var/run/docker.sock",
-                "cp",
-                "-",
-                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28:/tmp/archive-control-002.png"
+                "exec",
+                "-i",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28",
+                "/opt/venv/bin/python",
+                "-I",
+                "-S",
+                "-c",
+                "import hashlib\nimport os\nimport stat\nimport sys\n\npath, size_text, expected = sys.argv[1:]\nsize = int(size_text, 10)\nflags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW\nfd = os.open(path, flags, 0o600)\nok = False\ntry:\n    digest = hashlib.sha256()\n    remaining = size\n    while remaining:\n        chunk = sys.stdin.buffer.read(min(65536, remaining))\n        if not chunk:\n            raise RuntimeError(\"short stdin\")\n        digest.update(chunk)\n        view = memoryview(chunk)\n        while view:\n            written = os.write(fd, view)\n            if written <= 0:\n                raise RuntimeError(\"short write\")\n            view = view[written:]\n        remaining -= len(chunk)\n    if sys.stdin.buffer.read(1):\n        raise RuntimeError(\"trailing stdin\")\n    os.fchmod(fd, 0o600)\n    os.fsync(fd)\n    metadata = os.fstat(fd)\n    if not stat.S_ISREG(metadata.st_mode):\n        raise RuntimeError(\"not regular\")\n    if stat.S_IMODE(metadata.st_mode) != 0o600:\n        raise RuntimeError(\"mode mismatch\")\n    if metadata.st_nlink != 1 or metadata.st_size != size:\n        raise RuntimeError(\"metadata mismatch\")\n    if metadata.st_uid != os.geteuid() or metadata.st_gid != os.getegid():\n        raise RuntimeError(\"owner mismatch\")\n    if digest.hexdigest() != expected:\n        raise RuntimeError(\"digest mismatch\")\n    ok = True\nfinally:\n    os.close(fd)\n    if not ok:\n        try:\n            os.unlink(path)\n        except FileNotFoundError:\n            pass\n",
+                "/tmp/archive-control-002.png",
+                "493",
+                "9a9ca171ef968202eb69523eb0db9e8f88009cb0048a0d301dfa87076bb48d7e"
               ],
               "live_substitution_sources": {
                 "<private_docker>": "fixed run-root control/docker identity",
                 "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
                 "<container_id>": "resource-ownership created_container_id",
-                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+                "<stage_writer_code>": "exact stage_writer_contract.script_utf8 with matching script_sha256",
+                "<runtime_path>": "literal /tmp/ plus verified-fixture-set runtime_name fixed by sequence and ordinal",
+                "<size>": "verified-fixture-set observed_size_bytes fixed by sequence and ordinal",
+                "<sha256>": "verified-fixture-set observed_sha256 fixed by sequence and ordinal"
               }
             },
             {
@@ -4320,21 +4508,32 @@
             },
             {
               "sequence": 20,
-              "operation": "docker_cp_query",
+              "operation": "docker_exec_stage_query",
               "ordinal": 2,
               "golden_argv": [
                 "/tmp/review-reuse-er3-golden/control/docker",
                 "--host",
                 "unix:///var/run/docker.sock",
-                "cp",
-                "-",
-                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28:/tmp/query-exact-001.png"
+                "exec",
+                "-i",
+                "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28",
+                "/opt/venv/bin/python",
+                "-I",
+                "-S",
+                "-c",
+                "import hashlib\nimport os\nimport stat\nimport sys\n\npath, size_text, expected = sys.argv[1:]\nsize = int(size_text, 10)\nflags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW\nfd = os.open(path, flags, 0o600)\nok = False\ntry:\n    digest = hashlib.sha256()\n    remaining = size\n    while remaining:\n        chunk = sys.stdin.buffer.read(min(65536, remaining))\n        if not chunk:\n            raise RuntimeError(\"short stdin\")\n        digest.update(chunk)\n        view = memoryview(chunk)\n        while view:\n            written = os.write(fd, view)\n            if written <= 0:\n                raise RuntimeError(\"short write\")\n            view = view[written:]\n        remaining -= len(chunk)\n    if sys.stdin.buffer.read(1):\n        raise RuntimeError(\"trailing stdin\")\n    os.fchmod(fd, 0o600)\n    os.fsync(fd)\n    metadata = os.fstat(fd)\n    if not stat.S_ISREG(metadata.st_mode):\n        raise RuntimeError(\"not regular\")\n    if stat.S_IMODE(metadata.st_mode) != 0o600:\n        raise RuntimeError(\"mode mismatch\")\n    if metadata.st_nlink != 1 or metadata.st_size != size:\n        raise RuntimeError(\"metadata mismatch\")\n    if metadata.st_uid != os.geteuid() or metadata.st_gid != os.getegid():\n        raise RuntimeError(\"owner mismatch\")\n    if digest.hexdigest() != expected:\n        raise RuntimeError(\"digest mismatch\")\n    ok = True\nfinally:\n    os.close(fd)\n    if not ok:\n        try:\n            os.unlink(path)\n        except FileNotFoundError:\n            pass\n",
+                "/tmp/query-exact-001.png",
+                "235",
+                "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c"
               ],
               "live_substitution_sources": {
                 "<private_docker>": "fixed run-root control/docker identity",
                 "<docker_host>": "ER3RunBinding owner-bound unix endpoint",
                 "<container_id>": "resource-ownership created_container_id",
-                "<runtime_name>": "manifest-validated runtime_name fixed by sequence and ordinal"
+                "<stage_writer_code>": "exact stage_writer_contract.script_utf8 with matching script_sha256",
+                "<runtime_path>": "literal /tmp/ plus verified-fixture-set runtime_name fixed by sequence and ordinal",
+                "<size>": "verified-fixture-set observed_size_bytes fixed by sequence and ordinal",
+                "<sha256>": "verified-fixture-set observed_sha256 fixed by sequence and ordinal"
               }
             },
             {
@@ -4419,7 +4618,19 @@
           },
           "stdout_bytes_utf8_template": "golden-op:{sealed_operation.sequence}:stdout\\n",
           "stderr_bytes_utf8_template": "golden-op:{sealed_operation.sequence}:stderr\\n",
-          "scope": "golden streams are serialization-only; argv shape and substitutions are the closed live command contract"
+          "scope": "golden streams are serialization-only; argv shape and substitutions are the closed live command contract",
+          "fixture_access_user_policy": {
+            "stage_writer_sequences": [
+              5,
+              8,
+              11,
+              14,
+              20
+            ],
+            "consumer_user_override_sequences": [],
+            "argv_rule": "the five stage entries alone contain exec,-i,<container-id>,/opt/venv/bin/python,-I,-S,-c,<exact-script>,<exact-path>,<exact-size>,<exact-hash>; every operation runs as Config.User appuser and no operation argv contains --user",
+            "security_boundary": "the fixed writer accepts only manifest-bound path/size/hash arguments and raw verified stdin; O_EXCL|O_NOFOLLOW, exact EOF/digest/metadata checks, cap-drop-all, no-new-privileges, network none, no host mount/device/socket, read-only root, and fresh before/after inspection remain mandatory"
+          }
         },
         "inspect_command_receipt_preimage": {
           "operation": "docker_inspect_continuous",
@@ -4595,10 +4806,10 @@
           },
           {
             "sequence": 5,
-            "operation": "docker_cp_query",
+            "operation": "docker_exec_stage_query",
             "ordinal": 1,
-            "stdin_sha256": "1b8175247cb1d857ca1aa8c08fec7cdf579919d853040abda938d3e102e42780",
-            "stdin_size_bytes": 2048,
+            "stdin_sha256": "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c",
+            "stdin_size_bytes": 235,
             "transferred_content_sha256": "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c",
             "before_inspect_sha256": "c907c2aa218065321eba9ac471a4436286f363632809fcbd8c15a8c6838cf927",
             "after_inspect_sha256": "c907c2aa218065321eba9ac471a4436286f363632809fcbd8c15a8c6838cf927"
@@ -4625,10 +4836,10 @@
           },
           {
             "sequence": 8,
-            "operation": "docker_cp_archive",
+            "operation": "docker_exec_stage_archive",
             "ordinal": 1,
-            "stdin_sha256": "4eee73d0fcd04c118c9ed3958c1c48071008b699c3f015161c7939284e411bfc",
-            "stdin_size_bytes": 2048,
+            "stdin_sha256": "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c",
+            "stdin_size_bytes": 235,
             "transferred_content_sha256": "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c",
             "before_inspect_sha256": "c907c2aa218065321eba9ac471a4436286f363632809fcbd8c15a8c6838cf927",
             "after_inspect_sha256": "c907c2aa218065321eba9ac471a4436286f363632809fcbd8c15a8c6838cf927"
@@ -4655,10 +4866,10 @@
           },
           {
             "sequence": 11,
-            "operation": "docker_cp_archive",
+            "operation": "docker_exec_stage_archive",
             "ordinal": 2,
-            "stdin_sha256": "02047e86f57a77dec5eedfece5d07958241db5616c13f203c64a926ae515e3d6",
-            "stdin_size_bytes": 2048,
+            "stdin_sha256": "c32bd82c54124d87fe0731f7cc1a05e4d0147d755d9cd98dc41a1aaa047495e6",
+            "stdin_size_bytes": 368,
             "transferred_content_sha256": "c32bd82c54124d87fe0731f7cc1a05e4d0147d755d9cd98dc41a1aaa047495e6",
             "before_inspect_sha256": "c907c2aa218065321eba9ac471a4436286f363632809fcbd8c15a8c6838cf927",
             "after_inspect_sha256": "c907c2aa218065321eba9ac471a4436286f363632809fcbd8c15a8c6838cf927"
@@ -4685,10 +4896,10 @@
           },
           {
             "sequence": 14,
-            "operation": "docker_cp_archive",
+            "operation": "docker_exec_stage_archive",
             "ordinal": 3,
-            "stdin_sha256": "58739110df27e81554f4f1482c5b3213854c8acf77f3784ea146792b3cec0a44",
-            "stdin_size_bytes": 2048,
+            "stdin_sha256": "9a9ca171ef968202eb69523eb0db9e8f88009cb0048a0d301dfa87076bb48d7e",
+            "stdin_size_bytes": 493,
             "transferred_content_sha256": "9a9ca171ef968202eb69523eb0db9e8f88009cb0048a0d301dfa87076bb48d7e",
             "before_inspect_sha256": "c907c2aa218065321eba9ac471a4436286f363632809fcbd8c15a8c6838cf927",
             "after_inspect_sha256": "c907c2aa218065321eba9ac471a4436286f363632809fcbd8c15a8c6838cf927"
@@ -4745,10 +4956,10 @@
           },
           {
             "sequence": 20,
-            "operation": "docker_cp_query",
+            "operation": "docker_exec_stage_query",
             "ordinal": 2,
-            "stdin_sha256": "1b8175247cb1d857ca1aa8c08fec7cdf579919d853040abda938d3e102e42780",
-            "stdin_size_bytes": 2048,
+            "stdin_sha256": "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c",
+            "stdin_size_bytes": 235,
             "transferred_content_sha256": "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c",
             "before_inspect_sha256": "c907c2aa218065321eba9ac471a4436286f363632809fcbd8c15a8c6838cf927",
             "after_inspect_sha256": "c907c2aa218065321eba9ac471a4436286f363632809fcbd8c15a8c6838cf927"
@@ -4779,22 +4990,22 @@
           "870e6374a6e3e8fe2ae39c7f37c26397f8a27f36ad50e0ccf54b34995a2fd59f",
           "26d418918e1280f0708a6144864d267c221de6dd193008f0f9d771a015251ba7",
           "6bcc6284bb07ecd4931a497252aa3945fa5b9525b9e7d8ce868270ff697f0c6f",
-          "5d02c54792c95dadc088af1a37018f04b30c8ce61310956087bfcc6893d7934e",
+          "34a0b524fc15a122e59db9e14f73dbad60b78e2082f0c54a178bbb516df4c480",
           "aa886ac3e6692fc43339bbeedce198335600fd938f3ad2bf6f7d72f9d0d17f4f",
           "9d291359bda387c68682d0383739f649b1c1a2a46047f2aad4f8e8f339746271",
-          "69f8fc3317fcdf932c50f834796dcb64b6e7d22e9bb94ad729122508fc6f4583",
+          "f15cae98606853d8e8c0cf21a81caf7369f7e2e79489962852d340cf24af9819",
           "42c206c9470641c453c72c774ef5c2a02ab95b0d4f7089d4b4d4e431816007f4",
           "1689aa2688521427588cdc16ea5b6e7f223c0637b57e87d17a76b1441d7e54c1",
-          "5bdabbb74f6dadd49c0855c0393ad36c3d9c71aa381e37316797b5178f88fdf4",
+          "ef4a2cc7574efb631d9e5ca63f84e95796729247d669061c2f527376cc308c79",
           "5a39424597ad41a4d41a9bdf637059e4b8af192cebf33b4353b9a05ceddc8134",
           "7627f9a5f568995615682e5efa086016f6f701b2058fbf1f2f7997774cfe1341",
-          "60326e09c86a717eaab92ce26c6178b3f661687455f82e0885e1796c981f0a6c",
+          "83a369ca145302e52e4c1b6e03e18ed53c8021fbe127b54944d6acefd2578bf6",
           "d0ef8b6b8a01d93ad90d96e1aa227e24e6ae9fbfc3618307bf8a35016cd00769",
           "b7326b8cff2768c9a26811bf9f7c0e6f38626089f6b01ab53ac219cd62830345",
           "748f5e3f9085618c4465f4614b3d685a7450823d1777d9801226914695205593",
           "cc041628bac578adf7c621b8e56853fc4d56a6b5f941b00907861ae7b9c25781",
           "229f56ea2d33b8ea08193130eaa7f92a67296041186e22ed0736ec62ca403ab6",
-          "e1149b43785256530a8f6f8ef3a3d4dd754ac97904d19eedb0bce9a0f301681c",
+          "41f801d5fdf7190458b5d7623090c0ac66d3d5e766c8e2d9d6f2c9e9c3a118ee",
           "00e459d0e7ba96e0ab86744b95fd90f82f59df658062142a48103b3ad67af5f7",
           "6a97a2423db5b2b5a1e9cf114e74aad2d6ba2d202a74d0a12b996ebf4d564458"
         ],
@@ -4868,7 +5079,7 @@
           "remaining_labeled_networks": 0
         }
       },
-      "golden_sha256": "939bc5e9334738aa249af8c9825d7c5c9b94b7f8a0852cde4ec379a23e4da500"
+      "golden_sha256": "a51801dd66536ccb02fb2ca60b5ba59dd401f20ebb0f3f23002d46aa53d3fb63"
     }
   },
   "envelope": {
@@ -5122,8 +5333,8 @@
       "candidate ids are unique; every candidate provenance archive_entry_id, drawing_id, file_hash, and index_receipt_sha256 match one canonical normalized receipt",
       "the exact receipt-bound archive-exact-001 candidate is present; zero candidates or an unknown candidate is invalid",
       "candidate.state equals candidate.verification.verdict and follows the canonical score_mapping_ruleset preimage rather than the supplier result bucket or verdict",
-      "for this ratified ER3 run semantic and geometric scores and normalizations are null, visual is finite and non-null, and visual normalization is dedupcad-vision-l2-cosine-v1",
-      "for this ratified ER3 run verification.status is unverified and reason_code is vision_only_unverified because deterministic geometry is unavailable",
+      "for an owner-ratified ER3 run using these proposed bindings, semantic and geometric scores and normalizations are null, visual is finite and non-null, and visual normalization is dedupcad-vision-l2-cosine-v1",
+      "for an owner-ratified ER3 run using these proposed bindings, verification.status is unverified and reason_code is vision_only_unverified because deterministic geometry is unavailable",
       "uncalibrated requires null confidence score, band, source_dimension, and method; confidence.verified false; null calibration version and digest; and non-null reason codes",
       "calibrated requires non-null confidence score, band, source_dimension, method, calibration version, and calibration digest",
       "evidence has exactly one item per candidate in candidate order and every source_digest equals the candidate search_response_sha256",
@@ -5154,7 +5365,7 @@
   "live_success_invariants": [
     "the golden objects are serialization vectors only; a live receipt is built from observed values and never copied from a golden preimage",
     "live SHA-256 and source-revision fields reject all-zero values, one-character repeated values, and values not recomputed from their named canonical preimage or observed artifact",
-    "live vision image/source/manifest/ruleset values equal ratified_run_bindings while platform, container, Docker endpoint, timing, and repository commit remain observed",
+    "live vision image/source/manifest/ruleset values equal proposed_run_bindings only after exact-head owner ratification, while platform, container, Docker endpoint, timing, and repository commit remain observed",
     "the live search, identity, runtime-preflight, and runtime-seal preimages are exported as named artifacts and the run summary binds each artifact digest",
     "human decision submission remains unavailable unless a separate owner action enables it; decision_vocabulary is not an enablement signal"
   ],
@@ -5162,7 +5373,7 @@
     "schema_version": "evidence-pack-v2",
     "task_id": "00000000-0000-4000-8000-000000000003",
     "task_revision": 4,
-    "evidence_pack_sha256": "b012ad952a83b4ed29b402818440b364985613a20199c54389e3bc5e5c91c104",
+    "evidence_pack_sha256": "cf70bf614b3552f89d5d8e99afc27c0ede8a0952409978ed628f3a0918c88c0b",
     "trace_id": "00000000-0000-4000-8000-000000000004",
     "idempotency_key": "er3-golden-key",
     "source_job_id": "00000000-0000-4000-8000-000000000003",
@@ -5268,7 +5479,7 @@
       "run": {
         "run_id": "rr-er3-0123456789abcdef0123456789abcdef",
         "runtime_preflight_sha256": "c9290dde847d946d96e1212740bac982bb764279b26fe5712cf35494b9c48e21",
-        "runtime_seal_receipt_sha256": "939bc5e9334738aa249af8c9825d7c5c9b94b7f8a0852cde4ec379a23e4da500",
+        "runtime_seal_receipt_sha256": "a51801dd66536ccb02fb2ca60b5ba59dd401f20ebb0f3f23002d46aa53d3fb63",
         "repository_commit": "af72d0ec02b5d2dc1d92508539bc89ba857245a8",
         "runner_version": "review-reuse-er3-runner-v1"
       }
@@ -5285,7 +5496,7 @@
       "submitted": null
     }
   },
-  "golden_evidence_pack_sha256": "b012ad952a83b4ed29b402818440b364985613a20199c54389e3bc5e5c91c104",
+  "golden_evidence_pack_sha256": "cf70bf614b3552f89d5d8e99afc27c0ede8a0952409978ed628f3a0918c88c0b",
   "limitations": [
     "The golden vector and provenance receipt goldens freeze serialization and digest semantics, not model quality or observed runtime values.",
     "The ER3 runner never enables or submits a human decision.",
