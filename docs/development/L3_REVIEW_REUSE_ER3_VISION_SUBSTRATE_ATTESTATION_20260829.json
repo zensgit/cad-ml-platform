@@ -1,7 +1,7 @@
 {
   "schema_version": "review-reuse-er3-vision-substrate-attestation-v1",
   "attestation_status": "static_verified_runtime_unverified",
-  "attestation_sha256": "2d32ff91eb0f42079541f85dbc926f144c13bf1cbbe8ba2b720164fe4329f28e",
+  "attestation_sha256": "4707f793f3597ebe12da4c6474bbb25208ccd9b1de48920a27c5ca083babe6cd",
   "image": {
     "reference": "ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
     "index_digest": "sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
@@ -79,7 +79,8 @@
     },
     "fixed_http_argv": {
       "no_egress_probe": [
-        "curl",
+        "/usr/bin/curl",
+        "--disable",
         "--noproxy",
         "*",
         "--proto",
@@ -99,7 +100,8 @@
         "http://198.51.100.1:80/"
       ],
       "common_prefix": [
-        "curl",
+        "/usr/bin/curl",
+        "--disable",
         "--noproxy",
         "*",
         "--proto",
@@ -130,7 +132,7 @@
         "--request",
         "POST",
         "--form",
-        "file=@/tmp/<archive_runtime_name>;type=image/png",
+        "file=@-;filename=<archive_runtime_name>;type=image/png",
         "http://127.0.0.1:8000/api/index/add?user_name=review-reuse-er3-fixture&upload_to_s3=false"
       ],
       "rebuild_suffix": [
@@ -142,7 +144,7 @@
         "--request",
         "POST",
         "--form",
-        "file=@/tmp/query-exact-001.png;type=image/png",
+        "file=@-;filename=query-exact-001.png;type=image/png",
         "--form",
         "mode=fast",
         "--form",
@@ -159,7 +161,7 @@
         "--request",
         "POST",
         "--form",
-        "file=@/tmp/query-exact-001.png;type=image/png",
+        "file=@-;filename=query-exact-001.png;type=image/png",
         "--form",
         "mode=balanced",
         "--form",
@@ -173,8 +175,9 @@
         "http://127.0.0.1:8000/api/v2/search"
       ],
       "constraints": [
-        "the runner concatenates common_prefix with exactly one suffix and substitutes only a manifest-validated archive_runtime_name",
-        "no --location, --retry, --unix-socket, proxy option, user-supplied URL, header, form field, or command fragment is accepted",
+        "the runner concatenates common_prefix with exactly one suffix, substitutes only a manifest-validated archive_runtime_name, and adds docker exec -i only for the five direct multipart uploads",
+        "every curl argv begins with absolute /usr/bin/curl then --disable; no default curl config, PATH lookup, --location, --retry, --unix-socket, proxy option, user-supplied URL, header, form field, or command fragment is accepted",
+        "file=@- reads the already size/hash-verified immutable fixture buffer from raw stdin; filename and image/png media type are fixed by the manifest and no container pathname is created",
         "the runner splits the final write-out line, requires HTTP status exactly 200, and strictly parses only the preceding body",
         "HTTP non-success, redirect, timeout, malformed strict I-JSON, or extra/missing response fields fails closed"
       ]
@@ -732,9 +735,9 @@
       "read_policy": "open repository root once, walk every component by directory-FD-relative openat and fstat, open each unique final source once, perform declared-size bounded reads plus one-byte EOF check, never reopen by path, and transfer the same immutable verified buffer",
       "verified_fixture_set": "canonical inputs/verified-fixture-set.json binds all four manifest entries, all three unique sources, observed sizes/digests, manifest order, entry/unique-source counts, and a self-excluding digest before any transfer"
     },
-    "fixture_transfer": "after runtime preflight only, each unique tracked source is securely opened once under fixture_input_policy; the complete verified-fixture-set digest is persisted before execute; fixed docker cp - receives a deterministic exact one-regular-file POSIX ustar stream whose raw stdin bytes, size, whole-tar digest, member metadata, and transferred-content digest are retained; each archive entry is copied once and removed after its one index request, while the query buffer is copied and removed in two separate transfer/request pairs",
-    "control_operation_seal": "every Docker command has a closed exact-argv/environment/fresh-private-binary-identity/fresh-socket-identity/stdin/exit/stdout/stderr receipt whose canonical JSON and raw stdin/stdout/stderr are required artifacts; every drawing-affecting docker cp and docker exec is bracketed by distinct fresh inspect receipts whose command JSON, raw streams, raw HostConfig and Config.Env digests, globally unique observation sequence, and normalized strict projection are retained; equal projection digests are allowed but cached/replayed observations are not; each copy also binds whole-tar and transferred-content SHA-256; all ordered receipts are bound by runtime_seal_receipt_sha256",
-    "outbound_probe": "docker exec first requires curl --version to exit 0, then invokes exactly source_contract.fixed_http_argv.no_egress_probe inside the empty network-none container; that argv is separate from common_prefix, has max-time 3 and write-out %{http_code} without a leading newline, and must exit 7 with stdout exactly 000 before fixture bytes are opened; timeout exit 28 fails and docker inspect NetworkMode none with no attachments remains authoritative",
+    "fixture_transfer": "after runtime preflight only, each unique tracked source is securely opened once under fixture_input_policy and its immutable verified buffer is retained; the complete verified-fixture-set digest is persisted before execute; each of the three archive index requests and two query searches is one fixed docker exec -i /usr/bin/curl --disable multipart operation whose file=@- part reads raw stdin, sets the manifest-bound filename and image/png type, and is receipt-bound to exact stdin size/content digest; curl buffers stdin in memory and no container file, docker cp, tar stream, stage command, or remove command exists",
+    "control_operation_seal": "every Docker command has a closed exact-argv/environment/fresh-private-binary-identity/fresh-socket-identity/stdin/exit/stdout/stderr receipt whose canonical JSON and raw stdin/stdout/stderr are required artifacts; all twelve docker exec operations, including curl-version and egress checks, are bracketed by distinct fresh inspect receipts whose command JSON, raw streams, raw HostConfig and Config.Env digests, globally unique observation sequence, and normalized strict projection are retained; equal projection digests are allowed but cached/replayed observations are not; each direct upload binds transferred-content SHA-256 and all ordered receipts are bound by runtime_seal_receipt_sha256",
+    "outbound_probe": "docker exec first requires /usr/bin/curl --disable --version to exit 0, then invokes exactly source_contract.fixed_http_argv.no_egress_probe inside the empty network-none container; that argv is separate from common_prefix, has max-time 3 and write-out %{http_code} without a leading newline, and must exit 7 with stdout exactly 000 before fixture bytes are opened; timeout exit 28 fails and docker inspect NetworkMode none with no attachments remains authoritative",
     "published_port": null,
     "proxy_environment": "absent",
     "cleanup": "after a nine-command setup whose first three receipts proved no resource with the exact run-id/resource-owner-id label pair existed, remove only the journaled or uniquely pair-labeled owned container with docker rm -fv, then prove no pair-labeled container, volume, or network remains; ambiguity or cleanup failure prevents terminalization/success"
@@ -757,7 +760,7 @@
       "disabled integration flags and absent proxy variables match this attestation",
       "GET /api/stats reports total_drawings=0",
       "GET /health reports both in-memory index sizes=0",
-      "the runtime seal binds every Docker command exact argv, controlled-environment artifact, fresh private-binary/socket identity digests, raw stdin/stdout/stderr, and fresh one-to-one inspect receipt/raw stream around drawing-affecting cp/exec operations; copy stdin is an exact replayable one-member ustar artifact; only after preflight are fixtures opened through directory FDs, the complete verified-fixture-set digest persisted, and immutable bytes used for the pre-index query"
+      "the runtime seal binds every Docker command exact argv, controlled-environment artifact, fresh private-binary/socket identity digests, raw stdin/stdout/stderr, and fresh one-to-one inspect receipt/raw stream around all twelve docker exec operations; only after preflight are fixtures opened through directory FDs and the complete verified-fixture-set digest persisted; five direct multipart file=@- operations consume the immutable buffers from raw stdin with manifest-bound filename/type and no container staging path"
     ]
   },
   "limitations": [
@@ -766,7 +769,7 @@
     "The service has no drawing-list endpoint; exact post-index identities are bound by the receipt set plus authoritative count three.",
     "The fixed service has no authentication on index or rebuild routes; network-none plus no host publication makes the Gate-C endpoint/socket identity and approved Docker administrators the administrative capability boundary. A merely local unix URI is insufficient, and the contract does not defend against an approved malicious Docker administrator or daemon.",
     "The fixed POST /api/index/add route requires user_name. ER3 pins user_name=review-reuse-er3-fixture and upload_to_s3=false in the exact query string; omitting either fixed argument is a contract failure.",
-    "A one-time or cached inspect is insufficient on a shared daemon. Every drawing-affecting Docker copy/exec operation requires distinct fresh before/after inspect receipts, while every Docker command is independently argv/exit/stream bound.",
+    "A one-time or cached inspect is insufficient on a shared daemon. Every one of the twelve Docker exec operations requires distinct fresh before/after inspect receipts, while every Docker command is independently argv/exit/stream bound.",
     "Index-add creates an in-memory LocalEventBus even with EVENT_BUS_ENABLED=false; EVENT_BUS_USE_LOCAL=true and runtime inspection prevent a Redis path, and explicit rebuild remains required because no index handlers are registered.",
     "The image reports three inconsistent version strings, so only the image digest and source revision identify the substrate.",
     "No image pull, container start, fixture processing, model-quality evaluation, customer-data use, merge, deployment, decision enablement, or pilot is authorized by this attestation."

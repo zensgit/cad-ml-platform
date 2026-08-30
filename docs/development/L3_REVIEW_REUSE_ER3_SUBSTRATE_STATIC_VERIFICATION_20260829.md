@@ -25,11 +25,11 @@ implementation, merge, decision enablement, deployment, pilot, or customer data.
 | Static attestation | `L3_REVIEW_REUSE_ER3_VISION_SUBSTRATE_ATTESTATION_20260829.json` |
 | EvidencePack v2 contract | `L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json` |
 | Embedded manifest proposal canonical digest; no manifest file exists at this docs-only head | `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf` |
-| Static attestation digest | `2d32ff91eb0f42079541f85dbc926f144c13bf1cbbe8ba2b720164fe4329f28e` |
-| Static attestation raw file SHA-256 | `23680e3625c6d87d083998e8cdcfdb9004dd19350db81755c133f4eeb88ceb68` |
-| EvidencePack v2 contract digest | `6ea8dd50bb825c763542a376d9e5fdf52a3c4234c30828b8bc213cc49e6823b7` |
-| EvidencePack v2 contract raw file SHA-256 | `28094627c439be318c0b8c5042c856f2d9e251d240d9e0959d12c474695f1bb0` |
-| Embedded EvidencePack golden digest | `cf70bf614b3552f89d5d8e99afc27c0ede8a0952409978ed628f3a0918c88c0b` |
+| Static attestation digest | `4707f793f3597ebe12da4c6474bbb25208ccd9b1de48920a27c5ca083babe6cd` |
+| Static attestation raw file SHA-256 | `5d7e15aa82d714ad371e106deb3c6310cfc82c3062731392bfb3a6c2db175d94` |
+| EvidencePack v2 contract digest | `c31748c5b292032f02c5b239eb87348e70d93342baac4cbf17b63515ac920b0c` |
+| EvidencePack v2 contract raw file SHA-256 | `9a9fe32f8702ca80418b33767ec86466611c9b80c8a600a11586c25ad4c215ad` |
+| Embedded EvidencePack golden digest | `422e23da3589b24a5539a3d6546cac98ba692046ea14930b179dd9f7fe1b9f7f` |
 | Verified fixture-set golden digest | `536113fa48ac2f692635959bd5f1d0f8ac92faff1fc8ab9f27679a5f474e51b1` |
 | Vision OCI index | `sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251` |
 
@@ -53,14 +53,17 @@ quality or runtime evidence. The critical provenance vectors are:
 | Resource ownership | `103acb5087f3624731243d89dc1cb210dfd2c039d0ac24894def8acd28dbcd9d` |
 | Docker control plane | `ef6802d6138b19db4f580a75ac83fdf99b6d04e2bd3c56199d4e0484ca6c5ea7` |
 | Exact Docker child-environment artifact | `571117807ac16fa31fd8cb124a55a2263f050bb04db25fb94b08774f6b53d51d` |
-| Isolated stage-writer script bytes | `a70cc364be7886ed9d1fad5b50fdfb2465306b64ff93102b927bdbb7b468286a` |
-| Final run-journal artifact | `615ec0ac25a4ca8edd83bacc589d4f411390ab544e3a9c71e2e625a85f547031` |
+| Final run-journal artifact | `300541e3ebf9f2d0f2f0cdf72503250096e9c73ca3b93d43737d72d75c29ea32` |
 | Strict runtime inspect projection | `c907c2aa218065321eba9ac471a4436286f363632809fcbd8c15a8c6838cf927` |
-| Runtime preflight | `c9290dde847d946d96e1212740bac982bb764279b26fe5712cf35494b9c48e21` |
-| Continuous runtime seal | `a51801dd66536ccb02fb2ca60b5ba59dd401f20ebb0f3f23002d46aa53d3fb63` |
-| EvidencePack v2 Markdown bytes | `0a4e87c1327d2376578eea65803669e7e2b49f8cb7fa0677654ef1b5fa50f2a9` |
-| Success-intent golden vector | `f1d99a4609158f6aebecd94b4c6fd77517cc0abf693db346cffd3e4b90d0de6c` |
-| Run-summary golden vector | `d7e4e333e82b6081f5b7bb78b082b657a3fb4a36c5e8193b1da48b5d1256a1bf` |
+| Runtime preflight | `bc22e7cbdecaf7be460a10165e03f60df238dd1741e2353728dbd4379daf5e3c` |
+| Continuous runtime seal | `8d9da40c31be1770c4a38f44c4e6303b34ad689346f6496ba91266ba1b5297f0` |
+| EvidencePack v2 canonical artifact bytes | `40da3dd0bad78a490986e15eb847446151b2af21caf1131f8bd191e63768ec02` |
+| EvidencePack v2 Markdown bytes | `6e5778233d90887932e2eea2a182df9563f4af03804467098427b6e00b9eeac2` |
+| Revision-4 task artifact | `341f448e62a9f183e22045a76a568433a34d85be2b3a3f2a767c6280ae42babc` |
+| Pre-summary artifact map | `d159d6b04bbd24124dba5adf9d783bbb18db5db6bd50a85f6eea9e999cb6052b` |
+| Success-intent golden vector | `562bf1fdd37f39fcec7bf1467294593569acf0ac316f22c57a5ef3cdf5901a32` |
+| Success-intent canonical artifact bytes | `24a819afbd0ec1be5d4b936decf4e5945983b321a0433f6f4cf566df636cdc55` |
+| Run-summary golden vector | `8998984f0745ec0c3177597e8e1258ccdc45588742b06eae277ffb8d8f2d6d0f` |
 
 ## 2. OCI and source binding
 
@@ -149,8 +152,9 @@ parent-chain identity, API version, platform, binary, and reviewed command. Its
 API-v1.43 raw HostConfig key contract plus normalized projection closes privilege,
 resources, host namespaces, devices, binds, Docker/socket publication, ports,
 extra hosts, and restart policy. Because the daemon is shared administrative
-state, every copy/exec is bracketed by before/after inspect projections and raw
-stream artifacts bound into a continuous runtime-seal receipt.
+state, every one of the twelve fixed `docker exec` operations is bracketed by
+before/after inspect projections and raw stream artifacts bound into a continuous
+runtime-seal receipt.
 
 With `EVENT_BUS_ENABLED=false`, `events/event_bus.py:700-729` selects an in-memory
 LocalEventBus and does not create Redis. Index-add still publishes to that local
@@ -309,7 +313,8 @@ action was performed. The initial static verification read the three tracked
 fixture files only to compute the sizes and SHA-256 values recorded in §3 and the
 then-current in-memory ustar serialization vectors. This hardening did not reopen
 those files: it reused the already recorded exact sizes and content hashes while
-replacing tar transfer with raw stdin staging. Neither pass decoded an image,
+first replacing tar transfer with raw stdin staging and now replacing staging with
+direct curl multipart stdin. Neither pass decoded an image,
 loaded a model, built an index, called search, or exposed fixture bytes to a runtime.
 
 An exact-head Sol/Terra/Luna review of `657b27d1e294c8ca85d4cd4fb000e959c84fcd05`
@@ -353,20 +358,31 @@ not support container `tmpfs`/mount resources, while the sealed HostConfig makes
 `/tmp` exactly such a mount. See the
 [Docker CLI `cp` corner cases](https://docs.docker.com/reference/cli/docker/container/cp/#corner-cases).
 
-This working revision closes those design findings without opening runtime scope.
-It introduces proposed/not-ratified machine status, exact Git and trusted-output-
-parent controls, atomic journal and no-replace summary candidates, ordered phase-
-artifact recovery plus receipt-bound label discovery, shared replay locking, exact
-directory closure, separate 104/2 runtime-base and 100/6 Gate-A-head maps with
-authenticated pytest failure markers, and a five-sequence fixed `docker exec -i`
-writer that creates manifest-bound fixture paths as the attested `appuser`.
-The writer is digest-pinned, isolated with `-I -S`, uses
-`O_EXCL|O_NOFOLLOW`, verifies exact size/EOF/SHA-256 and file metadata, fsyncs
-success, and removes its own path on failure. No operation contains a `--user`
-override; the cap-drop-all, no-new-privileges, network-none, read-only-root
-posture remains unchanged. All affected operation receipts, continuous
-seal, EvidencePack, Markdown, task, intent, summary, and contract digests were
-recomputed. This is still FOR REVIEW, docs-only, and runtime-unverified.
+Head `aaab94b2921b89b4711bf9f502152a756f8eef82` attempted to close those
+findings with proposed/not-ratified status, exact Git/output-parent controls,
+atomic journal and summary publication, a closed directory inventory, and a
+five-sequence appuser stage writer. Exact-head Sol, Terra, Luna, Sonnet 5, and
+Opus 5 review plus direct contract inspection then found that the attestation
+still mandated the already-forbidden copy/tar path, the stage writer retained a
+same-UID pathname TOCTOU, `repository-control.json` was missing from one resume
+inventory, cleanup discovery and interruption were not representable in the
+journal, inspect pairing used the wrong one-based formula, runtime-base evidence
+did not bind a single allowed overlay, replay could create its lease, and a stale
+fixture-descriptor/tar mutation remained.
+
+This working-tree revision closes those exact findings without opening runtime
+scope. Five uploads are now direct fixed `/usr/bin/curl --disable` multipart
+stdin operations with manifest-bound filename/type and no `docker cp`, tar,
+container path, writer, or remove command. All twelve operations receive fresh
+before/after inspections. The journal adds immutable `interrupted_command`, a
+single-attempt 3/4/5-command recovery branch grammar, and a fail-closed
+`recovery_evidence_incomplete` terminal classifier for cleanup uncertainty. The
+fail-first baseline permits only the exact Gate-A test blob over a clean detached
+runtime base and runs verifier/contract from separate named Git objects. Replay
+opens the permanent lease read-only without create. All affected receipt,
+preflight, seal, EvidencePack, Markdown, task, intent, summary, attestation, and
+contract digests were recomputed. This remains FOR REVIEW, docs-only, and
+runtime-unverified.
 
 ## 6. Commands and results
 
@@ -375,6 +391,7 @@ The static verification used read-only commands equivalent to:
 ```bash
 git show 2fc35d60ff034c9f790868c02381a9716becc942:<source-path>
 git grep -n <pattern> 2fc35d60ff034c9f790868c02381a9716becc942 -- src Dockerfile pyproject.toml
+# Initial static pass only; the current hardening did not repeat these reads.
 sha256sum tests/vision/fixtures/cad_features/cad_line.png \
   tests/vision/fixtures/cad_features/cad_circle.png \
   tests/vision/fixtures/cad_features/cad_arc.png
@@ -387,13 +404,18 @@ for path in (
 ):
     strict_json_loads(path.read_bytes())
 PY
-/opt/homebrew/bin/python3.11 -m pytest -q \
+PYTHONDONTWRITEBYTECODE=1 /opt/homebrew/bin/python3.11 -m pytest -q \
+  -p no:cacheprovider \
   tests/unit/test_review_reuse_canonical.py \
   tests/unit/test_review_reuse_evidence_goldens.py \
   tests/unit/test_review_reuse_er1_store_integrity.py
-/opt/homebrew/bin/python3.11 -m pytest -q tests/unit/test_review_reuse_*.py
-# Extract the exact stage_writer_contract.script_utf8 and run it only against
-# temporary synthetic bytes: success, short, trailing, wrong-hash, pre-existing.
+PYTHONDONTWRITEBYTECODE=1 /opt/homebrew/bin/python3.11 -m pytest -q \
+  -p no:cacheprovider tests/unit/test_review_reuse_*.py
+# A temporary no-fixture verifier independently recomputed 65 named closure
+# categories and all 49 command-receipt preimages from the checked-out JSON.
+# A localhost-only HTTP harness sent 36 synthetic bytes through:
+/usr/bin/curl --disable --form \
+  'file=@-;filename=synthetic.png;type=image/png' http://127.0.0.1:<ephemeral>/upload
 git diff --check
 ```
 
@@ -407,32 +429,32 @@ Results:
 - all three raw-response, normalized-receipt, and receipt-set golden vectors
   recomputed to their stored digests;
 - search-response, service-identity, score-ruleset, Docker-control, strict
-  inspect, repository-bound runtime-preflight, 22 distinct operation-command
-  receipts, 44 distinct inspection receipts, cleanup-command receipts,
+  inspect, repository-bound runtime-preflight, 12 distinct operation-command
+  receipts, 24 distinct inspection receipts, cleanup-command receipts,
   continuous seal, EvidencePack, deterministic Markdown, run summary, and
   whole-contract golden preimages recomputed to their stored digests;
 - the earlier read-only cross-artifact verifier passed `30/30` closure categories,
-  and the current hardened verifier passed `42/42`, including
+  then `42/42`, and the current hardened verifier passed `65/65`, including
   contract/attestation self digests, exact closed store/control/environment/journal
   inventory, trusted Git/output-parent controls, atomic journal/summary publication,
   persistent shared/exclusive lease semantics, mutually exclusive root
   classification, the 106-entry Gate-A matrix with exact 104-red/2-existing-pass
-  runtime-base and 100-red/6-pass Gate-A-head splits, fixed appuser stage-writer
-  transport with no Docker-copy/root override, and every downstream
-  EvidencePack/intent/summary digest;
-- a separate machine-readable receipt derivation passed `79/79`: all nine setup,
-  22 operation, 44 fresh-inspection, and four cleanup receipts recomputed from
+  runtime-base and 100-red/6-pass Gate-A-head splits, exact one-test-file baseline
+  overlay proof, direct appuser multipart stdin transport, three recovery cleanup
+  branches, read-only replay lease, and every downstream digest;
+- machine-readable receipt derivation passed `49/49`: all nine setup,
+  12 operation, 24 fresh-inspection, and four cleanup receipts recomputed from
   their complete ten-field preimages. Setup and operation receipts now use exact
   real Docker argv matrices and each receipt binds fresh private-binary/socket
   identities; synthetic stream bytes remain serialization vectors only;
-- the five fixed stage operations alone contain `exec -i` plus the digest-pinned
-  isolated writer; all 22 operations omit `--user`, stage stdin equals the
-  verified content digest/size, and the resulting operation receipts plus all
-  downstream digests recomputed exactly;
-- the exact writer script passed `5/5` synthetic temporary-file cases: one
-  mode-`0600` success plus fail-closed short input, trailing input, wrong digest,
-  and pre-existing-path preservation; no repository fixture or Docker runtime was
-  used by this micro-verification;
+- exactly operations 5/6/7/8/12 contain `docker exec -i`; all 12 operations omit
+  `--user`, invoke absolute `/usr/bin/curl` with `--disable` first, and the five
+  uploads bind exact stdin digest/size plus manifest filename/type. No operation
+  argv contains a copy, tar, container staging path, writer, or remove step;
+- the localhost-only curl micro-verification passed `1/1`: 36 synthetic bytes,
+  `filename="synthetic.png"`, and `Content-Type: image/png` were observed in the
+  multipart body. It read zero repository fixture bytes and does not prove curl
+  behavior inside the pinned image;
 - source paths and endpoint semantics above matched exact revision `2fc35d60...`;
 - the design names 106 unique fail-first/regression tests, fixes tests 28 and 34 as
   the only runtime-base existing-pass nodes, fixes sequences 2/28/30/34/66/97 as
@@ -441,8 +463,10 @@ Results:
 - the recovery classifier now has mutually exclusive initialization, terminal,
   resumable, recovery, finalize, complete, and mismatch branches; only an
   atomically published journal plus exact command/phase-artifact prefix can
-  authorize cleanup, and a post-create/pre-journal crash requires a separately
-  journaled dual-label discovery receipt;
+  authorize cleanup. A normal pending command first becomes immutable
+  `interrupted_command`; then only one 3/4/5-command branch may run. Any crash
+  after cleanup starts requires separately authorized manual handling rather than
+  an automated retry;
 - the filesystem store is a closed one-tenant/one-task/optional-index inventory;
   its permanent writer-lease path and locked FD must retain the same validated
   inode while the export-freeze remains held through summary parent fsync;

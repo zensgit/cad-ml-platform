@@ -299,8 +299,11 @@ descriptor identity mismatch fails with no fixture transfer.
   locks the same directory-FD-relative sibling
   `.<run-root-basename>.review-reuse-er3.lock`; it is a mode-`0600`, owner-matching,
   single-link regular file opened with
-  `O_RDWR|O_CREAT|O_CLOEXEC|O_NOFOLLOW` outside the run root. The path is permanent: no ER3
-  command may unlink, rename, truncate, or replace it. The locked FD and directory
+  `O_RDWR|O_CREAT|O_CLOEXEC|O_NOFOLLOW` outside the run root. `er3-replay`
+  instead opens that already-existing directory entry with
+  `O_RDONLY|O_CLOEXEC|O_NOFOLLOW` and never `O_CREAT`; a missing lease fails
+  before any run-root read and replay creates no path. The lease path is
+  permanent: no ER3 command may unlink, rename, truncate, or replace it. The locked FD and directory
   entry must retain the same device/inode/link/mode/owner identity before every
   lifecycle phase. The run-level lease stays held through classification, store
   export-freeze, inventory, summary publication, and parent-directory fsync.
@@ -363,9 +366,9 @@ descriptor identity mismatch fails with no fixture transfer.
 - The image digest alone is insufficient. The proposed static attestation is
   `docs/development/L3_REVIEW_REUSE_ER3_VISION_SUBSTRATE_ATTESTATION_20260829.json`
   with canonical digest
-  `2d32ff91eb0f42079541f85dbc926f144c13bf1cbbe8ba2b720164fe4329f28e`.
+  `4707f793f3597ebe12da4c6474bbb25208ccd9b1de48920a27c5ca083babe6cd`.
   Its reviewed raw-file SHA-256 is
-  `23680e3625c6d87d083998e8cdcfdb9004dd19350db81755c133f4eeb88ceb68`.
+  `5d7e15aa82d714ad371e106deb3c6310cfc82c3062731392bfb3a6c2db175d94`.
   It binds the OCI index to source revision
   `2fc35d60ff034c9f790868c02381a9716becc942`, records both platform manifests and
   expected image IDs, enumerates search-affecting state, and identifies the
@@ -420,7 +423,7 @@ descriptor identity mismatch fails with no fixture transfer.
   inspect, these form exactly nine setup command receipts. The contract contains
   the exact argv matrix for all nine; `golden-setup` is not a live command or an
   authorization shortcut. Every created resource carries both labels. Before each
-  of all 79 successful-run Docker commands (9 setup, 22 operations, 44 inspections,
+  of all 49 successful-run Docker commands (9 setup, 12 operations, 24 inspections,
   4 cleanup), a candidate journal is created exclusively at
   `state/.run-journal.next`, fully written and file-fsynced, validated as exactly
   one legal successor, atomically replaced over `state/run-journal.json`, and the
@@ -432,12 +435,17 @@ descriptor identity mismatch fails with no fixture transfer.
   candidate is discarded under the run lease, an exact complete successor is
   promoted, and any other candidate/current combination fails without Docker. This
   journal plus the ordered revision-2 prepare and revision-3 command/derived-
-  artifact prefixes is the only accepted partial-root grammar. A crash after
-  container create but before its result journal uses one separately journaled,
-  fixed pair-label container-list discovery command; zero matches needs no delete,
-  exactly one match supplies the target, and ambiguity or any pair-labeled volume/
-  network fails without deletion. Destructive recovery otherwise requires all
-  three complete setup zero proofs plus the journaled ID.
+  artifact prefixes is the only accepted partial-root grammar. Before recovery
+  cleanup begins, one journal-only successor preserves any normal pending command
+  byte-for-byte as immutable `interrupted_command` and clears the active pending
+  slot. Recovery is then single-attempt: a durable container ID selects the fixed
+  four-command remove/container-list/volume-list/network-list branch; a possibly
+  successful create without a durable ID starts with the fixed dual-label discovery
+  and selects either a three-command zero-match branch or a five-command exact-one-
+  match branch. More than one match, malformed evidence, or any cleanup crash or
+  uncertainty fails as `archive_run_recovery_evidence_incomplete` with no further
+  automated Docker command. Every branch uses `receipts/cleanup`; no parallel
+  recovery-discovery namespace or unjournaled command exists.
 - The required absolute `--docker-bin` source is resolved through the same
   directory-FD/no-symlink policy, including its complete parent chain, to a
   regular executable rejected if group/other writable. Its canonical realpath,
@@ -465,7 +473,7 @@ descriptor identity mismatch fails with no fixture transfer.
   daemon. The runner never uses `shell=True`, never accepts a
   container name, path, URL, header, form field, retry/redirect option, Unix-
   socket option, or command fragment from the manifest, and validates every
-  staged destination against the manifest's unique `runtime_name`. Mock HTTP
+  multipart filename against the manifest's unique `runtime_name`. Mock HTTP
   transports remain test-only and use `trust_env=False` with no retries.
 - The runtime preflight verifies the attested paths against image/runtime
   inspection; maps `/app/data`, `/app/indexes`, `/app/logs`, and `/tmp` to
@@ -503,9 +511,9 @@ descriptor identity mismatch fails with no fixture transfer.
   has a closed ten-field command receipt with exact argv, controlled-environment
   digest, freshly observed private-binary/socket identity digests, integer exit
   code, and raw stdin/stdout/stderr SHA-256. The contract freezes the real setup
-  and all 22 operation argv matrices plus every dynamic value source; synthetic
-  serialization streams never authorize a command. Every drawing-affecting
-  `docker exec` is additionally wrapped by freshly executed before/after normalized `docker
+  and all 12 operation argv matrices plus every dynamic value source; synthetic
+  serialization streams never authorize a command. Every one of the 12
+  `docker exec` operations is additionally wrapped by freshly executed before/after normalized `docker
   inspect` commands. Each inspection receipt binds a globally unique observation
   sequence, exact inspect argv and stream digests, and the canonical strict-
   projection digest. A projection digest may repeat when posture is unchanged,
@@ -514,15 +522,16 @@ descriptor identity mismatch fails with no fixture transfer.
   argv, `/app` working directory, process user, container ID/label, HostConfig,
   mounts, running state, start timestamp, restart count, network attachments,
   published ports, and every attested integration/credential/proxy value or
-  absence marker. Drift aborts before the next drawing-byte operation.
+  absence marker. Drift aborts before the next operation.
   The ordered command/inspection receipts, transferred-content hashes, and
   command counts are hashed into `runtime_seal_receipt_sha256`; the one-time
   preflight digest or a cached inspection cannot substitute for this continuous
   seal. A nonzero Docker exit is rejected except the exact egress-probe `exec`
   exit 7 required below.
-- Before any fixture byte is opened, fixed argv first requires `curl --version`
+- Before any fixture byte is opened, fixed argv first requires
+  `/usr/bin/curl --disable --version`
   to exit 0. The no-egress probe does not reuse the service-request common prefix.
-  Its sole argv is `curl --noproxy '*' --proto =http --silent --show-error
+  Its sole in-container argv is `/usr/bin/curl --disable --noproxy '*' --proto =http --silent --show-error
   --output /dev/null --write-out '%{http_code}' --connect-timeout 2 --max-time 3
   --max-redirs 0 http://198.51.100.1:80/`. The probe must exit immediately with curl error 7
   and stdout exactly `000`; timeout exit 28, exit 127, or any HTTP response is a
@@ -542,9 +551,9 @@ descriptor identity mismatch fails with no fixture transfer.
 - Before index-add, `GET /api/stats` at JSON pointer
   `/stats/total_drawings` must report zero. The runner also searches the approved
   query and requires zero candidates, but that query is supplementary evidence
-  and never substitutes for the authoritative count proof. The query is copied
-  to `/tmp/query-exact-001.png` for this pre-index search and removed immediately
-  afterward.
+  and never substitutes for the authoritative count proof. The pre-index request
+  receives the already verified query bytes directly over `docker exec -i` stdin;
+  it creates no container path.
 - The service caches search responses for five minutes using file MD5 plus mode,
   result limit, diff, ML, and geometry options. The pre-index probe and post-index
   product query use the exact tuples `(fast, 1, false, false, false)` and
@@ -558,31 +567,28 @@ descriptor identity mismatch fails with no fixture transfer.
   order, binding all four entry IDs/roles/runtime names, all three unique source
   paths, observed sizes/hashes, the manifest digest, entry count, and unique-source
   count. Its self-excluding `verified_fixture_set_sha256` is durably bound by the
-  revision-3 event before any transfer. Each transfer uses fixed `docker exec -i`
-  argv and sends those exact verified bytes as raw stdin; no source path is
-  reopened. `docker cp` is forbidden because the pinned container maps `/tmp` to
-  `tmpfs`, which Docker documents as an unsupported copy target.
-  The fixed in-container command is literal `/opt/venv/bin/python -I -S -c` plus
-  the contract's exact 1,479-byte writer, `/tmp/<runtime_name>`, base-10 observed
-  size, and observed SHA-256. The writer opens once with
-  `O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW`, streams exactly the declared byte count,
-  rejects short or trailing stdin, verifies SHA-256, forces mode `0600`, fsyncs,
-  and requires a regular one-link file with exact size and writer uid/gid. Any
-  failure removes only the path created by that invocation and exits nonzero.
-  The exact raw stdin is persisted beside the command receipt and bound by
-  `stdin_sha256`, `stdin_size_bytes`, and
-  `transferred_content_sha256`; all three equal the verified manifest bytes.
-  Replay revalidates the fixed writer argv and raw input without invoking Docker.
-  Every non-stage Docker command instead binds the zero-byte stdin digest and size.
-  All 22 operations run as the attested `appuser`; no operation admits `--user`,
+  revision-3 event before any upload. Exactly five operations use fixed
+  `docker exec -i` argv and pass those immutable verified bytes as raw stdin to
+  `/usr/bin/curl --disable --form
+  file=@-;filename=<manifest-runtime-name>;type=image/png`; the filename and media
+  type are fixed by the manifest and the remaining form/query fields are closed.
+  Curl's stdin form buffers the upload to determine its size as documented by the
+  [curl command-line reference](https://curl.se/docs/manpage.html). The runner persists
+  the exact stdin bytes beside each command receipt and requires
+  `stdin_sha256`, `stdin_size_bytes`, and `transferred_content_sha256` to equal
+  the verified manifest content. A short, trailing, hash/size-drifted, filename-
+  drifted, or reordered argv/input pair fails closed. No source path is reopened,
+  and no `docker cp`, tar stream, in-container writer, staged file, or remove
+  command exists. The other seven operations bind the zero-byte stdin digest and
+  size. Replay revalidates all fixed argv and raw inputs without invoking Docker.
+  All 12 operations run as the attested `appuser`; no operation admits `--user`,
   root execution, shell, arbitrary path, or caller-provided code. The existing
   `CapDrop=[ALL]`, no-new-privileges, network-none, no-host-mount/device/socket,
   read-only-root posture and fresh before/after inspection remain mandatory.
-  Each archive entry is staged once at its
-  unique `/tmp/<runtime_name>`, sent once to
+  Each archive entry is sent once directly to
   `POST /api/index/add?user_name=review-reuse-er3-fixture&upload_to_s3=false`,
-  and removed immediately after that request. Both query parameters and their
-  values are fixed because `user_name` is required by source revision
+  with its unique manifest-bound multipart filename. Both query parameters and
+  their values are fixed because `user_name` is required by source revision
   `2fc35d60...`; omission, duplication, reordering, or substitution fails before
   accepting a receipt. The query entry is never sent to index-add.
 - Every external Docker/service JSON artifact first passes an ER3 lossless-number
@@ -619,14 +625,14 @@ descriptor identity mismatch fails with no fixture transfer.
   `/indexes/l2_faiss/size=3`. These are required readiness checks, but they do not
   replace the storage count and receipt set as the archive identity proof.
 - The post-index ReviewReuse search runs only after all archive receipts succeed.
-  The query is copied a second time to the same validated runtime path, sent
-  exactly once on that product path with geometric verification requested, and
-  removed immediately afterward; the pre-index transfer/search/removal pair is
-  recorded separately. Thus each archive byte stream is transferred/indexed once
-  and the query byte stream is transferred/searched exactly twice. Those command
-  and transfer counts plus each copy's content SHA-256 are evidence bound by the
-  runtime seal receipt. Both query copies use the same immutable manifest-verified
-  bytes; a post-validation source mutation cannot change the searched payload.
+  It sends the same immutable query buffer directly once more over
+  `docker exec -i` with geometric verification requested; the pre-index and
+  post-index uploads are distinct command/inspection receipt groups. Thus each
+  archive byte stream is uploaded/indexed once and the query byte stream is
+  uploaded/searched exactly twice. Those command counts plus each stdin content
+  SHA-256 are bound by the runtime seal receipt. Both query uploads use the same
+  manifest-verified bytes; a post-validation source mutation cannot change the
+  searched payload.
 - A service-level `success=true` is insufficient. Every returned candidate must
   match one distinct `(drawing_id, file_hash, index_receipt_sha256)` triple from
   the canonical receipt set; unknown, duplicate, or digest-mismatched identities
@@ -809,25 +815,33 @@ with one immutable selector:
   machine-readable recovery prefix grammar. Revision 2 admits an exact ordered
   prefix of Docker-environment, setup, resource-ownership, Docker-control,
   runtime-preflight, and verified-fixture-set artifacts; the verified fixture set
-  is legal before the revision-3 CAS. Revision 3 admits the global command prefix
-  `before-inspect(n), operation(n), after-inspect(n)` plus only prerequisite-valid
+  is legal before the revision-3 CAS. Revision 3 admits, for operation `n=1..12`,
+  only the global command prefix `inspection(2n-1), operation(n), inspection(2n)`
+  plus prerequisite-valid
   index/search/service/ruleset, cleanup, runtime-seal, task/evidence, and success-
   intent prefixes; a complete success intent before revision-4 CAS is still
   recoverable only to failed. Each setup/operation/inspection/cleanup
   command is tested at `prepared`, `result_recorded`, every artifact-prefix,
-  receipt-complete, journal-complete, and task-CAS crash boundary. Only a grammar-
-  accepted root may remove journaled or uniquely dual-label owned resources and
-  prove every
-  container/volume/network resource absent, and CAS the interrupted task to
+  receipt-complete, journal-complete, and task-CAS crash boundary. Before cleanup,
+  one legal journal-only successor must copy any normal pending command exactly
+  into immutable `interrupted_command` and clear the active slot. Only a grammar-
+  accepted root with no prior cleanup may select one recovery branch: four
+  commands for a durable container ID, three commands after an exact zero-match
+  dual-label discovery, or five commands after exactly one matching container.
+  Ambiguous discovery performs no deletion. A completed branch proves every
+  container/volume/network resource absent and then CASes the interrupted task to
   `failed` with `code="archive_run_interrupted"`, `recovered=true`, and
   `cleanup_status="verified_absent"`. Recovery never opens fixture bytes, calls
   index/search, rebuilds evidence, or emits a success summary. If a crash occurred
   after an exact pre-revision-4 success-artifact prefix was fsynced, recovery keeps
   those immutable bytes as forensic artifacts but never exposes them as success,
-  finalizes them, or permits replay-success from the failed task. Cleanup failure
-  leaves the task running, exits with `archive_cleanup_failed`, and permits only
-  another explicit recovery attempt. An in-process failure likewise emits no
-  success bundle and may persist `failed` only after verified cleanup.
+  finalizes them, or permits replay-success from the failed task. A durable
+  nonzero cleanup result returns `archive_cleanup_failed`; a crash, prepared-only
+  group, uncertain result, malformed branch, or interruption after ordinary-
+  success cleanup begins returns `archive_run_recovery_evidence_incomplete`.
+  Neither state permits another automated Docker command. Further cleanup needs a
+  separately owner-authorized manual procedure. An in-process failure likewise
+  emits no success bundle and may persist `failed` only after verified cleanup.
 - A persisted revision-4 task with an absent `run-summary.json` entry is
   `archive_run_finalize_required`, never an interrupted run. This is an ER3 CLI
   reason code, not a public API response. Only explicit `er3-finalize` may acquire
@@ -895,13 +909,13 @@ with one immutable selector:
 The complete v2 canonical contract is
 `docs/development/L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json`
 with contract digest
-`6ea8dd50bb825c763542a376d9e5fdf52a3c4234c30828b8bc213cc49e6823b7`.
+`c31748c5b292032f02c5b239eb87348e70d93342baac4cbf17b63515ac920b0c`.
 Its reviewed raw-file SHA-256 is
-`28094627c439be318c0b8c5042c856f2d9e251d240d9e0959d12c474695f1bb0`.
+`9a9fe32f8702ca80418b33767ec86466611c9b80c8a600a11586c25ad4c215ad`.
 It freezes exact object keys, types/nullability, list ordering, task context,
 unknown-field rejection, and digest exclusions. Its embedded golden vector has
 EvidencePack digest
-`cf70bf614b3552f89d5d8e99afc27c0ede8a0952409978ed628f3a0918c88c0b`.
+`422e23da3589b24a5539a3d6546cac98ba692046ea14930b179dd9f7fe1b9f7f`.
 The contract digest excludes only `contract_sha256`; the golden EvidencePack
 digest excludes only `evidence_pack_sha256`. Implementation copies neither value
 from prose: tests recompute both with `canonical_json_v1()` and reject any field,
@@ -950,9 +964,9 @@ field schemas, invariants, and non-placeholder golden for each critical digest:
 - strict runtime inspect projection:
   `c907c2aa218065321eba9ac471a4436286f363632809fcbd8c15a8c6838cf927`;
 - runtime preflight:
-  `c9290dde847d946d96e1212740bac982bb764279b26fe5712cf35494b9c48e21`;
+  `bc22e7cbdecaf7be460a10165e03f60df238dd1741e2353728dbd4379daf5e3c`;
 - continuous runtime seal:
-  `a51801dd66536ccb02fb2ca60b5ba59dd401f20ebb0f3f23002d46aa53d3fb63`.
+  `8d9da40c31be1770c4a38f44c4e6303b34ad689346f6496ba91266ba1b5297f0`.
 
 Those values are serialization vectors, not expected live observations. A live
 run exports and hashes its own complete named preimages. All-zero, one-character
@@ -982,9 +996,9 @@ A success run writes the filesystem store, manifest copy, verified-fixture-set,
 repository/socket/binary identities, runtime preflight, continuous runtime-seal
 receipt, resource ownership, success intent, and every receipt preimage required
 to recompute it. For each of the nine
-setup, 22 sealed-operation, and four cleanup Docker commands, the run contains one
+setup, 12 sealed-operation, and four ordinary-success cleanup Docker commands, the run contains one
 canonical command-receipt JSON plus exact raw stdin, stdout, and stderr byte artifacts.
-For each of the 44 fresh inspections, it additionally contains the canonical
+For each of the 24 fresh inspections, it additionally contains the canonical
 inspect-receipt JSON, its command-receipt JSON, and that command's exact raw stdout
 and stderr plus its zero-byte stdin; equal stream bytes do not permit a path or
 observation to be omitted.
@@ -1051,22 +1065,23 @@ b"Canonical evidence (null remains unavailable):\n\n    " \
 Pretty JSON, `repr`, locale, wall-clock time, or host paths are forbidden.
 `evidence.md` equals those bytes; the audit bundle Markdown is their strict UTF-8
 decode. The golden bytes are 3,556 bytes with SHA-256
-`0a4e87c1327d2376578eea65803669e7e2b49f8cb7fa0677654ef1b5fa50f2a9`.
+`6e5778233d90887932e2eea2a182df9563f4af03804467098427b6e00b9eeac2`.
 The minimal run-summary serialization vector has digest
-`d7e4e333e82b6081f5b7bb78b082b657a3fb4a36c5e8193b1da48b5d1256a1bf`.
+`8998984f0745ec0c3177597e8e1258ccdc45588742b06eae277ffb8d8f2d6d0f`.
 V1 rendering remains byte-identical.
 
 Replay first acquires a shared lock on the same permanent run-level lease used
 exclusively by run/recover/finalize, then has one ordered fact chain:
 
-1. strictly parse the summary and match the required externally supplied summary
-   SHA-256;
+1. open the already-existing permanent run-level lease read-only without
+   `O_CREAT`, then strictly parse the summary and match the required externally
+   supplied summary SHA-256;
 2. walk by directory FD, `fstat` and hash the complete run-root inventory before
    opening the store and
    reject missing, extra, renamed, linked, special, or mismatched artifacts;
 3. recompute every command receipt from its canonical JSON and raw stdin/stdout/
-   stderr, validate every stage operation's exact writer argv and raw
-   manifest-bound stdin, and
+   stderr, validate every direct multipart operation's exact `/usr/bin/curl
+   --disable` argv, manifest-bound filename/type, and raw stdin, and
    recompute every inspect receipt and strict raw HostConfig plus raw `Config.Env`
    projection from its recorded inspect stdout, every cleanup receipt,
    verified-fixture-set, resource ownership, success intent, preflight, seal,
@@ -1201,7 +1216,7 @@ classified baseline log against the ratified runtime base as defined below:
 53. `test_er3_host_config_forbids_privilege_caps_devices_namespaces_and_binds`
 54. `test_er3_private_shm_and_all_mutable_paths_are_isolated`
 55. `test_er3_rejects_ambient_store_live_provider_proxy_and_existing_output`
-56. `test_er3_query_transfer_search_and_removal_happen_exactly_twice`
+56. `test_er3_query_direct_upload_search_happens_exactly_twice`
 57. `test_er3_critical_provenance_preimages_and_golden_digests_are_pinned`
 58. `test_er3_visual_only_ruleset_does_not_copy_supplier_duplicate_verdict`
 59. `test_er3_live_success_rejects_zero_repeated_or_unbound_digest_placeholders`
@@ -1245,7 +1260,7 @@ classified baseline log against the ratified runtime base as defined below:
 97. `test_er3_gate_a_collects_classified_nodes_without_src_or_runner_changes`
 98. `test_er3_python_bootstrap_rejects_shadow_src_pythonhome_user_site_and_pth`
 99. `test_er3_private_docker_copy_blocks_source_rename_between_check_and_spawn`
-100. `test_er3_stage_writer_rejects_short_trailing_hash_existing_path_and_metadata_drift`
+100. `test_er3_direct_multipart_stdin_rejects_hash_size_trailing_and_filename_drift`
 101. `test_er3_raw_config_env_rejects_duplicate_unknown_missing_order_and_value_drift`
 102. `test_er3_external_json_rejects_underflow_overflow_and_lossy_binary64_numbers`
 103. `test_er3_revision_one_binds_python_binary_socket_parent_and_owner_id_for_recovery`
@@ -1277,6 +1292,22 @@ the JSON report must show setup/teardown pass, call fail, and exact longrepr
 generic assertion/exception, wrong marker, deselection, skip, xfail, xpass,
 unexpected pass/fail, duplicate, or unclassified node is invalid evidence.
 
+The runtime-base result uses a fresh detached worktree whose observed `HEAD`
+equals `af72d0ec02b5d2dc1d92508539bc89ba857245a8` and whose tracked, index, and
+untracked state is clean before overlay. From the exact owner-accepted Gate-A Git
+object, it overlays only the blob at
+`tests/unit/test_review_reuse_er3_archive.py`; no contract, fixture, verifier,
+workflow, helper, runtime, or source path may be copied into that worktree. The
+verifier executes from a separate read-only export of its exact accepted-head Git
+blob, and reads the ratified contract from the exact design-lock Git object
+outside the base worktree. Reports, bytecode, and pytest cache remain outside the
+worktree; `PYTHONDONTWRITEBYTECODE=1` and disabled pytest cache are mandatory. A
+separate clean detached worktree at the accepted Gate-A head runs the same test
+file without overlay. Evidence records both observed heads/statuses and the Git
+blob IDs plus raw SHA-256 values of the test, verifier, and contract; a branch
+name, PR lookup, caller-supplied SHA, dirty base, second overlay path, or in-tree
+report/cache is invalid evidence.
+
 The only classifier implementation is
 `tests/verification/review_reuse_er3_contract_verifier.py`. Gate A runs it with the
 ratified contract path, exact runtime-base SHA, collected-node JSON, and pytest
@@ -1284,9 +1315,11 @@ report JSON; it emits one strict
 `review-reuse-er3-gate-a-verification-v1` JSON object containing the baseline SHA,
 the 106/104/2 runtime-base and 106/100/6 Gate-A-head counts, every classified
 entry and exact marker, zero skipped/xfail/unclassified values, and an aggregate
-`valid=false` fail-first result for both phases. It must hardcode the owner-
-ratified contract canonical/raw digests; reading expected values solely from the
-contract's own self-digest is forbidden.
+`valid=false` fail-first result for both phases. It binds the observed base and
+Gate-A heads, clean-state proofs, exact single overlay path, and all three Git
+blob/raw-byte identities above. It must hardcode the owner-ratified contract
+canonical/raw digests; reading expected values solely from the contract's own
+self-digest is forbidden.
 
 Within the fixed 106 node IDs, tests 67, 79-81, 84, 86, 97, 104, and 106 are
 parameterized to cover respectively out-of-band Gate-C integrity, closed store/
@@ -1297,7 +1330,7 @@ extra unclassified node substitutes for these required parameter sets.
 
 At least one mutation case must make each Python import, locality, private Docker
 binary/endpoint/argv/stdin, fresh-inspection, raw HostConfig/Config.Env, fixture-
-descriptor/tar, fixed-query, continuous-seal, chronology/recovery/finalization,
+descriptor/direct-stdin, fixed-query, continuous-seal, chronology/recovery/finalization,
 resource-ownership, artifact-inventory, lossless-number, canonical-preimage,
 Markdown, ruleset, and replay guard fail;
 asserting only happy-path output is insufficient. Renaming, weakening, deleting,
@@ -1328,6 +1361,13 @@ exact head must descend from the ratified design-lock head and retain an aggrega
 nonzero test result with every one of the 106 nodes classified as expected-red or
 expected-existing-pass. It is evidence for a later owner decision, not a mergeable
 or production-ready head.
+
+The Gate-A workflow must implement the exact external-verifier/single-test-file
+overlay protocol in §7 and the machine contract. Its runtime-base checkout may
+contain no Gate-A file other than that one test blob, while the Gate-A-head phase
+uses a separate clean checkout. Any shortcut that runs both reports from the
+Gate-A worktree or trusts a claimed SHA instead of observed Git state fails the
+gate.
 
 ### 8.2 Gate B: mock-backed runtime implementation
 
@@ -1419,8 +1459,8 @@ ER3 is complete only when all of the following are true at one exact head:
 - the runtime manifest matches §4 digest
   `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf`;
 - the v2 contract and golden digests remain
-  `6ea8dd50bb825c763542a376d9e5fdf52a3c4234c30828b8bc213cc49e6823b7`
-  and `cf70bf614b3552f89d5d8e99afc27c0ede8a0952409978ed628f3a0918c88c0b`;
+  `c31748c5b292032f02c5b239eb87348e70d93342baac4cbf17b63515ac920b0c`
+  and `422e23da3589b24a5539a3d6546cac98ba692046ea14930b179dd9f7fe1b9f7f`;
 - existing ReviewReuse, identity, production-preflight, and core-fast suites are
   green without skips added for this tranche;
 - an approved real private service run indexes the archive and searches the
