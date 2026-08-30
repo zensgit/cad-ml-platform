@@ -27,8 +27,8 @@ implementation, merge, decision enablement, deployment, pilot, or customer data.
 | Embedded manifest proposal canonical digest; no manifest file exists at this docs-only head | `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf` |
 | Static attestation digest | `4707f793f3597ebe12da4c6474bbb25208ccd9b1de48920a27c5ca083babe6cd` |
 | Static attestation raw file SHA-256 | `5d7e15aa82d714ad371e106deb3c6310cfc82c3062731392bfb3a6c2db175d94` |
-| EvidencePack v2 contract digest | `867b8f03f6aad36dd9d9a5a097ff350564337afa834fa0a32799e9bad7ba7dbd` |
-| EvidencePack v2 contract raw file SHA-256 | `89bf13de1011f426291e1524102116d13b3e122ba7089b99db5dd3e2c1819eda` |
+| EvidencePack v2 contract digest | `2aaa059dfc6609da2f14da5d487fd9b9ef3b111c65cbab9a5d9a9cd4d2e82a95` |
+| EvidencePack v2 contract raw file SHA-256 | `ef82f65da6679d2a643061cc4b84e6ad704877790de956fcf486f4066ed87037` |
 | Embedded EvidencePack golden digest | `422e23da3589b24a5539a3d6546cac98ba692046ea14930b179dd9f7fe1b9f7f` |
 | Verified fixture-set golden digest | `536113fa48ac2f692635959bd5f1d0f8ac92faff1fc8ab9f27679a5f474e51b1` |
 | Vision OCI index | `sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251` |
@@ -396,19 +396,50 @@ One advisory model reopened fixture bytes contrary to the review constraint; tha
 observation is excluded from current evidence. Kimi K3, Grok 4.6, and Fable 5
 again produced no usable final review because of quota, retry, or budget failures.
 
-The current docs-only revision responds with exact Git commit/tree/ancestry
+Head `527a5e8f682106188aa203aa51e25602fb78e553` responded with exact Git commit/tree/ancestry
 receipts, empty-root Git-object materialization, an unprivileged OS-enforced
 read-only pytest environment, formal Gate-A and Gate-B report schemas, and a Gate-B
 freeze over design/contract/attestation/workflow/test/manifest/all synthetic
 fixtures/verifier. Both gate reports also bind closed Git path-delta sets. Recovery gains
 only two narrowly bounded paths: three non-destructive discovery lists before
 container-create could have run, and a no-Docker task CAS after a fully durable
-verified-absent cleanup. Partial, nonzero, ambiguous, or uncertain cleanup remains
-manual and fail-closed. These are proposed contracts, not runtime observations.
+verified-absent cleanup. Partial or ambiguous cleanup remains evidence-incomplete;
+known command failure remains cleanup-failed. Both require manual handling and are
+fail-closed. These are proposed contracts, not runtime observations.
+
+Independent exact-head review of `527a5e8f...` by Sol, Terra, Luna, Sonnet 5, and
+Opus 5 then found another contract-only tranche. Git replacement/graft/shallow
+views could escape the claimed ancestry proof; a read-only source mount did not
+close Python/import or fixture-byte access; the Gate-A report had an in-commit
+fixed-point ambiguity and no immutable owner acceptance channel; Gate B named four
+singleton artifacts while listing more; nested report fields lacked complete
+types/nullability and digest preimages; recovery could classify the same nonzero
+cleanup prefix two ways; and pytest had no separate writable scratch root. Kimi K3
+returned a weekly-quota 403, Fable 5 exhausted its bounded budget, and Grok 4.6
+ended after disk/provider failures; none supplied a usable review.
+
+The current candidate closes those findings without opening runtime scope. Every
+Git command is quarantined with no replacement/graft/shallow view and every used
+SHA-1 object is independently recomputed and raw-walked. Both phases run through a
+closed Python 3.11 import map with fixture-deny and separate scratch/supervisor
+roots. Gate A emits a strict out-of-commit candidate report and an eight-singleton-
+plus-strict-JSON artifact set; only a later owner-protected Gate-B input can accept
+its exact raw, full-canonical, self-excluding verification, archive, and artifact-
+set digests. Gate B compares that frozen set in a separate comparison object rather
+than requiring two different preimages to share one digest. Cleanup now has three
+mutually exclusive outcomes: unknown pre-create ownership is evidence-incomplete;
+a durable nonzero command or final labeled-resource residue is cleanup-failed; only
+complete zero-residue evidence is verified-absent and eligible for the no-Docker
+failed-task CAS. These are still proposed contracts, not runtime observations.
 
 ## 6. Commands and results
 
-The static verification used read-only commands equivalent to:
+The recorded verification commands are shown below. The source and fixture reads
+belong to the initial static pass and were not repeated during the current
+hardening. The temporary closure verifier reads only the three governance documents
+and embedded JSON vectors. `make pre-commit` is a soft, non-blocking repository
+target and is recorded separately; it is not treated as inherently read-only or as
+ER3 gate evidence.
 
 ```bash
 git -C <dedupcad-vision-source-checkout> show \
@@ -435,7 +466,7 @@ PYTHONDONTWRITEBYTECODE=1 /opt/homebrew/bin/python3.11 -m pytest -q \
   tests/unit/test_review_reuse_er1_store_integrity.py
 PYTHONDONTWRITEBYTECODE=1 /opt/homebrew/bin/python3.11 -m pytest -q \
   -p no:cacheprovider tests/unit/test_review_reuse_*.py
-# A temporary no-fixture verifier independently recomputed 84 named closure
+# A temporary no-fixture verifier independently recomputed 128 named closure
 # categories and all 49 command-receipt preimages from the checked-out JSON.
 # A localhost-only HTTP harness sent 36 synthetic bytes through:
 /usr/bin/curl --disable --form \
@@ -458,17 +489,21 @@ Results:
   receipts, 24 distinct inspection receipts, cleanup-command receipts,
   continuous seal, EvidencePack, deterministic Markdown, run summary, and
   whole-contract golden preimages recomputed to their stored digests;
-- the earlier read-only cross-artifact verifier passed `30/30` closure categories,
-  then `42/42`, `65/65`, and the current hardened verifier passed `84/84`, including
+- the earlier no-fixture cross-artifact verifier passed `30/30` closure categories,
+  then `42/42`, `65/65`, and `84/84`; the current hardened verifier passed
+  `128/128`, including
   contract/attestation self digests, exact closed store/control/environment/journal
   inventory, trusted Git/output-parent controls, atomic journal/summary publication,
   persistent shared/exclusive lease semantics, mutually exclusive root
   classification, the 106-entry Gate-A matrix with exact 104-red/2-existing-pass
   runtime-base and 100-red/6-pass Gate-A-head splits, exact Git object/ancestry
   receipts, one-test-file baseline overlay, read-only unprivileged execution roots,
-  strict Gate-A/Gate-B report schemas, closed per-gate Git path deltas, frozen
-  design/contract/attestation and Gate-B semantic artifacts, direct appuser
-  multipart stdin transport, three recovery cleanup branches, read-only replay
+  strict Gate-A/Gate-B report schemas with one-to-one field/type maps, closed per-
+  gate Git path deltas, candidate-vs-accepted authority separation, distinct Gate-A
+  artifact-set and Gate-B comparison digests, frozen design/contract/attestation
+  and Gate-B semantic artifacts, direct appuser
+  multipart stdin transport, four recovery selectors with fixed 3/3/4/5-command
+  shapes, read-only replay
   lease, and every downstream digest;
 - machine-readable receipt derivation passed `49/49`: all nine setup,
   12 operation, 24 fresh-inspection, and four cleanup receipts recomputed from
@@ -494,9 +529,11 @@ Results:
   authorize cleanup. A normal pending command first becomes immutable
   `interrupted_command`; then only one 3/4/5-command branch may run. A pre-create
   branch can only list three resource classes and never delete. A fully complete
-  verified-absent branch may resume only the failed-task CAS with zero Docker;
-  every partial, nonzero, ambiguous, or uncertain cleanup requires separately
-  authorized manual handling rather than an automated retry;
+  verified-absent branch may resume only the failed-task CAS with zero Docker. A
+  durable nonzero command or exact final labeled-resource residue is uniquely
+  `archive_cleanup_failed`; a prepared-only, partial, ambiguous, or uncertain
+  shape is uniquely `archive_run_recovery_evidence_incomplete`. Both require
+  separately authorized manual handling rather than an automated retry;
 - the filesystem store is a closed one-tenant/one-task/optional-index inventory;
   its permanent writer-lease path and locked FD must retain the same validated
   inode while the export-freeze remains held through summary parent fsync;
@@ -542,16 +579,14 @@ Therefore none of the following is claimed:
 - image startup, PNG decoding, real index receipts or receipt-set digests, rebuild,
   search, cleanup, or replay.
 
-Across earlier snapshots, Sol, Terra, Luna, and the Claude CLI models supplied
-advisory reviews. On `aa11654d...`, Sol/Terra/Luna and Sonnet returned results;
-Opus and Fable did not run because the configured CLI budget was insufficient.
-Kimi K3 returned a weekly-quota 403 and supplied no result. Grok 4.6 reached
-source inspection but ended in provider network failure and supplied no final
-finding. Failed or unavailable invocations are not counted as reviews.
-Direct source checks, not model agreement alone, drive corrections. Both
-`657b27d1...` and `aa11654d...` were `REQUEST_CHANGES`, not approvals; a separate
-read-only review of the next exact head is required before ratification. None of
-these model reviews is runtime verification.
+Across earlier snapshots, Sol, Terra, Luna, Sonnet 5, and Opus 5 supplied advisory
+reviews. All five returned usable findings for `527a5e8f...`; none was treated as
+approval. Kimi K3 returned a weekly-quota 403, Fable 5 reached its bounded budget
+without a final result, and Grok 4.6 stopped after local disk pressure and provider
+connection failures. Failed or unavailable invocations are not counted as reviews.
+Direct contract checks, not model agreement alone, drive corrections. A separate
+read-only review of the next exact head is required before ratification, and none
+of these model reviews is runtime verification.
 
 ## 8. Static conclusion
 
