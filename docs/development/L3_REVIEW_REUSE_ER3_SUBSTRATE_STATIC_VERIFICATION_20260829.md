@@ -25,11 +25,11 @@ implementation, merge, decision enablement, deployment, pilot, or customer data.
 | Static attestation | `L3_REVIEW_REUSE_ER3_VISION_SUBSTRATE_ATTESTATION_20260829.json` |
 | EvidencePack v2 contract | `L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json` |
 | Embedded manifest proposal canonical digest; no manifest file exists at this docs-only head | `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf` |
-| Static attestation digest | `524829459cdbb2d45d507bffe0598fc7918266cce4e7bcfa43fdf4b5181e803f` |
-| Static attestation raw file SHA-256 | `c9782fc38c9608f79d888d81c40f4e07eb8f518f76242fbb6566caa82f38aa6c` |
-| EvidencePack v2 contract digest | `edc13f1ce4d8ee72d9e5aec2c686958050726ef17ee64813ad34f67cb44d2c77` |
-| EvidencePack v2 contract raw file SHA-256 | `ac3097d25bbb26444337258a47665c20e0f4eb88698a9c7652e76bae641ae9b6` |
-| Embedded EvidencePack golden digest | `285d68826a9addae41d949d0b45a077e5dd7dd27d7b30eb327e72dca2db6de63` |
+| Static attestation digest | `77c60489bf6ff50e96f6fadcf123e55f5a652361c5a3af5591f46e7df61b7484` |
+| Static attestation raw file SHA-256 | `64c933725eb02c23f4284bf6a948c8309d7fefbfec489e6bd7c62eef41a8d4b2` |
+| EvidencePack v2 contract digest | `8817647bb629f83ddf1c56e8a707de3a1e1fae8c3f26e522f2a1cc63a6e744ba` |
+| EvidencePack v2 contract raw file SHA-256 | `ef8fc9e9c0a826675c3c953d44359799c850277d72d84468f713622365f38663` |
+| Embedded EvidencePack golden digest | `defad64d0e51d8c475ee9b881b3e8603a38300d0f489f0b83421ae2d102e402e` |
 | Verified fixture-set golden digest | `536113fa48ac2f692635959bd5f1d0f8ac92faff1fc8ab9f27679a5f474e51b1` |
 | Vision OCI index | `sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251` |
 
@@ -45,15 +45,19 @@ quality or runtime evidence. The critical provenance vectors are:
 | Post-index search response receipt | `b4ff738ada27842e09ff22791b52cc504860f589d23e6cbcc18bc9e542975602` |
 | Service identity | `b9defaaa4689ea63652663cc5431c8c431a23a89d31f4f0227908ee49278660e` |
 | Score-mapping ruleset | `ccee15b504054a1cd3def3f6531babbc41a72742d3d2dbb8e35efd57337afd11` |
-| Reviewed command | `3bf9772d4296c728b9725ae97cba18e826fd11a7b811795f78b19874fd3ce570` |
+| Python/import control | `586aedad7a722501f751b48926fb757464058bb3213d9b9994deae967c238915` |
+| Reviewed command | `2f0394cef55cec77dfaca3aa20c5f6c8501d0827080b8fc19a3238d76702bf91` |
 | Docker socket identity | `494b331e50b32565a2d20eda74afc69a5cb698e53be47363701046b9ab80d850` |
 | Raw HostConfig v1.43 | `9ab001ac45b9fdbedb61dc2180864659298ed5acda1f28333a8196824cea3bae` |
-| Docker control plane | `d1244eebbe0692815ca6d3fd4b4c7ef4bb2fcd1a7946a1c1a362ed4a19f5f715` |
-| Strict runtime inspect projection | `4049ca2cd23bdf6dc28232acdb16392de18998dbcdf1afc50278fda03d4aba4e` |
-| Runtime preflight | `b359048dba66b587e30e002375d29c794459a5f153bbffaf43fd45966dce90f4` |
-| Continuous runtime seal | `225f042bea06120960143f5b683a0eec1ac05f3ecddf095e0ca9f147bc0285ba` |
-| EvidencePack v2 Markdown bytes | `18442928731bc898ff8e6fd9ff2722e607ca18a8a166db3f08a35769ffb42e8e` |
-| Run-summary golden vector | `841a21be3c9da5591d1732be0f1bd95c6e82acd705d6d6fc33f74d9d1cb19dba` |
+| Raw Config.Env | `cad77eb9bd322cb3082639d8e287f488afc85d2e03d2cb56922698cf63018a19` |
+| Resource ownership | `16aab6c71ec7d2fbb443e6e2e0d57b29055c0bfd3f0b7b0eacaed71c18c1250b` |
+| Docker control plane | `d96befb4e6b7c3952a8dce22d269fda9d6b8747654417d3f5ef0cb9e5080d5a5` |
+| Strict runtime inspect projection | `c907c2aa218065321eba9ac471a4436286f363632809fcbd8c15a8c6838cf927` |
+| Runtime preflight | `f62ccc130ec28b47c0e8125fdc32e73cfb92faedb69e5b2675e6f4d6227dd22e` |
+| Continuous runtime seal | `d9ca54ef8f9e13ef4163aa587d74dedaffaf7efefeb90f9478d9996218f5f45d` |
+| EvidencePack v2 Markdown bytes | `6cd0ca34a0d7e30160a993e2cf0343c095e91569624b5a83f568ab7cbb42a4da` |
+| Success-intent golden vector | `eb647504e2fa6e7fefb1e61e070ebf7ada63a468eaffff8e64eb026dbb506050` |
+| Run-summary golden vector | `9e636edbdb2225ddb59f723734c1766f97da4b0c5b4aecdbfe6bbc52d1c0788b` |
 
 ## 2. OCI and source binding
 
@@ -297,7 +301,11 @@ fixture reads, complete Docker command/inspection receipt chains, expanded close
 HostConfig, exact run-summary inventory, and deterministic Markdown. It also binds
 the required ancestry as #584 runtime base -> ratified design-lock head ->
 implementation head. These are proposed contracts only. No ER3 test, runtime
-module, Docker operation, fixture read, or owner action was performed.
+module, Docker operation, runtime fixture transfer/decoding/index/search, or owner
+action was performed. The static verification read the three tracked fixture files
+only to compute the sizes and SHA-256 values recorded in §3 and to reconstruct the
+deterministic in-memory ustar serialization vectors. It did not decode an image,
+load a model, build an index, call search, or expose fixture bytes to a runtime.
 
 An exact-head Sol/Terra/Luna review of `657b27d1e294c8ca85d4cd4fb000e959c84fcd05`
 then rejected ratification because running tasks had no revision-1 run binding,
@@ -352,17 +360,24 @@ Results:
   receipts, 44 distinct inspection receipts, cleanup-command receipts,
   continuous seal, EvidencePack, deterministic Markdown, run summary, and
   whole-contract golden preimages recomputed to their stored digests;
-- a read-only cross-artifact verifier passed `104/104`, including contract and
+- a read-only cross-artifact verifier passed `224/224`, including contract and
   attestation raw/self digests, the API-v1.43 raw HostConfig key closure,
-  revision-bound fixture-set, exact Docker child environment, six setup command
+  revision-bound fixture-set, exact Docker child environment, nine setup command
   receipts, all operation/inspection/cleanup receipts, artifact-family counts,
-  97 named tests, and docs-only changed-path scope;
+  106 named tests, and docs-only changed-path scope;
+- a separate machine-readable receipt-derivation verifier passed `81/81`: the
+  contract itself now exposes the exact operation argv/environment/stdin/exit/
+  stream derivation plus complete inspect and cleanup command preimages, so all
+  22 operation, 44 inspect, and four cleanup digests can be recomputed without
+  relying on an unstated generator convention;
 - source paths and endpoint semantics above matched exact revision `2fc35d60...`;
-- the design names 97 unique fail-first/regression tests and preserves public DXF/v1 behavior;
+- the design names 106 unique fail-first/regression tests and preserves public DXF/v1 behavior;
 - the existing canonical, EvidencePack golden, and ER1 store-integrity regression
   selection passed `121/121` under Python 3.11;
 - the complete existing ReviewReuse unit selection passed `222/222` under Python
   3.11; only seven pre-existing ezdxf/pyparsing deprecation warnings were emitted;
+- the current docs-only PR checks are not the future Gate-A fail-first workflow and
+  provide no evidence that the proposed 106-node matrix has been implemented;
 - no runtime code was modified by this static tranche.
 
 An initial invocation through `/usr/bin/python3` used Python 3.9.6 and failed in

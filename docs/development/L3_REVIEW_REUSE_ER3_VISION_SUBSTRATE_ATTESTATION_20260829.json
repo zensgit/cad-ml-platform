@@ -1,7 +1,7 @@
 {
   "schema_version": "review-reuse-er3-vision-substrate-attestation-v1",
   "attestation_status": "static_verified_runtime_unverified",
-  "attestation_sha256": "524829459cdbb2d45d507bffe0598fc7918266cce4e7bcfa43fdf4b5181e803f",
+  "attestation_sha256": "77c60489bf6ff50e96f6fadcf123e55f5a652361c5a3af5591f46e7df61b7484",
   "image": {
     "reference": "ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
     "index_digest": "sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
@@ -31,7 +31,17 @@
       "subject_version": "1.1.1",
       "reproducible": false,
       "materials_complete": false
-    }
+    },
+    "config_environment_exact": [
+      "PATH=/opt/venv/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      "LANG=C.UTF-8",
+      "GPG_KEY=A035C8C19219BA821ECEA86B64E628F8D684696D",
+      "PYTHON_VERSION=3.11.14",
+      "PYTHON_SHA256=8d3ed8ec5c88c1c95f5e558612a725450d2452813ddad5e58fdb1a53b1209b78",
+      "PYTHONUNBUFFERED=1",
+      "PYTHONDONTWRITEBYTECODE=1",
+      "PYTHONPATH=/app/src"
+    ]
   },
   "source_contract": {
     "working_directory": "/app",
@@ -377,15 +387,18 @@
       },
       "docker_binary_policy": {
         "argument": "required absolute --docker-bin",
-        "resolution": "resolve once to a canonical realpath and open the final target with O_RDONLY|O_CLOEXEC|O_NOFOLLOW",
-        "required_type": "regular executable not group-writable or other-writable",
-        "identity": "bind canonical realpath and SHA-256; recheck the opened target SHA-256 before every Docker subprocess",
-        "post_resolution_argv": "argv[0] is the verified realpath and argv[1:3] is exactly [--host, <Gate-C endpoint>]; PATH lookup, --context, credential-helper use, and shell execution are forbidden"
+        "source_resolution": "walk the complete parent chain by trusted directory FD, open the final target with O_RDONLY|O_CLOEXEC|O_NOFOLLOW, require a regular executable not group/other writable, and match the Gate-C parent-chain and source SHA-256",
+        "private_copy": "before revision 1 copy only bytes from the opened source FD to <run-root>/control/docker using exclusive create, mode 0500, file and directory fsync; reopen relative to the retained mode-0700 control-directory FD and bind canonical path, device, inode, mode, size, and SHA-256",
+        "execution": "the source path is never executed; argv[0] is always the private copy, immediately revalidated before each spawn; source/private rename, identity, mode, size, or digest drift fails",
+        "trust_boundary": "the private parent is writable only by the trusted runner UID; same-UID compromise is outside the boundary",
+        "post_resolution_argv": "argv[1:3] is exactly [--host, <Gate-C endpoint>]; PATH lookup, --context, credential-helper use, and shell execution are forbidden"
       },
       "command_receipt_exact_fields": [
         "operation",
         "argv",
         "environment_sha256",
+        "stdin_sha256",
+        "stdin_size_bytes",
         "exit_code",
         "stdout_sha256",
         "stderr_sha256"
@@ -398,6 +411,7 @@
         "REVIEW_REUSE_LIVE_DEDUP",
         "REVIEW_REUSE_DECISIONS_ENABLED",
         "DEDUPCAD_VISION_URL",
+        "PYTHON*",
         "HTTP_PROXY",
         "HTTPS_PROXY",
         "ALL_PROXY",
@@ -405,8 +419,8 @@
         "https_proxy",
         "all_proxy"
       ],
-      "output_contract": "--out is created relative to a trusted parent directory FD with O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW component walking; the final run root must not exist, is created mode 0700, reopened by directory FD, and contains the store and every export",
-      "existing_output_policy": "fail",
+      "output_contract": "--out is resolved relative to a trusted parent directory FD under the external run-level lease; a new mode-0700 run root is created exclusively, while an existing root is handled only as initialization-incomplete failure, exact revision-1 resume, revision-2/3 recover-only, revision-4 finalize-only, complete, or mismatch under the EvidencePack v2 classifier",
+      "existing_output_policy": "new runs require nonexistence; a partial initialization is never resumed or deleted by er3-run, and every existing root is handled only by the closed lifecycle classifier",
       "ambient_factory_policy": "the ER3 path constructs its store and vision control explicitly and never calls an environment-selected store or live-dedup factory"
     },
     "host_data_mounts": [],
@@ -643,13 +657,60 @@
       "unknown_or_missing_source_key_policy": "fail before fixture byte open; no source key may be silently dropped",
       "raw_digest_policy": "canonical_sha256 of the complete strict source object is retained in the initial and every continuous inspect projection; raw inspect stdout remains a required replay artifact"
     },
+    "config_env_source_contract": {
+      "source_array": "docker inspect[0].Config.Env",
+      "image_prefix": "image.config_environment_exact",
+      "fixed_runtime_suffix": [
+        "S3_ENABLED=false",
+        "EVENT_BUS_ENABLED=false",
+        "EVENT_BUS_USE_LOCAL=true",
+        "ML_PLATFORM_ENABLED=false",
+        "GEOMETRIC_ENABLED=false",
+        "OTEL_ENABLED=false",
+        "RATE_LIMIT_ENABLED=false",
+        "RATE_LIMIT_STORAGE=memory",
+        "PROMETHEUS_ENABLED=false"
+      ],
+      "exact_runtime_array": [
+        "PATH=/opt/venv/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "LANG=C.UTF-8",
+        "GPG_KEY=A035C8C19219BA821ECEA86B64E628F8D684696D",
+        "PYTHON_VERSION=3.11.14",
+        "PYTHON_SHA256=8d3ed8ec5c88c1c95f5e558612a725450d2452813ddad5e58fdb1a53b1209b78",
+        "PYTHONUNBUFFERED=1",
+        "PYTHONDONTWRITEBYTECODE=1",
+        "PYTHONPATH=/app/src",
+        "S3_ENABLED=false",
+        "EVENT_BUS_ENABLED=false",
+        "EVENT_BUS_USE_LOCAL=true",
+        "ML_PLATFORM_ENABLED=false",
+        "GEOMETRIC_ENABLED=false",
+        "OTEL_ENABLED=false",
+        "RATE_LIMIT_ENABLED=false",
+        "RATE_LIMIT_STORAGE=memory",
+        "PROMETHEUS_ENABLED=false"
+      ],
+      "required_absent_names": [
+        "S3_ACCESS_KEY",
+        "S3_SECRET_KEY",
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "ALL_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "all_proxy"
+      ],
+      "parse_policy": "each array element is one non-empty NAME=value string split at the first equals sign; names are unique; exact order and values must equal exact_runtime_array before normalized projection",
+      "unknown_duplicate_missing_reordered_policy": "fail before fixture byte open and on every continuous inspection",
+      "raw_digest_policy": "canonical_sha256 of the exact source array is retained as raw_config_env_sha256 in the initial and every continuous inspect projection; raw inspect stdout remains replay evidence"
+    },
     "private_shm": {
       "kind": "private_tmpfs",
       "host_bind": false,
       "size_bytes": 67108864
     },
     "command_override": "uvicorn caddedup_vision.api.main:app --host 127.0.0.1 --port 8000",
-    "control_transport": "every Docker command uses the verified absolute binary, explicit Gate-C --host endpoint, exact API-version child environment, and revalidated socket identity; active/default context is never consulted; every command is represented by the closed command receipt and raw streams, and the service has no host TCP or Unix-socket publication",
+    "control_transport": "every Docker command uses the verified private executable copy, explicit Gate-C --host endpoint, exact API-version child environment, and revalidated socket identity; active/default context is never consulted; every command is represented by the closed command receipt and raw stdin/stdout/stderr streams, and the service has no host TCP or Unix-socket publication",
     "fixture_input_policy": {
       "source_path_prefix": "tests/vision/fixtures/cad_features/",
       "source_path_shape": "exactly one basename ending .png after the fixed prefix",
@@ -669,21 +730,21 @@
       "read_policy": "open repository root once, walk every component by directory-FD-relative openat and fstat, open each unique final source once, perform declared-size bounded reads plus one-byte EOF check, never reopen by path, and transfer the same immutable verified buffer",
       "verified_fixture_set": "canonical inputs/verified-fixture-set.json binds all four manifest entries, all three unique sources, observed sizes/digests, manifest order, entry/unique-source counts, and a self-excluding digest before any transfer"
     },
-    "fixture_transfer": "after runtime preflight only, each unique tracked source is securely opened once under fixture_input_policy; the complete verified-fixture-set digest is persisted before execute; fixed docker cp - receives a deterministic in-memory tar stream from those exact bytes; each archive entry is copied once and removed after its one index request, while the query buffer is copied and removed in two separate transfer/request pairs",
-    "control_operation_seal": "every Docker command has a closed exact-argv/exit/raw-stream-digest receipt whose canonical JSON and raw stdout/stderr are required artifacts; every drawing-affecting docker cp and docker exec is bracketed by distinct freshly executed inspect receipts whose command JSON, raw streams, raw HostConfig digest, globally unique observation sequence, and normalized strict projection are retained; equal projection digests are allowed but cached/replayed observations are not; each copy also binds the transferred content SHA-256; all ordered receipts are bound by runtime_seal_receipt_sha256",
+    "fixture_transfer": "after runtime preflight only, each unique tracked source is securely opened once under fixture_input_policy; the complete verified-fixture-set digest is persisted before execute; fixed docker cp - receives a deterministic exact one-regular-file POSIX ustar stream whose raw stdin bytes, size, whole-tar digest, member metadata, and transferred-content digest are retained; each archive entry is copied once and removed after its one index request, while the query buffer is copied and removed in two separate transfer/request pairs",
+    "control_operation_seal": "every Docker command has a closed exact-argv/environment/stdin/exit/stdout/stderr receipt whose canonical JSON and raw stdin/stdout/stderr are required artifacts; every drawing-affecting docker cp and docker exec is bracketed by distinct fresh inspect receipts whose command JSON, raw streams, raw HostConfig and Config.Env digests, globally unique observation sequence, and normalized strict projection are retained; equal projection digests are allowed but cached/replayed observations are not; each copy also binds whole-tar and transferred-content SHA-256; all ordered receipts are bound by runtime_seal_receipt_sha256",
     "outbound_probe": "docker exec first requires curl --version to exit 0, then invokes exactly source_contract.fixed_http_argv.no_egress_probe inside the empty network-none container; that argv is separate from common_prefix, has max-time 3 and write-out %{http_code} without a leading newline, and must exit 7 with stdout exactly 000 before fixture bytes are opened; timeout exit 28 fails and docker inspect NetworkMode none with no attachments remains authoritative",
     "published_port": null,
     "proxy_environment": "absent",
-    "cleanup": "remove the run-labeled container with docker rm -fv, then prove no run-labeled container, volume, or network remains; cleanup failure prevents a success receipt"
+    "cleanup": "after a nine-command setup whose first three receipts proved no resource with the exact run-id/resource-owner-id label pair existed, remove only the journaled or uniquely pair-labeled owned container with docker rm -fv, then prove no pair-labeled container, volume, or network remains; ambiguity or cleanup failure prevents terminalization/success"
   },
   "runtime_preflight": {
     "status": "required_not_run",
     "must_precede_fixture_byte_open": true,
     "required_observations": [
-      "the owner-authorized exact repository head, reviewed-command digest, and clean tracked/index/untracked state are verified before Docker endpoint validation",
-      "all seven parent Docker override/config/platform variables are absent; the Gate-C endpoint, socket identity, API version, selected platform, empty child config, and Docker binary identity are bound; active/default context is never consulted",
+      "the -I -S stdlib-only Python bootstrap, owner-authorized interpreter/dependency/import control, exact repository head, reviewed-process-argv digest, and clean tracked/index/untracked state are verified before any src import or Docker endpoint validation",
+      "all seven parent Docker override/config/platform variables and every PYTHON-prefixed variable are absent; the Gate-C endpoint/socket parent and identity, API version, selected platform, empty child config, source/private Docker binary identities, run/resource-owner IDs, nine setup receipts, and zero preexisting label sets are bound; active/default context is never consulted",
       "selected platform manifest, actual Docker image ID, and this canonical static-attestation digest match the owner-ratified values",
-      "the raw API-v1.43 HostConfig has exactly runtime_posture.host_config_source_contract keys and neutral/mapped values, its canonical digest is retained, and the normalized HostConfig exactly equals runtime_posture.normalized_host_config; process user is appuser, working directory is /app, and command argv equals the loopback-only override",
+      "the raw API-v1.43 HostConfig has exactly runtime_posture.host_config_source_contract keys and neutral/mapped values, raw Config.Env exactly equals runtime_posture.config_env_source_contract with unique names and required absences, both canonical digests are retained, and normalized HostConfig/integration projections equal the attestation; process user is appuser, working directory is /app, and command argv equals the loopback-only override",
       "all four explicit tmpfs targets, private /dev/shm, and read-only root are present",
       "no anonymous or host data volume is mounted",
       "NetworkMode is none and the container has no additional network attachment",
@@ -694,7 +755,7 @@
       "disabled integration flags and absent proxy variables match this attestation",
       "GET /api/stats reports total_drawings=0",
       "GET /health reports both in-memory index sizes=0",
-      "the runtime seal binds every Docker command/raw stream and fresh one-to-one inspect receipt/raw stream around drawing-affecting cp/exec operations; only after preflight are fixtures opened through directory FDs, the complete verified-fixture-set digest persisted, and immutable bytes used for the pre-index query"
+      "the runtime seal binds every Docker command raw stdin/stdout/stderr and fresh one-to-one inspect receipt/raw stream around drawing-affecting cp/exec operations; copy stdin is an exact replayable one-member ustar artifact; only after preflight are fixtures opened through directory FDs, the complete verified-fixture-set digest persisted, and immutable bytes used for the pre-index query"
     ]
   },
   "limitations": [
