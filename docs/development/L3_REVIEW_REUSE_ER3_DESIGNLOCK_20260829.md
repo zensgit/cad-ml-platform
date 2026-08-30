@@ -442,10 +442,13 @@ descriptor identity mismatch fails with no fixture transfer.
   four-command remove/container-list/volume-list/network-list branch; a possibly
   successful create without a durable ID starts with the fixed dual-label discovery
   and selects either a three-command zero-match branch or a five-command exact-one-
-  match branch. More than one match, malformed evidence, or any cleanup crash or
-  uncertainty fails as `archive_run_recovery_evidence_incomplete` with no further
-  automated Docker command. Every branch uses `receipts/cleanup`; no parallel
-  recovery-discovery namespace or unjournaled command exists.
+  match branch. Before create could have run, the no-ID branch is instead exactly
+  three non-destructive resource lists and never deletes. More than one match,
+  malformed evidence, or any partial/uncertain cleanup fails as
+  `archive_run_recovery_evidence_incomplete` with no further automated Docker
+  command. Only a complete verified-absent branch may re-enter, solely to perform
+  the failed-task CAS with zero Docker. Every branch uses `receipts/cleanup`; no
+  parallel recovery-discovery namespace or unjournaled command exists.
 - The required absolute `--docker-bin` source is resolved through the same
   directory-FD/no-symlink policy, including its complete parent chain, to a
   regular executable rejected if group/other writable. Its canonical realpath,
@@ -825,23 +828,33 @@ with one immutable selector:
   receipt-complete, journal-complete, and task-CAS crash boundary. Before cleanup,
   one legal journal-only successor must copy any normal pending command exactly
   into immutable `interrupted_command` and clear the active slot. Only a grammar-
-  accepted root with no prior cleanup may select one recovery branch: four
-  commands for a durable container ID, three commands after an exact zero-match
-  dual-label discovery, or five commands after exactly one matching container.
-  Ambiguous discovery performs no deletion. A completed branch proves every
+  accepted root with no prior cleanup may select one recovery branch. Before
+  container-create could have run and with no durable ID, recovery performs only
+  three non-destructive pair-label container/volume/network lists; any match stops
+  for manual handling and authorizes no delete. A durable container ID selects the
+  four-command remove/container-list/volume-list/network-list branch. If create may
+  have succeeded without a durable ID, exact zero-match discovery selects the
+  three-command branch, while exactly one matching container may select the
+  five-command discovery/remove/container-list/volume-list/network-list branch only
+  when all three initial setup zero proofs are complete. Ambiguous discovery or a
+  missing zero proof performs no deletion. A completed branch proves every
   container/volume/network resource absent and then CASes the interrupted task to
   `failed` with `code="archive_run_interrupted"`, `recovered=true`, and
-  `cleanup_status="verified_absent"`. Recovery never opens fixture bytes, calls
-  index/search, rebuilds evidence, or emits a success summary. If a crash occurred
+  `cleanup_status="verified_absent"`. If process death occurs after that complete
+  branch is durable but before task CAS, a later `er3-recover` may perform only the
+  failed-task CAS and issues zero Docker commands. Recovery never opens fixture
+  bytes, calls index/search, rebuilds evidence, or emits a success summary. If a crash occurred
   after an exact pre-revision-4 success-artifact prefix was fsynced, recovery keeps
   those immutable bytes as forensic artifacts but never exposes them as success,
   finalizes them, or permits replay-success from the failed task. A durable
-  nonzero cleanup result returns `archive_cleanup_failed`; a crash, prepared-only
-  group, uncertain result, malformed branch, or interruption after ordinary-
-  success cleanup begins returns `archive_run_recovery_evidence_incomplete`.
-  Neither state permits another automated Docker command. Further cleanup needs a
-  separately owner-authorized manual procedure. An in-process failure likewise
-  emits no success bundle and may persist `failed` only after verified cleanup.
+  nonzero cleanup result returns `archive_cleanup_failed`; a prepared-only, partial,
+  nonzero, uncertain, or malformed cleanup branch, or interruption after ordinary-
+  success cleanup begins, returns `archive_run_recovery_evidence_incomplete`.
+  Neither state permits another automated Docker command. The only resumable
+  post-cleanup shape is the exact complete verified-absent branch awaiting task CAS;
+  every incomplete shape needs a separately owner-authorized manual procedure. An
+  in-process failure likewise emits no success bundle and may persist `failed` only
+  after verified cleanup.
 - A persisted revision-4 task with an absent `run-summary.json` entry is
   `archive_run_finalize_required`, never an interrupted run. This is an ER3 CLI
   reason code, not a public API response. Only explicit `er3-finalize` may acquire
@@ -909,9 +922,9 @@ with one immutable selector:
 The complete v2 canonical contract is
 `docs/development/L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json`
 with contract digest
-`c31748c5b292032f02c5b239eb87348e70d93342baac4cbf17b63515ac920b0c`.
+`867b8f03f6aad36dd9d9a5a097ff350564337afa834fa0a32799e9bad7ba7dbd`.
 Its reviewed raw-file SHA-256 is
-`9a9fe32f8702ca80418b33767ec86466611c9b80c8a600a11586c25ad4c215ad`.
+`89bf13de1011f426291e1524102116d13b3e122ba7089b99db5dd3e2c1819eda`.
 It freezes exact object keys, types/nullability, list ordering, task context,
 unknown-field rejection, and digest exclusions. Its embedded golden vector has
 EvidencePack digest
@@ -1292,34 +1305,46 @@ the JSON report must show setup/teardown pass, call fail, and exact longrepr
 generic assertion/exception, wrong marker, deselection, skip, xfail, xpass,
 unexpected pass/fail, duplicate, or unclassified node is invalid evidence.
 
-The runtime-base result uses a fresh detached worktree whose observed `HEAD`
-equals `af72d0ec02b5d2dc1d92508539bc89ba857245a8` and whose tracked, index, and
-untracked state is clean before overlay. From the exact owner-accepted Gate-A Git
+The verifier first resolves runtime base, ratified design-lock head, and
+owner-accepted Gate-A head as commit objects, records all three commit/tree IDs,
+and retains exact receipts proving
+`runtime-base -> design-lock -> Gate-A` with `merge-base --is-ancestor`. A branch,
+tag, tree object, PR lookup, or author assertion is not authority. It materializes
+the runtime-base commit/tree Git objects into an empty execution root, rejecting
+pre-existing bytes, sparse/filter output, alternate object stores, and any
+skip-worktree or assume-unchanged flag. From the exact owner-accepted Gate-A Git
 object, it overlays only the blob at
 `tests/unit/test_review_reuse_er3_archive.py`; no contract, fixture, verifier,
-workflow, helper, runtime, or source path may be copied into that worktree. The
+workflow, helper, runtime, or source path may be copied into that execution root. The
 verifier executes from a separate read-only export of its exact accepted-head Git
 blob, and reads the ratified contract from the exact design-lock Git object
-outside the base worktree. Reports, bytecode, and pytest cache remain outside the
-worktree; `PYTHONDONTWRITEBYTECODE=1` and disabled pytest cache are mandatory. A
-separate clean detached worktree at the accepted Gate-A head runs the same test
-file without overlay. Evidence records both observed heads/statuses and the Git
-blob IDs plus raw SHA-256 values of the test, verifier, and contract; a branch
-name, PR lookup, caller-supplied SHA, dirty base, second overlay path, or in-tree
-report/cache is invalid evidence.
+outside the execution root. Before pytest, a privileged verifier proves an exact
+path/mode/blob/raw-SHA-256 materialization manifest, then runs pytest as a distinct
+unprivileged UID in an OS-enforced read-only mount namespace with reports, bytecode,
+and cache outside that root. The test process has no Git object-directory access,
+mount capability, sudo path, or writable tree bind; Gate-A tests and verifier do
+not open the three CAD fixture payloads. A second empty root is materialized from
+the accepted Gate-A commit and runs the same test without overlay under the same
+policy. Pre/post manifests, mount receipts, source status/index flags, test,
+verifier, and contract Git blob/raw identities must match. Dirty source state,
+writable execution bytes, a second overlay, pre/post drift, or in-tree reports are
+invalid evidence.
 
 The only classifier implementation is
 `tests/verification/review_reuse_er3_contract_verifier.py`. Gate A runs it with the
 ratified contract path, exact runtime-base SHA, collected-node JSON, and pytest
 report JSON; it emits one strict
-`review-reuse-er3-gate-a-verification-v1` JSON object containing the baseline SHA,
-the 106/104/2 runtime-base and 106/100/6 Gate-A-head counts, every classified
-entry and exact marker, zero skipped/xfail/unclassified values, and an aggregate
-`valid=false` fail-first result for both phases. It binds the observed base and
-Gate-A heads, clean-state proofs, exact single overlay path, and all three Git
-blob/raw-byte identities above. It must hardcode the owner-ratified contract
-canonical/raw digests; reading expected values solely from the contract's own
-self-digest is forbidden.
+`review-reuse-er3-gate-a-verification-v1` JSON object with exactly the fields and
+nested fields frozen in the machine contract. It contains the 106/104/2 runtime-
+base and 106/100/6 Gate-A-head counts plus exactly 212 phase-qualified classified
+entries, each retaining the matrix `reason_code`, failure boundary, observed
+pytest phases, and exact longrepr. The report has `valid=true` only when both
+pytest aggregates remain nonzero while every expected-red/pass, object, ancestry,
+materialization, immutable-mount, and digest proof succeeds. A zero pytest exit in
+either phase invalidates Gate A. The classifier namespace `reason_code` is only a
+Gate-A expectation label and is distinct from the runtime CLI failure vocabulary
+in §6. The verifier must hardcode the owner-ratified contract canonical/raw digests;
+reading expected values solely from the contract's own self-digest is forbidden.
 
 Within the fixed 106 node IDs, tests 67, 79-81, 84, 86, 97, 104, and 106 are
 parameterized to cover respectively out-of-band Gate-C integrity, closed store/
@@ -1353,7 +1378,7 @@ The first owner response may authorize only these new files:
 - `.github/workflows/review-reuse-er3-contract.yml` with the contract below;
 - `tests/verification/review_reuse_er3_contract_verifier.py`, the sole baseline
   classifier and canonical/digest verifier named above;
-- one Gate-A fail-first verification document.
+- `docs/development/L3_REVIEW_REUSE_ER3_GATE_A_FAIL_FIRST_VERIFICATION_20260830.md`.
 
 Gate A forbids changes to `src/`, `scripts/review_reuse_isolated_archive_run.py`,
 existing tests/fixtures, deployment, configuration, and runtime code. The Gate-A
@@ -1367,7 +1392,14 @@ overlay protocol in §7 and the machine contract. Its runtime-base checkout may
 contain no Gate-A file other than that one test blob, while the Gate-A-head phase
 uses a separate clean checkout. Any shortcut that runs both reports from the
 Gate-A worktree or trusts a claimed SHA instead of observed Git state fails the
-gate.
+gate. The same workflow and verifier must contain their Gate-B verification mode
+at Gate A; both become immutable inputs after the owner accepts that exact head.
+The verifier also records the exact design-lock-to-Gate-A Git diff tree. Every
+entry must be a new mode-`100644` regular blob at one of the five named singleton
+paths above or an additional synthetic fixture strictly below
+`tests/fixtures/review_reuse_er3/`; all five singletons and at least one additional
+synthetic fixture are required. Modification, deletion, rename, copy, mode change,
+symlink, submodule, or any other path invalidates Gate A.
 
 ### 8.2 Gate B: mock-backed runtime implementation
 
@@ -1399,16 +1431,24 @@ Gate B may authorize:
   create and decision request models and decision semantics remain unchanged
 - `config/openapi_schema_snapshot.json` for the newly documented task component;
   the named property-level test, not the snapshot alone, proves selector exposure
-- updates to the Gate-A test/workflow/verification files only to replace classified
-  expected-red results with passing assertions without renaming or removing nodes;
-- one Gate-B implementation/verification document.
+- no changes to the accepted Gate-A test, workflow, manifest, any regular file
+  below `tests/fixtures/review_reuse_er3/`, or contract verifier; the unchanged test
+  reaches runtime behavior supplied only by the authorized implementation files;
+- `docs/development/L3_REVIEW_REUSE_ER3_GATE_B_IMPLEMENTATION_VERIFICATION_20260830.md`.
 
 The branch must satisfy the complete ancestry chain:
 `af72d0ec02b5d2dc1d92508539bc89ba857245a8 -> <ratified-design-lock-head> ->
 <accepted-gate-a-head> -> <gate-b-implementation-head>`. Runtime implementation
 may not start from a parallel branch or skip the accepted fail-first commit.
+The accepted-Gate-A-to-implementation diff is closed as well: only the six
+pre-existing runtime/config paths and four new files named above may change, with
+status `M` limited to those existing paths and status `A` required exactly once for
+all three new modules plus the Gate-B verification document. Deletion, rename,
+copy, mode change, symlink, submodule, Gate-A artifact drift, or any other path
+invalidates Gate B.
 
-The workflow has `name: ReviewReuse ER3 Contract`, job id/name `er3-contract`, a
+The accepted, byte-identical Gate-A workflow has `name: ReviewReuse ER3 Contract`,
+job id/name `er3-contract`, a
 `pull_request` trigger with no `paths`/`paths-ignore` filter, `contents: read`,
 `fetch-depth: 0`, and no `continue-on-error`, failure masking, optional step, or
 shell suffix such as `|| true`. One gate step asserts the collected node-ID set is
@@ -1416,7 +1456,14 @@ exactly the 106 ratified names and that the run reports zero skipped, xfailed,
 xpassed, deselected, or collection errors. Separate exact commands run the
 canonical/digest verifier at
 `tests/verification/review_reuse_er3_contract_verifier.py` and the frozen
-ER1/ER2/v1 regression selection. The
+ER1/ER2/v1 regression selection. In Gate B, that verifier runs from the accepted
+Gate-A Git object outside the implementation execution root, revalidates the
+accepted fail-first report digest, freezes the workflow/test/manifest/every
+synthetic fixture/verifier by Git blob plus raw SHA-256, proves
+`Gate-A -> implementation` ancestry, and emits the strict
+`review-reuse-er3-gate-b-verification-v1` report. Its exact-object-materialized,
+read-only implementation run must report 106/106 pass with zero
+skip/xfail/xpass/deselect/collection/unclassified values. The
 verifier hardcodes the owner-ratified canonical and raw-byte digests rather than
 reading expected values only from each artifact's own self-digest field. Before
 merge can ever be considered, repository branch protection must independently
@@ -1459,7 +1506,7 @@ ER3 is complete only when all of the following are true at one exact head:
 - the runtime manifest matches §4 digest
   `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf`;
 - the v2 contract and golden digests remain
-  `c31748c5b292032f02c5b239eb87348e70d93342baac4cbf17b63515ac920b0c`
+  `867b8f03f6aad36dd9d9a5a097ff350564337afa834fa0a32799e9bad7ba7dbd`
   and `422e23da3589b24a5539a3d6546cac98ba692046ea14930b179dd9f7fe1b9f7f`;
 - existing ReviewReuse, identity, production-preflight, and core-fast suites are
   green without skips added for this tranche;

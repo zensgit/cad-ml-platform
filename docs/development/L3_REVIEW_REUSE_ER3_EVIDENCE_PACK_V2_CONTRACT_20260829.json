@@ -2,7 +2,7 @@
   "schema_version": "review-reuse-er3-evidence-pack-v2-contract-v1",
   "contract_status": "proposed_not_ratified",
   "runtime_authority": "none",
-  "contract_sha256": "c31748c5b292032f02c5b239eb87348e70d93342baac4cbf17b63515ac920b0c",
+  "contract_sha256": "867b8f03f6aad36dd9d9a5a097ff350564337afa834fa0a32799e9bad7ba7dbd",
   "canonicalization": {
     "algorithm": "sha-256",
     "function": "src.core.review_reuse.canonical.canonical_json_v1",
@@ -268,6 +268,7 @@
         "terminal_canceled",
         "terminal_failed",
         "revision_one_resume",
+        "recovery_cleanup_complete",
         "recovery_evidence_incomplete",
         "revision_two_or_three",
         "revision_four_without_summary",
@@ -283,7 +284,8 @@
       "revision_four_without_summary": "return archive_run_finalize_required only when run-summary.json is absent and the exact summary_publication candidate grammar is empty or recoverable; only er3-finalize may publish the intent-bound summary",
       "complete": "reject as already complete only after externally hash-bound summary and complete closed inventory validate; normalize only the exact same-inode summary-candidate crash state under the exclusive lease",
       "mismatch_or_unknown": "a preexisting unbound, malformed, mismatched, linked, special, or independently-inoded summary is included here and is never replaced; fail archive_run_authorization_mismatch or export_replay_mismatch without creating another root, mutating ordinary artifacts, or invoking Docker",
-      "recovery_evidence_incomplete": "an exact revision-2/3 root showing that er3-recover had already begun but crashed with a prepared-only cleanup command, that ordinary-success cleanup had already started but did not close, an incomplete recovery receipt group, malformed branch result, or ambiguous ownership returns archive_run_recovery_evidence_incomplete; no automated deletion, retry, task CAS, or Docker command is allowed and a separately owner-authorized manual cleanup is required"
+      "recovery_evidence_incomplete": "an exact revision-2/3 root showing that er3-recover or ordinary-success cleanup had started but did not reach the complete verified-absent branch recognized by recovery_cleanup_complete, or showing a prepared-only cleanup command, incomplete/nonzero cleanup receipt group, malformed branch result, nonzero pre-create discovery, or ambiguous ownership, returns archive_run_recovery_evidence_incomplete; no automated deletion, retry, task CAS, or Docker command is allowed and a separately owner-authorized manual cleanup is required",
+      "recovery_cleanup_complete": "an exact revision-2/3 running task with no active pending command, an immutable optional interrupted_command, one fully closed selected recovery cleanup branch, cleanup_status verified_absent, and zero final pair-labeled container/volume/network results returns archive_run_recovery_required; er3-recover may perform only the already-authorized task CAS to failed and no Docker, cleanup, fixture, or evidence command"
     },
     "pre_side_effect_inventories": {
       "classification_lock": "every root existence check, creation, classification, resume, recovery, finalization, inventory snapshot, and summary publication occurs while holding run_artifact_contract.run_level_lease outside the run root",
@@ -316,12 +318,13 @@
       "unknown_directory_or_file": "fail archive_run_authorization_mismatch without mutation"
     },
     "interrupted_run": {
-      "predicate": "v2 running task is revision 2 or 3, has immutable er3_run_binding and recall_started, has no terminal event, and the exact recovery_prefix_grammar validates",
+      "predicate": "v2 running task is revision 2 or 3, has immutable er3_run_binding and recall_started, has no terminal event, and the exact recovery_prefix_grammar validates either a no-cleanup normal prefix or a complete verified-absent recovery branch awaiting only task CAS",
       "automatic_retry_policy": "create retry, idempotency retry, restart, and ordinary er3-run never invoke prepare or execute again",
       "recovery_subcommand": "er3-recover",
-      "successful_recovery": "acquire the persistent-inode run-level lease then the store writer lease, validate every tenant/task/ER3RunBinding identity and the closed journal/receipt/phase-artifact prefix, atomically preserve any normal pending command as interrupted_command, then execute exactly one closed cleanup branch through the private Docker copy and bound socket; remove only a durable journaled container ID or the sole dual-label discovered ID, prove container/volume/network absence, retain any exact immutable pre-revision-4 success-artifact prefix as forensic bytes without publishing a summary, close the journal, and CAS to failed with code archive_run_interrupted, recovered true, cleanup_status verified_absent",
+      "successful_recovery": "acquire the persistent-inode run-level lease then the store writer lease, validate every tenant/task/ER3RunBinding identity and the closed journal/receipt/phase-artifact prefix, atomically preserve any normal pending command as interrupted_command, then execute exactly one closed cleanup branch through the private Docker copy and bound socket; remove only a durable journaled container ID or the sole dual-label discovered ID authorized by all three prior zero proofs, prove container/volume/network absence, retain any exact immutable pre-revision-4 success-artifact prefix as forensic bytes without publishing a summary, close the journal, and CAS to failed with code archive_run_interrupted, recovered true, cleanup_status verified_absent",
       "recovery_prohibitions": "never open fixture bytes, invoke index/search, rebuild evidence, or emit a success summary",
-      "cleanup_failure": "leave the task running and return archive_cleanup_failed when a complete nonzero cleanup result is durable; a crash or uncertain result after recovery starts returns archive_run_recovery_evidence_incomplete. Neither state permits another automated Docker command; further cleanup requires a separately owner-authorized manual procedure."
+      "cleanup_failure": "leave the task running and return archive_cleanup_failed when a complete nonzero cleanup result is durable; a crash or uncertain result after recovery starts returns archive_run_recovery_evidence_incomplete. Neither state permits another automated Docker command; further cleanup requires a separately owner-authorized manual procedure.",
+      "post_cleanup_finalization": "if process death occurs after the entire selected recovery branch and cleanup_status verified_absent are durable but before task CAS, a later er3-recover validates that exact closed state and performs only the failed-task CAS; it issues zero Docker commands and cannot alter the journal, receipts, forensic artifacts, or cleanup result"
     },
     "recovery_prefix_grammar": {
       "schema_version": "review-reuse-er3-recovery-prefix-grammar-v1",
@@ -374,10 +377,10 @@
         "task/task.json, evidence/evidence-pack.json, evidence/evidence.md, evidence/audit-bundle.json, and state/success-intent.json as an exact fsynced pre-revision-4 success-artifact prefix"
       ],
       "revision_three_valid_prefix": "exact revision-3 running task plus one exact prefix of revision_three_phase_artifact_order; normal command positions accept at most one journaled pending inspection or operation and its exact artifact-file prefix; before recovery cleanup starts that pending normal command may be moved byte-for-byte to interrupted_command by one journal-only successor; derived and success artifacts appear only at their named prerequisite boundary and a complete success-intent before the revision-4 CAS remains a recoverable revision-3 prefix; no revision-4 store task or run-summary exists",
-      "cleanup_prefix": "after the journal-only interrupted_command transition, recovery may append only the exact complete prefix of its selected 3-, 4-, or 5-command cleanup branch; normal success uses only the fixed four-command branch. A pending cleanup command follows the prepared/result_recorded/artifact-prefix protocol. If recovery crashes after any cleanup command is prepared, the next classifier returns archive_run_recovery_evidence_incomplete and never reruns or advances the branch.",
-      "ownership_authority": "destructive cleanup requires all three complete setup zero-proof list receipts plus either the durable created ID or the exact one-container sequence-1 discovery result matching both unguessable labels; zero discovery matches authorizes no delete and selects only absence verification, while any second container match, control identity drift, or journal ambiguity performs no deletion; any final pair-labeled volume/network result is never deleted and returns archive_run_recovery_evidence_incomplete",
-      "invalid_partial_policy": "an unjournaled command artifact, non-prefix normal or selected-cleanup-branch artifact, second active pending command, altered interrupted_command, truncated or mismatched completed artifact, task/journal sequence disagreement, forbidden success/summary entry, or extra path is mismatch_or_unknown; a prepared-only or partial recovery cleanup group is recovery_evidence_incomplete and automated recovery performs no destructive action",
-      "crash_matrix_requirement": "Gate A parameterizes every setup command, every operation/inspection/ordinary-success cleanup command, the pending-to-interrupted journal transition, and every command in each 3/4/5 recovery cleanup branch at prepared, result_recorded, each artifact-prefix, receipt-complete, journal-complete, and task-CAS boundaries; only grammar-accepted prefixes with no cleanup started may start recovery, and any crash during ordinary-success cleanup or after recovery cleanup starts must classify fail-closed without another Docker command",
+      "cleanup_prefix": "after the journal-only interrupted_command transition, recovery may append only the exact complete prefix of its selected 3-, 4-, or 5-command cleanup branch; normal success uses only the fixed four-command branch. A pending cleanup command follows the prepared/result_recorded/artifact-prefix protocol. A partial/nonzero/uncertain branch returns recovery_evidence_incomplete and never reruns or advances. Only a fully complete branch with cleanup_status verified_absent may survive as recovery_cleanup_complete and resume solely at the no-Docker failed-task CAS.",
+      "ownership_authority": "a pre-create interruption with no durable ID may run only the three non-destructive pair-label container/volume/network discovery lists; all-zero proves absence, while any match requires manual handling and authorizes no delete. Destructive cleanup requires all three complete initial setup zero-proof list receipts plus either the durable created ID or the exact one-container sequence-1 discovery result matching both unguessable labels. A second container match, missing prior zero proof, control identity drift, journal ambiguity, or any non-empty final volume/network result performs no deletion and returns archive_run_recovery_evidence_incomplete.",
+      "invalid_partial_policy": "an unjournaled command artifact, non-prefix normal or selected-cleanup-branch artifact, second active pending command, altered interrupted_command, truncated or mismatched completed artifact, task/journal sequence disagreement, forbidden success/summary entry, or extra path is mismatch_or_unknown; a prepared-only, partial, nonzero, or uncertain recovery cleanup group is recovery_evidence_incomplete and automated recovery performs no destructive action; the sole exception is an exact complete verified-absent branch awaiting only failed-task CAS",
+      "crash_matrix_requirement": "Gate A parameterizes every setup command, every operation/inspection/ordinary-success cleanup command, the pending-to-interrupted journal transition, the pre-create/no-ID discovery path, every command in each 3/4/5 recovery cleanup branch, and the complete-cleanup-to-task-CAS boundary at prepared, result_recorded, each artifact-prefix, receipt-complete, journal-complete, and task-CAS boundaries; only grammar-accepted prefixes with no cleanup started may start cleanup, a complete verified-absent branch may finish only task CAS without Docker, and any other crash during ordinary-success or recovery cleanup fails closed without another Docker command",
       "golden_terminal_journal": {
         "schema_version": "review-reuse-er3-run-journal-v1",
         "run_id": "rr-er3-0123456789abcdef0123456789abcdef",
@@ -469,9 +472,9 @@
         "artifact_prefix_count"
       ],
       "pending_command_types": "pending_command command_class is setup|operation|inspection|cleanup; sequence is the class-local bounded positive integer; operation is the closed identifier; argv/environment/control identities and all result digests are 64 lowercase hex; stage is prepared|result_recorded; prepared requires exit/stream fields null and artifact_prefix_count 0; result_recorded requires integer exit, exact stream values, and artifact_prefix_count 0..4 or 0..5 only for inspection. interrupted_command is null in normal/success journals or an immutable exact copy of the sole normal pending_command moved by the recovery-start journal successor; it is never itself active or cleared.",
-      "completed_sequence_rules": "setup/operation/inspection lists are duplicate-free contiguous prefixes starting at 1 with maxima 9/12/24. Normal-success cleanup is exactly 1..4. Recovery cleanup is the exact contiguous prefix of the selected 3-, 4-, or 5-command branch and never appears in a success inventory. Receipt paths/digests must exist completely; pending_command, when non-null, is exactly the next class-local sequence allowed by the normal chronology or selected recovery branch.",
+      "completed_sequence_rules": "setup/operation/inspection lists are duplicate-free contiguous prefixes starting at 1 with maxima 9/12/24. Normal-success cleanup is exactly 1..4. Recovery cleanup is the exact contiguous prefix of the selected 3-, 4-, or 5-command branch and never appears in a success inventory. A complete selected branch plus cleanup_status verified_absent and zero final resource lists may await only task CAS; every other nonempty recovery prefix is evidence-incomplete. Receipt paths/digests must exist completely; pending_command, when non-null, is exactly the next class-local sequence allowed by the normal chronology or selected recovery branch.",
       "journal_integrity": "strict I-JSON with exact fields and no self-authentication claim; before a success summary its authority comes from exclusive lease, durable ordered publication, task/binding equality, and closed artifact-prefix validation; corruption or ambiguity fails without deletion; the final summary later binds its exact bytes externally",
-      "recovery_cleanup_branches": "er3-recover is allowed once and only while completed_cleanup_sequences is empty and no ordinary-success or prior recovery cleanup command has been prepared. With a durable created_container_id, cleanup is exactly four commands: docker-rm, pair-labeled container-list, volume-list, network-list. Without a durable ID after a possibly successful create, cleanup sequence 1 is the fixed pair-label-filtered container-list discovery: zero matches selects the three-command branch discovery, volume-list, network-list; exactly one dual-label match selects the five-command branch discovery, docker-rm of that ID, container-list, volume-list, network-list. A second container match, malformed discovery result, or discovery command failure aborts before deletion; any non-empty final volume/network result fails without deleting those resources. All groups use receipts/cleanup/{sequence}-{operation}; no recovery-discovery directory or unjournaled command exists."
+      "recovery_cleanup_branches": "cleanup execution may start once and only while completed_cleanup_sequences is empty and no ordinary-success or prior recovery cleanup command has been prepared. With a durable created_container_id, cleanup is exactly four commands: docker-rm, pair-labeled container-list, volume-list, network-list. Without a durable ID and before container-create could have run, cleanup is exactly three non-destructive pair-label discovery lists for container, volume, and network; all must be empty and any match fails without deletion. Without a durable ID after create may have succeeded, sequence 1 is the fixed pair-label container discovery: zero matches selects the three-command discovery, volume-list, network-list branch; exactly one dual-label match selects the five-command discovery, docker-rm, container-list, volume-list, network-list branch only when all three initial setup zero proofs are complete. A second match, missing zero proof, malformed discovery, or command failure aborts before deletion; any non-empty final volume/network result fails without deleting those resources. All groups use receipts/cleanup/{sequence}-{operation}; no recovery-discovery directory or unjournaled command exists. After an exact complete verified-absent branch, re-entry is allowed only to finish task CAS and issues no Docker command."
     },
     "completion_finalize": {
       "predicate": "v2 task is revision 4 evidence_ready, success-intent is durable and exact, and the run-summary.json directory entry is absent; any existing exact externally hash-bound summary is complete, while any existing unbound, malformed, mismatched, linked, or special summary is mismatch_or_unknown and is never replaced",
@@ -1269,24 +1272,283 @@
         "failure_boundary_report_contract": {
           "test_action": "an expected-red node reaches its named missing behavior and calls pytest.fail(required_failure_boundary, pytrace=False); no generic assertion, import/collection/setup/teardown error, or earlier exception is accepted",
           "pytest_json_report": "the node has setup=passed, call=failed, teardown=passed, and call.longrepr is exactly Failed: <required_failure_boundary>",
-          "verifier_action": "verify the baseline_execution_contract evidence first, then compare every exact node ID, phase outcome, and longrepr to the frozen matrix; bind the observed base/Gate-A heads and exact test/verifier/contract blob hashes into the strict report; a claimed SHA or nonzero aggregate exit alone is never evidence"
+          "verifier_action": "verify baseline_execution_contract plus gate_a_verification_report_contract first, compare every exact node ID/phase/longrepr to the frozen matrix, and bind observed commit/tree/ancestry, immutable execution mount, pre/post tree proofs, and exact test/verifier/contract blobs; a claimed SHA, clean status, matching names, or nonzero aggregate exit alone is never evidence"
         },
-        "aggregate_requirement": "through baseline_execution_contract, the single accepted-head test-file overlay against runtime_base has 104 exact-marker failures and only sequences 28/34 passing; the clean accepted Gate-A head has 100 exact-marker failures and sequences 2/28/30/34/66/97 passing; both runs collect the same 106 nodes, have exact bound heads/blobs, and exit nonzero",
+        "aggregate_requirement": "through baseline_execution_contract and the strict Gate-A report, the sole accepted-head test-file overlay against runtime_base has 104 exact-marker failures and only sequences 28/34 passing; the clean accepted Gate-A head has 100 exact-marker failures and sequences 2/28/30/34/66/97 passing; both read-only executions collect the same 106 nodes, bind exact commit/tree/ancestry/blobs, remain byte-identical before and after pytest, and exit nonzero",
         "invalid_evidence": "collection/import/setup/teardown failure, generic assertion or exception, wrong longrepr marker, deselection, skip, xfail, unexpected pass/fail, missing node, duplicate node, or unclassified result",
         "baseline_execution_contract": {
-          "accepted_gate_a_head_source": "owner-supplied exact accepted Gate-A head; a branch name, pull-request head lookup, environment value, or author assertion is not authority",
-          "runtime_base_worktree": "fresh detached worktree at baseline_head with observed HEAD equal to baseline_head and clean tracked/index/untracked state before overlay",
+          "accepted_gate_a_head_source": "owner-supplied exact accepted Gate-A commit; a branch name, pull-request head lookup, environment value, tag, tree object, or author assertion is not authority",
+          "runtime_base_worktree": "fresh execution root materialized only from the resolved baseline commit/tree Git objects into an empty directory; no pre-existing worktree bytes, sparse-checkout, smudge/filter result, alternate object store, skip-worktree bit, or assume-unchanged bit is accepted",
           "base_overlay_paths": [
             "tests/unit/test_review_reuse_er3_archive.py"
           ],
           "overlay_rule": "copy only the exact test_file Git blob from the accepted Gate-A head into the runtime-base worktree; no fixture, contract, verifier, workflow, helper, runtime, or source file is overlaid, and the test file must collect and reach each named failure boundary without those Gate-A-only artifacts",
           "external_verifier_rule": "execute the exact verifier_path Git blob from a separate read-only export of the accepted Gate-A head; read the ratified contract as the exact Git blob from the ratified design-lock head outside the base worktree; neither external artifact is added to the runtime-base checkout",
-          "worktree_proof": "record baseline HEAD/status before overlay, accepted Gate-A and ratified-design-lock commit IDs, Git blob IDs and raw SHA-256 for test/verifier/contract, then require post-overlay git status to name exactly test_file and its bytes to equal the accepted-head blob; reports and pytest cache/bytecode stay outside the worktree",
-          "pytest_rule": "run only the exact test_file with PYTHONDONTWRITEBYTECODE=1 and pytest cache disabled; collection is exactly the 106 ratified node IDs and all phase outcomes/markers are classified by the external verifier",
-          "gate_a_head_rule": "run the same test_file from a separate clean detached accepted Gate-A worktree with no overlay and bind observed HEAD, clean status, test/verifier/contract blob identities, collected nodes, and report",
-          "invalid_evidence": "wrong or dirty HEAD before overlay, any second overlay path, missing/extra/untracked repository path, changed blob digest, in-worktree report/cache/bytecode, verifier or contract taken from a working tree instead of the named Git object, or any node/report mismatch"
+          "worktree_proof": "record baseline commit/tree/source-status/index flags before materialization, accepted Gate-A and ratified-design-lock commit/tree IDs, and Git blob IDs plus raw SHA-256 for test/verifier/contract; prove the empty execution root was materialized from exactly that tree, overlay exactly test_file with the accepted-head blob, seal the tree read-only before pytest, and prove identical path/mode/blob/raw-byte manifests afterward; reports/cache/bytecode stay outside the execution root",
+          "pytest_rule": "run only the exact test_file under the unprivileged read-only-tree executor with PYTHONDONTWRITEBYTECODE=1 and pytest cache disabled; collection is exactly the 106 ratified node IDs and all phase outcomes/markers are classified by the external verifier",
+          "gate_a_head_rule": "materialize the accepted Gate-A commit/tree Git objects into a second empty execution root, run the same test_file under the same OS-enforced read-only/unprivileged policy with no overlay, and bind commit/tree, source clean/index-flag state, execution UID/mount proof, exact materialization manifests, test/verifier/contract blob identities, collected nodes, and report before and after pytest",
+          "invalid_evidence": "non-commit or wrong/dirty head, failed ancestry, wrong tree, skip-worktree/assume-unchanged path, writable execution tree, privileged test process, any second overlay path, missing/extra/untracked path, changed blob digest, pre/post drift, in-worktree report/cache/bytecode, verifier or contract read from a working tree instead of the named Git object, or any node/report mismatch",
+          "object_and_ancestry_proof": "using the reviewed absolute Git binary and closed environment, require baseline_head, owner-ratified design-lock head, and owner-accepted Gate-A head to resolve as commits; record each commit/tree ID; require merge-base --is-ancestor baseline_head ratified-design-lock and ratified-design-lock accepted-Gate-A to exit 0; retain exact argv/exit/stdout/stderr receipts and bind them into the report",
+          "execution_immutability": "after exact-object materialization and the sole test-file overlay are verified, execute pytest as a distinct unprivileged UID in an OS-enforced read-only mount namespace containing the complete base tree and overlay; the test process has no capability, sudo path, writable bind, Git object-directory access, or mount permission for that tree and may write only to one separate report root; Gate-A tests and verifier never open the three CAD fixture payloads",
+          "pre_post_execution_proof": "before and after pytest, the privileged verifier records resolved commit/tree, empty source status, index-flag scan, read-only mount identity/options, execution UID, exact overlay blob, and an exact path/mode/blob/raw-SHA-256 manifest derived independently from the named Git tree and materialized execution root; both snapshots and manifests must be identical and the report root remains outside the tree"
+        },
+        "gate_reason_code_namespace": "entries[].reason_code is a fail-first classification namespace used only by the Gate-A verifier; it is not a runtime CLI failure code and never substitutes for the failure taxonomy in design-lock section 6",
+        "gate_a_verification_report_contract": {
+          "schema_version": "review-reuse-er3-gate-a-verification-v1",
+          "exact_fields": [
+            "schema_version",
+            "baseline_head",
+            "ratified_design_lock_head",
+            "accepted_gate_a_head",
+            "git_object_proof",
+            "runtime_base_execution",
+            "gate_a_head_execution",
+            "classified_entries",
+            "summary",
+            "valid",
+            "verification_sha256"
+          ],
+          "git_object_proof_exact_fields": [
+            "baseline_commit",
+            "baseline_tree",
+            "ratified_design_lock_commit",
+            "ratified_design_lock_tree",
+            "accepted_gate_a_commit",
+            "accepted_gate_a_tree",
+            "baseline_to_design_ancestor",
+            "design_to_gate_a_ancestor",
+            "test_blob_id",
+            "test_blob_sha256",
+            "verifier_blob_id",
+            "verifier_blob_sha256",
+            "contract_blob_id",
+            "contract_blob_sha256",
+            "gate_a_contract_blob_id",
+            "gate_a_contract_blob_sha256",
+            "contract_blob_equal",
+            "design_to_gate_a_diff_tree_sha256",
+            "gate_a_allowed_delta_valid",
+            "command_receipts_sha256"
+          ],
+          "execution_exact_fields": [
+            "resolved_commit",
+            "resolved_tree",
+            "materialization_manifest_sha256",
+            "pre_status_sha256",
+            "post_status_sha256",
+            "pre_index_flags_sha256",
+            "post_index_flags_sha256",
+            "pre_tree_manifest_sha256",
+            "post_tree_manifest_sha256",
+            "overlay_paths",
+            "read_only_mount",
+            "mount_receipt_sha256",
+            "execution_uid",
+            "report_root_sha256",
+            "pytest_report_sha256",
+            "collected_node_ids_sha256",
+            "pytest_exit_code",
+            "counts"
+          ],
+          "classified_entry_exact_fields": [
+            "phase",
+            "sequence",
+            "test_id",
+            "expected",
+            "reason_code",
+            "required_failure_boundary",
+            "setup_outcome",
+            "call_outcome",
+            "teardown_outcome",
+            "longrepr"
+          ],
+          "classified_entries_rule": "exactly 212 entries ordered first by phase runtime_base then gate_a_head and then by sequence 1..106; each entry repeats the frozen matrix reason_code and required_failure_boundary, while expected is derived from the phase-specific 104/2 or 100/6 split",
+          "counts_exact_fields": [
+            "total",
+            "expected_red",
+            "expected_pass",
+            "observed_expected_red",
+            "observed_expected_pass",
+            "failed",
+            "passed",
+            "skipped",
+            "xfailed",
+            "xpassed",
+            "deselected",
+            "collection_errors",
+            "unclassified"
+          ],
+          "summary_exact_fields": [
+            "runtime_base_total",
+            "runtime_base_expected_red",
+            "runtime_base_expected_pass",
+            "gate_a_total",
+            "gate_a_expected_red",
+            "gate_a_expected_pass",
+            "skipped",
+            "xfailed",
+            "xpassed",
+            "deselected",
+            "collection_errors",
+            "unclassified"
+          ],
+          "digest_rule": "verification_sha256 is canonical_sha256 of the complete strict report after removing only verification_sha256",
+          "valid_semantics": "literal true only when both nonzero pytest aggregates match every expected fail-first/pass outcome and all object, ancestry, materialization, immutability, classification, and digest proofs pass; pytest exit zero in either phase makes the Gate-A report invalid"
+        },
+        "gate_b_verification_report_contract": {
+          "schema_version": "review-reuse-er3-gate-b-verification-v1",
+          "exact_fields": [
+            "schema_version",
+            "accepted_gate_a_head",
+            "ratified_design_lock_head",
+            "implementation_head",
+            "git_object_proof",
+            "immutable_gate_a_artifacts",
+            "accepted_gate_a_verification_sha256",
+            "implementation_execution",
+            "classified_entries",
+            "summary",
+            "valid",
+            "verification_sha256"
+          ],
+          "git_object_proof_exact_fields": [
+            "ratified_design_lock_commit",
+            "ratified_design_lock_tree",
+            "accepted_gate_a_commit",
+            "accepted_gate_a_tree",
+            "implementation_commit",
+            "implementation_tree",
+            "design_to_gate_a_ancestor",
+            "gate_a_to_implementation_ancestor",
+            "gate_a_to_implementation_diff_tree_sha256",
+            "gate_b_allowed_delta_valid",
+            "command_receipts_sha256"
+          ],
+          "immutable_gate_a_artifact_selection": {
+            "exact_singletons": [
+              ".github/workflows/review-reuse-er3-contract.yml",
+              "docs/development/L3_REVIEW_REUSE_ER3_DESIGNLOCK_20260829.md",
+              "docs/development/L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json",
+              "docs/development/L3_REVIEW_REUSE_ER3_VISION_SUBSTRATE_ATTESTATION_20260829.json",
+              "tests/unit/test_review_reuse_er3_archive.py",
+              "tests/fixtures/review_reuse_er3/archive_manifest.json",
+              "tests/verification/review_reuse_er3_contract_verifier.py"
+            ],
+            "fixture_prefix": "tests/fixtures/review_reuse_er3/",
+            "rule": "the set is the four exact singleton paths plus every other regular Git blob whose path has the fixture_prefix at the accepted Gate-A commit; paths are unique and bytewise lexicographically ordered, and symlink, submodule, missing, extra, or non-blob entries fail"
+          },
+          "immutable_gate_a_artifacts_exact_fields": [
+            "schema_version",
+            "accepted_gate_a_head",
+            "implementation_head",
+            "entries",
+            "equal",
+            "artifact_set_sha256"
+          ],
+          "immutable_gate_a_artifact_entry_exact_fields": [
+            "path",
+            "git_mode",
+            "accepted_blob_id",
+            "implementation_blob_id",
+            "size_bytes",
+            "accepted_raw_sha256",
+            "implementation_raw_sha256",
+            "equal"
+          ],
+          "implementation_execution_exact_fields": [
+            "resolved_commit",
+            "resolved_tree",
+            "materialization_manifest_sha256",
+            "pre_status_sha256",
+            "post_status_sha256",
+            "pre_index_flags_sha256",
+            "post_index_flags_sha256",
+            "pre_tree_manifest_sha256",
+            "post_tree_manifest_sha256",
+            "overlay_paths",
+            "read_only_mount",
+            "mount_receipt_sha256",
+            "execution_uid",
+            "report_root_sha256",
+            "pytest_report_sha256",
+            "collected_node_ids_sha256",
+            "pytest_exit_code",
+            "counts"
+          ],
+          "classified_entry_exact_fields": [
+            "sequence",
+            "test_id",
+            "expected",
+            "setup_outcome",
+            "call_outcome",
+            "teardown_outcome",
+            "longrepr"
+          ],
+          "classified_entries_rule": "exactly 106 entries ordered by sequence 1..106; every expected value is pass, every setup/call/teardown outcome is passed, and longrepr is null",
+          "counts_exact_fields": [
+            "total",
+            "passed",
+            "failed",
+            "skipped",
+            "xfailed",
+            "xpassed",
+            "deselected",
+            "collection_errors",
+            "unclassified"
+          ],
+          "summary_exact_fields": [
+            "total",
+            "passed",
+            "failed",
+            "skipped",
+            "xfailed",
+            "xpassed",
+            "deselected",
+            "collection_errors",
+            "unclassified",
+            "immutable_artifact_count",
+            "immutable_artifact_set_equal",
+            "accepted_fail_first_digest_match"
+          ],
+          "invariants": [
+            "the exact accepted Gate-A verifier Git blob validates this report from outside the implementation execution root",
+            "every selected test, fixture, verifier, and workflow path/blob/raw SHA-256 equals the accepted Gate-A commit and no Gate-A test, classifier, or CI semantic is editable in Gate B",
+            "accepted Gate-A ancestry and fail-first report digest revalidate before the implementation run",
+            "the implementation head descends from accepted Gate-A, its exact-object materialized execution tree is OS-enforced read-only with overlay_paths empty, and the unchanged 106-node file reports 106 pass with zero skip/xfail/xpass/deselect/collection/unclassified values",
+            "valid true requires all invariants; a green pytest exit or matching test names alone is insufficient"
+          ],
+          "digest_rule": "verification_sha256 is canonical_sha256 of the complete strict report after removing only verification_sha256"
+        },
+        "gate_a_allowed_delta": {
+          "exact_added_singletons": [
+            ".github/workflows/review-reuse-er3-contract.yml",
+            "docs/development/L3_REVIEW_REUSE_ER3_GATE_A_FAIL_FIRST_VERIFICATION_20260830.md",
+            "tests/unit/test_review_reuse_er3_archive.py",
+            "tests/fixtures/review_reuse_er3/archive_manifest.json",
+            "tests/verification/review_reuse_er3_contract_verifier.py"
+          ],
+          "added_fixture_prefix": "tests/fixtures/review_reuse_er3/",
+          "rule": "the ratified-design-lock-to-accepted-Gate-A diff contains only Git status A, mode 100644 regular blobs, and paths in exact_added_singletons or additional paths strictly below added_fixture_prefix; every singleton is present exactly once, at least one additional synthetic fixture exists, and no existing path, mode, blob, symlink, submodule, rename, copy, deletion, or other addition changes"
+        },
+        "gate_b_allowed_delta": {
+          "exact_modified_paths": [
+            "scripts/review_reuse_isolated_archive_run.py",
+            "src/core/review_reuse/service.py",
+            "src/core/review_reuse/store.py",
+            "src/core/review_reuse/models.py",
+            "src/api/v1/review_reuse.py",
+            "config/openapi_schema_snapshot.json"
+          ],
+          "exact_added_paths": [
+            "src/core/review_reuse/er3_archive.py",
+            "src/core/review_reuse/evidence_v2.py",
+            "src/core/review_reuse/evidence_dispatch.py",
+            "docs/development/L3_REVIEW_REUSE_ER3_GATE_B_IMPLEMENTATION_VERIFICATION_20260830.md"
+          ],
+          "rule": "the accepted-Gate-A-to-implementation diff contains only status M for a subset of exact_modified_paths and status A exactly once for every exact_added_paths member; no mode change, deletion, rename, copy, symlink, submodule, Gate-A artifact change, or other path is accepted"
         }
-      }
+      },
+      "gate_b_artifact_freeze": "Gate B keeps the owner-accepted Gate-A test file, manifest, every regular synthetic fixture under the closed prefix, contract verifier, and workflow byte-identical by Git blob and raw SHA-256. The accepted verifier runs externally in Gate-B mode and binds the accepted fail-first report plus the implementation report. Gate B may change none of those artifacts; changing a workflow, test, fixture, verifier, failure marker, mutation, classifier, or selected artifact set requires a new design-lock owner response."
     }
   },
   "verified_fixture_set_contract": {

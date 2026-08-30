@@ -27,8 +27,8 @@ implementation, merge, decision enablement, deployment, pilot, or customer data.
 | Embedded manifest proposal canonical digest; no manifest file exists at this docs-only head | `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf` |
 | Static attestation digest | `4707f793f3597ebe12da4c6474bbb25208ccd9b1de48920a27c5ca083babe6cd` |
 | Static attestation raw file SHA-256 | `5d7e15aa82d714ad371e106deb3c6310cfc82c3062731392bfb3a6c2db175d94` |
-| EvidencePack v2 contract digest | `c31748c5b292032f02c5b239eb87348e70d93342baac4cbf17b63515ac920b0c` |
-| EvidencePack v2 contract raw file SHA-256 | `9a9fe32f8702ca80418b33767ec86466611c9b80c8a600a11586c25ad4c215ad` |
+| EvidencePack v2 contract digest | `867b8f03f6aad36dd9d9a5a097ff350564337afa834fa0a32799e9bad7ba7dbd` |
+| EvidencePack v2 contract raw file SHA-256 | `89bf13de1011f426291e1524102116d13b3e122ba7089b99db5dd3e2c1819eda` |
 | Embedded EvidencePack golden digest | `422e23da3589b24a5539a3d6546cac98ba692046ea14930b179dd9f7fe1b9f7f` |
 | Verified fixture-set golden digest | `536113fa48ac2f692635959bd5f1d0f8ac92faff1fc8ab9f27679a5f474e51b1` |
 | Vision OCI index | `sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251` |
@@ -370,7 +370,7 @@ journal, inspect pairing used the wrong one-based formula, runtime-base evidence
 did not bind a single allowed overlay, replay could create its lease, and a stale
 fixture-descriptor/tar mutation remained.
 
-This working-tree revision closes those exact findings without opening runtime
+Head `019ebfd83b899c1ea6fdda83f1700be7b68d218b` closed those exact findings without opening runtime
 scope. Five uploads are now direct fixed `/usr/bin/curl --disable` multipart
 stdin operations with manifest-bound filename/type and no `docker cp`, tar,
 container path, writer, or remove command. All twelve operations receive fresh
@@ -384,13 +384,37 @@ preflight, seal, EvidencePack, Markdown, task, intent, summary, attestation, and
 contract digests were recomputed. This remains FOR REVIEW, docs-only, and
 runtime-unverified.
 
+Independent exact-head review of `019ebfd83...` then found four remaining design
+gaps. The fail-first proof still trusted a mutable worktree during pytest and
+declared ancestry without exact commit/tree/`merge-base` receipts. Gate B could
+edit the tests, verifier, and workflow that were supposed to prove it. The Gate-A
+report named a schema version but did not freeze its complete nested shape, and
+the source-verification example omitted the separate vision checkout. A recovery
+audit additionally found no safe pre-create/no-ID branch and no resumable state
+for a complete verified-absent cleanup that crashed immediately before task CAS.
+One advisory model reopened fixture bytes contrary to the review constraint; that
+observation is excluded from current evidence. Kimi K3, Grok 4.6, and Fable 5
+again produced no usable final review because of quota, retry, or budget failures.
+
+The current docs-only revision responds with exact Git commit/tree/ancestry
+receipts, empty-root Git-object materialization, an unprivileged OS-enforced
+read-only pytest environment, formal Gate-A and Gate-B report schemas, and a Gate-B
+freeze over design/contract/attestation/workflow/test/manifest/all synthetic
+fixtures/verifier. Both gate reports also bind closed Git path-delta sets. Recovery gains
+only two narrowly bounded paths: three non-destructive discovery lists before
+container-create could have run, and a no-Docker task CAS after a fully durable
+verified-absent cleanup. Partial, nonzero, ambiguous, or uncertain cleanup remains
+manual and fail-closed. These are proposed contracts, not runtime observations.
+
 ## 6. Commands and results
 
 The static verification used read-only commands equivalent to:
 
 ```bash
-git show 2fc35d60ff034c9f790868c02381a9716becc942:<source-path>
-git grep -n <pattern> 2fc35d60ff034c9f790868c02381a9716becc942 -- src Dockerfile pyproject.toml
+git -C <dedupcad-vision-source-checkout> show \
+  2fc35d60ff034c9f790868c02381a9716becc942:<source-path>
+git -C <dedupcad-vision-source-checkout> grep -n <pattern> \
+  2fc35d60ff034c9f790868c02381a9716becc942 -- src Dockerfile pyproject.toml
 # Initial static pass only; the current hardening did not repeat these reads.
 sha256sum tests/vision/fixtures/cad_features/cad_line.png \
   tests/vision/fixtures/cad_features/cad_circle.png \
@@ -411,12 +435,13 @@ PYTHONDONTWRITEBYTECODE=1 /opt/homebrew/bin/python3.11 -m pytest -q \
   tests/unit/test_review_reuse_er1_store_integrity.py
 PYTHONDONTWRITEBYTECODE=1 /opt/homebrew/bin/python3.11 -m pytest -q \
   -p no:cacheprovider tests/unit/test_review_reuse_*.py
-# A temporary no-fixture verifier independently recomputed 65 named closure
+# A temporary no-fixture verifier independently recomputed 84 named closure
 # categories and all 49 command-receipt preimages from the checked-out JSON.
 # A localhost-only HTTP harness sent 36 synthetic bytes through:
 /usr/bin/curl --disable --form \
   'file=@-;filename=synthetic.png;type=image/png' http://127.0.0.1:<ephemeral>/upload
 git diff --check
+make pre-commit
 ```
 
 Results:
@@ -434,14 +459,17 @@ Results:
   continuous seal, EvidencePack, deterministic Markdown, run summary, and
   whole-contract golden preimages recomputed to their stored digests;
 - the earlier read-only cross-artifact verifier passed `30/30` closure categories,
-  then `42/42`, and the current hardened verifier passed `65/65`, including
+  then `42/42`, `65/65`, and the current hardened verifier passed `84/84`, including
   contract/attestation self digests, exact closed store/control/environment/journal
   inventory, trusted Git/output-parent controls, atomic journal/summary publication,
   persistent shared/exclusive lease semantics, mutually exclusive root
   classification, the 106-entry Gate-A matrix with exact 104-red/2-existing-pass
-  runtime-base and 100-red/6-pass Gate-A-head splits, exact one-test-file baseline
-  overlay proof, direct appuser multipart stdin transport, three recovery cleanup
-  branches, read-only replay lease, and every downstream digest;
+  runtime-base and 100-red/6-pass Gate-A-head splits, exact Git object/ancestry
+  receipts, one-test-file baseline overlay, read-only unprivileged execution roots,
+  strict Gate-A/Gate-B report schemas, closed per-gate Git path deltas, frozen
+  design/contract/attestation and Gate-B semantic artifacts, direct appuser
+  multipart stdin transport, three recovery cleanup branches, read-only replay
+  lease, and every downstream digest;
 - machine-readable receipt derivation passed `49/49`: all nine setup,
   12 operation, 24 fresh-inspection, and four cleanup receipts recomputed from
   their complete ten-field preimages. Setup and operation receipts now use exact
@@ -461,12 +489,14 @@ Results:
   the six Gate-A-head passes, maps every red node to one exact pytest failure marker,
   and preserves public DXF/v1 behavior;
 - the recovery classifier now has mutually exclusive initialization, terminal,
-  resumable, recovery, finalize, complete, and mismatch branches; only an
+  resumable, recovery, post-cleanup-CAS, finalize, complete, and mismatch branches; only an
   atomically published journal plus exact command/phase-artifact prefix can
   authorize cleanup. A normal pending command first becomes immutable
-  `interrupted_command`; then only one 3/4/5-command branch may run. Any crash
-  after cleanup starts requires separately authorized manual handling rather than
-  an automated retry;
+  `interrupted_command`; then only one 3/4/5-command branch may run. A pre-create
+  branch can only list three resource classes and never delete. A fully complete
+  verified-absent branch may resume only the failed-task CAS with zero Docker;
+  every partial, nonzero, ambiguous, or uncertain cleanup requires separately
+  authorized manual handling rather than an automated retry;
 - the filesystem store is a closed one-tenant/one-task/optional-index inventory;
   its permanent writer-lease path and locked FD must retain the same validated
   inode while the export-freeze remains held through summary parent fsync;
@@ -474,6 +504,10 @@ Results:
   selection passed `121/121` under Python 3.11;
 - the complete existing ReviewReuse unit selection passed `222/222` under Python
   3.11; only seven pre-existing ezdxf/pyparsing deprecation warnings were emitted;
+- `make pre-commit` returned zero: its soft integrity step reported the configured
+  hash match, schema validation emitted no finding, and quick health read an older
+  evaluation record. That target is explicitly non-blocking and is not ER3 gate or
+  runtime evidence;
 - the current docs-only PR checks are not the future Gate-A fail-first workflow and
   provide no evidence that the proposed 106-node matrix has been implemented;
 - no runtime code was modified by this static tranche.
