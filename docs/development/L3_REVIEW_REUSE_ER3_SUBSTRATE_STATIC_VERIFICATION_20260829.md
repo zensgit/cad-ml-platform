@@ -5,7 +5,7 @@
 **Date:** 2026-08-30
 
 **CAD ML base:** open PR #584 exact head
-`13055d4966fb3b543d747759ebd237d24a55e452`
+`af72d0ec02b5d2dc1d92508539bc89ba857245a8`
 
 **Vision source:** `https://github.com/zensgit/dedupcad-vision.git` exact revision
 `2fc35d60ff034c9f790868c02381a9716becc942`
@@ -25,15 +25,18 @@ implementation, merge, decision enablement, deployment, pilot, or customer data.
 | Static attestation | `L3_REVIEW_REUSE_ER3_VISION_SUBSTRATE_ATTESTATION_20260829.json` |
 | EvidencePack v2 contract | `L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json` |
 | Archive manifest digest | `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf` |
-| Static attestation digest | `651bbdb9c056cdcc0a8b9d2a38d8d9bb0230537ec01d0911a9628613cf8aa283` |
-| EvidencePack v2 contract digest | `8f493d69051cff60e0fbdd3e974c8d2223228adddc984aaf2cb8a1f6f5633346` |
-| Embedded EvidencePack golden digest | `2ce278bc1c00d72fa8cfb64f5a5604a49590b45704824663d2bdfc3b922e2bf2` |
+| Static attestation digest | `988138a75031d78916ad388e1580012a50f8ac9bf5b97a9461a67d9ed2231228` |
+| Static attestation raw file SHA-256 | `76ab3d92eafdb386f6f3588308da4b1e45d4830fb902fb1b6059a43df86a865c` |
+| EvidencePack v2 contract digest | `2d5039d261f63d3e5db2d8da0579184540886871899641d1e4f816418c22accd` |
+| EvidencePack v2 contract raw file SHA-256 | `29f14b41971b728bf0c8481e66641792749c2d72b333bfc2e34fe364c687fd22` |
+| Embedded EvidencePack golden digest | `96891fe5d32cd3ed65be22bb741e2d935240a127823e6a74215b6c7d2a04329d` |
 | Vision OCI index | `sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251` |
 
 The manifest, attestation, contract, and embedded golden digests were recomputed
 with `src.core.review_reuse.canonical.canonical_sha256()` after removing only
 their respective self-digest field. Strict I-JSON parsing passed for both JSON
-artifacts. The golden vectors are serialization and digest vectors, not model-
+artifacts. Raw file SHA-256 values separately pin the reviewed bytes so a test
+cannot trust only a self-reported canonical digest. The golden vectors are serialization and digest vectors, not model-
 quality or runtime evidence. The critical provenance vectors are:
 
 | Canonical preimage | Golden SHA-256 |
@@ -41,9 +44,12 @@ quality or runtime evidence. The critical provenance vectors are:
 | Post-index search response receipt | `b4ff738ada27842e09ff22791b52cc504860f589d23e6cbcc18bc9e542975602` |
 | Service identity | `b9defaaa4689ea63652663cc5431c8c431a23a89d31f4f0227908ee49278660e` |
 | Score-mapping ruleset | `ccee15b504054a1cd3def3f6531babbc41a72742d3d2dbb8e35efd57337afd11` |
-| Strict runtime inspect projection | `524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748` |
-| Runtime preflight | `875d76db424d2f3b9bb2871583475e8b29765012358b8c579eb8543a23705206` |
-| Continuous runtime seal | `35b64f944cbdaa39307c632426002279027aafadf6c94535f3fb3cc3e06d6af4` |
+| Docker control plane | `5e89a5509a6c04f857be74421e835495331537596dfdfa26547b4f9b6cdc70f4` |
+| Strict runtime inspect projection | `e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20` |
+| Runtime preflight | `84bd2e9461baf20ed04102533a04464625f1a524b14477a65f3d43688ceef541` |
+| Continuous runtime seal | `d55c2d781d03f8b267b65fefd1cc2a37fe296d411567b255bc3c5c3d0a0a1230` |
+| EvidencePack v2 Markdown bytes | `1410bdc7cf1953c569ee16459724d83e866d04f5bfbd64b62c0477186c7a2460` |
+| Run-summary golden vector | `9f18176f0052ebf5f52310adc253f152c9b9c52150861bf25a15132e33a645dd` |
 
 ## 2. OCI and source binding
 
@@ -270,6 +276,23 @@ projection now binds the complete attested environment and working directory, th
 gate count is seven, legacy compatibility is narrowly stated, and §7 permits only
 mocked Docker CLI/inspect responses before the second owner gate.
 
+A later exact-source review after #584 advanced to `af72d0ec02b5...` found a
+second set of pre-ratification gaps: `input_validated` could not be truthful while
+fixture reads remained post-preflight; `recall_started` was not durably persisted
+before side effects; interrupted runs had no non-reexecuting recovery protocol;
+the Docker seal bound repeated projections rather than full command and fresh
+inspection receipts; Docker client configuration and binary identity were not
+quarantined; security-relevant HostConfig values were omitted; and run summary,
+writer lease, artifact inventory, and v2 Markdown bytes were not closed schemas.
+
+The current docs-only revision addresses those findings with a v2-only four-
+revision protocol, explicit failure-only `er3-recover`, secure one-descriptor
+fixture reads, complete Docker command/inspection receipt chains, expanded closed
+HostConfig, exact run-summary inventory, and deterministic Markdown. It also binds
+the required ancestry as #584 runtime base -> ratified design-lock head ->
+implementation head. These are proposed contracts only. No ER3 test, runtime
+module, Docker operation, fixture read, or owner action was performed.
+
 ## 6. Commands and results
 
 The static verification used read-only commands equivalent to:
@@ -300,14 +323,16 @@ Results:
 - v2 contract strict parse, canonical digest, and embedded golden digest matched;
 - all three raw-response, normalized-receipt, and receipt-set golden vectors
   recomputed to their stored digests;
-- search-response, service-identity, score-ruleset, strict inspect, repository-
-  bound runtime-preflight, transfer-bound continuous-seal, EvidencePack, and
+- search-response, service-identity, score-ruleset, Docker-control, strict
+  inspect, repository-bound runtime-preflight, 22 distinct operation-command
+  receipts, 44 distinct inspection receipts, cleanup-command receipts,
+  continuous seal, EvidencePack, deterministic Markdown, run summary, and
   whole-contract golden preimages recomputed to their stored digests;
 - source paths and endpoint semantics above matched exact revision `2fc35d60...`;
-- the design names 73 unique fail-first tests and preserves public DXF/v1 behavior;
+- the design names 89 unique fail-first/regression tests and preserves public DXF/v1 behavior;
 - the existing canonical, EvidencePack golden, and ER1 store-integrity regression
-  selection passed `120/120` under Python 3.11;
-- the complete existing ReviewReuse unit selection passed `221/221` under Python
+  selection passed `121/121` under Python 3.11;
+- the complete existing ReviewReuse unit selection passed `222/222` under Python
   3.11; only seven pre-existing ezdxf/pyparsing deprecation warnings were emitted;
 - no runtime code was modified by this static tranche.
 
@@ -341,9 +366,10 @@ Therefore none of the following is claimed:
   search, cleanup, or replay.
 
 The focused local round completed through Sol, Terra, Luna, and the Claude CLI
-`opus`, `sonnet`, and `fable` aliases. Kimi K3 returned a weekly-quota 403 and
-supplied no result. Grok 4.6 reached source inspection but remained in provider
-retry and supplied no final finding, so it is not counted as a completed review.
+canonical models `claude-opus-5`, `claude-sonnet-5`, and `claude-fable-5`. Kimi
+K3 returned a weekly-quota 403 and supplied no result. Grok 4.6 reached source
+inspection but remained in provider retry and supplied no final finding, so it
+is not counted as a completed review.
 Direct source checks, not model agreement alone, confirmed every correction
 applied in this revision. A separate read-only review of the new exact head is
 still required before ratification. These reviews are design evidence only, not

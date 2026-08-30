@@ -7,8 +7,8 @@
 **Authority:** `docs/PRODUCT_STRATEGY.md` §3.3 and the owner-ratified #583 exact head
 `9150e06c75721bf086572ed271b68548104e8300`
 
-**Draft base:** open PR #584 exact head
-`13055d4966fb3b543d747759ebd237d24a55e452`
+**Runtime base:** open PR #584 exact head
+`af72d0ec02b5d2dc1d92508539bc89ba857245a8`
 
 **Runtime authority:** NONE
 
@@ -65,7 +65,7 @@ Out of scope:
 
 ## 3. Exact-head observations
 
-These observations were reproduced against draft base `13055d4966...`:
+These observations were reproduced against runtime base `af72d0ec02b5...`:
 
 1. `scripts/review_reuse_isolated_archive_run.py` defaults to synthetic bytes and
    can inject a synthetic candidate with `--seed-similar`; it does not build a
@@ -221,16 +221,23 @@ The repository-fixture manifest is canonical JSON and binds:
   recall candidate or score input.
 
 `archive_manifest_sha256` is computed over canonical JSON after removing that
-field itself. Entry IDs and run-scoped names must be unique. Duplicate hashes
+field itself. Entry IDs and run-scoped names must be unique. Every `runtime_name`
+must match `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}\\.png$`, and every source path must
+be exactly `tests/vision/fixtures/cad_features/<basename>.png` with no second
+path segment after the fixed prefix. Duplicate hashes
 inside the archive role fail. A source path and hash may occur once in an archive
 entry and once in the query entry only when the query declares that archive as a
 byte-identical fixture relationship. The query logical role and run-scoped name
 are never sent to index-add. Manifest structure/self-digest, path escape, symlink
 escape, missing files, unknown fields, or multiple query entries fail before any
-Docker or service call. Fixture bytes are not opened yet: after the runtime
-preflight in §5.2, the runner reads each tracked file once into an immutable byte
-buffer and verifies its declared size/hash before any transfer or provider
-request. Drift fails with no fixture transfer.
+Docker or service call. This metadata pass may `lstat` path components but does
+not open fixture files. After the runtime preflight in §5.2, the runner opens each
+tracked file exactly once with `O_RDONLY|O_CLOEXEC|O_NOFOLLOW`, requires a regular
+file, verifies the descriptor's size is both the declared size and at most
+1,048,576 bytes, performs declared-size bounded reads plus a one-byte EOF check,
+and hashes the same immutable buffer used for transfer. It never reopens by path.
+Drift, short/long read, symlink, non-regular input, or descriptor/path identity
+change fails with no fixture transfer.
 
 ## 5. Runtime contract
 
@@ -254,7 +261,9 @@ request. Drift fails with no fixture transfer.
   filesystem store and every export below it, and fails on existing output.
 - Real mode rejects ambient `REVIEW_REUSE_STORE`, `REVIEW_REUSE_STORE_DIR`,
   `REVIEW_REUSE_LIVE_DEDUP`, `DEDUPCAD_VISION_URL`, all upper/lower-case proxy
-  variables, and Docker endpoint/context/TLS overrides. It constructs the store
+  variables, and `DOCKER_HOST`, `DOCKER_CONTEXT`, `DOCKER_TLS_VERIFY`,
+  `DOCKER_CERT_PATH`, `DOCKER_CONFIG`, `DOCKER_API_VERSION`, and
+  `DOCKER_DEFAULT_PLATFORM`. It constructs the store
   and archive controller explicitly and never calls an environment-selected
   store or live-dedup factory.
 - The runner removes and asserts absence of
@@ -284,7 +293,9 @@ request. Drift fails with no fixture transfer.
 - The image digest alone is insufficient. The proposed static attestation is
   `docs/development/L3_REVIEW_REUSE_ER3_VISION_SUBSTRATE_ATTESTATION_20260829.json`
   with canonical digest
-  `651bbdb9c056cdcc0a8b9d2a38d8d9bb0230537ec01d0911a9628613cf8aa283`.
+  `988138a75031d78916ad388e1580012a50f8ac9bf5b97a9461a67d9ed2231228`.
+  Its reviewed raw-file SHA-256 is
+  `76ab3d92eafdb386f6f3588308da4b1e45d4830fb902fb1b6059a43df86a865c`.
   It binds the OCI index to source revision
   `2fc35d60ff034c9f790868c02381a9716becc942`, records both platform manifests and
   expected image IDs, enumerates search-affecting state, and identifies the
@@ -317,14 +328,25 @@ request. Drift fails with no fixture transfer.
   host. The fixed service has no authentication on index/rebuild routes, so a
   host-loopback port is not an isolation boundary and is forbidden.
 - Before image inspection, real mode requires `DOCKER_HOST`, `DOCKER_CONTEXT`,
-  `DOCKER_TLS_VERIFY`, and `DOCKER_CERT_PATH` to be absent. `docker context show`
+  `DOCKER_TLS_VERIFY`, `DOCKER_CERT_PATH`, `DOCKER_CONFIG`,
+  `DOCKER_API_VERSION`, and `DOCKER_DEFAULT_PLATFORM` to be absent. The required
+  absolute `--docker-bin` is resolved once to a regular executable target, opened
+  with `O_NOFOLLOW|O_CLOEXEC`, rejected if group/other writable, and bound by
+  canonical realpath plus SHA-256. The target hash is rechecked before every
+  Docker subprocess. `docker context show`
   plus `docker context inspect` must resolve the active context to one local
   absolute `unix://` endpoint. TCP, HTTP(S), SSH, npipe, relative, credential-
   bearing, or otherwise remote endpoints fail before pull or fixture-byte read.
   The local daemon and its administrators are the trusted administrative boundary;
   ER3 makes no claim against a malicious daemon administrator.
-- The real-run control transport is fixed-argv `docker exec`/`docker cp` through
-  that verified daemon. The runner never uses `shell=True`, never accepts a
+- The two context-resolution commands are sealed by exact argv, integer exit
+  code, and raw stdout/stderr SHA-256. Every command after resolution uses the
+  verified binary as `argv[0]` and `--host <verified-endpoint>` as the next two
+  arguments; it never uses ambient context, PATH lookup, `--config`, or a shell.
+  The canonical `docker_control_sha256` binds the binary, endpoint, context
+  receipts, server version, and exact absent-environment array. The real-run
+  control transport is fixed-argv `docker exec`/`docker cp` through that verified
+  daemon. The runner never uses `shell=True`, never accepts a
   container name, path, URL, header, form field, retry/redirect option, Unix-
   socket option, or command fragment from the manifest, and validates every
   copied destination against the manifest's unique `runtime_name`. Mock HTTP
@@ -336,21 +358,36 @@ request. Drift fails with no fixture transfer.
   with the run ID; and records `docker inspect` evidence. Explicit tmpfs overrides
   are required for all three image-declared volumes so Docker cannot create
   anonymous data volumes. An undeclared mutable search path is a hard failure.
-  The normalized HostConfig must equal the attestation's closed projection:
+  The normalized HostConfig must equal the attestation's closed projection and
+  fail on any unlisted source key. In addition to the fields below, the projection
+  binds auto-remove, log/volume driver, volumes-from, links, supplemental groups,
+  DNS fields, cgroup namespace/name/parent, runtime, init, OOM-kill policy, PID
+  limit, device cgroup rules, sysctls, storage options, exact tmpfs target/options,
+  and shm size:
   network `none`, read-only root, non-privileged, `CapAdd=[]`, `CapDrop=[ALL]`,
   `no-new-privileges`, private IPC, no host PID/UTS/user namespace, devices,
   device requests, binds, port bindings, published ports, extra hosts, or restart
   policy. No additional network attachment or published TCP/Unix socket is
   accepted.
-- Every `docker cp` and `docker exec` is wrapped by before/after normalized
-  `docker inspect` projections. The strict projection binds image ID, command
+- Every Docker control operation after endpoint resolution, including image
+  inspection, create, start, `cp`, `exec`, cleanup, and labeled-resource listing,
+  has a closed command receipt with exact argv, integer exit code, and raw
+  stdout/stderr SHA-256. Every drawing-affecting `docker cp` and `docker exec` is
+  additionally wrapped by freshly executed before/after normalized `docker
+  inspect` commands. Each inspection receipt binds a globally unique observation
+  sequence, exact inspect argv and stream digests, and the canonical strict-
+  projection digest. A projection digest may repeat when posture is unchanged,
+  but an observation receipt or sequence may never be reused. The strict
+  projection binds image ID, command
   argv, `/app` working directory, process user, container ID/label, HostConfig,
   mounts, running state, start timestamp, restart count, network attachments,
   published ports, and every attested integration/credential/proxy value or
   absence marker. Drift aborts before the next drawing-byte operation.
-  The ordered checkpoints, transferred-content hashes, and command counts are
-  hashed into `runtime_seal_receipt_sha256`; the one-time preflight digest cannot
-  substitute for this continuous seal.
+  The ordered command/inspection receipts, transferred-content hashes, and
+  command counts are hashed into `runtime_seal_receipt_sha256`; the one-time
+  preflight digest or a cached inspection cannot substitute for this continuous
+  seal. A nonzero Docker exit is rejected except the exact egress-probe `exec`
+  exit 7 required below.
 - Before any fixture byte is opened, fixed argv first requires `curl --version`
   to exit 0.
   It then invokes the built-in curl as `curl --noproxy '*' --silent --show-error
@@ -495,29 +532,45 @@ with one immutable selector:
 - Public `POST /api/v1/review-reuse/tasks` remains a v1-only DXF entrypoint and
   continues to return 415 for PNG. The internal runner calls the non-HTTP
   `ReviewReuseService.create_er3_archive_task()` seam with a strict
-  `ER3ArchiveTaskInput`. That object accepts only the manifest-bound query PNG,
-  ratified manifest/run bindings, and one internal archive-controller callable;
-  it does **not** accept precomputed candidates, search responses, or a completed
-  evidence context. It rejects seed candidates and never renames PNG bytes to
-  `.dxf`.
-- `create_er3_archive_task()` and public `create_task()` delegate task/event/CAS
-  mechanics to one private implementation; the ER3 seam does not fork the legal
-  lifecycle. The service first persists revision 1 in `running` status with the
-  v2 selector and null evidence context. It then timestamps `recall_started`,
-  invokes the strict archive controller, validates the returned receipt-bound
-  candidates and complete context, timestamps `recall_completed`, completes the
-  precision/evidence events, and performs the ordinary single CAS to revision 2.
-  The controller call is therefore bracketed by truthful recall events; no Docker
-  or search work may occur before `recall_started`. It does not call the legacy
-  recall mapper or ordinary offline fallback and cannot turn a failed archive run
-  into `insufficient_evidence`.
+  `ER3ArchiveTaskInput`. That object accepts only the manifest-bound query PNG
+  path/reference plus declared size and digest metadata, ratified manifest/run
+  bindings, and one internal archive-controller callable. It does not carry or
+  open PNG bytes before revision 2. It also does **not** accept precomputed
+  candidates, search responses, or a completed evidence context. It rejects seed
+  candidates and never renames PNG bytes to `.dxf`.
+- `create_er3_archive_task()` and public `create_task()` share validation and
+  ordinary terminal semantics, but v2 alone adds two explicit `running -> running`
+  CAS transitions. The legal successful v2 sequence is closed as follows:
+  1. revision 1 is `running` with `[submitted, input_validated]`, the immutable v2
+     selector, and null evidence context. `input_validated.detail` contains only
+     `validation_scope="manifest_metadata"`, declared query bytes/SHA-256, and
+     archive-manifest SHA-256. No fixture file has been opened; the task's source
+     digest is the manifest-declared binding, not observed-content evidence;
+  2. one CAS winner persists revision 2 `running` with `recall_started` before
+     invoking `archive_controller.prepare()`. Prepare performs the Docker runtime
+     preflight and then the one-descriptor secure reads from §4.3, but no transfer,
+     index, rebuild, search, or candidate mapping;
+  3. after prepare succeeds, CAS persists revision 3 `running` with
+     `input_content_verified`. Its detail binds observed byte count/SHA-256,
+     manifest digest, and runtime-preflight digest. Only then may
+     `archive_controller.execute()` transfer the prepared immutable buffers and
+     perform index/rebuild/search work;
+  4. after execute and verified cleanup, CAS persists revision 4
+     `evidence_ready` with `recall_completed`, `precision_started`,
+     `precision_completed`, and `evidence_pack_ready`, plus the complete context
+     and pack.
+  No Docker call occurs before durable `recall_started`; no fixture file is opened
+  before runtime preflight; and no drawing side effect occurs before durable
+  `input_content_verified`. The seam never calls the legacy recall mapper or
+  ordinary offline fallback and cannot turn a failed archive run into
+  `insufficient_evidence`.
 - `ReviewReuseTask.evidence_pack_schema_version` is a required-in-memory
   `Literal["evidence-pack-v1", "evidence-pack-v2"]` field. A persisted legacy
   record that lacks it loads as v1. Unknown values fail closed.
 - `ReviewReuseTask.evidence_context` is a strict optional
   `ReviewReuseEvidenceContextV2` model. Its exact fields are frozen by the
   contract below. V1 requires it to be null. V2 requires null on the first
-  running snapshot because post-search facts do not yet exist, and requires the
+  three running snapshots because post-search facts do not yet exist, and requires the
   complete context for `evidence_ready`/`decided` snapshots before the pack can be
   persisted. A failed pre-pack ER3 task may retain null context but cannot expose
   a pack. Candidate receipt/search provenance remains in each strict candidate
@@ -527,10 +580,25 @@ with one immutable selector:
   recovery, cancellation, decision reconstruction, and load validation all use
   the task-level selector; they never infer it from a missing or newer pack.
 - Tests must prove event timestamps satisfy
-  `recall_started <= archive-controller start <= archive-controller end <= recall_completed`
-  and that a controller failure appends only the legal pipeline prefix plus
+  `recall_started <= prepare start <= prepare end <= input_content_verified <= execute start <= execute end <= recall_completed`
+  and that a controller failure appends only the legal durable prefix plus
   `failed`; importing already completed external evidence after the fact is not
   an allowed chronology.
+- A v2 revision-1 task without `recall_started` may be resumed only by the same
+  tenant/idempotency/run binding; the CAS winner that appends `recall_started` is
+  the sole controller owner. Any persisted v2 running task that contains
+  `recall_started` but no terminal event is an interrupted run. Create retry,
+  idempotency retry, restart, and ordinary `er3-run` must never call prepare or
+  execute again for it.
+- Only explicit `er3-recover` may acquire the writer lease, validate the exact
+  tenant/task/run binding, perform idempotent run-label cleanup, prove every
+  container/volume/network resource absent, and CAS the interrupted task to
+  `failed` with `code="archive_run_interrupted"`, `recovered=true`, and
+  `cleanup_status="verified_absent"`. Recovery never opens fixture bytes, calls
+  index/search, rebuilds evidence, or emits a success summary. Cleanup failure
+  leaves the task running, exits with `archive_cleanup_failed`, and permits only
+  another explicit recovery attempt. An in-process failure likewise emits no
+  success bundle and may persist `failed` only after verified cleanup.
 - Existing and default API tasks remain v1 and reproduce the exact current raw
   hit mapping, canonical pack bytes, and digest. Only the internal ER3 runner
   explicitly requests v2. API task responses use a dedicated required-field
@@ -575,11 +643,13 @@ with one immutable selector:
 The complete v2 canonical contract is
 `docs/development/L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json`
 with contract digest
-`8f493d69051cff60e0fbdd3e974c8d2223228adddc984aaf2cb8a1f6f5633346`.
+`2d5039d261f63d3e5db2d8da0579184540886871899641d1e4f816418c22accd`.
+Its reviewed raw-file SHA-256 is
+`29f14b41971b728bf0c8481e66641792749c2d72b333bfc2e34fe364c687fd22`.
 It freezes exact object keys, types/nullability, list ordering, task context,
 unknown-field rejection, and digest exclusions. Its embedded golden vector has
 EvidencePack digest
-`2ce278bc1c00d72fa8cfb64f5a5604a49590b45704824663d2bdfc3b922e2bf2`.
+`96891fe5d32cd3ed65be22bb741e2d935240a127823e6a74215b6c7d2a04329d`.
 The contract digest excludes only `contract_sha256`; the golden EvidencePack
 digest excludes only `evidence_pack_sha256`. Implementation copies neither value
 from prose: tests recompute both with `canonical_json_v1()` and reject any field,
@@ -622,10 +692,14 @@ field schemas, invariants, and non-placeholder golden for each critical digest:
   `b9defaaa4689ea63652663cc5431c8c431a23a89d31f4f0227908ee49278660e`;
 - score mapping ruleset:
   `ccee15b504054a1cd3def3f6531babbc41a72742d3d2dbb8e35efd57337afd11`;
+- Docker control plane:
+  `5e89a5509a6c04f857be74421e835495331537596dfdfa26547b4f9b6cdc70f4`;
+- strict runtime inspect projection:
+  `e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20`;
 - runtime preflight:
-  `875d76db424d2f3b9bb2871583475e8b29765012358b8c579eb8543a23705206`;
+  `84bd2e9461baf20ed04102533a04464625f1a524b14477a65f3d43688ceef541`;
 - continuous runtime seal:
-  `35b64f944cbdaa39307c632426002279027aafadf6c94535f3fb3cc3e06d6af4`.
+  `d55c2d781d03f8b267b65fefd1cc2a37fe296d411567b255bc3c5c3d0a0a1230`.
 
 Those values are serialization vectors, not expected live observations. A live
 run exports and hashes its own complete named preimages. All-zero, one-character
@@ -640,13 +714,13 @@ not an unstated reconstruction dependency.
 
 ### 5.6 Export and replay
 
-`scripts/review_reuse_isolated_archive_run.py` owns two explicit ER3 subcommands:
-`er3-run` and `er3-replay`. The current no-subcommand invocation retains its v1
+`scripts/review_reuse_isolated_archive_run.py` owns three explicit ER3 subcommands:
+`er3-run`, `er3-replay`, and `er3-recover`. The current no-subcommand invocation retains its v1
 argument/control-flow compatibility for the existing Makefile target and
 regression tests, and its v1 EvidencePack bytes/digest remain frozen. Whole task
 JSON and audit exports may add the required explicit v1 selector; they are not
 claimed byte-identical. The bare path is never an ER3 mode or success fallback.
-Any argv beginning with `er3-run` or `er3-replay` is parsed exclusively as that
+Any argv beginning with an ER3 subcommand is parsed exclusively as that
 mode and fails closed instead of falling through to legacy behavior. Replay support is
 implemented in that already locked script plus the named ER3 modules from §8; it
 may not introduce an unnamed module.
@@ -655,32 +729,70 @@ A success run writes the filesystem store, manifest copy, runtime preflight,
 continuous runtime-seal receipt and its inspect projections,
 strict raw index responses, normalized receipts and receipt set, redacted
 rebuild/search/service receipt preimages, task JSON, EvidencePack JSON,
-EvidencePack Markdown, audit bundle, and run summary. The summary has an exact
-artifact-name-to-SHA-256 map for every artifact except itself and records command
-posture without secrets. The success stdout records the summary SHA-256; replay
-requires it as `--summary-sha256` rather than trusting the file that names its own
-children.
+EvidencePack Markdown, audit bundle, writer lease, and run summary. Before
+inventory, the runner closes the store and proves the lease is a zero-byte regular
+file. `run-summary.json` is canonical JSON with exactly these top-level fields:
+`schema_version`, `status`, `run_id`, `tenant_id`, `task_id`, `task_revision`,
+`evidence_pack_sha256`, `archive_manifest_sha256`,
+`runtime_preflight_sha256`, `runtime_seal_receipt_sha256`,
+`repository_commit`, `reviewed_command_sha256`, `runner_version`, `store_root`,
+`writer_lease`, and `artifacts`. For success, schema is
+`review-reuse-er3-run-summary-v1`, status is `succeeded`, and task revision is 4.
+`writer_lease` has exactly `relative_path`, `sha256`, `size_bytes`, and
+`closed_before_snapshot`; `artifacts` is the lexicographically keyed map from
+every other regular file's ASCII POSIX relative path to an exact
+`{sha256,size_bytes}` object. The summary itself is the only excluded file and is
+written last. The success stdout records its SHA-256; replay requires that value
+as `--summary-sha256` rather than trusting the file that names its own children.
+
+Artifact paths forbid absolute paths, empty segments, `.`, `..`, backslashes,
+non-ASCII bytes, and duplicate normalized results. Recursive `lstat` accepts only
+directories and regular files with `st_nlink == 1`; symlink, hardlink, socket,
+FIFO, device, path escape, missing file, or extra file fails. The store root and
+writer lease are relative paths below the run root, and the lease is included in
+the artifact map.
+
+The v2 Markdown bytes are frozen as:
+
+```python
+b"# ReviewReuse EvidencePack v2\n\n" \
+b"Canonical evidence (null remains unavailable):\n\n    " \
++ canonical_json_v1(validated_persisted_pack) \
++ b"\n"
+```
+
+Pretty JSON, `repr`, locale, wall-clock time, or host paths are forbidden.
+`evidence.md` equals those bytes; the audit bundle Markdown is their strict UTF-8
+decode. The golden bytes are 3,537 bytes with SHA-256
+`1410bdc7cf1953c569ee16459724d83e866d04f5bfbd64b62c0477186c7a2460`.
+The minimal run-summary serialization vector has digest
+`9f18176f0052ebf5f52310adc253f152c9b9c52150861bf25a15132e33a645dd`.
+V1 rendering remains byte-identical.
 
 Replay has one ordered fact chain:
 
 1. strictly parse the summary and match the required externally supplied summary
    SHA-256;
-2. hash every named artifact before opening the store and reject missing, extra,
-   renamed, or mismatched artifacts;
+2. `lstat` and hash the complete run-root inventory before opening the store and
+   reject missing, extra, renamed, linked, special, or mismatched artifacts;
 3. open the run filesystem store in explicit read-only mode and load the exact
    `(tenant_id, task_id)` through ordinary selector-dispatched store validation;
 4. require canonical equality among the loaded task, exported task JSON, the
    task-embedded pack, and independent EvidencePack JSON;
 5. validate the pack and contract/golden rules, then regenerate only Markdown and
    audit rendering and require byte equality with their recorded artifacts;
-6. hash the store tree before and after replay and require no write, event,
-   revision, or file change.
+6. repeat the complete run-root inventory after replay and require no write,
+   repair, lease/sidecar creation, event, revision, or file change.
 
 Replay never rebuilds the canonical pack JSON, calls Docker/index/search, or uses
 an exported EvidencePack as the primary fact source. Each artifact class and the
 summary hash have independent tamper tests. Markdown and audit regeneration is
 in-memory; `er3-replay` writes no file, event, revision, or store metadata. Any
 mismatch fails before emitting a success report.
+
+`er3-recover` is not replay: it is an explicit mutating failure-only command with
+the narrow interrupted-run behavior in §5.4. It never emits or repairs a success
+bundle.
 
 ## 6. Failure taxonomy
 
@@ -702,6 +814,7 @@ The CLI exits non-zero with a structured `status="failed"` and one stable
 - `archive_index_readiness_failed`
 - `archive_search_cache_unsafe`
 - `archive_recall_incomplete`
+- `archive_run_interrupted`
 - `vision_health_unavailable`
 - `archive_index_failed`
 - `archive_index_request_invalid`
@@ -721,7 +834,7 @@ raw private drawings, URL credentials, or unrestricted upstream response text.
 
 After owner ratification and before ER3 implementation, add
 `tests/unit/test_review_reuse_er3_archive.py` with these exact tests and attach a
-baseline log showing they fail against the ratified implementation base:
+classified baseline log against the ratified runtime base as defined below:
 
 1. `test_er3_cli_bootstraps_without_pythonpath`
 2. `test_er3_exact_manifest_digest_and_file_metadata_are_pinned`
@@ -796,6 +909,22 @@ baseline log showing they fail against the ratified implementation base:
 71. `test_er3_transfer_content_hashes_bind_the_exact_manifest_bytes`
 72. `test_er3_legacy_cli_remains_v1_only_and_er3_subcommands_never_fallback`
 73. `test_er3_cleanup_failure_emits_no_success_bundle`
+74. `test_er3_revision_one_input_validated_is_manifest_metadata_only`
+75. `test_er3_fixture_content_verified_is_durable_after_preflight_before_transfer`
+76. `test_er3_recall_started_is_durable_before_archive_controller`
+77. `test_er3_interrupted_running_task_never_reinvokes_archive_controller`
+78. `test_er3_interrupted_run_recovery_cleans_then_fails_without_success_bundle`
+79. `test_er3_run_summary_schema_and_complete_artifact_inventory_are_exact`
+80. `test_er3_run_summary_rejects_path_escape_symlink_hardlink_and_extra_artifact`
+81. `test_er3_writer_lease_is_closed_and_inventory_bound_before_summary`
+82. `test_er3_v2_markdown_bytes_are_deterministic_and_audit_identical`
+83. `test_er3_implementation_ancestry_descends_from_updated_er1_er2_and_design_lock_heads`
+84. `test_er3_control_receipts_bind_full_argv_endpoint_context_binary_and_streams`
+85. `test_er3_inspect_receipts_are_fresh_one_to_one_and_not_cached`
+86. `test_er3_docker_client_environment_and_binary_quarantine_fail_closed`
+87. `test_er3_closed_host_config_rejects_unlisted_or_relaxed_controls`
+88. `test_er3_fixture_paths_runtime_names_and_reads_are_nofollow_regular_and_bounded`
+89. `test_er3_out_rejects_symlink_components_and_enforces_new_mode_0700_root`
 
 Tests may use a deterministic fake private vision server and pure mocked Docker
 CLI/subprocess/inspect responses for failure, mapping, and isolation-posture cases.
@@ -804,8 +933,19 @@ pull, start, or fixture processing. ER3 closure additionally requires a separate
 run against the dedicated pinned `dedupcad-vision` container and the approved
 manifest. Mock-only green tests are not closure evidence.
 
-At least one mutation case must make each locality, HostConfig, fixed-query,
-continuous-seal, chronology, canonical-preimage, ruleset, and replay guard fail;
+The runtime-base log is a fail-first matrix, not a claim that compatibility tests
+which already protect v1 must become red. `pytest --collect-only` must enumerate
+exactly the 89 node IDs above. The matrix records each node ID as expected-red or
+expected-existing-pass against `af72d0ec02b5...`; every ER3 implementation claim
+must be red for its named missing behavior, while existing v1/public compatibility
+guards may remain green. The aggregate baseline must exit nonzero. Collection
+failure, import failure, deselection, skip, xfail, or an unclassified node is not
+valid fail-first evidence.
+
+At least one mutation case must make each locality, Docker binary/endpoint/argv,
+fresh-inspection, HostConfig, fixture-descriptor, fixed-query, continuous-seal,
+chronology/recovery, artifact-inventory, canonical-preimage, Markdown, ruleset,
+and replay guard fail;
 asserting only happy-path output is insufficient. Renaming, weakening, deleting,
 skipping, or marking these tests xfail requires
 owner review. Additional narrower tests are allowed.
@@ -814,8 +954,8 @@ owner review. Additional narrower tests are allowed.
 
 Only after ratification:
 
-- `scripts/review_reuse_isolated_archive_run.py` only for the explicit `er3-run`
-  and read-only `er3-replay` subcommands; the existing bare/no-subcommand
+- `scripts/review_reuse_isolated_archive_run.py` only for explicit `er3-run`,
+  read-only `er3-replay`, and failure-only `er3-recover` subcommands; the existing bare/no-subcommand
   synthetic v1 behavior retains argument/control-flow compatibility and frozen
   v1 EvidencePack bytes/digest for current Makefile/tests, is never an ER3 mode,
   and can never receive fallback from an ER3 subcommand; whole task/audit exports
@@ -840,6 +980,25 @@ Only after ratification:
   Docker, secrets, hosted providers, or image pull
 - the exact §4 manifest under `tests/fixtures/review_reuse_er3/`
 - one ER3 development/verification document
+
+The implementation branch must satisfy both ancestry checks:
+`af72d0ec02b5d2dc1d92508539bc89ba857245a8 -> <ratified-design-lock-head>`
+and `<ratified-design-lock-head> -> <implementation-head>`. Fail-first red evidence
+is produced by applying only the ratified tests to the exact runtime base; the
+implementation itself starts from the later ratified design-lock head.
+
+The workflow has `name: ReviewReuse ER3 Contract`, job id/name `er3-contract`, a
+`pull_request` trigger with no `paths`/`paths-ignore` filter, `contents: read`,
+`fetch-depth: 0`, and no `continue-on-error`, failure masking, optional step, or
+shell suffix such as `|| true`. One gate step asserts the collected node-ID set is
+exactly the 89 ratified names and that the run reports zero skipped, xfailed,
+xpassed, deselected, or collection errors. Separate exact commands run the
+canonical/digest verifier and the frozen ER1/ER2/v1 regression selection. The
+verifier hardcodes the owner-ratified canonical and raw-byte digests rather than
+reading expected values only from each artifact's own self-digest field. Before
+merge can ever be considered, repository branch protection must independently
+show this exact check context as required; workflow YAML cannot prove that setting
+and this document does not authorize merge.
 
 The static substrate attestation and EvidencePack v2 contract are inputs to
 implementation and remain byte-identical. Updating either, changing the fixture
@@ -866,7 +1025,8 @@ write-back.
 
 ER3 is complete only when all of the following are true at one exact head:
 
-- the named fail-first baseline is attached and every test is green;
+- all 89 named fail-first/regression tests have a classified runtime-base baseline and are green at
+  the implementation head;
 - the owner-ratified static substrate attestation proves the exact image/source,
   mutable-path, configuration, and cardinality mechanisms, and the separately
   authorized runtime preflight and run receipts prove the observed zero-to-three
@@ -876,8 +1036,8 @@ ER3 is complete only when all of the following are true at one exact head:
 - the runtime manifest matches §4 digest
   `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf`;
 - the v2 contract and golden digests remain
-  `8f493d69051cff60e0fbdd3e974c8d2223228adddc984aaf2cb8a1f6f5633346`
-  and `2ce278bc1c00d72fa8cfb64f5a5604a49590b45704824663d2bdfc3b922e2bf2`;
+  `2d5039d261f63d3e5db2d8da0579184540886871899641d1e4f816418c22accd`
+  and `96891fe5d32cd3ed65be22bb741e2d935240a127823e6a74215b6c7d2a04329d`;
 - existing ReviewReuse, identity, production-preflight, and core-fast suites are
   green without skips added for this tranche;
 - an approved real private service run indexes the archive and searches the
@@ -908,15 +1068,19 @@ dedup. Any v2 default migration or v1 retirement is a separate owner decision.
 Suggested implementation-only owner response:
 
 > I ratify `L3_REVIEW_REUSE_ER3_DESIGNLOCK_20260829.md` at exact head `<sha>`.
-> I authorize only ER3 implementation on exact base `<base-sha>`, using the exact
+> I authorize only ER3 implementation whose runtime base is
+> `af72d0ec02b5d2dc1d92508539bc89ba857245a8` and whose branch descends from this
+> ratified design-lock exact head, using the exact
 > repository fixture manifest digest
 > `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf`, vision image
 > `ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251`, static substrate attestation
 > `docs/development/L3_REVIEW_REUSE_ER3_VISION_SUBSTRATE_ATTESTATION_20260829.json` digest
-> `651bbdb9c056cdcc0a8b9d2a38d8d9bb0230537ec01d0911a9628613cf8aa283`, EvidencePack v2 contract
+> `988138a75031d78916ad388e1580012a50f8ac9bf5b97a9461a67d9ed2231228` and raw file SHA-256
+> `76ab3d92eafdb386f6f3588308da4b1e45d4830fb902fb1b6059a43df86a865c`, EvidencePack v2 contract
 > `docs/development/L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json` digest
-> `8f493d69051cff60e0fbdd3e974c8d2223228adddc984aaf2cb8a1f6f5633346`, golden vector digest
-> `2ce278bc1c00d72fa8cfb64f5a5604a49590b45704824663d2bdfc3b922e2bf2`, the versioned
+> `2d5039d261f63d3e5db2d8da0579184540886871899641d1e4f816418c22accd` and raw file SHA-256
+> `29f14b41971b728bf0c8481e66641792749c2d72b333bfc2e34fe364c687fd22`, golden vector digest
+> `96891fe5d32cd3ed65be22bb741e2d935240a127823e6a74215b6c7d2a04329d`, the versioned
 > compatibility contract in §5.4, and the named fail-first contract
 > in §7. I do not authorize image pull/start, fixture processing, merge, decision
 > enablement, deployment, pilot, or customer data.

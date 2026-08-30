@@ -1,6 +1,6 @@
 {
   "schema_version": "review-reuse-er3-evidence-pack-v2-contract-v1",
-  "contract_sha256": "8f493d69051cff60e0fbdd3e974c8d2223228adddc984aaf2cb8a1f6f5633346",
+  "contract_sha256": "2d5039d261f63d3e5db2d8da0579184540886871899641d1e4f816418c22accd",
   "canonicalization": {
     "algorithm": "sha-256",
     "function": "src.core.review_reuse.canonical.canonical_json_v1",
@@ -17,7 +17,7 @@
     "archive_manifest_sha256": "7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf",
     "vision_image_digest": "sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
     "vision_source_revision": "2fc35d60ff034c9f790868c02381a9716becc942",
-    "static_attestation_sha256": "651bbdb9c056cdcc0a8b9d2a38d8d9bb0230537ec01d0911a9628613cf8aa283",
+    "static_attestation_sha256": "988138a75031d78916ad388e1580012a50f8ac9bf5b97a9461a67d9ed2231228",
     "score_mapping_ruleset_identifier": "review-reuse-er3-score-map-v1"
   },
   "task_contract": {
@@ -96,10 +96,184 @@
         "evidence_ready",
         "decided"
       ],
-      "evidence_context_null_for_first_running_snapshot": true,
+      "evidence_context_null_for_running_revisions": [
+        1,
+        2,
+        3
+      ],
       "calibration_version_nullable_only_when_status_uncalibrated": true,
       "archive_candidates_must_bind_receipts": true
     }
+  },
+  "lifecycle_contract": {
+    "successful_revision_protocol": [
+      {
+        "revision": 1,
+        "status": "running",
+        "new_events": [
+          "submitted",
+          "input_validated"
+        ],
+        "controller_action": "none",
+        "evidence_context": null
+      },
+      {
+        "revision": 2,
+        "status": "running",
+        "new_events": [
+          "recall_started"
+        ],
+        "controller_action": "prepare",
+        "evidence_context": null
+      },
+      {
+        "revision": 3,
+        "status": "running",
+        "new_events": [
+          "input_content_verified"
+        ],
+        "controller_action": "execute",
+        "evidence_context": null
+      },
+      {
+        "revision": 4,
+        "status": "evidence_ready",
+        "new_events": [
+          "recall_completed",
+          "precision_started",
+          "precision_completed",
+          "evidence_pack_ready"
+        ],
+        "controller_action": "none",
+        "evidence_context": "complete ReviewReuseEvidenceContextV2"
+      }
+    ],
+    "input_validated_detail_exact_fields": [
+      "validation_scope",
+      "declared_bytes",
+      "declared_sha256",
+      "archive_manifest_sha256"
+    ],
+    "input_content_verified_detail_exact_fields": [
+      "observed_bytes",
+      "observed_sha256",
+      "archive_manifest_sha256",
+      "runtime_preflight_sha256"
+    ],
+    "invariants": [
+      "revision 1 validates canonical manifest metadata only and opens no fixture file",
+      "revision 2 recall_started is durably CAS-persisted before controller.prepare",
+      "controller.prepare performs runtime preflight then secure one-descriptor reads but no transfer, index, rebuild, search, or candidate mapping",
+      "revision 3 input_content_verified is durably CAS-persisted before controller.execute",
+      "controller.execute consumes only the prepared immutable buffers",
+      "revision 4 is persisted only after verified cleanup and a complete context and pack are validated",
+      "only v2 may perform the two running-to-running CAS transitions",
+      "a CAS loser never invokes prepare or execute"
+    ],
+    "interrupted_run": {
+      "predicate": "v2 running task contains recall_started and no terminal event",
+      "automatic_retry_policy": "create retry, idempotency retry, restart, and ordinary er3-run never invoke prepare or execute again",
+      "recovery_subcommand": "er3-recover",
+      "successful_recovery": "validate exact tenant/task/run binding, idempotently remove run-labeled resources, prove container/volume/network absence, then CAS to failed with code archive_run_interrupted, recovered true, cleanup_status verified_absent",
+      "recovery_prohibitions": "never open fixture bytes, invoke index/search, rebuild evidence, or emit a success summary",
+      "cleanup_failure": "leave task running, exit archive_cleanup_failed, and allow only another explicit recovery attempt"
+    },
+    "implementation_ancestry": {
+      "runtime_base": "af72d0ec02b5d2dc1d92508539bc89ba857245a8",
+      "required_chain": "runtime_base -> owner-ratified design-lock head -> implementation head",
+      "fail_first_baseline": "apply only the ratified tests to the exact runtime base"
+    }
+  },
+  "run_artifact_contract": {
+    "summary_schema_version": "review-reuse-er3-run-summary-v1",
+    "summary_exact_fields": [
+      "schema_version",
+      "status",
+      "run_id",
+      "tenant_id",
+      "task_id",
+      "task_revision",
+      "evidence_pack_sha256",
+      "archive_manifest_sha256",
+      "runtime_preflight_sha256",
+      "runtime_seal_receipt_sha256",
+      "repository_commit",
+      "reviewed_command_sha256",
+      "runner_version",
+      "store_root",
+      "writer_lease",
+      "artifacts"
+    ],
+    "writer_lease_exact_fields": [
+      "relative_path",
+      "sha256",
+      "size_bytes",
+      "closed_before_snapshot"
+    ],
+    "artifact_value_exact_fields": [
+      "sha256",
+      "size_bytes"
+    ],
+    "success_literals": {
+      "status": "succeeded",
+      "task_revision": 4
+    },
+    "path_contract": "ASCII POSIX relative path with no absolute prefix, empty segment, dot segment, dot-dot segment, backslash, or duplicate normalization",
+    "inventory_contract": "after store.close, recursively lstat the complete run root; accept only directories and st_nlink==1 regular files; include every regular file including the zero-byte writer lease; reject symlink, hardlink, socket, FIFO, device, missing file, and extra file",
+    "summary_exclusion": "run-summary.json is the only excluded artifact and is canonicalized and written last",
+    "replay_contract": "verify externally supplied summary SHA-256, full inventory and hashes before store open, then repeat full inventory after replay; never create, delete, repair, or rewrite lease or sidecar files",
+    "golden_scope": "minimal serialization vector only; a live artifacts map contains every run-root regular file except run-summary.json",
+    "golden_summary": {
+      "schema_version": "review-reuse-er3-run-summary-v1",
+      "status": "succeeded",
+      "run_id": "rr-er3-golden-vector",
+      "tenant_id": "tenant-er3-contract",
+      "task_id": "00000000-0000-4000-8000-000000000003",
+      "task_revision": 4,
+      "evidence_pack_sha256": "96891fe5d32cd3ed65be22bb741e2d935240a127823e6a74215b6c7d2a04329d",
+      "archive_manifest_sha256": "7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf",
+      "runtime_preflight_sha256": "84bd2e9461baf20ed04102533a04464625f1a524b14477a65f3d43688ceef541",
+      "runtime_seal_receipt_sha256": "d55c2d781d03f8b267b65fefd1cc2a37fe296d411567b255bc3c5c3d0a0a1230",
+      "repository_commit": "af72d0ec02b5d2dc1d92508539bc89ba857245a8",
+      "reviewed_command_sha256": "4ac9cf1949cd03184cffb1b63b5aeade11a55263cdbd22c21665932a01162441",
+      "runner_version": "review-reuse-er3-runner-v1",
+      "store_root": "state/store",
+      "writer_lease": {
+        "relative_path": "state/.review-reuse-writer-golden.lock",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "size_bytes": 0,
+        "closed_before_snapshot": true
+      },
+      "artifacts": {
+        "evidence/evidence-pack.json": {
+          "sha256": "5d0ac72b311933de4fdc329e2de1f7d4fad43172c18d71b8ab7a40ec8380ce59",
+          "size_bytes": 3453
+        },
+        "evidence/evidence.md": {
+          "sha256": "1410bdc7cf1953c569ee16459724d83e866d04f5bfbd64b62c0477186c7a2460",
+          "size_bytes": 3537
+        },
+        "state/.review-reuse-writer-golden.lock": {
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size_bytes": 0
+        }
+      }
+    },
+    "golden_summary_sha256": "9f18176f0052ebf5f52310adc253f152c9b9c52150861bf25a15132e33a645dd"
+  },
+  "markdown_contract": {
+    "media_type": "text/markdown; charset=utf-8",
+    "exact_expression": "b\"# ReviewReuse EvidencePack v2\\n\\n\" + b\"Canonical evidence (null remains unavailable):\\n\\n    \" + canonical_json_v1(validated_persisted_pack) + b\"\\n\"",
+    "source": "validated persisted EvidencePack selected by the immutable task selector",
+    "golden_markdown_size_bytes": 3537,
+    "golden_markdown_sha256": "1410bdc7cf1953c569ee16459724d83e866d04f5bfbd64b62c0477186c7a2460",
+    "invariants": [
+      "evidence.md equals the exact expression bytes",
+      "audit bundle Markdown is the strict UTF-8 decode of those bytes",
+      "pretty JSON, repr, locale, wall-clock time, and host paths are forbidden",
+      "replay regenerates in memory and requires byte equality",
+      "the v1 renderer remains byte-identical"
+    ]
   },
   "index_receipt_contract": {
     "raw_response": {
@@ -601,6 +775,48 @@
       ],
       "sha256": "ccee15b504054a1cd3def3f6531babbc41a72742d3d2dbb8e35efd57337afd11"
     },
+    "docker_command_receipt": {
+      "exact_fields": [
+        "operation",
+        "argv",
+        "exit_code",
+        "stdout_sha256",
+        "stderr_sha256"
+      ],
+      "types_and_nullability": {
+        "operation": "one closed operation identifier",
+        "argv": "non-empty array of non-empty strings; no shell-joined form",
+        "exit_code": "integer; boolean forbidden",
+        "stdout_sha256": "raw stdout byte SHA-256",
+        "stderr_sha256": "raw stderr byte SHA-256"
+      },
+      "digest": "docker_command_receipt_sha256 is canonical_sha256 of the complete strict five-field object with no excluded field",
+      "invariants": [
+        "context resolution uses only the verified binary context show and context inspect <returned-name>",
+        "every command after endpoint resolution uses the verified absolute binary followed by exact --host and the verified endpoint",
+        "PATH lookup, --context, --config, shell execution, and untemplated arguments are forbidden",
+        "nonzero exit is invalid except the exact egress-probe docker exec exit 7"
+      ]
+    },
+    "docker_inspect_receipt": {
+      "exact_fields": [
+        "observation_sequence",
+        "docker_command_receipt_sha256",
+        "strict_projection_sha256"
+      ],
+      "types_and_nullability": {
+        "observation_sequence": "globally unique positive integer; boolean forbidden",
+        "docker_command_receipt_sha256": "digest of a docker inspect --type container command receipt with exit 0",
+        "strict_projection_sha256": "canonical digest of the strict container projection parsed from that command's raw stdout"
+      },
+      "digest": "inspect_receipt_sha256 is canonical_sha256 of the complete strict three-field object with no excluded field",
+      "invariants": [
+        "one fresh inspect subprocess produces each receipt",
+        "no observation sequence or inspect receipt digest may repeat",
+        "equal strict projection digests are allowed only when separately observed posture is unchanged",
+        "er3-replay validates recorded receipts without invoking Docker"
+      ]
+    },
     "runtime_preflight": {
       "digest_field": "runtime_preflight_sha256",
       "preimage_schema_version": "review-reuse-er3-runtime-preflight-v1",
@@ -624,10 +840,16 @@
         ],
         "docker_control": [
           "context_name",
+          "context_show_receipt_sha256",
+          "context_inspect_receipt_sha256",
           "endpoint",
           "endpoint_scheme",
           "server_version",
-          "override_environment_absent"
+          "docker_binary_realpath",
+          "docker_binary_sha256",
+          "setup_command_receipt_sha256s",
+          "override_environment_absent",
+          "docker_control_sha256"
         ],
         "image": [
           "index_digest",
@@ -670,7 +892,31 @@
           "port_bindings",
           "publish_all_ports",
           "extra_hosts",
-          "restart_policy"
+          "restart_policy",
+          "auto_remove",
+          "log_config",
+          "volume_driver",
+          "volumes_from",
+          "links",
+          "group_add",
+          "dns",
+          "dns_options",
+          "dns_search",
+          "cgroupns_mode",
+          "cgroup",
+          "cgroup_parent",
+          "runtime",
+          "init",
+          "oom_kill_disable",
+          "pids_limit",
+          "device_cgroup_rules",
+          "sysctls",
+          "storage_opt",
+          "tmpfs",
+          "shm_size_bytes",
+          "masked_paths",
+          "readonly_paths",
+          "ulimits"
         ],
         "mounts": [
           "host_mounts",
@@ -729,10 +975,16 @@
         "repository.status_porcelain_sha256": "literal SHA-256 of empty bytes from git status --porcelain=v1 --untracked-files=all --ignored=no",
         "repository.clean": "literal true",
         "docker_control.context_name": "non-empty string",
+        "docker_control.context_show_receipt_sha256": "64 lowercase hex matching an exported strict Docker command receipt",
+        "docker_control.context_inspect_receipt_sha256": "64 lowercase hex matching an exported strict Docker command receipt",
         "docker_control.endpoint": "credential-free local absolute unix URI",
         "docker_control.endpoint_scheme": "literal unix",
         "docker_control.server_version": "non-empty observed string",
-        "docker_control.override_environment_absent": "exact ordered array [DOCKER_HOST, DOCKER_CONTEXT, DOCKER_TLS_VERIFY, DOCKER_CERT_PATH]",
+        "docker_control.docker_binary_realpath": "canonical absolute regular executable path",
+        "docker_control.docker_binary_sha256": "64 lowercase hex recomputed before every Docker subprocess",
+        "docker_control.setup_command_receipt_sha256s": "exact ordered six-element array for server version, image pull, image inspect, container create, container start, and initial container inspect command receipts",
+        "docker_control.override_environment_absent": "exact ordered array [DOCKER_HOST, DOCKER_CONTEXT, DOCKER_TLS_VERIFY, DOCKER_CERT_PATH, DOCKER_CONFIG, DOCKER_API_VERSION, DOCKER_DEFAULT_PLATFORM]",
+        "docker_control.docker_control_sha256": "canonical_sha256 of the complete docker_control object after removing only docker_control_sha256",
         "image fields": "exact selected static-attestation platform values plus the canonical owner-ratified static-attestation digest",
         "container.container_id": "64 lowercase hex",
         "container.name": "run-id-derived non-empty string",
@@ -746,7 +998,7 @@
         "container.restart_count": "literal integer 0; boolean forbidden",
         "container.network_attachments": "exact sorted array [none]; any additional network name is forbidden",
         "container.published_ports": "literal empty object normalized from NetworkSettings.Ports and HostConfig.PortBindings",
-        "container.host_config": "exact closed normalized object equal to the attestation",
+        "container.host_config": "exact closed normalized object equal to the attestation; no unknown or omitted normalized field",
         "container.mounts.host_mounts": "literal empty array",
         "container.mounts.anonymous_volumes": "literal empty array",
         "container.mounts.tmpfs_targets": "exact ordered array [/app/data, /app/indexes, /app/logs, /tmp]",
@@ -759,7 +1011,7 @@
       },
       "invariants": [
         "repository verification completes before Docker context resolution; observed_head equals authorized_head, reviewed_command_sha256 matches the owner-reviewed canonical argv digest, status_porcelain_sha256 is the empty-byte digest, and clean is true",
-        "docker_control endpoint_scheme is unix, endpoint is a local absolute unix URI, and every Docker override environment variable is absent",
+        "docker_control endpoint_scheme is unix, endpoint is a local absolute unix URI, all seven Docker override/config/platform variables are absent, context and six setup command receipts are recomputed, binary identity is stable, server_version comes from the bound docker_version receipt, the pull is digest-pinned, and docker_control_sha256 verifies",
         "image.static_attestation_sha256 equals ratified_run_bindings and image/container image IDs equal the selected static-attestation platform",
         "container command, process user, working directory, running lifecycle, network attachments, published ports, host_config, mounts, and complete normalized integration/credential/proxy environment equal the closed static-attestation projections",
         "the numeric no-egress probe exits 7 with stdout 000 and the pre-index health, index sizes, and storage count are all zero before any fixture byte is opened",
@@ -776,10 +1028,56 @@
             "--manifest",
             "tests/fixtures/review_reuse_er3/archive_manifest.json",
             "--authorized-head",
-            "13055d4966fb3b543d747759ebd237d24a55e452",
+            "af72d0ec02b5d2dc1d92508539bc89ba857245a8",
+            "--docker-bin",
+            "/usr/bin/docker",
             "--out",
             "/tmp/review-reuse-er3-golden"
           ]
+        },
+        "docker_binary": "raw UTF-8 bytes golden-docker-binary-v1",
+        "docker_command_receipts": {
+          "context_show": {
+            "operation": "docker_context_show",
+            "argv": [
+              "/usr/bin/docker",
+              "context",
+              "show"
+            ],
+            "exit_code": 0,
+            "stdout_sha256": "37225a23f83f96cd6f9b50d2da2c41c69849fd25304aee6e137c441ecc70e10c",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "context_inspect": {
+            "operation": "docker_context_inspect",
+            "argv": [
+              "/usr/bin/docker",
+              "context",
+              "inspect",
+              "golden-local-unix"
+            ],
+            "exit_code": 0,
+            "stdout_sha256": "dad83c3391ab7bfb241cad0f96bef4103cbb4677c3a6880abbd23b5fba6d91e8",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        "docker_command_receipt_stdout_preimages": {
+          "context_show": "raw UTF-8 bytes golden-local-unix followed by LF",
+          "context_inspect": "raw UTF-8 bytes golden-context-inspect followed by LF"
+        },
+        "setup_command_receipt_derivation": {
+          "operations": [
+            "docker_version",
+            "docker_image_pull",
+            "docker_image_inspect",
+            "docker_container_create",
+            "docker_container_start",
+            "docker_container_inspect_initial"
+          ],
+          "argv": "[/usr/bin/docker,--host,unix:///var/run/docker.sock,golden-setup,<operation>]",
+          "exit_code": 0,
+          "stdout_preimage": "raw UTF-8 bytes golden-setup:<operation>:stdout followed by LF",
+          "stderr_preimage": "raw UTF-8 bytes golden-setup:<operation>:stderr followed by LF"
         },
         "status_porcelain": "empty byte string; raw SHA-256, not canonical JSON"
       },
@@ -788,30 +1086,46 @@
         "run_id": "rr-er3-golden-vector",
         "repository": {
           "root_realpath_sha256": "4d7f3ba74505ac8b73c70def2d3de40ecc420c35fa3f412451c88dff0a544573",
-          "observed_head": "13055d4966fb3b543d747759ebd237d24a55e452",
-          "authorized_head": "13055d4966fb3b543d747759ebd237d24a55e452",
-          "reviewed_command_sha256": "e7fa7a73fb1bdf4d11f23a43d7d9c1759604c110f145ede165cf4c74acc4a9ee",
+          "observed_head": "af72d0ec02b5d2dc1d92508539bc89ba857245a8",
+          "authorized_head": "af72d0ec02b5d2dc1d92508539bc89ba857245a8",
+          "reviewed_command_sha256": "4ac9cf1949cd03184cffb1b63b5aeade11a55263cdbd22c21665932a01162441",
           "status_porcelain_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "clean": true
         },
         "docker_control": {
           "context_name": "golden-local-unix",
+          "context_show_receipt_sha256": "26d4cecf5d323bf9c857168d6822cae1c4f88b3996c4cd245de7204294a5e0c4",
+          "context_inspect_receipt_sha256": "bb13000117b56f9208ec4cc70802fa92d47ba4d30b13437dc7345199d392653a",
           "endpoint": "unix:///var/run/docker.sock",
           "endpoint_scheme": "unix",
           "server_version": "golden-static-serialization",
+          "docker_binary_realpath": "/usr/bin/docker",
+          "docker_binary_sha256": "0c4837a5e2ee8043dca1cc470b10d9cea3c3ceb0104ad6057adee9c2b99640d0",
+          "setup_command_receipt_sha256s": [
+            "1b4352fa93c67306aef4465231e278bc7fefaa5283d9b7ac9584c0cf5ab14f4c",
+            "f9f0f7263fa04f490ce59addfbf57d67d748b95bad25a80dee2ee41d08cf5098",
+            "fb6f10a5871dd57342cf01a46c88cd2cda9f25f5df1ca50c9adbb597823f7fd2",
+            "028b3d5ba8b715d09eecd3fe115a792cd3d5a5b0cc65c086c70f60b3fab75848",
+            "3454315117827f7fe894ec6ad1e35133005d4617e02e2e7404c8c42f5aa539cc",
+            "f76b239eb2f389ef8a7e6d055a45373067a13f7a5962ca7fe61008e5fbe77226"
+          ],
           "override_environment_absent": [
             "DOCKER_HOST",
             "DOCKER_CONTEXT",
             "DOCKER_TLS_VERIFY",
-            "DOCKER_CERT_PATH"
-          ]
+            "DOCKER_CERT_PATH",
+            "DOCKER_CONFIG",
+            "DOCKER_API_VERSION",
+            "DOCKER_DEFAULT_PLATFORM"
+          ],
+          "docker_control_sha256": "5e89a5509a6c04f857be74421e835495331537596dfdfa26547b4f9b6cdc70f4"
         },
         "image": {
           "index_digest": "sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
           "selected_platform": "linux/amd64",
           "platform_manifest_digest": "sha256:036db4725b5578689d76c1ced933aa9438bd628e257387515e214de5a838ce20",
           "docker_image_id": "sha256:9d056adc789ee0980de046205f0bb009c57a36a5a94ea329c2971e5cecf30bc0",
-          "static_attestation_sha256": "651bbdb9c056cdcc0a8b9d2a38d8d9bb0230537ec01d0911a9628613cf8aa283"
+          "static_attestation_sha256": "988138a75031d78916ad388e1580012a50f8ac9bf5b97a9461a67d9ed2231228"
         },
         "container": {
           "container_id": "1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28",
@@ -856,7 +1170,57 @@
             "port_bindings": {},
             "publish_all_ports": false,
             "extra_hosts": [],
-            "restart_policy": "no"
+            "restart_policy": "no",
+            "auto_remove": false,
+            "log_config": {
+              "type": "none",
+              "config": {}
+            },
+            "volume_driver": "",
+            "volumes_from": [],
+            "links": [],
+            "group_add": [],
+            "dns": [],
+            "dns_options": [],
+            "dns_search": [],
+            "cgroupns_mode": "private",
+            "cgroup": "",
+            "cgroup_parent": "",
+            "runtime": "runc",
+            "init": false,
+            "oom_kill_disable": false,
+            "pids_limit": 256,
+            "device_cgroup_rules": [],
+            "sysctls": {},
+            "storage_opt": {},
+            "tmpfs": {
+              "/app/data": "rw,nosuid,nodev",
+              "/app/indexes": "rw,nosuid,nodev",
+              "/app/logs": "rw,nosuid,nodev",
+              "/tmp": "rw,nosuid,nodev"
+            },
+            "shm_size_bytes": 67108864,
+            "masked_paths": [
+              "/proc/acpi",
+              "/proc/asound",
+              "/proc/kcore",
+              "/proc/keys",
+              "/proc/latency_stats",
+              "/proc/sched_debug",
+              "/proc/scsi",
+              "/proc/timer_list",
+              "/proc/timer_stats",
+              "/sys/devices/virtual/powercap",
+              "/sys/firmware"
+            ],
+            "readonly_paths": [
+              "/proc/bus",
+              "/proc/fs",
+              "/proc/irq",
+              "/proc/sys",
+              "/proc/sysrq-trigger"
+            ],
+            "ulimits": []
           },
           "mounts": {
             "host_mounts": [],
@@ -908,7 +1272,7 @@
           "storage_count": 0
         }
       },
-      "golden_sha256": "875d76db424d2f3b9bb2871583475e8b29765012358b8c579eb8543a23705206"
+      "golden_sha256": "84bd2e9461baf20ed04102533a04464625f1a524b14477a65f3d43688ceef541"
     },
     "runtime_seal": {
       "digest_field": "runtime_seal_receipt_sha256",
@@ -917,7 +1281,10 @@
         "schema_version",
         "run_id",
         "runtime_preflight_sha256",
+        "docker_control_sha256",
         "sealed_operations",
+        "command_receipt_sha256s",
+        "inspect_receipt_sha256s",
         "command_counts",
         "cleanup"
       ],
@@ -944,6 +1311,10 @@
           "rebuild_requests"
         ],
         "cleanup": [
+          "docker_rm_command_receipt_sha256",
+          "labeled_container_list_command_receipt_sha256",
+          "labeled_volume_list_command_receipt_sha256",
+          "labeled_network_list_command_receipt_sha256",
           "docker_rm_exit_code",
           "remaining_labeled_containers",
           "remaining_labeled_volumes",
@@ -954,206 +1325,292 @@
         "schema_version": "literal review-reuse-er3-runtime-seal-v1",
         "run_id": "same non-empty run id as runtime preflight",
         "runtime_preflight_sha256": "64 lowercase hex matching the exported preflight preimage",
+        "docker_control_sha256": "64 lowercase hex equal to runtime_preflight.docker_control.docker_control_sha256",
         "sealed_operations": "non-empty ordered array of strict sealed-operation objects",
+        "command_receipt_sha256s": "one 64-lowercase-hex Docker command receipt digest per sealed operation in identical order",
+        "inspect_receipt_sha256s": "two unique 64-lowercase-hex inspect receipt digests per sealed operation in exact before/after order",
         "sealed_operation.sequence": "contiguous integer >= 1; boolean forbidden",
         "sealed_operation.operation": "one fixed docker_cp_* or docker_exec_* operation identifier",
         "sealed_operation.ordinal": "integer >= 1; boolean forbidden",
         "sealed_operation.transferred_content_sha256": "64 lowercase manifest content hash for docker_cp_* operations and literal null for docker_exec_* operations",
-        "sealed_operation.before_inspect_sha256": "64 lowercase hex matching an exported strict inspect projection",
-        "sealed_operation.after_inspect_sha256": "64 lowercase hex matching an exported strict inspect projection equal in security posture to its before projection",
+        "sealed_operation.before_inspect_sha256": "64 lowercase strict projection digest parsed from the matching before inspect receipt",
+        "sealed_operation.after_inspect_sha256": "64 lowercase strict projection digest parsed from the matching after inspect receipt and equal in security posture to its before projection",
         "command_counts values": "exact non-negative integers; booleans forbidden",
-        "cleanup values": "literal integer 0"
+        "cleanup command receipt fields": "four distinct 64-lowercase-hex strict Docker command receipt digests",
+        "cleanup count and exit values": "literal integer 0"
       },
       "invariants": [
+        "the nth command_receipt_sha256 binds the nth sealed operation's exact verified-binary/endpoint argv, integer exit, and raw stdout/stderr digests",
+        "the two inspect_receipt_sha256s at positions 2n and 2n+1 bind distinct fresh before/after inspect subprocess receipts for the nth sealed operation; no digest or observation sequence repeats",
         "every docker cp and docker exec operation is bracketed by normalized inspect projections and any security-posture drift aborts before the next drawing-byte operation",
         "each docker_cp_* operation transfers a deterministic in-memory tar stream built from the immutable manifest-verified bytes and binds that content digest; every docker_exec_* operation uses null",
         "sealed_operations preserve execution order and sequence is contiguous from one",
-        "every before/after digest is recomputed from an exported strict inspect-projection preimage whose exact field shape is runtime_preflight.container; the inspect golden digest is 524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748",
+        "every before/after projection digest is recomputed from the corresponding exported inspect command stdout whose exact field shape is runtime_preflight.container; equal projection digests do not permit inspect receipt reuse",
         "command_counts bind one curl-version check and egress probe, two health and stats requests, three archive transfers/index requests/removals, two query transfers/search requests/removals, and one rebuild",
-        "cleanup proves zero run-labeled containers, volumes, and networks after docker rm -fv",
-        "runtime_seal_receipt_sha256 equals canonical_sha256 of the complete six-field preimage with no excluded field"
+        "cleanup binds exact docker rm -fv and three run-label list commands, then proves zero run-labeled containers, volumes, and networks",
+        "runtime_seal_receipt_sha256 equals canonical_sha256 of the complete nine-field preimage with no excluded field"
       ],
+      "golden_receipt_derivation": {
+        "operation_command": "for each sealed operation, receipt operation equals the sealed operation id; argv is [/usr/bin/docker,--host,unix:///var/run/docker.sock,golden-operation,<operation>,<base-10 ordinal>]; exit is 7 only for docker_exec_egress_probe and 0 otherwise; stdout/stderr raw preimages are golden-op:<sequence>:stdout\\n and golden-op:<sequence>:stderr\\n",
+        "inspect_command": "one strict Docker command receipt for [/usr/bin/docker,--host,unix:///var/run/docker.sock,inspect,--type,container,1cf36c4ba0cb4a47d8b7d5cc9b8be3fb712daebf8d92a9230091cbd0f80baf28], exit 0, canonical strict-projection bytes as stdout, and empty stderr",
+        "inspect_receipts": "for observation_sequence 1 through twice the sealed-operation count, canonicalize {observation_sequence,docker_command_receipt_sha256:<inspect-command digest>,strict_projection_sha256:<strict-projection digest>} in order",
+        "cleanup_commands": "derive four exit-0 receipts for docker_rm, labeled_container_list, labeled_volume_list, and labeled_network_list using argv [/usr/bin/docker,--host,unix:///var/run/docker.sock,golden-cleanup,<operation>] and raw golden-cleanup:<operation>:stdout or stderr followed by LF",
+        "purpose": "serialization-only deterministic vectors; live receipts use observed exact argv and raw streams"
+      },
+      "strict_projection_golden_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20",
+      "golden_inspect_command_receipt_sha256": "616c3019db440af72a261216053991c9895cceb6835a736a1fd46433713b5646",
       "golden_preimage": {
         "schema_version": "review-reuse-er3-runtime-seal-v1",
         "run_id": "rr-er3-golden-vector",
-        "runtime_preflight_sha256": "875d76db424d2f3b9bb2871583475e8b29765012358b8c579eb8543a23705206",
+        "runtime_preflight_sha256": "84bd2e9461baf20ed04102533a04464625f1a524b14477a65f3d43688ceef541",
+        "docker_control_sha256": "5e89a5509a6c04f857be74421e835495331537596dfdfa26547b4f9b6cdc70f4",
         "sealed_operations": [
           {
             "sequence": 1,
             "operation": "docker_exec_curl_version",
             "ordinal": 1,
             "transferred_content_sha256": null,
-            "before_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748",
-            "after_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748"
+            "before_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20",
+            "after_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20"
           },
           {
             "sequence": 2,
             "operation": "docker_exec_egress_probe",
             "ordinal": 1,
             "transferred_content_sha256": null,
-            "before_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748",
-            "after_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748"
+            "before_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20",
+            "after_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20"
           },
           {
             "sequence": 3,
             "operation": "docker_exec_health",
             "ordinal": 1,
             "transferred_content_sha256": null,
-            "before_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748",
-            "after_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748"
+            "before_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20",
+            "after_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20"
           },
           {
             "sequence": 4,
             "operation": "docker_exec_stats",
             "ordinal": 1,
             "transferred_content_sha256": null,
-            "before_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748",
-            "after_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748"
+            "before_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20",
+            "after_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20"
           },
           {
             "sequence": 5,
             "operation": "docker_cp_query",
             "ordinal": 1,
             "transferred_content_sha256": "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c",
-            "before_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748",
-            "after_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748"
+            "before_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20",
+            "after_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20"
           },
           {
             "sequence": 6,
             "operation": "docker_exec_search",
             "ordinal": 1,
             "transferred_content_sha256": null,
-            "before_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748",
-            "after_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748"
+            "before_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20",
+            "after_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20"
           },
           {
             "sequence": 7,
             "operation": "docker_exec_remove_query",
             "ordinal": 1,
             "transferred_content_sha256": null,
-            "before_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748",
-            "after_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748"
+            "before_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20",
+            "after_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20"
           },
           {
             "sequence": 8,
             "operation": "docker_cp_archive",
             "ordinal": 1,
             "transferred_content_sha256": "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c",
-            "before_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748",
-            "after_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748"
+            "before_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20",
+            "after_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20"
           },
           {
             "sequence": 9,
             "operation": "docker_exec_index_add",
             "ordinal": 1,
             "transferred_content_sha256": null,
-            "before_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748",
-            "after_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748"
+            "before_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20",
+            "after_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20"
           },
           {
             "sequence": 10,
             "operation": "docker_exec_remove_archive",
             "ordinal": 1,
             "transferred_content_sha256": null,
-            "before_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748",
-            "after_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748"
+            "before_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20",
+            "after_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20"
           },
           {
             "sequence": 11,
             "operation": "docker_cp_archive",
             "ordinal": 2,
             "transferred_content_sha256": "c32bd82c54124d87fe0731f7cc1a05e4d0147d755d9cd98dc41a1aaa047495e6",
-            "before_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748",
-            "after_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748"
+            "before_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20",
+            "after_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20"
           },
           {
             "sequence": 12,
             "operation": "docker_exec_index_add",
             "ordinal": 2,
             "transferred_content_sha256": null,
-            "before_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748",
-            "after_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748"
+            "before_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20",
+            "after_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20"
           },
           {
             "sequence": 13,
             "operation": "docker_exec_remove_archive",
             "ordinal": 2,
             "transferred_content_sha256": null,
-            "before_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748",
-            "after_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748"
+            "before_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20",
+            "after_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20"
           },
           {
             "sequence": 14,
             "operation": "docker_cp_archive",
             "ordinal": 3,
             "transferred_content_sha256": "9a9ca171ef968202eb69523eb0db9e8f88009cb0048a0d301dfa87076bb48d7e",
-            "before_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748",
-            "after_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748"
+            "before_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20",
+            "after_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20"
           },
           {
             "sequence": 15,
             "operation": "docker_exec_index_add",
             "ordinal": 3,
             "transferred_content_sha256": null,
-            "before_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748",
-            "after_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748"
+            "before_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20",
+            "after_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20"
           },
           {
             "sequence": 16,
             "operation": "docker_exec_remove_archive",
             "ordinal": 3,
             "transferred_content_sha256": null,
-            "before_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748",
-            "after_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748"
+            "before_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20",
+            "after_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20"
           },
           {
             "sequence": 17,
             "operation": "docker_exec_rebuild",
             "ordinal": 1,
             "transferred_content_sha256": null,
-            "before_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748",
-            "after_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748"
+            "before_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20",
+            "after_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20"
           },
           {
             "sequence": 18,
             "operation": "docker_exec_stats",
             "ordinal": 2,
             "transferred_content_sha256": null,
-            "before_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748",
-            "after_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748"
+            "before_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20",
+            "after_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20"
           },
           {
             "sequence": 19,
             "operation": "docker_exec_health",
             "ordinal": 2,
             "transferred_content_sha256": null,
-            "before_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748",
-            "after_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748"
+            "before_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20",
+            "after_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20"
           },
           {
             "sequence": 20,
             "operation": "docker_cp_query",
             "ordinal": 2,
             "transferred_content_sha256": "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c",
-            "before_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748",
-            "after_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748"
+            "before_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20",
+            "after_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20"
           },
           {
             "sequence": 21,
             "operation": "docker_exec_search",
             "ordinal": 2,
             "transferred_content_sha256": null,
-            "before_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748",
-            "after_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748"
+            "before_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20",
+            "after_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20"
           },
           {
             "sequence": 22,
             "operation": "docker_exec_remove_query",
             "ordinal": 2,
             "transferred_content_sha256": null,
-            "before_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748",
-            "after_inspect_sha256": "524d9b400545a39d576e419bc0a711fa282b686d30ada3de11e8321eec30e748"
+            "before_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20",
+            "after_inspect_sha256": "e005d813db825019486269b41452d48de8ebbc7872f41f9336f256ba77f31a20"
           }
+        ],
+        "command_receipt_sha256s": [
+          "8926b972cffba076a3e7fb60d0fd0af789ac8c988992143464cdc12be52500a0",
+          "c1ad13eb541b0c10e2923e78ac9d84de953fca046959d708295ca7a996b23391",
+          "eb05433f73c4a3664f1d37ac8ab473bfe05b0267ed7530731502e25f467acdbb",
+          "9bb5778a83bf309f2d2a03fa0389f529d03b3b4a0a1688a0c46684ac2b6df245",
+          "6814fd0feb44d15c094a56f5e3ff16b19737c43b209c681cdbe8646b32301166",
+          "b0e4894454b471f590f362d180339881a87d5332bb976ac9bc1b94379dae78fc",
+          "b8f49063b22d27a3682a5eedab1a061ad51c4688c858f805a77ac08e4246b1e4",
+          "bbd7736057bfe683b7fc14fe482922d7d797f5e7fcb61318aec5e790ffc49baf",
+          "ce04c28359aa35680578177ec9e7f1fa33a77e61b2e952327e968954643d742b",
+          "b7844ea3d3c9288bd8557e7e234e6502c66994f93859b1a34c664a1c8ac5949c",
+          "402dd00e7a9dcdba2acf9de82cdc209873cab748bfd3656b6edc047f1d50a55d",
+          "c4fc1d3d175a882636cb7eade7e85f52e7a58eeef873755d498eb88182b46b31",
+          "980d7787a7e70e74bb9c177ad98b7dfcbe949e269559908611e78b8131ab5c25",
+          "2a98181dcedd1a9a989b97f1d2c6510067d6055a2f332d915bdb3f741eb46b99",
+          "1c107cd5f579c792b5171a3d6886c17ed3d042c2f264222bb60287b3f75fa8fa",
+          "2327727726585705c999ad2f3a359224d43b618f4aff83e53aca37523a7d97cb",
+          "5844ac878764dddb2b11d676085bce20bc317c8011ce6737021d04f70baef611",
+          "eaec86f10cd581a630fb1f4fd40cdc431a5b357cf085241950d08f65de74ad9d",
+          "dafc7a0cc9ec66aaa7f3bcd55e229b1c1232e5eb6f5796188b3748e464805ba1",
+          "a697448e8d057c2547d71c734592842c37eaa9aa86bf3e3a1750b3afa18fcbcd",
+          "aadd6f5f28d9d8047648e25e93b9cbc0902df6cd66c5e3c1c41d3519f524da40",
+          "0c99faa1a80a299b96b64fd2bfd0d620e0e74e09ea0b99a32b01af868e1a1e1c"
+        ],
+        "inspect_receipt_sha256s": [
+          "ce2b04dba41dee2dd1ee1a2cecba6902464d47b6cdcd3b55de91c3dae78beb3c",
+          "9b20da9d188d29aced317fe13eefd8f4b86b25d71a4c449c9d47397c4c9916f4",
+          "b2a61eea8a9f328c30924eca42e2847f5c18b24de7169fd4a58e8cef429ceba5",
+          "d0bb1c4b947d542acce8d1c4547f979d3079092dddfa635ea940a4fa3487502c",
+          "acb66a4f62fb25202404f2bf525958ffc8b55b93f35f283c2b243bf74eda5232",
+          "4f1daecec5a6896023e65d75d34a783c25f3facf121a40af27a1c47015bedd3f",
+          "0bd0dfb2601812ae40fb2ce7711978b530918b785e3d04d76c5f5080838c2982",
+          "1071bd942f6b00d621c74d9c2b7d7768d468bf26c178157c3bba24be829a71be",
+          "175b1fa896cb59d134fdc5705e1335b42e4cfbaa68a4eb9719a43ea9fc83b45d",
+          "4a844a6c9a0d466bbcea4290fae158b41eae15fbfc56e47ec26a599d3c019480",
+          "9bbfe4cae96f63baf517505447f5405152d47c6de14a5456f9a00a58520128fc",
+          "8bb22bd4b9c1dc6d77f4e80c179e0b72fd125131c05ab462582821afb21ab59c",
+          "6194cecae6b129974abdfd55e7c1d568f80bfceffb56f09d83049803aeb436d0",
+          "436d3dc0e99e1a064fba274cb3f40c850d85c9d1a021f288f6d85d27e6cb93be",
+          "07dc9f1f1d8dfc0cc6515744bb3ba2f7b4ef238976a7c5ae97eb25e0a98bb569",
+          "413cb05b69031d1874b96e2e879276f9dc068fba737fec20a87d3edc84a3fab9",
+          "8d69fa828c134bdf741642e7da938642d04c8bd2e7a898d9a28d1d957a513f4c",
+          "697f15281bce8b6a68488de4553b6330693ba791b5cf4b9877ac04cc0856cf60",
+          "5379de6888d1c6714968b919789d9f3a8cb55e9a2671d06191f51d48164e2417",
+          "7a01fa877427701a32b9281b3b45c9419204bf50ec7d42e474cd57a4cf268925",
+          "0f72d060f356dbf87e1421f8ab18e39482d64dbd9014b4446d4c729e54b6c53d",
+          "3831d7ec2d2ac519d5c405c39ccd5a9d6b0aacf200b26c51dc441d7ccfc346ce",
+          "1b542408d74c5053e7c5b7dd8c4b75566b08e9b78a19aa066e48505f22d8ac69",
+          "b98bfe4682eb9fb96a109e5f38ec2e64aef04940cc3a3f30de8ed42604044a5d",
+          "5284394df9c2b53b2da1018fd1111a59a2124ef8f8ec5ced0c66145a4348f2ab",
+          "3d5ca80764ecc046f0e841ed9523a0212e94f97646e15c1eb103d5f0261a5c8b",
+          "d55ee858d34bd8c1927547d2120e7e5fc4522db0dccaa2a6521a2884469f4c33",
+          "dc3a6637ba60e0b0c37cfb60079640cbff4d4c001cad8cd76115ca56c49b56f8",
+          "995a08fcd734b11f4f45f49f3d037e561186cf2da0a59bf50a03a1b1f78e3550",
+          "8c80363f4283af4e9b858088af987e812da652abbadcc58ae0299d7d953c9c0c",
+          "c999e58d2b5c66d0ff80f38c7d99994afbec6542538019a57e8dc4d7cf3e952a",
+          "33c6273c2ce1dd288fea0e601d240e91756e490d43cd821e887bf2e384a291f5",
+          "87c2c041f7f7c5211c51c93fbbd1e6c392e7fb9a82ac87a65d09642d83226362",
+          "8d1d0c734d34ac0afcdff8acfcbbdffb9de3a8735aa6521de28968417833024a",
+          "ecdf18f39feecc65c791aeb7c93c9a1497e7c0db76224eaba1ed8c76efe704f2",
+          "3817773a1f6787645b910a8550661e3b10ef4902b894ae71ade5ebcdc664919b",
+          "7a5c2e2574d5438264951b1e94165249e8c3fa00a4c50928b98370a271457fd5",
+          "305a0d334de97aec97f4a77554c8b32172be30f803f40311e8e8a49cf8480dfa",
+          "dec822faecfbc3a05f79671badbc0bf5855024d786f643e844b656a29a24d1a6",
+          "76aac89ad64ecc66eff0939c9fe7b4eca896a5b6f146363621e01e17679725c7",
+          "5405905881228d34d02c8ffa819b9cd1f894e36eaea3912277b8dcc06baf98ae",
+          "4bacb53d142e406175119f3f01751e74f8bd5429c8237157231d8cb80f4f10d4",
+          "c3d6091f4bda9b10a839cb6f577b62e67b49477c5ab5c0f807dc862f11ba7ede",
+          "3b170b5efc44d281c46589714e004c9ce7209c7591a19d4f2028d4df35589c17"
         ],
         "command_counts": {
           "curl_version_requests": 1,
@@ -1169,13 +1626,17 @@
           "rebuild_requests": 1
         },
         "cleanup": {
+          "docker_rm_command_receipt_sha256": "fab62705d7d39e8cf2e5d0c5afe67c1c671a9a5c0200ab81283b2b19b142105e",
+          "labeled_container_list_command_receipt_sha256": "a9ebda2e21626a18f2623ccd49fc19d3a0735bb462437ef75cb3833523a2c4a0",
+          "labeled_volume_list_command_receipt_sha256": "f000b9188ee0e8af32e36f901141a37de92d500f8e03c0e2bfb502023a4e895a",
+          "labeled_network_list_command_receipt_sha256": "e4f5df2c7e1bbae370c37e3729bd3bd9bb056a73e36b966bbf3207ee28f9ab29",
           "docker_rm_exit_code": 0,
           "remaining_labeled_containers": 0,
           "remaining_labeled_volumes": 0,
           "remaining_labeled_networks": 0
         }
       },
-      "golden_sha256": "35b64f944cbdaa39307c632426002279027aafadf6c94535f3fb3cc3e06d6af4"
+      "golden_sha256": "d55c2d781d03f8b267b65fefd1cc2a37fe296d411567b255bc3c5c3d0a0a1230"
     }
   },
   "envelope": {
@@ -1468,8 +1929,8 @@
   "golden_vector": {
     "schema_version": "evidence-pack-v2",
     "task_id": "00000000-0000-4000-8000-000000000003",
-    "task_revision": 2,
-    "evidence_pack_sha256": "2ce278bc1c00d72fa8cfb64f5a5604a49590b45704824663d2bdfc3b922e2bf2",
+    "task_revision": 4,
+    "evidence_pack_sha256": "96891fe5d32cd3ed65be22bb741e2d935240a127823e6a74215b6c7d2a04329d",
     "trace_id": "00000000-0000-4000-8000-000000000004",
     "idempotency_key": "er3-golden-key",
     "source_job_id": "00000000-0000-4000-8000-000000000003",
@@ -1574,9 +2035,9 @@
       },
       "run": {
         "run_id": "rr-er3-golden-vector",
-        "runtime_preflight_sha256": "875d76db424d2f3b9bb2871583475e8b29765012358b8c579eb8543a23705206",
-        "runtime_seal_receipt_sha256": "35b64f944cbdaa39307c632426002279027aafadf6c94535f3fb3cc3e06d6af4",
-        "repository_commit": "13055d4966fb3b543d747759ebd237d24a55e452",
+        "runtime_preflight_sha256": "84bd2e9461baf20ed04102533a04464625f1a524b14477a65f3d43688ceef541",
+        "runtime_seal_receipt_sha256": "d55c2d781d03f8b267b65fefd1cc2a37fe296d411567b255bc3c5c3d0a0a1230",
+        "repository_commit": "af72d0ec02b5d2dc1d92508539bc89ba857245a8",
         "runner_version": "review-reuse-er3-runner-v1"
       }
     },
@@ -1592,7 +2053,7 @@
       "submitted": null
     }
   },
-  "golden_evidence_pack_sha256": "2ce278bc1c00d72fa8cfb64f5a5604a49590b45704824663d2bdfc3b922e2bf2",
+  "golden_evidence_pack_sha256": "96891fe5d32cd3ed65be22bb741e2d935240a127823e6a74215b6c7d2a04329d",
   "limitations": [
     "The golden vector and provenance receipt goldens freeze serialization and digest semantics, not model quality or observed runtime values.",
     "The ER3 runner never enables or submits a human decision.",

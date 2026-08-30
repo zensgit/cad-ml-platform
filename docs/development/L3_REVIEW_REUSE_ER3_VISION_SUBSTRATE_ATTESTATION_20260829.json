@@ -1,7 +1,7 @@
 {
   "schema_version": "review-reuse-er3-vision-substrate-attestation-v1",
   "attestation_status": "static_verified_runtime_unverified",
-  "attestation_sha256": "651bbdb9c056cdcc0a8b9d2a38d8d9bb0230537ec01d0911a9628613cf8aa283",
+  "attestation_sha256": "988138a75031d78916ad388e1580012a50f8ac9bf5b97a9461a67d9ed2231228",
   "image": {
     "reference": "ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
     "index_digest": "sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
@@ -318,15 +318,33 @@
         "DOCKER_HOST",
         "DOCKER_CONTEXT",
         "DOCKER_TLS_VERIFY",
-        "DOCKER_CERT_PATH"
+        "DOCKER_CERT_PATH",
+        "DOCKER_CONFIG",
+        "DOCKER_API_VERSION",
+        "DOCKER_DEFAULT_PLATFORM"
       ],
-      "required_resolution": "docker context show plus docker context inspect must resolve the active context to one local absolute unix URI before image inspection; any credential-bearing or non-unix endpoint fails before pull or fixture-byte processing"
+      "required_resolution": "the verified Docker binary runs exact docker context show then docker context inspect <returned-name>; those two command receipts bind exact argv, integer exit code, and raw stdout/stderr digests; the result must be one credential-free local absolute unix URI before image inspection",
+      "docker_binary_policy": {
+        "argument": "required absolute --docker-bin",
+        "resolution": "resolve once to a canonical realpath and open the final target with O_RDONLY|O_CLOEXEC|O_NOFOLLOW",
+        "required_type": "regular executable not group-writable or other-writable",
+        "identity": "bind canonical realpath and SHA-256; recheck the opened target SHA-256 before every Docker subprocess",
+        "post_resolution_argv": "argv[0] is the verified realpath and argv[1:3] is exactly [--host, <verified endpoint>]; PATH lookup, --context, --config, and shell execution are forbidden"
+      },
+      "command_receipt_exact_fields": [
+        "operation",
+        "argv",
+        "exit_code",
+        "stdout_sha256",
+        "stderr_sha256"
+      ]
     },
     "host_environment_quarantine": {
       "must_be_absent": [
         "REVIEW_REUSE_STORE",
         "REVIEW_REUSE_STORE_DIR",
         "REVIEW_REUSE_LIVE_DEDUP",
+        "REVIEW_REUSE_DECISIONS_ENABLED",
         "DEDUPCAD_VISION_URL",
         "HTTP_PROXY",
         "HTTPS_PROXY",
@@ -368,7 +386,57 @@
       "port_bindings": {},
       "publish_all_ports": false,
       "extra_hosts": [],
-      "restart_policy": "no"
+      "restart_policy": "no",
+      "auto_remove": false,
+      "log_config": {
+        "type": "none",
+        "config": {}
+      },
+      "volume_driver": "",
+      "volumes_from": [],
+      "links": [],
+      "group_add": [],
+      "dns": [],
+      "dns_options": [],
+      "dns_search": [],
+      "cgroupns_mode": "private",
+      "cgroup": "",
+      "cgroup_parent": "",
+      "runtime": "runc",
+      "init": false,
+      "oom_kill_disable": false,
+      "pids_limit": 256,
+      "device_cgroup_rules": [],
+      "sysctls": {},
+      "storage_opt": {},
+      "tmpfs": {
+        "/app/data": "rw,nosuid,nodev",
+        "/app/indexes": "rw,nosuid,nodev",
+        "/app/logs": "rw,nosuid,nodev",
+        "/tmp": "rw,nosuid,nodev"
+      },
+      "shm_size_bytes": 67108864,
+      "masked_paths": [
+        "/proc/acpi",
+        "/proc/asound",
+        "/proc/kcore",
+        "/proc/keys",
+        "/proc/latency_stats",
+        "/proc/sched_debug",
+        "/proc/scsi",
+        "/proc/timer_list",
+        "/proc/timer_stats",
+        "/sys/devices/virtual/powercap",
+        "/sys/firmware"
+      ],
+      "readonly_paths": [
+        "/proc/bus",
+        "/proc/fs",
+        "/proc/irq",
+        "/proc/sys",
+        "/proc/sysrq-trigger"
+      ],
+      "ulimits": []
     },
     "private_shm": {
       "kind": "private_tmpfs",
@@ -376,9 +444,22 @@
       "size_bytes": 67108864
     },
     "command_override": "uvicorn caddedup_vision.api.main:app --host 127.0.0.1 --port 8000",
-    "control_transport": "fixed-argv Docker CLI exec/copy through the local Docker daemon; the service has no host TCP or Unix-socket publication",
-    "fixture_transfer": "after runtime preflight only, each tracked fixture is opened once into an immutable manifest-verified byte buffer; fixed docker cp - receives a deterministic in-memory tar stream from those exact bytes; each archive entry is copied once and removed after its one index request, while the query buffer is copied and removed in two separate transfer/request pairs for the pre-index probe and post-index product query",
-    "control_operation_seal": "every docker cp and docker exec is bracketed by a normalized inspect projection; the projection binds image identity, command argv, working directory, labels, process user, host configuration, mounts, running state, start timestamp, restart count, network attachments, published ports, and the complete normalized integration/credential/proxy environment; each copy also binds the transferred content SHA-256; drift fails before the next drawing-byte operation and ordered checkpoints are bound by runtime_seal_receipt_sha256",
+    "control_transport": "every post-resolution Docker command uses the verified absolute binary and explicit --host endpoint; every command is represented by the closed command receipt and the service has no host TCP or Unix-socket publication",
+    "fixture_input_policy": {
+      "source_path_prefix": "tests/vision/fixtures/cad_features/",
+      "source_path_shape": "exactly one basename ending .png after the fixed prefix",
+      "runtime_name_pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}\\.png$",
+      "maximum_size_bytes": 1048576,
+      "open_flags": [
+        "O_RDONLY",
+        "O_CLOEXEC",
+        "O_NOFOLLOW"
+      ],
+      "required_file_type": "regular",
+      "read_policy": "one descriptor, declared-size bounded reads, one-byte EOF check, no reopen; transfer uses the same immutable verified buffer"
+    },
+    "fixture_transfer": "after runtime preflight only, each tracked fixture is securely opened once under fixture_input_policy; fixed docker cp - receives a deterministic in-memory tar stream from those exact bytes; each archive entry is copied once and removed after its one index request, while the query buffer is copied and removed in two separate transfer/request pairs for the pre-index probe and post-index product query",
+    "control_operation_seal": "every Docker command has a closed exact-argv/exit/raw-stream-digest receipt; every drawing-affecting docker cp and docker exec is bracketed by distinct freshly executed inspect receipts with globally unique observation sequences, exact inspect argv and stream digests, and a strict projection digest; equal projection digests are allowed but cached/replayed observations are not; each copy also binds the transferred content SHA-256; all ordered receipts are bound by runtime_seal_receipt_sha256",
     "outbound_probe": "docker exec first requires curl --version to exit 0, then invokes curl --noproxy '*' --silent --show-error --output /dev/null --write-out '%{http_code}' --connect-timeout 2 --max-time 3 http://198.51.100.1:80/ inside the empty network-none container; probe must exit 7 with stdout exactly 000 before fixture bytes are opened, while timeout exit 28 fails; docker inspect NetworkMode none and no attachments remain authoritative",
     "published_port": null,
     "proxy_environment": "absent",
@@ -389,9 +470,9 @@
     "must_precede_fixture_byte_open": true,
     "required_observations": [
       "the owner-authorized exact repository head, reviewed-command digest, and clean tracked/index/untracked state are verified before Docker context resolution",
-      "Docker override environment variables are absent and the active context resolves to one local absolute unix URI; remote TCP, HTTP, HTTPS, SSH, npipe, credential-bearing, or relative endpoints are rejected",
+      "all seven Docker override/config/platform environment variables are absent; the Docker binary identity and context command receipts are bound; the active context resolves to one local absolute unix URI; remote or credential-bearing endpoints are rejected",
       "selected platform manifest, actual Docker image ID, and this canonical static-attestation digest match the owner-ratified values",
-      "the normalized HostConfig equals runtime_posture.normalized_host_config, the process user is appuser, working directory is /app, and command argv equals the loopback-only override",
+      "the normalized HostConfig has exactly runtime_posture.normalized_host_config fields and values; any unknown or relaxed normalized field fails; process user is appuser, working directory is /app, and command argv equals the loopback-only override",
       "all four explicit tmpfs targets, private /dev/shm, and read-only root are present",
       "no anonymous or host data volume is mounted",
       "NetworkMode is none and the container has no additional network attachment",
@@ -402,7 +483,7 @@
       "disabled integration flags and absent proxy variables match this attestation",
       "GET /api/stats reports total_drawings=0",
       "GET /health reports both in-memory index sizes=0",
-      "the runtime seal starts before the first docker cp or docker exec and brackets every subsequent control operation; only after preflight are fixture bytes opened once, manifest-verified, and used for the pre-index query"
+      "the runtime seal binds every Docker command and fresh one-to-one inspect receipts around drawing-affecting cp/exec operations; only after preflight are fixture bytes securely opened once, manifest-verified, and used for the pre-index query"
     ]
   },
   "limitations": [
@@ -411,7 +492,7 @@
     "The service has no drawing-list endpoint; exact post-index identities are bound by the receipt set plus authoritative count three.",
     "The fixed service has no authentication on index or rebuild routes; network-none plus no host publication makes the verified local-unix Docker daemon the administrative capability boundary for this isolated run. The contract does not defend against a malicious Docker administrator or daemon.",
     "The fixed POST /api/index/add route requires user_name. ER3 pins user_name=review-reuse-er3-fixture and upload_to_s3=false in the exact query string; omitting either fixed argument is a contract failure.",
-    "A one-time inspect is insufficient on a shared daemon. Every Docker copy/exec operation must be sealed by before/after normalized inspect projections and bound into the runtime seal receipt.",
+    "A one-time or cached inspect is insufficient on a shared daemon. Every drawing-affecting Docker copy/exec operation requires distinct fresh before/after inspect receipts, while every Docker command is independently argv/exit/stream bound.",
     "Index-add creates an in-memory LocalEventBus even with EVENT_BUS_ENABLED=false; EVENT_BUS_USE_LOCAL=true and runtime inspection prevent a Redis path, and explicit rebuild remains required because no index handlers are registered.",
     "The image reports three inconsistent version strings, so only the image digest and source revision identify the substrate.",
     "No image pull, container start, fixture processing, model-quality evaluation, customer-data use, merge, deployment, decision enablement, or pilot is authorized by this attestation."
