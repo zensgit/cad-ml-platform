@@ -263,22 +263,35 @@ descriptor identity mismatch fails with no fixture transfer.
   `src`, `PYTHONPATH`, `PYTHONHOME`, user-site/`.pth` hook, or import-origin drift
   fails before task, Docker, or fixture activity.
 - Before Docker endpoint validation, real mode requires owner-supplied absolute
-  `--git-bin`, `--authorized-head`, and `--reviewed-command-sha256` values. The Git
+  `--git-bin`, `--authorized-head`, numeric `--repository-id`, and
+  `--reviewed-command-sha256` values. The Git
   executable is opened by directory-FD/no-symlink traversal, must be one regular
   executable not group/other writable, and its realpath, parent-chain, device,
   inode, mode, size, and SHA-256 are recorded and revalidated immediately before
-  each of exactly two no-shell invocations. Those invocations use the absolute
-  binary, `--no-optional-locks`, `-c core.fsmonitor=false`, `-c core.pager=cat`,
+  each of exactly two no-shell invocations. Before either invocation, a stdlib-only
+  bootstrap resolves the Git/common directories by directory FD, parses repository-
+  local config as inert bytes without include expansion, and builds the same strict
+  `git_repository_identity_receipt_contract` required by Gates A and B. It rejects
+  `include`/`includeIf`, worktree config, aliases, credentials, protocol/filter/diff/
+  merge/pager helpers, hooks, fsmonitor, alternates, object-format overrides,
+  executable values, and every key outside the closed inert allowlist. Replacement
+  refs, grafts, alternates, and shallow repositories are forbidden. Those invocations
+  use the absolute binary, `--no-pager`, `--no-optional-locks`,
+  `--no-replace-objects`, `-c core.fsmonitor=false`,
+  `-c core.hooksPath=/dev/null`, `-c core.pager=cat`,
   `-C <authorized-repository-root>`, and only `rev-parse --verify HEAD` or
   `status --porcelain=v1 --untracked-files=all --ignored=no`. Their child
-  environment is the closed four-key map `GIT_CONFIG_NOSYSTEM=1`,
-  `GIT_CONFIG_GLOBAL=/dev/null`, `LANG=C.UTF-8`, and `LC_ALL=C.UTF-8`; no `HOME`,
+  environment is the closed five-key map `GIT_CONFIG_NOSYSTEM=1`,
+  `GIT_CONFIG_GLOBAL=/dev/null`, `GIT_NO_REPLACE_OBJECTS=1`, `LANG=C.UTF-8`, and
+  `LC_ALL=C.UTF-8`; no `HOME`,
   `PATH`, hook, fsmonitor, repository-
   supplied executable, or ambient `GIT_*` value is used. The repository root is
   opened by trusted directory FD, `HEAD` must equal the authorized exact head,
   and raw status output must be empty. A canonical repository-control artifact
-  binds both exact argv/stream receipts, binary and root identities, and the child
-  environment. It hashes the exact `sys.orig_argv` process array, including interpreter
+  embeds and digest-binds the complete repository/config identity receipt, both exact
+  argv/stream receipts, binary and root identities, and the child environment. The
+  repository identity is revalidated after the status command; drift fails closed.
+  It hashes the exact `sys.orig_argv` process array, including interpreter
   path and `-I -S`, after removing only the
   `--reviewed-command-sha256` option/value and requires that digest to equal the
   owner-supplied value. A canonical repository-state object binds the hashed
@@ -944,9 +957,9 @@ with one immutable selector:
 The complete v2 canonical contract is
 `docs/development/L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json`
 with contract digest
-`680c596d315061424a32d160d95131b7da9acc1a02a238397b2f83c40da8a372`.
+`cf5ae1fc5085505b4073fff999cab2e3139f6b947cc83be62ba3e2fc8605d472`.
 Its reviewed raw-file SHA-256 is
-`9f30ee2c2f4e57180538ce493d28e21c7b8f8e75061cbafeabfad1a5153e1e96`.
+`1e2f9e9ebf78a15a794b128f0dabe1c42285d15cd55ef668fa5058622c25dfcc`.
 It freezes exact object keys, types/nullability, list ordering, task context,
 unknown-field rejection, and digest exclusions. Its embedded golden vector has
 EvidencePack digest
@@ -1339,7 +1352,14 @@ must contain only the contract's inert `core`/`remote`/`branch` allowlist, and i
 bound into a strict repository-identity receipt; include/includeIf, worktree
 config, aliases, filters, helpers, hooks, pagers, alternates, and every other key
 fail. Replacement refs, grafts, and alternates must be absent and the repository
-must be non-shallow. The verifier independently recomputes every consumed
+must be non-shallow. Git child processes are closed by the machine contract's exact
+17-entry Gate-A and 16-entry Gate-B operation/argv matrices: each receipt's sequence,
+operation, tokenized argv, five-key environment, zero exit, and raw stream digests
+must match its gate position. No other Git subcommand or differently tokenized
+invocation is accepted. Each phase's status/index stdout is the same retained raw
+artifact named by its execution digest, not an independently supplied copy; all
+other command streams use fixed gate/sequence paths. The verifier independently
+recomputes every consumed
 non-quarantined SHA-1 commit/tree/blob ID from its raw object header/body, walks raw
 parent links for ancestry, and walks raw trees for deltas and fixture-elided
 materialization; `merge-base` and `diff` are corroborating receipts only.
@@ -1382,7 +1402,13 @@ read-deny, scratch,
 mount, pre/post, overlay, receipt-preimage, or report-capture mismatch is invalid
 evidence. Every execution digest resolves through the contract's exact retained
 path, raw-versus-canonical encoding, and closed receipt schema; a generic
-"hash the named artifact" convention is not accepted.
+"hash the named artifact" convention is not accepted. The mount-source, Python
+interpreter, dependency-root, and supervisor report-root identity digests each
+resolve to one purpose-qualified retained filesystem-identity object with a closed
+field/type map and a no-exclusion canonical digest; an unnamed inner identity
+preimage is invalid evidence. Reused receipt schemas are also role-bound at each
+digest path: pre/post timing, source/fixture/scratch mount purpose, dependency/
+scratch inventory purpose, and pytest-argv/node-ID purpose cannot be swapped.
 
 The only classifier implementation is
 `tests/verification/review_reuse_er3_contract_verifier.py`. Gate A runs its exact
@@ -1394,8 +1420,10 @@ report root; it does not trust a test-authored JSON report. It emits one strict
 with recursively closed fields, types/nullability, enums, ordering, and every
 sub-digest preimage frozen in the machine contract. It binds a strict producer CI
 identity sourced only from the protected GitHub Actions context and immutable event
-payload: repository name/ID, pull-request head, workflow path, run/attempt, fixed
-`er3-contract` job, and artifact name. The raw-object candidate head must match that
+payload: repository name/ID, pull-request head, workflow path/ref/SHA, the raw-tree
+workflow blob at that SHA, run/attempt, fixed `er3-contract` job, and artifact name.
+The executed workflow blob must equal the candidate artifact-set workflow blob, and
+the raw-object candidate head must match that
 producer head, and no workflow input or caller override is accepted. It contains a candidate
 artifact-set object for the exact eight singleton design/runbook/workflow/test/
 manifest/attestation/verifier artifacts plus every additional strict-JSON fixture,
@@ -1409,7 +1437,8 @@ raw-object/import/read-deny/materialization and digest proof succeeds. A zero py
 either phase invalidates Gate A. This report and all retained receipts are emitted
 as one immutable CI artifact only after the candidate commit exists; they are not
 written into that commit and cannot self-ratify. A later owner response must name
-the candidate head, workflow run/job/artifact identities, archive digest, report
+the candidate head, executed workflow ref/SHA/blob, workflow run/job/artifact
+identities, archive digest, report
 raw/full-canonical/self-excluding verification digests, and the exact candidate
 artifact-set digest before it becomes accepted Gate-A evidence. The classifier
 namespace `reason_code` is only a
@@ -1539,8 +1568,8 @@ xpassed, deselected, or collection errors. Separate exact commands run the
 canonical/digest verifier at
 `tests/verification/review_reuse_er3_contract_verifier.py` and the frozen
 ER1/ER2/v1 regression selection. Gate B receives the owner-named accepted head,
-GitHub repository name/numeric ID, workflow blob, run/attempt/job/artifact IDs,
-artifact archive digest,
+GitHub repository name/numeric ID, accepted workflow blob, protected executed
+workflow ref/SHA/blob, run/attempt/job/artifact IDs, artifact archive digest,
 strict report raw/full-canonical/self-excluding verification digests, frozen
 candidate artifact-set digest, and protected accepted-evidence digest only through
 an owner-protected CI environment consumed by the already-frozen workflow. Branch
@@ -1551,13 +1580,19 @@ In Gate B, the accepted verifier runs from its exact Gate-A Git object outside t
 implementation execution root, retrieves and byte-verifies that immutable evidence
 artifact, and first uses authenticated GitHub API run, run-attempt jobs, and
 artifact metadata to build the strict CI-lineage receipt. Repository name/ID,
-accepted head, workflow path/blob, run/attempt, fixed `er3-contract` job, and
+accepted head, accepted workflow path/blob, protected executed workflow ref/SHA/
+blob, run/attempt, fixed `er3-contract` job, and
 artifact must form one chain; the unexpired artifact must belong to that run and
 match the downloaded archive digest. The frozen workflow has one evidence-producing
 job and one digest-pinned upload step, closing the job-to-artifact join. Exact raw
 API responses plus the normalized canonical lineage receipt are retained and
-digest-bound. Every lineage value must also equal the report's protected producer
-identity, closing cross-attempt artifact substitution. Syntactically valid
+digest-bound. The report member's complete protected producer identity is embedded
+in that receipt and canonically digested; its run ID/attempt are directly compared
+with the retrieved run-attempt job, while its executed workflow blob is raw-walked
+at `GITHUB_WORKFLOW_SHA` and must equal the accepted candidate workflow blob. This
+closes cross-attempt artifact substitution and alternate-workflow substitution
+without inferring either
+property from artifact metadata. Syntactically valid
 unrelated IDs fail. The verifier then proves the
 full raw-object chain `runtime-base ->
 design-lock -> Gate-A -> implementation`, validates the closed Gate-B path delta,
@@ -1612,7 +1647,7 @@ ER3 is complete only when all of the following are true at one exact head:
 - the runtime manifest matches §4 digest
   `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf`;
 - the v2 contract and golden digests remain
-  `680c596d315061424a32d160d95131b7da9acc1a02a238397b2f83c40da8a372`
+  `cf5ae1fc5085505b4073fff999cab2e3139f6b947cc83be62ba3e2fc8605d472`
   and `422e23da3589b24a5539a3d6546cac98ba692046ea14930b179dd9f7fe1b9f7f`;
 - existing ReviewReuse, identity, production-preflight, and core-fast suites are
   green without skips added for this tranche;
@@ -1655,8 +1690,8 @@ Suggested Gate-A fail-first-only owner response:
 > EvidencePack v2 contract
 > `docs/development/L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json`
 > canonical/raw digests
-> `680c596d315061424a32d160d95131b7da9acc1a02a238397b2f83c40da8a372` /
-> `9f30ee2c2f4e57180538ce493d28e21c7b8f8e75061cbafeabfad1a5153e1e96`,
+> `cf5ae1fc5085505b4073fff999cab2e3139f6b947cc83be62ba3e2fc8605d472` /
+> `1e2f9e9ebf78a15a794b128f0dabe1c42285d15cd55ef668fa5058622c25dfcc`,
 > and golden EvidencePack digest
 > `422e23da3589b24a5539a3d6546cac98ba692046ea14930b179dd9f7fe1b9f7f`.
 > I authorize only §8.1 and its exact 106-node fail-first contract: the new test
@@ -1677,7 +1712,9 @@ exact Gate-A fail-first matrix:
 > implementation descending from `<design-lock-sha> -> <gate-a-sha>`. For repository
 > `zensgit/cad-ml-platform` with numeric repository ID `<repository-id>`, I accept
 > workflow
-> `.github/workflows/review-reuse-er3-contract.yml` at blob `<workflow-blob>`, run
+> `.github/workflows/review-reuse-er3-contract.yml` at accepted-head blob
+> `<workflow-blob>`, executed workflow ref `<workflow-ref>`, workflow SHA
+> `<workflow-sha>`, and raw-walked executed blob `<executed-workflow-blob>`, run
 > `<run-id>` / attempt `<attempt>` / job `<job-id>` / artifact `<artifact-id>`, fixed
 > artifact `review-reuse-er3-gate-a-evidence` with archive SHA-256
 > `<artifact-sha256>`, and report `review-reuse-er3-gate-a-verification.json` with
@@ -1700,6 +1737,8 @@ implementation review. This response is an out-of-band human governance artifact
 authenticate that the owner issued this response:
 
 > I authorize one ER3 repository-fixture run at implementation exact head `<sha>`
+> for repository `zensgit/cad-ml-platform` with numeric repository ID
+> `<repository-id>`,
 > using only the ratified manifest/image/contracts; absolute Python interpreter,
 > dependency root, and `python_control_sha256=<python-control>` under `-I -S`;
 > Docker source binary `<canonical-path>` with parent-chain digest
@@ -1720,6 +1759,7 @@ artifact identity, report raw/full-canonical/self-excluding verification digests
 frozen candidate artifact-set digest, protected-input digest, and every design/
 runtime artifact digest, no runtime implementation may start. Until
 Gate C names the implementation exact
-head, Python/import control, source/private binary, endpoint/socket identities,
+head, repository numeric ID and quarantined Git identity, Python/import control,
+source/private binary, endpoint/socket identities,
 run/resource-owner IDs, API version, platform, and command digest,
 the image must not be pulled or started and fixture bytes must not be processed.

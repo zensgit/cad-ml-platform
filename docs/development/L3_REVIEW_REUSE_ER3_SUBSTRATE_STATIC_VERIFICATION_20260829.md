@@ -27,8 +27,8 @@ implementation, merge, decision enablement, deployment, pilot, or customer data.
 | Embedded manifest proposal canonical digest; no manifest file exists at this docs-only head | `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf` |
 | Static attestation digest | `4707f793f3597ebe12da4c6474bbb25208ccd9b1de48920a27c5ca083babe6cd` |
 | Static attestation raw file SHA-256 | `5d7e15aa82d714ad371e106deb3c6310cfc82c3062731392bfb3a6c2db175d94` |
-| EvidencePack v2 contract digest | `680c596d315061424a32d160d95131b7da9acc1a02a238397b2f83c40da8a372` |
-| EvidencePack v2 contract raw file SHA-256 | `9f30ee2c2f4e57180538ce493d28e21c7b8f8e75061cbafeabfad1a5153e1e96` |
+| EvidencePack v2 contract digest | `cf5ae1fc5085505b4073fff999cab2e3139f6b947cc83be62ba3e2fc8605d472` |
+| EvidencePack v2 contract raw file SHA-256 | `1e2f9e9ebf78a15a794b128f0dabe1c42285d15cd55ef668fa5058622c25dfcc` |
 | Embedded EvidencePack golden digest | `422e23da3589b24a5539a3d6546cac98ba692046ea14930b179dd9f7fe1b9f7f` |
 | Verified fixture-set golden digest | `536113fa48ac2f692635959bd5f1d0f8ac92faff1fc8ab9f27679a5f474e51b1` |
 | Vision OCI index | `sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251` |
@@ -459,6 +459,39 @@ retained paths, raw/canonical encodings, and closed receipt schemas, and every
 runtime-preflight image field has an explicit type. These remain design contracts,
 not Gate-A, Gate-B, or runtime evidence.
 
+A subsequent read-only review of docs-only exact head
+`642d57b3cf353e630e26604f4cb6adebde148cae` found six remaining mechanical
+authority gaps. The six inner filesystem-identity digests named only descriptive
+objects rather than unique retained preimages. Artifact-to-rerun-attempt binding
+depended on an indirect workflow-shape inference, and the Gate-B lineage schema was
+misnamed as Gate A. The report did not bind the actual executed workflow ref/SHA/
+blob, only the accepted candidate workflow blob. Finally, Gate C still used the
+older four-key Git environment and did not reuse the fail-closed local-config and
+repository-view quarantine required by Gates A and B. In addition, the claimed
+fixed Gate-A/B Git allowlist had no exact operation/argv matrix, and receipt schemas
+shared by several digest paths did not bind their required timing or purpose, so
+role-swapped receipts could pass. Sol identified the identity-preimage, Git-command,
+and Gate-C asymmetry; Terra found the role swap; Sonnet 5 and Luna challenged the
+artifact-attempt join, with Luna also finding the schema-name mismatch. These are
+advisory findings, not approval.
+
+The current candidate closes those gaps without opening runtime scope. Every mount,
+interpreter, dependency-root, and report-root digest now resolves to one retained,
+purpose-qualified filesystem-identity preimage with an exact field/type schema and
+no-exclusion canonical digest. The artifact's strict report producer identity is
+embedded and digest-bound in the Gate-B lineage receipt, and its run/attempt is
+compared directly with the authenticated run-attempt job. The report records the
+protected `GITHUB_WORKFLOW_REF` and `GITHUB_WORKFLOW_SHA`; a raw tree walk derives
+the actual executed workflow blob and requires it to equal the owner-accepted
+candidate workflow blob. Gate-C Git quarantine now embeds the same strict
+repository/config identity receipt, rejects active local config and alternate
+object views, uses the five-key no-replacement environment plus closed argv, and
+revalidates identity after status. Gate A and Gate B now have exact ordered 17- and
+16-command operation/argv matrices; status/index command streams are the same raw
+artifacts named by execution digests; and each reused receipt schema is bound to the
+required path-specific timing or purpose. The owner templates now name the additional
+workflow and repository identity inputs. These remain proposed contracts only.
+
 ## 6. Commands and results
 
 The recorded verification commands are shown below. The source and fixture reads
@@ -543,6 +576,14 @@ Results:
   repository/head/workflow/run/attempt/job/artifact joins, matches the report's
   protected producer identity, and rejects unrelated or cross-attempt IDs; and all
   five `runtime_preflight.image.*` fields have explicit types;
+- the expanded no-fixture hardening verifier passed `99/99`: all six inner
+  filesystem-identity preimages have exact retained paths and no-exclusion schemas;
+  the Gate-B receipt name and report-to-run-attempt join are mechanical; the actual
+  executed workflow ref/SHA/blob equals owner-protected evidence and the accepted
+  candidate workflow blob; and Gate-C Git quarantine reuses the strict local-config,
+  no-replacement, no-helper repository identity contract. It also checks the exact
+  17/16 Git operation matrices and path-specific
+  receipt timing/purpose bindings;
 - machine-readable receipt derivation passed `49/49`: all nine setup,
   12 operation, 24 fresh-inspection, and four cleanup receipts recomputed from
   their complete ten-field preimages. Setup and operation receipts now use exact

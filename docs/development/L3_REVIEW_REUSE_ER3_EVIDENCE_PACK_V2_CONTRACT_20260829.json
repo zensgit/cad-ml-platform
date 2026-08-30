@@ -2,7 +2,7 @@
   "schema_version": "review-reuse-er3-evidence-pack-v2-contract-v1",
   "contract_status": "proposed_not_ratified",
   "runtime_authority": "none",
-  "contract_sha256": "680c596d315061424a32d160d95131b7da9acc1a02a238397b2f83c40da8a372",
+  "contract_sha256": "cf5ae1fc5085505b4073fff999cab2e3139f6b947cc83be62ba3e2fc8605d472",
   "canonicalization": {
     "algorithm": "sha-256",
     "function": "src.core.review_reuse.canonical.canonical_json_v1",
@@ -580,7 +580,298 @@
           "remote.<name>.url"
         ],
         "local_config_rule": "before any Git invocation, the stdlib-only verifier resolves the Git/common directories by directory-FD/no-symlink traversal, reads the local config as inert bytes without include expansion, and rejects include/includeIf, extensions.worktreeConfig, config.worktree, alias, credential, protocol, filter, diff, merge, pager, hooksPath, fsmonitor, alternates, object-format override, executable/helper command, and every key outside inert_local_config_allowlist. A later git config --local --no-includes --show-origin --show-scope corroboration must equal the parsed set. Remote URL values are never exported, only hashed. The verifier then uses only the fixed raw-object/read-only command allowlist with absolute Git, --no-pager, --no-optional-locks, --no-replace-objects, --no-ext-diff where accepted, core.fsmonitor=false, core.hooksPath=/dev/null, and core.pager=cat. Authoritative commit/tree/blob parsing is stdlib-only over no-replace raw object bytes and never invokes checkout filters, hooks, helpers, aliases, network, or repository executables.",
-        "digest_rule": "repository_identity_sha256 is canonical_sha256 of the complete strict receipt after removing only repository_identity_sha256; the retained canonical receipt is mandatory evidence for both Gate A and Gate B"
+        "digest_rule": "repository_identity_sha256 is canonical_sha256 of the complete strict receipt after removing only repository_identity_sha256; the retained canonical receipt is mandatory evidence for Gate A, Gate B, and Gate C"
+      },
+      "git_command_allowlist_contract": {
+        "schema_version": "review-reuse-er3-git-command-allowlist-v1",
+        "top_level_exact_fields": [
+          "schema_version",
+          "common_argv_prefix",
+          "operation_names",
+          "operation_argv_suffixes",
+          "gate_a_operation_order",
+          "gate_b_operation_order",
+          "placeholder_rule",
+          "receipt_binding_rule",
+          "execution_stream_binding_rule",
+          "raw_object_boundary"
+        ],
+        "top_level_types_and_nullability": {
+          "schema_version": "fixed review-reuse-er3-git-command-allowlist-v1",
+          "common_argv_prefix": "exact non-empty string array",
+          "operation_names": "exact bytewise-sorted unique array of every operation_argv_suffixes key",
+          "operation_argv_suffixes": "strict object whose keys equal operation_names and values are exact non-empty string arrays",
+          "gate_a_operation_order": "exact ordered array of 17 unique operation names",
+          "gate_b_operation_order": "exact ordered array of 16 unique operation names",
+          "placeholder_rule": "non-empty closed substitution rule",
+          "receipt_binding_rule": "non-empty exact receipt rule",
+          "execution_stream_binding_rule": "non-empty field-to-command stream join rule",
+          "raw_object_boundary": "non-empty authority rule"
+        },
+        "common_argv_prefix": [
+          "<git-bin>",
+          "--no-pager",
+          "--no-optional-locks",
+          "--no-replace-objects",
+          "-c",
+          "core.fsmonitor=false",
+          "-c",
+          "core.hooksPath=/dev/null",
+          "-c",
+          "core.pager=cat"
+        ],
+        "operation_names": [
+          "ancestor_baseline_design",
+          "ancestor_design_gate_a",
+          "ancestor_gate_a_implementation",
+          "delta_design_gate_a",
+          "delta_gate_a_implementation",
+          "gate_a_head_post_index_flags",
+          "gate_a_head_post_status",
+          "gate_a_head_pre_index_flags",
+          "gate_a_head_pre_status",
+          "implementation_post_index_flags",
+          "implementation_post_status",
+          "implementation_pre_index_flags",
+          "implementation_pre_status",
+          "local_config_corroboration",
+          "object_format",
+          "resolve_baseline_commit",
+          "resolve_design_commit",
+          "resolve_gate_a_commit",
+          "resolve_implementation_commit",
+          "runtime_base_post_index_flags",
+          "runtime_base_post_status",
+          "runtime_base_pre_index_flags",
+          "runtime_base_pre_status",
+          "shallow_repository"
+        ],
+        "operation_argv_suffixes": {
+          "local_config_corroboration": [
+            "-C",
+            "<authority-repository-root>",
+            "config",
+            "--local",
+            "--no-includes",
+            "--show-origin",
+            "--show-scope",
+            "--null",
+            "--list"
+          ],
+          "object_format": [
+            "-C",
+            "<authority-repository-root>",
+            "rev-parse",
+            "--show-object-format"
+          ],
+          "shallow_repository": [
+            "-C",
+            "<authority-repository-root>",
+            "rev-parse",
+            "--is-shallow-repository"
+          ],
+          "resolve_baseline_commit": [
+            "-C",
+            "<authority-repository-root>",
+            "rev-parse",
+            "--verify",
+            "<baseline-head>^{commit}"
+          ],
+          "resolve_design_commit": [
+            "-C",
+            "<authority-repository-root>",
+            "rev-parse",
+            "--verify",
+            "<ratified-design-lock-head>^{commit}"
+          ],
+          "resolve_gate_a_commit": [
+            "-C",
+            "<authority-repository-root>",
+            "rev-parse",
+            "--verify",
+            "<gate-a-head>^{commit}"
+          ],
+          "resolve_implementation_commit": [
+            "-C",
+            "<authority-repository-root>",
+            "rev-parse",
+            "--verify",
+            "<implementation-head>^{commit}"
+          ],
+          "ancestor_baseline_design": [
+            "-C",
+            "<authority-repository-root>",
+            "merge-base",
+            "--is-ancestor",
+            "<baseline-head>",
+            "<ratified-design-lock-head>"
+          ],
+          "ancestor_design_gate_a": [
+            "-C",
+            "<authority-repository-root>",
+            "merge-base",
+            "--is-ancestor",
+            "<ratified-design-lock-head>",
+            "<gate-a-head>"
+          ],
+          "ancestor_gate_a_implementation": [
+            "-C",
+            "<authority-repository-root>",
+            "merge-base",
+            "--is-ancestor",
+            "<gate-a-head>",
+            "<implementation-head>"
+          ],
+          "delta_design_gate_a": [
+            "-C",
+            "<authority-repository-root>",
+            "diff-tree",
+            "--no-commit-id",
+            "--name-status",
+            "-r",
+            "--no-renames",
+            "--no-ext-diff",
+            "<ratified-design-lock-head>",
+            "<gate-a-head>"
+          ],
+          "delta_gate_a_implementation": [
+            "-C",
+            "<authority-repository-root>",
+            "diff-tree",
+            "--no-commit-id",
+            "--name-status",
+            "-r",
+            "--no-renames",
+            "--no-ext-diff",
+            "<gate-a-head>",
+            "<implementation-head>"
+          ],
+          "runtime_base_pre_status": [
+            "-C",
+            "<runtime-base-repository-root>",
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+            "--ignored=no"
+          ],
+          "runtime_base_post_status": [
+            "-C",
+            "<runtime-base-repository-root>",
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+            "--ignored=no"
+          ],
+          "runtime_base_pre_index_flags": [
+            "-C",
+            "<runtime-base-repository-root>",
+            "ls-files",
+            "-v"
+          ],
+          "runtime_base_post_index_flags": [
+            "-C",
+            "<runtime-base-repository-root>",
+            "ls-files",
+            "-v"
+          ],
+          "gate_a_head_pre_status": [
+            "-C",
+            "<gate-a-repository-root>",
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+            "--ignored=no"
+          ],
+          "gate_a_head_post_status": [
+            "-C",
+            "<gate-a-repository-root>",
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+            "--ignored=no"
+          ],
+          "gate_a_head_pre_index_flags": [
+            "-C",
+            "<gate-a-repository-root>",
+            "ls-files",
+            "-v"
+          ],
+          "gate_a_head_post_index_flags": [
+            "-C",
+            "<gate-a-repository-root>",
+            "ls-files",
+            "-v"
+          ],
+          "implementation_pre_status": [
+            "-C",
+            "<implementation-repository-root>",
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+            "--ignored=no"
+          ],
+          "implementation_post_status": [
+            "-C",
+            "<implementation-repository-root>",
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+            "--ignored=no"
+          ],
+          "implementation_pre_index_flags": [
+            "-C",
+            "<implementation-repository-root>",
+            "ls-files",
+            "-v"
+          ],
+          "implementation_post_index_flags": [
+            "-C",
+            "<implementation-repository-root>",
+            "ls-files",
+            "-v"
+          ]
+        },
+        "gate_a_operation_order": [
+          "local_config_corroboration",
+          "object_format",
+          "shallow_repository",
+          "resolve_baseline_commit",
+          "resolve_design_commit",
+          "resolve_gate_a_commit",
+          "ancestor_baseline_design",
+          "ancestor_design_gate_a",
+          "delta_design_gate_a",
+          "runtime_base_pre_status",
+          "runtime_base_pre_index_flags",
+          "runtime_base_post_status",
+          "runtime_base_post_index_flags",
+          "gate_a_head_pre_status",
+          "gate_a_head_pre_index_flags",
+          "gate_a_head_post_status",
+          "gate_a_head_post_index_flags"
+        ],
+        "gate_b_operation_order": [
+          "local_config_corroboration",
+          "object_format",
+          "shallow_repository",
+          "resolve_baseline_commit",
+          "resolve_design_commit",
+          "resolve_gate_a_commit",
+          "resolve_implementation_commit",
+          "ancestor_baseline_design",
+          "ancestor_design_gate_a",
+          "ancestor_gate_a_implementation",
+          "delta_design_gate_a",
+          "delta_gate_a_implementation",
+          "implementation_pre_status",
+          "implementation_pre_index_flags",
+          "implementation_post_status",
+          "implementation_post_index_flags"
+        ],
+        "placeholder_rule": "every placeholder is substituted before spawn from one already verified value: reviewed absolute Git binary; directory-FD/no-symlink repository root for the named phase; or one exact 40-lowercase-hex baseline/design/Gate-A/implementation commit. Gate A binds gate-a-head to candidate_gate_a_head; Gate B binds it to accepted_gate_a_head. No empty, caller-free-form, ref-name, path-fragment, option, environment, or additional argument substitution is permitted.",
+        "receipt_binding_rule": "Gate-A command_receipts has exactly 17 entries and Gate-B command_receipts exactly 16. In each array, sequence is the one-based index into the corresponding operation_order, operation equals that entry, argv equals common_argv_prefix concatenated with its exact substituted suffix, environment equals the strict five-string gate environment, exit_code is integer zero, and stdout/stderr hash exact retained raw bytes. Missing, duplicate, reordered, additional, differently-tokenized, or shell-mediated commands invalidate evidence.",
+        "execution_stream_binding_rule": "for runtime_base, gate_a_head, and implementation pre/post status and pre/post index-flags operations, the command receipt stdout bytes are the single bytes retained at receipts/<phase>/<pre|post>-<status|index-flags>.stdout and their SHA-256 equals the corresponding execution pre_status_sha256, post_status_sha256, pre_index_flags_sha256, or post_index_flags_sha256 field. Every other command's exact stdout/stderr bytes are retained at receipts/git/<gate-a|gate-b>/<two-digit-sequence>-<stdout|stderr>.bin. No normalized, reserialized, duplicated-role, unretained, or separately supplied stream may satisfy a command receipt.",
+        "raw_object_boundary": "the allowlist is exhaustive for child Git processes. Commit/tree/blob parsing, SHA-1 recomputation, raw ancestry, raw path deltas, fixture-elided tree walking, replacement/graft/alternate discovery, and materialization are performed only by the reviewed stdlib verifier over already-resolved local Git/common directories; no cat-file, show, checkout, archive, fetch, remote, credential, helper, hook, filter, pager, shell, network, or other Git command is permitted. merge-base and diff-tree remain corroboration only."
       },
       "execution_evidence_preimage_contract": {
         "schema_version": "review-reuse-er3-execution-evidence-preimages-v1",
@@ -595,26 +886,48 @@
           "post_status_sha256": "raw bytes receipts/<phase>/post-status.stdout",
           "pre_index_flags_sha256": "raw bytes receipts/<phase>/pre-index-flags.stdout",
           "post_index_flags_sha256": "raw bytes receipts/<phase>/post-index-flags.stdout",
-          "pre_tree_manifest_sha256": "canonical_json_v1 receipts/<phase>/pre-tree-manifest.json using tree_manifest",
-          "post_tree_manifest_sha256": "canonical_json_v1 receipts/<phase>/post-tree-manifest.json using tree_manifest",
-          "mount_receipt_sha256": "canonical_json_v1 receipts/<phase>/source-mount.json using mount_receipt",
-          "fixture_deny_receipt_sha256": "canonical_json_v1 receipts/<phase>/fixture-deny-mount.json using mount_receipt",
+          "pre_tree_manifest_sha256": "canonical_json_v1 receipts/<phase>/pre-tree-manifest.json using tree_manifest with timing fixed pre",
+          "post_tree_manifest_sha256": "canonical_json_v1 receipts/<phase>/post-tree-manifest.json using tree_manifest with timing fixed post",
+          "mount_receipt_sha256": "canonical_json_v1 receipts/<phase>/source-mount.json using mount_receipt with purpose fixed source_read_only",
+          "fixture_deny_receipt_sha256": "canonical_json_v1 receipts/<phase>/fixture-deny-mount.json using mount_receipt with purpose fixed fixture_deny",
           "fixture_negative_open_receipt_sha256": "canonical_json_v1 receipts/<phase>/fixture-negative-open.json using fixture_negative_open_receipt",
           "python_control_sha256": "canonical_json_v1 receipts/<phase>/python-control.json using python_control_receipt",
-          "dependency_manifest_sha256": "canonical_json_v1 receipts/<phase>/dependency-manifest.json using file_manifest",
+          "dependency_manifest_sha256": "canonical_json_v1 receipts/<phase>/dependency-manifest.json using file_manifest with purpose fixed dependency",
           "import_map_sha256": "canonical_json_v1 receipts/<phase>/import-map.json using import_map_receipt",
           "closed_environment_sha256": "canonical_json_v1 receipts/<phase>/closed-environment.json using closed_environment_receipt",
-          "pytest_argv_sha256": "canonical_json_v1 receipts/<phase>/pytest-argv.json using string_array_receipt",
-          "scratch_mount_receipt_sha256": "canonical_json_v1 receipts/<phase>/scratch-mount.json using mount_receipt",
-          "scratch_pre_inventory_sha256": "canonical_json_v1 receipts/<phase>/scratch-pre-inventory.json using file_manifest",
-          "scratch_post_inventory_sha256": "canonical_json_v1 receipts/<phase>/scratch-post-inventory.json using file_manifest",
+          "pytest_argv_sha256": "canonical_json_v1 receipts/<phase>/pytest-argv.json using string_array_receipt with purpose fixed pytest_argv",
+          "scratch_mount_receipt_sha256": "canonical_json_v1 receipts/<phase>/scratch-mount.json using mount_receipt with purpose fixed scratch",
+          "scratch_pre_inventory_sha256": "canonical_json_v1 receipts/<phase>/scratch-pre-inventory.json using file_manifest with purpose fixed scratch_pre",
+          "scratch_post_inventory_sha256": "canonical_json_v1 receipts/<phase>/scratch-post-inventory.json using file_manifest with purpose fixed scratch_post",
           "supervisor_capture_receipt_sha256": "canonical_json_v1 receipts/<phase>/supervisor-capture.json using supervisor_capture_receipt",
           "pytest_report_sha256": "raw bytes receipts/<phase>/pytest-report.json",
-          "collected_node_ids_sha256": "canonical_json_v1 receipts/<phase>/collected-node-ids.json using string_array_receipt"
+          "collected_node_ids_sha256": "canonical_json_v1 receipts/<phase>/collected-node-ids.json using string_array_receipt with purpose fixed collected_node_ids"
+        },
+        "filesystem_identity_artifact_map": {
+          "mount_receipt.source_identity_sha256[source_read_only]": "canonical_json_v1 receipts/<phase>/filesystem-identities/source-read-only.json using filesystem_identity_preimage with path_class source_mount_root",
+          "mount_receipt.source_identity_sha256[fixture_deny]": "canonical_json_v1 receipts/<phase>/filesystem-identities/fixture-deny.json using filesystem_identity_preimage with path_class fixture_deny_root",
+          "mount_receipt.source_identity_sha256[scratch]": "canonical_json_v1 receipts/<phase>/filesystem-identities/scratch.json using filesystem_identity_preimage with path_class scratch_root",
+          "python_control_receipt.interpreter_identity_sha256": "canonical_json_v1 receipts/<phase>/filesystem-identities/python-interpreter.json using filesystem_identity_preimage with path_class python_interpreter",
+          "python_control_receipt.dependency_root_identity_sha256": "canonical_json_v1 receipts/<phase>/filesystem-identities/dependency-root.json using filesystem_identity_preimage with path_class dependency_root",
+          "supervisor_capture_receipt.report_root_identity_sha256": "canonical_json_v1 receipts/<phase>/filesystem-identities/report-root.json using filesystem_identity_preimage with path_class report_root"
         },
         "common_receipt_exact_fields": [
           "schema_version",
           "phase"
+        ],
+        "filesystem_identity_preimage_exact_fields": [
+          "schema_version",
+          "path_class",
+          "realpath_sha256",
+          "parent_chain_sha256",
+          "device",
+          "inode",
+          "owner_uid",
+          "group_gid",
+          "mode",
+          "kind",
+          "size_bytes",
+          "raw_sha256"
         ],
         "materialization_manifest_exact_fields": [
           "schema_version",
@@ -772,11 +1085,25 @@
           "entries": "strict materialized-entry array exactly equal to materialization_manifest.entries",
           "quarantined_fixture_subtree": "strict object exactly equal to materialization_manifest.quarantined_fixture_subtree"
         },
+        "filesystem_identity_preimage_types_and_nullability": {
+          "schema_version": "fixed review-reuse-er3-filesystem-identity-v1",
+          "path_class": "one of source_mount_root, fixture_deny_root, scratch_root, python_interpreter, dependency_root, or report_root",
+          "realpath_sha256": "64-lowercase-hex SHA-256 over the canonical absolute realpath string without exporting the path",
+          "parent_chain_sha256": "64-lowercase-hex SHA-256 of the complete directory-FD/no-symlink parent-chain receipt",
+          "device": "non-negative integer, boolean forbidden",
+          "inode": "positive integer, boolean forbidden",
+          "owner_uid": "non-negative integer, boolean forbidden",
+          "group_gid": "non-negative integer, boolean forbidden",
+          "mode": "four-digit octal permission string",
+          "kind": "fixed regular or directory",
+          "size_bytes": "non-negative integer for regular, null for directory; boolean forbidden",
+          "raw_sha256": "64-lowercase-hex SHA-256 for regular, null for directory"
+        },
         "mount_receipt_types_and_nullability": {
           "schema_version": "fixed review-reuse-er3-mount-receipt-v1",
           "phase": "one phase_tokens string",
           "purpose": "one of source_read_only, fixture_deny, or scratch",
-          "source_identity_sha256": "64-lowercase-hex SHA-256 of the strict source filesystem identity object",
+          "source_identity_sha256": "64-lowercase-hex canonical SHA-256 of the exact retained filesystem_identity_preimage selected by purpose",
           "target_sha256": "64-lowercase-hex SHA-256 of the canonical absolute target string",
           "filesystem_type": "non-empty observed string",
           "mount_flags": "non-empty bytewise-sorted unique array of strings equal to the purpose-specific required flags",
@@ -800,11 +1127,11 @@
         "python_control_receipt_types_and_nullability": {
           "schema_version": "fixed review-reuse-er3-python-control-v1",
           "phase": "one phase_tokens string",
-          "interpreter_identity_sha256": "64-lowercase-hex SHA-256 of the strict interpreter filesystem identity plus raw bytes",
+          "interpreter_identity_sha256": "64-lowercase-hex canonical SHA-256 of the exact retained python_interpreter filesystem_identity_preimage",
           "interpreter_version": "exact Python 3.11.x observed string",
           "isolated_flag": "boolean literal true for -I",
           "no_site_flag": "boolean literal true for -S",
-          "dependency_root_identity_sha256": "64-lowercase-hex SHA-256 of the strict sealed dependency-root filesystem identity",
+          "dependency_root_identity_sha256": "64-lowercase-hex canonical SHA-256 of the exact retained dependency_root filesystem_identity_preimage",
           "final_sys_path": "ordered array of canonical absolute paths limited to materialized source, sealed dependency root, and stdlib",
           "import_map_sha256": "64-lowercase-hex SHA-256 equal to the corresponding digest_artifact_map artifact",
           "closed_environment_sha256": "64-lowercase-hex SHA-256 equal to the corresponding digest_artifact_map artifact",
@@ -858,7 +1185,7 @@
           "phase": "one phase_tokens string",
           "supervisor_uid": "non-negative privileged integer distinct from execution_uid, boolean forbidden",
           "execution_uid": "positive unprivileged integer distinct from supervisor_uid, boolean forbidden",
-          "report_root_identity_sha256": "64-lowercase-hex SHA-256 of the strict report-root filesystem identity",
+          "report_root_identity_sha256": "64-lowercase-hex canonical SHA-256 of the exact retained report_root filesystem_identity_preimage",
           "test_writable": "boolean literal false",
           "pytest_report_raw_sha256": "64-lowercase-hex SHA-256 equal to pytest_report_sha256",
           "event_count": "positive integer equal to the complete captured pytest event count, boolean forbidden",
@@ -872,6 +1199,8 @@
           "materialized_entries": "strict non-empty array of regular non-quarantined Git entries; git_mode is 100644 or 100755, blob_id is 40 lowercase hex, size_bytes is non-negative integer with boolean forbidden, and raw_sha256 is the SHA-256 of bytes written once from that verified blob",
           "quarantined_fixture_subtree": "exact path tests/vision/fixtures/cad_features, its raw tree ID, and the exact bytewise-sorted three path/mode/blob-ID entries for cad_arc.png, cad_circle.png, and cad_line.png; no size, blob type/body, raw SHA-256, stat result, or materialized payload is permitted",
           "tree_manifest": "pre and post canonical objects differ only in timing pre or post; entries and quarantined_fixture_subtree equal the materialization manifest",
+          "filesystem_identity_preimages": "each of the six identity digest uses the unique retained path and path_class in filesystem_identity_artifact_map; the preimage has exactly filesystem_identity_preimage_exact_fields and its digest is canonical_sha256 of the complete strict object with no excluded field",
+          "field_role_binding": "every digest_artifact_map entry that reuses a receipt schema also fixes the semantic discriminator required at that path: tree timing pre/post; mount purpose source_read_only/fixture_deny/scratch; file-manifest purpose dependency/scratch_pre/scratch_post; or string-array purpose pytest_argv/collected_node_ids. A valid receipt under the wrong path or role is rejected before digest comparison.",
           "mount_receipt": "purpose is source_read_only, fixture_deny, or scratch; identities are 64 lowercase hex; flags are a bytewise-sorted unique array; uid/gid are non-negative integers; mode is four-digit octal; verified is literal true",
           "fixture_negative_open": "execution_uid is the unprivileged test UID and probes are the exact three bytewise path-sorted openat O_RDONLY|O_CLOEXEC|O_NOFOLLOW probes, each with result_errno fixed EACCES",
           "python_control": "interpreter version is exact Python 3.11.x, isolated_flag and no_site_flag are literal true, final_sys_path is an ordered array of canonical absolute paths limited to the materialized source, sealed dependency root, and stdlib, and every digest names the corresponding retained receipt",
@@ -885,7 +1214,7 @@
         "fixture_quarantine_rule": "the privileged verifier walks only commit and tree objects for tests/vision/fixtures/cad_features, records the directory tree ID plus the three child path/mode/blob IDs, and never requests, opens, stats, inflates, sizes, hashes, or materializes those blob bodies. It materializes every other authorized tree entry into an empty root, creates an empty trusted mountpoint at the fixed directory path, then applies the root-owned mode-000 deny mount before the test namespace is entered. Materialization and pre/post manifests cover only non-quarantined payloads plus the body-free quarantined subtree projection. Any fixture blob-body access is invalid evidence."
       },
       "gate_b_ci_lineage_receipt_contract": {
-        "schema_version": "review-reuse-er3-gate-a-ci-lineage-v1",
+        "schema_version": "review-reuse-er3-gate-b-ci-lineage-v1",
         "exact_fields": [
           "schema_version",
           "repository",
@@ -893,6 +1222,9 @@
           "accepted_gate_a_head",
           "workflow_path",
           "workflow_blob_id",
+          "workflow_ref",
+          "workflow_sha",
+          "executed_workflow_blob_id",
           "workflow_run_id",
           "workflow_run_attempt",
           "workflow_run_head_sha",
@@ -912,18 +1244,23 @@
           "artifact_expired",
           "artifact_archive_sha256",
           "report_raw_sha256",
+          "artifact_report_producer_identity",
+          "artifact_report_producer_identity_sha256",
           "workflow_run_metadata_raw_sha256",
           "jobs_metadata_raw_sha256",
           "artifact_metadata_raw_sha256",
           "ci_lineage_receipt_sha256"
         ],
         "types_and_nullability": {
-          "schema_version": "fixed review-reuse-er3-gate-a-ci-lineage-v1",
+          "schema_version": "fixed review-reuse-er3-gate-b-ci-lineage-v1",
           "repository": "fixed zensgit/cad-ml-platform",
           "repository_id": "positive GitHub repository integer, boolean forbidden",
           "accepted_gate_a_head": "40-lowercase-hex SHA-1 object ID",
           "workflow_path": "fixed .github/workflows/review-reuse-er3-contract.yml",
           "workflow_blob_id": "40-lowercase-hex SHA-1 object ID",
+          "workflow_ref": "protected GitHub Actions GITHUB_WORKFLOW_REF string with fixed zensgit/cad-ml-platform/.github/workflows/review-reuse-er3-contract.yml@ prefix",
+          "workflow_sha": "40-lowercase-hex GITHUB_WORKFLOW_SHA commit ID",
+          "executed_workflow_blob_id": "40-lowercase-hex SHA-1 blob ID raw-walked at workflow_sha and workflow_path",
           "workflow_run_id": "positive integer, boolean forbidden",
           "workflow_run_attempt": "positive integer, boolean forbidden",
           "workflow_run_head_sha": "40-lowercase-hex SHA-1 object ID",
@@ -943,6 +1280,8 @@
           "artifact_expired": "boolean literal false",
           "artifact_archive_sha256": "64-lowercase-hex SHA-256 of retrieved archive raw bytes",
           "report_raw_sha256": "64-lowercase-hex SHA-256 of the exact report member raw bytes",
+          "artifact_report_producer_identity": "strict producer CI identity object extracted from the digest-bound report member and matching gate_a_verification_report_contract.producer_ci_identity_exact_fields",
+          "artifact_report_producer_identity_sha256": "64-lowercase-hex canonical SHA-256 of the complete artifact_report_producer_identity object with no excluded field",
           "workflow_run_metadata_raw_sha256": "64-lowercase-hex SHA-256 of the retained GitHub API run response body",
           "jobs_metadata_raw_sha256": "64-lowercase-hex SHA-256 of the retained GitHub API run-attempt jobs response body",
           "artifact_metadata_raw_sha256": "64-lowercase-hex SHA-256 of the retained GitHub API artifact response body",
@@ -952,10 +1291,11 @@
           "repository/repository_id equal the owner-protected accepted evidence and every normalized GitHub API repository identity",
           "workflow_run_id/attempt equal the owner-protected values; the retrieved run belongs to that repository, has head_sha equal accepted_gate_a_head, path equal workflow_path, event pull_request, and conclusion success",
           "workflow_blob_id equals the candidate artifact-set entry for workflow_path and the raw-tree blob at accepted_gate_a_head",
+          "workflow_ref/workflow_sha/executed_workflow_blob_id equal the strict artifact_report_producer_identity values; executed_workflow_blob_id is raw-walked at workflow_sha and workflow_path and equals workflow_blob_id byte-for-byte, proving the executed workflow version is the owner-accepted candidate workflow",
           "job_id is present exactly once in the retrieved jobs-for-run-attempt response; its run/attempt/head/name/conclusion equal workflow_run_id/workflow_run_attempt/accepted_gate_a_head/er3-contract/success",
           "artifact_id is retrieved from the same repository and has workflow_run.id equal workflow_run_id, name equal artifact_name, expired false, and downloaded raw archive digest equal artifact_archive_sha256",
           "the accepted workflow blob contains exactly one evidence-producing job named er3-contract and exactly one digest-pinned upload-artifact step for artifact_name, so an artifact belonging to that run can only be emitted by the accepted job",
-          "the strict report producer_ci_identity repository/ID/head/workflow/run/attempt/job/artifact values equal this lineage receipt and the owner-protected accepted evidence, closing rerun-attempt substitution",
+          "artifact_report_producer_identity is extracted from the report member inside the retrieved artifact, its canonical digest equals artifact_report_producer_identity_sha256, and every repository/ID/head/workflow path/ref/SHA/blob/run/attempt/job/artifact value equals this lineage receipt and the owner-protected accepted evidence; in particular its workflow_run_id and workflow_run_attempt directly equal the retrieved run-attempt job values, closing rerun-attempt substitution without inferring attempt identity from artifact metadata",
           "the archive contains exactly one report_path member plus the closed retained-receipt inventory; report raw/full-canonical/self-excluding and candidate artifact-set digests equal owner-protected accepted evidence"
         ],
         "source_rule": "Gate B obtains the run, run-attempt jobs, and artifact metadata through authenticated GitHub API requests in the owner-protected environment, rejects redirects/repository mismatch/expired artifacts, retains exact response bodies outside the implementation tree, normalizes only the fields in this strict receipt, and validates every relationship before executing implementation tests. Branch files, PR metadata, workflow inputs, caller values, or syntactically valid unrelated IDs cannot satisfy this receipt.",
@@ -1825,6 +2165,9 @@
             "repository_id",
             "candidate_gate_a_head",
             "workflow_path",
+            "workflow_ref",
+            "workflow_sha",
+            "workflow_blob_id",
             "workflow_run_id",
             "workflow_run_attempt",
             "job_name",
@@ -1925,12 +2268,15 @@
             "repository_id": "positive GitHub repository integer from the protected GitHub Actions context, boolean forbidden",
             "candidate_gate_a_head": "40-lowercase-hex pull-request head SHA equal to the raw-object-resolved report candidate_gate_a_head",
             "workflow_path": "fixed .github/workflows/review-reuse-er3-contract.yml",
+            "workflow_ref": "protected GITHUB_WORKFLOW_REF string with fixed zensgit/cad-ml-platform/.github/workflows/review-reuse-er3-contract.yml@ prefix",
+            "workflow_sha": "40-lowercase-hex GITHUB_WORKFLOW_SHA commit ID",
+            "workflow_blob_id": "40-lowercase-hex SHA-1 blob ID raw-walked at workflow_sha and workflow_path and equal to the candidate artifact-set workflow blob",
             "workflow_run_id": "positive GITHUB_RUN_ID integer, boolean forbidden",
             "workflow_run_attempt": "positive GITHUB_RUN_ATTEMPT integer, boolean forbidden",
             "job_name": "fixed GITHUB_JOB value er3-contract",
             "artifact_name": "fixed review-reuse-er3-gate-a-evidence"
           },
-          "producer_ci_identity_source": "the frozen workflow passes no caller override for these values. The external verifier reads repository/name/ID, pull-request head SHA, workflow path, run ID, run attempt, and job name only from the GitHub Actions default context/environment and the immutable event payload, verifies the checked-out/raw-object candidate head equality, and emits them inside the self-digest-bound report before the sole upload step. Local execution, workflow input, PR text, branch file, or caller environment cannot produce accepted evidence.",
+          "producer_ci_identity_source": "the frozen workflow passes no caller override for these values. The external verifier reads repository/name/ID, pull-request head SHA, workflow path/ref/SHA, run ID, run attempt, and job name only from the GitHub Actions default context/environment and the immutable event payload; raw-walks workflow_path at GITHUB_WORKFLOW_SHA; requires that executed blob to equal the candidate artifact-set workflow blob; verifies the checked-out/raw-object candidate head equality; and emits the complete identity inside the self-digest-bound report before the sole upload step. Local execution, workflow input, PR text, branch file, or caller environment cannot produce accepted evidence.",
           "git_object_proof_types_and_nullability": {
             "baseline_commit": "40-lowercase-hex SHA-1 object ID",
             "baseline_tree": "40-lowercase-hex SHA-1 object ID",
@@ -1959,7 +2305,7 @@
             "gate_a_allowed_delta_valid": "boolean literal true",
             "raw_object_manifest": "non-empty array of strict raw-object entries",
             "raw_object_manifest_sha256": "64-lowercase-hex SHA-256",
-            "command_receipts": "non-empty array of strict Git-command receipts",
+            "command_receipts": "exact 17-entry array matching git_command_allowlist_contract.gate_a_operation_order",
             "command_receipts_sha256": "64-lowercase-hex SHA-256"
           },
           "git_environment_exact_fields": [
@@ -1986,11 +2332,11 @@
             "stderr_sha256"
           ],
           "git_command_receipt_types_and_nullability": {
-            "sequence": "positive integer, boolean forbidden",
-            "operation": "closed non-empty string",
-            "argv": "non-empty array of strings with reviewed absolute Git binary and --no-replace-objects",
+            "sequence": "integer 1..17 equal to the one-based gate_a_operation_order position, boolean forbidden",
+            "operation": "exact operation name at that gate_a_operation_order position",
+            "argv": "exact common_argv_prefix plus the substituted operation_argv_suffixes entry under git_command_allowlist_contract",
             "environment": "strict five-string object matching git_environment_exact_fields",
-            "exit_code": "integer, boolean forbidden",
+            "exit_code": "integer literal 0, boolean forbidden",
             "stdout_sha256": "64-lowercase-hex SHA-256",
             "stderr_sha256": "64-lowercase-hex SHA-256"
           },
@@ -2326,6 +2672,9 @@
             "accepted_gate_a_head",
             "workflow_path",
             "workflow_blob_id",
+            "workflow_ref",
+            "workflow_sha",
+            "executed_workflow_blob_id",
             "workflow_run_id",
             "workflow_run_attempt",
             "job_id",
@@ -2346,6 +2695,9 @@
             "accepted_gate_a_head": "40-lowercase-hex SHA-1 object ID equal to the retrieved report candidate_gate_a_head",
             "workflow_path": "fixed .github/workflows/review-reuse-er3-contract.yml",
             "workflow_blob_id": "40-lowercase-hex SHA-1 object ID",
+            "workflow_ref": "owner-accepted protected GITHUB_WORKFLOW_REF value with the fixed repository/workflow prefix",
+            "workflow_sha": "owner-accepted 40-lowercase-hex GITHUB_WORKFLOW_SHA commit ID",
+            "executed_workflow_blob_id": "40-lowercase-hex blob ID at workflow_sha/workflow_path and equal to workflow_blob_id",
             "workflow_run_id": "positive integer, boolean forbidden",
             "workflow_run_attempt": "positive integer, boolean forbidden",
             "job_id": "positive integer, boolean forbidden",
@@ -2382,7 +2734,7 @@
             "gate_b_allowed_delta_valid": "boolean literal true",
             "raw_object_manifest": "non-empty array of strict raw-object entries",
             "raw_object_manifest_sha256": "64-lowercase-hex SHA-256",
-            "command_receipts": "non-empty array of strict Git-command receipts",
+            "command_receipts": "exact 16-entry array matching git_command_allowlist_contract.gate_b_operation_order",
             "command_receipts_sha256": "64-lowercase-hex SHA-256"
           },
           "git_environment_exact_fields": [
@@ -2409,11 +2761,11 @@
             "stderr_sha256"
           ],
           "git_command_receipt_types_and_nullability": {
-            "sequence": "positive integer, boolean forbidden",
-            "operation": "closed non-empty string",
-            "argv": "non-empty array of strings with reviewed absolute Git binary and --no-replace-objects",
+            "sequence": "integer 1..16 equal to the one-based gate_b_operation_order position, boolean forbidden",
+            "operation": "exact operation name at that gate_b_operation_order position",
+            "argv": "exact common_argv_prefix plus the substituted operation_argv_suffixes entry under git_command_allowlist_contract",
             "environment": "strict five-string object matching git_environment_exact_fields",
-            "exit_code": "integer, boolean forbidden",
+            "exit_code": "integer literal 0, boolean forbidden",
             "stdout_sha256": "64-lowercase-hex SHA-256",
             "stderr_sha256": "64-lowercase-hex SHA-256"
           },
@@ -3643,6 +3995,8 @@
           "schema_version",
           "git_binary",
           "repository_root",
+          "git_repository_identity",
+          "git_repository_identity_sha256",
           "child_environment",
           "head_command",
           "status_command",
@@ -3678,20 +4032,70 @@
           "stdout_sha256",
           "stderr_sha256"
         ],
+        "child_environment_exact_fields": [
+          "GIT_CONFIG_NOSYSTEM",
+          "GIT_CONFIG_GLOBAL",
+          "GIT_NO_REPLACE_OBJECTS",
+          "LANG",
+          "LC_ALL"
+        ],
+        "types_and_nullability": {
+          "schema_version": "fixed review-reuse-er3-repository-control-v1",
+          "git_binary": "strict non-null git-binary identity object",
+          "repository_root": "strict non-null repository-root identity object",
+          "git_repository_identity": "strict non-null object matching git_repository_identity_receipt_contract",
+          "git_repository_identity_sha256": "64-lowercase-hex SHA-256 equal to git_repository_identity.repository_identity_sha256",
+          "child_environment": "strict five-string object matching child_environment_exact_fields",
+          "head_command": "strict non-null command receipt for the exact rev-parse invocation",
+          "status_command": "strict non-null command receipt for the exact status invocation",
+          "repository_control_sha256": "64-lowercase-hex SHA-256"
+        },
+        "git_binary_types_and_nullability": {
+          "realpath": "canonical absolute path string",
+          "parent_chain_sha256": "64-lowercase-hex SHA-256 of the complete directory-FD/no-symlink parent-chain receipt",
+          "device": "non-negative integer, boolean forbidden",
+          "inode": "positive integer, boolean forbidden",
+          "mode": "four-digit octal permission string",
+          "size_bytes": "positive integer, boolean forbidden",
+          "sha256": "64-lowercase-hex SHA-256 of the executable raw bytes",
+          "owner_uid": "non-negative integer, boolean forbidden",
+          "group_gid": "non-negative integer, boolean forbidden"
+        },
+        "repository_root_types_and_nullability": {
+          "realpath_sha256": "64-lowercase-hex SHA-256 over the canonical absolute root path",
+          "parent_chain_sha256": "64-lowercase-hex SHA-256 of the complete directory-FD/no-symlink parent-chain receipt",
+          "device": "non-negative integer, boolean forbidden",
+          "inode": "positive integer, boolean forbidden",
+          "mode": "four-digit octal permission string",
+          "owner_uid": "non-negative integer, boolean forbidden",
+          "group_gid": "non-negative integer, boolean forbidden"
+        },
+        "command_types_and_nullability": {
+          "operation": "fixed head or status",
+          "argv": "exact string array equal to the corresponding exact_commands entry after placeholder substitution",
+          "environment_sha256": "64-lowercase-hex canonical SHA-256 of the complete child_environment object",
+          "stdin_sha256": "fixed SHA-256 of zero bytes",
+          "stdin_size_bytes": "integer literal 0, boolean forbidden",
+          "exit_code": "integer literal 0, boolean forbidden",
+          "stdout_sha256": "64-lowercase-hex SHA-256 of exact raw stdout bytes",
+          "stderr_sha256": "64-lowercase-hex SHA-256 of exact raw stderr bytes"
+        },
         "digest_rule": "repository_control_sha256 is canonical_sha256 of the complete strict object after removing only repository_control_sha256; every nested object rejects unknown or missing fields",
         "git_binary_policy": "owner supplies one absolute --git-bin; walk every component by directory FD with O_NOFOLLOW, require a regular executable owned by root or the trusted runner and not group/other writable, bind realpath/parent-chain/device/inode/mode/size/SHA-256, and revalidate immediately before each spawn",
+        "git_repository_identity_rule": "before either Git spawn, the stdlib-only Gate-C bootstrap resolves and parses the repository Git/common directories and local config as inert bytes under git_repository_identity_receipt_contract, using the owner-named numeric repository ID; it embeds that complete strict receipt here and requires git_repository_identity_sha256 to equal its verified self digest. The same receipt is revalidated after the status command and any drift fails before Docker or fixture activity.",
         "exact_commands": [
-          "<git-bin> --no-optional-locks -c core.fsmonitor=false -c core.pager=cat -C <repository-root> rev-parse --verify HEAD",
-          "<git-bin> --no-optional-locks -c core.fsmonitor=false -c core.pager=cat -C <repository-root> status --porcelain=v1 --untracked-files=all --ignored=no"
+          "<git-bin> --no-pager --no-optional-locks --no-replace-objects -c core.fsmonitor=false -c core.hooksPath=/dev/null -c core.pager=cat -C <repository-root> rev-parse --verify HEAD",
+          "<git-bin> --no-pager --no-optional-locks --no-replace-objects -c core.fsmonitor=false -c core.hooksPath=/dev/null -c core.pager=cat -C <repository-root> status --porcelain=v1 --untracked-files=all --ignored=no"
         ],
         "child_environment": {
           "GIT_CONFIG_NOSYSTEM": "1",
           "GIT_CONFIG_GLOBAL": "/dev/null",
+          "GIT_NO_REPLACE_OBJECTS": "1",
           "LANG": "C.UTF-8",
           "LC_ALL": "C.UTF-8"
         },
         "launcher_environment": "Gate C launches with a closed allowlist; LD_*, DYLD_*, GIT_*, PYTHON*, proxy, Docker, ReviewReuse store/decision, and provider keys are absent; the OS loader and approved same-UID runner remain trusted",
-        "artifact_invariants": "strict canonical JSON binds both exact argv arrays, raw stdin/stdout/stderr digests and exits, Git binary and repository-parent identities, closed child environment digest, observed/authorized head equality, and empty status; shell, PATH lookup, hook, fsmonitor, config, pager, alias, or repository-supplied executable use fails before task/Docker/fixture activity"
+        "artifact_invariants": "strict canonical JSON binds both exact argv arrays, raw stdin/stdout/stderr digests and exits, Git binary and repository-parent identities, the complete fail-closed Git repository/config identity receipt, closed child environment digest, observed/authorized head equality, and empty status; include/includeIf, worktree config, replacement/graft/shallow/alternate object view, executable config, shell, PATH lookup, hook, fsmonitor, pager, alias, helper, or repository-supplied executable use fails before task/Docker/fixture activity"
       },
       "exact_fields": [
         "schema_version",
