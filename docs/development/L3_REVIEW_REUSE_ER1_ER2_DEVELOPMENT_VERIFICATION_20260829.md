@@ -53,7 +53,7 @@ named by design-lock section 9.1:
 | Parent / authority | `9150e06c75721bf086572ed271b68548104e8300` |
 | Files | `test_review_reuse_er1_store_integrity.py`, `test_review_reuse_er2_ledger.py`, `test_review_reuse_api_integrity.py` |
 | Baseline result | **18 failed** |
-| Runtime-head result | **124 passed** |
+| Runtime-head result | **125 passed** |
 
 Exact command:
 
@@ -631,14 +631,26 @@ legacy ambiguity. The complete named fail-first command is now **124 passed**,
 the full ReviewReuse suite is **221 passed**, and the
 identity/production/preflight regressions remain **47 passed**.
 
+A seventeenth independent read-only review at `13055d4966fb3b543d747759ebd237d24a55e452`
+found that a digest-valid EvidencePack could add unknown nested calibration
+fields and still pass load validation. Test-only commit
+`6693458f9c53b100308059b1f8d4bfaab76987fd` added the smuggling case while
+retaining the valid version and status; the focused immutable-envelope command
+reproduced **1 failed / 4 passed**. Runtime repair
+`1d0ad7fddbec746f9fdd906fe147e66543e00dbe` includes `calibration` in the
+existing builder-derived envelope equality check. The focused command is now
+**5 passed**, the complete named fail-first command is **125 passed**, and the
+full ReviewReuse suite is **222 passed**.
+
 ## 6. Verification evidence
 
 Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
-`b11f3cb1`.
+`1d0ad7fd`.
 
 | Gate | Result |
 |---|---:|
-| Exact named fail-first command, including narrower additions | **124 passed** |
+| Exact named fail-first command, including narrower additions | **125 passed** |
+| Focused digest-valid calibration-smuggling batch | **5 passed** (red: 1 failed / 4 passed at test-only `6693458f`) |
 | Focused null/rollback/recovery batch | **6 passed** |
 | Focused duplicate-owner/candidate-evidence batch | **5 passed** |
 | Focused published-write quarantine/decision/calibration batch | **5 passed** (red: 5 failed at test-only `d91309df`) |
@@ -656,7 +668,7 @@ Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
 | Focused bounded-body/native-ledger/legacy-layout batch | **5 passed** (red: 5 failed at test-only `783d3996`) |
 | Focused initial-event metadata batch | **7 passed** (red: 5 failed at test-only `1af3587a`) |
 | Focused decision-event timestamp batch | **10 passed** (red: 3 failed / 7 passed at test-only `e3b86a99`) |
-| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **221 passed** |
+| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **222 passed** |
 | Integration-auth + production-identity + pilot-preflight regressions | **47 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 test-core` | **39 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-openapi` | **5 passed** |
