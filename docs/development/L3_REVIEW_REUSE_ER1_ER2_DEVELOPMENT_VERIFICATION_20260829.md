@@ -1,18 +1,18 @@
 # L3 ReviewReuse ER1 + ER2 - Development and Verification
 
 **Date**: 2026-08-29<br>
+**Last verification update**: 2026-08-31<br>
 **Status**: IMPLEMENTED / FOR REVIEW; not merged, enabled, deployed, or piloted<br>
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/584<br>
 **Stacked base**: `docs/workbench-board-post-565-20260829`<br>
 **Ratified authority**: PR #583 exact head
 `9150e06c75721bf086572ed271b68548104e8300`<br>
 **Runtime implementation head**:
-`b11f3cb1f4b5e62501eb49a4836fecf621428025`
-(`fix: validate ReviewReuse decision event timestamps`), on top of initial
-event metadata repair `487c1c58`, request/native-ledger repair `572f7d04`,
-candidate/event repair `00618205`, malformed-adapter repair `36175b14`, the
-original runtime commit `6cc55841`, and the earlier hardening chain through
-`21943856`.
+`721a52140857d32fa4927cfda60af5175c7dd030`
+(`fix: load ReviewReuse ledger numerics strictly`), on top of calibration
+envelope repair `1d0ad7fd`, decision-event timestamp repair `b11f3cb1`, the
+original runtime commit `6cc55841`, and the intervening fail-first hardening
+chain.
 
 ## 1. Authorization boundary
 
@@ -53,7 +53,7 @@ named by design-lock section 9.1:
 | Parent / authority | `9150e06c75721bf086572ed271b68548104e8300` |
 | Files | `test_review_reuse_er1_store_integrity.py`, `test_review_reuse_er2_ledger.py`, `test_review_reuse_api_integrity.py` |
 | Baseline result | **18 failed** |
-| Runtime-head result | **125 passed** |
+| Runtime-head result | **135 passed** |
 
 Exact command:
 
@@ -642,14 +642,31 @@ existing builder-derived envelope equality check. The focused command is now
 **5 passed**, the complete named fail-first command is **125 passed**, and the
 full ReviewReuse suite is **222 passed**.
 
+An eighteenth exact-head read-only review at
+`af72d0ec02b5d2dc1d92508539bc89ba857245a8` found that Pydantic's default
+numeric coercion allowed native ledger JSON to replace number-valued task
+timestamps, event timestamps, candidate scores, or the human-decision
+timestamp with strings. Validation normalized those bytes back to floats and
+accepted the corrupt record. Test-only commit
+`c0472d95c2b5fd3855db334281587293708cac75` added four persisted-record
+mutation cases; the focused command reproduced **4 failed**. Runtime repair
+`721a52140857d32fa4927cfda60af5175c7dd030` applies field-level `StrictFloat`
+types to the five governed numeric model positions. JSON integers and floats
+remain accepted and normalize to floats; strings and booleans fail schema
+validation without making legal enum strings globally strict. Final coverage
+extends the original red cases across all five positions and both invalid
+types. The focused command is now **10 passed**, the complete named fail-first
+command is **135 passed**, and the full ReviewReuse suite is **232 passed**.
+
 ## 6. Verification evidence
 
 Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
-`1d0ad7fd`.
+`721a5214`.
 
 | Gate | Result |
 |---|---:|
-| Exact named fail-first command, including narrower additions | **125 passed** |
+| Exact named fail-first command, including narrower additions | **135 passed** |
+| Focused strict persisted-numeric batch | **10 passed** (red: 4 failed at test-only `c0472d95`) |
 | Focused digest-valid calibration-smuggling batch | **5 passed** (red: 1 failed / 4 passed at test-only `6693458f`) |
 | Focused null/rollback/recovery batch | **6 passed** |
 | Focused duplicate-owner/candidate-evidence batch | **5 passed** |
@@ -668,16 +685,16 @@ Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
 | Focused bounded-body/native-ledger/legacy-layout batch | **5 passed** (red: 5 failed at test-only `783d3996`) |
 | Focused initial-event metadata batch | **7 passed** (red: 5 failed at test-only `1af3587a`) |
 | Focused decision-event timestamp batch | **10 passed** (red: 3 failed / 7 passed at test-only `e3b86a99`) |
-| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **222 passed** |
+| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **232 passed** |
 | Integration-auth + production-identity + pilot-preflight regressions | **47 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 test-core` | **39 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-openapi` | **5 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-core-fast` | **exit 0; 229 tests + 10 governance checks** |
 | JCS finite-binary64 differential vs Node `JSON.stringify` at `1ee1bad0`; canonical module unchanged at current head | **20,000 cases; 0 mismatches** |
-| Black + isort | **isort pass; Black pass for 26 format-clean files; pre-existing layout in `src/core/config/__init__.py` and `dedup_adapter.py` kept surgical** |
-| flake8 | **pass (28 files)** |
-| mypy | **success (6 changed source files across the implementation runs)** |
-| `py_compile` | **pass (28 changed Python files)** |
+| Black + isort | **pass (2 files changed by this hardening)** |
+| flake8 | **pass (2 files changed by this hardening)** |
+| mypy | **success (`src/core/review_reuse/models.py`)** |
+| `py_compile` | **pass (2 files changed by this hardening)** |
 | `git diff --check` | **pass** |
 
 The OpenAPI snapshot was regenerated only after explicit development posture:
