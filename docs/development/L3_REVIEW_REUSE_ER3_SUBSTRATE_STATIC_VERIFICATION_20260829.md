@@ -4,8 +4,10 @@
 
 **Date:** 2026-08-30
 
+**Base reconciliation:** 2026-08-31, docs-only
+
 **CAD ML base:** open PR #584 exact head
-`af72d0ec02b5d2dc1d92508539bc89ba857245a8`
+`1994696b6c9eb92b8b9e0da970a4d0044d92dc15`
 
 **Vision source:** `https://github.com/zensgit/dedupcad-vision.git` exact revision
 `2fc35d60ff034c9f790868c02381a9716becc942`
@@ -27,9 +29,9 @@ implementation, merge, decision enablement, deployment, pilot, or customer data.
 | Embedded manifest proposal canonical digest; no manifest file exists at this docs-only head | `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf` |
 | Static attestation digest | `4707f793f3597ebe12da4c6474bbb25208ccd9b1de48920a27c5ca083babe6cd` |
 | Static attestation raw file SHA-256 | `5d7e15aa82d714ad371e106deb3c6310cfc82c3062731392bfb3a6c2db175d94` |
-| EvidencePack v2 contract digest | `ed4137b3a8e03104e43dbf5cc10a99ce20eabc6dbe54c83a29b512bab9fe70ba` |
-| EvidencePack v2 contract raw file SHA-256 | `88b77207ec3bf2b2c92b4f15e1458b47b19c336d012ae88bba5efc3c26a48600` |
-| Embedded EvidencePack golden digest | `422e23da3589b24a5539a3d6546cac98ba692046ea14930b179dd9f7fe1b9f7f` |
+| EvidencePack v2 contract digest | `fd975ffeed670e16f0b325c579d691ecdacf8a4f9c567ddb6b432b30e25fe4e3` |
+| EvidencePack v2 contract raw file SHA-256 | `be4ec32e4b26076c9ee2763864d9292bda45562a90fee767ce94d519fe40e6d7` |
+| Embedded EvidencePack golden digest | `482dc6dfbd7433b4d0a04a5d681c30c08a48ca9cc65a4a286cfe105544095b42` |
 | Verified fixture-set golden digest | `536113fa48ac2f692635959bd5f1d0f8ac92faff1fc8ab9f27679a5f474e51b1` |
 | Vision OCI index | `sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251` |
 
@@ -46,7 +48,7 @@ quality or runtime evidence. The critical provenance vectors are:
 | Service identity | `b9defaaa4689ea63652663cc5431c8c431a23a89d31f4f0227908ee49278660e` |
 | Score-mapping ruleset | `ccee15b504054a1cd3def3f6531babbc41a72742d3d2dbb8e35efd57337afd11` |
 | Python/import control | `586aedad7a722501f751b48926fb757464058bb3213d9b9994deae967c238915` |
-| Reviewed command | `2f0394cef55cec77dfaca3aa20c5f6c8501d0827080b8fc19a3238d76702bf91` |
+| Reviewed command | `e31adaf2d2d365825523a85b1bb51e223b59d44b7c5b2cd9fee19c04a519a8f9` |
 | Docker socket identity | `494b331e50b32565a2d20eda74afc69a5cb698e53be47363701046b9ab80d850` |
 | Raw HostConfig v1.43 | `9ab001ac45b9fdbedb61dc2180864659298ed5acda1f28333a8196824cea3bae` |
 | Raw Config.Env | `cad77eb9bd322cb3082639d8e287f488afc85d2e03d2cb56922698cf63018a19` |
@@ -55,15 +57,15 @@ quality or runtime evidence. The critical provenance vectors are:
 | Exact Docker child-environment artifact | `571117807ac16fa31fd8cb124a55a2263f050bb04db25fb94b08774f6b53d51d` |
 | Final run-journal artifact | `300541e3ebf9f2d0f2f0cdf72503250096e9c73ca3b93d43737d72d75c29ea32` |
 | Strict runtime inspect projection | `c907c2aa218065321eba9ac471a4436286f363632809fcbd8c15a8c6838cf927` |
-| Runtime preflight | `bc22e7cbdecaf7be460a10165e03f60df238dd1741e2353728dbd4379daf5e3c` |
-| Continuous runtime seal | `8d9da40c31be1770c4a38f44c4e6303b34ad689346f6496ba91266ba1b5297f0` |
-| EvidencePack v2 canonical artifact bytes | `40da3dd0bad78a490986e15eb847446151b2af21caf1131f8bd191e63768ec02` |
+| Runtime preflight | `9c7538d7b1c2e4dde207918fe26e7d8e078e8219acf1119ceebf17ac9104d34d` |
+| Continuous runtime seal | `19e2273efb9c0e2c5131cd62c23f37e52ca129f0f47a131781f8d7fdf45c25e3` |
+| EvidencePack v2 canonical artifact bytes | `2841d9db0801904c9cc5ff3de60e638c8e77b826d7b9eeaa444a529dbc069a58` |
 | EvidencePack v2 Markdown bytes | `6e5778233d90887932e2eea2a182df9563f4af03804467098427b6e00b9eeac2` |
-| Revision-4 task artifact | `341f448e62a9f183e22045a76a568433a34d85be2b3a3f2a767c6280ae42babc` |
-| Pre-summary artifact map | `d159d6b04bbd24124dba5adf9d783bbb18db5db6bd50a85f6eea9e999cb6052b` |
-| Success-intent golden vector | `562bf1fdd37f39fcec7bf1467294593569acf0ac316f22c57a5ef3cdf5901a32` |
-| Success-intent canonical artifact bytes | `24a819afbd0ec1be5d4b936decf4e5945983b321a0433f6f4cf566df636cdc55` |
-| Run-summary golden vector | `8998984f0745ec0c3177597e8e1258ccdc45588742b06eae277ffb8d8f2d6d0f` |
+| Revision-4 task artifact | `c15eed3d853b6582547fabc4855caf9bd9b7894efab449b5b4e031aaedba4a54` |
+| Pre-summary artifact map | `efb37243785c3fc597ee2fe823bc47d5598a079d9c2d1c6a92a3dc7a6e9a98db` |
+| Success-intent golden vector | `158cce01968529d61acc3a1236a0acd2986e46e478e9e1ec12e2f44146317eb5` |
+| Success-intent canonical artifact bytes | `3752329ccaaa5e14a4e4a45888214491a58ef642d7945bacc843cba73ada9585` |
+| Run-summary golden vector | `5e3b460f2776c669ca0f55d06705a899940906083bb697eb8692391e4d32e2f1` |
 
 ## 2. OCI and source binding
 
@@ -514,9 +516,82 @@ Gate A, Gate B, Gate C, merge, decision, deployment, or pilot authority follows.
 
 ## 6. Commands and results
 
+### 6.1 PR #584 exact-base reconciliation
+
+The owner-authorized 2026-08-31 action was limited to rebasing this Draft
+design-lock history from the preceding #584 head
+`af72d0ec02b5d2dc1d92508539bc89ba857245a8` onto exact head
+`1994696b6c9eb92b8b9e0da970a4d0044d92dc15`, recomputing the contract
+digest graph, and statically reconciling the 106-node classification. It did not
+ratify this design, create or execute Gate A, modify runtime code, use Docker,
+read customer data, enable decisions, deploy, or start a pilot.
+
+The reconciliation used these read-only checks:
+
+```bash
+git merge-base HEAD 1994696b6c9eb92b8b9e0da970a4d0044d92dc15
+git diff --name-status \
+  af72d0ec02b5d2dc1d92508539bc89ba857245a8..\
+1994696b6c9eb92b8b9e0da970a4d0044d92dc15
+git ls-tree -r --name-only \
+  1994696b6c9eb92b8b9e0da970a4d0044d92dc15 -- \
+  .github/workflows/review-reuse-er3-contract.yml \
+  tests/unit/test_review_reuse_er3_archive.py \
+  tests/verification/review_reuse_er3_contract_verifier.py
+git rev-parse \
+  af72d0ec02b5d2dc1d92508539bc89ba857245a8:src/core/review_reuse/dedup_live.py \
+  1994696b6c9eb92b8b9e0da970a4d0044d92dc15:src/core/review_reuse/dedup_live.py
+git rev-parse \
+  af72d0ec02b5d2dc1d92508539bc89ba857245a8:src/core/review_reuse/evidence.py \
+  1994696b6c9eb92b8b9e0da970a4d0044d92dc15:src/core/review_reuse/evidence.py
+git rev-parse \
+  af72d0ec02b5d2dc1d92508539bc89ba857245a8:src/api/v1/review_reuse.py \
+  1994696b6c9eb92b8b9e0da970a4d0044d92dc15:src/api/v1/review_reuse.py
+PYTHONDONTWRITEBYTECODE=1 <python-3.11> -m pytest -q \
+  -p no:cacheprovider \
+  tests/unit/test_review_reuse_canonical.py \
+  tests/unit/test_review_reuse_evidence_goldens.py \
+  tests/unit/test_review_reuse_er1_store_integrity.py
+make PYTHON=<python-3.11> test-review-reuse
+```
+
+Results:
+
+| Reconciliation proof | Result |
+|---|---|
+| Rebased ancestry | merge base is exact `1994696b6c9eb92b8b9e0da970a4d0044d92dc15`; the branch delta from that base contains only the four ER3 governance documents |
+| Old-to-new #584 delta | six ER1/ER2 implementation, test, and verification-document paths; no ER3 test, verifier, workflow, manifest, runner, or runtime path |
+| Future Gate-A artifacts at runtime base | absent; the `git ls-tree` selection above is empty |
+| v1 mapping/build/API source | `dedup_live.py`, `evidence.py`, and `review_reuse.py` retain identical Git blobs `d2f894e4...`, `6b51e42d...`, and `324ee5d0...` |
+| Digest-sensitive source subtrees | `vision_response_to_hits`, `build_evidence_pack`, `evidence_pack_digest`, `_decision_payload_digest`, and the `submit_decision` digest assignment retain identical AST digests across both heads |
+| Contract graph | strict I-JSON passed; 43 dependent scalar values were changed; all 11 checked digest relationships, including the whole-contract self digest, recomputed exactly |
+| Contract identity | canonical digest `fd975ffeed670e16f0b325c579d691ecdacf8a4f9c567ddb6b432b30e25fe4e3`; raw SHA-256 `be4ec32e4b26076c9ee2763864d9292bda45562a90fee767ce94d519fe40e6d7` |
+| 106-node design classification | unchanged: `104 expected-red / 2 expected-existing-pass / 0 skipped / 0 xfailed / 0 unclassified`; existing-pass sequences remain 28 and 34 |
+| Existing v1 guard | a 17-byte synthetic `image/png` upload to the public v1 route returned `415 / unsupported_file_type`; no repository fixture or customer byte was read |
+| Local regression | focused canonical/Golden/ER1 selection `134/134`; complete existing ReviewReuse selection `239/239`; seven pre-existing deprecation warnings |
+| Runtime authority | exact string `none` |
+
+The read-only function comparison parsed each old/new `git show` source stream,
+hashed `ast.dump(..., include_attributes=False)`, and produced identical
+SHA-256 pairs: `vision_response_to_hits=3c29e7bdce9733b04780ca0e0dfda44062b2821d60ce7b4fd939f3ae73640309`,
+`build_evidence_pack=4d7e1c8b80cb685dc3757f2d93f5dfe72489cf79c7447097d42f05d34430898e`,
+`evidence_pack_digest=4874a8510b5d88fc72a927825fbe638bf3e3c2ffd7a2cc53ab50f299ec60ba47`,
+`_decision_payload_digest=b44bf3b0067d9ac6f5e6ac9d1f34f08aa7b25becdff00d9b93733b1d9c4df6bf`,
+and
+`submit_decision.decision_digest=721909b8a837cc31f87786331d907cad45be27ec4ad1f55579def931b14e1f46`.
+
+The 106-node result above is a static design-classification reconciliation, not
+a classified pytest execution. The candidate Gate-A test and verifier do not
+exist at the runtime base, and this authorization did not permit creating or
+overlaying them. Consequently the exact 106-node baseline log, expected
+non-zero aggregate, failure-marker proofs, and candidate-head `100-red/6-pass`
+run remain future Gate-A evidence and are explicitly unclaimed here.
+
+### 6.2 Retained static verification
+
 The recorded verification commands are shown below. The source and fixture reads
 belong to the initial static pass and were not repeated during the current
-hardening. The temporary closure verifier reads only the three governance documents
+hardening. The temporary closure verifier reads only the four governance artifacts
 and embedded JSON vectors. `make pre-commit` is a soft, non-blocking repository
 target and is recorded separately; it is not treated as inherently read-only or as
 ER3 gate evidence.
@@ -639,8 +714,8 @@ Results:
   its permanent writer-lease path and locked FD must retain the same validated
   inode while the export-freeze remains held through summary parent fsync;
 - the existing canonical, EvidencePack golden, and ER1 store-integrity regression
-  selection passed `121/121` under Python 3.11;
-- the complete existing ReviewReuse unit selection passed `222/222` under Python
+  selection passed `134/134` under Python 3.11 after base reconciliation;
+- the complete existing ReviewReuse unit selection passed `239/239` under Python
   3.11; only seven pre-existing ezdxf/pyparsing deprecation warnings were emitted;
 - `make pre-commit` returned zero: its soft integrity step reported the configured
   hash match, schema validation emitted no finding, and quick health read an older

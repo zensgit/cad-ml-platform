@@ -2,7 +2,7 @@
   "schema_version": "review-reuse-er3-evidence-pack-v2-contract-v1",
   "contract_status": "proposed_not_ratified",
   "runtime_authority": "none",
-  "contract_sha256": "ed4137b3a8e03104e43dbf5cc10a99ce20eabc6dbe54c83a29b512bab9fe70ba",
+  "contract_sha256": "fd975ffeed670e16f0b325c579d691ecdacf8a4f9c567ddb6b432b30e25fe4e3",
   "canonicalization": {
     "algorithm": "sha-256",
     "function": "src.core.review_reuse.canonical.canonical_json_v1",
@@ -176,8 +176,8 @@
       "run_id": "rr-er3-0123456789abcdef0123456789abcdef",
       "resource_owner_id": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       "archive_manifest_sha256": "7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf",
-      "authorized_head": "af72d0ec02b5d2dc1d92508539bc89ba857245a8",
-      "reviewed_command_sha256": "2f0394cef55cec77dfaca3aa20c5f6c8501d0827080b8fc19a3238d76702bf91",
+      "authorized_head": "1994696b6c9eb92b8b9e0da970a4d0044d92dc15",
+      "reviewed_command_sha256": "e31adaf2d2d365825523a85b1bb51e223b59d44b7c5b2cd9fee19c04a519a8f9",
       "python_control_sha256": "586aedad7a722501f751b48926fb757464058bb3213d9b9994deae967c238915",
       "docker_source_parent_chain_sha256": "6df482925719b6c1d82d9ba236b5bbcd086e8c54a26218d5569329da579830ed",
       "docker_source_binary_sha256": "0c4837a5e2ee8043dca1cc470b10d9cea3c3ceb0104ad6057adee9c2b99640d0",
@@ -504,7 +504,7 @@
       "idempotency": "if the exact summary already exists and its externally supplied digest matches, report already complete without writing; a conflicting existing entry always fails without overwrite, unlink, or repair"
     },
     "implementation_ancestry": {
-      "runtime_base": "af72d0ec02b5d2dc1d92508539bc89ba857245a8",
+      "runtime_base": "1994696b6c9eb92b8b9e0da970a4d0044d92dc15",
       "required_chain": "runtime_base -> owner-ratified design-lock head -> accepted Gate-A fail-first head -> Gate-B implementation head",
       "fail_first_baseline": "Gate A adds only the ratified tests, manifest/synthetic fixtures, workflow, and verification document; Gate B remains blocked until the owner accepts that exact classified head",
       "git_repository_identity_receipt_contract": {
@@ -1350,7 +1350,7 @@
       },
       "gate_a_fail_first_matrix": {
         "schema_version": "review-reuse-er3-gate-a-fail-first-v1",
-        "baseline_head": "af72d0ec02b5d2dc1d92508539bc89ba857245a8",
+        "baseline_head": "1994696b6c9eb92b8b9e0da970a4d0044d92dc15",
         "verifier_path": "tests/verification/review_reuse_er3_contract_verifier.py",
         "test_file": "tests/unit/test_review_reuse_er3_archive.py",
         "entry_exact_fields": [
@@ -3136,14 +3136,14 @@
         "tenant_id": "tenant-er3-contract",
         "task_id": "00000000-0000-4000-8000-000000000003",
         "task_revision": 4,
-        "task_artifact_sha256": "341f448e62a9f183e22045a76a568433a34d85be2b3a3f2a767c6280ae42babc",
-        "evidence_pack_artifact_sha256": "40da3dd0bad78a490986e15eb847446151b2af21caf1131f8bd191e63768ec02",
-        "evidence_pack_sha256": "422e23da3589b24a5539a3d6546cac98ba692046ea14930b179dd9f7fe1b9f7f",
-        "runtime_preflight_sha256": "bc22e7cbdecaf7be460a10165e03f60df238dd1741e2353728dbd4379daf5e3c",
-        "runtime_seal_receipt_sha256": "8d9da40c31be1770c4a38f44c4e6303b34ad689346f6496ba91266ba1b5297f0",
+        "task_artifact_sha256": "c15eed3d853b6582547fabc4855caf9bd9b7894efab449b5b4e031aaedba4a54",
+        "evidence_pack_artifact_sha256": "2841d9db0801904c9cc5ff3de60e638c8e77b826d7b9eeaa444a529dbc069a58",
+        "evidence_pack_sha256": "482dc6dfbd7433b4d0a04a5d681c30c08a48ca9cc65a4a286cfe105544095b42",
+        "runtime_preflight_sha256": "9c7538d7b1c2e4dde207918fe26e7d8e078e8219acf1119ceebf17ac9104d34d",
+        "runtime_seal_receipt_sha256": "19e2273efb9c0e2c5131cd62c23f37e52ca129f0f47a131781f8d7fdf45c25e3",
         "resource_ownership_sha256": "103acb5087f3624731243d89dc1cb210dfd2c039d0ac24894def8acd28dbcd9d",
-        "pre_summary_artifacts_sha256": "d159d6b04bbd24124dba5adf9d783bbb18db5db6bd50a85f6eea9e999cb6052b",
-        "success_intent_sha256": "562bf1fdd37f39fcec7bf1467294593569acf0ac316f22c57a5ef3cdf5901a32"
+        "pre_summary_artifacts_sha256": "efb37243785c3fc597ee2fe823bc47d5598a079d9c2d1c6a92a3dc7a6e9a98db",
+        "success_intent_sha256": "158cce01968529d61acc3a1236a0acd2986e46e478e9e1ec12e2f44146317eb5"
       },
       "golden_external_preimages": {
         "task_artifact": {
@@ -3157,8 +3157,8 @@
             "run_id": "rr-er3-0123456789abcdef0123456789abcdef",
             "resource_owner_id": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
             "archive_manifest_sha256": "7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf",
-            "authorized_head": "af72d0ec02b5d2dc1d92508539bc89ba857245a8",
-            "reviewed_command_sha256": "2f0394cef55cec77dfaca3aa20c5f6c8501d0827080b8fc19a3238d76702bf91",
+            "authorized_head": "1994696b6c9eb92b8b9e0da970a4d0044d92dc15",
+            "reviewed_command_sha256": "e31adaf2d2d365825523a85b1bb51e223b59d44b7c5b2cd9fee19c04a519a8f9",
             "python_control_sha256": "586aedad7a722501f751b48926fb757464058bb3213d9b9994deae967c238915",
             "docker_source_parent_chain_sha256": "6df482925719b6c1d82d9ba236b5bbcd086e8c54a26218d5569329da579830ed",
             "docker_source_binary_sha256": "0c4837a5e2ee8043dca1cc470b10d9cea3c3ceb0104ad6057adee9c2b99640d0",
@@ -3171,9 +3171,9 @@
             "selected_platform": "linux/amd64",
             "runner_version": "review-reuse-er3-runner-v1"
           },
-          "evidence_pack_sha256": "422e23da3589b24a5539a3d6546cac98ba692046ea14930b179dd9f7fe1b9f7f",
-          "runtime_preflight_sha256": "bc22e7cbdecaf7be460a10165e03f60df238dd1741e2353728dbd4379daf5e3c",
-          "runtime_seal_receipt_sha256": "8d9da40c31be1770c4a38f44c4e6303b34ad689346f6496ba91266ba1b5297f0"
+          "evidence_pack_sha256": "482dc6dfbd7433b4d0a04a5d681c30c08a48ca9cc65a4a286cfe105544095b42",
+          "runtime_preflight_sha256": "9c7538d7b1c2e4dde207918fe26e7d8e078e8219acf1119ceebf17ac9104d34d",
+          "runtime_seal_receipt_sha256": "19e2273efb9c0e2c5131cd62c23f37e52ca129f0f47a131781f8d7fdf45c25e3"
         },
         "pre_summary_artifacts": {
           "control/docker": {
@@ -3181,7 +3181,7 @@
             "size_bytes": 23
           },
           "evidence/evidence-pack.json": {
-            "sha256": "40da3dd0bad78a490986e15eb847446151b2af21caf1131f8bd191e63768ec02",
+            "sha256": "2841d9db0801904c9cc5ff3de60e638c8e77b826d7b9eeaa444a529dbc069a58",
             "size_bytes": 3472
           },
           "evidence/evidence.md": {
@@ -3197,7 +3197,7 @@
             "size_bytes": 657
           },
           "task/task.json": {
-            "sha256": "341f448e62a9f183e22045a76a568433a34d85be2b3a3f2a767c6280ae42babc",
+            "sha256": "c15eed3d853b6582547fabc4855caf9bd9b7894efab449b5b4e031aaedba4a54",
             "size_bytes": 1770
           }
         },
@@ -3335,13 +3335,13 @@
       "tenant_id": "tenant-er3-contract",
       "task_id": "00000000-0000-4000-8000-000000000003",
       "task_revision": 4,
-      "evidence_pack_sha256": "422e23da3589b24a5539a3d6546cac98ba692046ea14930b179dd9f7fe1b9f7f",
+      "evidence_pack_sha256": "482dc6dfbd7433b4d0a04a5d681c30c08a48ca9cc65a4a286cfe105544095b42",
       "archive_manifest_sha256": "7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf",
-      "runtime_preflight_sha256": "bc22e7cbdecaf7be460a10165e03f60df238dd1741e2353728dbd4379daf5e3c",
-      "runtime_seal_receipt_sha256": "8d9da40c31be1770c4a38f44c4e6303b34ad689346f6496ba91266ba1b5297f0",
-      "success_intent_sha256": "562bf1fdd37f39fcec7bf1467294593569acf0ac316f22c57a5ef3cdf5901a32",
-      "repository_commit": "af72d0ec02b5d2dc1d92508539bc89ba857245a8",
-      "reviewed_command_sha256": "2f0394cef55cec77dfaca3aa20c5f6c8501d0827080b8fc19a3238d76702bf91",
+      "runtime_preflight_sha256": "9c7538d7b1c2e4dde207918fe26e7d8e078e8219acf1119ceebf17ac9104d34d",
+      "runtime_seal_receipt_sha256": "19e2273efb9c0e2c5131cd62c23f37e52ca129f0f47a131781f8d7fdf45c25e3",
+      "success_intent_sha256": "158cce01968529d61acc3a1236a0acd2986e46e478e9e1ec12e2f44146317eb5",
+      "repository_commit": "1994696b6c9eb92b8b9e0da970a4d0044d92dc15",
+      "reviewed_command_sha256": "e31adaf2d2d365825523a85b1bb51e223b59d44b7c5b2cd9fee19c04a519a8f9",
       "runner_version": "review-reuse-er3-runner-v1",
       "store_root": "state/store",
       "writer_lease": {
@@ -3356,7 +3356,7 @@
           "size_bytes": 23
         },
         "evidence/evidence-pack.json": {
-          "sha256": "40da3dd0bad78a490986e15eb847446151b2af21caf1131f8bd191e63768ec02",
+          "sha256": "2841d9db0801904c9cc5ff3de60e638c8e77b826d7b9eeaa444a529dbc069a58",
           "size_bytes": 3472
         },
         "evidence/evidence.md": {
@@ -3376,16 +3376,16 @@
           "size_bytes": 657
         },
         "state/success-intent.json": {
-          "sha256": "24a819afbd0ec1be5d4b936decf4e5945983b321a0433f6f4cf566df636cdc55",
+          "sha256": "3752329ccaaa5e14a4e4a45888214491a58ef642d7945bacc843cba73ada9585",
           "size_bytes": 961
         },
         "task/task.json": {
-          "sha256": "341f448e62a9f183e22045a76a568433a34d85be2b3a3f2a767c6280ae42babc",
+          "sha256": "c15eed3d853b6582547fabc4855caf9bd9b7894efab449b5b4e031aaedba4a54",
           "size_bytes": 1770
         }
       }
     },
-    "golden_summary_sha256": "8998984f0745ec0c3177597e8e1258ccdc45588742b06eae277ffb8d8f2d6d0f"
+    "golden_summary_sha256": "5e3b460f2776c669ca0f55d06705a899940906083bb697eb8692391e4d32e2f1"
   },
   "markdown_contract": {
     "media_type": "text/markdown; charset=utf-8",
@@ -5258,7 +5258,7 @@
             "--manifest",
             "tests/fixtures/review_reuse_er3/archive_manifest.json",
             "--authorized-head",
-            "af72d0ec02b5d2dc1d92508539bc89ba857245a8",
+            "1994696b6c9eb92b8b9e0da970a4d0044d92dc15",
             "--python-dependency-root",
             "/opt/review-reuse/site-packages",
             "--python-control-sha256",
@@ -5297,13 +5297,13 @@
             "--manifest",
             "tests/fixtures/review_reuse_er3/archive_manifest.json",
             "--authorized-head",
-            "af72d0ec02b5d2dc1d92508539bc89ba857245a8",
+            "1994696b6c9eb92b8b9e0da970a4d0044d92dc15",
             "--python-dependency-root",
             "/opt/review-reuse/site-packages",
             "--python-control-sha256",
             "586aedad7a722501f751b48926fb757464058bb3213d9b9994deae967c238915",
             "--reviewed-command-sha256",
-            "2f0394cef55cec77dfaca3aa20c5f6c8501d0827080b8fc19a3238d76702bf91",
+            "e31adaf2d2d365825523a85b1bb51e223b59d44b7c5b2cd9fee19c04a519a8f9",
             "--run-id",
             "rr-er3-0123456789abcdef0123456789abcdef",
             "--resource-owner-id",
@@ -5335,9 +5335,9 @@
         "run_id": "rr-er3-0123456789abcdef0123456789abcdef",
         "repository": {
           "root_realpath_sha256": "4d7f3ba74505ac8b73c70def2d3de40ecc420c35fa3f412451c88dff0a544573",
-          "observed_head": "af72d0ec02b5d2dc1d92508539bc89ba857245a8",
-          "authorized_head": "af72d0ec02b5d2dc1d92508539bc89ba857245a8",
-          "reviewed_command_sha256": "2f0394cef55cec77dfaca3aa20c5f6c8501d0827080b8fc19a3238d76702bf91",
+          "observed_head": "1994696b6c9eb92b8b9e0da970a4d0044d92dc15",
+          "authorized_head": "1994696b6c9eb92b8b9e0da970a4d0044d92dc15",
+          "reviewed_command_sha256": "e31adaf2d2d365825523a85b1bb51e223b59d44b7c5b2cd9fee19c04a519a8f9",
           "python_control_sha256": "586aedad7a722501f751b48926fb757464058bb3213d9b9994deae967c238915",
           "status_porcelain_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "clean": true
@@ -5539,7 +5539,7 @@
           "storage_count": 0
         }
       },
-      "golden_sha256": "bc22e7cbdecaf7be460a10165e03f60df238dd1741e2353728dbd4379daf5e3c"
+      "golden_sha256": "9c7538d7b1c2e4dde207918fe26e7d8e078e8219acf1119ceebf17ac9104d34d"
     },
     "runtime_seal": {
       "digest_field": "runtime_seal_receipt_sha256",
@@ -6264,7 +6264,7 @@
       "golden_preimage": {
         "schema_version": "review-reuse-er3-runtime-seal-v1",
         "run_id": "rr-er3-0123456789abcdef0123456789abcdef",
-        "runtime_preflight_sha256": "bc22e7cbdecaf7be460a10165e03f60df238dd1741e2353728dbd4379daf5e3c",
+        "runtime_preflight_sha256": "9c7538d7b1c2e4dde207918fe26e7d8e078e8219acf1119ceebf17ac9104d34d",
         "docker_control_sha256": "ef6802d6138b19db4f580a75ac83fdf99b6d04e2bd3c56199d4e0484ca6c5ea7",
         "sealed_operations": [
           {
@@ -6448,7 +6448,7 @@
           "remaining_labeled_networks": 0
         }
       },
-      "golden_sha256": "8d9da40c31be1770c4a38f44c4e6303b34ad689346f6496ba91266ba1b5297f0"
+      "golden_sha256": "19e2273efb9c0e2c5131cd62c23f37e52ca129f0f47a131781f8d7fdf45c25e3"
     }
   },
   "envelope": {
@@ -6742,7 +6742,7 @@
     "schema_version": "evidence-pack-v2",
     "task_id": "00000000-0000-4000-8000-000000000003",
     "task_revision": 4,
-    "evidence_pack_sha256": "422e23da3589b24a5539a3d6546cac98ba692046ea14930b179dd9f7fe1b9f7f",
+    "evidence_pack_sha256": "482dc6dfbd7433b4d0a04a5d681c30c08a48ca9cc65a4a286cfe105544095b42",
     "trace_id": "00000000-0000-4000-8000-000000000004",
     "idempotency_key": "er3-golden-key",
     "source_job_id": "00000000-0000-4000-8000-000000000003",
@@ -6847,9 +6847,9 @@
       },
       "run": {
         "run_id": "rr-er3-0123456789abcdef0123456789abcdef",
-        "runtime_preflight_sha256": "bc22e7cbdecaf7be460a10165e03f60df238dd1741e2353728dbd4379daf5e3c",
-        "runtime_seal_receipt_sha256": "8d9da40c31be1770c4a38f44c4e6303b34ad689346f6496ba91266ba1b5297f0",
-        "repository_commit": "af72d0ec02b5d2dc1d92508539bc89ba857245a8",
+        "runtime_preflight_sha256": "9c7538d7b1c2e4dde207918fe26e7d8e078e8219acf1119ceebf17ac9104d34d",
+        "runtime_seal_receipt_sha256": "19e2273efb9c0e2c5131cd62c23f37e52ca129f0f47a131781f8d7fdf45c25e3",
+        "repository_commit": "1994696b6c9eb92b8b9e0da970a4d0044d92dc15",
         "runner_version": "review-reuse-er3-runner-v1"
       }
     },
@@ -6865,7 +6865,7 @@
       "submitted": null
     }
   },
-  "golden_evidence_pack_sha256": "422e23da3589b24a5539a3d6546cac98ba692046ea14930b179dd9f7fe1b9f7f",
+  "golden_evidence_pack_sha256": "482dc6dfbd7433b4d0a04a5d681c30c08a48ca9cc65a4a286cfe105544095b42",
   "limitations": [
     "The golden vector and provenance receipt goldens freeze serialization and digest semantics, not model quality or observed runtime values.",
     "The ER3 runner never enables or submits a human decision.",

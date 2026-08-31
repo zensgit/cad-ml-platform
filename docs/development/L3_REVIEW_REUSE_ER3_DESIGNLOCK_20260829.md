@@ -4,17 +4,21 @@
 
 **Date:** 2026-08-30
 
+**Base reconciliation:** 2026-08-31, docs-only
+
 **Authority:** `docs/PRODUCT_STRATEGY.md` §3.3 and the owner-ratified #583 exact head
 `9150e06c75721bf086572ed271b68548104e8300`
 
 **Runtime base:** open PR #584 exact head
-`af72d0ec02b5d2dc1d92508539bc89ba857245a8`
+`1994696b6c9eb92b8b9e0da970a4d0044d92dc15`
 
 **Runtime authority:** NONE
 
 This document proposes the ER3 contract. It does not authorize implementation,
 merge, decision enablement, deployment, pilot activity, or customer drawing use.
-The current owner authorization covers ER1+ER2 only.
+The current owner authorization covers ER1+ER2 implementation in #584 and this
+docs-only ER3 base/digest/classification reconciliation only. It does not ratify
+this design lock or authorize Gate A.
 
 ## 1. Decision requested
 
@@ -66,7 +70,13 @@ Out of scope:
 
 ## 3. Exact-head observations
 
-These observations were reproduced against runtime base `af72d0ec02b5...`:
+These observations were originally reproduced against the preceding #584 head
+`af72d0ec02b5...`. The 2026-08-31 reconciliation rebased this design onto
+runtime base `1994696b6c9e...`; the relevant v1 API, live-mapping, and
+EvidencePack source blobs remained byte-identical, while the intervening delta
+was confined to ER1/ER2 hardening. No ER3 runtime or Gate-A execution was
+performed. The observations therefore remain static source findings against the
+new base:
 
 1. `scripts/review_reuse_isolated_archive_run.py` defaults to synthetic bytes and
    can inject a synthetic candidate with `--seed-similar`; it does not build a
@@ -964,13 +974,13 @@ with one immutable selector:
 The complete v2 canonical contract is
 `docs/development/L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json`
 with contract digest
-`ed4137b3a8e03104e43dbf5cc10a99ce20eabc6dbe54c83a29b512bab9fe70ba`.
+`fd975ffeed670e16f0b325c579d691ecdacf8a4f9c567ddb6b432b30e25fe4e3`.
 Its reviewed raw-file SHA-256 is
-`88b77207ec3bf2b2c92b4f15e1458b47b19c336d012ae88bba5efc3c26a48600`.
+`be4ec32e4b26076c9ee2763864d9292bda45562a90fee767ce94d519fe40e6d7`.
 It freezes exact object keys, types/nullability, list ordering, task context,
 unknown-field rejection, and digest exclusions. Its embedded golden vector has
 EvidencePack digest
-`422e23da3589b24a5539a3d6546cac98ba692046ea14930b179dd9f7fe1b9f7f`.
+`482dc6dfbd7433b4d0a04a5d681c30c08a48ca9cc65a4a286cfe105544095b42`.
 The contract digest excludes only `contract_sha256`; the golden EvidencePack
 digest excludes only `evidence_pack_sha256`. Implementation copies neither value
 from prose: tests recompute both with `canonical_json_v1()` and reject any field,
@@ -1019,9 +1029,9 @@ field schemas, invariants, and non-placeholder golden for each critical digest:
 - strict runtime inspect projection:
   `c907c2aa218065321eba9ac471a4436286f363632809fcbd8c15a8c6838cf927`;
 - runtime preflight:
-  `bc22e7cbdecaf7be460a10165e03f60df238dd1741e2353728dbd4379daf5e3c`;
+  `9c7538d7b1c2e4dde207918fe26e7d8e078e8219acf1119ceebf17ac9104d34d`;
 - continuous runtime seal:
-  `8d9da40c31be1770c4a38f44c4e6303b34ad689346f6496ba91266ba1b5297f0`.
+  `19e2273efb9c0e2c5131cd62c23f37e52ca129f0f47a131781f8d7fdf45c25e3`.
 
 Those values are serialization vectors, not expected live observations. A live
 run exports and hashes its own complete named preimages. All-zero, one-character
@@ -1122,7 +1132,7 @@ Pretty JSON, `repr`, locale, wall-clock time, or host paths are forbidden.
 decode. The golden bytes are 3,556 bytes with SHA-256
 `6e5778233d90887932e2eea2a182df9563f4af03804467098427b6e00b9eeac2`.
 The minimal run-summary serialization vector has digest
-`8998984f0745ec0c3177597e8e1258ccdc45588742b06eae277ffb8d8f2d6d0f`.
+`5e3b460f2776c669ca0f55d06705a899940906083bb697eb8692391e4d32e2f1`.
 V1 rendering remains byte-identical.
 
 Replay first acquires a shared lock on the same permanent run-level lease used
@@ -1332,7 +1342,7 @@ manifest. Mock-only green tests are not closure evidence.
 
 The runtime-base and candidate-Gate-A-head logs are governed by
 `lifecycle_contract.implementation_ancestry.gate_a_fail_first_matrix`, not by a
-Gate-A author's judgment. Against exact base `af72d0ec02b5...`, tests 28 and 34
+Gate-A author's judgment. Against exact base `1994696b6c9e...`, tests 28 and 34
 are the only `expected-existing-pass` nodes; the other 104 are `expected-red` at
 their exact `missing_behavior::<test-id-suffix>` boundary. The contract contains
 all 106 `test_id -> expected_baseline -> reason_code -> required_failure_boundary`
@@ -1554,7 +1564,7 @@ Gate B may authorize:
 - `docs/development/L3_REVIEW_REUSE_ER3_GATE_B_IMPLEMENTATION_VERIFICATION_20260830.md`.
 
 The branch must satisfy the complete ancestry chain:
-`af72d0ec02b5d2dc1d92508539bc89ba857245a8 -> <ratified-design-lock-head> ->
+`1994696b6c9eb92b8b9e0da970a4d0044d92dc15 -> <ratified-design-lock-head> ->
 <accepted-gate-a-head> -> <gate-b-implementation-head>`. Runtime implementation
 may not start from a parallel branch or skip the accepted fail-first commit.
 The accepted-Gate-A-to-implementation diff is closed as well: only the six
@@ -1654,8 +1664,8 @@ ER3 is complete only when all of the following are true at one exact head:
 - the runtime manifest matches §4 digest
   `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf`;
 - the v2 contract and golden digests remain
-  `ed4137b3a8e03104e43dbf5cc10a99ce20eabc6dbe54c83a29b512bab9fe70ba`
-  and `422e23da3589b24a5539a3d6546cac98ba692046ea14930b179dd9f7fe1b9f7f`;
+  `fd975ffeed670e16f0b325c579d691ecdacf8a4f9c567ddb6b432b30e25fe4e3`
+  and `482dc6dfbd7433b4d0a04a5d681c30c08a48ca9cc65a4a286cfe105544095b42`;
 - existing ReviewReuse, identity, production-preflight, and core-fast suites are
   green without skips added for this tranche;
 - an approved real private service run indexes the archive and searches the
@@ -1686,7 +1696,7 @@ dedup. Any v2 default migration or v1 retirement is a separate owner decision.
 Suggested Gate-A fail-first-only owner response:
 
 > I ratify `L3_REVIEW_REUSE_ER3_DESIGNLOCK_20260829.md` at exact head `<sha>` and
-> bind runtime base `af72d0ec02b5d2dc1d92508539bc89ba857245a8`, manifest
+> bind runtime base `1994696b6c9eb92b8b9e0da970a4d0044d92dc15`, manifest
 > digest `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf`,
 > image `ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251`,
 > static attestation
@@ -1697,10 +1707,10 @@ Suggested Gate-A fail-first-only owner response:
 > EvidencePack v2 contract
 > `docs/development/L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json`
 > canonical/raw digests
-> `ed4137b3a8e03104e43dbf5cc10a99ce20eabc6dbe54c83a29b512bab9fe70ba` /
-> `88b77207ec3bf2b2c92b4f15e1458b47b19c336d012ae88bba5efc3c26a48600`,
+> `fd975ffeed670e16f0b325c579d691ecdacf8a4f9c567ddb6b432b30e25fe4e3` /
+> `be4ec32e4b26076c9ee2763864d9292bda45562a90fee767ce94d519fe40e6d7`,
 > and golden EvidencePack digest
-> `422e23da3589b24a5539a3d6546cac98ba692046ea14930b179dd9f7fe1b9f7f`.
+> `482dc6dfbd7433b4d0a04a5d681c30c08a48ca9cc65a4a286cfe105544095b42`.
 > I authorize only §8.1 and its exact 106-node fail-first contract: the new test
 > file, embedded-manifest copy, strict-JSON synthetic test fixtures, ER3 contract
 > workflow, verifier, and Gate-A runbook. The branch must descend from the runtime
