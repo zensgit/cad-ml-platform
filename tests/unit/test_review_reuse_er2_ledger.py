@@ -220,6 +220,32 @@ def test_decision_timestamp_survives_wall_clock_regression(
     )
 
 
+def test_decision_event_timestamp_survives_between_read_clock_regression(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.core.review_reuse import service as service_module
+
+    monkeypatch.setenv("REVIEW_REUSE_DECISIONS_ENABLED", "true")
+    service = _service()
+    task = _create_ready(service)
+    prior_event_time = task.events[-1].ts
+    clock_values = [prior_event_time + 1.0, prior_event_time]
+
+    def between_read_regression() -> float:
+        return clock_values.pop(0) if clock_values else prior_event_time
+
+    monkeypatch.setattr(service_module.time, "time", between_read_regression)
+
+    decided = _submit(service, task)
+    assert decided.human_decision is not None
+    assert (
+        decided.human_decision.ts
+        == decided.events[-1].ts
+        == decided.updated_at
+        == prior_event_time + 1.0
+    )
+
+
 def test_writer_restart_fails_interrupted_running_task(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
