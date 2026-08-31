@@ -20,6 +20,7 @@ from src.core.review_reuse.store import ReviewReuseStore
 ROOT = Path(__file__).resolve().parents[2]
 REVIEW_REUSE_DIR = ROOT / "src" / "core" / "review_reuse"
 API_FILE = ROOT / "src" / "api" / "v1" / "review_reuse.py"
+_REVIEWER = "principal-v1-" + "a" * 64
 
 
 def _py_files():
@@ -44,7 +45,10 @@ def test_r2_no_import_of_feedback_training_path() -> None:
             if isinstance(node, ast.ImportFrom) and node.module:
                 assert node.module not in banned, f"{path} imports from {node.module}"
                 # also ban feedback_log.jsonl string writes via module name fragments
-                assert "feedback" not in (node.module or "").split(".")[-1] or "review" in path.name
+                assert (
+                    "feedback" not in (node.module or "").split(".")[-1]
+                    or "review" in path.name
+                )
 
 
 def test_r2_decision_does_not_write_feedback_jsonl(
@@ -62,9 +66,15 @@ def test_r2_decision_does_not_write_feedback_jsonl(
     decided = svc.submit_decision(
         tenant_id="r2",
         task_id=task.task_id,
-        state=HumanDecisionState.revise,
-        reviewer_id="reviewer-r2",
-        reason_codes=["r2-hold"],
+        state=HumanDecisionState.new,
+        reviewer_id=_REVIEWER,
+        reviewer_kind="validated_principal",
+        tenant_validated=True,
+        reviewer_validated=True,
+        expected_revision=task.revision,
+        evidence_pack_sha256=task.evidence_pack["evidence_pack_sha256"],
+        reason_codes=["new_part_required"],
+        reason_text="No reusable candidate.",
         idempotency_key="r2-1",
     )
     assert decided.status == TaskStatus.decided
@@ -80,7 +90,12 @@ def test_r1_decision_default_off(monkeypatch: pytest.MonkeyPatch) -> None:
             tenant_id="r2",
             task_id=task.task_id,
             state=HumanDecisionState.reuse,
-            reviewer_id="r",
+            reviewer_id=_REVIEWER,
+            reviewer_kind="validated_principal",
+            tenant_validated=True,
+            reviewer_validated=True,
+            expected_revision=task.revision,
+            evidence_pack_sha256=task.evidence_pack["evidence_pack_sha256"],
         )
     assert ei.value.code == "decisions_disabled"
 
@@ -105,9 +120,11 @@ def test_r5_r6_r7_boundary_files_absent() -> None:
                 # ban direct call name eval_integrity_gate.check
                 func = node.func
                 if isinstance(func, ast.Attribute) and func.attr == "check":
-                    if isinstance(func.value, ast.Name) and "eval_integrity" in func.value.id:
+                    if (
+                        isinstance(func.value, ast.Name)
+                        and "eval_integrity" in func.value.id
+                    ):
                         raise AssertionError(f"banned call in {path}")
-
 
 
 def test_metrics_family_is_review_workflow_not_track_e() -> None:

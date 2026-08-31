@@ -17,6 +17,8 @@ from src.core.review_reuse.service import (
 )
 from src.core.review_reuse.store import InMemoryReviewReuseStore
 
+_REVIEWER = "principal-v1-" + "a" * 64
+
 
 def test_export_audit_bundle() -> None:
     svc = ReviewReuseService(InMemoryReviewReuseStore())
@@ -41,6 +43,54 @@ def test_export_audit_bundle() -> None:
     assert len(bundle["events"]) >= 1
 
 
+def test_export_audit_bundle_uses_one_task_snapshot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(ENV_DECISIONS_ENABLED, "true")
+    svc = ReviewReuseService(InMemoryReviewReuseStore())
+    ready = svc.create_task(
+        tenant_id="t",
+        file_name="a.dxf",
+        file_bytes=b"x",
+        seed_candidates=[
+            {
+                "candidate_id": "c1",
+                "state": "similar",
+                "scores": {"geometric": 0.9, "semantic": 0.8},
+            }
+        ],
+    )
+    decided = svc.submit_decision(
+        tenant_id="t",
+        task_id=ready.task_id,
+        state=HumanDecisionState.revise,
+        reviewer_id=_REVIEWER,
+        reviewer_kind="validated_principal",
+        tenant_validated=True,
+        reviewer_validated=True,
+        expected_revision=ready.revision,
+        evidence_pack_sha256=ready.evidence_pack["evidence_pack_sha256"],
+        candidate_id="c1",
+        reason_codes=["needs_modification"],
+        reason_text="Reviewed evidence.",
+    )
+    snapshots = iter([ready, decided])
+    calls = 0
+
+    def staged_get(_tenant_id: str, _task_id: str):
+        nonlocal calls
+        calls += 1
+        return next(snapshots)
+
+    monkeypatch.setattr(svc, "get_task", staged_get)
+    bundle = svc.export_audit_bundle("t", ready.task_id)
+
+    assert calls == 1
+    assert bundle["task"]["revision"] == ready.revision
+    assert bundle["evidence_pack"]["task_revision"] == ready.revision
+    assert bundle["evidence_pack"] == ready.evidence_pack
+
+
 def test_require_validated_reviewer(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(ENV_DECISIONS_ENABLED, "true")
     monkeypatch.setenv(ENV_REQUIRE_VALIDATED_REVIEWER, "true")
@@ -52,7 +102,11 @@ def test_require_validated_reviewer(monkeypatch: pytest.MonkeyPatch) -> None:
             task_id=task.task_id,
             state=HumanDecisionState.reuse,
             reviewer_id="ak-user-deadbeef",
+            reviewer_kind="api_key_fallback",
+            tenant_validated=True,
             reviewer_validated=False,
+            expected_revision=task.revision,
+            evidence_pack_sha256=task.evidence_pack["evidence_pack_sha256"],
         )
     assert ei.value.code == "reviewer_not_validated"
 
@@ -60,8 +114,15 @@ def test_require_validated_reviewer(monkeypatch: pytest.MonkeyPatch) -> None:
         tenant_id="t",
         task_id=task.task_id,
         state=HumanDecisionState.revise,
-        reviewer_id="jwt-sub-123",
+        reviewer_id=_REVIEWER,
+        reviewer_kind="validated_principal",
+        tenant_validated=True,
         reviewer_validated=True,
+        expected_revision=task.revision,
+        evidence_pack_sha256=task.evidence_pack["evidence_pack_sha256"],
+        candidate_id=task.candidates[0].candidate_id,
+        reason_codes=["needs_modification"],
+        reason_text="Reviewed evidence.",
     )
     assert ok.status == TaskStatus.decided
 

@@ -107,17 +107,21 @@ def test_filesystem_store_survives_reload(tmp_path: Path) -> None:
     assert task.status == TaskStatus.evidence_ready
 
     # New store instance same root — restart simulation
-    store2 = FilesystemReviewReuseStore(tmp_path / "tasks")
-    loaded = store2.get("tenant-a", task.task_id)
-    assert loaded is not None
-    assert loaded.task_id == task.task_id
-    assert loaded.source_content_sha256 == task.source_content_sha256
-    assert len(loaded.candidates) == 1
-    again = store2.get_by_idempotency("tenant-a", "idem-fs-1")
-    assert again is not None and again.task_id == task.task_id
-    assert store2.get("tenant-b", task.task_id) is None
-    listed = store2.list_for_tenant("tenant-a")
-    assert len(listed) == 1
+    store1.close()
+    store2 = FilesystemReviewReuseStore(tmp_path / "tasks", read_only=True)
+    try:
+        loaded = store2.get("tenant-a", task.task_id)
+        assert loaded is not None
+        assert loaded.task_id == task.task_id
+        assert loaded.source_content_sha256 == task.source_content_sha256
+        assert len(loaded.candidates) == 1
+        again = store2.get_by_idempotency("tenant-a", "idem-fs-1")
+        assert again is not None and again.task_id == task.task_id
+        assert store2.get("tenant-b", task.task_id) is None
+        listed = store2.list_for_tenant("tenant-a")
+        assert len(listed) == 1
+    finally:
+        store2.close()
 
 
 def test_create_store_factory(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -126,7 +130,10 @@ def test_create_store_factory(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
     monkeypatch.setenv(ENV_STORE, "filesystem")
     monkeypatch.setenv(ENV_STORE_DIR, str(tmp_path / "fs"))
     store = create_review_reuse_store()
-    assert isinstance(store, FilesystemReviewReuseStore)
+    try:
+        assert isinstance(store, FilesystemReviewReuseStore)
+    finally:
+        store.close()  # type: ignore[attr-defined]
 
 
 def test_map_raw_hits_preserves_scores() -> None:

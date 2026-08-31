@@ -50,6 +50,8 @@ class Settings(BaseSettings):
     INTEGRATION_AUTH_MODE: str = "disabled"
     INTEGRATION_JWT_SECRET: str = ""
     INTEGRATION_JWT_ALG: str = "HS256"
+    INTEGRATION_JWT_AUDIENCE: str = ""
+    INTEGRATION_JWT_ISSUER: str = ""
     INTEGRATION_TENANT_HEADER: str = "x-tenant-id"
     INTEGRATION_ORG_HEADER: str = "x-org-id"
     INTEGRATION_USER_HEADER: str = "x-user-id"

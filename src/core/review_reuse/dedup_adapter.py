@@ -51,6 +51,14 @@ def map_raw_hits_to_candidates(
     """Map adapter/tool hit dicts into CandidateDecision rows."""
     out: List[CandidateDecision] = []
     for raw in raw_hits or []:
+        candidate_id = str(
+            raw.get("candidate_id")
+            or raw.get("drawing_id")
+            or raw.get("id")
+            or f"live-{len(out)}"
+        ).strip()
+        if not candidate_id:
+            raise ValueError("candidate id is empty")
         state_s = str(raw.get("state") or raw.get("verdict") or "similar")
         try:
             state = CandidateState(state_s)
@@ -89,12 +97,7 @@ def map_raw_hits_to_candidates(
         )
         out.append(
             CandidateDecision(
-                candidate_id=str(
-                    raw.get("candidate_id")
-                    or raw.get("drawing_id")
-                    or raw.get("id")
-                    or f"live-{len(out)}"
-                ),
+                candidate_id=candidate_id,
                 candidate_source=str(raw.get("candidate_source") or "archive"),
                 state=state,
                 scores=scores,

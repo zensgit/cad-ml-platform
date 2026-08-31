@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictFloat
 
 
 class TaskStatus(str, Enum):
@@ -47,6 +47,19 @@ class HumanDecisionState(str, Enum):
     need_more_info = "need_more_info"  # implementation extension
 
 
+DECISION_REASON_CODES = frozenset(
+    {
+        "geometry_match",
+        "visual_similarity_only",
+        "needs_modification",
+        "new_part_required",
+        "insufficient_evidence",
+        "incorrect_candidate",
+        "other",
+    }
+)
+
+
 class RejectionReason(str, Enum):
     missing_geom_json = "missing_geom_json"
     version_gate_filtered = "version_gate_filtered"
@@ -58,44 +71,60 @@ class RejectionReason(str, Enum):
 
 
 class TaskEvent(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     event_type: TaskEventType
-    ts: float
+    ts: StrictFloat
     detail: Dict[str, Any] = Field(default_factory=dict)
 
 
 class CandidateDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     candidate_id: str
     candidate_source: str = "archive"
     state: CandidateState
-    scores: Dict[str, Optional[float]] = Field(default_factory=dict)
+    scores: Dict[str, Optional[StrictFloat]] = Field(default_factory=dict)
     verification: Dict[str, Any] = Field(default_factory=dict)
     rejection_reasons: List[str] = Field(default_factory=list)
     provenance: Dict[str, Any] = Field(default_factory=dict)
 
 
 class HumanDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     state: HumanDecisionState
     reviewer_id: str
+    reviewer_kind: str = "validated_principal"
     reason_codes: List[str] = Field(default_factory=list)
     reason_text: str = ""
     candidate_id: Optional[str] = None
-    ts: float
+    ts: StrictFloat
     idempotency_key: Optional[str] = None
+    idempotency_digest: Optional[str] = None
+    reviewed_revision: int = Field(default=1, ge=1, strict=True)
+    evidence_pack_sha256: str = ""
 
 
 class ReviewReuseTask(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     task_id: str
     tenant_id: str
     status: TaskStatus
-    created_at: float
-    updated_at: float
+    created_at: StrictFloat
+    updated_at: StrictFloat
     source_file_name: str = ""
     source_content_sha256: str = ""
     idempotency_key: Optional[str] = None
+    idempotency_digest: Optional[str] = None
+    revision: int = Field(default=1, ge=1, strict=True)
     trace_id: str
     candidates: List[CandidateDecision] = Field(default_factory=list)
     events: List[TaskEvent] = Field(default_factory=list)
     evidence_pack: Optional[Dict[str, Any]] = None
     human_decision: Optional[HumanDecision] = None
     error: Optional[str] = None
+    error_code: Optional[str] = None
     calibration_version: str = "workbench-mvp-0"
+    calibration_status: Literal["uncalibrated", "calibrated"] = "uncalibrated"

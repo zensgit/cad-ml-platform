@@ -13,6 +13,7 @@ except Exception:  # pragma: no cover - optional dependency in test/runtime
     class PyJWTError(Exception):
         pass
 
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -38,7 +39,9 @@ def _extract_bearer_token(auth_header: Optional[str]) -> Optional[str]:
 
 
 def _is_public_path(path: str) -> bool:
-    return any(path == prefix or path.startswith(f"{prefix}/") for prefix in _PUBLIC_PREFIXES)
+    return any(
+        path == prefix or path.startswith(f"{prefix}/") for prefix in _PUBLIC_PREFIXES
+    )
 
 
 class IntegrationAuthMiddleware(BaseHTTPMiddleware):
@@ -55,14 +58,18 @@ class IntegrationAuthMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, *, settings) -> None:
         super().__init__(app)
         self.settings = settings
-        mode_value = getattr(settings, "INTEGRATION_AUTH_MODE", "disabled") or "disabled"
+        mode_value = (
+            getattr(settings, "INTEGRATION_AUTH_MODE", "disabled") or "disabled"
+        )
         mode = mode_value.strip().lower()
         self.mode = mode if mode in {"disabled", "optional", "required"} else "disabled"
         self.jwt_secret = getattr(settings, "INTEGRATION_JWT_SECRET", "") or None
         self.jwt_alg = getattr(settings, "INTEGRATION_JWT_ALG", "HS256") or "HS256"
         self.jwt_audience = getattr(settings, "INTEGRATION_JWT_AUDIENCE", "") or None
         self.jwt_issuer = getattr(settings, "INTEGRATION_JWT_ISSUER", "") or None
-        self.tenant_header = getattr(settings, "INTEGRATION_TENANT_HEADER", "x-tenant-id")
+        self.tenant_header = getattr(
+            settings, "INTEGRATION_TENANT_HEADER", "x-tenant-id"
+        )
         self.org_header = getattr(settings, "INTEGRATION_ORG_HEADER", "x-org-id")
         self.user_header = getattr(settings, "INTEGRATION_USER_HEADER", "x-user-id")
 
@@ -123,7 +130,12 @@ class IntegrationAuthMiddleware(BaseHTTPMiddleware):
         tenant_claim = payload.get("tenant_id")
         subject = payload.get("sub")
         org_claim = payload.get("org_id")
-        if not tenant_claim or not subject:
+        if (
+            not isinstance(tenant_claim, str)
+            or not tenant_claim
+            or not isinstance(subject, str)
+            or not subject
+        ):
             return JSONResponse({"detail": "Invalid token claims"}, status_code=401)
 
         # Header mismatches are always rejected when a token is present.
@@ -140,9 +152,12 @@ class IntegrationAuthMiddleware(BaseHTTPMiddleware):
             return JSONResponse({"detail": "User identity mismatch"}, status_code=401)
 
         # Identity ONLY from validated token claims (design-lock §1.D).
-        request.state.tenant_id = str(tenant_claim)
+        request.state.tenant_id = tenant_claim
         request.state.org_id = str(org_claim) if org_claim is not None else None
-        request.state.user_id = str(subject)
-        request.state.auth_subject = str(subject)
+        request.state.user_id = subject
+        request.state.auth_subject = subject
+        request.state.identity_provider = self.jwt_issuer
+        request.state.review_reuse_tenant_validated = True
+        request.state.review_reuse_identity_validated = bool(self.jwt_issuer)
 
         return await call_next(request)

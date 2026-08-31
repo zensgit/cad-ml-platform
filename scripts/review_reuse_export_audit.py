@@ -63,7 +63,7 @@ def main(argv: list[str] | None = None) -> int:
     from src.core.review_reuse.service import ReviewReuseError, ReviewReuseService
     from src.core.review_reuse.store import create_review_reuse_store
 
-    store = create_review_reuse_store()
+    store = create_review_reuse_store(read_only=True)
     svc = ReviewReuseService(store)
 
     try:

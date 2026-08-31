@@ -7,6 +7,8 @@
   "evidence_pack": {
     "schema_version": "evidence-pack-v1",
     "task_id": "task-golden-insufficient-0001",
+    "task_revision": 1,
+    "evidence_pack_sha256": "d8e0aaf1369b85e2fe95a28d3f88295b8d7dbe14b8e75cad40e71cc5b0fbadb6",
     "trace_id": "trace-golden-insufficient-0001",
     "idempotency_key": "idem-golden-insufficient-0001",
     "source_job_id": "task-golden-insufficient-0001",
@@ -47,7 +49,8 @@
       "band": "low"
     },
     "calibration": {
-      "version": "workbench-mvp-0"
+      "version": "workbench-mvp-0",
+      "status": "uncalibrated"
     },
     "evidence": [
       {
