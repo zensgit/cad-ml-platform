@@ -264,11 +264,11 @@ descriptor identity mismatch fails with no fixture transfer.
   fails before task, Docker, or fixture activity.
 - Before Docker endpoint validation, real mode requires owner-supplied absolute
   `--git-bin`, `--authorized-head`, numeric `--repository-id`, and
-  `--reviewed-command-sha256` values. The Git
+  `--git-repository-identity-sha256` plus `--reviewed-command-sha256` values. The Git
   executable is opened by directory-FD/no-symlink traversal, must be one regular
   executable not group/other writable, and its realpath, parent-chain, device,
   inode, mode, size, and SHA-256 are recorded and revalidated immediately before
-  each of exactly two no-shell invocations. Before either invocation, a stdlib-only
+  each of exactly three no-shell invocations. Before any invocation, a stdlib-only
   bootstrap resolves the Git/common directories by directory FD, parses repository-
   local config as inert bytes without include expansion, and builds the same strict
   `git_repository_identity_receipt_contract` required by Gates A and B. It rejects
@@ -279,8 +279,13 @@ descriptor identity mismatch fails with no fixture transfer.
   use the absolute binary, `--no-pager`, `--no-optional-locks`,
   `--no-replace-objects`, `-c core.fsmonitor=false`,
   `-c core.hooksPath=/dev/null`, `-c core.pager=cat`,
-  `-C <authorized-repository-root>`, and only `rev-parse --verify HEAD` or
-  `status --porcelain=v1 --untracked-files=all --ignored=no`. Their child
+  `-C <authorized-repository-root>`, and only `config --local --no-includes
+  --show-origin --show-scope --null --list`, `rev-parse --verify HEAD`, or
+  `status --porcelain=v1 --untracked-files=all --ignored=no`. The config command
+  must reproduce the already parsed inert set exactly; it does not establish trust.
+  The strict receipts retain canonical Git/common/config origins and every parent-
+  chain component path, so their identity digests are mechanically recomputable from
+  evidence rather than depending on unretained path-string preimages. Their child
   environment is the closed five-key map `GIT_CONFIG_NOSYSTEM=1`,
   `GIT_CONFIG_GLOBAL=/dev/null`, `GIT_NO_REPLACE_OBJECTS=1`, `LANG=C.UTF-8`, and
   `LC_ALL=C.UTF-8`; no `HOME`,
@@ -288,8 +293,10 @@ descriptor identity mismatch fails with no fixture transfer.
   supplied executable, or ambient `GIT_*` value is used. The repository root is
   opened by trusted directory FD, `HEAD` must equal the authorized exact head,
   and raw status output must be empty. A canonical repository-control artifact
-  embeds and digest-binds the complete repository/config identity receipt, both exact
-  argv/stream receipts, binary and root identities, and the child environment. The
+  embeds and digest-binds the complete repository/config identity receipt, all three
+  exact argv/stream receipts, binary and root identities, and the child environment.
+  Its observed receipt digest must equal the owner-supplied
+  `--git-repository-identity-sha256`. The
   repository identity is revalidated after the status command; drift fails closed.
   It hashes the exact `sys.orig_argv` process array, including interpreter
   path and `-I -S`, after removing only the
@@ -957,9 +964,9 @@ with one immutable selector:
 The complete v2 canonical contract is
 `docs/development/L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json`
 with contract digest
-`cf5ae1fc5085505b4073fff999cab2e3139f6b947cc83be62ba3e2fc8605d472`.
+`ed4137b3a8e03104e43dbf5cc10a99ce20eabc6dbe54c83a29b512bab9fe70ba`.
 Its reviewed raw-file SHA-256 is
-`1e2f9e9ebf78a15a794b128f0dabe1c42285d15cd55ef668fa5058622c25dfcc`.
+`88b77207ec3bf2b2c92b4f15e1458b47b19c336d012ae88bba5efc3c26a48600`.
 It freezes exact object keys, types/nullability, list ordering, task context,
 unknown-field rejection, and digest exclusions. Its embedded golden vector has
 EvidencePack digest
@@ -1647,7 +1654,7 @@ ER3 is complete only when all of the following are true at one exact head:
 - the runtime manifest matches §4 digest
   `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf`;
 - the v2 contract and golden digests remain
-  `cf5ae1fc5085505b4073fff999cab2e3139f6b947cc83be62ba3e2fc8605d472`
+  `ed4137b3a8e03104e43dbf5cc10a99ce20eabc6dbe54c83a29b512bab9fe70ba`
   and `422e23da3589b24a5539a3d6546cac98ba692046ea14930b179dd9f7fe1b9f7f`;
 - existing ReviewReuse, identity, production-preflight, and core-fast suites are
   green without skips added for this tranche;
@@ -1690,8 +1697,8 @@ Suggested Gate-A fail-first-only owner response:
 > EvidencePack v2 contract
 > `docs/development/L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json`
 > canonical/raw digests
-> `cf5ae1fc5085505b4073fff999cab2e3139f6b947cc83be62ba3e2fc8605d472` /
-> `1e2f9e9ebf78a15a794b128f0dabe1c42285d15cd55ef668fa5058622c25dfcc`,
+> `ed4137b3a8e03104e43dbf5cc10a99ce20eabc6dbe54c83a29b512bab9fe70ba` /
+> `88b77207ec3bf2b2c92b4f15e1458b47b19c336d012ae88bba5efc3c26a48600`,
 > and golden EvidencePack digest
 > `422e23da3589b24a5539a3d6546cac98ba692046ea14930b179dd9f7fe1b9f7f`.
 > I authorize only §8.1 and its exact 106-node fail-first contract: the new test
@@ -1738,7 +1745,8 @@ authenticate that the owner issued this response:
 
 > I authorize one ER3 repository-fixture run at implementation exact head `<sha>`
 > for repository `zensgit/cad-ml-platform` with numeric repository ID
-> `<repository-id>`,
+> `<repository-id>` and owner-accepted
+> `git_repository_identity_sha256=<git-repository-identity-sha256>`,
 > using only the ratified manifest/image/contracts; absolute Python interpreter,
 > dependency root, and `python_control_sha256=<python-control>` under `-I -S`;
 > Docker source binary `<canonical-path>` with parent-chain digest

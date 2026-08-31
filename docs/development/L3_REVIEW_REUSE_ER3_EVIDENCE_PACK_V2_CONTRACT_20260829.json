@@ -2,7 +2,7 @@
   "schema_version": "review-reuse-er3-evidence-pack-v2-contract-v1",
   "contract_status": "proposed_not_ratified",
   "runtime_authority": "none",
-  "contract_sha256": "cf5ae1fc5085505b4073fff999cab2e3139f6b947cc83be62ba3e2fc8605d472",
+  "contract_sha256": "ed4137b3a8e03104e43dbf5cc10a99ce20eabc6dbe54c83a29b512bab9fe70ba",
   "canonicalization": {
     "algorithm": "sha-256",
     "function": "src.core.review_reuse.canonical.canonical_json_v1",
@@ -525,7 +525,7 @@
           "repository_identity_sha256"
         ],
         "filesystem_identity_exact_fields": [
-          "realpath_sha256",
+          "realpath",
           "device",
           "inode",
           "owner_uid",
@@ -534,7 +534,7 @@
         ],
         "local_config_entry_exact_fields": [
           "scope",
-          "origin_sha256",
+          "origin",
           "key",
           "value_sha256"
         ],
@@ -545,7 +545,7 @@
           "git_directory": "strict filesystem identity object",
           "common_directory": "strict filesystem identity object",
           "object_format": "fixed sha1",
-          "local_config_entries": "array of strict local-config entries sorted by scope, key, origin_sha256, and value_sha256",
+          "local_config_entries": "array of strict local-config entries sorted by scope, key, origin, and value_sha256",
           "worktree_config_absent": "boolean literal true",
           "replacement_refs_empty": "boolean literal true",
           "grafts_absent": "boolean literal true",
@@ -554,7 +554,7 @@
           "repository_identity_sha256": "64-lowercase-hex SHA-256"
         },
         "filesystem_identity_types_and_nullability": {
-          "realpath_sha256": "64-lowercase-hex SHA-256 over the canonical absolute realpath string without exporting the path",
+          "realpath": "canonical absolute path string retained as the identity preimage",
           "device": "non-negative integer, boolean forbidden",
           "inode": "positive integer, boolean forbidden",
           "owner_uid": "non-negative integer, boolean forbidden",
@@ -563,7 +563,7 @@
         },
         "local_config_entry_types_and_nullability": {
           "scope": "fixed local",
-          "origin_sha256": "64-lowercase-hex SHA-256 of the canonical config-file realpath",
+          "origin": "canonical absolute config-file path retained as the origin preimage",
           "key": "one inert allowlisted key",
           "value_sha256": "64-lowercase-hex SHA-256 of the raw UTF-8 value"
         },
@@ -579,7 +579,7 @@
           "remote.<name>.fetch",
           "remote.<name>.url"
         ],
-        "local_config_rule": "before any Git invocation, the stdlib-only verifier resolves the Git/common directories by directory-FD/no-symlink traversal, reads the local config as inert bytes without include expansion, and rejects include/includeIf, extensions.worktreeConfig, config.worktree, alias, credential, protocol, filter, diff, merge, pager, hooksPath, fsmonitor, alternates, object-format override, executable/helper command, and every key outside inert_local_config_allowlist. A later git config --local --no-includes --show-origin --show-scope corroboration must equal the parsed set. Remote URL values are never exported, only hashed. The verifier then uses only the fixed raw-object/read-only command allowlist with absolute Git, --no-pager, --no-optional-locks, --no-replace-objects, --no-ext-diff where accepted, core.fsmonitor=false, core.hooksPath=/dev/null, and core.pager=cat. Authoritative commit/tree/blob parsing is stdlib-only over no-replace raw object bytes and never invokes checkout filters, hooks, helpers, aliases, network, or repository executables.",
+        "local_config_rule": "before any Git invocation, the stdlib-only verifier resolves the Git/common directories by directory-FD/no-symlink traversal, reads the local config as inert bytes without include expansion, and rejects include/includeIf, extensions.worktreeConfig, config.worktree, alias, credential, protocol, filter, diff, merge, pager, hooksPath, fsmonitor, alternates, object-format override, executable/helper command, and every key outside inert_local_config_allowlist. A later git config --local --no-includes --show-origin --show-scope corroboration must equal the parsed set. Canonical config origins are retained so path identity is mechanically recomputable; remote URL values are never exported, only hashed and corroborated from the retained raw config-command stdout. The verifier then uses only the fixed raw-object/read-only command allowlist with absolute Git, --no-pager, --no-optional-locks, --no-replace-objects, --no-ext-diff where accepted, core.fsmonitor=false, core.hooksPath=/dev/null, and core.pager=cat. Authoritative commit/tree/blob parsing is stdlib-only over no-replace raw object bytes and never invokes checkout filters, hooks, helpers, aliases, network, or repository executables.",
         "digest_rule": "repository_identity_sha256 is canonical_sha256 of the complete strict receipt after removing only repository_identity_sha256; the retained canonical receipt is mandatory evidence for Gate A, Gate B, and Gate C"
       },
       "git_command_allowlist_contract": {
@@ -870,8 +870,55 @@
         ],
         "placeholder_rule": "every placeholder is substituted before spawn from one already verified value: reviewed absolute Git binary; directory-FD/no-symlink repository root for the named phase; or one exact 40-lowercase-hex baseline/design/Gate-A/implementation commit. Gate A binds gate-a-head to candidate_gate_a_head; Gate B binds it to accepted_gate_a_head. No empty, caller-free-form, ref-name, path-fragment, option, environment, or additional argument substitution is permitted.",
         "receipt_binding_rule": "Gate-A command_receipts has exactly 17 entries and Gate-B command_receipts exactly 16. In each array, sequence is the one-based index into the corresponding operation_order, operation equals that entry, argv equals common_argv_prefix concatenated with its exact substituted suffix, environment equals the strict five-string gate environment, exit_code is integer zero, and stdout/stderr hash exact retained raw bytes. Missing, duplicate, reordered, additional, differently-tokenized, or shell-mediated commands invalidate evidence.",
-        "execution_stream_binding_rule": "for runtime_base, gate_a_head, and implementation pre/post status and pre/post index-flags operations, the command receipt stdout bytes are the single bytes retained at receipts/<phase>/<pre|post>-<status|index-flags>.stdout and their SHA-256 equals the corresponding execution pre_status_sha256, post_status_sha256, pre_index_flags_sha256, or post_index_flags_sha256 field. Every other command's exact stdout/stderr bytes are retained at receipts/git/<gate-a|gate-b>/<two-digit-sequence>-<stdout|stderr>.bin. No normalized, reserialized, duplicated-role, unretained, or separately supplied stream may satisfy a command receipt.",
+        "execution_stream_binding_rule": "for runtime_base, gate_a_head, and implementation pre/post status and pre/post index-flags operations, the command receipt stdout bytes are the single bytes retained at receipts/<phase>/<pre|post>-<status|index-flags>.stdout and their SHA-256 equals the corresponding execution pre_status_sha256, post_status_sha256, pre_index_flags_sha256, or post_index_flags_sha256 field; each such operation's exact stderr bytes are retained at receipts/git/<gate-a|gate-b>/<two-digit-sequence>-stderr.bin. Every other command's exact stdout/stderr bytes are retained at receipts/git/<gate-a|gate-b>/<two-digit-sequence>-<stdout|stderr>.bin. No normalized, reserialized, duplicated-role, unretained, or separately supplied stream may satisfy a command receipt.",
         "raw_object_boundary": "the allowlist is exhaustive for child Git processes. Commit/tree/blob parsing, SHA-1 recomputation, raw ancestry, raw path deltas, fixture-elided tree walking, replacement/graft/alternate discovery, and materialization are performed only by the reviewed stdlib verifier over already-resolved local Git/common directories; no cat-file, show, checkout, archive, fetch, remote, credential, helper, hook, filter, pager, shell, network, or other Git command is permitted. merge-base and diff-tree remain corroboration only."
+      },
+      "filesystem_parent_chain_receipt_contract": {
+        "schema_version": "review-reuse-er3-filesystem-parent-chain-v1",
+        "top_level_exact_fields": [
+          "schema_version",
+          "path_class",
+          "entries"
+        ],
+        "top_level_types_and_nullability": {
+          "schema_version": "fixed review-reuse-er3-filesystem-parent-chain-v1",
+          "path_class": "one of source_mount_root, fixture_deny_root, scratch_root, python_interpreter, dependency_root, report_root, gate_c_git_binary, or gate_c_repository_root",
+          "entries": "non-empty array of strict parent-chain entries in root-to-immediate-parent order"
+        },
+        "entry_exact_fields": [
+          "sequence",
+          "component_realpath",
+          "device",
+          "inode",
+          "owner_uid",
+          "group_gid",
+          "mode",
+          "kind",
+          "trusted"
+        ],
+        "entry_types_and_nullability": {
+          "sequence": "positive consecutive integer beginning at 1, boolean forbidden",
+          "component_realpath": "canonical absolute directory path retained as the component identity preimage",
+          "device": "non-negative integer, boolean forbidden",
+          "inode": "positive integer, boolean forbidden",
+          "owner_uid": "non-negative integer, boolean forbidden",
+          "group_gid": "non-negative integer, boolean forbidden",
+          "mode": "four-digit octal permission string",
+          "kind": "fixed directory",
+          "trusted": "boolean literal true after directory-FD/no-symlink ownership and non-group/other-writable validation"
+        },
+        "artifact_map": {
+          "source_mount_root": "receipts/<phase>/filesystem-identities/source-read-only-parent-chain.json",
+          "fixture_deny_root": "receipts/<phase>/filesystem-identities/fixture-deny-parent-chain.json",
+          "scratch_root": "receipts/<phase>/filesystem-identities/scratch-parent-chain.json",
+          "python_interpreter": "receipts/<phase>/filesystem-identities/python-interpreter-parent-chain.json",
+          "dependency_root": "receipts/<phase>/filesystem-identities/dependency-root-parent-chain.json",
+          "report_root": "receipts/<phase>/filesystem-identities/report-root-parent-chain.json",
+          "gate_c_git_binary": "receipts/preflight/filesystem-identities/git-binary-parent-chain.json",
+          "gate_c_repository_root": "receipts/preflight/filesystem-identities/repository-root-parent-chain.json"
+        },
+        "walk_rule": "the trusted supervisor opens the absolute path from the filesystem root by retained directory FDs with O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW for every parent. Each entry retains the canonical component path and is emitted from the already-open FD; sequences are gap-free, paths form the exact root-to-immediate-parent prefix chain for the referencing identity's retained realpath, the final entry is the target's immediate parent, and device/inode continuity is revalidated before use. A symlink, missing/extra/reordered component, path mismatch, ownership violation, group/other-writable component, path-class mismatch, or pre/post drift fails closed.",
+        "digest_rule": "parent_chain_sha256 is canonical_sha256 of the complete strict top-level object with no excluded field; each referencing identity object names the exact artifact_map path for its path_class and must equal that recomputed digest"
       },
       "execution_evidence_preimage_contract": {
         "schema_version": "review-reuse-er3-execution-evidence-preimages-v1",
@@ -918,7 +965,7 @@
         "filesystem_identity_preimage_exact_fields": [
           "schema_version",
           "path_class",
-          "realpath_sha256",
+          "realpath",
           "parent_chain_sha256",
           "device",
           "inode",
@@ -1088,8 +1135,8 @@
         "filesystem_identity_preimage_types_and_nullability": {
           "schema_version": "fixed review-reuse-er3-filesystem-identity-v1",
           "path_class": "one of source_mount_root, fixture_deny_root, scratch_root, python_interpreter, dependency_root, or report_root",
-          "realpath_sha256": "64-lowercase-hex SHA-256 over the canonical absolute realpath string without exporting the path",
-          "parent_chain_sha256": "64-lowercase-hex SHA-256 of the complete directory-FD/no-symlink parent-chain receipt",
+          "realpath": "canonical absolute path string retained as the identity preimage",
+          "parent_chain_sha256": "64-lowercase-hex canonical SHA-256 of the exact retained filesystem_parent_chain_receipt_contract object for path_class",
           "device": "non-negative integer, boolean forbidden",
           "inode": "positive integer, boolean forbidden",
           "owner_uid": "non-negative integer, boolean forbidden",
@@ -1199,7 +1246,7 @@
           "materialized_entries": "strict non-empty array of regular non-quarantined Git entries; git_mode is 100644 or 100755, blob_id is 40 lowercase hex, size_bytes is non-negative integer with boolean forbidden, and raw_sha256 is the SHA-256 of bytes written once from that verified blob",
           "quarantined_fixture_subtree": "exact path tests/vision/fixtures/cad_features, its raw tree ID, and the exact bytewise-sorted three path/mode/blob-ID entries for cad_arc.png, cad_circle.png, and cad_line.png; no size, blob type/body, raw SHA-256, stat result, or materialized payload is permitted",
           "tree_manifest": "pre and post canonical objects differ only in timing pre or post; entries and quarantined_fixture_subtree equal the materialization manifest",
-          "filesystem_identity_preimages": "each of the six identity digest uses the unique retained path and path_class in filesystem_identity_artifact_map; the preimage has exactly filesystem_identity_preimage_exact_fields and its digest is canonical_sha256 of the complete strict object with no excluded field",
+          "filesystem_identity_preimages": "each of the six identity digest uses the unique retained path and path_class in filesystem_identity_artifact_map; the preimage has exactly filesystem_identity_preimage_exact_fields, its parent_chain_sha256 resolves to filesystem_parent_chain_receipt_contract.artifact_map for the same path_class, and its digest is canonical_sha256 of the complete strict object with no excluded field",
           "field_role_binding": "every digest_artifact_map entry that reuses a receipt schema also fixes the semantic discriminator required at that path: tree timing pre/post; mount purpose source_read_only/fixture_deny/scratch; file-manifest purpose dependency/scratch_pre/scratch_post; or string-array purpose pytest_argv/collected_node_ids. A valid receipt under the wrong path or role is rejected before digest comparison.",
           "mount_receipt": "purpose is source_read_only, fixture_deny, or scratch; identities are 64 lowercase hex; flags are a bytewise-sorted unique array; uid/gid are non-negative integers; mode is four-digit octal; verified is literal true",
           "fixture_negative_open": "execution_uid is the unprivileged test UID and probes are the exact three bytewise path-sorted openat O_RDONLY|O_CLOEXEC|O_NOFOLLOW probes, each with result_errno fixed EACCES",
@@ -3997,7 +4044,9 @@
           "repository_root",
           "git_repository_identity",
           "git_repository_identity_sha256",
+          "authorized_git_repository_identity_sha256",
           "child_environment",
+          "config_command",
           "head_command",
           "status_command",
           "repository_control_sha256"
@@ -4014,7 +4063,7 @@
           "group_gid"
         ],
         "repository_root_exact_fields": [
-          "realpath_sha256",
+          "realpath",
           "parent_chain_sha256",
           "device",
           "inode",
@@ -4045,14 +4094,16 @@
           "repository_root": "strict non-null repository-root identity object",
           "git_repository_identity": "strict non-null object matching git_repository_identity_receipt_contract",
           "git_repository_identity_sha256": "64-lowercase-hex SHA-256 equal to git_repository_identity.repository_identity_sha256",
+          "authorized_git_repository_identity_sha256": "owner-supplied 64-lowercase-hex SHA-256 equal to git_repository_identity_sha256",
           "child_environment": "strict five-string object matching child_environment_exact_fields",
+          "config_command": "strict non-null command receipt for the exact local-config corroboration invocation",
           "head_command": "strict non-null command receipt for the exact rev-parse invocation",
           "status_command": "strict non-null command receipt for the exact status invocation",
           "repository_control_sha256": "64-lowercase-hex SHA-256"
         },
         "git_binary_types_and_nullability": {
           "realpath": "canonical absolute path string",
-          "parent_chain_sha256": "64-lowercase-hex SHA-256 of the complete directory-FD/no-symlink parent-chain receipt",
+          "parent_chain_sha256": "64-lowercase-hex canonical SHA-256 of filesystem_parent_chain_receipt_contract path_class gate_c_git_binary",
           "device": "non-negative integer, boolean forbidden",
           "inode": "positive integer, boolean forbidden",
           "mode": "four-digit octal permission string",
@@ -4062,8 +4113,8 @@
           "group_gid": "non-negative integer, boolean forbidden"
         },
         "repository_root_types_and_nullability": {
-          "realpath_sha256": "64-lowercase-hex SHA-256 over the canonical absolute root path",
-          "parent_chain_sha256": "64-lowercase-hex SHA-256 of the complete directory-FD/no-symlink parent-chain receipt",
+          "realpath": "canonical absolute repository-root path retained as the identity preimage",
+          "parent_chain_sha256": "64-lowercase-hex canonical SHA-256 of filesystem_parent_chain_receipt_contract path_class gate_c_repository_root",
           "device": "non-negative integer, boolean forbidden",
           "inode": "positive integer, boolean forbidden",
           "mode": "four-digit octal permission string",
@@ -4071,7 +4122,7 @@
           "group_gid": "non-negative integer, boolean forbidden"
         },
         "command_types_and_nullability": {
-          "operation": "fixed head or status",
+          "operation": "fixed config, head, or status",
           "argv": "exact string array equal to the corresponding exact_commands entry after placeholder substitution",
           "environment_sha256": "64-lowercase-hex canonical SHA-256 of the complete child_environment object",
           "stdin_sha256": "fixed SHA-256 of zero bytes",
@@ -4080,10 +4131,19 @@
           "stdout_sha256": "64-lowercase-hex SHA-256 of exact raw stdout bytes",
           "stderr_sha256": "64-lowercase-hex SHA-256 of exact raw stderr bytes"
         },
+        "command_stream_artifact_map": {
+          "config_command.stdout_sha256": "raw bytes receipts/preflight/git/config.stdout.bin",
+          "config_command.stderr_sha256": "raw bytes receipts/preflight/git/config.stderr.bin",
+          "head_command.stdout_sha256": "raw bytes receipts/preflight/git/head.stdout.bin",
+          "head_command.stderr_sha256": "raw bytes receipts/preflight/git/head.stderr.bin",
+          "status_command.stdout_sha256": "raw bytes receipts/preflight/git/status.stdout.bin",
+          "status_command.stderr_sha256": "raw bytes receipts/preflight/git/status.stderr.bin"
+        },
         "digest_rule": "repository_control_sha256 is canonical_sha256 of the complete strict object after removing only repository_control_sha256; every nested object rejects unknown or missing fields",
         "git_binary_policy": "owner supplies one absolute --git-bin; walk every component by directory FD with O_NOFOLLOW, require a regular executable owned by root or the trusted runner and not group/other writable, bind realpath/parent-chain/device/inode/mode/size/SHA-256, and revalidate immediately before each spawn",
-        "git_repository_identity_rule": "before either Git spawn, the stdlib-only Gate-C bootstrap resolves and parses the repository Git/common directories and local config as inert bytes under git_repository_identity_receipt_contract, using the owner-named numeric repository ID; it embeds that complete strict receipt here and requires git_repository_identity_sha256 to equal its verified self digest. The same receipt is revalidated after the status command and any drift fails before Docker or fixture activity.",
+        "git_repository_identity_rule": "before any Git spawn, the stdlib-only Gate-C bootstrap resolves and parses the repository Git/common directories and local config as inert bytes under git_repository_identity_receipt_contract, using the owner-named numeric repository ID; it embeds that complete strict receipt here, requires git_repository_identity_sha256 to equal its verified self digest, and requires the owner-supplied --git-repository-identity-sha256 value to equal authorized_git_repository_identity_sha256 and both observed digest fields. The first exact Git command corroborates the already-parsed config set without include expansion; its exact raw stdout and every command stream are retained at command_stream_artifact_map and digest-bound by the named command receipt. The same receipt is revalidated after the status command and any drift fails before Docker or fixture activity.",
         "exact_commands": [
+          "<git-bin> --no-pager --no-optional-locks --no-replace-objects -c core.fsmonitor=false -c core.hooksPath=/dev/null -c core.pager=cat -C <repository-root> config --local --no-includes --show-origin --show-scope --null --list",
           "<git-bin> --no-pager --no-optional-locks --no-replace-objects -c core.fsmonitor=false -c core.hooksPath=/dev/null -c core.pager=cat -C <repository-root> rev-parse --verify HEAD",
           "<git-bin> --no-pager --no-optional-locks --no-replace-objects -c core.fsmonitor=false -c core.hooksPath=/dev/null -c core.pager=cat -C <repository-root> status --porcelain=v1 --untracked-files=all --ignored=no"
         ],
@@ -4095,7 +4155,7 @@
           "LC_ALL": "C.UTF-8"
         },
         "launcher_environment": "Gate C launches with a closed allowlist; LD_*, DYLD_*, GIT_*, PYTHON*, proxy, Docker, ReviewReuse store/decision, and provider keys are absent; the OS loader and approved same-UID runner remain trusted",
-        "artifact_invariants": "strict canonical JSON binds both exact argv arrays, raw stdin/stdout/stderr digests and exits, Git binary and repository-parent identities, the complete fail-closed Git repository/config identity receipt, closed child environment digest, observed/authorized head equality, and empty status; include/includeIf, worktree config, replacement/graft/shallow/alternate object view, executable config, shell, PATH lookup, hook, fsmonitor, pager, alias, helper, or repository-supplied executable use fails before task/Docker/fixture activity"
+        "artifact_invariants": "strict canonical JSON binds all three exact argv arrays, raw stdin/stdout/stderr digests and exits, Git binary and repository-parent identities, the complete fail-closed Git repository/config identity receipt, owner-supplied/observed repository-identity digest equality, closed child environment digest, observed/authorized head equality, and empty status; include/includeIf, worktree config, replacement/graft/shallow/alternate object view, executable config, shell, PATH lookup, hook, fsmonitor, pager, alias, helper, or repository-supplied executable use fails before task/Docker/fixture activity"
       },
       "exact_fields": [
         "schema_version",
