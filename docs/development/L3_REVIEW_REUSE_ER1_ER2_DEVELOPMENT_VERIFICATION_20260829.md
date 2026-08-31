@@ -8,8 +8,9 @@
 **Ratified authority**: PR #583 exact head
 `9150e06c75721bf086572ed271b68548104e8300`<br>
 **Runtime implementation head**:
-`444f65f3ed913b0bf07482ad7326a378adf3a435`
-(`fix: close ReviewReuse restart and ledger gaps`), on top of strict numeric
+`325e8be4efb7ef8acabe8881cbf2070320825970`
+(`fix: clamp ReviewReuse decision timestamps`), on top of restart/ledger repair
+`444f65f3`, strict numeric
 repair `721a5214`, calibration-envelope repair `1d0ad7fd`, the original
 runtime commit `6cc55841`, and the intervening fail-first hardening chain.
 
@@ -52,7 +53,7 @@ named by design-lock section 9.1:
 | Parent / authority | `9150e06c75721bf086572ed271b68548104e8300` |
 | Files | `test_review_reuse_er1_store_integrity.py`, `test_review_reuse_er2_ledger.py`, `test_review_reuse_api_integrity.py` |
 | Baseline result | **18 failed** |
-| Runtime-head result | **140 passed** |
+| Runtime-head result | **141 passed** |
 
 Exact command:
 
@@ -186,6 +187,9 @@ named tests plus narrower adversarial cases.
 - Every persisted mutation is a store-level CAS and increments revision by
   exactly one.
 - Existing events are immutable and every state mutation appends an event.
+- Generated event and human-decision timestamps are clamped to the prior task
+  update time, so a regressing system wall clock cannot violate the durable
+  ledger chronology or reject an otherwise valid decision.
 - The final newly appended event must match the accepted old/new state
   transition. A decision event must also bind state, reviewer, candidate,
   reviewed revision, and EvidencePack digest to the committed decision.
@@ -696,14 +700,31 @@ it is recorded as residual hardening, not silently folded into this patch.
 The read-only Claude Code run exited without a usable report and is not counted
 as review evidence.
 
+A twentieth independent exact-head read-only review at
+`9b4115eaa5295e1e7ef334cd22361c8b3b0e5d82` found one final decision-ledger
+clock gap. Pipeline event emission already survived wall-clock regression, but
+`HumanDecision.ts` still used the raw clock. When the clock moved behind the
+last `evidence_ready` event, store validation correctly rejected the newly
+created decision because its attribution timestamp preceded the reviewed
+ledger.
+
+Test-only commit `bc618ef37e4087a801b4a327c626566ec6cc21e5`
+reproduced the case as **1 failed**. Runtime repair
+`325e8be4efb7ef8acabe8881cbf2070320825970` clamps the decision timestamp to
+the prior task update time; `_emit` then preserves the same monotonic bound for
+the decision event and final update. The focused case is **1 passed**. This is
+an ER2 ledger-integrity repair only: it does not enable decisions or expand
+deployment, pilot, ER3, or ER4 authority.
+
 ## 6. Verification evidence
 
 Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
-`444f65f3`.
+`325e8be4`.
 
 | Gate | Result |
 |---|---:|
-| Exact named fail-first command, including narrower additions | **140 passed** |
+| Exact named fail-first command, including narrower additions | **141 passed** |
+| Focused decision wall-clock regression case | **1 passed** (red: 1 failed at test-only `bc618ef3`) |
 | Focused event-ledger mutation batch | **3 passed** (red: 3 failed at test-only `390daf25`) |
 | Focused writer-restart recovery case | **1 passed** (red: 1 failed at test-only `390daf25`) |
 | Focused regressing-wall-clock case | **1 passed** (red: 1 failed at test-only `3446ea6d`) |
@@ -726,7 +747,7 @@ Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
 | Focused bounded-body/native-ledger/legacy-layout batch | **5 passed** (red: 5 failed at test-only `783d3996`) |
 | Focused initial-event metadata batch | **7 passed** (red: 5 failed at test-only `1af3587a`) |
 | Focused decision-event timestamp batch | **10 passed** (red: 3 failed / 7 passed at test-only `e3b86a99`) |
-| `make PYTHON=/private/tmp/cadml-review-reuse-testenv-20260831/bin/python test-review-reuse` | **237 passed** |
+| `make PYTHON=/private/tmp/cadml-review-reuse-testenv-20260831/bin/python test-review-reuse` | **238 passed** |
 | Integration-auth + production-identity + pilot-preflight regressions | **47 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 test-core` | **39 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-openapi` | **5 passed** |
@@ -767,12 +788,14 @@ the project's `str | None` annotations. The isolated Python 3.11 environment
 was completed with the repository-pinned `python-multipart==0.0.18` and
 `PyJWT[crypto]==2.10.1` dependencies before the successful commands above.
 
-At pushed documentation head
-`ee3b6c9eb20189aed7eb068499e9074ec4025421`, every emitted GitHub check
+At the superseded pushed documentation head
+`9b4115eaa5295e1e7ef334cd22361c8b3b0e5d82`, every emitted GitHub check
 completed without a failing conclusion. Those checks covered action pinning,
 metrics, and stress/observability workflows only. Repository workflow search
 found no job selecting `make test-review-reuse`; therefore the green GitHub
-state is not represented as execution of the 237-test ReviewReuse gate. Draft
+state is not represented as execution of the 238-test ReviewReuse gate. The
+exact-head GitHub review requested for that superseded head also cannot validate
+the later fail-first and runtime commits. Draft
 PR #581 is unrelated synthetic-superpass CI work and does not close this gap.
 
 ## 7. Boundary verification
