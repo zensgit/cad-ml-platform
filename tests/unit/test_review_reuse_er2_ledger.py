@@ -196,9 +196,7 @@ def test_pipeline_event_timestamps_survive_wall_clock_regression(
         *(event.ts for event in task.events),
         task.updated_at,
     ]
-    assert all(
-        earlier <= later for earlier, later in zip(timestamps, timestamps[1:])
-    )
+    assert all(earlier <= later for earlier, later in zip(timestamps, timestamps[1:]))
 
 
 def test_writer_restart_fails_interrupted_running_task(

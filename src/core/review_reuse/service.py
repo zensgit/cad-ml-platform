@@ -258,7 +258,7 @@ class ReviewReuseService:
             task, TaskEventType.input_validated, {"bytes": len(file_bytes)}
         )
         task.status = TaskStatus.running
-        task.updated_at = time.time()
+        task.updated_at = max(time.time(), task.updated_at)
         proposed_task_id = task.task_id
         try:
             task = self.store.create_if_absent(task, key=key, digest=create_digest)
@@ -291,14 +291,19 @@ class ReviewReuseService:
             task.revision = base_revision + 1
             task.status = TaskStatus.evidence_ready
             task.evidence_pack = build_evidence_pack(task)
-            validate_review_reuse_task_payload(task)
             task = self._emit(
                 task,
                 TaskEventType.evidence_pack_ready,
                 {"candidates": len(candidates)},
             )
+            validate_review_reuse_task_payload(task)
         except Exception as exc:
             failed = task.model_copy(deep=True)
+            if (
+                failed.events
+                and failed.events[-1].event_type == TaskEventType.evidence_pack_ready
+            ):
+                failed.events = failed.events[:-1]
             failed.candidates = []
             failed.evidence_pack = None
             failed.revision = base_revision + 1
@@ -592,8 +597,9 @@ class ReviewReuseService:
     def _emit(
         self, task: ReviewReuseTask, event_type: TaskEventType, detail: Dict[str, Any]
     ) -> ReviewReuseTask:
+        event_time = max(time.time(), task.updated_at)
         task.events = list(task.events) + [
-            TaskEvent(event_type=event_type, ts=time.time(), detail=detail)
+            TaskEvent(event_type=event_type, ts=event_time, detail=detail)
         ]
-        task.updated_at = time.time()
+        task.updated_at = event_time
         return task

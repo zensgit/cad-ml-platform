@@ -11,6 +11,7 @@ import shutil
 import stat
 import tempfile
 import threading
+import time
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Protocol, Tuple
@@ -31,6 +32,7 @@ from .models import (
     HumanDecisionState,
     RejectionReason,
     ReviewReuseTask,
+    TaskEvent,
     TaskEventType,
     TaskStatus,
 )
@@ -441,6 +443,65 @@ def _validate_decision_event_binding(task: ReviewReuseTask) -> None:
         )
 
 
+def _validate_event_ledger(task: ReviewReuseTask) -> None:
+    # Legacy migrations may retain an empty event ledger. Once events exist,
+    # they must match a complete runtime snapshot and remain time-ordered.
+    if not task.events:
+        return
+
+    initial = (TaskEventType.submitted, TaskEventType.input_validated)
+    ready = initial + _RUNNING_PIPELINE_EVENTS + (TaskEventType.evidence_pack_ready,)
+    event_types = tuple(event.event_type for event in task.events)
+    if task.status == TaskStatus.running:
+        sequence_valid = event_types == initial
+    elif task.status == TaskStatus.evidence_ready:
+        sequence_valid = event_types == ready
+    elif task.status == TaskStatus.decided:
+        sequence_valid = event_types == ready + (TaskEventType.decision_submitted,)
+    elif task.status == TaskStatus.failed:
+        pipeline_prefix = event_types[len(initial) : -1]
+        sequence_valid = (
+            event_types[: len(initial)] == initial
+            and event_types[-1:] == (TaskEventType.failed,)
+            and pipeline_prefix == _RUNNING_PIPELINE_EVENTS[: len(pipeline_prefix)]
+        )
+    elif task.status == TaskStatus.canceled:
+        sequence_valid = event_types in {
+            initial + (TaskEventType.canceled,),
+            ready + (TaskEventType.canceled,),
+        }
+    else:
+        sequence_valid = False
+    if not sequence_valid:
+        raise ReviewReuseStoreError(
+            "store_record_corrupt", "stored task event ledger is inconsistent"
+        )
+
+    submitted_event, input_event = task.events[:2]
+    input_bytes = input_event.detail.get("bytes")
+    if (
+        type(submitted_event.detail.get("file_name")) is not str
+        or submitted_event.detail["file_name"] != task.source_file_name
+        or type(input_bytes) is not int
+        or input_bytes <= 0
+    ):
+        raise ReviewReuseStoreError(
+            "store_record_corrupt", "stored task event metadata is inconsistent"
+        )
+
+    timestamps = [
+        task.created_at,
+        *(event.ts for event in task.events),
+        task.updated_at,
+    ]
+    if task.created_at < 0 or any(
+        earlier > later for earlier, later in zip(timestamps, timestamps[1:])
+    ):
+        raise ReviewReuseStoreError(
+            "store_record_corrupt", "stored task event timestamps are invalid"
+        )
+
+
 def validate_review_reuse_task_payload(task: ReviewReuseTask) -> None:
     """Validate one self-contained task snapshot before persistence."""
 
@@ -450,6 +511,7 @@ def validate_review_reuse_task_payload(task: ReviewReuseTask) -> None:
         raise ReviewReuseStoreError(
             "store_record_corrupt", "stored task is not valid I-JSON"
         ) from exc
+    _validate_event_ledger(task)
     if not _HEX64_PATTERN.fullmatch(task.source_content_sha256):
         raise ReviewReuseStoreError(
             "store_record_corrupt", "stored source digest is invalid"
@@ -843,7 +905,10 @@ class FilesystemReviewReuseStore:
                         "filesystem store root changed while acquiring writer lease",
                     )
                 self._cleanup_stale_artifacts()
-                validated_filesystem_tenants(self._root)
+                tenants = validated_filesystem_tenants(self._root)
+                self._recover_interrupted_tasks(
+                    [tenant_id for tenant_id, _tenant_dir in tenants]
+                )
             except Exception:
                 self.close()
                 raise
@@ -889,6 +954,31 @@ class FilesystemReviewReuseStore:
             raise ReviewReuseStoreError(
                 "store_writer_conflict", "filesystem store is quarantined"
             )
+
+    def _recover_interrupted_tasks(self, tenant_ids: List[str]) -> None:
+        """Fail tasks whose processing context ended with the prior writer."""
+
+        self._ensure_writer()
+        for tenant_id in tenant_ids:
+            for task in self.list_for_tenant(tenant_id):
+                if task.status != TaskStatus.running or not task.events:
+                    continue
+                failed = task.model_copy(deep=True)
+                failed.revision = task.revision + 1
+                failed.status = TaskStatus.failed
+                failed.candidates = []
+                failed.evidence_pack = None
+                failed.error_code = "internal_error"
+                failed.error = "ReviewReuse processing was interrupted"
+                failed.updated_at = max(time.time(), task.updated_at)
+                failed.events.append(
+                    TaskEvent(
+                        event_type=TaskEventType.failed,
+                        ts=failed.updated_at,
+                        detail={"code": "internal_error"},
+                    )
+                )
+                self.put(failed, expected_revision=task.revision)
 
     def _cleanup_stale_artifacts(self) -> None:
         """Remove only crash leftovers created by this store's write protocol."""
