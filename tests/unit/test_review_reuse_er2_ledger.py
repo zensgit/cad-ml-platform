@@ -177,6 +177,30 @@ def test_pipeline_failure_preserves_attempt_events_without_invalid_payload(
     ]
 
 
+def test_pipeline_event_timestamps_survive_wall_clock_regression(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.core.review_reuse import service as service_module
+
+    wall_clock = 100.0
+
+    def regressing_time() -> float:
+        nonlocal wall_clock
+        wall_clock -= 1.0
+        return wall_clock
+
+    monkeypatch.setattr(service_module.time, "time", regressing_time)
+    task = _create_ready(_service())
+    timestamps = [
+        task.created_at,
+        *(event.ts for event in task.events),
+        task.updated_at,
+    ]
+    assert all(
+        earlier <= later for earlier, later in zip(timestamps, timestamps[1:])
+    )
+
+
 def test_writer_restart_fails_interrupted_running_task(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
