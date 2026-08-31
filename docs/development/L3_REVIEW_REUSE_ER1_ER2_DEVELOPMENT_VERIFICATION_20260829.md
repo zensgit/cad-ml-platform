@@ -8,8 +8,9 @@
 **Ratified authority**: PR #583 exact head
 `9150e06c75721bf086572ed271b68548104e8300`<br>
 **Runtime implementation head**:
-`325e8be4efb7ef8acabe8881cbf2070320825970`
-(`fix: clamp ReviewReuse decision timestamps`), on top of restart/ledger repair
+`d9ac9f98a5320b9d964a5d8ece411c00e7bf58b7`
+(`style: format ReviewReuse event timestamp guard`), containing logical repair
+`a7a6e417`, initial decision-clock repair `325e8be4`, restart/ledger repair
 `444f65f3`, strict numeric
 repair `721a5214`, calibration-envelope repair `1d0ad7fd`, the original
 runtime commit `6cc55841`, and the intervening fail-first hardening chain.
@@ -53,7 +54,7 @@ named by design-lock section 9.1:
 | Parent / authority | `9150e06c75721bf086572ed271b68548104e8300` |
 | Files | `test_review_reuse_er1_store_integrity.py`, `test_review_reuse_er2_ledger.py`, `test_review_reuse_api_integrity.py` |
 | Baseline result | **18 failed** |
-| Runtime-head result | **141 passed** |
+| Runtime-head result | **142 passed** |
 
 Exact command:
 
@@ -187,9 +188,10 @@ named tests plus narrower adversarial cases.
 - Every persisted mutation is a store-level CAS and increments revision by
   exactly one.
 - Existing events are immutable and every state mutation appends an event.
-- Generated event and human-decision timestamps are clamped to the prior task
-  update time, so a regressing system wall clock cannot violate the durable
-  ledger chronology or reject an otherwise valid decision.
+- A generated human-decision timestamp is clamped to the prior task update
+  time. Its event timestamp is then clamped to the raw clock, task update, and
+  attached decision time, so regression before or between clock reads cannot
+  violate durable ledger chronology or reject an otherwise valid decision.
 - The final newly appended event must match the accepted old/new state
   transition. A decision event must also bind state, reviewer, candidate,
   reviewed revision, and EvidencePack digest to the committed decision.
@@ -716,14 +718,31 @@ the decision event and final update. The focused case is **1 passed**. This is
 an ER2 ledger-integrity repair only: it does not enable decisions or expand
 deployment, pilot, ER3, or ER4 authority.
 
+A twenty-first exact-head GitHub review (`5062585451`) at
+`3196d4d3b505214e639dfbc85112bfed968753be` found the remaining two-read race.
+If the first clock read advanced beyond `task.updated_at` and the second read
+regressed, the decision retained the newer value while `_emit` used the older
+task-update floor. Store validation then correctly rejected the otherwise valid
+submission because `human_decision.ts > decision_submitted.ts`.
+
+Test-only commit `a28766a731ee739ff91c0267242f9fdb11615ab3`
+reproduced the case as one clean business-path failure; its first iterator-only
+harness attempt was discarded because it also exhausted the process-global
+clock during logging teardown. Runtime repair
+`a7a6e417b30ae3762f51a012ff140d5eb520b4f2` makes `_emit` clamp every event to
+an attached decision timestamp as well as the task update and raw clock. Black
+format-only commit `d9ac9f98a5320b9d964a5d8ece411c00e7bf58b7`
+contains no semantic change. Both decision-clock cases pass together.
+
 ## 6. Verification evidence
 
 Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
-`325e8be4`.
+`d9ac9f98`.
 
 | Gate | Result |
 |---|---:|
-| Exact named fail-first command, including narrower additions | **141 passed** |
+| Exact named fail-first command, including narrower additions | **142 passed** |
+| Focused between-read decision/event clock regression case | **1 passed** (red: 1 failed at test-only `a28766a7`) |
 | Focused decision wall-clock regression case | **1 passed** (red: 1 failed at test-only `bc618ef3`) |
 | Focused event-ledger mutation batch | **3 passed** (red: 3 failed at test-only `390daf25`) |
 | Focused writer-restart recovery case | **1 passed** (red: 1 failed at test-only `390daf25`) |
@@ -747,7 +766,7 @@ Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
 | Focused bounded-body/native-ledger/legacy-layout batch | **5 passed** (red: 5 failed at test-only `783d3996`) |
 | Focused initial-event metadata batch | **7 passed** (red: 5 failed at test-only `1af3587a`) |
 | Focused decision-event timestamp batch | **10 passed** (red: 3 failed / 7 passed at test-only `e3b86a99`) |
-| `make PYTHON=/private/tmp/cadml-review-reuse-testenv-20260831/bin/python test-review-reuse` | **238 passed** |
+| `make PYTHON=/private/tmp/cadml-review-reuse-testenv-20260831/bin/python test-review-reuse` | **239 passed** |
 | Integration-auth + production-identity + pilot-preflight regressions | **47 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 test-core` | **39 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-openapi` | **5 passed** |
@@ -788,14 +807,14 @@ the project's `str | None` annotations. The isolated Python 3.11 environment
 was completed with the repository-pinned `python-multipart==0.0.18` and
 `PyJWT[crypto]==2.10.1` dependencies before the successful commands above.
 
-At the superseded pushed documentation head
-`9b4115eaa5295e1e7ef334cd22361c8b3b0e5d82`, every emitted GitHub check
-completed without a failing conclusion. Those checks covered action pinning,
-metrics, and stress/observability workflows only. Repository workflow search
-found no job selecting `make test-review-reuse`; therefore the green GitHub
-state is not represented as execution of the 238-test ReviewReuse gate. The
-exact-head GitHub review requested for that superseded head also cannot validate
-the later fail-first and runtime commits. Draft
+At superseded pushed heads `9b4115ea` and `3196d4d3`, every emitted GitHub
+check completed without a failing conclusion. Those checks covered action
+pinning, metrics, and stress/observability workflows only. Repository workflow
+search found no job selecting `make test-review-reuse`; therefore the green
+GitHub state is not represented as execution of the 239-test ReviewReuse gate.
+The exact-head review at `3196d4d3` found the between-read race above, and
+neither superseded head validates the later fail-first/runtime/style commits.
+Draft
 PR #581 is unrelated synthetic-superpass CI work and does not close this gap.
 
 ## 7. Boundary verification
