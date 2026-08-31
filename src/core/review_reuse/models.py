@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictFloat
 
 
 class TaskStatus(str, Enum):
@@ -74,7 +74,7 @@ class TaskEvent(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     event_type: TaskEventType
-    ts: float
+    ts: StrictFloat
     detail: Dict[str, Any] = Field(default_factory=dict)
 
 
@@ -84,7 +84,7 @@ class CandidateDecision(BaseModel):
     candidate_id: str
     candidate_source: str = "archive"
     state: CandidateState
-    scores: Dict[str, Optional[float]] = Field(default_factory=dict)
+    scores: Dict[str, Optional[StrictFloat]] = Field(default_factory=dict)
     verification: Dict[str, Any] = Field(default_factory=dict)
     rejection_reasons: List[str] = Field(default_factory=list)
     provenance: Dict[str, Any] = Field(default_factory=dict)
@@ -99,7 +99,7 @@ class HumanDecision(BaseModel):
     reason_codes: List[str] = Field(default_factory=list)
     reason_text: str = ""
     candidate_id: Optional[str] = None
-    ts: float
+    ts: StrictFloat
     idempotency_key: Optional[str] = None
     idempotency_digest: Optional[str] = None
     reviewed_revision: int = Field(default=1, ge=1, strict=True)
@@ -112,8 +112,8 @@ class ReviewReuseTask(BaseModel):
     task_id: str
     tenant_id: str
     status: TaskStatus
-    created_at: float
-    updated_at: float
+    created_at: StrictFloat
+    updated_at: StrictFloat
     source_file_name: str = ""
     source_content_sha256: str = ""
     idempotency_key: Optional[str] = None
