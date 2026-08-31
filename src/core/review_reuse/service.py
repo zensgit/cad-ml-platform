@@ -531,7 +531,7 @@ class ReviewReuseService:
             reason_codes=normalized_reasons,
             reason_text=normalized_text,
             candidate_id=normalized_candidate,
-            ts=time.time(),
+            ts=max(time.time(), task.updated_at),
             idempotency_key=key,
             idempotency_digest=decision_digest if key is not None else None,
             reviewed_revision=expected_revision,
