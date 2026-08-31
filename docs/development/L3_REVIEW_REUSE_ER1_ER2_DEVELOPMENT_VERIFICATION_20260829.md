@@ -8,11 +8,10 @@
 **Ratified authority**: PR #583 exact head
 `9150e06c75721bf086572ed271b68548104e8300`<br>
 **Runtime implementation head**:
-`721a52140857d32fa4927cfda60af5175c7dd030`
-(`fix: load ReviewReuse ledger numerics strictly`), on top of calibration
-envelope repair `1d0ad7fd`, decision-event timestamp repair `b11f3cb1`, the
-original runtime commit `6cc55841`, and the intervening fail-first hardening
-chain.
+`444f65f3ed913b0bf07482ad7326a378adf3a435`
+(`fix: close ReviewReuse restart and ledger gaps`), on top of strict numeric
+repair `721a5214`, calibration-envelope repair `1d0ad7fd`, the original
+runtime commit `6cc55841`, and the intervening fail-first hardening chain.
 
 ## 1. Authorization boundary
 
@@ -53,7 +52,7 @@ named by design-lock section 9.1:
 | Parent / authority | `9150e06c75721bf086572ed271b68548104e8300` |
 | Files | `test_review_reuse_er1_store_integrity.py`, `test_review_reuse_er2_ledger.py`, `test_review_reuse_api_integrity.py` |
 | Baseline result | **18 failed** |
-| Runtime-head result | **135 passed** |
+| Runtime-head result | **140 passed** |
 
 Exact command:
 
@@ -658,14 +657,56 @@ extends the original red cases across all five positions and both invalid
 types. The focused command is now **10 passed**, the complete named fail-first
 command is **135 passed**, and the full ReviewReuse suite is **232 passed**.
 
+A nineteenth exact-head review at
+`91b19d6491cbce44f935f467800cc9a10a5db56d` found two remaining ER2 runtime
+integrity gaps. First, a persisted `evidence_ready` record accepted a changed
+middle event type, a regressed event timestamp, or an `updated_at` preceding
+its final event. Second, process death after durable revision-1 create and
+before final EvidencePack commit left a keyed task permanently `running`; a
+same-key retry returned that snapshot without resuming or terminalizing it.
+
+Test-only commit `390daf250697549c6ef5c5f3183e67a4f52cf504`
+reproduced the ledger mutations as **3 failed** and the restart case as **1
+failed**. Test-only commit
+`3446ea6d1452256a684e287a15b086c8c3328504` separately reproduced a regressing
+wall clock as **1 failed**: the event generator could violate the new timestamp
+invariant before the first durable create.
+
+Runtime repair `444f65f3ed913b0bf07482ad7326a378adf3a435` now validates every
+non-empty runtime event ledger against its legal status sequence and monotonic
+`created_at -> events -> updated_at` chronology. Event generation uses one
+timestamp clamped to the prior task update time. After a writer lease ends, a
+new filesystem writer converts each canonical native `running` snapshot to one
+revision-2 `failed/internal_error` snapshot before serving; a same-key retry
+returns the same terminal task and never creates a second id.
+
+Eventless migrated records remain untouched because the current schema cannot
+prove whether `events=[]` is legitimate history or an erased native ledger.
+The startup recovery therefore does not manufacture a modern `failed` event on
+an unprovable legacy prefix. That boundary remains the separately owner-gated
+schema/provenance issue already recorded below.
+
+Independent read-only Grok 4.6 and Kimi K3 reviews corroborated the restart and
+event-ledger findings. Kimi also traced the default-off live-dedup hook to a
+vision API with no tenant/index namespace; this is the already-deferred ER3
+isolated-archive problem, not authority to modify or enable that path in ER1 +
+ER2. Its local-filesystem directory-swap race observation requires write access
+inside the protected store tree and a separately reviewed dirfd-based design;
+it is recorded as residual hardening, not silently folded into this patch.
+The read-only Claude Code run exited without a usable report and is not counted
+as review evidence.
+
 ## 6. Verification evidence
 
 Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
-`721a5214`.
+`444f65f3`.
 
 | Gate | Result |
 |---|---:|
-| Exact named fail-first command, including narrower additions | **135 passed** |
+| Exact named fail-first command, including narrower additions | **140 passed** |
+| Focused event-ledger mutation batch | **3 passed** (red: 3 failed at test-only `390daf25`) |
+| Focused writer-restart recovery case | **1 passed** (red: 1 failed at test-only `390daf25`) |
+| Focused regressing-wall-clock case | **1 passed** (red: 1 failed at test-only `3446ea6d`) |
 | Focused strict persisted-numeric batch | **10 passed** (red: 4 failed at test-only `c0472d95`) |
 | Focused digest-valid calibration-smuggling batch | **5 passed** (red: 1 failed / 4 passed at test-only `6693458f`) |
 | Focused null/rollback/recovery batch | **6 passed** |
@@ -685,16 +726,16 @@ Runtime-affected commands below ran locally with Python 3.11.15 at runtime head
 | Focused bounded-body/native-ledger/legacy-layout batch | **5 passed** (red: 5 failed at test-only `783d3996`) |
 | Focused initial-event metadata batch | **7 passed** (red: 5 failed at test-only `1af3587a`) |
 | Focused decision-event timestamp batch | **10 passed** (red: 3 failed / 7 passed at test-only `e3b86a99`) |
-| `make PYTHON=/opt/homebrew/bin/python3.11 test-review-reuse` | **232 passed** |
+| `make PYTHON=/private/tmp/cadml-review-reuse-testenv-20260831/bin/python test-review-reuse` | **237 passed** |
 | Integration-auth + production-identity + pilot-preflight regressions | **47 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 test-core` | **39 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-openapi` | **5 passed** |
 | `make PYTHON=/opt/homebrew/bin/python3.11 validate-core-fast` | **exit 0; 229 tests + 10 governance checks** |
 | JCS finite-binary64 differential vs Node `JSON.stringify` at `1ee1bad0`; canonical module unchanged at current head | **20,000 cases; 0 mismatches** |
-| Black + isort | **pass (2 files changed by this hardening)** |
-| flake8 | **pass (2 files changed by this hardening)** |
-| mypy | **success (`src/core/review_reuse/models.py`)** |
-| `py_compile` | **pass (2 files changed by this hardening)** |
+| Black + isort | **pass (4 Python files changed by this hardening)** |
+| flake8 | **pass (4 Python files changed by this hardening)** |
+| mypy | **success (`store.py`, `service.py`)** |
+| `py_compile` | **pass (4 Python files changed by this hardening)** |
 | `git diff --check` | **pass** |
 
 The OpenAPI snapshot was regenerated only after explicit development posture:
@@ -720,6 +761,12 @@ expected fail-closed behavior.
 Observed warnings are pre-existing `ezdxf`/pyparsing deprecations and
 short-key warnings from test-only JWT fixtures. No test failed or was skipped.
 
+A system Python 3.9 attempt is not counted as verification evidence: repository
+`conftest` imports uniformly failed because that interpreter cannot evaluate
+the project's `str | None` annotations. The isolated Python 3.11 environment
+was completed with the repository-pinned `python-multipart==0.0.18` and
+`PyJWT[crypto]==2.10.1` dependencies before the successful commands above.
+
 ## 7. Boundary verification
 
 - The implementation diff has no ER3, ER4, capabilities endpoint,
@@ -737,6 +784,15 @@ short-key warnings from test-only JWT fixtures. No test failed or was skipped.
 - Initial event detail remains an extensible dictionary under the ratified
   contract. Native create binds the required file-name and byte-count fields;
   closing all detail keys would require a separate contract amendment.
+- Writer-restart recovery terminalizes only native `running` records with a
+  canonical non-empty event prefix. It deliberately leaves eventless migrated
+  records unchanged rather than inventing provenance.
+- Default-off live dedup still has no tenant/index namespace in its legacy
+  vision seam. It remains excluded from pilot authority and must be replaced by
+  the isolated ER3 archive path before any real replay.
+- ER1 + ER2 do not claim race-free operation against a privileged local actor
+  that can rename directories inside the protected store tree. Closing that
+  threat requires a separately reviewed dirfd/`O_NOFOLLOW` filesystem design.
 - The 64 KiB decision-body ceiling is enforced while the ASGI request stream
   is consumed. Whether a deployment proxy or ASGI server buffers the complete
   body before application code runs remains a deployment-chain verification
@@ -759,8 +815,10 @@ Still required:
 3. Separate owner authorization before any decision enablement.
 4. Separate ER3 implementation authorization and approved isolated data before real archive
    replay.
-5. ER4 remains deferred until ER1-ER3 prerequisites close and the owner opens
+5. Owner authorization to synchronize #585 onto the final #584 head, followed
+   by a new exact-object ER3 design audit; the current #585 base is stale.
+6. ER4 remains deferred until ER1-ER3 prerequisites close and the owner opens
    its implementation window.
-6. A separate owner-ratified schema/provenance amendment is required before
+7. A separate owner-ratified schema/provenance amendment is required before
    load-time native-versus-migrated reason provenance and an entirely erased
    native event ledger can both be distinguished from valid legacy records.
