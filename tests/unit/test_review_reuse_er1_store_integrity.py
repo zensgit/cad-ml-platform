@@ -224,6 +224,43 @@ def test_native_create_binds_initial_event_metadata(case: str) -> None:
     assert _error_code(raised.value) == "store_record_corrupt"
 
 
+@pytest.mark.parametrize(
+    "case",
+    ["event_type", "event_timestamp", "updated_at"],
+)
+def test_loaded_runtime_event_ledger_is_canonical(
+    tmp_path: Path,
+    case: str,
+) -> None:
+    root = tmp_path / "store"
+    store = FilesystemReviewReuseStore(root)
+    service = ReviewReuseService(store)
+    try:
+        task = service.create_task(
+            tenant_id="tenant-runtime-events",
+            file_name="part.dxf",
+            file_bytes=b"0\nEOF\n",
+            seed_candidates=[],
+        )
+        record_path = (
+            _tenant_dir(root, task.tenant_id) / "tasks" / f"{task.task_id}.json"
+        )
+        payload = json.loads(record_path.read_text(encoding="utf-8"))
+        if case == "event_type":
+            payload["events"][2]["event_type"] = "canceled"
+        elif case == "event_timestamp":
+            payload["events"][2]["ts"] = payload["events"][1]["ts"] - 1
+        else:
+            payload["updated_at"] = payload["events"][-1]["ts"] - 1
+        record_path.write_text(json.dumps(payload), encoding="utf-8")
+
+        with pytest.raises(Exception) as raised:
+            store.get(task.tenant_id, task.task_id)
+        assert _error_code(raised.value) == "store_record_corrupt"
+    finally:
+        _close(store)
+
+
 def test_dotdot_cannot_escape_store_root(tmp_path: Path) -> None:
     root = tmp_path / "container" / "store"
     store = FilesystemReviewReuseStore(root)

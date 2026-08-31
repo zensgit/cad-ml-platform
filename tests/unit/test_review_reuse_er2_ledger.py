@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Any, Dict, List
 
 import pytest
@@ -23,7 +24,10 @@ from src.core.review_reuse.service import (
     ReviewReuseService,
     canonical_reviewer_principal,
 )
-from src.core.review_reuse.store import InMemoryReviewReuseStore
+from src.core.review_reuse.store import (
+    FilesystemReviewReuseStore,
+    InMemoryReviewReuseStore,
+)
 
 _REVIEWER_A = "principal-v1-" + "a" * 64
 _REVIEWER_B = "principal-v1-" + "b" * 64
@@ -171,6 +175,60 @@ def test_pipeline_failure_preserves_attempt_events_without_invalid_payload(
         "precision_completed",
         "failed",
     ]
+
+
+def test_writer_restart_fails_interrupted_running_task(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class SimulatedProcessDeath(BaseException):
+        pass
+
+    root = tmp_path / "store"
+    file_bytes = b"0\nSECTION\n"
+    key = "crash-recovery-key"
+    first_store = FilesystemReviewReuseStore(root)
+    create_if_absent = first_store.create_if_absent
+
+    def crash_after_create(*args: Any, **kwargs: Any) -> Any:
+        created = create_if_absent(*args, **kwargs)
+        assert created.status == TaskStatus.running
+        raise SimulatedProcessDeath
+
+    monkeypatch.setattr(first_store, "create_if_absent", crash_after_create)
+    try:
+        with pytest.raises(SimulatedProcessDeath):
+            ReviewReuseService(first_store).create_task(
+                tenant_id="tenant-crash-recovery",
+                file_name="part.dxf",
+                file_bytes=file_bytes,
+                idempotency_key=key,
+            )
+    finally:
+        first_store.close()
+
+    second_store = FilesystemReviewReuseStore(root)
+    try:
+        [recovered] = second_store.list_for_tenant("tenant-crash-recovery")
+        assert recovered.status == TaskStatus.failed
+        assert recovered.revision == 2
+        assert recovered.error_code == "internal_error"
+        assert recovered.events[-1].event_type == TaskEventType.failed
+
+        replayed = ReviewReuseService(second_store).create_task(
+            tenant_id="tenant-crash-recovery",
+            file_name="part.dxf",
+            file_bytes=file_bytes,
+            idempotency_key=key,
+        )
+        assert replayed.task_id == recovered.task_id
+        assert replayed.status == TaskStatus.failed
+        assert [
+            task.task_id
+            for task in second_store.list_for_tenant("tenant-crash-recovery")
+        ] == [recovered.task_id]
+    finally:
+        second_store.close()
 
 
 @pytest.mark.parametrize(
