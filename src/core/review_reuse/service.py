@@ -598,7 +598,9 @@ class ReviewReuseService:
         self, task: ReviewReuseTask, event_type: TaskEventType, detail: Dict[str, Any]
     ) -> ReviewReuseTask:
         decision_time = (
-            task.human_decision.ts if task.human_decision is not None else task.updated_at
+            task.human_decision.ts
+            if task.human_decision is not None
+            else task.updated_at
         )
         event_time = max(time.time(), task.updated_at, decision_time)
         task.events = list(task.events) + [
