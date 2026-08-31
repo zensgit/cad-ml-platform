@@ -685,6 +685,40 @@ def test_task_record_unknown_fields_fail_closed(
 
 
 @pytest.mark.parametrize(
+    "field_path",
+    [
+        ("created_at",),
+        ("events", 0, "ts"),
+        ("candidates", 0, "scores", "geometric"),
+        ("human_decision", "ts"),
+    ],
+)
+def test_persisted_numeric_fields_reject_string_coercion(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    field_path: tuple[str | int, ...],
+) -> None:
+    root = tmp_path / "store"
+    store, _, decided, record_path = _create_decided_task(
+        root, monkeypatch, tenant_id="tenant-strict-numeric-ledger"
+    )
+    try:
+        payload = json.loads(record_path.read_text(encoding="utf-8"))
+        parent = payload
+        for segment in field_path[:-1]:
+            parent = parent[segment]
+        leaf = field_path[-1]
+        parent[leaf] = str(parent[leaf])
+        record_path.write_text(json.dumps(payload), encoding="utf-8")
+
+        with pytest.raises(Exception) as raised:
+            store.get(decided.tenant_id, decided.task_id)
+        assert _error_code(raised.value) == "store_record_corrupt"
+    finally:
+        _close(store)
+
+
+@pytest.mark.parametrize(
     "field",
     ["reviewed_revision", "evidence_pack_sha256"],
 )
