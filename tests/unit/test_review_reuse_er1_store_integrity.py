@@ -688,15 +688,18 @@ def test_task_record_unknown_fields_fail_closed(
     "field_path",
     [
         ("created_at",),
+        ("updated_at",),
         ("events", 0, "ts"),
         ("candidates", 0, "scores", "geometric"),
         ("human_decision", "ts"),
     ],
 )
-def test_persisted_numeric_fields_reject_string_coercion(
+@pytest.mark.parametrize("replacement_kind", ["string", "boolean"])
+def test_persisted_numeric_fields_reject_type_coercion(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     field_path: tuple[str | int, ...],
+    replacement_kind: str,
 ) -> None:
     root = tmp_path / "store"
     store, _, decided, record_path = _create_decided_task(
@@ -708,7 +711,7 @@ def test_persisted_numeric_fields_reject_string_coercion(
         for segment in field_path[:-1]:
             parent = parent[segment]
         leaf = field_path[-1]
-        parent[leaf] = str(parent[leaf])
+        parent[leaf] = str(parent[leaf]) if replacement_kind == "string" else True
         record_path.write_text(json.dumps(payload), encoding="utf-8")
 
         with pytest.raises(Exception) as raised:
