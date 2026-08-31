@@ -29,8 +29,8 @@ implementation, merge, decision enablement, deployment, pilot, or customer data.
 | Embedded manifest proposal canonical digest; no manifest file exists at this docs-only head | `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf` |
 | Static attestation digest | `4707f793f3597ebe12da4c6474bbb25208ccd9b1de48920a27c5ca083babe6cd` |
 | Static attestation raw file SHA-256 | `5d7e15aa82d714ad371e106deb3c6310cfc82c3062731392bfb3a6c2db175d94` |
-| EvidencePack v2 contract digest | `fd975ffeed670e16f0b325c579d691ecdacf8a4f9c567ddb6b432b30e25fe4e3` |
-| EvidencePack v2 contract raw file SHA-256 | `be4ec32e4b26076c9ee2763864d9292bda45562a90fee767ce94d519fe40e6d7` |
+| EvidencePack v2 contract digest | `b9bef4f8005ea041238a70ec68979cb0d367613efaccd83afb69adac4eb89a6e` |
+| EvidencePack v2 contract raw file SHA-256 | `c562b6b067a37fc2dd3919f0b8f0a9fea1a4bee19bf69f25bad21ee58c2c5cfb` |
 | Embedded EvidencePack golden digest | `482dc6dfbd7433b4d0a04a5d681c30c08a48ca9cc65a4a286cfe105544095b42` |
 | Verified fixture-set golden digest | `536113fa48ac2f692635959bd5f1d0f8ac92faff1fc8ab9f27679a5f474e51b1` |
 | Vision OCI index | `sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251` |
@@ -60,12 +60,12 @@ quality or runtime evidence. The critical provenance vectors are:
 | Runtime preflight | `9c7538d7b1c2e4dde207918fe26e7d8e078e8219acf1119ceebf17ac9104d34d` |
 | Continuous runtime seal | `19e2273efb9c0e2c5131cd62c23f37e52ca129f0f47a131781f8d7fdf45c25e3` |
 | EvidencePack v2 canonical artifact bytes | `2841d9db0801904c9cc5ff3de60e638c8e77b826d7b9eeaa444a529dbc069a58` |
-| EvidencePack v2 Markdown bytes | `6e5778233d90887932e2eea2a182df9563f4af03804467098427b6e00b9eeac2` |
+| EvidencePack v2 Markdown bytes | `4e79580c0d3312eb698854f04d89239ff358dfd372de1f6349bc1b60ca15f84a` |
 | Revision-4 task artifact | `c15eed3d853b6582547fabc4855caf9bd9b7894efab449b5b4e031aaedba4a54` |
-| Pre-summary artifact map | `efb37243785c3fc597ee2fe823bc47d5598a079d9c2d1c6a92a3dc7a6e9a98db` |
-| Success-intent golden vector | `158cce01968529d61acc3a1236a0acd2986e46e478e9e1ec12e2f44146317eb5` |
-| Success-intent canonical artifact bytes | `3752329ccaaa5e14a4e4a45888214491a58ef642d7945bacc843cba73ada9585` |
-| Run-summary golden vector | `5e3b460f2776c669ca0f55d06705a899940906083bb697eb8692391e4d32e2f1` |
+| Pre-summary artifact map | `935d6cc53a077c756f9303e8e293aa0144177f7dae32036e3b8b7be815d15c0c` |
+| Success-intent golden vector | `97a6915d5a3757936064e30b81159b787bbc5a48fb659b57f4e5e85a5e2b3447` |
+| Success-intent canonical artifact bytes | `3fb3c203175d625df2e65dfc592b5c92c80ded43d2e3e763acd5cba08c57e14b` |
+| Run-summary golden vector | `9411e2d861b7bd326491e481c0582ea800d0238b3d7f5a6ba70fb4505c1bc9ce` |
 
 ## 2. OCI and source binding
 
@@ -564,12 +564,24 @@ Results:
 | Future Gate-A artifacts at runtime base | absent; the `git ls-tree` selection above is empty |
 | v1 mapping/build/API source | `dedup_live.py`, `evidence.py`, and `review_reuse.py` retain identical Git blobs `d2f894e4...`, `6b51e42d...`, and `324ee5d0...` |
 | Digest-sensitive source subtrees | `vision_response_to_hits`, `build_evidence_pack`, `evidence_pack_digest`, `_decision_payload_digest`, and the `submit_decision` digest assignment retain identical AST digests across both heads |
-| Contract graph | strict I-JSON passed; 43 dependent scalar values were changed; all 11 checked digest relationships, including the whole-contract self digest, recomputed exactly |
-| Contract identity | canonical digest `fd975ffeed670e16f0b325c579d691ecdacf8a4f9c567ddb6b432b30e25fe4e3`; raw SHA-256 `be4ec32e4b26076c9ee2763864d9292bda45562a90fee767ce94d519fe40e6d7` |
+| Contract graph | strict I-JSON passed; 46 scalar fields differ from the preceding base; all 12 dependent contract relationships, including deterministic Markdown and the whole-contract self digest, recomputed exactly |
+| Contract identity | canonical digest `b9bef4f8005ea041238a70ec68979cb0d367613efaccd83afb69adac4eb89a6e`; raw SHA-256 `c562b6b067a37fc2dd3919f0b8f0a9fea1a4bee19bf69f25bad21ee58c2c5cfb` |
 | 106-node design classification | unchanged: `104 expected-red / 2 expected-existing-pass / 0 skipped / 0 xfailed / 0 unclassified`; existing-pass sequences remain 28 and 34 |
 | Existing v1 guard | a 17-byte synthetic `image/png` upload to the public v1 route returned `415 / unsupported_file_type`; no repository fixture or customer byte was read |
 | Local regression | focused canonical/Golden/ER1 selection `134/134`; complete existing ReviewReuse selection `239/239`; seven pre-existing deprecation warnings |
 | Runtime authority | exact string `none` |
+
+The exact-head GitHub Codex review of
+`ade14e149cf334d9743655453f7bf9ed0c3663e2` identified one P1 omitted
+dependency: changing the embedded EvidencePack digest also changes the bytes
+produced by `markdown_contract.exact_expression`. Independent reproduction
+rendered exactly 3,556 bytes with SHA-256
+`4e79580c0d3312eb698854f04d89239ff358dfd372de1f6349bc1b60ca15f84a`.
+The correction recomputed nine scalar bindings: three Markdown digest mirrors,
+the pre-summary artifact map, two success-intent digest mirrors, the canonical
+success-intent artifact, the run summary, and the contract self digest. It did
+not change the runtime base, 106-node classification, attestation, source,
+runtime, or authorization posture.
 
 The read-only function comparison parsed each old/new `git show` source stream,
 hashed `ast.dump(..., include_attributes=False)`, and produced identical

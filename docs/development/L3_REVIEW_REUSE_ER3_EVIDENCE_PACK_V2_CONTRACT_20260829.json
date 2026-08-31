@@ -2,7 +2,7 @@
   "schema_version": "review-reuse-er3-evidence-pack-v2-contract-v1",
   "contract_status": "proposed_not_ratified",
   "runtime_authority": "none",
-  "contract_sha256": "fd975ffeed670e16f0b325c579d691ecdacf8a4f9c567ddb6b432b30e25fe4e3",
+  "contract_sha256": "b9bef4f8005ea041238a70ec68979cb0d367613efaccd83afb69adac4eb89a6e",
   "canonicalization": {
     "algorithm": "sha-256",
     "function": "src.core.review_reuse.canonical.canonical_json_v1",
@@ -3142,8 +3142,8 @@
         "runtime_preflight_sha256": "9c7538d7b1c2e4dde207918fe26e7d8e078e8219acf1119ceebf17ac9104d34d",
         "runtime_seal_receipt_sha256": "19e2273efb9c0e2c5131cd62c23f37e52ca129f0f47a131781f8d7fdf45c25e3",
         "resource_ownership_sha256": "103acb5087f3624731243d89dc1cb210dfd2c039d0ac24894def8acd28dbcd9d",
-        "pre_summary_artifacts_sha256": "efb37243785c3fc597ee2fe823bc47d5598a079d9c2d1c6a92a3dc7a6e9a98db",
-        "success_intent_sha256": "158cce01968529d61acc3a1236a0acd2986e46e478e9e1ec12e2f44146317eb5"
+        "pre_summary_artifacts_sha256": "935d6cc53a077c756f9303e8e293aa0144177f7dae32036e3b8b7be815d15c0c",
+        "success_intent_sha256": "97a6915d5a3757936064e30b81159b787bbc5a48fb659b57f4e5e85a5e2b3447"
       },
       "golden_external_preimages": {
         "task_artifact": {
@@ -3185,7 +3185,7 @@
             "size_bytes": 3472
           },
           "evidence/evidence.md": {
-            "sha256": "6e5778233d90887932e2eea2a182df9563f4af03804467098427b6e00b9eeac2",
+            "sha256": "4e79580c0d3312eb698854f04d89239ff358dfd372de1f6349bc1b60ca15f84a",
             "size_bytes": 3556
           },
           "receipts/preflight/docker-environment.json": {
@@ -3339,7 +3339,7 @@
       "archive_manifest_sha256": "7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf",
       "runtime_preflight_sha256": "9c7538d7b1c2e4dde207918fe26e7d8e078e8219acf1119ceebf17ac9104d34d",
       "runtime_seal_receipt_sha256": "19e2273efb9c0e2c5131cd62c23f37e52ca129f0f47a131781f8d7fdf45c25e3",
-      "success_intent_sha256": "158cce01968529d61acc3a1236a0acd2986e46e478e9e1ec12e2f44146317eb5",
+      "success_intent_sha256": "97a6915d5a3757936064e30b81159b787bbc5a48fb659b57f4e5e85a5e2b3447",
       "repository_commit": "1994696b6c9eb92b8b9e0da970a4d0044d92dc15",
       "reviewed_command_sha256": "e31adaf2d2d365825523a85b1bb51e223b59d44b7c5b2cd9fee19c04a519a8f9",
       "runner_version": "review-reuse-er3-runner-v1",
@@ -3360,7 +3360,7 @@
           "size_bytes": 3472
         },
         "evidence/evidence.md": {
-          "sha256": "6e5778233d90887932e2eea2a182df9563f4af03804467098427b6e00b9eeac2",
+          "sha256": "4e79580c0d3312eb698854f04d89239ff358dfd372de1f6349bc1b60ca15f84a",
           "size_bytes": 3556
         },
         "receipts/preflight/docker-environment.json": {
@@ -3376,7 +3376,7 @@
           "size_bytes": 657
         },
         "state/success-intent.json": {
-          "sha256": "3752329ccaaa5e14a4e4a45888214491a58ef642d7945bacc843cba73ada9585",
+          "sha256": "3fb3c203175d625df2e65dfc592b5c92c80ded43d2e3e763acd5cba08c57e14b",
           "size_bytes": 961
         },
         "task/task.json": {
@@ -3385,14 +3385,14 @@
         }
       }
     },
-    "golden_summary_sha256": "5e3b460f2776c669ca0f55d06705a899940906083bb697eb8692391e4d32e2f1"
+    "golden_summary_sha256": "9411e2d861b7bd326491e481c0582ea800d0238b3d7f5a6ba70fb4505c1bc9ce"
   },
   "markdown_contract": {
     "media_type": "text/markdown; charset=utf-8",
     "exact_expression": "b\"# ReviewReuse EvidencePack v2\\n\\n\" + b\"Canonical evidence (null remains unavailable):\\n\\n    \" + canonical_json_v1(validated_persisted_pack) + b\"\\n\"",
     "source": "validated persisted EvidencePack selected by the immutable task selector",
     "golden_markdown_size_bytes": 3556,
-    "golden_markdown_sha256": "6e5778233d90887932e2eea2a182df9563f4af03804467098427b6e00b9eeac2",
+    "golden_markdown_sha256": "4e79580c0d3312eb698854f04d89239ff358dfd372de1f6349bc1b60ca15f84a",
     "invariants": [
       "evidence.md equals the exact expression bytes",
       "audit bundle Markdown is the strict UTF-8 decode of those bytes",

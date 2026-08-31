@@ -974,9 +974,9 @@ with one immutable selector:
 The complete v2 canonical contract is
 `docs/development/L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json`
 with contract digest
-`fd975ffeed670e16f0b325c579d691ecdacf8a4f9c567ddb6b432b30e25fe4e3`.
+`b9bef4f8005ea041238a70ec68979cb0d367613efaccd83afb69adac4eb89a6e`.
 Its reviewed raw-file SHA-256 is
-`be4ec32e4b26076c9ee2763864d9292bda45562a90fee767ce94d519fe40e6d7`.
+`c562b6b067a37fc2dd3919f0b8f0a9fea1a4bee19bf69f25bad21ee58c2c5cfb`.
 It freezes exact object keys, types/nullability, list ordering, task context,
 unknown-field rejection, and digest exclusions. Its embedded golden vector has
 EvidencePack digest
@@ -1130,9 +1130,9 @@ b"Canonical evidence (null remains unavailable):\n\n    " \
 Pretty JSON, `repr`, locale, wall-clock time, or host paths are forbidden.
 `evidence.md` equals those bytes; the audit bundle Markdown is their strict UTF-8
 decode. The golden bytes are 3,556 bytes with SHA-256
-`6e5778233d90887932e2eea2a182df9563f4af03804467098427b6e00b9eeac2`.
+`4e79580c0d3312eb698854f04d89239ff358dfd372de1f6349bc1b60ca15f84a`.
 The minimal run-summary serialization vector has digest
-`5e3b460f2776c669ca0f55d06705a899940906083bb697eb8692391e4d32e2f1`.
+`9411e2d861b7bd326491e481c0582ea800d0238b3d7f5a6ba70fb4505c1bc9ce`.
 V1 rendering remains byte-identical.
 
 Replay first acquires a shared lock on the same permanent run-level lease used
@@ -1664,7 +1664,7 @@ ER3 is complete only when all of the following are true at one exact head:
 - the runtime manifest matches §4 digest
   `7fd1e774429fa5f75ab5728ed3e2a55b1972d18d8629da584bcf37dc1de91acf`;
 - the v2 contract and golden digests remain
-  `fd975ffeed670e16f0b325c579d691ecdacf8a4f9c567ddb6b432b30e25fe4e3`
+  `b9bef4f8005ea041238a70ec68979cb0d367613efaccd83afb69adac4eb89a6e`
   and `482dc6dfbd7433b4d0a04a5d681c30c08a48ca9cc65a4a286cfe105544095b42`;
 - existing ReviewReuse, identity, production-preflight, and core-fast suites are
   green without skips added for this tranche;
@@ -1707,8 +1707,8 @@ Suggested Gate-A fail-first-only owner response:
 > EvidencePack v2 contract
 > `docs/development/L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json`
 > canonical/raw digests
-> `fd975ffeed670e16f0b325c579d691ecdacf8a4f9c567ddb6b432b30e25fe4e3` /
-> `be4ec32e4b26076c9ee2763864d9292bda45562a90fee767ce94d519fe40e6d7`,
+> `b9bef4f8005ea041238a70ec68979cb0d367613efaccd83afb69adac4eb89a6e` /
+> `c562b6b067a37fc2dd3919f0b8f0a9fea1a4bee19bf69f25bad21ee58c2c5cfb`,
 > and golden EvidencePack digest
 > `482dc6dfbd7433b4d0a04a5d681c30c08a48ca9cc65a4a286cfe105544095b42`.
 > I authorize only §8.1 and its exact 106-node fail-first contract: the new test
