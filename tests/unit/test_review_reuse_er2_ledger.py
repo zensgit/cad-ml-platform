@@ -199,6 +199,27 @@ def test_pipeline_event_timestamps_survive_wall_clock_regression(
     assert all(earlier <= later for earlier, later in zip(timestamps, timestamps[1:]))
 
 
+def test_decision_timestamp_survives_wall_clock_regression(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.core.review_reuse import service as service_module
+
+    monkeypatch.setenv("REVIEW_REUSE_DECISIONS_ENABLED", "true")
+    service = _service()
+    task = _create_ready(service)
+    prior_event_time = task.events[-1].ts
+    monkeypatch.setattr(service_module.time, "time", lambda: prior_event_time - 1.0)
+
+    decided = _submit(service, task)
+    assert decided.human_decision is not None
+    assert (
+        prior_event_time
+        <= decided.human_decision.ts
+        <= decided.events[-1].ts
+        <= decided.updated_at
+    )
+
+
 def test_writer_restart_fails_interrupted_running_task(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
