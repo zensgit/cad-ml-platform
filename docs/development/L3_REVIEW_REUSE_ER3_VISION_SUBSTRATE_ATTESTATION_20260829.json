@@ -1,0 +1,777 @@
+{
+  "schema_version": "review-reuse-er3-vision-substrate-attestation-v1",
+  "attestation_status": "static_verified_runtime_unverified",
+  "attestation_sha256": "4707f793f3597ebe12da4c6474bbb25208ccd9b1de48920a27c5ca083babe6cd",
+  "image": {
+    "reference": "ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
+    "index_digest": "sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251",
+    "index_media_type": "application/vnd.oci.image.index.v1+json",
+    "platforms": [
+      {
+        "os": "linux",
+        "architecture": "amd64",
+        "manifest_digest": "sha256:036db4725b5578689d76c1ced933aa9438bd628e257387515e214de5a838ce20",
+        "docker_image_id_expected": "sha256:9d056adc789ee0980de046205f0bb009c57a36a5a94ea329c2971e5cecf30bc0",
+        "provenance_manifest_digest": "sha256:b2020afa39ef4d09881d169ef22ccf2590e79be93018400543bf3161f07b22a6",
+        "provenance_statement_layer_digest": "sha256:1fd52fd641704c20d678c4133741a3800e6cf0f1b84b3e98c150cb4dc82517a0"
+      },
+      {
+        "os": "linux",
+        "architecture": "arm64",
+        "manifest_digest": "sha256:c81c77d8672aa36854e9cf0d650f689958266d8b86297abf1c39358038e84689",
+        "docker_image_id_expected": "sha256:6895fa7587fa7e1e541e3eb0f440bef94715e631d8a116a3ab2e7b3dcd76a838",
+        "provenance_manifest_digest": "sha256:4b62e8e6b887343f0222f4a2de205f0a4ad00fc7e35d81a5152b2c3ff2c02ba7",
+        "provenance_statement_layer_digest": "sha256:17910b237e2d192e8ef8423c26cf129340a8eb8019ae128801e8df60da8cb59b"
+      }
+    ],
+    "provenance": {
+      "predicate_type": "https://slsa.dev/provenance/v0.2",
+      "source_repository": "https://github.com/zensgit/dedupcad-vision.git",
+      "source_revision": "2fc35d60ff034c9f790868c02381a9716becc942",
+      "subject_version": "1.1.1",
+      "reproducible": false,
+      "materials_complete": false
+    },
+    "config_environment_exact": [
+      "PATH=/opt/venv/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      "LANG=C.UTF-8",
+      "GPG_KEY=A035C8C19219BA821ECEA86B64E628F8D684696D",
+      "PYTHON_VERSION=3.11.14",
+      "PYTHON_SHA256=8d3ed8ec5c88c1c95f5e558612a725450d2452813ddad5e58fdb1a53b1209b78",
+      "PYTHONUNBUFFERED=1",
+      "PYTHONDONTWRITEBYTECODE=1",
+      "PYTHONPATH=/app/src"
+    ]
+  },
+  "source_contract": {
+    "working_directory": "/app",
+    "user": "appuser",
+    "command": [
+      "uvicorn",
+      "caddedup_vision.api.main:app",
+      "--host",
+      "0.0.0.0",
+      "--port",
+      "8000"
+    ],
+    "declared_volumes": [
+      "/app/data",
+      "/app/indexes",
+      "/app/logs"
+    ],
+    "reported_versions": {
+      "provenance_subject": "1.1.1",
+      "pyproject": "1.1.0",
+      "health_and_openapi": "0.2.0",
+      "authority": "image index digest plus source revision"
+    },
+    "input_media": {
+      "index_endpoint": "POST /api/index/add?user_name=review-reuse-er3-fixture&upload_to_s3=false",
+      "index_required_query": {
+        "user_name": "review-reuse-er3-fixture",
+        "upload_to_s3": false
+      },
+      "search_endpoint": "POST /api/v2/search",
+      "multipart_file_field": "file",
+      "er3_media_type": "image/png",
+      "direct_dxf_supported_by_these_endpoints": false,
+      "reason": "Both endpoints pass the uploaded file directly to pyvips, Pillow, and OpenCV image loaders; they do not invoke the separate ezdxf geometry routes. The pinned index endpoint also requires user_name as a query parameter."
+    },
+    "fixed_http_argv": {
+      "no_egress_probe": [
+        "/usr/bin/curl",
+        "--disable",
+        "--noproxy",
+        "*",
+        "--proto",
+        "=http",
+        "--silent",
+        "--show-error",
+        "--output",
+        "/dev/null",
+        "--write-out",
+        "%{http_code}",
+        "--connect-timeout",
+        "2",
+        "--max-time",
+        "3",
+        "--max-redirs",
+        "0",
+        "http://198.51.100.1:80/"
+      ],
+      "common_prefix": [
+        "/usr/bin/curl",
+        "--disable",
+        "--noproxy",
+        "*",
+        "--proto",
+        "=http",
+        "--fail-with-body",
+        "--silent",
+        "--show-error",
+        "--write-out",
+        "\\n%{http_code}",
+        "--connect-timeout",
+        "2",
+        "--max-time",
+        "30",
+        "--max-redirs",
+        "0"
+      ],
+      "health_suffix": [
+        "--request",
+        "GET",
+        "http://127.0.0.1:8000/health"
+      ],
+      "stats_suffix": [
+        "--request",
+        "GET",
+        "http://127.0.0.1:8000/api/stats"
+      ],
+      "index_add_suffix_template": [
+        "--request",
+        "POST",
+        "--form",
+        "file=@-;filename=<archive_runtime_name>;type=image/png",
+        "http://127.0.0.1:8000/api/index/add?user_name=review-reuse-er3-fixture&upload_to_s3=false"
+      ],
+      "rebuild_suffix": [
+        "--request",
+        "POST",
+        "http://127.0.0.1:8000/api/v2/index/rebuild"
+      ],
+      "preindex_search_suffix": [
+        "--request",
+        "POST",
+        "--form",
+        "file=@-;filename=query-exact-001.png;type=image/png",
+        "--form",
+        "mode=fast",
+        "--form",
+        "max_results=1",
+        "--form",
+        "compute_diff=false",
+        "--form",
+        "enable_ml=false",
+        "--form",
+        "enable_geometric=false",
+        "http://127.0.0.1:8000/api/v2/search"
+      ],
+      "product_search_suffix": [
+        "--request",
+        "POST",
+        "--form",
+        "file=@-;filename=query-exact-001.png;type=image/png",
+        "--form",
+        "mode=balanced",
+        "--form",
+        "max_results=5",
+        "--form",
+        "compute_diff=false",
+        "--form",
+        "enable_ml=false",
+        "--form",
+        "enable_geometric=true",
+        "http://127.0.0.1:8000/api/v2/search"
+      ],
+      "constraints": [
+        "the runner concatenates common_prefix with exactly one suffix, substitutes only a manifest-validated archive_runtime_name, and adds docker exec -i only for the five direct multipart uploads",
+        "every curl argv begins with absolute /usr/bin/curl then --disable; no default curl config, PATH lookup, --location, --retry, --unix-socket, proxy option, user-supplied URL, header, form field, or command fragment is accepted",
+        "file=@- reads the already size/hash-verified immutable fixture buffer from raw stdin; filename and image/png media type are fixed by the manifest and no container pathname is created",
+        "the runner splits the final write-out line, requires HTTP status exactly 200, and strictly parses only the preceding body",
+        "HTTP non-success, redirect, timeout, malformed strict I-JSON, or extra/missing response fields fails closed"
+      ]
+    }
+  },
+  "mutable_paths": [
+    {
+      "path": "/app/data",
+      "kind": "declared_volume_and_search_state_root",
+      "tmpfs_target": "/app/data",
+      "required": true,
+      "configuration": {
+        "VISION_STORAGE_MODE": "filesystem",
+        "VISION_CACHE_DIR": "/app/data/vision_cache"
+      },
+      "known_contents": [
+        "vision_cache/drawings/*.json",
+        "vision_cache/drawings/*.npy",
+        "vision_cache/history/*.jsonl",
+        "phash_index.pkl",
+        "faiss_index/index.faiss",
+        "faiss_index/id_mapping.pkl",
+        "licenses.db",
+        "update_logs.db",
+        "review_queue.db"
+      ]
+    },
+    {
+      "path": "/app/indexes",
+      "kind": "declared_volume_unused_by_exact_source_revision",
+      "tmpfs_target": "/app/indexes",
+      "required": true,
+      "configuration": {},
+      "known_contents": []
+    },
+    {
+      "path": "/app/logs",
+      "kind": "declared_volume_with_stdout_logging_selected",
+      "tmpfs_target": "/app/logs",
+      "required": true,
+      "configuration": {
+        "LOG_OUTPUT": "stdout"
+      },
+      "known_contents": []
+    },
+    {
+      "path": "/tmp",
+      "kind": "request_tempfiles_and_local_file_storage_fallback",
+      "tmpfs_target": "/tmp",
+      "required": true,
+      "configuration": {
+        "HOME": "/tmp/home",
+        "XDG_CACHE_HOME": "/tmp/xdg-cache",
+        "MPLCONFIGDIR": "/tmp/matplotlib",
+        "TELEMETRY_DIR": "/tmp/telemetry"
+      },
+      "known_contents": [
+        "temporary index and search uploads",
+        "dedupcad-storage/"
+      ]
+    },
+    {
+      "path": "/dev/shm",
+      "kind": "docker_private_shm_tmpfs",
+      "tmpfs_target": "/dev/shm",
+      "required": true,
+      "configuration": {
+        "host_bind": false,
+        "private_ipc": true,
+        "size_bytes": 67108864
+      },
+      "known_contents": []
+    }
+  ],
+  "in_memory_state": [
+    {
+      "name": "FilesystemBackend._drawings",
+      "effect": "authoritative drawing map loaded from VISION_CACHE_DIR and updated by index-add",
+      "reset": "fresh process plus empty /app/data tmpfs"
+    },
+    {
+      "name": "PHashIndex and FAISSIndex",
+      "effect": "L1 and L2 search candidates",
+      "reset": "fresh process plus empty /app/data tmpfs; explicit rebuild after three index-add receipts"
+    },
+    {
+      "name": "routes_progressive._search_cache",
+      "effect": "five-minute response cache keyed by query bytes and search options",
+      "reset": "fresh process; pre-index uses (fast,1,false,false,false) and post-index uses (balanced,5,false,false,true), ordered as mode,max_results,compute_diff,enable_ml,enable_geometric; both tuples are recorded"
+    }
+  ],
+  "integration_flags": {
+    "S3_ENABLED": "false",
+    "EVENT_BUS_ENABLED": "false",
+    "EVENT_BUS_USE_LOCAL": "true",
+    "ML_PLATFORM_ENABLED": "false",
+    "GEOMETRIC_ENABLED": "false",
+    "OTEL_ENABLED": "false",
+    "RATE_LIMIT_ENABLED": "false",
+    "RATE_LIMIT_STORAGE": "memory",
+    "PROMETHEUS_ENABLED": "false",
+    "S3_ACCESS_KEY": "absent",
+    "S3_SECRET_KEY": "absent",
+    "HTTP_PROXY": "absent",
+    "HTTPS_PROXY": "absent",
+    "ALL_PROXY": "absent",
+    "http_proxy": "absent",
+    "https_proxy": "absent",
+    "all_proxy": "absent"
+  },
+  "authoritative_cardinality": {
+    "count_endpoint": "GET /api/stats",
+    "count_json_pointer": "/stats/total_drawings",
+    "count_source": "FilesystemBackend.get_stats() length of its loaded drawing map",
+    "expected_pre_index_count": 0,
+    "expected_post_index_count": 3,
+    "list_endpoint": null,
+    "identifier_binding": {
+      "source": "the complete set of three successful POST /api/index/add receipts on a pre-count-zero instance",
+      "required_fields": [
+        "success",
+        "drawing_id",
+        "file_hash",
+        "message",
+        "processing_time_ms",
+        "s3_key"
+      ],
+      "canonicalization": "strict six-field raw response digest, normalized receipt digest excluding only index_receipt_sha256, and manifest-ordered receipt-set digest excluding only index_receipt_set_sha256; exact contract and golden vectors are in L3_REVIEW_REUSE_ER3_EVIDENCE_PACK_V2_CONTRACT_20260829.json",
+      "required_archive_hashes": [
+        "e32de24b2a39e9ee56932c80fc5f28497c01ff36348ee2cb0e363d750ae2334c",
+        "c32bd82c54124d87fe0731f7cc1a05e4d0147d755d9cd98dc41a1aaa047495e6",
+        "9a9ca171ef968202eb69523eb0db9e8f88009cb0048a0d301dfa87076bb48d7e"
+      ]
+    },
+    "rebuild": {
+      "endpoint": "POST /api/v2/index/rebuild",
+      "required": true,
+      "reason": "With EVENT_BUS_ENABLED=false, index-add persists drawing records but does not populate the in-memory pHash and FAISS indexes."
+    },
+    "index_layer_observation": {
+      "endpoint": "GET /health",
+      "json_pointers": [
+        "/indexes/l1_phash/size",
+        "/indexes/l2_faiss/size"
+      ],
+      "expected_pre_index_sizes": [
+        0,
+        0
+      ],
+      "expected_post_rebuild_sizes": [
+        3,
+        3
+      ],
+      "required_for_er3": true,
+      "authority": "required readiness evidence; storage count and index receipts remain the drawing-cardinality and identity authority"
+    }
+  },
+  "runtime_posture": {
+    "container_filesystem": "read_only",
+    "docker_control_plane": {
+      "trusted_boundary": "one Gate-C owner-bound local Docker daemon reached only through its approved absolute unix URI and socket identity; approved Docker administrators remain trusted and are outside the ER3 threat claim",
+      "allowed_endpoint_scheme": "unix",
+      "forbidden_endpoint_schemes": [
+        "tcp",
+        "http",
+        "https",
+        "ssh",
+        "npipe"
+      ],
+      "parent_environment_must_be_absent": [
+        "DOCKER_HOST",
+        "DOCKER_CONTEXT",
+        "DOCKER_TLS_VERIFY",
+        "DOCKER_CERT_PATH",
+        "DOCKER_CONFIG",
+        "DOCKER_API_VERSION",
+        "DOCKER_DEFAULT_PLATFORM"
+      ],
+      "required_resolution": "Gate C supplies exact --docker-host, --docker-api-version 1.43, and --platform values in the reviewed command; active/default Docker context is never consulted; the endpoint must be a credential-free absolute unix URI whose no-symlink parent chain and socket identity match the Gate-C digest before every command",
+      "socket_binding_policy": {
+        "argument": "required --docker-host from Gate C",
+        "uri_policy": "literal unix scheme, absolute path, no user-info, query, fragment, percent encoding, or normalization ambiguity",
+        "resolution": "walk each parent with directory-FD-relative O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW and fstat the final Unix socket without following symlinks",
+        "identity_fields": [
+          "canonical_path",
+          "parent_chain_sha256",
+          "st_dev",
+          "st_ino",
+          "owner_uid",
+          "group_gid",
+          "mode_octal"
+        ],
+        "trust_policy": "Gate C binds socket_identity_sha256 and the approved administrator UID/GID set; an unapproved writable parent or identity drift fails before each command"
+      },
+      "docker_api_version": "1.43",
+      "subprocess_environment": {
+        "exact_keys": [
+          "DOCKER_API_VERSION",
+          "DOCKER_CONFIG",
+          "HOME",
+          "LANG",
+          "LC_ALL"
+        ],
+        "DOCKER_CONFIG": "runner-created empty mode-0700 directory below the run root; must remain empty",
+        "DOCKER_API_VERSION": "1.43",
+        "HOME": "runner-created empty mode-0700 directory below the run root",
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "inherited_variables": []
+      },
+      "docker_binary_policy": {
+        "argument": "required absolute --docker-bin",
+        "source_resolution": "walk the complete parent chain by trusted directory FD, open the final target with O_RDONLY|O_CLOEXEC|O_NOFOLLOW, require a regular executable not group/other writable, and match the Gate-C parent-chain and source SHA-256",
+        "private_copy": "before revision 1 copy only bytes from the opened source FD to <run-root>/control/docker using exclusive create, mode 0500, file and directory fsync; reopen relative to the retained mode-0700 control-directory FD and bind canonical path, device, inode, mode, size, and SHA-256",
+        "execution": "the source path is never executed; argv[0] is always the private copy, immediately revalidated before each spawn; source/private rename, identity, mode, size, or digest drift fails; each command receipt retains the freshly observed private-binary and socket identity digests",
+        "trust_boundary": "the private parent is writable only by the trusted runner UID; same-UID compromise is outside the boundary",
+        "post_resolution_argv": "argv[1:3] is exactly [--host, <Gate-C endpoint>]; PATH lookup, --context, credential-helper use, and shell execution are forbidden"
+      },
+      "command_receipt_exact_fields": [
+        "operation",
+        "argv",
+        "environment_sha256",
+        "docker_private_binary_identity_sha256",
+        "docker_socket_identity_sha256",
+        "stdin_sha256",
+        "stdin_size_bytes",
+        "exit_code",
+        "stdout_sha256",
+        "stderr_sha256"
+      ]
+    },
+    "host_environment_quarantine": {
+      "must_be_absent": [
+        "REVIEW_REUSE_STORE",
+        "REVIEW_REUSE_STORE_DIR",
+        "REVIEW_REUSE_LIVE_DEDUP",
+        "REVIEW_REUSE_DECISIONS_ENABLED",
+        "DEDUPCAD_VISION_URL",
+        "PYTHON*",
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "ALL_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "all_proxy"
+      ],
+      "output_contract": "--out is resolved relative to a trusted parent directory FD under the external run-level lease; a new mode-0700 run root is created exclusively, while an existing root is handled only as initialization-incomplete failure, exact revision-1 resume, revision-2/3 recover-only, revision-4 finalize-only, complete, or mismatch under the EvidencePack v2 classifier",
+      "existing_output_policy": "new runs require nonexistence; a partial initialization is never resumed or deleted by er3-run, and every existing root is handled only by the closed lifecycle classifier",
+      "ambient_factory_policy": "the ER3 path constructs its store and vision control explicitly and never calls an environment-selected store or live-dedup factory"
+    },
+    "host_data_mounts": [],
+    "tmpfs_targets": [
+      "/app/data",
+      "/app/indexes",
+      "/app/logs",
+      "/tmp"
+    ],
+    "docker_network": "network mode none",
+    "normalized_host_config": {
+      "network_mode": "none",
+      "readonly_rootfs": true,
+      "privileged": false,
+      "cap_add": [],
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges"
+      ],
+      "pid_mode": "",
+      "ipc_mode": "private",
+      "uts_mode": "",
+      "userns_mode": "",
+      "devices": [],
+      "device_requests": [],
+      "binds": [],
+      "port_bindings": {},
+      "publish_all_ports": false,
+      "extra_hosts": [],
+      "restart_policy": "no",
+      "auto_remove": false,
+      "log_config": {
+        "type": "none",
+        "config": {}
+      },
+      "volume_driver": "",
+      "volumes_from": [],
+      "links": [],
+      "group_add": [],
+      "dns": [],
+      "dns_options": [],
+      "dns_search": [],
+      "cgroupns_mode": "private",
+      "cgroup": "",
+      "cgroup_parent": "",
+      "runtime": "runc",
+      "init": false,
+      "oom_kill_disable": false,
+      "pids_limit": 256,
+      "device_cgroup_rules": [],
+      "sysctls": {},
+      "storage_opt": {},
+      "tmpfs": {
+        "/app/data": "rw,nosuid,nodev",
+        "/app/indexes": "rw,nosuid,nodev",
+        "/app/logs": "rw,nosuid,nodev",
+        "/tmp": "rw,nosuid,nodev"
+      },
+      "shm_size_bytes": 67108864,
+      "masked_paths": [
+        "/proc/acpi",
+        "/proc/asound",
+        "/proc/kcore",
+        "/proc/keys",
+        "/proc/latency_stats",
+        "/proc/sched_debug",
+        "/proc/scsi",
+        "/proc/timer_list",
+        "/proc/timer_stats",
+        "/sys/devices/virtual/powercap",
+        "/sys/firmware"
+      ],
+      "readonly_paths": [
+        "/proc/bus",
+        "/proc/fs",
+        "/proc/irq",
+        "/proc/sys",
+        "/proc/sysrq-trigger"
+      ],
+      "ulimits": []
+    },
+    "host_config_source_contract": {
+      "docker_engine_api_version": "1.43",
+      "source_object": "docker inspect[0].HostConfig",
+      "exact_source_keys": [
+        "AutoRemove",
+        "Binds",
+        "BlkioDeviceReadBps",
+        "BlkioDeviceReadIOps",
+        "BlkioDeviceWriteBps",
+        "BlkioDeviceWriteIOps",
+        "BlkioWeight",
+        "BlkioWeightDevice",
+        "CapAdd",
+        "CapDrop",
+        "Cgroup",
+        "CgroupParent",
+        "CgroupnsMode",
+        "ConsoleSize",
+        "ContainerIDFile",
+        "CpuCount",
+        "CpuPercent",
+        "CpuPeriod",
+        "CpuQuota",
+        "CpuRealtimePeriod",
+        "CpuRealtimeRuntime",
+        "CpuShares",
+        "CpusetCpus",
+        "CpusetMems",
+        "DeviceCgroupRules",
+        "DeviceRequests",
+        "Devices",
+        "Dns",
+        "DnsOptions",
+        "DnsSearch",
+        "ExtraHosts",
+        "GroupAdd",
+        "IOMaximumBandwidth",
+        "IOMaximumIOps",
+        "Init",
+        "IpcMode",
+        "Isolation",
+        "KernelMemory",
+        "KernelMemoryTCP",
+        "Links",
+        "LogConfig",
+        "MaskedPaths",
+        "Memory",
+        "MemoryReservation",
+        "MemorySwap",
+        "MemorySwappiness",
+        "NanoCpus",
+        "NetworkMode",
+        "OomKillDisable",
+        "OomScoreAdj",
+        "PidMode",
+        "PidsLimit",
+        "PortBindings",
+        "Privileged",
+        "PublishAllPorts",
+        "ReadonlyPaths",
+        "ReadonlyRootfs",
+        "RestartPolicy",
+        "Runtime",
+        "SecurityOpt",
+        "ShmSize",
+        "StorageOpt",
+        "Sysctls",
+        "Tmpfs",
+        "UTSMode",
+        "Ulimits",
+        "UsernsMode",
+        "VolumeDriver",
+        "VolumesFrom"
+      ],
+      "normalized_projection_source_map": {
+        "auto_remove": "AutoRemove",
+        "binds": "Binds; null normalizes only to []",
+        "cap_add": "CapAdd; null normalizes only to []",
+        "cap_drop": "CapDrop",
+        "cgroup": "Cgroup",
+        "cgroup_parent": "CgroupParent",
+        "cgroupns_mode": "CgroupnsMode",
+        "device_cgroup_rules": "DeviceCgroupRules; null normalizes only to []",
+        "device_requests": "DeviceRequests; null normalizes only to []",
+        "devices": "Devices",
+        "dns": "Dns; null normalizes only to []",
+        "dns_options": "DnsOptions; null normalizes only to []",
+        "dns_search": "DnsSearch; null normalizes only to []",
+        "extra_hosts": "ExtraHosts; null normalizes only to []",
+        "group_add": "GroupAdd; null normalizes only to []",
+        "init": "Init; null is forbidden",
+        "ipc_mode": "IpcMode",
+        "links": "Links; null normalizes only to []",
+        "log_config": "LogConfig.Type and LogConfig.Config",
+        "masked_paths": "MaskedPaths",
+        "network_mode": "NetworkMode",
+        "oom_kill_disable": "OomKillDisable; null normalizes only to false",
+        "pids_limit": "PidsLimit",
+        "pid_mode": "PidMode",
+        "port_bindings": "PortBindings; null normalizes only to {}",
+        "privileged": "Privileged",
+        "publish_all_ports": "PublishAllPorts",
+        "readonly_paths": "ReadonlyPaths",
+        "readonly_rootfs": "ReadonlyRootfs",
+        "restart_policy": "RestartPolicy.Name with MaximumRetryCount=0",
+        "runtime": "Runtime",
+        "security_opt": "SecurityOpt",
+        "shm_size_bytes": "ShmSize",
+        "storage_opt": "StorageOpt",
+        "sysctls": "Sysctls",
+        "tmpfs": "Tmpfs",
+        "ulimits": "Ulimits; null normalizes only to []",
+        "uts_mode": "UTSMode",
+        "userns_mode": "UsernsMode",
+        "volume_driver": "VolumeDriver",
+        "volumes_from": "VolumesFrom; null normalizes only to []"
+      },
+      "fixed_neutral_source_values": {
+        "BlkioDeviceReadBps": null,
+        "BlkioDeviceReadIOps": null,
+        "BlkioDeviceWriteBps": null,
+        "BlkioDeviceWriteIOps": null,
+        "BlkioWeight": 0,
+        "BlkioWeightDevice": null,
+        "ConsoleSize": [
+          0,
+          0
+        ],
+        "ContainerIDFile": "",
+        "CpuCount": 0,
+        "CpuPercent": 0,
+        "CpuPeriod": 0,
+        "CpuQuota": 0,
+        "CpuRealtimePeriod": 0,
+        "CpuRealtimeRuntime": 0,
+        "CpuShares": 0,
+        "CpusetCpus": "",
+        "CpusetMems": "",
+        "IOMaximumBandwidth": 0,
+        "IOMaximumIOps": 0,
+        "Isolation": "",
+        "KernelMemory": 0,
+        "KernelMemoryTCP": 0,
+        "Memory": 0,
+        "MemoryReservation": 0,
+        "MemorySwap": 0,
+        "MemorySwappiness": null,
+        "NanoCpus": 0,
+        "OomScoreAdj": 0
+      },
+      "unknown_or_missing_source_key_policy": "fail before fixture byte open; no source key may be silently dropped",
+      "raw_digest_policy": "canonical_sha256 of the complete strict source object is retained in the initial and every continuous inspect projection; raw inspect stdout remains a required replay artifact"
+    },
+    "config_env_source_contract": {
+      "source_array": "docker inspect[0].Config.Env",
+      "image_prefix": "image.config_environment_exact",
+      "fixed_runtime_suffix": [
+        "S3_ENABLED=false",
+        "EVENT_BUS_ENABLED=false",
+        "EVENT_BUS_USE_LOCAL=true",
+        "ML_PLATFORM_ENABLED=false",
+        "GEOMETRIC_ENABLED=false",
+        "OTEL_ENABLED=false",
+        "RATE_LIMIT_ENABLED=false",
+        "RATE_LIMIT_STORAGE=memory",
+        "PROMETHEUS_ENABLED=false"
+      ],
+      "exact_runtime_array": [
+        "PATH=/opt/venv/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "LANG=C.UTF-8",
+        "GPG_KEY=A035C8C19219BA821ECEA86B64E628F8D684696D",
+        "PYTHON_VERSION=3.11.14",
+        "PYTHON_SHA256=8d3ed8ec5c88c1c95f5e558612a725450d2452813ddad5e58fdb1a53b1209b78",
+        "PYTHONUNBUFFERED=1",
+        "PYTHONDONTWRITEBYTECODE=1",
+        "PYTHONPATH=/app/src",
+        "S3_ENABLED=false",
+        "EVENT_BUS_ENABLED=false",
+        "EVENT_BUS_USE_LOCAL=true",
+        "ML_PLATFORM_ENABLED=false",
+        "GEOMETRIC_ENABLED=false",
+        "OTEL_ENABLED=false",
+        "RATE_LIMIT_ENABLED=false",
+        "RATE_LIMIT_STORAGE=memory",
+        "PROMETHEUS_ENABLED=false"
+      ],
+      "required_absent_names": [
+        "S3_ACCESS_KEY",
+        "S3_SECRET_KEY",
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "ALL_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "all_proxy"
+      ],
+      "parse_policy": "each array element is one non-empty NAME=value string split at the first equals sign; names are unique; exact order and values must equal exact_runtime_array before normalized projection",
+      "unknown_duplicate_missing_reordered_policy": "fail before fixture byte open and on every continuous inspection",
+      "raw_digest_policy": "canonical_sha256 of the exact source array is retained as raw_config_env_sha256 in the initial and every continuous inspect projection; raw inspect stdout remains replay evidence"
+    },
+    "private_shm": {
+      "kind": "private_tmpfs",
+      "host_bind": false,
+      "size_bytes": 67108864
+    },
+    "command_override": "uvicorn caddedup_vision.api.main:app --host 127.0.0.1 --port 8000",
+    "control_transport": "every Docker command uses the verified private executable copy, explicit Gate-C --host endpoint, exact API-version child environment, and freshly revalidated socket and private-binary identities retained in that command receipt; active/default context is never consulted; every command is represented by the closed command receipt and raw stdin/stdout/stderr streams, and the service has no host TCP or Unix-socket publication",
+    "fixture_input_policy": {
+      "source_path_prefix": "tests/vision/fixtures/cad_features/",
+      "source_path_shape": "exactly one basename ending .png after the fixed prefix",
+      "runtime_name_pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}\\.png$",
+      "maximum_size_bytes": 1048576,
+      "ancestor_open_flags": [
+        "O_DIRECTORY",
+        "O_CLOEXEC",
+        "O_NOFOLLOW"
+      ],
+      "final_open_flags": [
+        "O_RDONLY",
+        "O_CLOEXEC",
+        "O_NOFOLLOW"
+      ],
+      "required_file_type": "regular",
+      "read_policy": "open repository root once, walk every component by directory-FD-relative openat and fstat, open each unique final source once, perform declared-size bounded reads plus one-byte EOF check, never reopen by path, and transfer the same immutable verified buffer",
+      "verified_fixture_set": "canonical inputs/verified-fixture-set.json binds all four manifest entries, all three unique sources, observed sizes/digests, manifest order, entry/unique-source counts, and a self-excluding digest before any transfer"
+    },
+    "fixture_transfer": "after runtime preflight only, each unique tracked source is securely opened once under fixture_input_policy and its immutable verified buffer is retained; the complete verified-fixture-set digest is persisted before execute; each of the three archive index requests and two query searches is one fixed docker exec -i /usr/bin/curl --disable multipart operation whose file=@- part reads raw stdin, sets the manifest-bound filename and image/png type, and is receipt-bound to exact stdin size/content digest; curl buffers stdin in memory and no container file, docker cp, tar stream, stage command, or remove command exists",
+    "control_operation_seal": "every Docker command has a closed exact-argv/environment/fresh-private-binary-identity/fresh-socket-identity/stdin/exit/stdout/stderr receipt whose canonical JSON and raw stdin/stdout/stderr are required artifacts; all twelve docker exec operations, including curl-version and egress checks, are bracketed by distinct fresh inspect receipts whose command JSON, raw streams, raw HostConfig and Config.Env digests, globally unique observation sequence, and normalized strict projection are retained; equal projection digests are allowed but cached/replayed observations are not; each direct upload binds transferred-content SHA-256 and all ordered receipts are bound by runtime_seal_receipt_sha256",
+    "outbound_probe": "docker exec first requires /usr/bin/curl --disable --version to exit 0, then invokes exactly source_contract.fixed_http_argv.no_egress_probe inside the empty network-none container; that argv is separate from common_prefix, has max-time 3 and write-out %{http_code} without a leading newline, and must exit 7 with stdout exactly 000 before fixture bytes are opened; timeout exit 28 fails and docker inspect NetworkMode none with no attachments remains authoritative",
+    "published_port": null,
+    "proxy_environment": "absent",
+    "cleanup": "after a nine-command setup whose first three receipts proved no resource with the exact run-id/resource-owner-id label pair existed, remove only the journaled or uniquely pair-labeled owned container with docker rm -fv, then prove no pair-labeled container, volume, or network remains; ambiguity or cleanup failure prevents terminalization/success"
+  },
+  "runtime_preflight": {
+    "status": "required_not_run",
+    "must_precede_fixture_byte_open": true,
+    "required_observations": [
+      "the -I -S stdlib-only Python bootstrap, owner-authorized interpreter/dependency/import control, exact repository head, reviewed-process-argv digest, and clean tracked/index/untracked state are verified before any src import or Docker endpoint validation",
+      "all seven parent Docker override/config/platform variables and every PYTHON-prefixed variable are absent; the Gate-C endpoint/socket parent and identity, API version, selected platform, empty child config, source/private Docker binary identities, run/resource-owner IDs, nine setup receipts, and zero preexisting label sets are bound; active/default context is never consulted",
+      "selected platform manifest, actual Docker image ID, and this canonical static-attestation digest match the owner-ratified values",
+      "the raw API-v1.43 HostConfig has exactly runtime_posture.host_config_source_contract keys and neutral/mapped values, raw Config.Env exactly equals runtime_posture.config_env_source_contract with unique names and required absences, both canonical digests are retained, and normalized HostConfig/integration projections equal the attestation; process user is appuser, working directory is /app, and command argv equals the loopback-only override",
+      "all four explicit tmpfs targets, private /dev/shm, and read-only root are present",
+      "no anonymous or host data volume is mounted",
+      "NetworkMode is none and the container has no additional network attachment",
+      "no TCP or Unix-socket port is published to the host",
+      "curl --version exits 0, then the fixed numeric outbound probe exits 7 with stdout exactly 000; exit 28 is rejected",
+      "the overridden service process binds only to 127.0.0.1:8000 inside the container",
+      "ambient ReviewReuse factory, live-dedup, vision URL, Docker override, and proxy environment variables satisfy the host and container quarantine contracts",
+      "disabled integration flags and absent proxy variables match this attestation",
+      "GET /api/stats reports total_drawings=0",
+      "GET /health reports both in-memory index sizes=0",
+      "the runtime seal binds every Docker command exact argv, controlled-environment artifact, fresh private-binary/socket identity digests, raw stdin/stdout/stderr, and fresh one-to-one inspect receipt/raw stream around all twelve docker exec operations; only after preflight are fixtures opened through directory FDs and the complete verified-fixture-set digest persisted; five direct multipart file=@- operations consume the immutable buffers from raw stdin with manifest-bound filename/type and no container staging path"
+    ]
+  },
+  "limitations": [
+    "This is static source and OCI metadata evidence, not a container runtime receipt.",
+    "The fixed image has no VISION_INDEX_CLEAN_START switch; freshness depends on the attested tmpfs and zero-count preflight.",
+    "The service has no drawing-list endpoint; exact post-index identities are bound by the receipt set plus authoritative count three.",
+    "The fixed service has no authentication on index or rebuild routes; network-none plus no host publication makes the Gate-C endpoint/socket identity and approved Docker administrators the administrative capability boundary. A merely local unix URI is insufficient, and the contract does not defend against an approved malicious Docker administrator or daemon.",
+    "The fixed POST /api/index/add route requires user_name. ER3 pins user_name=review-reuse-er3-fixture and upload_to_s3=false in the exact query string; omitting either fixed argument is a contract failure.",
+    "A one-time or cached inspect is insufficient on a shared daemon. Every one of the twelve Docker exec operations requires distinct fresh before/after inspect receipts, while every Docker command is independently argv/exit/stream bound.",
+    "Index-add creates an in-memory LocalEventBus even with EVENT_BUS_ENABLED=false; EVENT_BUS_USE_LOCAL=true and runtime inspection prevent a Redis path, and explicit rebuild remains required because no index handlers are registered.",
+    "The image reports three inconsistent version strings, so only the image digest and source revision identify the substrate.",
+    "No image pull, container start, fixture processing, model-quality evaluation, customer-data use, merge, deployment, decision enablement, or pilot is authorized by this attestation."
+  ]
+}
