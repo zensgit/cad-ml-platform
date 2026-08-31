@@ -767,6 +767,14 @@ the project's `str | None` annotations. The isolated Python 3.11 environment
 was completed with the repository-pinned `python-multipart==0.0.18` and
 `PyJWT[crypto]==2.10.1` dependencies before the successful commands above.
 
+At pushed documentation head
+`ee3b6c9eb20189aed7eb068499e9074ec4025421`, every emitted GitHub check
+completed without a failing conclusion. Those checks covered action pinning,
+metrics, and stress/observability workflows only. Repository workflow search
+found no job selecting `make test-review-reuse`; therefore the green GitHub
+state is not represented as execution of the 237-test ReviewReuse gate. Draft
+PR #581 is unrelated synthetic-superpass CI work and does not close this gap.
+
 ## 7. Boundary verification
 
 - The implementation diff has no ER3, ER4, capabilities endpoint,
@@ -810,15 +818,18 @@ This does not close the L3 release process.
 
 Still required:
 
-1. Exact-head CI on the final #584 documentation head.
-2. Owner review of the amended #584 head and explicit merge authorization.
-3. Separate owner authorization before any decision enablement.
-4. Separate ER3 implementation authorization and approved isolated data before real archive
+1. Exact-head emitted CI on the final #584 documentation head, with no claim
+   that it ran the local ReviewReuse target.
+2. Owner decision to authorize dedicated `test-review-reuse` CI wiring or
+   explicitly accept the recorded local-only execution evidence for this PR.
+3. Owner review of the amended #584 head and explicit merge authorization.
+4. Separate owner authorization before any decision enablement.
+5. Separate ER3 implementation authorization and approved isolated data before real archive
    replay.
-5. Owner authorization to synchronize #585 onto the final #584 head, followed
+6. Owner authorization to synchronize #585 onto the final #584 head, followed
    by a new exact-object ER3 design audit; the current #585 base is stale.
-6. ER4 remains deferred until ER1-ER3 prerequisites close and the owner opens
+7. ER4 remains deferred until ER1-ER3 prerequisites close and the owner opens
    its implementation window.
-7. A separate owner-ratified schema/provenance amendment is required before
+8. A separate owner-ratified schema/provenance amendment is required before
    load-time native-versus-migrated reason provenance and an entirely erased
    native event ledger can both be distinguished from valid legacy records.
