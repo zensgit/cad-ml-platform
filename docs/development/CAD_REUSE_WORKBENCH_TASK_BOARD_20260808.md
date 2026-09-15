@@ -1,9 +1,9 @@
 # CAD Reuse Workbench — Task Board
 
-**Date**: 2026-08-08  
+**Date**: 2026-08-08 (board refresh 2026-09-15)  
 **Plan**: `CAD_REUSE_WORKBENCH_90_DAY_PLAN_20260807.md`  
 **System design**: `CAD_REUSE_WORKBENCH_SYSTEM_EXECUTE_DESIGN_20260808.md`  
-**Main baseline**: post-#562 (`origin/main`)  
+**Main baseline**: post-#565 (`origin/main`) · **#586 open**  
 
 | Residual class | Status |
 |---|---|
@@ -35,6 +35,10 @@ Legend: **done** · **in_progress** · **residual_eng** · **residual_human** ·
 | [#560](https://github.com/zensgit/cad-ml-platform/pull/560) | Board post-#554–#558 (residual_human open) | **MERGED** |
 | [#561](https://github.com/zensgit/cad-ml-platform/pull/561) | Isolated-archive script **CLI** coverage (seed, offline, decisions off) | **MERGED** |
 | [#562](https://github.com/zensgit/cad-ml-platform/pull/562) | **JWT pilot runbook** + filesystem **store backup/cleanup** ops | **MERGED** |
+| [#563](https://github.com/zensgit/cad-ml-platform/pull/563) | Audit export **CLI** by `task_id` (R2 quarantine) | **MERGED** |
+| [#564](https://github.com/zensgit/cad-ml-platform/pull/564) | Store ops **`list`** tenants | **MERGED** |
+| [#565](https://github.com/zensgit/cad-ml-platform/pull/565) | Board post-#562 + pilot env **preflight** | **MERGED** |
+| [#586](https://github.com/zensgit/cad-ml-platform/pull/586) | Precision pass · file-type gate · tenant isolation · live geometric · JWT e2e · `--file` · pilot label metrics | **OPEN** |
 
 No further L3 runtime PR is required under the 90-day codeable scope unless the owner opens a new design-lock.  
 Track C / R11 / R12 remain **residual_human** — do not claim complete. **R2 HOLD** unchanged.
@@ -91,13 +95,15 @@ Track C / R11 / R12 remain **residual_human** — do not claim complete. **R2 HO
 |---|---|---|---|---|
 | O1 | Isolated sample checklist | done | #547 · #552 · #557 | runbook + pilot checklist + Make isolated-archive |
 | O2 | Pilot ops package (kill/rollback/export/retention) | done | #547 · #551 · #552 · #554 · #562 | Track O + audit export + JWT pilot runbook + store backup/cleanup |
-| O3 | Workbench review metrics export (+ markdown) | done | #547 · #556 · #559 | `metrics.py` + `GET .../metrics` (`json` \| `markdown`; `review_workflow` family) |
+| O3 | Workbench review metrics export (+ markdown + pilot labels) | done | #547 · #556 · #559 · #586 | `metrics.py` + `GET .../metrics`; `false_duplicate` / `missed_reuse` / `usefulness:1-5` reason_codes |
 | O4 | Kill switch documented | done | runbook §6 + Track O + pilot checklist | done |
 | O5 | Live dedup (default-off) + filesystem store docs | done | #550 | `CAD_REUSE_WORKBENCH_LIVE_DEDUP_DURABLE_STORE_20260808.md` |
 | O6 | EvidencePack golden fixtures | done | #553 | `tests/golden/review_reuse/` + `CAD_REUSE_WORKBENCH_EVIDENCE_GOLDENS_20260808.md` |
 | O7 | Operator Make targets (test + isolated-archive + store + preflight) | done | #555 · #557 · #562 | `make test-review-reuse` · `make review-reuse-isolated-archive` · store backup/cleanup · `make review-reuse-preflight` |
 | O8 | JWT pilot runbook + store backup/cleanup | done | #562 | `CAD_REUSE_WORKBENCH_JWT_PILOT_RUNBOOK_20260808.md` · `scripts/review_reuse_store_ops.py` |
-| O9 | Pilot env preflight script (advisory; dangerous-combo exit 2) | done (this PR) | preflight board | `scripts/review_reuse_pilot_preflight.py` · `make review-reuse-preflight` |
+| O9 | Pilot env preflight script (advisory; dangerous-combo exit 2) | done | #565 | `scripts/review_reuse_pilot_preflight.py` · `make review-reuse-preflight` |
+| O10 | Precision pass + file-type gate + FS tenant isolation | **in_progress** | #586 | `precision.py` · `files.py` · hashed tenant dirs |
+| O11 | Live geometric request + JWT middleware e2e + `--file` archive | **in_progress** | #586 | `enable_geometric=True`; no `_reviewer_id` patch; `FILE=` make target |
 
 ## Track C — Customer Pilot (P1) — **human residual** (not claimed complete)
 
@@ -136,7 +142,10 @@ Do **not** invent Track C completion evidence in docs or code.
 | SYS19 | Board post-#554–#558 | done | #560 |
 | SYS20 | Isolated-archive CLI tests | done | #561 |
 | SYS21 | JWT pilot runbook + store backup/cleanup | done | #562 |
-| SYS22 | Board post-#562 + pilot preflight script | done (this PR) | task board + `review_reuse_pilot_preflight.py` |
+| SYS22 | Board post-#562 + pilot preflight script | done | #565 |
+| SYS23 | Audit export CLI by task_id | done | #563 |
+| SYS24 | Store ops list tenants | done | #564 |
+| SYS25 | Precision / isolation / live geometric / JWT e2e / pilot labels | **in_progress** | #586 |
 
 ---
 

@@ -284,6 +284,31 @@ def test_decision_require_validated_reviewer_with_jwt_subject(
         assert body["human_decision"]["reviewer_id"] == "jwt-sub-123"
 
 
+def test_decision_jwt_invalid_token_401(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Required integration auth: garbage bearer is 401, not API-key fallback."""
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.setenv("API_KEY", "test")
+    from src.core.review_reuse import service as svc_mod
+    from src.core.review_reuse.store import InMemoryReviewReuseStore
+
+    svc_mod.reset_review_reuse_store_for_tests(InMemoryReviewReuseStore())
+    app, _claims = _jwt_review_reuse_app(
+        secret="review-reuse-jwt-secret-32bytes!",
+        audience="cad-ml-api",
+        issuer="cad-ml-issuer",
+    )
+    with TestClient(app) as client:
+        r = client.post(
+            "/api/v1/review-reuse/tasks",
+            files={"file": ("a.dxf", b"x", "application/octet-stream")},
+            headers={
+                "X-API-Key": "test",
+                "Authorization": "Bearer not-a-jwt",
+            },
+        )
+        assert r.status_code == 401
+
+
 def test_tenant_isolation_different_api_keys(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ENVIRONMENT", "development")
     monkeypatch.setenv("API_KEY", "test")
