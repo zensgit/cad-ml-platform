@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from .models import CandidateDecision, ReviewReuseTask
+from .models import CandidateDecision, RejectionReason, ReviewReuseTask
 
 
 def build_evidence_pack(task: ReviewReuseTask) -> Dict[str, Any]:
@@ -97,9 +97,14 @@ def evidence_pack_markdown(pack: Dict[str, Any]) -> str:
 
 
 def _top_confidence(candidates: List[CandidateDecision]) -> float:
+    """Calibrated confidence must not treat unverified visual similarity as geometric."""
     best = 0.0
+    vision_only = RejectionReason.vision_only_unverified.value
     for c in candidates:
-        for k in ("geometric", "semantic", "visual", "confidence"):
+        keys = ("geometric", "semantic", "visual", "confidence")
+        if vision_only in (c.rejection_reasons or []) or c.scores.get("geometric") is None:
+            keys = ("geometric",)
+        for k in keys:
             v = c.scores.get(k)
             if isinstance(v, (int, float)) and float(v) > best:
                 best = float(v)

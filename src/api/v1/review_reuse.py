@@ -68,6 +68,8 @@ def _http(err: ReviewReuseError) -> HTTPException:
         status = 409
     elif err.code in ("unsupported_file_type", "unknown_candidate"):
         status = 400
+    elif err.code == "pipeline_failed":
+        status = 500
     return HTTPException(
         status_code=status, detail={"code": err.code, "message": err.message}
     )

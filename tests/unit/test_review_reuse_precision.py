@@ -177,6 +177,62 @@ def test_unknown_candidate_on_decision(monkeypatch: pytest.MonkeyPatch) -> None:
     assert ei.value.code == "unknown_candidate"
 
 
+def test_pipeline_failed_persists_failed_task(monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.core.review_reuse.models import TaskEventType, TaskStatus
+
+    def _boom(*_a, **_k):
+        raise RuntimeError("precision exploded")
+
+    monkeypatch.setattr("src.core.review_reuse.service.apply_precision", _boom)
+    svc = _svc()
+    with pytest.raises(ReviewReuseError) as ei:
+        svc.create_task(
+            tenant_id="t-fail",
+            file_name="a.dxf",
+            file_bytes=b"x",
+            seed_candidates=[
+                {
+                    "candidate_id": "c1",
+                    "state": "similar",
+                    "scores": {"geometric": 0.9, "semantic": 0.8},
+                    "methods": ["precision-l4"],
+                }
+            ],
+        )
+    assert ei.value.code == "pipeline_failed"
+    listed = svc.list_tasks("t-fail")
+    assert len(listed) == 1
+    task = listed[0]
+    assert task.status == TaskStatus.failed
+    assert task.error == "precision exploded"
+    assert any(e.event_type == TaskEventType.failed for e in task.events)
+
+
+def test_vision_only_confidence_stays_low() -> None:
+    from src.core.review_reuse.models import TaskStatus
+
+    svc = _svc()
+    task = svc.create_task(
+        tenant_id="t-conf",
+        file_name="a.dxf",
+        file_bytes=b"x",
+        seed_candidates=[
+            {
+                "candidate_id": "v1",
+                "state": "similar",
+                "scores": {"semantic": 0.99, "visual": 0.99},
+                "methods": ["dedup2d-vision"],
+                "decision_source": "dedup2d-vision",
+            }
+        ],
+    )
+    pack = task.evidence_pack or {}
+    assert pack["confidence"]["band"] == "low"
+    assert pack["confidence"]["score"] == 0.0
+    assert task.status == TaskStatus.evidence_ready
+    assert RejectionReason.vision_only_unverified.value in task.candidates[0].rejection_reasons
+
+
 def test_low_precision_reason() -> None:
     cands = map_raw_hits_to_candidates(
         [

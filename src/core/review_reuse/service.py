@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import time
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 from .dedup_adapter import recall_candidates
 from .evidence import build_evidence_pack, evidence_pack_markdown
@@ -119,6 +122,37 @@ class ReviewReuseService:
         task.updated_at = time.time()
         self.store.put(task)
 
+        try:
+            return self._run_pipeline(
+                task,
+                file_name=file_name,
+                file_bytes=file_bytes,
+                content_sha=content_sha,
+                seed_candidates=seed_candidates,
+            )
+        except ReviewReuseError:
+            raise
+        except Exception as exc:
+            task.status = TaskStatus.failed
+            task.error = str(exc)
+            task = self._emit(task, TaskEventType.failed, {"error": task.error})
+            try:
+                self.store.put(task)
+            except Exception:
+                logger.warning("review_reuse_failed_task_persist_failed", exc_info=True)
+            raise ReviewReuseError(
+                "pipeline_failed", task.error or "review-reuse pipeline failed"
+            ) from exc
+
+    def _run_pipeline(
+        self,
+        task: ReviewReuseTask,
+        *,
+        file_name: str,
+        file_bytes: bytes,
+        content_sha: str,
+        seed_candidates: Optional[List[Dict[str, Any]]],
+    ) -> ReviewReuseTask:
         # Pipeline: recall → precision → evidence (adapter; no training path).
         task = self._emit(task, TaskEventType.recall_started, {})
         candidates = recall_candidates(
@@ -160,7 +194,9 @@ class ReviewReuseService:
         pack = build_evidence_pack(task)
         task.evidence_pack = pack
         task.status = TaskStatus.evidence_ready
-        task = self._emit(task, TaskEventType.evidence_pack_ready, {"candidates": len(candidates)})
+        task = self._emit(
+            task, TaskEventType.evidence_pack_ready, {"candidates": len(candidates)}
+        )
         self.store.put(task)
         return task
 

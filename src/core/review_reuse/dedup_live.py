@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import mimetypes
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 def vision_response_to_hits(response: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -98,25 +98,20 @@ def default_live_recall(
             enable_geometric=True,
         )
 
-    try:
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # Nested loop (e.g. already in async context): use a worker thread.
-                import concurrent.futures
-
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                    response = pool.submit(lambda: asyncio.run(_search())).result(
-                        timeout=120
-                    )
-            else:
-                response = loop.run_until_complete(_search())
-        except RuntimeError:
-            response = asyncio.run(_search())
-    except Exception:
-        raise
-
+    response = _run_coro(_search(), timeout=120)
     return vision_response_to_hits(response if isinstance(response, dict) else {})
+
+
+def _run_coro(coro, *, timeout: float) -> Any:
+    """Run a coroutine from sync code, including when a loop is already running."""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+    import concurrent.futures
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(asyncio.run, coro).result(timeout=timeout)
 
 
 def ensure_default_live_hook() -> None:
