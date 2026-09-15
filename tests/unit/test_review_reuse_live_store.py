@@ -92,6 +92,83 @@ def test_live_default_hook_path_with_inject(monkeypatch: pytest.MonkeyPatch) -> 
         monkeypatch.delenv(ENV_LIVE_DEDUP, raising=False)
 
 
+def test_default_live_recall_requests_geometric(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Live hook must ask vision for geometric/L4 and keep that score."""
+    from src.core.review_reuse.dedup_live import default_live_recall
+
+    captured: dict = {}
+
+    class _FakeClient:
+        async def search_2d(self, **kwargs):
+            captured.update(kwargs)
+            return {
+                "duplicates": [
+                    {
+                        "file_hash": "h-geom",
+                        "visual_similarity": 0.91,
+                        "precision_score": 0.94,
+                        "verdict": "duplicate",
+                        "match_level": 4,
+                        "levels": {"l4": {"precision_score": 0.94}},
+                    }
+                ],
+                "similar": [],
+            }
+
+    monkeypatch.setattr(
+        "src.core.dedupcad_vision.DedupCadVisionClient",
+        lambda: _FakeClient(),
+    )
+    hits = default_live_recall("a.dxf", b"x", "0" * 64)
+    assert captured.get("enable_geometric") is True
+    assert captured.get("enable_ml") is False
+    assert hits[0]["scores"]["geometric"] == 0.94
+    assert hits[0]["scores"]["semantic"] == 0.91
+    assert "precision-l4" in hits[0]["methods"]
+
+
+def test_create_task_live_geometric_not_vision_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(ENV_LIVE_DEDUP, "true")
+    set_live_recall_hook(None)
+
+    class _FakeClient:
+        async def search_2d(self, **kwargs):
+            return {
+                "duplicates": [
+                    {
+                        "file_hash": "live-geom-1",
+                        "precision_score": 0.88,
+                        "visual_similarity": 0.7,
+                        "verdict": "duplicate",
+                        "match_level": 4,
+                    }
+                ],
+                "similar": [],
+            }
+
+    monkeypatch.setattr(
+        "src.core.dedupcad_vision.DedupCadVisionClient",
+        lambda: _FakeClient(),
+    )
+    try:
+        svc = ReviewReuseService(InMemoryReviewReuseStore())
+        task = svc.create_task(
+            tenant_id="t-live",
+            file_name="a.dxf",
+            file_bytes=b"x",
+        )
+        cand = task.candidates[0]
+        assert cand.candidate_id == "live-geom-1"
+        assert cand.scores.get("geometric") == 0.88
+        assert "vision_only_unverified" not in cand.rejection_reasons
+        assert "precision-l4" in (cand.verification.get("methods") or [])
+    finally:
+        set_live_recall_hook(None)
+        monkeypatch.delenv(ENV_LIVE_DEDUP, raising=False)
+
+
 def test_filesystem_store_survives_reload(tmp_path: Path) -> None:
     store1 = FilesystemReviewReuseStore(tmp_path / "tasks")
     svc1 = ReviewReuseService(store1)

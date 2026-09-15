@@ -36,7 +36,7 @@ def vision_response_to_hits(response: Dict[str, Any]) -> List[Dict[str, Any]]:
             geom = match.get("precision_score")
             methods = ["dedup2d-vision"]
             levels = match.get("levels") or {}
-            if isinstance(levels, dict) and levels.get("l4"):
+            if geom is not None or (isinstance(levels, dict) and levels.get("l4")):
                 methods.append("precision-l4")
             hits.append(
                 {
@@ -95,7 +95,7 @@ def default_live_recall(
             max_results=20,
             compute_diff=False,
             enable_ml=False,
-            enable_geometric=False,
+            enable_geometric=True,
         )
 
     try:

@@ -258,12 +258,14 @@ test-review-reuse: ## ReviewReuse workbench unit tests + EvidencePack goldens
 
 # ReviewReuse isolated-archive offline demo (synthetic task → EvidencePack/audit).
 # Does NOT set REVIEW_REUSE_DECISIONS_ENABLED (human decisions stay fail-closed).
+# Default: --seed-similar. Pass FILE=path.dxf for a real drawing (still offline /
+# no live dedup unless REVIEW_REUSE_LIVE_DEDUP is already set by the operator).
 # See docs/development/CAD_REUSE_WORKBENCH_PILOT_CHECKLIST_20260808.md §4.
-review-reuse-isolated-archive: ## Offline ReviewReuse isolated-archive run (seed-similar, decisions off)
+review-reuse-isolated-archive: ## Offline ReviewReuse isolated-archive run (seed-similar or FILE=, decisions off)
 	@echo "$(GREEN)Running ReviewReuse isolated-archive demo (decisions disabled)...$(NC)"
 	ENVIRONMENT=development $(PYTHON) scripts/review_reuse_isolated_archive_run.py \
-		--out data/isolated_samples/synthetic_run/exports \
-		--seed-similar
+		--out "$(or $(OUT),data/isolated_samples/synthetic_run/exports)" \
+		$(if $(FILE),--file "$(FILE)",--seed-similar)
 
 # Export existing task audit_bundle.json + evidence.md by TENANT + TASK_ID.
 # Does NOT set REVIEW_REUSE_DECISIONS_ENABLED; export is audit_quarantine (R2 HOLD).
