@@ -9,8 +9,6 @@ import time
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
-logger = logging.getLogger(__name__)
-
 from .dedup_adapter import recall_candidates
 from .evidence import build_evidence_pack, evidence_pack_markdown
 from .files import is_allowed_review_reuse_filename
@@ -26,6 +24,8 @@ from .models import (
 )
 from .precision import apply_precision
 from .store import ReviewReuseStoreProtocol, create_review_reuse_store
+
+logger = logging.getLogger(__name__)
 
 # Default-off human decision sink (plan §8).
 ENV_DECISIONS_ENABLED = "REVIEW_REUSE_DECISIONS_ENABLED"
@@ -273,7 +273,10 @@ class ReviewReuseService:
                 "REVIEW_REUSE_DECISIONS_ENABLED is off (default). Owner enable required for pilot.",
             )
         if not reviewer_id or not str(reviewer_id).strip():
-            raise ReviewReuseError("reviewer_required", "reviewer_id must come from validated identity")
+            raise ReviewReuseError(
+                "reviewer_required",
+                "reviewer_id must come from validated identity",
+            )
         if require_validated_reviewer() and (
             not reviewer_validated or is_api_key_fallback_reviewer(reviewer_id)
         ):

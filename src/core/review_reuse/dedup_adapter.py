@@ -12,9 +12,9 @@ import logging
 import os
 from typing import Any, Callable, Dict, List, Optional, Protocol
 
-logger = logging.getLogger(__name__)
-
 from .models import CandidateDecision, CandidateState, RejectionReason
+
+logger = logging.getLogger(__name__)
 
 ENV_LIVE_DEDUP = "REVIEW_REUSE_LIVE_DEDUP"
 _TRUE = frozenset({"1", "true", "yes", "on"})
