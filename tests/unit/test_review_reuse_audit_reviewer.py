@@ -163,6 +163,40 @@ def test_isolated_archive_script_file_offline_no_seed(tmp_path: Path) -> None:
     assert os.environ.get("REVIEW_REUSE_DECISIONS_ENABLED") != "true"
 
 
+def test_isolated_archive_script_missing_file_exits_2(tmp_path: Path) -> None:
+    from scripts.review_reuse_isolated_archive_run import main
+
+    rc = main(
+        [
+            "--out",
+            str(tmp_path / "exports"),
+            "--file",
+            str(tmp_path / "no-such.dxf"),
+            "--tenant",
+            "script-missing-file",
+        ]
+    )
+    assert rc == 2
+
+
+def test_isolated_archive_script_unsupported_file_exits_2(tmp_path: Path) -> None:
+    from scripts.review_reuse_isolated_archive_run import main
+
+    bad = tmp_path / "payload.exe"
+    bad.write_bytes(b"MZ")
+    rc = main(
+        [
+            "--out",
+            str(tmp_path / "exports"),
+            "--file",
+            str(bad),
+            "--tenant",
+            "script-bad-type",
+        ]
+    )
+    assert rc == 2
+
+
 def test_isolated_archive_script_offline_insufficient_evidence(tmp_path: Path) -> None:
     """main() without seed still writes exports (offline insufficient_evidence)."""
     from scripts.review_reuse_isolated_archive_run import main

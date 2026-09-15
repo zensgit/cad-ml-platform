@@ -309,6 +309,60 @@ def test_decision_jwt_invalid_token_401(monkeypatch: pytest.MonkeyPatch) -> None
         assert r.status_code == 401
 
 
+def test_decision_jwt_tenant_mismatch_401(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Valid JWT + mismatched x-tenant-id header is 401."""
+    import jwt as pyjwt
+
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.setenv("API_KEY", "test")
+    from src.core.review_reuse import service as svc_mod
+    from src.core.review_reuse.store import InMemoryReviewReuseStore
+
+    svc_mod.reset_review_reuse_store_for_tests(InMemoryReviewReuseStore())
+    secret = "review-reuse-jwt-secret-32bytes!"
+    audience = "cad-ml-api"
+    issuer = "cad-ml-issuer"
+    app, claims = _jwt_review_reuse_app(secret=secret, audience=audience, issuer=issuer)
+    token = pyjwt.encode(claims, secret, algorithm="HS256")
+    if not isinstance(token, str):
+        token = token.decode("utf-8")
+    with TestClient(app) as client:
+        r = client.post(
+            "/api/v1/review-reuse/tasks",
+            files={"file": ("a.dxf", b"x", "application/octet-stream")},
+            headers={
+                "X-API-Key": "test",
+                "Authorization": f"Bearer {token}",
+                "x-tenant-id": "other-tenant",
+            },
+        )
+        assert r.status_code == 401
+
+
+def test_create_pipeline_failed_500(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.setenv("API_KEY", "test")
+    monkeypatch.delenv("REVIEW_REUSE_DECISIONS_ENABLED", raising=False)
+    from src.core.review_reuse import service as svc_mod
+    from src.core.review_reuse.store import InMemoryReviewReuseStore
+
+    svc_mod.reset_review_reuse_store_for_tests(InMemoryReviewReuseStore())
+    monkeypatch.setattr(
+        svc_mod,
+        "apply_precision",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+    from src.main import app
+
+    with TestClient(app, headers={"X-API-Key": "test"}) as client:
+        r = client.post(
+            "/api/v1/review-reuse/tasks",
+            files={"file": ("a.dxf", b"x", "application/octet-stream")},
+        )
+        assert r.status_code == 500, r.text
+        assert r.json()["detail"]["code"] == "pipeline_failed"
+
+
 def test_tenant_isolation_different_api_keys(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ENVIRONMENT", "development")
     monkeypatch.setenv("API_KEY", "test")

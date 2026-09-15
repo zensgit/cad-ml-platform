@@ -7,6 +7,7 @@ Does NOT enable human decisions by default. Uses synthetic file bytes unless
 Examples::
 
   python scripts/review_reuse_isolated_archive_run.py --out /tmp/rr_export
+  python scripts/review_reuse_isolated_archive_run.py --file sample.dxf
   python scripts/review_reuse_isolated_archive_run.py --file sample.dxf --seed-similar
 
 Env (optional)::
@@ -56,13 +57,16 @@ def main(argv: list[str] | None = None) -> int:
     # Never flip decision on from this script.
     os.environ.pop("REVIEW_REUSE_DECISIONS_ENABLED", None)
 
-    from src.core.review_reuse.service import ReviewReuseService
+    from src.core.review_reuse.service import ReviewReuseError, ReviewReuseService
     from src.core.review_reuse.store import create_review_reuse_store
 
     store = create_review_reuse_store()
     svc = ReviewReuseService(store)
 
     if args.file is not None:
+        if not args.file.is_file():
+            print(f"error: --file not found: {args.file}", file=sys.stderr)
+            return 2
         file_bytes = args.file.read_bytes()
         file_name = args.file.name
     else:
@@ -85,13 +89,18 @@ def main(argv: list[str] | None = None) -> int:
             }
         ]
 
-    task = svc.create_task(
-        tenant_id=args.tenant,
-        file_name=file_name,
-        file_bytes=file_bytes,
-        idempotency_key=args.idempotency_key,
-        seed_candidates=seed,
-    )
+    try:
+        task = svc.create_task(
+            tenant_id=args.tenant,
+            file_name=file_name,
+            file_bytes=file_bytes,
+            idempotency_key=args.idempotency_key,
+            seed_candidates=seed,
+        )
+    except ReviewReuseError as exc:
+        print(f"error: {exc.code}: {exc.message}", file=sys.stderr)
+        print("decisions=disabled (script never enables REVIEW_REUSE_DECISIONS_ENABLED)")
+        return 2
     pack, md = svc.get_evidence_pack(args.tenant, task.task_id, as_markdown=True)
     audit = svc.export_audit_bundle(args.tenant, task.task_id)
 
