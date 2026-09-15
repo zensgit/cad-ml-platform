@@ -116,3 +116,18 @@ def test_list_two_tenants(tmp_path: Path, capsys) -> None:
     assert "tenant=beta" in text
     assert "tasks=2" in text
     assert "tasks=1" in text
+
+
+def test_list_uses_tenant_meta_id(tmp_path: Path) -> None:
+    store = tmp_path / "store"
+    hashed = "aaaaaaaaaaaaaaaaaaaaaaaa"
+    tdir = store / hashed
+    tasks = tdir / "tasks"
+    tasks.mkdir(parents=True)
+    (tasks / "task1.json").write_text('{"task_id":"task1"}', encoding="utf-8")
+    (tdir / "tenant_meta.json").write_text(
+        '{"tenant_id":"a/b"}', encoding="utf-8"
+    )
+    rows = collect_tenant_summaries(store)
+    assert rows[0]["tenant"] == "a/b"
+    assert rows[0]["task_count"] == 1

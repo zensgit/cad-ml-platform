@@ -32,9 +32,8 @@ def vision_response_to_hits(response: Dict[str, Any]) -> List[Dict[str, Any]]:
             visual = match.get("visual_similarity")
             if visual is None:
                 visual = match.get("similarity")
+            # Geometric is independent of visual similarity (strategy §3.3).
             geom = match.get("precision_score")
-            if geom is None:
-                geom = match.get("similarity")
             methods = ["dedup2d-vision"]
             levels = match.get("levels") or {}
             if isinstance(levels, dict) and levels.get("l4"):

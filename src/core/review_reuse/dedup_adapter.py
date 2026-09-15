@@ -8,8 +8,11 @@ Does not call training paths, hosted LLMs, or eval_integrity_gate.
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any, Callable, Dict, List, Optional, Protocol
+
+logger = logging.getLogger(__name__)
 
 from .models import CandidateDecision, CandidateState, RejectionReason
 
@@ -67,12 +70,13 @@ def map_raw_hits_to_candidates(
                 state = CandidateState.similar
 
         scores = dict(raw.get("scores") or {})
-        if "geometric" not in scores and raw.get("geometric") is not None:
+        if "geometric" not in scores:
             scores["geometric"] = raw.get("geometric")
         if "semantic" not in scores and raw.get("semantic") is not None:
             scores["semantic"] = raw.get("semantic")
-        # Ensure strategy-minimum keys exist (nullable).
-        scores.setdefault("geometric", raw.get("score"))
+        # Strategy-minimum keys exist (nullable). Do not copy visual `score`
+        # into geometric — that is a §3.3 honesty violation.
+        scores.setdefault("geometric", None)
         scores.setdefault("semantic", None)
 
         reasons = list(raw.get("rejection_reasons") or [])
@@ -155,7 +159,7 @@ def recall_candidates(
 
                 ensure_default_live_hook()
             except Exception:
-                pass
+                logger.warning("review_reuse_live_hook_install_failed", exc_info=True)
         hook = get_live_recall_hook()
         if hook is None:
             return offline_insufficient(

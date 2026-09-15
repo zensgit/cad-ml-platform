@@ -98,6 +98,15 @@ def test_evidence_pack_format_markdown(client: TestClient) -> None:
     assert task_id in md.text
 
 
+def test_create_rejects_unsupported_file_type(client: TestClient) -> None:
+    r = client.post(
+        "/api/v1/review-reuse/tasks",
+        files={"file": ("payload.exe", b"MZ", "application/octet-stream")},
+    )
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"]["code"] == "unsupported_file_type"
+
+
 def test_decision_default_off_403(client: TestClient) -> None:
     r = client.post(
         "/api/v1/review-reuse/tasks",

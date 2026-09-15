@@ -85,9 +85,18 @@ def collect_tenant_summaries(
             age_days = None
         else:
             age_days = (now_ts - newest) / 86400.0
+        tenant_label = tdir.name
+        meta_path = tdir / "tenant_meta.json"
+        if meta_path.is_file():
+            try:
+                meta = json.loads(meta_path.read_text(encoding="utf-8"))
+                if isinstance(meta, dict) and meta.get("tenant_id"):
+                    tenant_label = str(meta["tenant_id"])
+            except (OSError, json.JSONDecodeError, TypeError, ValueError):
+                tenant_label = tdir.name
         rows.append(
             {
-                "tenant": tdir.name,
+                "tenant": tenant_label,
                 "task_count": len(task_files),
                 "age_days": age_days,
             }

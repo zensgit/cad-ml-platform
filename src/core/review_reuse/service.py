@@ -10,15 +10,18 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .dedup_adapter import recall_candidates
 from .evidence import build_evidence_pack, evidence_pack_markdown
+from .files import is_allowed_review_reuse_filename
 from .metrics import compute_review_metrics
 from .models import (
     HumanDecision,
     HumanDecisionState,
+    RejectionReason,
     ReviewReuseTask,
     TaskEvent,
     TaskEventType,
     TaskStatus,
 )
+from .precision import apply_precision
 from .store import ReviewReuseStoreProtocol, create_review_reuse_store
 
 # Default-off human decision sink (plan §8).
@@ -84,6 +87,11 @@ class ReviewReuseService:
     ) -> ReviewReuseTask:
         if not tenant_id or not str(tenant_id).strip():
             raise ReviewReuseError("tenant_required", "tenant_id is required")
+        if not is_allowed_review_reuse_filename(file_name):
+            raise ReviewReuseError(
+                RejectionReason.unsupported_file_type.value,
+                "file type is not a supported drawing or raster for ReviewReuse",
+            )
         if idempotency_key:
             existing = self.store.get_by_idempotency(tenant_id, idempotency_key)
             if existing is not None:
@@ -126,10 +134,28 @@ class ReviewReuseService:
             {"count": len(candidates)},
         )
         task = self._emit(task, TaskEventType.precision_started, {})
+        candidates = apply_precision(
+            candidates, file_name=file_name, file_bytes=file_bytes
+        )
+        task.candidates = candidates
+        vision_only = sum(
+            1
+            for c in candidates
+            if RejectionReason.vision_only_unverified.value in c.rejection_reasons
+        )
+        l4 = sum(
+            1
+            for c in candidates
+            if "precision-l4" in list((c.verification or {}).get("methods") or [])
+        )
         task = self._emit(
             task,
             TaskEventType.precision_completed,
-            {"count": len(candidates)},
+            {
+                "count": len(candidates),
+                "precision_l4": l4,
+                "vision_only_unverified": vision_only,
+            },
         )
         pack = build_evidence_pack(task)
         task.evidence_pack = pack
@@ -224,6 +250,13 @@ class ReviewReuseService:
         task = self.get_task(tenant_id, task_id)
         if task.status == TaskStatus.canceled:
             raise ReviewReuseError("canceled", "cannot decide a canceled task")
+        if candidate_id:
+            known = {c.candidate_id for c in task.candidates}
+            if candidate_id not in known:
+                raise ReviewReuseError(
+                    "unknown_candidate",
+                    f"candidate_id {candidate_id!r} is not on this task",
+                )
         if task.human_decision is not None:
             # Idempotent: same key returns existing; different is conflict.
             if (

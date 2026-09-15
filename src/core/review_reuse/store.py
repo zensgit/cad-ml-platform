@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import threading
@@ -13,6 +14,34 @@ from .models import ReviewReuseTask
 ENV_STORE = "REVIEW_REUSE_STORE"
 ENV_STORE_DIR = "REVIEW_REUSE_STORE_DIR"
 _TRUE_BACKENDS_FS = frozenset({"fs", "file", "filesystem", "disk"})
+_TENANT_META = "tenant_meta.json"
+
+
+def tenant_dir_key(tenant_id: str) -> str:
+    """Stable non-colliding directory name (sha256 prefix)."""
+    return hashlib.sha256((tenant_id or "").encode("utf-8")).hexdigest()[:24]
+
+
+def _legacy_safe_tenant(tenant_id: str) -> str:
+    return "".join(c if c.isalnum() or c in "-_." else "_" for c in tenant_id)[
+        :128
+    ] or "unknown"
+
+
+def read_tenant_meta_id(tenant_dir: Path) -> Optional[str]:
+    """Return original tenant_id from sidecar, if present."""
+    path = tenant_dir / _TENANT_META
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, ValueError):
+        return None
+    if isinstance(data, dict):
+        tid = data.get("tenant_id")
+        if isinstance(tid, str) and tid:
+            return tid
+    return None
 
 
 class ReviewReuseStoreProtocol(Protocol):
@@ -64,8 +93,13 @@ class FilesystemReviewReuseStore:
 
     Layout::
 
-        {root}/{tenant_id}/tasks/{task_id}.json
-        {root}/{tenant_id}/idempotency.json
+        {root}/{sha256(tenant_id)[:24]}/tasks/{task_id}.json
+        {root}/{sha256(tenant_id)[:24]}/idempotency.json
+        {root}/{sha256(tenant_id)[:24]}/tenant_meta.json
+
+    Legacy sanitized ``{root}/{safe_tenant}/`` dirs are still read (get/list)
+    so existing stores keep working; new writes always use the hash dir so
+    ``a/b`` and ``a_b`` cannot collide.
     """
 
     def __init__(self, root: Path | str) -> None:
@@ -73,24 +107,44 @@ class FilesystemReviewReuseStore:
         self._lock = threading.RLock()
         self._root.mkdir(parents=True, exist_ok=True)
 
-    def _tenant_dir(self, tenant_id: str) -> Path:
-        # path-safe tenant segment
-        safe = "".join(c if c.isalnum() or c in "-_." else "_" for c in tenant_id)[
-            :128
-        ] or "unknown"
-        d = self._root / safe
+    def _hashed_dir(self, tenant_id: str) -> Path:
+        return self._root / tenant_dir_key(tenant_id)
+
+    def _legacy_dir(self, tenant_id: str) -> Path:
+        return self._root / _legacy_safe_tenant(tenant_id)
+
+    def _ensure_write_dir(self, tenant_id: str) -> Path:
+        d = self._hashed_dir(tenant_id)
         (d / "tasks").mkdir(parents=True, exist_ok=True)
+        self._write_meta(d, tenant_id)
         return d
 
-    def _task_path(self, tenant_id: str, task_id: str) -> Path:
+    def _write_meta(self, tenant_dir: Path, tenant_id: str) -> None:
+        path = tenant_dir / _TENANT_META
+        payload = json.dumps({"tenant_id": tenant_id}, ensure_ascii=False)
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(payload, encoding="utf-8")
+        tmp.replace(path)
+
+    def _read_dirs(self, tenant_id: str) -> List[Path]:
+        hashed = self._hashed_dir(tenant_id)
+        legacy = self._legacy_dir(tenant_id)
+        out: List[Path] = []
+        if hashed.is_dir():
+            out.append(hashed)
+        if legacy != hashed and legacy.is_dir():
+            out.append(legacy)
+        return out
+
+    def _task_path(self, tenant_dir: Path, task_id: str) -> Path:
         safe_tid = "".join(c if c.isalnum() or c in "-_" else "_" for c in task_id)
-        return self._tenant_dir(tenant_id) / "tasks" / f"{safe_tid}.json"
+        return tenant_dir / "tasks" / f"{safe_tid}.json"
 
-    def _idem_path(self, tenant_id: str) -> Path:
-        return self._tenant_dir(tenant_id) / "idempotency.json"
+    def _idem_path(self, tenant_dir: Path) -> Path:
+        return tenant_dir / "idempotency.json"
 
-    def _load_idem(self, tenant_id: str) -> Dict[str, str]:
-        path = self._idem_path(tenant_id)
+    def _load_idem(self, tenant_dir: Path) -> Dict[str, str]:
+        path = self._idem_path(tenant_dir)
         if not path.exists():
             return {}
         try:
@@ -99,15 +153,16 @@ class FilesystemReviewReuseStore:
         except (OSError, json.JSONDecodeError):
             return {}
 
-    def _save_idem(self, tenant_id: str, mapping: Dict[str, str]) -> None:
-        path = self._idem_path(tenant_id)
+    def _save_idem(self, tenant_dir: Path, mapping: Dict[str, str]) -> None:
+        path = self._idem_path(tenant_dir)
         tmp = path.with_suffix(".tmp")
         tmp.write_text(json.dumps(mapping, ensure_ascii=False, indent=0), encoding="utf-8")
         tmp.replace(path)
 
     def put(self, task: ReviewReuseTask) -> ReviewReuseTask:
         with self._lock:
-            path = self._task_path(task.tenant_id, task.task_id)
+            tenant_dir = self._ensure_write_dir(task.tenant_id)
+            path = self._task_path(tenant_dir, task.task_id)
             tmp = path.with_suffix(".tmp")
             payload = task.model_dump(mode="json")
             tmp.write_text(
@@ -115,44 +170,60 @@ class FilesystemReviewReuseStore:
             )
             tmp.replace(path)
             if task.idempotency_key:
-                idem = self._load_idem(task.tenant_id)
+                idem = self._load_idem(tenant_dir)
                 idem[task.idempotency_key] = task.task_id
-                self._save_idem(task.tenant_id, idem)
+                self._save_idem(tenant_dir, idem)
             return task
 
     def get(self, tenant_id: str, task_id: str) -> Optional[ReviewReuseTask]:
         with self._lock:
-            path = self._task_path(tenant_id, task_id)
-            if not path.exists():
-                return None
-            try:
-                data = json.loads(path.read_text(encoding="utf-8"))
-                return ReviewReuseTask.model_validate(data)
-            except (OSError, json.JSONDecodeError, ValueError):
-                return None
-
-    def get_by_idempotency(self, tenant_id: str, key: str) -> Optional[ReviewReuseTask]:
-        with self._lock:
-            tid = self._load_idem(tenant_id).get(key)
-            if not tid:
-                return None
-            return self.get(tenant_id, tid)
-
-    def list_for_tenant(self, tenant_id: str) -> List[ReviewReuseTask]:
-        with self._lock:
-            tasks_dir = self._tenant_dir(tenant_id) / "tasks"
-            out: List[ReviewReuseTask] = []
-            if not tasks_dir.exists():
-                return out
-            for path in tasks_dir.glob("*.json"):
+            for tenant_dir in self._read_dirs(tenant_id):
+                path = self._task_path(tenant_dir, task_id)
+                if not path.exists():
+                    continue
                 try:
                     data = json.loads(path.read_text(encoding="utf-8"))
                     task = ReviewReuseTask.model_validate(data)
-                    if task.tenant_id == tenant_id:
-                        out.append(task)
                 except (OSError, json.JSONDecodeError, ValueError):
                     continue
-            return out
+                if task.tenant_id == tenant_id:
+                    return task
+            return None
+
+    def get_by_idempotency(self, tenant_id: str, key: str) -> Optional[ReviewReuseTask]:
+        with self._lock:
+            for tenant_dir in self._read_dirs(tenant_id):
+                tid = self._load_idem(tenant_dir).get(key)
+                if not tid:
+                    continue
+                path = self._task_path(tenant_dir, tid)
+                if not path.exists():
+                    continue
+                try:
+                    data = json.loads(path.read_text(encoding="utf-8"))
+                    task = ReviewReuseTask.model_validate(data)
+                except (OSError, json.JSONDecodeError, ValueError):
+                    continue
+                if task.tenant_id == tenant_id:
+                    return task
+            return None
+
+    def list_for_tenant(self, tenant_id: str) -> List[ReviewReuseTask]:
+        with self._lock:
+            seen: Dict[str, ReviewReuseTask] = {}
+            for tenant_dir in self._read_dirs(tenant_id):
+                tasks_dir = tenant_dir / "tasks"
+                if not tasks_dir.exists():
+                    continue
+                for path in tasks_dir.glob("*.json"):
+                    try:
+                        data = json.loads(path.read_text(encoding="utf-8"))
+                        task = ReviewReuseTask.model_validate(data)
+                    except (OSError, json.JSONDecodeError, ValueError):
+                        continue
+                    if task.tenant_id == tenant_id:
+                        seen[task.task_id] = task
+            return list(seen.values())
 
 
 # Back-compat alias used by existing tests/service imports.

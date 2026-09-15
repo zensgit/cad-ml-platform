@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -55,6 +56,9 @@ def test_vision_response_to_hits_maps_buckets() -> None:
     assert hits[0]["scores"]["geometric"] == 0.95
     assert "precision-l4" in hits[0]["methods"]
     assert hits[1]["state"] == "similar"
+    # Visual similarity must not be copied into geometric (strategy §3.3).
+    assert hits[1]["scores"]["geometric"] is None
+    assert hits[1]["scores"]["semantic"] == 0.85
 
 
 def test_live_default_hook_path_with_inject(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -127,6 +131,72 @@ def test_create_store_factory(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
     monkeypatch.setenv(ENV_STORE_DIR, str(tmp_path / "fs"))
     store = create_review_reuse_store()
     assert isinstance(store, FilesystemReviewReuseStore)
+
+
+def test_filesystem_store_tenant_path_no_collision(tmp_path: Path) -> None:
+    """Sanitized names a/b and a_b must not share a directory."""
+    store = FilesystemReviewReuseStore(tmp_path / "tasks")
+    svc = ReviewReuseService(store)
+    seed = [
+        {
+            "candidate_id": "c1",
+            "state": "similar",
+            "scores": {"geometric": 0.8, "semantic": 0.7},
+            "methods": ["precision-l4"],
+        }
+    ]
+    t_slash = svc.create_task(
+        tenant_id="a/b",
+        file_name="p.dxf",
+        file_bytes=b"one",
+        seed_candidates=seed,
+    )
+    t_under = svc.create_task(
+        tenant_id="a_b",
+        file_name="p.dxf",
+        file_bytes=b"two",
+        seed_candidates=seed,
+    )
+    assert t_slash.task_id != t_under.task_id
+    assert store.get("a/b", t_slash.task_id) is not None
+    assert store.get("a_b", t_slash.task_id) is None
+    assert store.get("a/b", t_under.task_id) is None
+    assert store.get("a_b", t_under.task_id) is not None
+    assert store.get("a/b", t_slash.task_id).tenant_id == "a/b"
+    assert len(store.list_for_tenant("a/b")) == 1
+    assert len(store.list_for_tenant("a_b")) == 1
+
+
+def test_filesystem_get_rejects_mismatched_tenant_payload(tmp_path: Path) -> None:
+    store = FilesystemReviewReuseStore(tmp_path / "tasks")
+    svc = ReviewReuseService(store)
+    task = svc.create_task(
+        tenant_id="tenant-a",
+        file_name="p.dxf",
+        file_bytes=b"dxf-bytes",
+        seed_candidates=[
+            {
+                "candidate_id": "c1",
+                "state": "similar",
+                "scores": {"geometric": 0.8, "semantic": 0.7},
+                "methods": ["precision-l4"],
+            }
+        ],
+    )
+    # Poison the JSON tenant_id; get() must not return it for tenant-a.
+    from src.core.review_reuse.store import tenant_dir_key
+
+    path = (
+        tmp_path
+        / "tasks"
+        / tenant_dir_key("tenant-a")
+        / "tasks"
+        / f"{task.task_id}.json"
+    )
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["tenant_id"] = "tenant-b"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    assert store.get("tenant-a", task.task_id) is None
 
 
 def test_map_raw_hits_preserves_scores() -> None:
