@@ -23,6 +23,7 @@ from src.core.review_reuse.store import (
     FilesystemReviewReuseStore,
     InMemoryReviewReuseStore,
     create_review_reuse_store,
+    tenant_dir_key,
 )
 
 
@@ -242,6 +243,42 @@ def test_filesystem_store_tenant_path_no_collision(tmp_path: Path) -> None:
     assert store.get("a/b", t_slash.task_id).tenant_id == "a/b"
     assert len(store.list_for_tenant("a/b")) == 1
     assert len(store.list_for_tenant("a_b")) == 1
+
+
+def test_list_for_tenant_prefers_hashed_over_stale_legacy(tmp_path: Path) -> None:
+    """put() writes hashed; leftover legacy JSON must not win the listing."""
+    root = tmp_path / "tasks"
+    store = FilesystemReviewReuseStore(root)
+    svc = ReviewReuseService(store)
+    task = svc.create_task(
+        tenant_id="pilot-tenant",
+        file_name="p.dxf",
+        file_bytes=b"dxf-bytes",
+        seed_candidates=[
+            {
+                "candidate_id": "c1",
+                "state": "similar",
+                "scores": {"geometric": 0.8, "semantic": 0.7},
+                "methods": ["precision-l4"],
+            }
+        ],
+    )
+    hashed_path = (
+        root / tenant_dir_key("pilot-tenant") / "tasks" / f"{task.task_id}.json"
+    )
+    legacy_dir = root / "pilot-tenant" / "tasks"
+    legacy_dir.mkdir(parents=True)
+    legacy_path = legacy_dir / f"{task.task_id}.json"
+    legacy_path.write_text(hashed_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+    canceled = task.model_copy(update={"status": TaskStatus.canceled})
+    store.put(canceled)
+
+    listed = store.list_for_tenant("pilot-tenant")
+    assert len(listed) == 1
+    assert listed[0].status == TaskStatus.canceled
+    stale = json.loads(legacy_path.read_text(encoding="utf-8"))
+    assert stale["status"] == TaskStatus.evidence_ready.value
 
 
 def test_filesystem_get_rejects_mismatched_tenant_payload(tmp_path: Path) -> None:

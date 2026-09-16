@@ -15,6 +15,7 @@ from scripts.review_reuse_store_ops import (
     collect_tenant_summaries,
     main,
 )
+from src.core.review_reuse.store import tenant_dir_key
 
 
 def _seed_tenant(
@@ -131,3 +132,76 @@ def test_list_uses_tenant_meta_id(tmp_path: Path) -> None:
     rows = collect_tenant_summaries(store)
     assert rows[0]["tenant"] == "a/b"
     assert rows[0]["task_count"] == 1
+
+
+def _seed_hashed_tenant(
+    store: Path, tenant: str, age_days: float
+) -> Path:
+    hashed = tenant_dir_key(tenant)
+    tdir = store / hashed
+    tasks = tdir / "tasks"
+    tasks.mkdir(parents=True, exist_ok=True)
+    f = tasks / "task1.json"
+    f.write_text('{"task_id":"task1"}', encoding="utf-8")
+    mtime = time.time() - (age_days * 86400.0)
+    os.utime(f, (mtime, mtime))
+    (tdir / "tenant_meta.json").write_text(
+        json.dumps({"tenant_id": tenant}), encoding="utf-8"
+    )
+    return tdir
+
+
+def test_cleanup_matches_hashed_tenant_by_original_id(
+    tmp_path: Path, capsys
+) -> None:
+    store = tmp_path / "store"
+    hashed_dir = _seed_hashed_tenant(store, "pilot-tenant", 60.0)
+    other_dir = _seed_hashed_tenant(store, "other-tenant", 60.0)
+
+    assert (
+        cmd_cleanup(
+            store, older_than_days=30, dry_run=True, tenant="pilot-tenant"
+        )
+        == 0
+    )
+    dry = capsys.readouterr()
+    assert "would_delete tenant=pilot-tenant" in dry.out
+    assert hashed_dir.is_dir()
+    assert other_dir.is_dir()
+
+    assert (
+        cmd_cleanup(
+            store, older_than_days=30, dry_run=False, tenant="pilot-tenant"
+        )
+        == 0
+    )
+    applied = capsys.readouterr()
+    assert "deleted tenant=pilot-tenant" in applied.out
+    assert not hashed_dir.exists()
+    assert other_dir.is_dir()
+
+
+def test_cleanup_matches_hashed_dir_basename(tmp_path: Path) -> None:
+    store = tmp_path / "store"
+    hashed_dir = _seed_hashed_tenant(store, "pilot-tenant", 60.0)
+    hashed = hashed_dir.name
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=hashed)
+        == 0
+    )
+    assert not hashed_dir.exists()
+
+
+def test_cleanup_unknown_tenant_returns_not_found(
+    tmp_path: Path, capsys
+) -> None:
+    store = tmp_path / "store"
+    _seed_hashed_tenant(store, "pilot-tenant", 60.0)
+    assert (
+        cmd_cleanup(
+            store, older_than_days=30, dry_run=True, tenant="missing-tenant"
+        )
+        == 1
+    )
+    err = capsys.readouterr().err
+    assert "tenant not found: missing-tenant" in err

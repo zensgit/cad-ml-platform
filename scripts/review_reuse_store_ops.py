@@ -12,6 +12,7 @@ Does not enable decisions, touch training JSONL, or call network services.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -27,6 +28,30 @@ def _tenant_dirs(store_dir: Path) -> List[Path]:
     if not store_dir.is_dir():
         return []
     return sorted(p for p in store_dir.iterdir() if p.is_dir() and not p.name.startswith("."))
+
+
+def _tenant_label(tdir: Path) -> str:
+    meta_path = tdir / "tenant_meta.json"
+    if meta_path.is_file():
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            if isinstance(meta, dict) and meta.get("tenant_id"):
+                return str(meta["tenant_id"])
+        except (OSError, json.JSONDecodeError, TypeError, ValueError):
+            pass
+    return tdir.name
+
+
+def _tenant_dir_key(tenant_id: str) -> str:
+    return hashlib.sha256((tenant_id or "").encode("utf-8")).hexdigest()[:24]
+
+
+def _tenant_matches(tdir: Path, tenant: str) -> bool:
+    if tdir.name == tenant:
+        return True
+    if _tenant_label(tdir) == tenant:
+        return True
+    return tdir.name == _tenant_dir_key(tenant)
 
 
 def _task_files(tenant_dir: Path) -> List[Path]:
@@ -85,18 +110,9 @@ def collect_tenant_summaries(
             age_days = None
         else:
             age_days = (now_ts - newest) / 86400.0
-        tenant_label = tdir.name
-        meta_path = tdir / "tenant_meta.json"
-        if meta_path.is_file():
-            try:
-                meta = json.loads(meta_path.read_text(encoding="utf-8"))
-                if isinstance(meta, dict) and meta.get("tenant_id"):
-                    tenant_label = str(meta["tenant_id"])
-            except (OSError, json.JSONDecodeError, TypeError, ValueError):
-                tenant_label = tdir.name
         rows.append(
             {
-                "tenant": tenant_label,
+                "tenant": _tenant_label(tdir),
                 "task_count": len(task_files),
                 "age_days": age_days,
             }
@@ -166,7 +182,7 @@ def cmd_cleanup(
     cutoff = time.time() - (older_than_days * 86400.0)
     tenants = _tenant_dirs(store_dir)
     if tenant:
-        tenants = [t for t in tenants if t.name == tenant]
+        tenants = [t for t in tenants if _tenant_matches(t, tenant)]
         if not tenants:
             print(f"tenant not found: {tenant}", file=sys.stderr)
             return 1
@@ -182,14 +198,21 @@ def cmd_cleanup(
         listed += 1
         age_days = (time.time() - newest) / 86400.0
         if dry_run:
-            print(f"would_delete tenant={tdir.name} age_days={age_days:.1f} path={tdir}")
+            label = _tenant_label(tdir)
+            print(
+                f"would_delete tenant={label} age_days={age_days:.1f} path={tdir}"
+            )
         else:
+            label = _tenant_label(tdir)
             shutil.rmtree(tdir)
-            print(f"deleted tenant={tdir.name} age_days={age_days:.1f}")
+            print(f"deleted tenant={label} age_days={age_days:.1f}")
             removed += 1
 
     mode = "dry_run" if dry_run else "apply"
-    print(f"cleanup mode={mode} candidates={listed} deleted={removed} older_than_days={older_than_days}")
+    print(
+        f"cleanup mode={mode} candidates={listed} deleted={removed} "
+        f"older_than_days={older_than_days}"
+    )
     return 0
 
 

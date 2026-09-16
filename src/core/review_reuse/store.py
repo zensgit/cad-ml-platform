@@ -221,7 +221,9 @@ class FilesystemReviewReuseStore:
                         task = ReviewReuseTask.model_validate(data)
                     except (OSError, json.JSONDecodeError, ValueError):
                         continue
-                    if task.tenant_id == tenant_id:
+                    if task.tenant_id == tenant_id and task.task_id not in seen:
+                        # Hashed dir is visited first; keep that copy over a
+                        # stale leftover in the legacy layout.
                         seen[task.task_id] = task
             return list(seen.values())
 
