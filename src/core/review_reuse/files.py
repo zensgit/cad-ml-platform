@@ -13,6 +13,7 @@ ALLOWED_SUFFIXES = frozenset(
     {
         ".dxf",
         ".dwg",
+        ".pdf",
         ".png",
         ".jpg",
         ".jpeg",

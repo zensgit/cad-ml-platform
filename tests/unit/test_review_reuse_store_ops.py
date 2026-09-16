@@ -217,6 +217,42 @@ def test_list_and_cleanup_recover_legacy_sanitized_tenant_id(
     assert not (store / "a_b").exists()
 
 
+def test_cleanup_refuses_mixed_legacy_tenant_dir(
+    tmp_path: Path, capsys
+) -> None:
+    store = tmp_path / "store"
+    hashed_dir = _seed_hashed_tenant(store, "a/b", 60.0)
+    mixed = store / "a_b" / "tasks"
+    mixed.mkdir(parents=True)
+    old = time.time() - (60.0 * 86400.0)
+    for name, tenant in (("task-slash.json", "a/b"), ("task-under.json", "a_b")):
+        path = mixed / name
+        path.write_text(
+            json.dumps({"task_id": name, "tenant_id": tenant}),
+            encoding="utf-8",
+        )
+        os.utime(path, (old, old))
+
+    rows = collect_tenant_summaries(store)
+    by_tenant = {r["tenant"]: r for r in rows}
+    assert "a/b" in by_tenant
+    assert "a_b" in by_tenant
+    assert by_tenant["a/b"]["task_count"] == 1
+    assert by_tenant["a_b"]["task_count"] == 2
+
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant="a/b")
+        == 1
+    )
+    err = capsys.readouterr().err
+    assert "refused_mixed" in err
+    assert "a/b" in err
+    assert "a_b" in err
+    assert not hashed_dir.exists()
+    assert (store / "a_b").is_dir()
+    assert (mixed / "task-under.json").is_file()
+
+
 def test_list_merges_legacy_and_hashed_same_tenant(tmp_path: Path) -> None:
     store = tmp_path / "store"
     hashed_dir = _seed_hashed_tenant(store, "pilot-tenant", 10.0)

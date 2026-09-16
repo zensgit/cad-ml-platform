@@ -30,17 +30,25 @@ def _tenant_dirs(store_dir: Path) -> List[Path]:
     return sorted(p for p in store_dir.iterdir() if p.is_dir() and not p.name.startswith("."))
 
 
-def _tenant_id_from_tasks(tdir: Path) -> Optional[str]:
+def _tenant_ids_from_tasks(tdir: Path) -> List[str]:
+    found: List[str] = []
+    seen = set()
     for path in _task_files(tdir):
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError, TypeError, ValueError):
             continue
-        if isinstance(data, dict):
-            tid = data.get("tenant_id")
-            if isinstance(tid, str) and tid:
-                return tid
-    return None
+        if not isinstance(data, dict):
+            continue
+        tid = data.get("tenant_id")
+        if isinstance(tid, str) and tid and tid not in seen:
+            seen.add(tid)
+            found.append(tid)
+    return found
+
+
+def _is_mixed_tenant_dir(tdir: Path) -> bool:
+    return len(_tenant_ids_from_tasks(tdir)) > 1
 
 
 def _tenant_label(tdir: Path) -> str:
@@ -52,9 +60,9 @@ def _tenant_label(tdir: Path) -> str:
                 return str(meta["tenant_id"])
         except (OSError, json.JSONDecodeError, TypeError, ValueError):
             pass
-    from_task = _tenant_id_from_tasks(tdir)
-    if from_task:
-        return from_task
+    ids = _tenant_ids_from_tasks(tdir)
+    if len(ids) == 1:
+        return ids[0]
     return tdir.name
 
 
@@ -65,9 +73,11 @@ def _tenant_dir_key(tenant_id: str) -> str:
 def _tenant_matches(tdir: Path, tenant: str) -> bool:
     if tdir.name == tenant:
         return True
+    if tdir.name == _tenant_dir_key(tenant):
+        return True
     if _tenant_label(tdir) == tenant:
         return True
-    return tdir.name == _tenant_dir_key(tenant)
+    return tenant in _tenant_ids_from_tasks(tdir)
 
 
 def _task_files(tenant_dir: Path) -> List[Path]:
@@ -220,6 +230,7 @@ def cmd_cleanup(
 
     removed = 0
     listed = 0
+    refused = 0
     for tdir in tenants:
         newest = _newest_mtime(tdir)
         if newest is None:
@@ -228,13 +239,21 @@ def cmd_cleanup(
             continue
         listed += 1
         age_days = (time.time() - newest) / 86400.0
+        label = _tenant_label(tdir)
+        if _is_mixed_tenant_dir(tdir):
+            ids = ",".join(_tenant_ids_from_tasks(tdir))
+            print(
+                f"refused_mixed tenant={label} tenant_ids={ids} "
+                f"age_days={age_days:.1f} path={tdir}",
+                file=sys.stderr,
+            )
+            refused += 1
+            continue
         if dry_run:
-            label = _tenant_label(tdir)
             print(
                 f"would_delete tenant={label} age_days={age_days:.1f} path={tdir}"
             )
         else:
-            label = _tenant_label(tdir)
             shutil.rmtree(tdir)
             print(f"deleted tenant={label} age_days={age_days:.1f}")
             removed += 1
@@ -242,9 +261,9 @@ def cmd_cleanup(
     mode = "dry_run" if dry_run else "apply"
     print(
         f"cleanup mode={mode} candidates={listed} deleted={removed} "
-        f"older_than_days={older_than_days}"
+        f"refused_mixed={refused} older_than_days={older_than_days}"
     )
-    return 0
+    return 1 if refused else 0
 
 
 def main(argv: Optional[List[str]] = None) -> int:

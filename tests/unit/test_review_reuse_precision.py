@@ -32,6 +32,7 @@ def _svc() -> ReviewReuseService:
 def test_filename_gate() -> None:
     assert is_allowed_review_reuse_filename("part.dxf")
     assert is_allowed_review_reuse_filename("PART.DWG")
+    assert is_allowed_review_reuse_filename("sheet.PDF")
     assert is_allowed_review_reuse_filename("scan.PNG")
     assert not is_allowed_review_reuse_filename("payload.exe")
     assert not is_allowed_review_reuse_filename("upload.bin")
