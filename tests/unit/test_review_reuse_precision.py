@@ -50,6 +50,34 @@ def test_create_rejects_unsupported_file_type() -> None:
     assert ei.value.code == RejectionReason.unsupported_file_type.value
 
 
+def test_idempotency_replay_skips_file_gate() -> None:
+    import time
+
+    from src.core.review_reuse.models import ReviewReuseTask, TaskStatus
+
+    svc = _svc()
+    now = time.time()
+    prior = ReviewReuseTask(
+        task_id="pre-gate",
+        tenant_id="t-a",
+        status=TaskStatus.evidence_ready,
+        created_at=now,
+        updated_at=now,
+        source_file_name="legacy.bin",
+        source_content_sha256="ab",
+        idempotency_key="idem-legacy",
+        trace_id="tr-legacy",
+    )
+    svc.store.put(prior)
+    again = svc.create_task(
+        tenant_id="t-a",
+        file_name="legacy.bin",
+        file_bytes=b"x",
+        idempotency_key="idem-legacy",
+    )
+    assert again.task_id == "pre-gate"
+
+
 def test_precision_labels_vision_only_without_copying_visual() -> None:
     cands = map_raw_hits_to_candidates(
         [

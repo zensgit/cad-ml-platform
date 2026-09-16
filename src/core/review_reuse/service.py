@@ -90,15 +90,15 @@ class ReviewReuseService:
     ) -> ReviewReuseTask:
         if not tenant_id or not str(tenant_id).strip():
             raise ReviewReuseError("tenant_required", "tenant_id is required")
+        if idempotency_key:
+            existing = self.store.get_by_idempotency(tenant_id, idempotency_key)
+            if existing is not None:
+                return existing
         if not is_allowed_review_reuse_filename(file_name):
             raise ReviewReuseError(
                 RejectionReason.unsupported_file_type.value,
                 "file type is not a supported drawing or raster for ReviewReuse",
             )
-        if idempotency_key:
-            existing = self.store.get_by_idempotency(tenant_id, idempotency_key)
-            if existing is not None:
-                return existing
 
         now = time.time()
         task_id = str(uuid.uuid4())

@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: see latest commit on the branch (pipeline 500 sanitized; 3.10 green on `027c3bd5`)  
+**HEAD at writing**: see latest commit (hashed-basename cleanup isolation + idempotency before file gate)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -49,7 +49,7 @@ make test-review-reuse
 | Run | Result |
 |---|---|
 | flake8 on changed ReviewReuse files | clean |
-| `make test-review-reuse` | **111 passed**, 7 ezdxf warnings, ~2.0s |
+| `make test-review-reuse` | **113 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

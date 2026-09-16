@@ -71,13 +71,20 @@ def _tenant_dir_key(tenant_id: str) -> str:
 
 
 def _tenant_matches(tdir: Path, tenant: str) -> bool:
-    if tdir.name == tenant:
+    """Match by original tenant identity, not a colliding hashed basename.
+
+    A hashed dir named ``sha256(A)[:24]`` must not be selected by
+    ``--tenant <that hash>`` when metadata/tasks identify tenant A.
+    """
+    if _is_mixed_tenant_dir(tdir):
+        return tenant in _tenant_ids_from_tasks(tdir)
+    label = _tenant_label(tdir)
+    if label == tenant:
         return True
     if tdir.name == _tenant_dir_key(tenant):
         return True
-    if _tenant_label(tdir) == tenant:
-        return True
-    return tenant in _tenant_ids_from_tasks(tdir)
+    # Basename match only when we have no stronger identity.
+    return tdir.name == tenant and label == tdir.name
 
 
 def _task_files(tenant_dir: Path) -> List[Path]:

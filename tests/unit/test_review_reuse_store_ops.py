@@ -181,9 +181,28 @@ def test_cleanup_matches_hashed_tenant_by_original_id(
     assert other_dir.is_dir()
 
 
-def test_cleanup_matches_hashed_dir_basename(tmp_path: Path) -> None:
+def test_cleanup_hash_selector_does_not_delete_other_tenant(
+    tmp_path: Path,
+) -> None:
+    """--tenant <sha256(A)[:24]> must not rmtree A's hashed dir."""
+    store = tmp_path / "store"
+    hashed_a = _seed_hashed_tenant(store, "pilot-tenant", 60.0)
+    hash_a = hashed_a.name
+    hashed_literal = _seed_hashed_tenant(store, hash_a, 60.0)
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=hash_a)
+        == 0
+    )
+    assert hashed_a.is_dir()
+    assert not hashed_literal.exists()
+
+
+def test_cleanup_hashed_basename_without_meta_still_matches(
+    tmp_path: Path,
+) -> None:
     store = tmp_path / "store"
     hashed_dir = _seed_hashed_tenant(store, "pilot-tenant", 60.0)
+    (hashed_dir / "tenant_meta.json").unlink()
     hashed = hashed_dir.name
     assert (
         cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=hashed)
