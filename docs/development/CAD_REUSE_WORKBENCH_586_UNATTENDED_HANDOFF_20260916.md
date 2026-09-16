@@ -23,13 +23,11 @@ Do not merge. Do not enable decisions. Do not claim Track C.
 
 ## Open now
 
-1. **P0** CI `tests (3.10)` on `c01bc02b` failed inside the enumerator *pytest*
-   step: `test_ordinary_dest_dir_open_failure_zero_model_bytes` (not the
-   enumerator AST). Fix is `b739063a` (chmod 000 instead of `os.open` spy).
-   Confirm the new run is green. Local enumerator RED from gitignored
-   `scripts/eval_v16_after_fix.py` / `src/core/cache/client.py` is still not CI.
-2. Keep `make test-review-reuse` green (111 passed at last local run).
-3. Update verification MD with new HEAD / CI results.
+1. **P0** CI `tests (3.10)` is **green** on `027c3bd5` (fix `b739063a`).
+   Local enumerator RED from gitignored files is still not CI.
+2. Wave 2026-09-16 06:54 UTC: Sol P2 — sanitize `pipeline_failed` API message
+   (keep detail on persisted `task.error` only).
+3. Keep `make test-review-reuse` green (111 passed).
 4. Sol re-review after each code wave; implement P1/P2 honesty findings only.
 
 ## Do not

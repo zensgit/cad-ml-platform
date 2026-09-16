@@ -360,7 +360,10 @@ def test_create_pipeline_failed_500(monkeypatch: pytest.MonkeyPatch) -> None:
             files={"file": ("a.dxf", b"x", "application/octet-stream")},
         )
         assert r.status_code == 500, r.text
-        assert r.json()["detail"]["code"] == "pipeline_failed"
+        detail = r.json()["detail"]
+        assert detail["code"] == "pipeline_failed"
+        assert detail["message"] == "review-reuse pipeline failed"
+        assert "boom" not in r.text
 
 
 def test_tenant_isolation_different_api_keys(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -216,6 +216,7 @@ def test_pipeline_failed_persists_failed_task(monkeypatch: pytest.MonkeyPatch) -
             ],
         )
     assert ei.value.code == "pipeline_failed"
+    assert ei.value.message == "review-reuse pipeline failed"
     listed = svc.list_tasks("t-fail")
     assert len(listed) == 1
     task = listed[0]

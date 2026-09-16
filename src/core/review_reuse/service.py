@@ -141,7 +141,8 @@ class ReviewReuseService:
             except Exception:
                 logger.warning("review_reuse_failed_task_persist_failed", exc_info=True)
             raise ReviewReuseError(
-                "pipeline_failed", task.error or "review-reuse pipeline failed"
+                "pipeline_failed",
+                "review-reuse pipeline failed",
             ) from exc
 
     def _run_pipeline(

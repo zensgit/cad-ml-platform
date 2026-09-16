@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: `b739063a` (3.10 C1 dest-dir test fix; docs `52252e1c`)  
+**HEAD at writing**: see latest commit on the branch (pipeline 500 sanitized; 3.10 green on `027c3bd5`)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -56,7 +56,7 @@ make test-review-reuse
 | Check | Result |
 |---|---|
 | tests (3.11) on `c01bc02b` | success |
-| tests (3.10) on `c01bc02b` | failed at L3 enumerator **pytest**, not the enumerator binary. `test_ordinary_dest_dir_open_failure_zero_model_bytes` did not raise `ActivationRefusal` because an `os.open` spy missed Linux `openat`. Fix: `chmod 000` after freeze `mkdir("sub")` (`b739063a`). Awaiting re-run. |
+| tests (3.10) on `027c3bd5` | **success** (fix `b739063a`: dest-dir `chmod 000` instead of `os.open` spy) |
 | lint-all-report / openapi-fast / e2e-smoke | success on `c01bc02b` |
 | mergeable_state | `blocked` (review required; do not merge) |
 
@@ -111,7 +111,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | `b739063a` landed; confirm green on the new run |
+| Python 3.10 CI job | **success** on `027c3bd5` |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |
