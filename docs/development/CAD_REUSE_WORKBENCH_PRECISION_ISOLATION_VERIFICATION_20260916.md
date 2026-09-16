@@ -49,7 +49,7 @@ make test-review-reuse
 | Run | Result |
 |---|---|
 | flake8 on changed ReviewReuse files | clean |
-| `make test-review-reuse` | **113 passed**, 7 ezdxf warnings |
+| `make test-review-reuse` | **115 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

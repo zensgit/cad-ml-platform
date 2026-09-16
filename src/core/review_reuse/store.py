@@ -52,6 +52,8 @@ class ReviewReuseStoreProtocol(Protocol):
 
     def get_by_idempotency(self, tenant_id: str, key: str) -> Optional[ReviewReuseTask]: ...
 
+    def put_new_idempotent(self, task: ReviewReuseTask) -> ReviewReuseTask: ...
+
     def list_for_tenant(self, tenant_id: str) -> List[ReviewReuseTask]: ...
 
 
@@ -66,7 +68,7 @@ class InMemoryReviewReuseStore:
     def put(self, task: ReviewReuseTask) -> ReviewReuseTask:
         with self._lock:
             bucket = self._tasks.setdefault(task.tenant_id, {})
-            bucket[task.task_id] = task
+            bucket[task.task_id] = task.model_copy(deep=True)
             if task.idempotency_key:
                 self._idem.setdefault(task.tenant_id, {})[task.idempotency_key] = (
                     task.task_id
@@ -75,18 +77,31 @@ class InMemoryReviewReuseStore:
 
     def get(self, tenant_id: str, task_id: str) -> Optional[ReviewReuseTask]:
         with self._lock:
-            return self._tasks.get(tenant_id, {}).get(task_id)
+            found = self._tasks.get(tenant_id, {}).get(task_id)
+            return found.model_copy(deep=True) if found is not None else None
 
     def get_by_idempotency(self, tenant_id: str, key: str) -> Optional[ReviewReuseTask]:
         with self._lock:
             tid = self._idem.get(tenant_id, {}).get(key)
             if not tid:
                 return None
-            return self._tasks.get(tenant_id, {}).get(tid)
+            found = self._tasks.get(tenant_id, {}).get(tid)
+            return found.model_copy(deep=True) if found is not None else None
+
+    def put_new_idempotent(self, task: ReviewReuseTask) -> ReviewReuseTask:
+        with self._lock:
+            if task.idempotency_key:
+                existing = self.get_by_idempotency(task.tenant_id, task.idempotency_key)
+                if existing is not None:
+                    return existing
+            return self.put(task)
 
     def list_for_tenant(self, tenant_id: str) -> List[ReviewReuseTask]:
         with self._lock:
-            return list(self._tasks.get(tenant_id, {}).values())
+            return [
+                t.model_copy(deep=True)
+                for t in self._tasks.get(tenant_id, {}).values()
+            ]
 
 
 class FilesystemReviewReuseStore:
@@ -221,6 +236,14 @@ class FilesystemReviewReuseStore:
                 if task.tenant_id == tenant_id:
                     return task
             return None
+
+    def put_new_idempotent(self, task: ReviewReuseTask) -> ReviewReuseTask:
+        with self._lock:
+            if task.idempotency_key:
+                existing = self.get_by_idempotency(task.tenant_id, task.idempotency_key)
+                if existing is not None:
+                    return existing
+            return self.put(task)
 
     def list_for_tenant(self, tenant_id: str) -> List[ReviewReuseTask]:
         with self._lock:

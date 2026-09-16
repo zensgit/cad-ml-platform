@@ -120,7 +120,10 @@ class ReviewReuseService:
         task = self._emit(task, TaskEventType.input_validated, {"bytes": len(file_bytes)})
         task.status = TaskStatus.running
         task.updated_at = time.time()
-        self.store.put(task)
+        stored = self.store.put_new_idempotent(task)
+        if stored.task_id != task.task_id:
+            return stored
+        task = stored
 
         try:
             return self._run_pipeline(
@@ -137,9 +140,15 @@ class ReviewReuseService:
             task.error = str(exc)
             task = self._emit(task, TaskEventType.failed, {"error": task.error})
             try:
-                self.store.put(task)
+                committed = self._commit_pipeline_result(task)
             except Exception:
                 logger.warning("review_reuse_failed_task_persist_failed", exc_info=True)
+                raise ReviewReuseError(
+                    "pipeline_failed",
+                    "review-reuse pipeline failed",
+                ) from exc
+            if committed.status in (TaskStatus.canceled, TaskStatus.decided):
+                return committed
             raise ReviewReuseError(
                 "pipeline_failed",
                 "review-reuse pipeline failed",
@@ -198,6 +207,21 @@ class ReviewReuseService:
         task = self._emit(
             task, TaskEventType.evidence_pack_ready, {"candidates": len(candidates)}
         )
+        return self._commit_pipeline_result(task)
+
+    def _commit_pipeline_result(self, task: ReviewReuseTask) -> ReviewReuseTask:
+        """Do not overwrite a concurrent cancel/decision with pipeline completion."""
+        current = self.store.get(task.tenant_id, task.task_id)
+        if current is not None and current.status in (
+            TaskStatus.canceled,
+            TaskStatus.decided,
+        ):
+            if task.candidates and not current.candidates:
+                current.candidates = task.candidates
+            if task.evidence_pack is not None and current.evidence_pack is None:
+                current.evidence_pack = task.evidence_pack
+            self.store.put(current)
+            return current
         self.store.put(task)
         return task
 

@@ -50,6 +50,72 @@ def test_create_rejects_unsupported_file_type() -> None:
     assert ei.value.code == RejectionReason.unsupported_file_type.value
 
 
+def test_concurrent_idempotent_creates_single_task() -> None:
+    import threading
+
+    svc = _svc()
+    seed = [
+        {
+            "candidate_id": "c1",
+            "state": "similar",
+            "scores": {"geometric": 0.9, "semantic": 0.8},
+            "methods": ["precision-l4"],
+        }
+    ]
+    out: list = []
+
+    def _run() -> None:
+        out.append(
+            svc.create_task(
+                tenant_id="t-idem",
+                file_name="a.dxf",
+                file_bytes=b"x",
+                idempotency_key="same-key",
+                seed_candidates=seed,
+            )
+        )
+
+    threads = [threading.Thread(target=_run) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert len(out) == 2
+    assert out[0].task_id == out[1].task_id
+    assert len(svc.list_tasks("t-idem")) == 1
+
+
+def test_pipeline_honors_mid_flight_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.core.review_reuse.models import TaskStatus
+
+    svc = _svc()
+
+    def _cancel_then_pass(cands, **_k):
+        running = svc.list_tasks("t-cancel")
+        assert running
+        svc.cancel("t-cancel", running[0].task_id)
+        return cands
+
+    monkeypatch.setattr(
+        "src.core.review_reuse.service.apply_precision", _cancel_then_pass
+    )
+    task = svc.create_task(
+        tenant_id="t-cancel",
+        file_name="a.dxf",
+        file_bytes=b"x",
+        seed_candidates=[
+            {
+                "candidate_id": "c1",
+                "state": "similar",
+                "scores": {"geometric": 0.9, "semantic": 0.8},
+                "methods": ["precision-l4"],
+            }
+        ],
+    )
+    assert task.status == TaskStatus.canceled
+    assert svc.get_task("t-cancel", task.task_id).status == TaskStatus.canceled
+
+
 def test_idempotency_replay_skips_file_gate() -> None:
     import time
 
