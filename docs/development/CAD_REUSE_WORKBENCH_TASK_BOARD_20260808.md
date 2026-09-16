@@ -1,9 +1,10 @@
 # CAD Reuse Workbench — Task Board
 
-**Date**: 2026-08-08 (board refresh 2026-09-15)  
+**Date**: 2026-08-08 (board refresh 2026-09-16)  
 **Plan**: `CAD_REUSE_WORKBENCH_90_DAY_PLAN_20260807.md`  
 **System design**: `CAD_REUSE_WORKBENCH_SYSTEM_EXECUTE_DESIGN_20260808.md`  
 **Main baseline**: post-#565 (`origin/main`) · **#586 open**  
+**#586 design / verification**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md` · `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_VERIFICATION_20260916.md`  
 
 | Residual class | Status |
 |---|---|
@@ -102,7 +103,7 @@ Track C / R11 / R12 remain **residual_human** — do not claim complete. **R2 HO
 | O7 | Operator Make targets (test + isolated-archive + store + preflight) | done | #555 · #557 · #562 | `make test-review-reuse` · `make review-reuse-isolated-archive` · store backup/cleanup · `make review-reuse-preflight` |
 | O8 | JWT pilot runbook + store backup/cleanup | done | #562 | `CAD_REUSE_WORKBENCH_JWT_PILOT_RUNBOOK_20260808.md` · `scripts/review_reuse_store_ops.py` |
 | O9 | Pilot env preflight script (advisory; dangerous-combo exit 2) | done | #565 | `scripts/review_reuse_pilot_preflight.py` · `make review-reuse-preflight` |
-| O10 | Precision pass + file-type gate + FS tenant isolation | **in_progress** | #586 | `precision.py` · `files.py` · hashed tenant dirs |
+| O10 | Precision pass + file-type gate + FS tenant isolation | **in_progress** | #586 | `precision.py` · `files.py` · hashed tenant dirs · mixed-legacy cleanup refuse · design/verification MDs |
 | O11 | Live geometric request + JWT middleware e2e + `--file` archive | **in_progress** | #586 | `enable_geometric=True`; no `_reviewer_id` patch; `FILE=` make target |
 
 ## Track C — Customer Pilot (P1) — **human residual** (not claimed complete)
@@ -145,7 +146,7 @@ Do **not** invent Track C completion evidence in docs or code.
 | SYS22 | Board post-#562 + pilot preflight script | done | #565 |
 | SYS23 | Audit export CLI by task_id | done | #563 |
 | SYS24 | Store ops list tenants | done | #564 |
-| SYS25 | Precision / isolation / live geometric / JWT e2e / pilot labels | **in_progress** | #586 |
+| SYS25 | Precision / isolation / live geometric / JWT e2e / pilot labels | **in_progress** | #586 · design/verification 20260916 |
 
 ---
 

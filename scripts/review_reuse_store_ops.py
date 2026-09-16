@@ -136,11 +136,17 @@ def collect_tenant_summaries(
         label = _tenant_label(tdir)
         stems = {p.stem for p in _task_files(tdir)}
         newest = _newest_task_mtime(tdir)
+        mixed = _is_mixed_tenant_dir(tdir)
         row = grouped.get(label)
         if row is None:
-            grouped[label] = {"task_ids": set(stems), "newest": newest}
+            grouped[label] = {
+                "task_ids": set(stems),
+                "newest": newest,
+                "mixed": mixed,
+            }
             continue
         row["task_ids"].update(stems)
+        row["mixed"] = bool(row.get("mixed")) or mixed
         if newest is not None and (
             row["newest"] is None or newest > row["newest"]
         ):
@@ -156,6 +162,7 @@ def collect_tenant_summaries(
                 "tenant": label,
                 "task_count": len(item["task_ids"]),
                 "age_days": age_days,
+                "mixed": bool(item.get("mixed")),
             }
         )
     return rows
@@ -176,6 +183,7 @@ def cmd_list(store_dir: Path, *, as_json: bool = False) -> int:
                         if r["age_days"] is None
                         else round(float(r["age_days"]), 4)
                     ),
+                    "mixed": bool(r.get("mixed")),
                 }
                 for r in rows
             ],
@@ -188,7 +196,11 @@ def cmd_list(store_dir: Path, *, as_json: bool = False) -> int:
     for r in rows:
         age = r["age_days"]
         age_s = "n/a" if age is None else f"{float(age):.1f}"
-        print(f"tenant={r['tenant']} tasks={r['task_count']} age_days={age_s}")
+        mixed_s = " mixed=true" if r.get("mixed") else ""
+        print(
+            f"tenant={r['tenant']} tasks={r['task_count']} "
+            f"age_days={age_s}{mixed_s}"
+        )
     print(f"tenants={len(rows)} store_dir={store_dir}")
     return 0
 

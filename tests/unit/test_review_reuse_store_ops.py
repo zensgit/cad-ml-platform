@@ -239,6 +239,8 @@ def test_cleanup_refuses_mixed_legacy_tenant_dir(
     assert "a_b" in by_tenant
     assert by_tenant["a/b"]["task_count"] == 1
     assert by_tenant["a_b"]["task_count"] == 2
+    assert by_tenant["a_b"].get("mixed") is True
+    assert by_tenant["a/b"].get("mixed") is not True
 
     assert (
         cmd_cleanup(store, older_than_days=30, dry_run=False, tenant="a/b")
