@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import List
 
 import pytest
@@ -66,6 +67,20 @@ def test_precision_labels_vision_only_without_copying_visual() -> None:
     out = apply_precision(cands, file_name="a.dxf", file_bytes=b"not-json")
     assert out[0].scores.get("geometric") is None
     assert RejectionReason.vision_only_unverified.value in out[0].rejection_reasons
+
+
+def _line_geom() -> dict:
+    return {
+        "layers": {"0": {"color": 7, "linetype": "CONTINUOUS"}},
+        "entities": [
+            {
+                "type": "LINE",
+                "layer": "0",
+                "start": [0.0, 0.0],
+                "end": [100.0, 0.0],
+            }
+        ],
+    }
 
 
 def test_precision_missing_geom_json_for_non_vision() -> None:
@@ -231,6 +246,108 @@ def test_vision_only_confidence_stays_low() -> None:
     assert pack["confidence"]["score"] == 0.0
     assert task.status == TaskStatus.evidence_ready
     assert RejectionReason.vision_only_unverified.value in task.candidates[0].rejection_reasons
+
+
+def test_adapter_preserves_candidate_geom_json() -> None:
+    geom = _line_geom()
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "arch-geom",
+                "state": "similar",
+                "geom_json": geom,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="a.dxf",
+    )
+    assert cands[0].provenance.get("geom_json") == geom
+
+
+def test_precision_scores_json_query_and_candidate_geom() -> None:
+    geom = _line_geom()
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "arch-geom",
+                "state": "similar",
+                "geom_json": geom,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="a.dxf",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(geom).encode("utf-8"),
+    )
+    assert out[0].scores.get("geometric") == 1.0
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+    assert RejectionReason.missing_geom_json.value not in out[0].rejection_reasons
+
+
+def test_precision_extracts_dxf_query_geom(monkeypatch: pytest.MonkeyPatch) -> None:
+    geom = _line_geom()
+    monkeypatch.setattr(
+        "src.core.dedupcad_precision.cad_pipeline.extract_geom_json_from_dxf",
+        lambda _path: geom,
+    )
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "arch-geom",
+                "state": "similar",
+                "geom_json": geom,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="a.dxf",
+    )
+    out = apply_precision(cands, file_name="part.dxf", file_bytes=b"0\nSECTION\n")
+    assert out[0].scores.get("geometric") == 1.0
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+
+
+def test_precision_loads_candidate_geom_from_store(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from src.core.dedupcad_precision.store import (
+        GeomJsonStore,
+        GeomJsonStoreConfig,
+        create_geom_store,
+    )
+
+    geom = _line_geom()
+    sha = "a" * 64
+    store_dir = tmp_path / "geom"
+    GeomJsonStore(GeomJsonStoreConfig(base_dir=store_dir)).save(sha, geom)
+    monkeypatch.setenv("DEDUPCAD_GEOM_STORE_DIR", str(store_dir))
+    create_geom_store.cache_clear()
+    try:
+        cands = map_raw_hits_to_candidates(
+            [
+                {
+                    "candidate_id": sha,
+                    "state": "similar",
+                    "methods": ["seed-adapter"],
+                }
+            ],
+            content_sha="ab",
+            file_name="a.dxf",
+        )
+        out = apply_precision(
+            cands,
+            file_name="query.json",
+            file_bytes=json.dumps(geom).encode("utf-8"),
+        )
+        assert out[0].scores.get("geometric") == 1.0
+        assert "precision-l4" in (out[0].verification.get("methods") or [])
+    finally:
+        create_geom_store.cache_clear()
 
 
 def test_low_precision_reason() -> None:

@@ -98,22 +98,37 @@ def _newest_task_mtime(tenant_dir: Path) -> Optional[float]:
 def collect_tenant_summaries(
     store_dir: Path, *, now: Optional[float] = None
 ) -> List[Dict[str, Any]]:
-    """Return per-tenant task_count and age_days of newest task."""
+    """Return per-tenant task_count and age_days of newest task.
+
+    Hashed and leftover legacy directories for the same original tenant_id
+    are merged so operators see one row, unique task IDs, and the newest age.
+    """
     now_ts = time.time() if now is None else now
     store_dir = store_dir.resolve()
-    rows: List[Dict[str, Any]] = []
+    grouped: Dict[str, Dict[str, Any]] = {}
     for tdir in _tenant_dirs(store_dir):
-        task_files = _task_files(tdir)
+        label = _tenant_label(tdir)
+        stems = {p.stem for p in _task_files(tdir)}
         newest = _newest_task_mtime(tdir)
-        age_days: Optional[float]
-        if newest is None:
-            age_days = None
-        else:
-            age_days = (now_ts - newest) / 86400.0
+        row = grouped.get(label)
+        if row is None:
+            grouped[label] = {"task_ids": set(stems), "newest": newest}
+            continue
+        row["task_ids"].update(stems)
+        if newest is not None and (
+            row["newest"] is None or newest > row["newest"]
+        ):
+            row["newest"] = newest
+
+    rows: List[Dict[str, Any]] = []
+    for label in sorted(grouped):
+        item = grouped[label]
+        newest = item["newest"]
+        age_days = None if newest is None else (now_ts - newest) / 86400.0
         rows.append(
             {
-                "tenant": _tenant_label(tdir),
-                "task_count": len(task_files),
+                "tenant": label,
+                "task_count": len(item["task_ids"]),
                 "age_days": age_days,
             }
         )

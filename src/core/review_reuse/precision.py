@@ -2,8 +2,10 @@
 
 Does **not** invent geometric scores from visual similarity.
 When both query and candidate geom-json payloads are present, scores with
-``PrecisionVerifier`` (L4). Otherwise labels ``vision_only_unverified`` or
-``missing_geom_json``. Injectable hook is for tests / DI only.
+``PrecisionVerifier`` (L4). Query geom comes from JSON uploads or local DXF
+extract; candidate geom comes from hit ``geom_json`` or the geom store.
+Otherwise labels ``vision_only_unverified`` or ``missing_geom_json``.
+Injectable hook is for tests / DI only. DWG is not auto-converted.
 
 Does not call training paths, hosted LLMs, or eval_integrity_gate.
 """
@@ -12,8 +14,11 @@ from __future__ import annotations
 
 import json
 import logging
+import tempfile
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+from .files import file_suffix
 from .models import CandidateDecision, CandidateState, RejectionReason
 
 logger = logging.getLogger(__name__)
@@ -55,23 +60,74 @@ def _is_live_vision(candidate: CandidateDecision) -> bool:
     return "dedup2d-vision" in model or _has_method(candidate, "dedup2d-vision")
 
 
-def _parse_query_geom(file_bytes: bytes) -> Optional[Dict[str, Any]]:
+def _looks_like_file_hash(value: str) -> bool:
+    return len(value) == 64 and all(c in "0123456789abcdef" for c in value)
+
+
+def _extract_dxf_geom(file_bytes: bytes) -> Optional[Dict[str, Any]]:
+    tmp_path: Optional[Path] = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".dxf", delete=False) as tmp:
+            tmp.write(file_bytes)
+            tmp_path = Path(tmp.name)
+        from src.core.dedupcad_precision.cad_pipeline import (
+            extract_geom_json_from_dxf,
+        )
+
+        geom = extract_geom_json_from_dxf(tmp_path)
+        return geom if isinstance(geom, dict) else None
+    except Exception:
+        logger.debug("review_reuse_dxf_geom_extract_failed", exc_info=True)
+        return None
+    finally:
+        if tmp_path is not None:
+            try:
+                tmp_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+
+def _parse_query_geom(
+    file_bytes: bytes, file_name: str = ""
+) -> Optional[Dict[str, Any]]:
     if not file_bytes:
         return None
     stripped = file_bytes.lstrip()
-    if not stripped.startswith(b"{") and not stripped.startswith(b"["):
+    if stripped.startswith(b"{") or stripped.startswith(b"["):
+        try:
+            obj = json.loads(file_bytes.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
+            obj = None
+        if isinstance(obj, dict):
+            return obj
+    if file_suffix(file_name) == ".dxf":
+        return _extract_dxf_geom(file_bytes)
+    return None
+
+
+def _candidate_geom(
+    candidate: CandidateDecision, geom_store: Any
+) -> Optional[Dict[str, Any]]:
+    right = (candidate.provenance or {}).get("geom_json")
+    if isinstance(right, dict):
+        return right
+    cid = candidate.candidate_id or ""
+    if geom_store is None or not _looks_like_file_hash(cid):
         return None
     try:
-        obj = json.loads(file_bytes.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
+        loaded = geom_store.load(cid)
+    except Exception:
+        logger.debug("review_reuse_geom_store_load_failed", exc_info=True)
         return None
-    return obj if isinstance(obj, dict) else None
+    return loaded if isinstance(loaded, dict) else None
 
 
 def _try_l4_score(
-    query_geom: Dict[str, Any], candidate: CandidateDecision
+    query_geom: Dict[str, Any],
+    candidate: CandidateDecision,
+    geom_store: Any = None,
 ) -> Optional[float]:
-    right = (candidate.provenance or {}).get("geom_json")
+    right = _candidate_geom(candidate, geom_store)
     if not isinstance(right, dict):
         return None
     try:
@@ -109,7 +165,23 @@ def apply_precision(
     if hook is not None:
         return list(hook(file_name, file_bytes, list(candidates)))
 
-    query_geom = _parse_query_geom(file_bytes)
+    query_geom = _parse_query_geom(file_bytes, file_name)
+    geom_store: Any = None
+    geom_store_failed = False
+
+    def _geom_store() -> Any:
+        nonlocal geom_store, geom_store_failed
+        if geom_store is not None or geom_store_failed:
+            return geom_store
+        try:
+            from src.core.dedupcad_precision import create_geom_store
+
+            geom_store = create_geom_store()
+        except Exception:
+            logger.debug("review_reuse_geom_store_init_failed", exc_info=True)
+            geom_store_failed = True
+        return geom_store
+
     out: List[CandidateDecision] = []
     for original in candidates:
         candidate = original.model_copy(deep=True)
@@ -117,7 +189,18 @@ def apply_precision(
             out.append(candidate)
             continue
 
-        l4 = _try_l4_score(query_geom, candidate) if query_geom else None
+        need_store = query_geom is not None and not isinstance(
+            (candidate.provenance or {}).get("geom_json"), dict
+        )
+        l4 = (
+            _try_l4_score(
+                query_geom,
+                candidate,
+                _geom_store() if need_store else None,
+            )
+            if query_geom
+            else None
+        )
         if l4 is not None:
             _apply_l4_score(candidate, l4)
             out.append(candidate)

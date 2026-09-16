@@ -91,6 +91,18 @@ def map_raw_hits_to_candidates(
                 "methods": list(raw.get("methods") or ["dedup2d-live-adapter"]),
             }
         )
+        provenance: Dict[str, Any] = {
+            "input_sha256": content_sha,
+            "query_file": file_name,
+            "model": raw.get("decision_source") or "dedup2d-live",
+        }
+        geom_json = raw.get("geom_json")
+        if not isinstance(geom_json, dict):
+            nested = raw.get("provenance")
+            if isinstance(nested, dict):
+                geom_json = nested.get("geom_json")
+        if isinstance(geom_json, dict):
+            provenance["geom_json"] = geom_json
         out.append(
             CandidateDecision(
                 candidate_id=str(
@@ -104,11 +116,7 @@ def map_raw_hits_to_candidates(
                 scores=scores,
                 verification=verification,
                 rejection_reasons=reasons,
-                provenance={
-                    "input_sha256": content_sha,
-                    "query_file": file_name,
-                    "model": raw.get("decision_source") or "dedup2d-live",
-                },
+                provenance=provenance,
             )
         )
     return out

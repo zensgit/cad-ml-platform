@@ -192,6 +192,23 @@ def test_cleanup_matches_hashed_dir_basename(tmp_path: Path) -> None:
     assert not hashed_dir.exists()
 
 
+def test_list_merges_legacy_and_hashed_same_tenant(tmp_path: Path) -> None:
+    store = tmp_path / "store"
+    hashed_dir = _seed_hashed_tenant(store, "pilot-tenant", 10.0)
+    extra = hashed_dir / "tasks" / "task2.json"
+    extra.write_text('{"task_id":"task2"}', encoding="utf-8")
+    extra_mtime = time.time() - (10.0 * 86400.0)
+    os.utime(extra, (extra_mtime, extra_mtime))
+    _seed_tenant(store, "pilot-tenant", 20.0, task_count=1)
+
+    rows = collect_tenant_summaries(store)
+    by_tenant = {r["tenant"]: r for r in rows}
+    assert set(by_tenant) == {"pilot-tenant"}
+    # task1 is in both layouts; task2 only hashed → unique count 2, not 3.
+    assert by_tenant["pilot-tenant"]["task_count"] == 2
+    assert abs(float(by_tenant["pilot-tenant"]["age_days"]) - 10.0) < 0.05
+
+
 def test_cleanup_unknown_tenant_returns_not_found(
     tmp_path: Path, capsys
 ) -> None:
