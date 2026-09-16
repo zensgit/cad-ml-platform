@@ -80,12 +80,17 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 8. Sol re-review of `4eb1f77c` (session `01a0a9ad-cd3b-7b41-8341-daae02313e41`):
    P1 hash-name cleanup must not select a legacy dir whose recorded
    tenant_id differs; P2 merge pipeline events into terminal snapshots.
+9. Sol re-review of `3857d264` (session in wave7 notes): pre-scored L4
+   must export `verification.level >= 4`; successful local L4 must drop
+   stale `vision_only_unverified` / `missing_geom_json` so confidence is honest.
 
 ## 7. Risk
 
 | Risk | Mitigation |
 |---|---|
 | Fake L4 from visual | never copy visual→geometric; unverified numeric geom does not raise confidence |
+| L4 method with level 0 | `_ensure_l4_level` on pre-scored and local L4 paths |
+| Stale vision_only after real L4 | `_clear_provisional_unverified` so `_top_confidence` can use the score |
 | Cross-tenant delete | mixed legacy dirs refused (`refused_mixed`, exit 1) |
 | Temp-file race on `tenant_meta.json` | `mkstemp` unique name; skip rewrite when sidecar valid |
 | DXF parse cost on offline insufficient | extract only when a candidate can be scored |

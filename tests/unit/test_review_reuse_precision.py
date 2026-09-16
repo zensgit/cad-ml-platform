@@ -274,6 +274,71 @@ def test_precision_keeps_seeded_l4_geometric() -> None:
     out = apply_precision(cands, file_name="a.dxf", file_bytes=b"dxf")
     assert out[0].scores.get("geometric") == 0.91
     assert RejectionReason.vision_only_unverified.value not in out[0].rejection_reasons
+    assert int(out[0].verification.get("level") or 0) >= 4
+
+
+def test_seeded_l4_without_match_level_exports_level_4() -> None:
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "x",
+                "state": "similar",
+                "scores": {"geometric": 0.9},
+                "methods": ["precision-l4"],
+            }
+        ],
+        content_sha="ab",
+        file_name="a.dxf",
+    )
+    assert int(cands[0].verification.get("level") or 0) == 0
+    out = apply_precision(cands, file_name="a.dxf", file_bytes=b"x")
+    assert int(out[0].verification.get("level") or 0) >= 4
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+
+
+def test_local_l4_clears_stale_vision_only_reason() -> None:
+    from src.core.review_reuse.evidence import build_evidence_pack
+    from src.core.review_reuse.models import ReviewReuseTask, TaskStatus
+
+    geom = _line_geom()
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "x",
+                "state": "similar",
+                "geom_json": geom,
+                "methods": ["dedup2d-vision"],
+                "decision_source": "dedup2d-vision",
+                "rejection_reasons": ["vision_only_unverified"],
+            }
+        ],
+        content_sha="ab",
+        file_name="a.dxf",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(geom).encode("utf-8"),
+    )
+    assert out[0].scores.get("geometric") == 1.0
+    assert int(out[0].verification.get("level") or 0) >= 4
+    assert RejectionReason.vision_only_unverified.value not in out[0].rejection_reasons
+    assert RejectionReason.missing_geom_json.value not in out[0].rejection_reasons
+    now = 0.0
+    task = ReviewReuseTask(
+        task_id="t-l4",
+        tenant_id="t",
+        status=TaskStatus.evidence_ready,
+        created_at=now,
+        updated_at=now,
+        source_file_name="query.json",
+        source_content_sha256="ab",
+        trace_id="tr",
+        candidates=out,
+    )
+    pack = build_evidence_pack(task)
+    assert pack["confidence"]["score"] == 1.0
+    assert pack["confidence"]["band"] == "high"
 
 
 def test_precision_hook_runs_in_create_task() -> None:

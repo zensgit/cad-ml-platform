@@ -13,6 +13,8 @@
 | Plan item | Evidence | Status |
 |---|---|---|
 | Local L4 only with geom-json pairs | `precision.py` `_try_l4_score`; tests `test_precision_scores_json_query_and_candidate_geom`, `test_precision_extracts_dxf_query_geom` | pass locally |
+| Pre-scored L4 exports level >= 4 | `test_seeded_l4_without_match_level_exports_level_4` | pass locally |
+| Local L4 drops stale unverified reasons | `test_local_l4_clears_stale_vision_only_reason` | pass locally |
 | No visual→geometric copy | `dedup_live.py` + `test_precision_labels_vision_only_without_copying_visual` | pass |
 | Unverified numeric geom does not raise confidence | `evidence._top_confidence` + `test_unverified_numeric_geom_does_not_raise_confidence` | pass |
 | Low L4 downgrades duplicate→different | `test_local_l4_reject_downgrades_duplicate_verdict`, `test_low_precision_reason` | pass |
@@ -57,6 +59,7 @@ make test-review-reuse
 | `make test-review-reuse` (pre-P2, `dc2c8fec`) | **115 passed**, 7 ezdxf warnings |
 | `make test-review-reuse` (Sol P2 wave) | **121 passed**, 7 ezdxf warnings |
 | `make test-review-reuse` (Sol P1/P2 follow-up) | **122 passed**, 7 ezdxf warnings |
+| `make test-review-reuse` (L4 level + stale reasons) | **124 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -81,6 +84,12 @@ seed: visual=0.99, no geometric, methods=dedup2d-vision
 # low L4 must not keep duplicate + high visual confidence
 seed: geometric=0.1, visual=0.99, methods=precision-l4
 → low_precision_score; state=different; confidence from geometric only (0.1)
+
+# adapter L4 score without match_level
+→ verification.level >= 4 (not 0)
+
+# local L4 after upstream vision_only_unverified
+→ reason cleared; evidence_pack.confidence uses the geometric score
 
 # mixed legacy a/b + a_b in one sanitized dir
 cleanup --tenant a/b --apply → exit 1, mixed dir remains
