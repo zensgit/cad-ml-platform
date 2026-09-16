@@ -32,6 +32,7 @@ def _svc() -> ReviewReuseService:
 def test_filename_gate() -> None:
     assert is_allowed_review_reuse_filename("part.dxf")
     assert is_allowed_review_reuse_filename("PART.DWG")
+    assert is_allowed_review_reuse_filename("query.json")
     assert is_allowed_review_reuse_filename("sheet.PDF")
     assert is_allowed_review_reuse_filename("scan.PNG")
     assert not is_allowed_review_reuse_filename("payload.exe")
@@ -48,6 +49,27 @@ def test_create_rejects_unsupported_file_type() -> None:
             file_bytes=b"MZ",
         )
     assert ei.value.code == RejectionReason.unsupported_file_type.value
+
+
+def test_create_accepts_geom_json_filename() -> None:
+    svc = _svc()
+    geom = _line_geom()
+    task = svc.create_task(
+        tenant_id="t-json",
+        file_name="query.json",
+        file_bytes=json.dumps(geom).encode("utf-8"),
+        seed_candidates=[
+            {
+                "candidate_id": "arch-geom",
+                "state": "similar",
+                "geom_json": geom,
+                "methods": ["seed-adapter"],
+            }
+        ],
+    )
+    assert task.source_file_name == "query.json"
+    assert task.candidates
+    assert "precision-l4" in (task.candidates[0].verification.get("methods") or [])
 
 
 def test_concurrent_idempotent_creates_single_task() -> None:

@@ -20,6 +20,8 @@
 | Low L4 downgrades duplicate→different | `test_local_l4_reject_downgrades_duplicate_verdict`, `test_low_precision_reason` | pass |
 | Stale precision-l4 stripped on vision-only | `test_stale_l4_method_stripped_on_vision_only` | pass |
 | File gate includes PDF, rejects exe | `test_filename_gate`, `test_create_rejects_unsupported_file_type` | pass |
+| File gate includes geometry JSON | `test_create_accepts_geom_json_filename` | pass locally |
+| Occupied hashed dir not overwritten | `test_filesystem_put_refuses_hashed_dir_occupied_by_legacy_tenant` | pass locally |
 | Hashed tenant dirs, no `a/b` vs `a_b` collision | `test_filesystem_store_tenant_path_no_collision` | pass |
 | list prefers hashed over stale legacy | `test_list_for_tenant_prefers_hashed_over_stale_legacy` | pass |
 | cleanup `--tenant` by original id / hash | `test_cleanup_matches_hashed_tenant_by_original_id` | pass |
@@ -69,6 +71,8 @@ make test-review-reuse
 | `make test-review-reuse` at `18b497f2` (wave 11:28 UTC) | **125 passed**, 7 ezdxf warnings |
 | tests (3.10) / tests (3.11) / lint-type on `f80d06a3` | **pass** |
 | `make test-review-reuse` after geometric-only confidence P1 | **127 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) on `2bd32083` | **pass** |
+| `make test-review-reuse` after occupied-dir + json gate | **129 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

@@ -16,6 +16,20 @@ ENV_STORE = "REVIEW_REUSE_STORE"
 ENV_STORE_DIR = "REVIEW_REUSE_STORE_DIR"
 _TRUE_BACKENDS_FS = frozenset({"fs", "file", "filesystem", "disk"})
 _TENANT_META = "tenant_meta.json"
+_UNREADABLE = "__unreadable__"
+
+
+class OccupiedTenantDirError(RuntimeError):
+    """Hashed write path already belongs to a different tenant."""
+
+    def __init__(self, tenant_id: str, path: Path, occupants: List[str]) -> None:
+        self.tenant_id = tenant_id
+        self.path = path
+        self.occupants = occupants
+        super().__init__(
+            f"hashed tenant dir {path} is occupied by {occupants!r}, "
+            f"refusing write for {tenant_id!r}"
+        )
 
 
 def tenant_dir_key(tenant_id: str) -> str:
@@ -147,8 +161,44 @@ class FilesystemReviewReuseStore:
     def _legacy_dir(self, tenant_id: str) -> Path:
         return self._root / _legacy_safe_tenant(tenant_id)
 
+    def _existing_dir_tenants(self, tenant_dir: Path) -> List[str]:
+        """Identities already recorded in an on-disk tenant directory."""
+        found: List[str] = []
+        seen = set()
+
+        def _add(tid: str) -> None:
+            if tid not in seen:
+                seen.add(tid)
+                found.append(tid)
+
+        meta = read_tenant_meta_id(tenant_dir)
+        if meta:
+            _add(meta)
+        tasks_dir = tenant_dir / "tasks"
+        if not tasks_dir.is_dir():
+            return found
+        for path in tasks_dir.glob("*.json"):
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError, ValueError):
+                _add(_UNREADABLE)
+                continue
+            if not isinstance(data, dict):
+                _add(_UNREADABLE)
+                continue
+            tid = data.get("tenant_id")
+            if isinstance(tid, str) and tid:
+                _add(tid)
+            else:
+                _add(_UNREADABLE)
+        return found
+
     def _ensure_write_dir(self, tenant_id: str) -> Path:
         d = self._hashed_dir(tenant_id)
+        occupants = self._existing_dir_tenants(d) if d.exists() else []
+        foreign = [tid for tid in occupants if tid != tenant_id]
+        if foreign:
+            raise OccupiedTenantDirError(tenant_id, d, foreign)
         (d / "tasks").mkdir(parents=True, exist_ok=True)
         self._write_meta(d, tenant_id)
         return d

@@ -321,6 +321,47 @@ def test_create_store_factory(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
     assert isinstance(store, FilesystemReviewReuseStore)
 
 
+def test_filesystem_put_refuses_hashed_dir_occupied_by_legacy_tenant(
+    tmp_path: Path,
+) -> None:
+    from src.core.review_reuse.service import ReviewReuseError
+
+    root = tmp_path / "tasks"
+    occupant = tenant_dir_key("pilot-tenant")
+    tasks = root / occupant / "tasks"
+    tasks.mkdir(parents=True)
+    (tasks / "task1.json").write_text(
+        json.dumps(
+            {
+                "task_id": "legacy-1",
+                "tenant_id": occupant,
+                "status": "evidence_ready",
+                "created_at": 1.0,
+                "updated_at": 1.0,
+                "source_file_name": "a.dxf",
+                "source_content_sha256": "ab",
+                "trace_id": "tr",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (root / occupant / "tenant_meta.json").write_text(
+        json.dumps({"tenant_id": occupant}), encoding="utf-8"
+    )
+    store = FilesystemReviewReuseStore(root)
+    svc = ReviewReuseService(store)
+    with pytest.raises(ReviewReuseError) as ei:
+        svc.create_task(
+            tenant_id="pilot-tenant",
+            file_name="p.dxf",
+            file_bytes=b"x",
+        )
+    assert ei.value.code == "store_conflict"
+    assert (tasks / "task1.json").is_file()
+    leftover = json.loads((tasks / "task1.json").read_text(encoding="utf-8"))
+    assert leftover["tenant_id"] == occupant
+
+
 def test_filesystem_store_tenant_path_no_collision(tmp_path: Path) -> None:
     """Sanitized names a/b and a_b must not share a directory."""
     store = FilesystemReviewReuseStore(tmp_path / "tasks")

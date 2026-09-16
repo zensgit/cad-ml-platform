@@ -66,7 +66,7 @@ def _http(err: ReviewReuseError) -> HTTPException:
         status = 404
     elif err.code in ("decisions_disabled", "reviewer_not_validated"):
         status = 403
-    elif err.code in ("already_decided",):
+    elif err.code in ("already_decided", "store_conflict"):
         status = 409
     elif err.code in ("unsupported_file_type", "unknown_candidate"):
         status = 400

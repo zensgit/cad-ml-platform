@@ -23,7 +23,11 @@ from .models import (
     TaskStatus,
 )
 from .precision import apply_precision
-from .store import ReviewReuseStoreProtocol, create_review_reuse_store
+from .store import (
+    OccupiedTenantDirError,
+    ReviewReuseStoreProtocol,
+    create_review_reuse_store,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +125,13 @@ class ReviewReuseService:
         task = self._emit(task, TaskEventType.input_validated, {"bytes": len(file_bytes)})
         task.status = TaskStatus.running
         task.updated_at = time.time()
-        stored = self.store.put_new_idempotent(task)
+        try:
+            stored = self.store.put_new_idempotent(task)
+        except OccupiedTenantDirError as exc:
+            raise ReviewReuseError(
+                "store_conflict",
+                "hashed tenant directory is occupied by another tenant",
+            ) from exc
         if stored.task_id != task.task_id:
             return stored
         task = stored
@@ -134,6 +144,11 @@ class ReviewReuseService:
                 content_sha=content_sha,
                 seed_candidates=seed_candidates,
             )
+        except OccupiedTenantDirError as exc:
+            raise ReviewReuseError(
+                "store_conflict",
+                "hashed tenant directory is occupied by another tenant",
+            ) from exc
         except ReviewReuseError:
             raise
         except Exception as exc:

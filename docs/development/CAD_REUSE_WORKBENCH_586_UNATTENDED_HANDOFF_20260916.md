@@ -25,11 +25,10 @@ Do not merge. Do not enable decisions. Do not claim Track C.
 
 1. **P0** CI `tests (3.10)` and `tests (3.11)` were **green** on `dc2c8fec`.
    Local enumerator RED from gitignored files is still not CI.
-2. Wave 2026-09-16 ~12:15 UTC: `tests (3.10)` and `tests (3.11)` **pass**
-   on `f80d06a3`. Sol 5.6 vs `origin/main` found two **P1**s: refuse
-   cleanup on unreadable task JSON; EvidencePack confidence uses only
-   verified geometric (no visual inflation). Local
-   `make test-review-reuse` **127 passed**.
+2. Wave 2026-09-16 ~13:00 UTC: `tests (3.10)` / `tests (3.11)` **pass**
+   on `2bd32083`. Sol 5.6 P2: refuse writes into a hashed dir occupied by
+   another tenant; allow `.json` uploads so geom-json precision is
+   reachable via create_task. Local `make test-review-reuse` **129 passed**.
 3. After push: wait for 3.10; if red, fix; else Sol P1/P2 only.
 4. Evaluation Report (Track E) stays out of scope.
 
