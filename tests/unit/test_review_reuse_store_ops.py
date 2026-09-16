@@ -300,6 +300,20 @@ def test_list_and_cleanup_recover_legacy_sanitized_tenant_id(
     assert not (store / "a_b").exists()
 
 
+def test_cleanup_keeps_legacy_when_hashed_same_tenant_is_recent(
+    tmp_path: Path,
+) -> None:
+    store = tmp_path / "store"
+    hashed_dir = _seed_hashed_tenant(store, "pilot-tenant", 1.0)
+    _seed_tenant(store, "pilot-tenant", 60.0)
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=None)
+        == 0
+    )
+    assert hashed_dir.is_dir()
+    assert (store / "pilot-tenant").is_dir()
+
+
 def test_cleanup_refuses_mixed_legacy_tenant_dir(
     tmp_path: Path, capsys
 ) -> None:

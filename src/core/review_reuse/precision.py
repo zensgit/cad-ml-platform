@@ -132,7 +132,7 @@ def _candidate_geom(
     except Exception:
         logger.debug("review_reuse_geom_store_load_failed", exc_info=True)
         return None
-    return loaded if isinstance(loaded, dict) else None
+    return loaded if _is_geom_json(loaded) else None
 
 
 def _try_l4_score(

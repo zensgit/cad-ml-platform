@@ -79,6 +79,8 @@ make test-review-reuse
 | `make test-review-reuse` at `4d4bb285` (wave 14:30 UTC) | **132 passed**, 7 ezdxf warnings |
 | tests (3.10) / tests (3.11) on `33a8315c` | **pass** |
 | `make test-review-reuse` after insufficient-evidence confidence skip | **133 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) on `5fb2096f` | **pass** |
+| `make test-review-reuse` after store-geom + grouped cleanup | **135 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

@@ -287,38 +287,45 @@ def cmd_cleanup(
             print(f"tenant not found: {tenant}", file=sys.stderr)
             return 1
 
+    groups: Dict[str, List[Path]] = {}
+    for tdir in tenants:
+        groups.setdefault(_tenant_label(tdir), []).append(tdir)
+
     removed = 0
     listed = 0
     refused = 0
-    for tdir in tenants:
-        newest = _newest_mtime(tdir)
-        if newest is None:
+    for label, dirs in groups.items():
+        newest: Optional[float] = None
+        for tdir in dirs:
+            m = _newest_mtime(tdir)
+            if m is not None and (newest is None or m > newest):
+                newest = m
+        if newest is None or newest > cutoff:
             continue
-        if newest > cutoff:
-            continue
-        listed += 1
         age_days = (time.time() - newest) / 86400.0
-        label = _tenant_label(tdir)
-        if _is_mixed_tenant_dir(tdir):
-            ids = list(_tenant_ids_from_tasks(tdir))
-            meta = _tenant_id_from_meta(tdir)
-            if meta is not None and meta not in ids:
-                ids = [meta] + ids
-            print(
-                f"refused_mixed tenant={label} tenant_ids={','.join(ids)} "
-                f"age_days={age_days:.1f} path={tdir}",
-                file=sys.stderr,
-            )
-            refused += 1
-            continue
-        if dry_run:
-            print(
-                f"would_delete tenant={label} age_days={age_days:.1f} path={tdir}"
-            )
-        else:
-            shutil.rmtree(tdir)
-            print(f"deleted tenant={label} age_days={age_days:.1f}")
-            removed += 1
+        for tdir in dirs:
+            listed += 1
+            if _is_mixed_tenant_dir(tdir):
+                ids = list(_tenant_ids_from_tasks(tdir))
+                meta = _tenant_id_from_meta(tdir)
+                if meta is not None and meta not in ids:
+                    ids = [meta] + ids
+                print(
+                    f"refused_mixed tenant={label} tenant_ids={','.join(ids)} "
+                    f"age_days={age_days:.1f} path={tdir}",
+                    file=sys.stderr,
+                )
+                refused += 1
+                continue
+            if dry_run:
+                print(
+                    f"would_delete tenant={label} age_days={age_days:.1f} "
+                    f"path={tdir}"
+                )
+            else:
+                shutil.rmtree(tdir)
+                print(f"deleted tenant={label} age_days={age_days:.1f}")
+                removed += 1
 
     mode = "dry_run" if dry_run else "apply"
     print(
