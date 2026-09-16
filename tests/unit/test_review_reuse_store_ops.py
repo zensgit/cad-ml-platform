@@ -305,6 +305,37 @@ def test_cleanup_refuses_mixed_legacy_tenant_dir(
     assert (mixed / "task-under.json").is_file()
 
 
+def test_cleanup_refuses_when_meta_disagrees_with_task_tenant(
+    tmp_path: Path, capsys
+) -> None:
+    store = tmp_path / "store"
+    hashed = tenant_dir_key("tenant-a")
+    tdir = store / hashed
+    tasks = tdir / "tasks"
+    tasks.mkdir(parents=True)
+    task = tasks / "task1.json"
+    task.write_text(
+        json.dumps({"task_id": "task1", "tenant_id": "tenant-b"}),
+        encoding="utf-8",
+    )
+    old = time.time() - (60.0 * 86400.0)
+    os.utime(task, (old, old))
+    (tdir / "tenant_meta.json").write_text(
+        json.dumps({"tenant_id": "tenant-a"}), encoding="utf-8"
+    )
+
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant="tenant-a")
+        == 1
+    )
+    err = capsys.readouterr().err
+    assert "refused_mixed" in err
+    assert "tenant-a" in err
+    assert "tenant-b" in err
+    assert tdir.is_dir()
+    assert task.is_file()
+
+
 def test_list_merges_legacy_and_hashed_same_tenant(tmp_path: Path) -> None:
     store = tmp_path / "store"
     hashed_dir = _seed_hashed_tenant(store, "pilot-tenant", 10.0)

@@ -47,20 +47,34 @@ def _tenant_ids_from_tasks(tdir: Path) -> List[str]:
     return found
 
 
+def _tenant_id_from_meta(tdir: Path) -> Optional[str]:
+    meta_path = tdir / "tenant_meta.json"
+    if not meta_path.is_file():
+        return None
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        return None
+    if isinstance(meta, dict):
+        tid = meta.get("tenant_id")
+        if isinstance(tid, str) and tid:
+            return tid
+    return None
+
+
 def _is_mixed_tenant_dir(tdir: Path) -> bool:
-    return len(_tenant_ids_from_tasks(tdir)) > 1
+    ids = _tenant_ids_from_tasks(tdir)
+    if len(ids) > 1:
+        return True
+    meta = _tenant_id_from_meta(tdir)
+    return meta is not None and any(tid != meta for tid in ids)
 
 
 def _recorded_tenant_id(tdir: Path) -> Optional[str]:
     """Original tenant_id from sidecar or a unique task payload, if any."""
-    meta_path = tdir / "tenant_meta.json"
-    if meta_path.is_file():
-        try:
-            meta = json.loads(meta_path.read_text(encoding="utf-8"))
-            if isinstance(meta, dict) and meta.get("tenant_id"):
-                return str(meta["tenant_id"])
-        except (OSError, json.JSONDecodeError, TypeError, ValueError):
-            pass
+    meta = _tenant_id_from_meta(tdir)
+    if meta is not None:
+        return meta
     ids = _tenant_ids_from_tasks(tdir)
     if len(ids) == 1:
         return ids[0]
@@ -86,7 +100,11 @@ def _tenant_matches(tdir: Path, tenant: str) -> bool:
     when cleaning ``other``).
     """
     if _is_mixed_tenant_dir(tdir):
-        return tenant in _tenant_ids_from_tasks(tdir)
+        ids = set(_tenant_ids_from_tasks(tdir))
+        meta = _tenant_id_from_meta(tdir)
+        if meta is not None:
+            ids.add(meta)
+        return tenant in ids
     recorded = _recorded_tenant_id(tdir)
     if recorded is not None:
         return recorded == tenant
@@ -268,9 +286,12 @@ def cmd_cleanup(
         age_days = (time.time() - newest) / 86400.0
         label = _tenant_label(tdir)
         if _is_mixed_tenant_dir(tdir):
-            ids = ",".join(_tenant_ids_from_tasks(tdir))
+            ids = list(_tenant_ids_from_tasks(tdir))
+            meta = _tenant_id_from_meta(tdir)
+            if meta is not None and meta not in ids:
+                ids = [meta] + ids
             print(
-                f"refused_mixed tenant={label} tenant_ids={ids} "
+                f"refused_mixed tenant={label} tenant_ids={','.join(ids)} "
                 f"age_days={age_days:.1f} path={tdir}",
                 file=sys.stderr,
             )

@@ -83,6 +83,9 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 9. Sol re-review of `3857d264` (session in wave7 notes): pre-scored L4
    must export `verification.level >= 4`; successful local L4 must drop
    stale `vision_only_unverified` / `missing_geom_json` so confidence is honest.
+10. Sol re-review of `de1f44a6` (wave8): refuse cleanup when meta disagrees
+    with task tenant_ids; omit decision-before-evidence from review-time
+    median; bump `updated_at` when merging pipeline fields into a terminal task.
 
 ## 7. Risk
 
@@ -99,4 +102,5 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 | Terminal merge drops pipeline events | `_merge_append_only_events` keeps cancel/decision and fills recall/precision/pack |
 | Live recall hangs the AnyIO worker | `_run_coro` wraps the coroutine in `asyncio.wait_for` (120s) even with no loop |
 | Cleanup deletes another tenant's legacy dir | hash-name fallback only when meta/tasks have no recorded identity |
+| Sidecar tenant A, tasks tenant B | treat as mixed/corrupt; refuse `--apply` |
 | 12h unattended overreach | scheduler stops ~2026-09-16 17:00 UTC; never merge; never enable decisions |

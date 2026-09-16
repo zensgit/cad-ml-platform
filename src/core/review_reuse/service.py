@@ -229,9 +229,13 @@ class ReviewReuseService:
                     task.evidence_pack is not None and current.evidence_pack is None
                 ):
                     current.evidence_pack = task.evidence_pack
+                    merged = True
+                before_events = len(current.events)
                 current.events = _merge_append_only_events(
                     current.events, task.events
                 )
+                if merged or len(current.events) != before_events:
+                    current.updated_at = time.time()
                 return current
             return task
 

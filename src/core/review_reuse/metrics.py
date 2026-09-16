@@ -165,4 +165,8 @@ def _time_to_review(task: ReviewReuseTask) -> Optional[float]:
             decided = e.ts
     if ready is None or decided is None:
         return None
-    return max(0.0, float(decided) - float(ready))
+    delta = float(decided) - float(ready)
+    if delta < 0:
+        # Decision-before-evidence is a supported race; do not count as 0s review.
+        return None
+    return delta

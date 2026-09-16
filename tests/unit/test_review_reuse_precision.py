@@ -90,10 +90,13 @@ def test_pipeline_honors_mid_flight_cancel(monkeypatch: pytest.MonkeyPatch) -> N
 
     svc = _svc()
 
+    canceled_at = {"ts": 0.0}
+
     def _cancel_then_pass(cands, **_k):
         running = svc.list_tasks("t-cancel")
         assert running
-        svc.cancel("t-cancel", running[0].task_id)
+        canceled = svc.cancel("t-cancel", running[0].task_id)
+        canceled_at["ts"] = canceled.updated_at
         return cands
 
     monkeypatch.setattr(
@@ -114,6 +117,7 @@ def test_pipeline_honors_mid_flight_cancel(monkeypatch: pytest.MonkeyPatch) -> N
     )
     assert task.status == TaskStatus.canceled
     assert svc.get_task("t-cancel", task.task_id).status == TaskStatus.canceled
+    assert task.updated_at >= canceled_at["ts"]
     types = {e.event_type for e in task.events}
     assert TaskEventType.canceled in types
     assert TaskEventType.recall_completed in types
@@ -177,6 +181,8 @@ def test_pipeline_rebuilds_pack_after_mid_flight_decision(
     assert "recall_completed" in types
     assert "precision_completed" in types
     assert "evidence_pack_ready" in types
+    metrics = svc.metrics("t-dec")
+    assert metrics["median_review_time_seconds"] is None
 
 
 def test_idempotency_replay_skips_file_gate() -> None:

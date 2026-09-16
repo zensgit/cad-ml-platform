@@ -34,6 +34,8 @@
 | Terminal merge keeps pipeline events | same tests assert `recall_completed` / `precision_completed` / `evidence_pack_ready` | pass locally |
 | Live recall timeout without running loop | `test_run_coro_applies_timeout_without_running_loop` | pass locally |
 | Legacy dir named like another hash not cleaned | `test_cleanup_legacy_dir_named_like_other_hash_is_not_selected` | pass locally |
+| Meta vs task tenant disagreement refuses cleanup | `test_cleanup_refuses_when_meta_disagrees_with_task_tenant` | pass locally |
+| Decision-before-evidence not counted as 0s review | mid-flight decision test asserts `median_review_time_seconds is None` | pass locally |
 
 **Not claimed:** owner design-lock ratification; production decision enable; customer pilot C1–C5; Track E model-release metrics.
 
@@ -60,6 +62,7 @@ make test-review-reuse
 | `make test-review-reuse` (Sol P2 wave) | **121 passed**, 7 ezdxf warnings |
 | `make test-review-reuse` (Sol P1/P2 follow-up) | **122 passed**, 7 ezdxf warnings |
 | `make test-review-reuse` (L4 level + stale reasons) | **124 passed**, 7 ezdxf warnings |
+| `make test-review-reuse` (meta-vs-task refuse + review-time) | **125 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
