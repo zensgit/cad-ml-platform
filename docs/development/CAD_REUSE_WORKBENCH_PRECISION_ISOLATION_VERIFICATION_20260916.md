@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: Sol P1 wave after `f80d06a3` (geometric-only confidence; refuse unreadable cleanup)  
+**HEAD at writing**: `4d4bb285` (geom-json schema + loop timeout; Sol wave14 found no P1/P2)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -75,6 +75,8 @@ make test-review-reuse
 | `make test-review-reuse` after occupied-dir + json gate | **129 passed**, 7 ezdxf warnings |
 | tests (3.10) / tests (3.11) on `2f76c87c` | **pass** |
 | `make test-review-reuse` after geom-json schema + loop timeout | **132 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) / lint-type on `4d4bb285` | **pass** |
+| `make test-review-reuse` at `4d4bb285` (wave 14:30 UTC) | **132 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -83,9 +85,9 @@ make test-review-reuse
 | tests (3.11) on `c01bc02b` | success |
 | tests (3.10) on `957546f6` | **success** |
 | tests (3.11) on `957546f6` | **success** |
-| lint-type on `f80d06a3` | **pass** |
-| tests (3.10) / tests (3.11) on `f80d06a3` | **pass** |
-| e2e-smoke on `f80d06a3` | pass |
+| lint-type on `4d4bb285` | **pass** |
+| tests (3.10) / tests (3.11) on `4d4bb285` | **pass** |
+| e2e-smoke on `2f76c87c` | pass |
 | Evaluation Report | fail (Track E; out of scope) |
 | mergeable_state | `blocked` (review required; do not merge) |
 
@@ -155,7 +157,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `f80d06a3` |
+| Python 3.10 CI job | **pass** on `4d4bb285` |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |
