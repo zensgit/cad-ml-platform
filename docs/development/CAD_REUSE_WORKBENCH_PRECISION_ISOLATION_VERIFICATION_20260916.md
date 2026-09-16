@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: Sol P2 wave after `dc2c8fec` (atomic commit + pack rebuild + live-recall timeout)  
+**HEAD at writing**: `18b497f2` (pipeline errors sanitized; Sol wave10 found no P1/P2)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -66,6 +66,7 @@ make test-review-reuse
 | tests (3.10) on `19545bdf` | **fail** — `asyncio.TimeoutError` is not `TimeoutError` on 3.10 |
 | tests (3.11) / lint-type on `19545bdf` | **pass** |
 | `make test-review-reuse` after sanitizing pipeline errors | **125 passed**, 7 ezdxf warnings |
+| `make test-review-reuse` at `18b497f2` (wave 11:28 UTC) | **125 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -74,7 +75,10 @@ make test-review-reuse
 | tests (3.11) on `c01bc02b` | success |
 | tests (3.10) on `957546f6` | **success** |
 | tests (3.11) on `957546f6` | **success** |
-| lint-all-report / openapi-fast / e2e-smoke | success on `c01bc02b` |
+| lint-type on `18b497f2` | **pass** |
+| tests (3.10) / tests (3.11) on `18b497f2` | **pending** as of 2026-09-16 11:28 UTC |
+| e2e-smoke on `18b497f2` | pass |
+| Evaluation Report | fail (Track E; out of scope) |
 | mergeable_state | `blocked` (review required; do not merge) |
 
 Re-run `make test-review-reuse` after each follow-up commit and record the count here.
@@ -143,7 +147,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **success** on `027c3bd5` / `dc2c8fec` (re-check after this push) |
+| Python 3.10 CI job | **pending** on `18b497f2` (was success on `dc2c8fec`; failed on `19545bdf` TimeoutError, fixed in `c89fdcb2`) |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |

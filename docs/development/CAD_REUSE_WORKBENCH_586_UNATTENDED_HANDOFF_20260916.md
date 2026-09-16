@@ -25,12 +25,11 @@ Do not merge. Do not enable decisions. Do not claim Track C.
 
 1. **P0** CI `tests (3.10)` and `tests (3.11)` were **green** on `dc2c8fec`.
    Local enumerator RED from gitignored files is still not CI.
-2. Wave 2026-09-16 ~11:15 UTC (grok-4.6): Sol P2 on `c89fdcb2` — do not
-   persist `str(exc)` on `task.error` / failed events; GET and audit
-   export stay generic (`review-reuse pipeline failed`). Local
-   `make test-review-reuse` **125 passed**.
-3. After push: wait for 3.10 CI on the new SHA; if red, fix; else Sol
-   re-review vs `origin/main`; implement P1/P2 honesty findings only.
+2. Wave 2026-09-16 ~11:28 UTC: Sol 5.6 vs `origin/main` on `18b497f2`
+   found **no P1/P2**. Local `make test-review-reuse` **125 passed**.
+   `lint-type` pass; `tests (3.10)` / `tests (3.11)` still pending.
+   No new product code this wave.
+3. Next: if 3.10 red, fix; if green and Sol still clean, skip code.
 4. Evaluation Report (Track E) stays out of scope.
 
 ## Do not
