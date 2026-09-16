@@ -26,7 +26,10 @@ def _seed_tenant(
     mtime = time.time() - (age_days * 86400.0)
     for i in range(task_count):
         f = tdir / f"task{i + 1}.json"
-        f.write_text(f'{{"task_id":"task{i + 1}"}}', encoding="utf-8")
+        f.write_text(
+            json.dumps({"task_id": f"task{i + 1}", "tenant_id": tenant}),
+            encoding="utf-8",
+        )
         os.utime(f, (mtime, mtime))
     return tdir
 
@@ -125,7 +128,9 @@ def test_list_uses_tenant_meta_id(tmp_path: Path) -> None:
     tdir = store / hashed
     tasks = tdir / "tasks"
     tasks.mkdir(parents=True)
-    (tasks / "task1.json").write_text('{"task_id":"task1"}', encoding="utf-8")
+    (tasks / "task1.json").write_text(
+        '{"task_id":"task1","tenant_id":"a/b"}', encoding="utf-8"
+    )
     (tdir / "tenant_meta.json").write_text(
         '{"tenant_id":"a/b"}', encoding="utf-8"
     )
@@ -142,7 +147,9 @@ def _seed_hashed_tenant(
     tasks = tdir / "tasks"
     tasks.mkdir(parents=True, exist_ok=True)
     f = tasks / "task1.json"
-    f.write_text('{"task_id":"task1"}', encoding="utf-8")
+    f.write_text(
+        json.dumps({"task_id": "task1", "tenant_id": tenant}), encoding="utf-8"
+    )
     mtime = time.time() - (age_days * 86400.0)
     os.utime(f, (mtime, mtime))
     (tdir / "tenant_meta.json").write_text(
@@ -228,7 +235,7 @@ def test_cleanup_legacy_dir_named_like_other_hash_is_not_selected(
     assert not (store / hash_name).exists()
 
 
-def test_cleanup_hashed_basename_without_meta_still_matches(
+def test_cleanup_hashed_dir_without_meta_matches_original_id(
     tmp_path: Path,
 ) -> None:
     store = tmp_path / "store"
@@ -237,9 +244,35 @@ def test_cleanup_hashed_basename_without_meta_still_matches(
     hashed = hashed_dir.name
     assert (
         cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=hashed)
+        == 1
+    )
+    assert hashed_dir.is_dir()
+    assert (
+        cmd_cleanup(
+            store, older_than_days=30, dry_run=False, tenant="pilot-tenant"
+        )
         == 0
     )
     assert not hashed_dir.exists()
+
+
+def test_cleanup_refuses_unreadable_task_json(tmp_path: Path, capsys) -> None:
+    store = tmp_path / "store"
+    hashed_dir = _seed_hashed_tenant(store, "pilot-tenant", 60.0)
+    bad = hashed_dir / "tasks" / "broken.json"
+    bad.write_text("{not-json", encoding="utf-8")
+    old = time.time() - (60.0 * 86400.0)
+    os.utime(bad, (old, old))
+    assert (
+        cmd_cleanup(
+            store, older_than_days=30, dry_run=False, tenant="pilot-tenant"
+        )
+        == 1
+    )
+    err = capsys.readouterr().err
+    assert "refused_mixed" in err
+    assert hashed_dir.is_dir()
+    assert bad.is_file()
 
 
 def test_list_and_cleanup_recover_legacy_sanitized_tenant_id(
@@ -340,7 +373,9 @@ def test_list_merges_legacy_and_hashed_same_tenant(tmp_path: Path) -> None:
     store = tmp_path / "store"
     hashed_dir = _seed_hashed_tenant(store, "pilot-tenant", 10.0)
     extra = hashed_dir / "tasks" / "task2.json"
-    extra.write_text('{"task_id":"task2"}', encoding="utf-8")
+    extra.write_text(
+        '{"task_id":"task2","tenant_id":"pilot-tenant"}', encoding="utf-8"
+    )
     extra_mtime = time.time() - (10.0 * 86400.0)
     os.utime(extra, (extra_mtime, extra_mtime))
     _seed_tenant(store, "pilot-tenant", 20.0, task_count=1)

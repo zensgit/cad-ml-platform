@@ -486,6 +486,30 @@ def test_low_precision_confidence_ignores_visual() -> None:
     assert task.status == TaskStatus.evidence_ready
 
 
+def test_verified_l4_confidence_uses_geometric_not_visual() -> None:
+    from src.core.review_reuse.models import TaskStatus
+
+    svc = _svc()
+    task = svc.create_task(
+        tenant_id="t-geo-conf",
+        file_name="a.dxf",
+        file_bytes=b"x",
+        seed_candidates=[
+            {
+                "candidate_id": "c1",
+                "state": "similar",
+                "scores": {"geometric": 0.60, "visual": 0.99, "semantic": 0.99},
+                "methods": ["precision-l4"],
+                "match_level": 4,
+            }
+        ],
+    )
+    pack = task.evidence_pack or {}
+    assert task.status == TaskStatus.evidence_ready
+    assert pack["confidence"]["score"] == 0.60
+    assert pack["confidence"]["band"] == "medium"
+
+
 def test_vision_only_confidence_stays_low() -> None:
     from src.core.review_reuse.models import TaskStatus
 

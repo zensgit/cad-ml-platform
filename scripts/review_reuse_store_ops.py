@@ -30,21 +30,33 @@ def _tenant_dirs(store_dir: Path) -> List[Path]:
     return sorted(p for p in store_dir.iterdir() if p.is_dir() and not p.name.startswith("."))
 
 
-def _tenant_ids_from_tasks(tdir: Path) -> List[str]:
+def _task_attribution(tdir: Path) -> tuple[List[str], bool]:
+    """Unique tenant_ids from readable tasks, plus unattributable-file flag."""
     found: List[str] = []
     seen = set()
+    unattributable = False
     for path in _task_files(tdir):
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError, TypeError, ValueError):
+            unattributable = True
             continue
         if not isinstance(data, dict):
+            unattributable = True
             continue
         tid = data.get("tenant_id")
-        if isinstance(tid, str) and tid and tid not in seen:
-            seen.add(tid)
-            found.append(tid)
-    return found
+        if isinstance(tid, str) and tid:
+            if tid not in seen:
+                seen.add(tid)
+                found.append(tid)
+        else:
+            unattributable = True
+    return found, unattributable
+
+
+def _tenant_ids_from_tasks(tdir: Path) -> List[str]:
+    ids, _unattributable = _task_attribution(tdir)
+    return ids
 
 
 def _tenant_id_from_meta(tdir: Path) -> Optional[str]:
@@ -63,7 +75,9 @@ def _tenant_id_from_meta(tdir: Path) -> Optional[str]:
 
 
 def _is_mixed_tenant_dir(tdir: Path) -> bool:
-    ids = _tenant_ids_from_tasks(tdir)
+    ids, unattributable = _task_attribution(tdir)
+    if unattributable:
+        return True
     if len(ids) > 1:
         return True
     meta = _tenant_id_from_meta(tdir)

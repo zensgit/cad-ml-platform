@@ -100,7 +100,6 @@ def _top_confidence(candidates: List[CandidateDecision]) -> float:
     """Calibrated confidence must not treat unverified visual similarity as geometric."""
     best = 0.0
     vision_only = RejectionReason.vision_only_unverified.value
-    low_prec = RejectionReason.low_precision_score.value
     missing = RejectionReason.missing_geom_json.value
     for c in candidates:
         reasons = c.rejection_reasons or []
@@ -114,13 +113,10 @@ def _top_confidence(candidates: List[CandidateDecision]) -> float:
             or missing in reasons
         ):
             continue
-        keys = ("geometric",)
-        if low_prec not in reasons:
-            keys = ("geometric", "semantic", "visual", "confidence")
-        for k in keys:
-            v = c.scores.get(k)
-            if isinstance(v, (int, float)) and float(v) > best:
-                best = float(v)
+        # L4-backed confidence is the geometric score only (no visual inflation).
+        v = c.scores.get("geometric")
+        if isinstance(v, (int, float)) and float(v) > best:
+            best = float(v)
     return best
 
 
