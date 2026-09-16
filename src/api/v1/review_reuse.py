@@ -6,6 +6,8 @@ import hashlib
 import logging
 from typing import Any, Dict, List, Optional
 
+import anyio
+
 from fastapi import (
     APIRouter,
     Depends,
@@ -103,13 +105,20 @@ async def create_task(
     service: ReviewReuseService = Depends(_svc),
 ) -> Dict[str, Any]:
     raw = await file.read()
-    try:
-        task = service.create_task(
-            tenant_id=_tenant_id(request, api_key),
-            file_name=file.filename or "upload.bin",
+    tenant = _tenant_id(request, api_key)
+    name = file.filename or "upload.bin"
+
+    def _create():
+        return service.create_task(
+            tenant_id=tenant,
+            file_name=name,
             file_bytes=raw,
             idempotency_key=idempotency_key,
         )
+
+    try:
+        # DXF extract + L4 scoring is CPU/FS bound; keep it off the event loop.
+        task = await anyio.to_thread.run_sync(_create)
     except ReviewReuseError as exc:
         raise _http(exc) from exc
     return task.model_dump()

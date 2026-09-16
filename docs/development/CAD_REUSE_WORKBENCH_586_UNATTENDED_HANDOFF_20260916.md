@@ -23,10 +23,10 @@ Do not merge. Do not enable decisions. Do not claim Track C.
 
 ## Open now
 
-1. **P0** CI `tests (3.10)` and `tests (3.11)` are **green** on `fcdaafba`.
+1. **P0** CI `tests (3.10)` and `tests (3.11)` are **green** on `957546f6`.
    Local enumerator RED from gitignored files is still not CI.
-2. Wave 2026-09-16 07:38 UTC: Sol P1 hashed-basename collision + P2
-   idempotency-before-file-gate.
+2. Wave 2026-09-16 08:24 UTC: Sol P2 — run `create_task` in a worker
+   thread so DXF/L4 does not block the FastAPI event loop.
 3. Keep `make test-review-reuse` green (113 passed).
 4. Sol re-review after each code wave; implement P1/P2 honesty findings only.
 
