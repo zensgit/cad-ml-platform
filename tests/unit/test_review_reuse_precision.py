@@ -672,6 +672,40 @@ def test_store_loaded_empty_geom_is_not_l4(monkeypatch: pytest.MonkeyPatch) -> N
     assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
 
 
+def test_invalid_inline_geom_falls_back_to_store(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    geom = _line_geom()
+
+    class _Store:
+        def load(self, _cid: str) -> dict:
+            return geom
+
+    monkeypatch.setattr(
+        "src.core.dedupcad_precision.create_geom_store", lambda: _Store()
+    )
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "a" * 64,
+                "state": "similar",
+                "geom_json": {},
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(geom).encode("utf-8"),
+    )
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") == 1.0
+    assert RejectionReason.missing_geom_json.value not in out[0].rejection_reasons
+
+
 def test_json_bytes_on_dxf_filename_are_not_query_geom() -> None:
     geom = _line_geom()
     cands = map_raw_hits_to_candidates(

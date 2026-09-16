@@ -81,6 +81,8 @@ make test-review-reuse
 | `make test-review-reuse` after insufficient-evidence confidence skip | **133 passed**, 7 ezdxf warnings |
 | tests (3.10) / tests (3.11) on `5fb2096f` | **pass** |
 | `make test-review-reuse` after store-geom + grouped cleanup | **135 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) on `6b29ab81` | **pass** |
+| `make test-review-reuse` after inline-geom store fallback | **136 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

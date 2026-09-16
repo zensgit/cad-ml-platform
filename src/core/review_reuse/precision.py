@@ -263,10 +263,11 @@ def apply_precision(
             out.append(candidate)
             continue
 
-        has_cand_geom = isinstance(
-            (candidate.provenance or {}).get("geom_json"), dict
+        has_cand_geom = _is_geom_json(
+            (candidate.provenance or {}).get("geom_json")
         )
-        if has_cand_geom or _looks_like_file_hash(candidate.candidate_id or ""):
+        hash_id = _looks_like_file_hash(candidate.candidate_id or "")
+        if has_cand_geom or hash_id:
             q = _query_geom()
             l4 = (
                 _try_l4_score(

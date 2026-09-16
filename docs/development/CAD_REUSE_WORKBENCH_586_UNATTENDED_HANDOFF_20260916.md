@@ -25,10 +25,9 @@ Do not merge. Do not enable decisions. Do not claim Track C.
 
 1. **P0** CI `tests (3.10)` and `tests (3.11)` were **green** on `dc2c8fec`.
    Local enumerator RED from gitignored files is still not CI.
-2. Wave 2026-09-16 ~16:00 UTC: `tests (3.10)` / `tests (3.11)` **pass**
-   on `5fb2096f`. Sol 5.6 P2: geom loaded from store must pass
-   `_is_geom_json`; cleanup ages hashed+legacy dirs as one tenant.
-   Local `make test-review-reuse` **135 passed**.
+2. Wave 2026-09-16 ~16:45 UTC: `tests (3.10)` / `tests (3.11)` **pass**
+   on `6b29ab81`. Sol 5.6 P2: empty inline geom_json must not skip the
+   hash-keyed geom store. Local `make test-review-reuse` **136 passed**.
 3. After push: wait for 3.10; if red, fix; else Sol P1/P2 only.
 4. Evaluation Report (Track E) stays out of scope.
 
