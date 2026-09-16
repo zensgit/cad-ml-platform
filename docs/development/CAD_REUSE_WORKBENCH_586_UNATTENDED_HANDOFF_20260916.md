@@ -23,12 +23,15 @@ Do not merge. Do not enable decisions. Do not claim Track C.
 
 ## Open now
 
-1. **P0** CI `tests (3.10)` and `tests (3.11)` are **green** on `ca663c25`.
+1. **P0** CI `tests (3.10)` and `tests (3.11)` were **green** on `dc2c8fec`.
    Local enumerator RED from gitignored files is still not CI.
-2. Wave 2026-09-16 09:09 UTC: Sol P1/P2 — atomic idempotent create +
-   do not overwrite cancel/decision when the pipeline finishes.
-3. Keep `make test-review-reuse` green (115 passed).
-4. Sol re-review after each code wave; implement P1/P2 honesty findings only.
+2. Wave 2026-09-16 ~10:00 UTC (grok-4.6): Sol P2 from session
+   `01a0a9a3-3c8d-77a2-9e2e-29df1eecc644` — `update_atomically`, rebuild
+   EvidencePack after mid-flight candidate merge, live-recall `wait_for`.
+   Local `make test-review-reuse` **121 passed**.
+3. After push: wait for 3.10 CI; if red, fix; else Sol re-review vs
+   `origin/main`; implement P1/P2 honesty findings only.
+4. Evaluation Report (Track E) stays out of scope.
 
 ## Do not
 

@@ -104,14 +104,17 @@ def default_live_recall(
 
 def _run_coro(coro, *, timeout: float) -> Any:
     """Run a coroutine from sync code, including when a loop is already running."""
+    bounded = asyncio.wait_for(coro, timeout=timeout)
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        return asyncio.run(coro)
+        # create_task runs in an AnyIO worker: no running loop, so asyncio.run
+        # must still honor the caller timeout (live recall bound is 120s).
+        return asyncio.run(bounded)
     import concurrent.futures
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-        return pool.submit(asyncio.run, coro).result(timeout=timeout)
+        return pool.submit(asyncio.run, bounded).result(timeout=timeout)
 
 
 def ensure_default_live_hook() -> None:

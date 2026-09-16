@@ -52,7 +52,7 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 | File gate | `files.py` — `.dxf/.dwg/.pdf` + rasters |
 | Adapter | preserve `geom_json`; live `enable_geometric=True`, `enable_ml=False` |
 | Evidence | `_top_confidence` trusts geometric only with verified `precision-l4`; vision-only / missing geom / low precision stay low |
-| Store | hashed `sha256(tenant_id)[:24]` + `tenant_meta.json`; unique tmp; skip rewrite if valid |
+| Store | hashed `sha256(tenant_id)[:24]` + `tenant_meta.json`; unique tmp; skip rewrite if valid; `update_atomically` for pipeline/cancel/decision |
 | Store ops | list merge; cleanup `--tenant` by id/meta/hash; refuse mixed legacy dirs |
 | JWT | IntegrationAuthMiddleware e2e |
 | Isolated archive | `--file` without seed, decisions off |
@@ -74,6 +74,9 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 4. This document + verification MD + operator list `mixed` flag.
 5. CI babysit (Python 3.10 job on #586).
 6. Unattended waves: fix CI, Sol re-review, no new L3 runtime track.
+7. Sol P2 wave (2026-09-16 ~10:00 UTC, grok-4.6): atomic terminal commit,
+   rebuild EvidencePack after mid-flight candidate merge, live-recall
+   `asyncio.wait_for` on the no-loop `asyncio.run` path.
 
 ## 7. Risk
 
@@ -83,4 +86,7 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 | Cross-tenant delete | mixed legacy dirs refused (`refused_mixed`, exit 1) |
 | Temp-file race on `tenant_meta.json` | `mkstemp` unique name; skip rewrite when sidecar valid |
 | DXF parse cost on offline insufficient | extract only when a candidate can be scored |
+| Pipeline overwrites cancel/decision | `store.update_atomically` checks terminal status and writes under one lock |
+| Decided task vs empty EvidencePack | rebuild pack after merging mid-flight candidates into the decided snapshot |
+| Live recall hangs the AnyIO worker | `_run_coro` wraps the coroutine in `asyncio.wait_for` (120s) even with no loop |
 | 12h unattended overreach | scheduler stops ~2026-09-16 17:00 UTC; never merge; never enable decisions |

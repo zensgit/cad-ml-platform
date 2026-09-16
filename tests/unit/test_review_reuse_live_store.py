@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import os
+import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -15,7 +17,13 @@ from src.core.review_reuse.dedup_adapter import (
     set_live_recall_hook,
 )
 from src.core.review_reuse.dedup_live import vision_response_to_hits
-from src.core.review_reuse.models import CandidateState, TaskStatus
+from src.core.review_reuse.models import (
+    CandidateState,
+    ReviewReuseTask,
+    TaskEvent,
+    TaskEventType,
+    TaskStatus,
+)
 from src.core.review_reuse.service import ReviewReuseService
 from src.core.review_reuse.store import (
     ENV_STORE,
@@ -128,6 +136,31 @@ def test_default_live_recall_requests_geometric(monkeypatch: pytest.MonkeyPatch)
     assert "precision-l4" in hits[0]["methods"]
 
 
+def test_run_coro_applies_timeout_without_running_loop() -> None:
+    import asyncio
+    import time
+
+    from src.core.review_reuse.dedup_live import _run_coro
+
+    async def _slow() -> str:
+        await asyncio.sleep(2)
+        return "done"
+
+    started = time.monotonic()
+    with pytest.raises(TimeoutError):
+        _run_coro(_slow(), timeout=0.05)
+    assert time.monotonic() - started < 1.5
+
+
+def test_run_coro_completes_within_timeout() -> None:
+    from src.core.review_reuse.dedup_live import _run_coro
+
+    async def _fast() -> int:
+        return 42
+
+    assert _run_coro(_fast(), timeout=1) == 42
+
+
 def test_create_task_live_geometric_not_vision_only(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -200,6 +233,83 @@ def test_filesystem_store_survives_reload(tmp_path: Path) -> None:
     assert store2.get("tenant-b", task.task_id) is None
     listed = store2.list_for_tenant("tenant-a")
     assert len(listed) == 1
+
+
+def _running_task(tenant_id: str, task_id: str) -> ReviewReuseTask:
+    now = time.time()
+    return ReviewReuseTask(
+        task_id=task_id,
+        tenant_id=tenant_id,
+        status=TaskStatus.running,
+        created_at=now,
+        updated_at=now,
+        source_file_name="a.dxf",
+        source_content_sha256="ab",
+        trace_id="tr",
+    )
+
+
+def test_update_atomically_serializes_writers() -> None:
+    store = InMemoryReviewReuseStore()
+    store.put(_running_task("ten", "t1"))
+    n = 25
+
+    def _bump() -> None:
+        def updater(current):
+            assert current is not None
+            current.events = list(current.events) + [
+                TaskEvent(event_type=TaskEventType.recall_started, ts=time.time())
+            ]
+            return current
+
+        store.update_atomically("ten", "t1", updater)
+
+    threads = [threading.Thread(target=_bump) for _ in range(n)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    found = store.get("ten", "t1")
+    assert found is not None
+    assert len(found.events) == n
+
+
+def test_update_atomically_does_not_write_when_updater_raises() -> None:
+    store = InMemoryReviewReuseStore()
+    store.put(_running_task("ten", "t-raise"))
+
+    def updater(current):
+        del current
+        raise RuntimeError("no-write")
+
+    with pytest.raises(RuntimeError, match="no-write"):
+        store.update_atomically("ten", "t-raise", updater)
+    found = store.get("ten", "t-raise")
+    assert found is not None
+    assert found.status == TaskStatus.running
+
+
+def test_filesystem_update_atomically_keeps_terminal_status(tmp_path: Path) -> None:
+    store = FilesystemReviewReuseStore(tmp_path / "tasks")
+    store.put(_running_task("ten", "t-fs"))
+
+    def _cancel(current):
+        assert current is not None
+        current.status = TaskStatus.canceled
+        return current
+
+    store.update_atomically("ten", "t-fs", _cancel)
+
+    def _pipeline(current):
+        assert current is not None
+        if current.status in (TaskStatus.canceled, TaskStatus.decided):
+            return current
+        current.status = TaskStatus.evidence_ready
+        return current
+
+    kept = store.update_atomically("ten", "t-fs", _pipeline)
+    assert kept.status == TaskStatus.canceled
+    assert store.get("ten", "t-fs").status == TaskStatus.canceled
 
 
 def test_create_store_factory(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

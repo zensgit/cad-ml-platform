@@ -8,7 +8,7 @@ import os
 import tempfile
 import threading
 from pathlib import Path
-from typing import Dict, List, Optional, Protocol
+from typing import Callable, Dict, List, Optional, Protocol
 
 from .models import ReviewReuseTask
 
@@ -56,6 +56,13 @@ class ReviewReuseStoreProtocol(Protocol):
 
     def list_for_tenant(self, tenant_id: str) -> List[ReviewReuseTask]: ...
 
+    def update_atomically(
+        self,
+        tenant_id: str,
+        task_id: str,
+        updater: Callable[[Optional[ReviewReuseTask]], ReviewReuseTask],
+    ) -> ReviewReuseTask: ...
+
 
 class InMemoryReviewReuseStore:
     """Process-local store (default; not multi-process durable)."""
@@ -95,6 +102,17 @@ class InMemoryReviewReuseStore:
                 if existing is not None:
                     return existing
             return self.put(task)
+
+    def update_atomically(
+        self,
+        tenant_id: str,
+        task_id: str,
+        updater: Callable[[Optional[ReviewReuseTask]], ReviewReuseTask],
+    ) -> ReviewReuseTask:
+        with self._lock:
+            current = self.get(tenant_id, task_id)
+            updated = updater(current)
+            return self.put(updated)
 
     def list_for_tenant(self, tenant_id: str) -> List[ReviewReuseTask]:
         with self._lock:
@@ -244,6 +262,17 @@ class FilesystemReviewReuseStore:
                 if existing is not None:
                     return existing
             return self.put(task)
+
+    def update_atomically(
+        self,
+        tenant_id: str,
+        task_id: str,
+        updater: Callable[[Optional[ReviewReuseTask]], ReviewReuseTask],
+    ) -> ReviewReuseTask:
+        with self._lock:
+            current = self.get(tenant_id, task_id)
+            updated = updater(current)
+            return self.put(updated)
 
     def list_for_tenant(self, tenant_id: str) -> List[ReviewReuseTask]:
         with self._lock:

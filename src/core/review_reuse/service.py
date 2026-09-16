@@ -211,19 +211,28 @@ class ReviewReuseService:
 
     def _commit_pipeline_result(self, task: ReviewReuseTask) -> ReviewReuseTask:
         """Do not overwrite a concurrent cancel/decision with pipeline completion."""
-        current = self.store.get(task.tenant_id, task.task_id)
-        if current is not None and current.status in (
-            TaskStatus.canceled,
-            TaskStatus.decided,
-        ):
-            if task.candidates and not current.candidates:
-                current.candidates = task.candidates
-            if task.evidence_pack is not None and current.evidence_pack is None:
-                current.evidence_pack = task.evidence_pack
-            self.store.put(current)
-            return current
-        self.store.put(task)
-        return task
+
+        def updater(current: Optional[ReviewReuseTask]) -> ReviewReuseTask:
+            if current is not None and current.status in (
+                TaskStatus.canceled,
+                TaskStatus.decided,
+            ):
+                merged = False
+                if task.candidates and not current.candidates:
+                    current.candidates = task.candidates
+                    merged = True
+                if merged:
+                    # Mid-flight decision built an empty pack; rebuild so
+                    # audit export matches stored candidates + decision.
+                    current.evidence_pack = build_evidence_pack(current)
+                elif (
+                    task.evidence_pack is not None and current.evidence_pack is None
+                ):
+                    current.evidence_pack = task.evidence_pack
+                return current
+            return task
+
+        return self.store.update_atomically(task.tenant_id, task.task_id, updater)
 
     def get_task(self, tenant_id: str, task_id: str) -> ReviewReuseTask:
         task = self.store.get(tenant_id, task_id)
@@ -239,13 +248,17 @@ class ReviewReuseService:
         )
 
     def cancel(self, tenant_id: str, task_id: str) -> ReviewReuseTask:
-        task = self.get_task(tenant_id, task_id)
-        if task.status in (TaskStatus.decided, TaskStatus.canceled):
-            return task
-        task.status = TaskStatus.canceled
-        task = self._emit(task, TaskEventType.canceled, {})
-        self.store.put(task)
-        return task
+        def updater(current: Optional[ReviewReuseTask]) -> ReviewReuseTask:
+            if current is None:
+                raise ReviewReuseError(
+                    "not_found", f"task {task_id!r} not found for tenant"
+                )
+            if current.status in (TaskStatus.decided, TaskStatus.canceled):
+                return current
+            current.status = TaskStatus.canceled
+            return self._emit(current, TaskEventType.canceled, {})
+
+        return self.store.update_atomically(tenant_id, task_id, updater)
 
     def get_events(self, tenant_id: str, task_id: str) -> List[TaskEvent]:
         return list(self.get_task(tenant_id, task_id).events)
@@ -311,50 +324,56 @@ class ReviewReuseService:
                 "(not API-key fallback ak-user-*).",
             )
 
-        task = self.get_task(tenant_id, task_id)
-        if task.status == TaskStatus.canceled:
-            raise ReviewReuseError("canceled", "cannot decide a canceled task")
-        if candidate_id:
-            known = {c.candidate_id for c in task.candidates}
-            if candidate_id not in known:
+        def updater(current: Optional[ReviewReuseTask]) -> ReviewReuseTask:
+            if current is None:
                 raise ReviewReuseError(
-                    "unknown_candidate",
-                    f"candidate_id {candidate_id!r} is not on this task",
+                    "not_found", f"task {task_id!r} not found for tenant"
                 )
-        if task.human_decision is not None:
-            # Idempotent: same key returns existing; different is conflict.
-            if (
-                idempotency_key
-                and task.human_decision.idempotency_key == idempotency_key
-            ):
-                return task
-            raise ReviewReuseError("already_decided", "task already has a human decision")
+            if current.status == TaskStatus.canceled:
+                raise ReviewReuseError("canceled", "cannot decide a canceled task")
+            if candidate_id:
+                known = {c.candidate_id for c in current.candidates}
+                if candidate_id not in known:
+                    raise ReviewReuseError(
+                        "unknown_candidate",
+                        f"candidate_id {candidate_id!r} is not on this task",
+                    )
+            if current.human_decision is not None:
+                # Idempotent: same key returns existing; different is conflict.
+                if (
+                    idempotency_key
+                    and current.human_decision.idempotency_key == idempotency_key
+                ):
+                    return current
+                raise ReviewReuseError(
+                    "already_decided", "task already has a human decision"
+                )
 
-        # Strategy-center states always allowed; extensions allowed but labeled.
-        decision = HumanDecision(
-            state=state,
-            reviewer_id=str(reviewer_id).strip(),
-            reason_codes=list(reason_codes or []),
-            reason_text=reason_text or "",
-            candidate_id=candidate_id,
-            ts=time.time(),
-            idempotency_key=idempotency_key,
-        )
-        task.human_decision = decision
-        task.status = TaskStatus.decided
-        # Refresh evidence pack with decision.
-        task.evidence_pack = build_evidence_pack(task)
-        task = self._emit(
-            task,
-            TaskEventType.decision_submitted,
-            {
-                "state": state.value,
-                "reviewer_id": decision.reviewer_id,
-                "candidate_id": candidate_id,
-            },
-        )
-        self.store.put(task)
-        return task
+            # Strategy-center states always allowed; extensions allowed but labeled.
+            decision = HumanDecision(
+                state=state,
+                reviewer_id=str(reviewer_id).strip(),
+                reason_codes=list(reason_codes or []),
+                reason_text=reason_text or "",
+                candidate_id=candidate_id,
+                ts=time.time(),
+                idempotency_key=idempotency_key,
+            )
+            current.human_decision = decision
+            current.status = TaskStatus.decided
+            # Refresh evidence pack with decision (and any candidates already stored).
+            current.evidence_pack = build_evidence_pack(current)
+            return self._emit(
+                current,
+                TaskEventType.decision_submitted,
+                {
+                    "state": state.value,
+                    "reviewer_id": decision.reviewer_id,
+                    "candidate_id": candidate_id,
+                },
+            )
+
+        return self.store.update_atomically(tenant_id, task_id, updater)
 
     def _emit(
         self, task: ReviewReuseTask, event_type: TaskEventType, detail: Dict[str, Any]

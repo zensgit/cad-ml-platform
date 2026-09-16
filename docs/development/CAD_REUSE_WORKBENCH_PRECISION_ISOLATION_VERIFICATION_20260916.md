@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: see latest commit (`957546f6` 3.10/3.11 green; create_task off event loop)  
+**HEAD at writing**: Sol P2 wave after `dc2c8fec` (atomic commit + pack rebuild + live-recall timeout)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -27,6 +27,9 @@
 | Decisions default-off | existing workbench + r2_hold tests | pass |
 | R2 HOLD no feedback JSONL | `test_review_reuse_r2_hold.py` | pass |
 | Track C / R11 / R12 not claimed | this PR body + board residual_human | n/a (human) |
+| Pipeline commit cannot clobber cancel/decision | `store.update_atomically`; `test_pipeline_honors_mid_flight_cancel`; `test_filesystem_update_atomically_keeps_terminal_status` | pass locally |
+| Mid-flight decision pack rebuilt with candidates | `test_pipeline_rebuilds_pack_after_mid_flight_decision` | pass locally |
+| Live recall timeout without running loop | `test_run_coro_applies_timeout_without_running_loop` | pass locally |
 
 **Not claimed:** owner design-lock ratification; production decision enable; customer pilot C1–C5; Track E model-release metrics.
 
@@ -49,7 +52,8 @@ make test-review-reuse
 | Run | Result |
 |---|---|
 | flake8 on changed ReviewReuse files | clean |
-| `make test-review-reuse` | **115 passed**, 7 ezdxf warnings |
+| `make test-review-reuse` (pre-P2, `dc2c8fec`) | **115 passed**, 7 ezdxf warnings |
+| `make test-review-reuse` (Sol P2 wave) | **121 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -77,6 +81,11 @@ seed: geometric=0.1, visual=0.99, methods=precision-l4
 
 # mixed legacy a/b + a_b in one sanitized dir
 cleanup --tenant a/b --apply → exit 1, mixed dir remains
+
+# mid-flight candidate-less decision, then pipeline finishes
+→ status stays decided (not evidence_ready)
+→ evidence_pack.candidates matches stored candidates
+→ evidence_pack.human_decision.state is the submitted action
 ```
 
 ## 4. Operator commands (decisions off)
@@ -112,7 +121,8 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **success** on `027c3bd5` |
+| Python 3.10 CI job | **success** on `027c3bd5` / `dc2c8fec` (re-check after this push) |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |
+| Decisions-before-evidence as a product gate | residual_human (this wave rebuilds the pack instead of blocking) |

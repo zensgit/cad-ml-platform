@@ -116,6 +116,59 @@ def test_pipeline_honors_mid_flight_cancel(monkeypatch: pytest.MonkeyPatch) -> N
     assert svc.get_task("t-cancel", task.task_id).status == TaskStatus.canceled
 
 
+def test_pipeline_rebuilds_pack_after_mid_flight_decision(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.core.review_reuse.models import TaskStatus
+
+    monkeypatch.setenv(ENV_DECISIONS_ENABLED, "true")
+    svc = _svc()
+    seed = [
+        {
+            "candidate_id": "c1",
+            "state": "similar",
+            "scores": {"geometric": 0.9, "semantic": 0.8},
+            "methods": ["precision-l4"],
+        }
+    ]
+
+    def _decide_then_pass(cands, **_k):
+        running = svc.list_tasks("t-dec")
+        assert running
+        decided = svc.submit_decision(
+            tenant_id="t-dec",
+            task_id=running[0].task_id,
+            state=HumanDecisionState.new,
+            reviewer_id="reviewer-1",
+        )
+        assert decided.status == TaskStatus.decided
+        assert decided.candidates == []
+        assert decided.evidence_pack is not None
+        assert decided.evidence_pack.get("candidates") == []
+        return cands
+
+    monkeypatch.setattr(
+        "src.core.review_reuse.service.apply_precision", _decide_then_pass
+    )
+    task = svc.create_task(
+        tenant_id="t-dec",
+        file_name="a.dxf",
+        file_bytes=b"x",
+        seed_candidates=seed,
+    )
+    assert task.status == TaskStatus.decided
+    assert [c.candidate_id for c in task.candidates] == ["c1"]
+    pack = task.evidence_pack or {}
+    assert [row.get("candidate_id") for row in pack.get("candidates") or []] == ["c1"]
+    assert (pack.get("human_decision") or {}).get("state") == "new"
+    stored = svc.get_task("t-dec", task.task_id)
+    assert stored.status == TaskStatus.decided
+    assert stored.evidence_pack == pack
+    bundle = svc.export_audit_bundle("t-dec", task.task_id)
+    assert bundle["evidence_pack"]["candidates"][0]["candidate_id"] == "c1"
+    assert bundle["task"]["candidates"][0]["candidate_id"] == "c1"
+
+
 def test_idempotency_replay_skips_file_gate() -> None:
     import time
 
