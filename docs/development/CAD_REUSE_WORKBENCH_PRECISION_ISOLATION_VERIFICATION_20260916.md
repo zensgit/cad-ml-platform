@@ -63,6 +63,8 @@ make test-review-reuse
 | `make test-review-reuse` (Sol P1/P2 follow-up) | **122 passed**, 7 ezdxf warnings |
 | `make test-review-reuse` (L4 level + stale reasons) | **124 passed**, 7 ezdxf warnings |
 | `make test-review-reuse` (meta-vs-task refuse + review-time) | **125 passed**, 7 ezdxf warnings |
+| tests (3.10) on `19545bdf` | **fail** — `asyncio.TimeoutError` is not `TimeoutError` on 3.10 |
+| tests (3.11) / lint-type on `19545bdf` | **pass** |
 
 ### CI (PR #586)
 

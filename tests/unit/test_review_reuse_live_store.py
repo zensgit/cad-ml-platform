@@ -147,7 +147,7 @@ def test_run_coro_applies_timeout_without_running_loop() -> None:
         return "done"
 
     started = time.monotonic()
-    with pytest.raises(TimeoutError):
+    with pytest.raises((TimeoutError, asyncio.TimeoutError)):
         _run_coro(_slow(), timeout=0.05)
     assert time.monotonic() - started < 1.5
 

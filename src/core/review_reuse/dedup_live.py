@@ -110,11 +110,18 @@ def _run_coro(coro, *, timeout: float) -> Any:
     except RuntimeError:
         # create_task runs in an AnyIO worker: no running loop, so asyncio.run
         # must still honor the caller timeout (live recall bound is 120s).
-        return asyncio.run(bounded)
+        try:
+            return asyncio.run(bounded)
+        except asyncio.TimeoutError as exc:
+            # 3.10: asyncio.TimeoutError is not a TimeoutError subclass.
+            raise TimeoutError(str(exc) or "live recall timed out") from exc
     import concurrent.futures
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-        return pool.submit(asyncio.run, bounded).result(timeout=timeout)
+        try:
+            return pool.submit(asyncio.run, bounded).result(timeout=timeout)
+        except asyncio.TimeoutError as exc:
+            raise TimeoutError(str(exc) or "live recall timed out") from exc
 
 
 def ensure_default_live_hook() -> None:
