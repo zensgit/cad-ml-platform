@@ -51,7 +51,8 @@ def _is_mixed_tenant_dir(tdir: Path) -> bool:
     return len(_tenant_ids_from_tasks(tdir)) > 1
 
 
-def _tenant_label(tdir: Path) -> str:
+def _recorded_tenant_id(tdir: Path) -> Optional[str]:
+    """Original tenant_id from sidecar or a unique task payload, if any."""
     meta_path = tdir / "tenant_meta.json"
     if meta_path.is_file():
         try:
@@ -63,7 +64,12 @@ def _tenant_label(tdir: Path) -> str:
     ids = _tenant_ids_from_tasks(tdir)
     if len(ids) == 1:
         return ids[0]
-    return tdir.name
+    return None
+
+
+def _tenant_label(tdir: Path) -> str:
+    recorded = _recorded_tenant_id(tdir)
+    return recorded if recorded is not None else tdir.name
 
 
 def _tenant_dir_key(tenant_id: str) -> str:
@@ -75,16 +81,18 @@ def _tenant_matches(tdir: Path, tenant: str) -> bool:
 
     A hashed dir named ``sha256(A)[:24]`` must not be selected by
     ``--tenant <that hash>`` when metadata/tasks identify tenant A.
+    Hash-name fallback is only for dirs with no recorded identity (so a
+    legacy tenant whose id equals ``sha256(other)[:24]`` is not deleted
+    when cleaning ``other``).
     """
     if _is_mixed_tenant_dir(tdir):
         return tenant in _tenant_ids_from_tasks(tdir)
-    label = _tenant_label(tdir)
-    if label == tenant:
-        return True
+    recorded = _recorded_tenant_id(tdir)
+    if recorded is not None:
+        return recorded == tenant
     if tdir.name == _tenant_dir_key(tenant):
         return True
-    # Basename match only when we have no stronger identity.
-    return tdir.name == tenant and label == tdir.name
+    return tdir.name == tenant
 
 
 def _task_files(tenant_dir: Path) -> List[Path]:

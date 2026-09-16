@@ -229,6 +229,9 @@ class ReviewReuseService:
                     task.evidence_pack is not None and current.evidence_pack is None
                 ):
                     current.evidence_pack = task.evidence_pack
+                current.events = _merge_append_only_events(
+                    current.events, task.events
+                )
                 return current
             return task
 
@@ -383,5 +386,25 @@ class ReviewReuseService:
         ]
         task.updated_at = time.time()
         return task
+
+
+def _merge_append_only_events(
+    base: List[TaskEvent], incoming: List[TaskEvent]
+) -> List[TaskEvent]:
+    """Keep stored terminal events and fill in pipeline steps by type + ts."""
+    seen = {(e.event_type, e.ts) for e in base}
+    have_types = {e.event_type for e in base}
+    extra: List[TaskEvent] = []
+    for event in incoming:
+        if (event.event_type, event.ts) in seen:
+            continue
+        if event.event_type in have_types:
+            continue
+        extra.append(event)
+        seen.add((event.event_type, event.ts))
+        have_types.add(event.event_type)
+    merged = list(base) + extra
+    merged.sort(key=lambda e: e.ts)
+    return merged
 
 

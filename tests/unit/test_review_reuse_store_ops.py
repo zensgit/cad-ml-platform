@@ -197,6 +197,37 @@ def test_cleanup_hash_selector_does_not_delete_other_tenant(
     assert not hashed_literal.exists()
 
 
+def test_cleanup_legacy_dir_named_like_other_hash_is_not_selected(
+    tmp_path: Path,
+) -> None:
+    """Legacy tenant id == sha256(other)[:24] must not be cleaned as other."""
+    store = tmp_path / "store"
+    other = "pilot-tenant"
+    hash_name = tenant_dir_key(other)
+    legacy_tasks = store / hash_name / "tasks"
+    legacy_tasks.mkdir(parents=True)
+    task = legacy_tasks / "task1.json"
+    task.write_text(
+        json.dumps({"task_id": "task1", "tenant_id": hash_name}),
+        encoding="utf-8",
+    )
+    old = time.time() - (60.0 * 86400.0)
+    os.utime(task, (old, old))
+
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=other)
+        == 1
+    )
+    assert (store / hash_name).is_dir()
+    assert (
+        cmd_cleanup(
+            store, older_than_days=30, dry_run=False, tenant=hash_name
+        )
+        == 0
+    )
+    assert not (store / hash_name).exists()
+
+
 def test_cleanup_hashed_basename_without_meta_still_matches(
     tmp_path: Path,
 ) -> None:

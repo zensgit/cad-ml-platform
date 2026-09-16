@@ -29,7 +29,9 @@
 | Track C / R11 / R12 not claimed | this PR body + board residual_human | n/a (human) |
 | Pipeline commit cannot clobber cancel/decision | `store.update_atomically`; `test_pipeline_honors_mid_flight_cancel`; `test_filesystem_update_atomically_keeps_terminal_status` | pass locally |
 | Mid-flight decision pack rebuilt with candidates | `test_pipeline_rebuilds_pack_after_mid_flight_decision` | pass locally |
+| Terminal merge keeps pipeline events | same tests assert `recall_completed` / `precision_completed` / `evidence_pack_ready` | pass locally |
 | Live recall timeout without running loop | `test_run_coro_applies_timeout_without_running_loop` | pass locally |
+| Legacy dir named like another hash not cleaned | `test_cleanup_legacy_dir_named_like_other_hash_is_not_selected` | pass locally |
 
 **Not claimed:** owner design-lock ratification; production decision enable; customer pilot C1–C5; Track E model-release metrics.
 
@@ -54,6 +56,7 @@ make test-review-reuse
 | flake8 on changed ReviewReuse files | clean |
 | `make test-review-reuse` (pre-P2, `dc2c8fec`) | **115 passed**, 7 ezdxf warnings |
 | `make test-review-reuse` (Sol P2 wave) | **121 passed**, 7 ezdxf warnings |
+| `make test-review-reuse` (Sol P1/P2 follow-up) | **122 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -86,6 +89,10 @@ cleanup --tenant a/b --apply → exit 1, mixed dir remains
 → status stays decided (not evidence_ready)
 → evidence_pack.candidates matches stored candidates
 → evidence_pack.human_decision.state is the submitted action
+→ events include recall_completed, precision_completed, evidence_pack_ready, decision_submitted
+
+# legacy dir named sha256(pilot-tenant)[:24] with tenant_id=that hash
+cleanup --tenant pilot-tenant --apply → must not delete that dir
 ```
 
 ## 4. Operator commands (decisions off)

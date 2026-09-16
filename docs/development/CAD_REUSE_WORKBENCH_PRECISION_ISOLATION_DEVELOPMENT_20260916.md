@@ -77,6 +77,9 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 7. Sol P2 wave (2026-09-16 ~10:00 UTC, grok-4.6): atomic terminal commit,
    rebuild EvidencePack after mid-flight candidate merge, live-recall
    `asyncio.wait_for` on the no-loop `asyncio.run` path.
+8. Sol re-review of `4eb1f77c` (session `01a0a9ad-cd3b-7b41-8341-daae02313e41`):
+   P1 hash-name cleanup must not select a legacy dir whose recorded
+   tenant_id differs; P2 merge pipeline events into terminal snapshots.
 
 ## 7. Risk
 
@@ -88,5 +91,7 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 | DXF parse cost on offline insufficient | extract only when a candidate can be scored |
 | Pipeline overwrites cancel/decision | `store.update_atomically` checks terminal status and writes under one lock |
 | Decided task vs empty EvidencePack | rebuild pack after merging mid-flight candidates into the decided snapshot |
+| Terminal merge drops pipeline events | `_merge_append_only_events` keeps cancel/decision and fills recall/precision/pack |
 | Live recall hangs the AnyIO worker | `_run_coro` wraps the coroutine in `asyncio.wait_for` (120s) even with no loop |
+| Cleanup deletes another tenant's legacy dir | hash-name fallback only when meta/tasks have no recorded identity |
 | 12h unattended overreach | scheduler stops ~2026-09-16 17:00 UTC; never merge; never enable decisions |
