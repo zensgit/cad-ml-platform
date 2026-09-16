@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: `c01bc02b` (plus follow-up commits on this wave)  
+**HEAD at writing**: `b739063a` (3.10 C1 dest-dir test fix; docs `52252e1c`)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -51,14 +51,13 @@ make test-review-reuse
 | flake8 on changed ReviewReuse files | clean |
 | `make test-review-reuse` | **111 passed**, 7 ezdxf warnings, ~2.0s |
 
-### CI (PR #586, head `c01bc02b`)
+### CI (PR #586)
 
 | Check | Result |
 |---|---|
-| tests (3.11) | success |
-| tests (3.10) | **failure — in repair this wave** |
-| lint-all-report / openapi-fast / e2e-smoke | success |
-| Unit test shards / integration | success |
+| tests (3.11) on `c01bc02b` | success |
+| tests (3.10) on `c01bc02b` | failed at L3 enumerator **pytest**, not the enumerator binary. `test_ordinary_dest_dir_open_failure_zero_model_bytes` did not raise `ActivationRefusal` because an `os.open` spy missed Linux `openat`. Fix: `chmod 000` after freeze `mkdir("sub")` (`b739063a`). Awaiting re-run. |
+| lint-all-report / openapi-fast / e2e-smoke | success on `c01bc02b` |
 | mergeable_state | `blocked` (review required; do not merge) |
 
 Re-run `make test-review-reuse` after each follow-up commit and record the count here.
@@ -112,7 +111,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | eng (this unattended wave) |
+| Python 3.10 CI job | `b739063a` landed; confirm green on the new run |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |

@@ -23,11 +23,11 @@ Do not merge. Do not enable decisions. Do not claim Track C.
 
 ## Open now
 
-1. **P0** CI job `tests (3.10)` failed on run 35056072502 at step
-   `L3 activation-surface enumerator — no new unclassified model-load site`.
-   Fetch logs (`gh api repos/zensgit/cad-ml-platform/actions/jobs/104667529694`),
-   classify or fix the 3.10-only failure. Local enumerator RED from gitignored
-   `scripts/eval_v16_after_fix.py` and `src/core/cache/client.py` is NOT the CI issue.
+1. **P0** CI `tests (3.10)` on `c01bc02b` failed inside the enumerator *pytest*
+   step: `test_ordinary_dest_dir_open_failure_zero_model_bytes` (not the
+   enumerator AST). Fix is `b739063a` (chmod 000 instead of `os.open` spy).
+   Confirm the new run is green. Local enumerator RED from gitignored
+   `scripts/eval_v16_after_fix.py` / `src/core/cache/client.py` is still not CI.
 2. Keep `make test-review-reuse` green (111 passed at last local run).
 3. Update verification MD with new HEAD / CI results.
 4. Sol re-review after each code wave; implement P1/P2 honesty findings only.
