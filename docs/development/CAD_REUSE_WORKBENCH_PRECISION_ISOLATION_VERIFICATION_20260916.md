@@ -65,6 +65,7 @@ make test-review-reuse
 | `make test-review-reuse` (meta-vs-task refuse + review-time) | **125 passed**, 7 ezdxf warnings |
 | tests (3.10) on `19545bdf` | **fail** — `asyncio.TimeoutError` is not `TimeoutError` on 3.10 |
 | tests (3.11) / lint-type on `19545bdf` | **pass** |
+| `make test-review-reuse` after sanitizing pipeline errors | **125 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

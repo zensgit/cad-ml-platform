@@ -32,6 +32,7 @@ ENV_DECISIONS_ENABLED = "REVIEW_REUSE_DECISIONS_ENABLED"
 # When on (pilot): reject ak-user-* / empty reviewer ids (require JWT subject).
 ENV_REQUIRE_VALIDATED_REVIEWER = "REVIEW_REUSE_REQUIRE_VALIDATED_REVIEWER"
 _TRUE = frozenset({"1", "true", "yes", "on"})
+PIPELINE_FAILED_PUBLIC = "review-reuse pipeline failed"
 
 _STORE: Optional[ReviewReuseStoreProtocol] = None
 
@@ -136,22 +137,26 @@ class ReviewReuseService:
         except ReviewReuseError:
             raise
         except Exception as exc:
+            logger.warning("review_reuse_pipeline_failed", exc_info=True)
             task.status = TaskStatus.failed
-            task.error = str(exc)
-            task = self._emit(task, TaskEventType.failed, {"error": task.error})
+            # Persist a public message only; GET/audit must not leak str(exc).
+            task.error = PIPELINE_FAILED_PUBLIC
+            task = self._emit(
+                task, TaskEventType.failed, {"error": PIPELINE_FAILED_PUBLIC}
+            )
             try:
                 committed = self._commit_pipeline_result(task)
             except Exception:
                 logger.warning("review_reuse_failed_task_persist_failed", exc_info=True)
                 raise ReviewReuseError(
                     "pipeline_failed",
-                    "review-reuse pipeline failed",
+                    PIPELINE_FAILED_PUBLIC,
                 ) from exc
             if committed.status in (TaskStatus.canceled, TaskStatus.decided):
                 return committed
             raise ReviewReuseError(
                 "pipeline_failed",
-                "review-reuse pipeline failed",
+                PIPELINE_FAILED_PUBLIC,
             ) from exc
 
     def _run_pipeline(

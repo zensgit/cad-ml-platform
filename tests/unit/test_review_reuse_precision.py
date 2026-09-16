@@ -424,8 +424,10 @@ def test_unknown_candidate_on_decision(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_pipeline_failed_persists_failed_task(monkeypatch: pytest.MonkeyPatch) -> None:
     from src.core.review_reuse.models import TaskEventType, TaskStatus
 
+    secret = "precision exploded /secret/path token=abc"
+
     def _boom(*_a, **_k):
-        raise RuntimeError("precision exploded")
+        raise RuntimeError(secret)
 
     monkeypatch.setattr("src.core.review_reuse.service.apply_precision", _boom)
     svc = _svc()
@@ -449,8 +451,14 @@ def test_pipeline_failed_persists_failed_task(monkeypatch: pytest.MonkeyPatch) -
     assert len(listed) == 1
     task = listed[0]
     assert task.status == TaskStatus.failed
-    assert task.error == "precision exploded"
+    assert task.error == "review-reuse pipeline failed"
+    assert secret not in (task.error or "")
+    dumped = task.model_dump_json()
+    assert secret not in dumped
+    assert "/secret/path" not in dumped
     assert any(e.event_type == TaskEventType.failed for e in task.events)
+    for event in task.events:
+        assert secret not in str(event.detail)
 
 
 def test_low_precision_confidence_ignores_visual() -> None:

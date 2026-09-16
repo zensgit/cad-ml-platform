@@ -25,13 +25,12 @@ Do not merge. Do not enable decisions. Do not claim Track C.
 
 1. **P0** CI `tests (3.10)` and `tests (3.11)` were **green** on `dc2c8fec`.
    Local enumerator RED from gitignored files is still not CI.
-2. Wave 2026-09-16 ~11:05 UTC (grok-4.6): `tests (3.10)` failed on
-   `19545bdf` because 3.10 `asyncio.TimeoutError` is not a subclass of
-   `TimeoutError`. `_run_coro` now raises builtin `TimeoutError`.
-   Local `make test-review-reuse` **125 passed**. Evaluation Report
-   remains out of scope.
-3. After push: wait for 3.10 CI; if red, fix; else Sol re-review vs
-   `origin/main`; implement P1/P2 honesty findings only.
+2. Wave 2026-09-16 ~11:15 UTC (grok-4.6): Sol P2 on `c89fdcb2` — do not
+   persist `str(exc)` on `task.error` / failed events; GET and audit
+   export stay generic (`review-reuse pipeline failed`). Local
+   `make test-review-reuse` **125 passed**.
+3. After push: wait for 3.10 CI on the new SHA; if red, fix; else Sol
+   re-review vs `origin/main`; implement P1/P2 honesty findings only.
 4. Evaluation Report (Track E) stays out of scope.
 
 ## Do not
