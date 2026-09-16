@@ -37,3 +37,21 @@ Do not merge. Do not enable decisions. Do not claim Track C.
 - Open a second L3 runtime PR
 - Invent Track C evidence
 - Enable decisions in production config
+
+## Deadline reached — 2026-09-16 17:09 UTC
+
+Unattended loop stopped. Scheduler deleted. PR monitor not restarted.
+
+| Item | State |
+|---|---|
+| Branch | `eng/workbench-precision-isolation-20260915` |
+| HEAD | `704fd1c6` — empty inline `geom_json` falls back to hash-keyed geom store |
+| Last fully green 3.10/3.11 | `6b29ab81` |
+| `lint-type` on `704fd1c6` | pass |
+| `tests (3.10)` / `tests (3.11)` on `704fd1c6` | pending at stop (not red) |
+| Local `make test-review-reuse` | **136 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | **not done** (`blocked`; needs human review) |
+| Decisions | still default-off |
+
+Owner next: wait for 3.10 on `704fd1c6`; human review of #586; do not enable `REVIEW_REUSE_DECISIONS_ENABLED`.

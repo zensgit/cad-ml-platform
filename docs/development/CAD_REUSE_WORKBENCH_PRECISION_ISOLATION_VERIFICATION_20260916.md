@@ -83,6 +83,7 @@ make test-review-reuse
 | `make test-review-reuse` after store-geom + grouped cleanup | **135 passed**, 7 ezdxf warnings |
 | tests (3.10) / tests (3.11) on `6b29ab81` | **pass** |
 | `make test-review-reuse` after inline-geom store fallback | **136 passed**, 7 ezdxf warnings |
+| Unattended deadline 2026-09-16 17:00 UTC | stopped at `704fd1c6`; last green 3.10/3.11 was `6b29ab81` |
 
 ### CI (PR #586)
 
