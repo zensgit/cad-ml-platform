@@ -152,6 +152,25 @@ def test_run_coro_applies_timeout_without_running_loop() -> None:
     assert time.monotonic() - started < 1.5
 
 
+def test_run_coro_timeout_when_loop_already_running() -> None:
+    import asyncio
+    import time
+
+    from src.core.review_reuse.dedup_live import _run_coro
+
+    async def _inner() -> None:
+        async def _slow() -> str:
+            await asyncio.sleep(2)
+            return "done"
+
+        started = time.monotonic()
+        with pytest.raises((TimeoutError, asyncio.TimeoutError)):
+            _run_coro(_slow(), timeout=0.05)
+        assert time.monotonic() - started < 1.5
+
+    asyncio.run(_inner())
+
+
 def test_run_coro_completes_within_timeout() -> None:
     from src.core.review_reuse.dedup_live import _run_coro
 

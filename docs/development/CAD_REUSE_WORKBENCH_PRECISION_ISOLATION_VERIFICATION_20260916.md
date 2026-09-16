@@ -73,6 +73,8 @@ make test-review-reuse
 | `make test-review-reuse` after geometric-only confidence P1 | **127 passed**, 7 ezdxf warnings |
 | tests (3.10) / tests (3.11) on `2bd32083` | **pass** |
 | `make test-review-reuse` after occupied-dir + json gate | **129 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) on `2f76c87c` | **pass** |
+| `make test-review-reuse` after geom-json schema + loop timeout | **132 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

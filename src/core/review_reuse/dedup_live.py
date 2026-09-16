@@ -117,11 +117,16 @@ def _run_coro(coro, *, timeout: float) -> Any:
             raise TimeoutError(str(exc) or "live recall timed out") from exc
     import concurrent.futures
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    try:
+        future = pool.submit(asyncio.run, bounded)
         try:
-            return pool.submit(asyncio.run, bounded).result(timeout=timeout)
-        except asyncio.TimeoutError as exc:
+            return future.result(timeout=timeout)
+        except (concurrent.futures.TimeoutError, asyncio.TimeoutError) as exc:
+            future.cancel()
             raise TimeoutError(str(exc) or "live recall timed out") from exc
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
 
 
 def ensure_default_live_hook() -> None:

@@ -93,20 +93,27 @@ def _extract_dxf_geom(file_bytes: bytes) -> Optional[Dict[str, Any]]:
                 pass
 
 
+def _is_geom_json(obj: Any) -> bool:
+    """True only for declared v2-like geometry (non-empty entities list)."""
+    if not isinstance(obj, dict):
+        return False
+    entities = obj.get("entities")
+    return isinstance(entities, list) and len(entities) > 0
+
+
 def _parse_query_geom(
     file_bytes: bytes, file_name: str = ""
 ) -> Optional[Dict[str, Any]]:
     if not file_bytes:
         return None
-    stripped = file_bytes.lstrip()
-    if stripped.startswith(b"{") or stripped.startswith(b"["):
+    suffix = file_suffix(file_name)
+    if suffix == ".json":
         try:
             obj = json.loads(file_bytes.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
-            obj = None
-        if isinstance(obj, dict):
-            return obj
-    if file_suffix(file_name) == ".dxf":
+            return None
+        return obj if _is_geom_json(obj) else None
+    if suffix == ".dxf":
         return _extract_dxf_geom(file_bytes)
     return None
 
@@ -115,7 +122,7 @@ def _candidate_geom(
     candidate: CandidateDecision, geom_store: Any
 ) -> Optional[Dict[str, Any]]:
     right = (candidate.provenance or {}).get("geom_json")
-    if isinstance(right, dict):
+    if _is_geom_json(right):
         return right
     cid = candidate.candidate_id or ""
     if geom_store is None or not _looks_like_file_hash(cid):
