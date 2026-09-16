@@ -223,6 +223,31 @@ def test_pipeline_failed_persists_failed_task(monkeypatch: pytest.MonkeyPatch) -
     assert any(e.event_type == TaskEventType.failed for e in task.events)
 
 
+def test_low_precision_confidence_ignores_visual() -> None:
+    from src.core.review_reuse.models import TaskStatus
+
+    svc = _svc()
+    task = svc.create_task(
+        tenant_id="t-low-prec",
+        file_name="a.dxf",
+        file_bytes=b"x",
+        seed_candidates=[
+            {
+                "candidate_id": "c1",
+                "state": "duplicate",
+                "scores": {"geometric": 0.1, "visual": 0.99, "semantic": 0.99},
+                "methods": ["precision-l4"],
+            }
+        ],
+    )
+    pack = task.evidence_pack or {}
+    reasons = task.candidates[0].rejection_reasons
+    assert RejectionReason.low_precision_score.value in reasons
+    assert pack["confidence"]["score"] == 0.1
+    assert pack["confidence"]["band"] == "low"
+    assert task.status == TaskStatus.evidence_ready
+
+
 def test_vision_only_confidence_stays_low() -> None:
     from src.core.review_reuse.models import TaskStatus
 

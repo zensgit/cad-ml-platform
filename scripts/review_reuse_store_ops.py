@@ -30,6 +30,19 @@ def _tenant_dirs(store_dir: Path) -> List[Path]:
     return sorted(p for p in store_dir.iterdir() if p.is_dir() and not p.name.startswith("."))
 
 
+def _tenant_id_from_tasks(tdir: Path) -> Optional[str]:
+    for path in _task_files(tdir):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, TypeError, ValueError):
+            continue
+        if isinstance(data, dict):
+            tid = data.get("tenant_id")
+            if isinstance(tid, str) and tid:
+                return tid
+    return None
+
+
 def _tenant_label(tdir: Path) -> str:
     meta_path = tdir / "tenant_meta.json"
     if meta_path.is_file():
@@ -39,6 +52,9 @@ def _tenant_label(tdir: Path) -> str:
                 return str(meta["tenant_id"])
         except (OSError, json.JSONDecodeError, TypeError, ValueError):
             pass
+    from_task = _tenant_id_from_tasks(tdir)
+    if from_task:
+        return from_task
     return tdir.name
 
 

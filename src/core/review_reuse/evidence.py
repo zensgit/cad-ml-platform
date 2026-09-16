@@ -100,9 +100,15 @@ def _top_confidence(candidates: List[CandidateDecision]) -> float:
     """Calibrated confidence must not treat unverified visual similarity as geometric."""
     best = 0.0
     vision_only = RejectionReason.vision_only_unverified.value
+    low_prec = RejectionReason.low_precision_score.value
     for c in candidates:
         keys = ("geometric", "semantic", "visual", "confidence")
-        if vision_only in (c.rejection_reasons or []) or c.scores.get("geometric") is None:
+        reasons = c.rejection_reasons or []
+        if (
+            vision_only in reasons
+            or low_prec in reasons
+            or c.scores.get("geometric") is None
+        ):
             keys = ("geometric",)
         for k in keys:
             v = c.scores.get(k)

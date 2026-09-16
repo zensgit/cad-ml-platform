@@ -192,6 +192,31 @@ def test_cleanup_matches_hashed_dir_basename(tmp_path: Path) -> None:
     assert not hashed_dir.exists()
 
 
+def test_list_and_cleanup_recover_legacy_sanitized_tenant_id(
+    tmp_path: Path,
+) -> None:
+    store = tmp_path / "store"
+    hashed_dir = _seed_hashed_tenant(store, "a/b", 10.0)
+    legacy = store / "a_b" / "tasks"
+    legacy.mkdir(parents=True)
+    task = legacy / "task1.json"
+    task.write_text('{"task_id":"task1","tenant_id":"a/b"}', encoding="utf-8")
+    mtime = time.time() - (20.0 * 86400.0)
+    os.utime(task, (mtime, mtime))
+
+    rows = collect_tenant_summaries(store)
+    by_tenant = {r["tenant"]: r for r in rows}
+    assert set(by_tenant) == {"a/b"}
+    assert by_tenant["a/b"]["task_count"] == 1
+
+    assert (
+        cmd_cleanup(store, older_than_days=5, dry_run=False, tenant="a/b")
+        == 0
+    )
+    assert not hashed_dir.exists()
+    assert not (store / "a_b").exists()
+
+
 def test_list_merges_legacy_and_hashed_same_tenant(tmp_path: Path) -> None:
     store = tmp_path / "store"
     hashed_dir = _seed_hashed_tenant(store, "pilot-tenant", 10.0)
