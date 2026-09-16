@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from .models import CandidateDecision, RejectionReason, ReviewReuseTask
+from .models import (
+    CandidateDecision,
+    CandidateState,
+    RejectionReason,
+    ReviewReuseTask,
+)
 
 
 def build_evidence_pack(task: ReviewReuseTask) -> Dict[str, Any]:
@@ -108,7 +113,8 @@ def _top_confidence(candidates: List[CandidateDecision]) -> float:
             c.scores.get("geometric"), (int, float)
         )
         if (
-            not verified
+            c.state == CandidateState.insufficient_evidence
+            or not verified
             or vision_only in reasons
             or missing in reasons
         ):

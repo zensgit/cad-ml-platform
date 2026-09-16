@@ -77,6 +77,8 @@ make test-review-reuse
 | `make test-review-reuse` after geom-json schema + loop timeout | **132 passed**, 7 ezdxf warnings |
 | tests (3.10) / tests (3.11) / lint-type on `4d4bb285` | **pass** |
 | `make test-review-reuse` at `4d4bb285` (wave 14:30 UTC) | **132 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) on `33a8315c` | **pass** |
+| `make test-review-reuse` after insufficient-evidence confidence skip | **133 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

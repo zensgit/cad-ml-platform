@@ -25,11 +25,11 @@ Do not merge. Do not enable decisions. Do not claim Track C.
 
 1. **P0** CI `tests (3.10)` and `tests (3.11)` were **green** on `dc2c8fec`.
    Local enumerator RED from gitignored files is still not CI.
-2. Wave 2026-09-16 ~14:30 UTC: `tests (3.10)` / `tests (3.11)` / `lint-type`
-   **pass** on `4d4bb285`. Sol 5.6 vs `origin/main` found **no P1/P2**.
-   Local `make test-review-reuse` **132 passed**. Nothing codeable remains
-   for this wave; no new product code.
-3. Next: if 3.10 red on a later SHA, fix; else skip product code.
+2. Wave 2026-09-16 ~15:15 UTC: `tests (3.10)` / `tests (3.11)` **pass**
+   on `33a8315c`. Sol 5.6 P2: insufficient_evidence candidates must not
+   raise EvidencePack confidence. Local `make test-review-reuse`
+   **133 passed**.
+3. After push: wait for 3.10; if red, fix; else Sol P1/P2 only.
 4. Evaluation Report (Track E) stays out of scope.
 
 ## Do not

@@ -557,6 +557,30 @@ def test_vision_only_confidence_stays_low() -> None:
     assert RejectionReason.vision_only_unverified.value in task.candidates[0].rejection_reasons
 
 
+def test_insufficient_evidence_does_not_raise_confidence() -> None:
+    from src.core.review_reuse.models import TaskStatus
+
+    svc = _svc()
+    task = svc.create_task(
+        tenant_id="t-insuf",
+        file_name="a.dxf",
+        file_bytes=b"x",
+        seed_candidates=[
+            {
+                "candidate_id": "x",
+                "state": "insufficient_evidence",
+                "scores": {"geometric": 0.99},
+                "methods": ["precision-l4"],
+            }
+        ],
+    )
+    pack = task.evidence_pack or {}
+    assert task.candidates[0].state.value == "insufficient_evidence"
+    assert pack["confidence"]["score"] == 0.0
+    assert pack["confidence"]["band"] == "low"
+    assert task.status == TaskStatus.evidence_ready
+
+
 def test_adapter_preserves_candidate_geom_json() -> None:
     geom = _line_geom()
     cands = map_raw_hits_to_candidates(
