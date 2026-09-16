@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import tempfile
 import threading
 from pathlib import Path
 from typing import Dict, List, Optional, Protocol
@@ -120,11 +121,24 @@ class FilesystemReviewReuseStore:
         return d
 
     def _write_meta(self, tenant_dir: Path, tenant_id: str) -> None:
+        if read_tenant_meta_id(tenant_dir) == tenant_id:
+            return
         path = tenant_dir / _TENANT_META
         payload = json.dumps({"tenant_id": tenant_id}, ensure_ascii=False)
-        tmp = path.with_suffix(".tmp")
-        tmp.write_text(payload, encoding="utf-8")
-        tmp.replace(path)
+        fd, tmp_name = tempfile.mkstemp(
+            dir=str(tenant_dir), prefix=".tenant_meta.", suffix=".tmp"
+        )
+        tmp_path = Path(tmp_name)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(payload)
+            tmp_path.replace(path)
+        except Exception:
+            try:
+                tmp_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+            raise
 
     def _read_dirs(self, tenant_id: str) -> List[Path]:
         hashed = self._hashed_dir(tenant_id)

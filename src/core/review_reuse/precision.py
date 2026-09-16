@@ -149,6 +149,11 @@ def _apply_l4_score(candidate: CandidateDecision, score: float) -> None:
     verification = dict(candidate.verification or {})
     verification["methods"] = methods
     verification["verdict"] = verification.get("verdict") or candidate.state.value
+    try:
+        prev_level = int(verification.get("level") or 0)
+    except (TypeError, ValueError):
+        prev_level = 0
+    verification["level"] = max(prev_level, 4)
     candidate.verification = verification
     if score < LOW_PRECISION_THRESHOLD:
         _append_reason(candidate, RejectionReason.low_precision_score.value)
@@ -165,9 +170,17 @@ def apply_precision(
     if hook is not None:
         return list(hook(file_name, file_bytes, list(candidates)))
 
-    query_geom = _parse_query_geom(file_bytes, file_name)
+    query_geom: Optional[Dict[str, Any]] = None
+    query_geom_loaded = False
     geom_store: Any = None
     geom_store_failed = False
+
+    def _query_geom() -> Optional[Dict[str, Any]]:
+        nonlocal query_geom, query_geom_loaded
+        if not query_geom_loaded:
+            query_geom = _parse_query_geom(file_bytes, file_name)
+            query_geom_loaded = True
+        return query_geom
 
     def _geom_store() -> Any:
         nonlocal geom_store, geom_store_failed
@@ -189,23 +202,6 @@ def apply_precision(
             out.append(candidate)
             continue
 
-        need_store = query_geom is not None and not isinstance(
-            (candidate.provenance or {}).get("geom_json"), dict
-        )
-        l4 = (
-            _try_l4_score(
-                query_geom,
-                candidate,
-                _geom_store() if need_store else None,
-            )
-            if query_geom
-            else None
-        )
-        if l4 is not None:
-            _apply_l4_score(candidate, l4)
-            out.append(candidate)
-            continue
-
         geometric = candidate.scores.get("geometric")
         has_numeric_geom = isinstance(geometric, (int, float))
         if has_numeric_geom and _has_method(candidate, "precision-l4"):
@@ -213,6 +209,25 @@ def apply_precision(
                 _append_reason(candidate, RejectionReason.low_precision_score.value)
             out.append(candidate)
             continue
+
+        has_cand_geom = isinstance(
+            (candidate.provenance or {}).get("geom_json"), dict
+        )
+        if has_cand_geom or _looks_like_file_hash(candidate.candidate_id or ""):
+            q = _query_geom()
+            l4 = (
+                _try_l4_score(
+                    q,
+                    candidate,
+                    None if has_cand_geom else _geom_store(),
+                )
+                if q
+                else None
+            )
+            if l4 is not None:
+                _apply_l4_score(candidate, l4)
+                out.append(candidate)
+                continue
 
         if _is_live_vision(candidate) and not has_numeric_geom:
             _append_reason(candidate, RejectionReason.vision_only_unverified.value)

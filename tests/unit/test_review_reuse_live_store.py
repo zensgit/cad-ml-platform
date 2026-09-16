@@ -281,6 +281,32 @@ def test_list_for_tenant_prefers_hashed_over_stale_legacy(tmp_path: Path) -> Non
     assert stale["status"] == TaskStatus.evidence_ready.value
 
 
+def test_filesystem_store_skips_rewriting_valid_tenant_meta(tmp_path: Path) -> None:
+    root = tmp_path / "tasks"
+    store = FilesystemReviewReuseStore(root)
+    svc = ReviewReuseService(store)
+    seed = [
+        {
+            "candidate_id": "c1",
+            "state": "similar",
+            "scores": {"geometric": 0.8, "semantic": 0.7},
+            "methods": ["precision-l4"],
+        }
+    ]
+    first = svc.create_task(
+        tenant_id="pilot-tenant",
+        file_name="p.dxf",
+        file_bytes=b"dxf-bytes",
+        seed_candidates=seed,
+    )
+    meta = root / tenant_dir_key("pilot-tenant") / "tenant_meta.json"
+    first_mtime = meta.stat().st_mtime
+    canceled = first.model_copy(update={"status": TaskStatus.canceled})
+    store.put(canceled)
+    assert json.loads(meta.read_text(encoding="utf-8"))["tenant_id"] == "pilot-tenant"
+    assert meta.stat().st_mtime == first_mtime
+
+
 def test_filesystem_get_rejects_mismatched_tenant_payload(tmp_path: Path) -> None:
     store = FilesystemReviewReuseStore(tmp_path / "tasks")
     svc = ReviewReuseService(store)

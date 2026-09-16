@@ -311,7 +311,40 @@ def test_precision_scores_json_query_and_candidate_geom() -> None:
     )
     assert out[0].scores.get("geometric") == 1.0
     assert "precision-l4" in (out[0].verification.get("methods") or [])
+    assert int(out[0].verification.get("level") or 0) >= 4
     assert RejectionReason.missing_geom_json.value not in out[0].rejection_reasons
+
+
+def test_precision_skips_dxf_extract_when_no_candidate_geom(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _boom(_path: object) -> dict:
+        raise AssertionError("dxf extract should not run")
+
+    monkeypatch.setattr(
+        "src.core.dedupcad_precision.cad_pipeline.extract_geom_json_from_dxf",
+        _boom,
+    )
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "s1",
+                "state": "similar",
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="a.dxf",
+    )
+    out = apply_precision(cands, file_name="a.dxf", file_bytes=b"0\nSECTION\n")
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+    insuff = map_raw_hits_to_candidates(
+        [{"candidate_id": "none", "state": "insufficient_evidence"}],
+        content_sha="ab",
+        file_name="a.dxf",
+    )
+    apply_precision(insuff, file_name="a.dxf", file_bytes=b"0\nSECTION\n")
 
 
 def test_precision_extracts_dxf_query_geom(monkeypatch: pytest.MonkeyPatch) -> None:
