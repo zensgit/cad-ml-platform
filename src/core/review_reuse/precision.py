@@ -140,6 +140,27 @@ def _try_l4_score(
         return None
 
 
+def _strip_stale_l4(candidate: CandidateDecision) -> None:
+    methods = [m for m in _methods(candidate) if m != "precision-l4"]
+    verification = dict(candidate.verification or {})
+    verification["methods"] = methods
+    try:
+        level = int(verification.get("level") or 0)
+    except (TypeError, ValueError):
+        level = 0
+    if level >= 4:
+        verification["level"] = 0
+    candidate.verification = verification
+
+
+def _mark_low_precision(candidate: CandidateDecision) -> None:
+    _append_reason(candidate, RejectionReason.low_precision_score.value)
+    candidate.state = CandidateState.different
+    verification = dict(candidate.verification or {})
+    verification["verdict"] = CandidateState.different.value
+    candidate.verification = verification
+
+
 def _apply_l4_score(candidate: CandidateDecision, score: float) -> None:
     candidate.scores = dict(candidate.scores)
     candidate.scores["geometric"] = score
@@ -148,15 +169,19 @@ def _apply_l4_score(candidate: CandidateDecision, score: float) -> None:
         methods.append("precision-l4")
     verification = dict(candidate.verification or {})
     verification["methods"] = methods
-    verification["verdict"] = verification.get("verdict") or candidate.state.value
     try:
         prev_level = int(verification.get("level") or 0)
     except (TypeError, ValueError):
         prev_level = 0
     verification["level"] = max(prev_level, 4)
-    candidate.verification = verification
     if score < LOW_PRECISION_THRESHOLD:
+        candidate.state = CandidateState.different
+        verification["verdict"] = CandidateState.different.value
+        candidate.verification = verification
         _append_reason(candidate, RejectionReason.low_precision_score.value)
+        return
+    verification["verdict"] = verification.get("verdict") or candidate.state.value
+    candidate.verification = verification
 
 
 def apply_precision(
@@ -206,7 +231,7 @@ def apply_precision(
         has_numeric_geom = isinstance(geometric, (int, float))
         if has_numeric_geom and _has_method(candidate, "precision-l4"):
             if float(geometric) < LOW_PRECISION_THRESHOLD:
-                _append_reason(candidate, RejectionReason.low_precision_score.value)
+                _mark_low_precision(candidate)
             out.append(candidate)
             continue
 
@@ -229,14 +254,15 @@ def apply_precision(
                 out.append(candidate)
                 continue
 
-        if _is_live_vision(candidate) and not has_numeric_geom:
+        if _is_live_vision(candidate):
+            _strip_stale_l4(candidate)
             _append_reason(candidate, RejectionReason.vision_only_unverified.value)
             out.append(candidate)
             continue
 
-        if not has_numeric_geom:
+        if not has_numeric_geom or not _has_method(candidate, "precision-l4"):
             _append_reason(candidate, RejectionReason.missing_geom_json.value)
         elif float(geometric) < LOW_PRECISION_THRESHOLD:
-            _append_reason(candidate, RejectionReason.low_precision_score.value)
+            _mark_low_precision(candidate)
         out.append(candidate)
     return out

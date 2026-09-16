@@ -101,15 +101,22 @@ def _top_confidence(candidates: List[CandidateDecision]) -> float:
     best = 0.0
     vision_only = RejectionReason.vision_only_unverified.value
     low_prec = RejectionReason.low_precision_score.value
+    missing = RejectionReason.missing_geom_json.value
     for c in candidates:
-        keys = ("geometric", "semantic", "visual", "confidence")
         reasons = c.rejection_reasons or []
+        methods = list((c.verification or {}).get("methods") or [])
+        verified = "precision-l4" in methods and isinstance(
+            c.scores.get("geometric"), (int, float)
+        )
         if (
-            vision_only in reasons
-            or low_prec in reasons
-            or c.scores.get("geometric") is None
+            not verified
+            or vision_only in reasons
+            or missing in reasons
         ):
-            keys = ("geometric",)
+            continue
+        keys = ("geometric",)
+        if low_prec not in reasons:
+            keys = ("geometric", "semantic", "visual", "confidence")
         for k in keys:
             v = c.scores.get(k)
             if isinstance(v, (int, float)) and float(v) > best:

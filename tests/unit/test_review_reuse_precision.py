@@ -424,3 +424,87 @@ def test_low_precision_reason() -> None:
     )
     out = apply_precision(cands, file_name="a.dxf", file_bytes=b"x")
     assert RejectionReason.low_precision_score.value in out[0].rejection_reasons
+    assert out[0].state == CandidateState.different
+    assert out[0].verification.get("verdict") == CandidateState.different.value
+
+
+def test_unverified_numeric_geom_does_not_raise_confidence() -> None:
+    from src.core.review_reuse.models import TaskStatus
+
+    svc = _svc()
+    task = svc.create_task(
+        tenant_id="t-unverified-geom",
+        file_name="a.dxf",
+        file_bytes=b"x",
+        seed_candidates=[
+            {
+                "candidate_id": "c1",
+                "state": "duplicate",
+                "scores": {"geometric": 0.99, "visual": 0.99, "semantic": 0.99},
+                "methods": ["seed-adapter"],
+            }
+        ],
+    )
+    pack = task.evidence_pack or {}
+    cand = task.candidates[0]
+    assert RejectionReason.missing_geom_json.value in cand.rejection_reasons
+    assert pack["confidence"]["score"] == 0.0
+    assert pack["confidence"]["band"] == "low"
+    assert task.status == TaskStatus.evidence_ready
+
+
+def test_stale_l4_method_stripped_on_vision_only() -> None:
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "v1",
+                "state": "duplicate",
+                "scores": {"semantic": 0.99, "visual": 0.99},
+                "methods": ["dedup2d-vision", "precision-l4"],
+                "match_level": 4,
+                "decision_source": "dedup2d-vision",
+            }
+        ],
+        content_sha="ab",
+        file_name="a.dxf",
+    )
+    out = apply_precision(cands, file_name="a.dxf", file_bytes=b"x")
+    assert RejectionReason.vision_only_unverified.value in out[0].rejection_reasons
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert int(out[0].verification.get("level") or 0) < 4
+
+
+def test_local_l4_reject_downgrades_duplicate_verdict(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    geom = _line_geom()
+
+    class _Low:
+        score = 0.1
+
+    monkeypatch.setattr(
+        "src.core.dedupcad_precision.PrecisionVerifier.score_pair",
+        lambda self, _left, _right, **_k: _Low(),
+    )
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "dup",
+                "state": "duplicate",
+                "geom_json": geom,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="a.dxf",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(geom).encode("utf-8"),
+    )
+    assert out[0].scores.get("geometric") == 0.1
+    assert out[0].state == CandidateState.different
+    assert out[0].verification.get("verdict") == "different"
+    assert RejectionReason.low_precision_score.value in out[0].rejection_reasons
+    assert int(out[0].verification.get("level") or 0) >= 4
