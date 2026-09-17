@@ -108,6 +108,9 @@ make test-review-reuse
 | tests (3.10) / tests (3.11) on `4a9a390a` | **pass** |
 | Sol wave23 vs `origin/main` on `4a9a390a` | P2 INSERT; P2 ellipse ratio; P2 pre-scored L4 range |
 | `make test-review-reuse` after INSERT + ellipse + pre-scored L4 | **148 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) on `d2d0beb5` | **pass** |
+| Sol wave24 vs `origin/main` on `d2d0beb5` | P2 drop out-of-range geom score; zero-scale INSERT; zero-sweep ARC |
+| `make test-review-reuse` after scale/sweep/score-clear | **150 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

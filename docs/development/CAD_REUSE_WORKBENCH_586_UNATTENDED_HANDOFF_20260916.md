@@ -123,3 +123,13 @@ ellipse ratio, pre-scored L4 range. Never merge.
 |---|---|
 | Local `make test-review-reuse` | **148 passed** |
 | Merge | still not done |
+
+## Continuation — 2026-09-17 wave24
+
+`tests (3.10)` / `tests (3.11)` **pass** on `d2d0beb5`. Sol P2: clear 2.0
+geometric scores, reject zero-scale INSERT and zero-sweep ARC. Never merge.
+
+| Item | State |
+|---|---|
+| Local `make test-review-reuse` | **150 passed** |
+| Merge | still not done |

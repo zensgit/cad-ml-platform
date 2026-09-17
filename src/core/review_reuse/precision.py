@@ -174,11 +174,14 @@ def _is_geom_entity(ent: Any) -> bool:
     if et == "CIRCLE":
         return _xy(ent.get("center")) and _positive_number(ent.get("radius"))
     if et == "ARC":
+        start_a = ent.get("start_angle")
+        end_a = ent.get("end_angle")
         return (
             _xy(ent.get("center"))
             and _positive_number(ent.get("radius"))
-            and _finite_number(ent.get("start_angle"))
-            and _finite_number(ent.get("end_angle"))
+            and _finite_number(start_a)
+            and _finite_number(end_a)
+            and float(start_a) != float(end_a)
         )
     if et in ("LWPOLYLINE", "POLYLINE"):
         return _has_two_distinct_xy(ent.get("points"))
@@ -197,7 +200,15 @@ def _is_geom_entity(ent: Any) -> bool:
         has_id = (isinstance(name, str) and bool(name.strip())) or (
             isinstance(bhash, str) and bool(bhash.strip())
         )
-        return has_id and _xy(ent.get("insert"))
+        if not (has_id and _xy(ent.get("insert"))):
+            return False
+        if "scale" in ent:
+            scale = ent.get("scale")
+            if not _xy(scale):
+                return False
+            if float(scale[0]) == 0.0 or float(scale[1]) == 0.0:
+                return False
+        return True
     return False
 
 
@@ -383,7 +394,7 @@ def apply_precision(
                 out.append(candidate)
                 continue
             _strip_stale_l4(candidate)
-            if has_numeric_geom and not math.isfinite(float(geometric)):
+            if has_numeric_geom:
                 scores = dict(candidate.scores)
                 scores.pop("geometric", None)
                 candidate.scores = scores

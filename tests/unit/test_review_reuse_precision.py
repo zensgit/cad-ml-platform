@@ -723,6 +723,73 @@ def test_out_of_range_prescored_l4_is_not_trusted() -> None:
     out = apply_precision(cands, file_name="a.dxf", file_bytes=b"x")
     assert "precision-l4" not in (out[0].verification.get("methods") or [])
     assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+    assert out[0].scores.get("geometric") is None
+
+
+def test_zero_scale_insert_is_not_l4_geometry() -> None:
+    bogus = {
+        "entities": [
+            {
+                "type": "INSERT",
+                "block": "DOOR",
+                "insert": [0.0, 0.0],
+                "block_hash": "h",
+                "scale": [0.0, 0.0],
+            }
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "zscale",
+                "state": "similar",
+                "geom_json": bogus,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(bogus).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
+def test_zero_sweep_arc_is_not_l4_geometry() -> None:
+    bogus = {
+        "entities": [
+            {
+                "type": "ARC",
+                "center": [0.0, 0.0],
+                "radius": 1.0,
+                "start_angle": 10.0,
+                "end_angle": 10.0,
+            }
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "zarc",
+                "state": "similar",
+                "geom_json": bogus,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(bogus).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
 
 
 def test_zero_length_polyline_is_not_l4_geometry() -> None:
