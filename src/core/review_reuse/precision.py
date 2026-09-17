@@ -93,12 +93,71 @@ def _extract_dxf_geom(file_bytes: bytes) -> Optional[Dict[str, Any]]:
                 pass
 
 
+_GEOM_ENTITY_TYPES = frozenset(
+    {"LINE", "CIRCLE", "ARC", "LWPOLYLINE", "POLYLINE", "ELLIPSE", "SPLINE"}
+)
+
+
+def _xy(value: Any) -> bool:
+    if not isinstance(value, (list, tuple)) or len(value) < 2:
+        return False
+    try:
+        float(value[0])
+        float(value[1])
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
+def _finite_number(value: Any) -> bool:
+    try:
+        float(value)
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
+def _is_geom_entity(ent: Any) -> bool:
+    """True for a supported geometric primitive with required fields."""
+    if not isinstance(ent, dict):
+        return False
+    et = str(ent.get("type") or "").upper()
+    if et not in _GEOM_ENTITY_TYPES:
+        return False
+    if et == "LINE":
+        return _xy(ent.get("start")) and _xy(ent.get("end"))
+    if et == "CIRCLE":
+        return _xy(ent.get("center")) and _finite_number(ent.get("radius"))
+    if et == "ARC":
+        return (
+            _xy(ent.get("center"))
+            and _finite_number(ent.get("radius"))
+            and _finite_number(ent.get("start_angle"))
+            and _finite_number(ent.get("end_angle"))
+        )
+    if et in ("LWPOLYLINE", "POLYLINE"):
+        pts = ent.get("points")
+        return isinstance(pts, list) and any(_xy(p) for p in pts)
+    if et == "ELLIPSE":
+        return _xy(ent.get("center")) and _xy(ent.get("major"))
+    if et == "SPLINE":
+        cps = ent.get("control_points")
+        return isinstance(cps, list) and any(_xy(p) for p in cps)
+    return False
+
+
 def _is_geom_json(obj: Any) -> bool:
-    """True only for declared v2-like geometry (non-empty entities list)."""
+    """True only for declared v2-like geometry with a real geometric entity.
+
+    A non-empty ``entities`` list is not enough: ``{"entities":[{}]}``
+    normalizes to UNKNOWN and must not be labeled precision-l4.
+    """
     if not isinstance(obj, dict):
         return False
     entities = obj.get("entities")
-    return isinstance(entities, list) and len(entities) > 0
+    if not isinstance(entities, list) or not entities:
+        return False
+    return any(_is_geom_entity(e) for e in entities)
 
 
 def _parse_query_geom(

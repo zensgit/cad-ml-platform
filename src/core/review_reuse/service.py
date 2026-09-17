@@ -7,7 +7,7 @@ import logging
 import os
 import time
 import uuid
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from .dedup_adapter import recall_candidates
 from .evidence import build_evidence_pack, evidence_pack_markdown
@@ -259,7 +259,21 @@ class ReviewReuseService:
                 return current
             return task
 
-        return self.store.update_atomically(task.tenant_id, task.task_id, updater)
+        return self._update_atomically(task.tenant_id, task.task_id, updater)
+
+    def _update_atomically(
+        self,
+        tenant_id: str,
+        task_id: str,
+        updater: Callable[[Optional[ReviewReuseTask]], ReviewReuseTask],
+    ) -> ReviewReuseTask:
+        try:
+            return self.store.update_atomically(tenant_id, task_id, updater)
+        except OccupiedTenantDirError as exc:
+            raise ReviewReuseError(
+                "store_conflict",
+                "hashed tenant directory is occupied by another tenant",
+            ) from exc
 
     def get_task(self, tenant_id: str, task_id: str) -> ReviewReuseTask:
         task = self.store.get(tenant_id, task_id)
@@ -285,7 +299,7 @@ class ReviewReuseService:
             current.status = TaskStatus.canceled
             return self._emit(current, TaskEventType.canceled, {})
 
-        return self.store.update_atomically(tenant_id, task_id, updater)
+        return self._update_atomically(tenant_id, task_id, updater)
 
     def get_events(self, tenant_id: str, task_id: str) -> List[TaskEvent]:
         return list(self.get_task(tenant_id, task_id).events)
@@ -400,7 +414,7 @@ class ReviewReuseService:
                 },
             )
 
-        return self.store.update_atomically(tenant_id, task_id, updater)
+        return self._update_atomically(tenant_id, task_id, updater)
 
     def _emit(
         self, task: ReviewReuseTask, event_type: TaskEventType, detail: Dict[str, Any]

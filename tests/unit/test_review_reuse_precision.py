@@ -623,6 +623,30 @@ def test_precision_scores_json_query_and_candidate_geom() -> None:
     assert RejectionReason.missing_geom_json.value not in out[0].rejection_reasons
 
 
+def test_malformed_entity_dict_is_not_l4_geometry() -> None:
+    bogus = {"entities": [{}]}
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "bogus",
+                "state": "similar",
+                "geom_json": bogus,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(bogus).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+    assert out[0].scores.get("geometric") is None
+
+
 def test_empty_dxf_extract_is_not_l4_geometry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

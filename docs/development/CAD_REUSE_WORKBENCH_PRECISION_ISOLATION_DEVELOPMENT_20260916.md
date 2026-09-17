@@ -90,6 +90,9 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
     `update_atomically` / `put_new_idempotent` need an inter-process flock
     (threading.RLock is per-worker); empty DXF extract (`entities=[]`) must
     fail `_is_geom_json` like empty JSON, not proceed to L4.
+12. Sol re-review of `ac2ef01d` (wave20): `_is_geom_json` must require a
+    supported geometric primitive (not `{"entities":[{}]}`); cancel/decision
+    must translate `OccupiedTenantDirError` to `store_conflict` 409.
 
 ## 7. Risk
 
@@ -102,6 +105,8 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 | Temp-file race on task/idem/meta JSON | `_atomic_write_text` unique `mkstemp` in the same dir, then replace |
 | Multi-worker cancel/decision/idempotency clobber | store-root flock (`_StoreFileLock`) around FS read-modify-write |
 | Empty DXF extract labeled precision-l4 | `_extract_dxf_geom` / `_parse_query_geom` require `_is_geom_json` |
+| Malformed `{"entities":[{}]}` labeled L4 | `_is_geom_entity` requires LINE/CIRCLE/… fields |
+| Cancel/decision on occupied hashed dir | `_update_atomically` maps `OccupiedTenantDirError` → `store_conflict` |
 | DXF parse cost on offline insufficient | extract only when a candidate can be scored |
 | Pipeline overwrites cancel/decision | `store.update_atomically` checks terminal status and writes under one lock |
 | Decided task vs empty EvidencePack | rebuild pack after merging mid-flight candidates into the decided snapshot |

@@ -512,6 +512,48 @@ def test_filesystem_put_refuses_hashed_dir_occupied_by_legacy_tenant(
     assert leftover["tenant_id"] == occupant
 
 
+def test_cancel_translates_occupied_hashed_dir(tmp_path: Path) -> None:
+    from src.core.review_reuse.service import ReviewReuseError
+
+    root = tmp_path / "tasks"
+    tenant = "pilot-tenant"
+    hashed = root / tenant_dir_key(tenant)
+    (hashed / "tasks").mkdir(parents=True)
+    (hashed / "tasks" / "foreign.json").write_text(
+        json.dumps(
+            {
+                "task_id": "foreign",
+                "tenant_id": "other-tenant",
+                "status": "evidence_ready",
+                "created_at": 1.0,
+                "updated_at": 1.0,
+                "source_file_name": "a.dxf",
+                "source_content_sha256": "ab",
+                "trace_id": "tr",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (hashed / "tenant_meta.json").write_text(
+        json.dumps({"tenant_id": "other-tenant"}), encoding="utf-8"
+    )
+    legacy = root / tenant
+    (legacy / "tasks").mkdir(parents=True)
+    task = _running_task(tenant, "legacy-1")
+    (legacy / "tasks" / "legacy-1.json").write_text(
+        json.dumps(task.model_dump(mode="json")), encoding="utf-8"
+    )
+    store = FilesystemReviewReuseStore(root)
+    svc = ReviewReuseService(store)
+    loaded = svc.get_task(tenant, "legacy-1")
+    assert loaded.task_id == "legacy-1"
+    with pytest.raises(ReviewReuseError) as ei:
+        svc.cancel(tenant, "legacy-1")
+    assert ei.value.code == "store_conflict"
+    leftover = json.loads((legacy / "tasks" / "legacy-1.json").read_text(encoding="utf-8"))
+    assert leftover["status"] == "running"
+
+
 def test_filesystem_store_tenant_path_no_collision(tmp_path: Path) -> None:
     """Sanitized names a/b and a_b must not share a directory."""
     store = FilesystemReviewReuseStore(tmp_path / "tasks")

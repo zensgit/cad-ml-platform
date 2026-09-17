@@ -81,3 +81,15 @@ lock and P2 empty DXF extract. Implemented; never merge; decisions stay off.
 | Local `make test-review-reuse` | **140 passed** |
 | Evaluation Report | fail (Track E; out of scope) |
 | Merge | still not done |
+
+## Continuation — 2026-09-17 wave20
+
+Sol 5.6 on `ac2ef01d`: P2 malformed entity L4; P2 cancel/decision occupied-dir
+must be `store_conflict`. Implemented locally. Never merge.
+
+| Item | State |
+|---|---|
+| P2 entity shape | `_is_geom_entity` required fields for LINE/CIRCLE/ARC/poly/ellipse/spline |
+| P2 occupied updates | `_update_atomically` translates `OccupiedTenantDirError` |
+| Local `make test-review-reuse` | **142 passed** |
+| Merge | still not done |
