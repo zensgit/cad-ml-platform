@@ -178,3 +178,13 @@ became L4 1.0. Canonicalize types before scoring; sanitize adapter scores.
 |---|---|
 | Local `make test-review-reuse` | **153 passed** |
 | Merge | still not done |
+
+## Window 2 wave28 — 2026-09-17 ~15:47 UTC
+
+Scheduled wave died on grok proxy. Picked up here. `tests (3.10)`/`(3.11)`
+pass on `d6d9a1c9`. Sol P2: stale `low_precision_score` after high L4 rescore.
+
+| Item | State |
+|---|---|
+| Local `make test-review-reuse` | **154 passed** |
+| Merge | still not done |

@@ -318,6 +318,13 @@ def _clear_provisional_unverified(candidate: CandidateDecision) -> None:
     ]
 
 
+def _clear_stale_low_precision(candidate: CandidateDecision) -> None:
+    low = RejectionReason.low_precision_score.value
+    candidate.rejection_reasons = [
+        r for r in candidate.rejection_reasons if r != low
+    ]
+
+
 def _ensure_l4_level(candidate: CandidateDecision) -> None:
     verification = dict(candidate.verification or {})
     methods = _methods(candidate)
@@ -345,6 +352,7 @@ def _apply_l4_score(candidate: CandidateDecision, score: float) -> None:
     candidate.scores["geometric"] = score
     _ensure_l4_level(candidate)
     _clear_provisional_unverified(candidate)
+    _clear_stale_low_precision(candidate)
     verification = dict(candidate.verification or {})
     if score < LOW_PRECISION_THRESHOLD:
         candidate.state = CandidateState.different
@@ -407,6 +415,7 @@ def apply_precision(
             if _is_finite_unit_score(geometric):
                 _ensure_l4_level(candidate)
                 _clear_provisional_unverified(candidate)
+                _clear_stale_low_precision(candidate)
                 if float(geometric) < LOW_PRECISION_THRESHOLD:
                     _mark_low_precision(candidate)
                 out.append(candidate)

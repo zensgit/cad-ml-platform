@@ -119,6 +119,9 @@ make test-review-reuse
 | tests (3.10) / tests (3.11) / e2e-smoke on `1ae5be3b` | **pass** |
 | Sol wave27 vs `origin/main` on `1ae5be3b` | P2 lowercase entity type; P2 boolean precision_score |
 | `make test-review-reuse` after type canonicalize + bool scores | **153 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) / e2e-smoke on `d6d9a1c9` | **pass** |
+| Sol wave28 vs `origin/main` on `d6d9a1c9` | P2 stale `low_precision_score` after high L4 rescore |
+| `make test-review-reuse` after clearing stale low-precision | **154 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
