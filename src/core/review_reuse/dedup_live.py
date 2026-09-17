@@ -11,6 +11,8 @@ import asyncio
 import mimetypes
 from typing import Any, Dict, List
 
+from .dedup_adapter import optional_unit_score
+
 
 def vision_response_to_hits(response: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Map dedup_2d / vision search payload to adapter hit dicts."""
@@ -32,11 +34,17 @@ def vision_response_to_hits(response: Dict[str, Any]) -> List[Dict[str, Any]]:
             visual = match.get("visual_similarity")
             if visual is None:
                 visual = match.get("similarity")
+            visual = optional_unit_score(visual)
             # Geometric is independent of visual similarity (strategy §3.3).
-            geom = match.get("precision_score")
+            geom = optional_unit_score(match.get("precision_score"))
             methods = ["dedup2d-vision"]
             levels = match.get("levels") or {}
-            if geom is not None or (isinstance(levels, dict) and levels.get("l4")):
+            l4_score = None
+            if isinstance(levels, dict) and isinstance(levels.get("l4"), dict):
+                l4_score = optional_unit_score(levels["l4"].get("precision_score"))
+            if geom is None:
+                geom = l4_score
+            if geom is not None:
                 methods.append("precision-l4")
             hits.append(
                 {

@@ -116,6 +116,9 @@ make test-review-reuse
 | `make test-review-reuse` after rejecting bool numerics | **151 passed**, 7 ezdxf warnings |
 | tests (3.10) / tests (3.11) / lint-type on `c9a7ce4b` | **pass** |
 | Sol wave26 vs `origin/main` on `c9a7ce4b` | no P1/P2 |
+| tests (3.10) / tests (3.11) / e2e-smoke on `1ae5be3b` | **pass** |
+| Sol wave27 vs `origin/main` on `1ae5be3b` | P2 lowercase entity type; P2 boolean precision_score |
+| `make test-review-reuse` after type canonicalize + bool scores | **153 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

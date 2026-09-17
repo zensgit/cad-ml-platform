@@ -9,6 +9,7 @@ Does not call training paths, hosted LLMs, or eval_integrity_gate.
 from __future__ import annotations
 
 import logging
+import math
 import os
 from typing import Any, Callable, Dict, List, Optional, Protocol
 
@@ -18,6 +19,16 @@ logger = logging.getLogger(__name__)
 
 ENV_LIVE_DEDUP = "REVIEW_REUSE_LIVE_DEDUP"
 _TRUE = frozenset({"1", "true", "yes", "on"})
+
+
+def optional_unit_score(value: Any) -> Optional[float]:
+    """Finite [0, 1] float, or None. Booleans are not scores."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    number = float(value)
+    if not math.isfinite(number) or number < 0.0 or number > 1.0:
+        return None
+    return number
 
 # Injectable hook for tests / process wiring (sync callable).
 LiveRecallFn = Callable[[str, bytes, str], List[Dict[str, Any]]]
@@ -76,8 +87,15 @@ def map_raw_hits_to_candidates(
             scores["semantic"] = raw.get("semantic")
         # Strategy-minimum keys exist (nullable). Do not copy visual `score`
         # into geometric — that is a §3.3 honesty violation.
+        scores["geometric"] = optional_unit_score(scores.get("geometric"))
+        scores["semantic"] = optional_unit_score(scores.get("semantic"))
+        if "visual" in scores:
+            scores["visual"] = optional_unit_score(scores.get("visual"))
         scores.setdefault("geometric", None)
         scores.setdefault("semantic", None)
+        methods = list(raw.get("methods") or ["dedup2d-live-adapter"])
+        if scores.get("geometric") is None:
+            methods = [m for m in methods if m != "precision-l4"]
 
         reasons = list(raw.get("rejection_reasons") or [])
         if state == CandidateState.insufficient_evidence and not reasons:
@@ -88,9 +106,21 @@ def map_raw_hits_to_candidates(
             or {
                 "verdict": state.value,
                 "level": raw.get("match_level", raw.get("level", 0)),
-                "methods": list(raw.get("methods") or ["dedup2d-live-adapter"]),
+                "methods": methods,
             }
         )
+        if scores.get("geometric") is None:
+            verification["methods"] = [
+                m
+                for m in list(verification.get("methods") or methods)
+                if m != "precision-l4"
+            ]
+            try:
+                level = int(verification.get("level") or 0)
+            except (TypeError, ValueError):
+                level = 0
+            if level >= 4:
+                verification["level"] = 0
         provenance: Dict[str, Any] = {
             "input_sha256": content_sha,
             "query_file": file_name,

@@ -257,6 +257,26 @@ def _candidate_geom(
     return loaded if _is_geom_json(loaded) else None
 
 
+def _canonical_geom(obj: Dict[str, Any]) -> Dict[str, Any]:
+    """Uppercase entity types so PrecisionVerifier keeps coordinates."""
+    out = dict(obj)
+    ents = obj.get("entities")
+    if not isinstance(ents, list):
+        return out
+    canon: List[Any] = []
+    for ent in ents:
+        if not isinstance(ent, dict):
+            canon.append(ent)
+            continue
+        item = dict(ent)
+        typ = item.get("type")
+        if isinstance(typ, str):
+            item["type"] = typ.upper()
+        canon.append(item)
+    out["entities"] = canon
+    return out
+
+
 def _try_l4_score(
     query_geom: Dict[str, Any],
     candidate: CandidateDecision,
@@ -270,7 +290,9 @@ def _try_l4_score(
     try:
         from src.core.dedupcad_precision import PrecisionVerifier
 
-        scored = PrecisionVerifier().score_pair(query_geom, right)
+        scored = PrecisionVerifier().score_pair(
+            _canonical_geom(query_geom), _canonical_geom(right)
+        )
         return float(scored.score)
     except Exception:
         logger.warning("review_reuse_l4_score_failed", exc_info=True)

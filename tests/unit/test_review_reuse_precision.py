@@ -623,6 +623,33 @@ def test_precision_scores_json_query_and_candidate_geom() -> None:
     assert RejectionReason.missing_geom_json.value not in out[0].rejection_reasons
 
 
+def test_lowercase_line_type_still_scores_l4() -> None:
+    geom = {
+        "entities": [
+            {"type": "line", "start": [0.0, 0.0], "end": [100.0, 0.0]}
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "lc",
+                "state": "similar",
+                "geom_json": geom,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(geom).encode("utf-8"),
+    )
+    assert out[0].scores.get("geometric") == 1.0
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+
+
 def test_boolean_circle_coords_are_not_l4_geometry() -> None:
     bogus = {
         "entities": [

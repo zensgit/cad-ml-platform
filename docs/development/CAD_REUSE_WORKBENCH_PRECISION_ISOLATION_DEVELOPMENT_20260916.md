@@ -93,6 +93,9 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 12. Sol re-review of `ac2ef01d` (wave20): `_is_geom_json` must require a
     supported geometric primitive (not `{"entities":[{}]}`); cancel/decision
     must translate `OccupiedTenantDirError` to `store_conflict` 409.
+13. Second 12-hour unattended window (2026-09-17 13:27 UTC → 2026-09-18
+    01:30 UTC): 45m waves, grok-4.6 isolation/precision/CI, grok-4.5 docs,
+    Sol 5.6 vs `origin/main`. Scheduler `01a0afa12a55`. Never merge.
 
 ## 7. Risk
 
@@ -105,6 +108,8 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 | Temp-file race on task/idem/meta JSON | `_atomic_write_text` unique `mkstemp` in the same dir, then replace |
 | Multi-worker cancel/decision/idempotency clobber | store-root flock (`_StoreFileLock`) around FS read-modify-write |
 | Empty DXF extract labeled precision-l4 | `_extract_dxf_geom` / `_parse_query_geom` require `_is_geom_json` |
+| Lowercase `"line"` scored as unknown | `_canonical_geom` uppercases types before PrecisionVerifier |
+| `precision_score: true` becomes L4 1.0 | `optional_unit_score` rejects bool before Pydantic coerce |
 | Malformed `{"entities":[{}]}` labeled L4 | `_is_geom_entity` requires LINE/CIRCLE/… fields |
 | Negative/NaN/inf primitives labeled L4 | finite coords; CIRCLE/ARC radius > 0; polyline/spline ≥ 2 points |
 | Cancel/decision on occupied hashed dir | `_update_atomically` maps `OccupiedTenantDirError` → `store_conflict` |
@@ -115,4 +120,4 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 | Live recall hangs the AnyIO worker | `_run_coro` wraps the coroutine in `asyncio.wait_for` (120s) even with no loop |
 | Cleanup deletes another tenant's legacy dir | hash-name fallback only when meta/tasks have no recorded identity |
 | Sidecar tenant A, tasks tenant B | treat as mixed/corrupt; refuse `--apply` |
-| 12h unattended overreach | scheduler stops ~2026-09-16 17:00 UTC; never merge; never enable decisions |
+| 12h unattended overreach | scheduler 01a0afa12a55 stops ~2026-09-18 01:30 UTC; never merge; never enable decisions |

@@ -19,6 +19,7 @@ from src.core.review_reuse.dedup_adapter import (
     set_live_recall_hook,
 )
 from src.core.review_reuse.dedup_live import vision_response_to_hits
+from src.core.review_reuse.precision import apply_precision
 from src.core.review_reuse.models import (
     CandidateState,
     ReviewReuseTask,
@@ -70,6 +71,29 @@ def test_vision_response_to_hits_maps_buckets() -> None:
     # Visual similarity must not be copied into geometric (strategy §3.3).
     assert hits[1]["scores"]["geometric"] is None
     assert hits[1]["scores"]["semantic"] == 0.85
+
+
+def test_vision_boolean_precision_score_is_not_l4() -> None:
+    hits = vision_response_to_hits(
+        {
+            "duplicates": [
+                {
+                    "file_hash": "bool-l4",
+                    "precision_score": True,
+                    "verdict": "duplicate",
+                    "match_level": 4,
+                }
+            ]
+        }
+    )
+    assert hits[0]["scores"]["geometric"] is None
+    assert "precision-l4" not in hits[0]["methods"]
+    cands = map_raw_hits_to_candidates(
+        hits, content_sha="ab", file_name="q.png"
+    )
+    out = apply_precision(cands, file_name="q.png", file_bytes=b"x")
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
 
 
 def test_live_default_hook_path_with_inject(monkeypatch: pytest.MonkeyPatch) -> None:

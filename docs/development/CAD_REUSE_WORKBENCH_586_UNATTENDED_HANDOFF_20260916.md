@@ -1,6 +1,7 @@
 # #586 12-hour unattended handoff
 
-**Deadline**: 2026-09-16 17:00 UTC. After that, stop coding, append this file, delete the scheduler.
+**Deadline (window 2)**: 2026-09-18 01:30 UTC. After that, stop coding, append this file, delete scheduler `01a0afa12a55`.
+**Previous deadline**: 2026-09-16 17:00 UTC (closed).
 
 ## Goal
 
@@ -144,6 +145,18 @@ PR monitor restarted after 10h. `tests (3.10)` / `tests (3.11)` **pass** on
 | Local `make test-review-reuse` | **151 passed** |
 | Merge | still not done |
 
+## Window 2 start — 2026-09-17 13:27 UTC
+
+Owner away ~12h. Scheduler `01a0afa12a55` every 45m until **2026-09-18 01:30 UTC**.
+PR monitor `01a0af0a` already running. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| HEAD at start | `1ae5be3b` (docs; parent `c9a7ce4b` Sol wave26 clean) |
+| tests (3.10) / tests (3.11) / e2e-smoke on `1ae5be3b` | **pass** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Continuation — 2026-09-17 wave26
 
 `tests (3.10)` / `tests (3.11)` / `lint-type` **pass** on `c9a7ce4b`. Sol 5.6
@@ -154,4 +167,14 @@ vs `origin/main`: **no P1/P2**. Evaluation Report still Track E. Never merge.
 | HEAD | `c9a7ce4b` |
 | Local `make test-review-reuse` | **151 passed** |
 | Sol wave26 | no P1/P2 |
+| Merge | still not done |
+
+## Window 2 wave27 — 2026-09-17 ~13:50 UTC
+
+Sol P2: lowercase `"line"` scored as unknown; `precision_score: true`
+became L4 1.0. Canonicalize types before scoring; sanitize adapter scores.
+
+| Item | State |
+|---|---|
+| Local `make test-review-reuse` | **153 passed** |
 | Merge | still not done |
