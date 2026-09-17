@@ -93,3 +93,13 @@ must be `store_conflict`. Implemented locally. Never merge.
 | P2 occupied updates | `_update_atomically` translates `OccupiedTenantDirError` |
 | Local `make test-review-reuse` | **142 passed** |
 | Merge | still not done |
+
+## Continuation — 2026-09-17 wave21
+
+Sol 5.6 on `f049a14c`: P2 negative-radius CIRCLE (and degenerate primitives)
+still received L4. Finite positive radius / nondegenerate fields required.
+
+| Item | State |
+|---|---|
+| Local `make test-review-reuse` | **143 passed** |
+| Merge | still not done |

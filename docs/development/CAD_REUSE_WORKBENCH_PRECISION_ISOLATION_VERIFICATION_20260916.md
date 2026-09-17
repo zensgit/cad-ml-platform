@@ -36,6 +36,7 @@
 | Unique tmp for task/idem/meta writes | `_atomic_write_text`; `test_filesystem_atomic_write_uses_unique_tmp` | pass locally |
 | Empty DXF extract is not L4 geom | `test_empty_dxf_extract_is_not_l4_geometry` | pass locally |
 | Malformed entity dict is not L4 geom | `test_malformed_entity_dict_is_not_l4_geometry` | pass locally |
+| Negative-radius circle is not L4 geom | `test_negative_radius_circle_is_not_l4_geometry` | pass locally |
 | Cancel on occupied hashed dir is 409 | `test_cancel_translates_occupied_hashed_dir` | pass locally |
 | Mid-flight decision pack rebuilt with candidates | `test_pipeline_rebuilds_pack_after_mid_flight_decision` | pass locally |
 | Terminal merge keeps pipeline events | same tests assert `recall_completed` / `precision_completed` / `evidence_pack_ready` | pass locally |
@@ -95,6 +96,8 @@ make test-review-reuse
 | `make test-review-reuse` after FS flock + empty DXF gate | **140 passed**, 7 ezdxf warnings |
 | Sol wave20 vs `origin/main` on `ac2ef01d` | P2 malformed entity L4; P2 cancel occupied-dir 409 |
 | `make test-review-reuse` after entity-shape + cancel 409 | **142 passed**, 7 ezdxf warnings |
+| Sol wave21 vs `origin/main` on `f049a14c` | P2 negative/NaN/inf degenerate primitives still L4 |
+| `make test-review-reuse` after finite positive radius | **143 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

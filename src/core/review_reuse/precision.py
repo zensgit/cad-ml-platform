@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import tempfile
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
@@ -98,51 +99,70 @@ _GEOM_ENTITY_TYPES = frozenset(
 )
 
 
+def _finite_number(value: Any) -> bool:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return False
+    return math.isfinite(number)
+
+
+def _positive_number(value: Any) -> bool:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return False
+    return math.isfinite(number) and number > 0.0
+
+
 def _xy(value: Any) -> bool:
     if not isinstance(value, (list, tuple)) or len(value) < 2:
         return False
-    try:
-        float(value[0])
-        float(value[1])
-    except (TypeError, ValueError):
-        return False
-    return True
+    return _finite_number(value[0]) and _finite_number(value[1])
 
 
-def _finite_number(value: Any) -> bool:
-    try:
-        float(value)
-    except (TypeError, ValueError):
+def _nonzero_xy(value: Any) -> bool:
+    return _xy(value) and (float(value[0]) != 0.0 or float(value[1]) != 0.0)
+
+
+def _distinct_xy(left: Any, right: Any) -> bool:
+    if not _xy(left) or not _xy(right):
         return False
-    return True
+    return float(left[0]) != float(right[0]) or float(left[1]) != float(right[1])
 
 
 def _is_geom_entity(ent: Any) -> bool:
-    """True for a supported geometric primitive with required fields."""
+    """True for a supported, nondegenerate geometric primitive."""
     if not isinstance(ent, dict):
         return False
     et = str(ent.get("type") or "").upper()
     if et not in _GEOM_ENTITY_TYPES:
         return False
     if et == "LINE":
-        return _xy(ent.get("start")) and _xy(ent.get("end"))
+        return _distinct_xy(ent.get("start"), ent.get("end"))
     if et == "CIRCLE":
-        return _xy(ent.get("center")) and _finite_number(ent.get("radius"))
+        return _xy(ent.get("center")) and _positive_number(ent.get("radius"))
     if et == "ARC":
         return (
             _xy(ent.get("center"))
-            and _finite_number(ent.get("radius"))
+            and _positive_number(ent.get("radius"))
             and _finite_number(ent.get("start_angle"))
             and _finite_number(ent.get("end_angle"))
         )
     if et in ("LWPOLYLINE", "POLYLINE"):
         pts = ent.get("points")
-        return isinstance(pts, list) and any(_xy(p) for p in pts)
+        if not isinstance(pts, list):
+            return False
+        valid = [p for p in pts if _xy(p)]
+        return len(valid) >= 2
     if et == "ELLIPSE":
-        return _xy(ent.get("center")) and _xy(ent.get("major"))
+        return _xy(ent.get("center")) and _nonzero_xy(ent.get("major"))
     if et == "SPLINE":
         cps = ent.get("control_points")
-        return isinstance(cps, list) and any(_xy(p) for p in cps)
+        if not isinstance(cps, list):
+            return False
+        valid = [p for p in cps if _xy(p)]
+        return len(valid) >= 2
     return False
 
 
