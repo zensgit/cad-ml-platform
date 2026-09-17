@@ -113,3 +113,13 @@ polyline still L4. Require two distinct points. Never merge.
 |---|---|
 | Local `make test-review-reuse` | **144 passed** |
 | Merge | still not done |
+
+## Continuation — 2026-09-17 wave23
+
+`tests (3.10)` / `tests (3.11)` **pass** on `4a9a390a`. Sol P2: INSERT geom,
+ellipse ratio, pre-scored L4 range. Never merge.
+
+| Item | State |
+|---|---|
+| Local `make test-review-reuse` | **148 passed** |
+| Merge | still not done |

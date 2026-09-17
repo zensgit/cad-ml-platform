@@ -95,7 +95,16 @@ def _extract_dxf_geom(file_bytes: bytes) -> Optional[Dict[str, Any]]:
 
 
 _GEOM_ENTITY_TYPES = frozenset(
-    {"LINE", "CIRCLE", "ARC", "LWPOLYLINE", "POLYLINE", "ELLIPSE", "SPLINE"}
+    {
+        "LINE",
+        "CIRCLE",
+        "ARC",
+        "LWPOLYLINE",
+        "POLYLINE",
+        "ELLIPSE",
+        "SPLINE",
+        "INSERT",
+    }
 )
 
 
@@ -113,6 +122,13 @@ def _positive_number(value: Any) -> bool:
     except (TypeError, ValueError):
         return False
     return math.isfinite(number) and number > 0.0
+
+
+def _is_finite_unit_score(value: Any) -> bool:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    number = float(value)
+    return math.isfinite(number) and 0.0 <= number <= 1.0
 
 
 def _xy(value: Any) -> bool:
@@ -167,9 +183,21 @@ def _is_geom_entity(ent: Any) -> bool:
     if et in ("LWPOLYLINE", "POLYLINE"):
         return _has_two_distinct_xy(ent.get("points"))
     if et == "ELLIPSE":
-        return _xy(ent.get("center")) and _nonzero_xy(ent.get("major"))
+        ratio = ent.get("ratio", 1.0)
+        return (
+            _xy(ent.get("center"))
+            and _nonzero_xy(ent.get("major"))
+            and _positive_number(ratio)
+        )
     if et == "SPLINE":
         return _has_two_distinct_xy(ent.get("control_points"))
+    if et == "INSERT":
+        name = ent.get("block")
+        bhash = ent.get("block_hash")
+        has_id = (isinstance(name, str) and bool(name.strip())) or (
+            isinstance(bhash, str) and bool(bhash.strip())
+        )
+        return has_id and _xy(ent.get("insert"))
     return False
 
 
@@ -343,14 +371,24 @@ def apply_precision(
             continue
 
         geometric = candidate.scores.get("geometric")
-        has_numeric_geom = isinstance(geometric, (int, float))
-        if has_numeric_geom and _has_method(candidate, "precision-l4"):
-            _ensure_l4_level(candidate)
-            _clear_provisional_unverified(candidate)
-            if float(geometric) < LOW_PRECISION_THRESHOLD:
-                _mark_low_precision(candidate)
-            out.append(candidate)
-            continue
+        has_numeric_geom = isinstance(geometric, (int, float)) and not isinstance(
+            geometric, bool
+        )
+        if _has_method(candidate, "precision-l4"):
+            if _is_finite_unit_score(geometric):
+                _ensure_l4_level(candidate)
+                _clear_provisional_unverified(candidate)
+                if float(geometric) < LOW_PRECISION_THRESHOLD:
+                    _mark_low_precision(candidate)
+                out.append(candidate)
+                continue
+            _strip_stale_l4(candidate)
+            if has_numeric_geom and not math.isfinite(float(geometric)):
+                scores = dict(candidate.scores)
+                scores.pop("geometric", None)
+                candidate.scores = scores
+                has_numeric_geom = False
+                geometric = None
 
         has_cand_geom = _is_geom_json(
             (candidate.provenance or {}).get("geom_json")

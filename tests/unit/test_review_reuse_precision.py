@@ -623,6 +623,108 @@ def test_precision_scores_json_query_and_candidate_geom() -> None:
     assert RejectionReason.missing_geom_json.value not in out[0].rejection_reasons
 
 
+def test_insert_block_geom_is_l4_geometry() -> None:
+    geom = {
+        "entities": [
+            {
+                "type": "INSERT",
+                "block": "DOOR",
+                "insert": [10.0, 20.0],
+                "block_hash": "blk-hash-1",
+            }
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "blk",
+                "state": "similar",
+                "geom_json": geom,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(geom).encode("utf-8"),
+    )
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+    assert RejectionReason.missing_geom_json.value not in out[0].rejection_reasons
+    assert out[0].scores.get("geometric") is not None
+
+
+def test_zero_ratio_ellipse_is_not_l4_geometry() -> None:
+    bogus = {
+        "entities": [
+            {
+                "type": "ELLIPSE",
+                "center": [0.0, 0.0],
+                "major": [10.0, 0.0],
+                "ratio": 0,
+            }
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "ell",
+                "state": "duplicate",
+                "geom_json": bogus,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(bogus).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
+def test_nonfinite_prescored_l4_is_not_trusted() -> None:
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "nan-l4",
+                "state": "duplicate",
+                "scores": {"geometric": float("nan")},
+                "methods": ["precision-l4"],
+            }
+        ],
+        content_sha="ab",
+        file_name="a.dxf",
+    )
+    out = apply_precision(cands, file_name="a.dxf", file_bytes=b"x")
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
+def test_out_of_range_prescored_l4_is_not_trusted() -> None:
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "hi-l4",
+                "state": "duplicate",
+                "scores": {"geometric": 2.0},
+                "methods": ["precision-l4"],
+            }
+        ],
+        content_sha="ab",
+        file_name="a.dxf",
+    )
+    out = apply_precision(cands, file_name="a.dxf", file_bytes=b"x")
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
 def test_zero_length_polyline_is_not_l4_geometry() -> None:
     bogus = {
         "entities": [{"type": "POLYLINE", "points": [[0.0, 0.0], [0.0, 0.0]]}]

@@ -38,6 +38,9 @@
 | Malformed entity dict is not L4 geom | `test_malformed_entity_dict_is_not_l4_geometry` | pass locally |
 | Negative-radius circle is not L4 geom | `test_negative_radius_circle_is_not_l4_geometry` | pass locally |
 | Zero-length polyline is not L4 geom | `test_zero_length_polyline_is_not_l4_geometry` | pass locally |
+| Block INSERT is L4 geom | `test_insert_block_geom_is_l4_geometry` | pass locally |
+| Zero-ratio ellipse is not L4 geom | `test_zero_ratio_ellipse_is_not_l4_geometry` | pass locally |
+| Non-finite / out-of-range pre-scored L4 | `test_nonfinite_prescored_l4_is_not_trusted`, `test_out_of_range_prescored_l4_is_not_trusted` | pass locally |
 | Cancel on occupied hashed dir is 409 | `test_cancel_translates_occupied_hashed_dir` | pass locally |
 | Mid-flight decision pack rebuilt with candidates | `test_pipeline_rebuilds_pack_after_mid_flight_decision` | pass locally |
 | Terminal merge keeps pipeline events | same tests assert `recall_completed` / `precision_completed` / `evidence_pack_ready` | pass locally |
@@ -102,6 +105,9 @@ make test-review-reuse
 | tests (3.10) / tests (3.11) / lint-type on `52c820b5` | **pass** |
 | Sol wave22 vs `origin/main` on `52c820b5` | P2 zero-length polyline `[[0,0],[0,0]]` still L4 |
 | `make test-review-reuse` after distinct polyline points | **144 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) on `4a9a390a` | **pass** |
+| Sol wave23 vs `origin/main` on `4a9a390a` | P2 INSERT; P2 ellipse ratio; P2 pre-scored L4 range |
+| `make test-review-reuse` after INSERT + ellipse + pre-scored L4 | **148 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
