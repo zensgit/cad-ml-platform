@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: local wave19 (empty-DXF `_is_geom_json` + FS flock; parent `f58e80ee`)  
+**HEAD at writing**: `c9a7ce4b` (3.10/3.11 green; Sol wave26 no P1/P2)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -114,6 +114,8 @@ make test-review-reuse
 | tests (3.10) / tests (3.11) on `a999cc63` | **pass** |
 | Sol wave25 vs `origin/main` on `a999cc63` | P2 boolean coords (`true`/`false`) still L4 |
 | `make test-review-reuse` after rejecting bool numerics | **151 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) / lint-type on `c9a7ce4b` | **pass** |
+| Sol wave26 vs `origin/main` on `c9a7ce4b` | no P1/P2 |
 
 ### CI (PR #586)
 
@@ -126,6 +128,7 @@ make test-review-reuse
 | tests (3.10) / tests (3.11) on `4d4bb285` | **pass** |
 | e2e-smoke on `2f76c87c` | pass |
 | Evaluation Report | fail (Track E; out of scope) |
+| tests (3.10) / tests (3.11) / lint-type on `c9a7ce4b` | **pass** |
 | mergeable_state | `blocked` (review required; do not merge) |
 
 Re-run `make test-review-reuse` after each follow-up commit and record the count here.
