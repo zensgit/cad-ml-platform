@@ -109,19 +109,15 @@ _GEOM_ENTITY_TYPES = frozenset(
 
 
 def _finite_number(value: Any) -> bool:
-    try:
-        number = float(value)
-    except (TypeError, ValueError):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
         return False
-    return math.isfinite(number)
+    return math.isfinite(float(value))
 
 
 def _positive_number(value: Any) -> bool:
-    try:
-        number = float(value)
-    except (TypeError, ValueError):
+    if not _finite_number(value):
         return False
-    return math.isfinite(number) and number > 0.0
+    return float(value) > 0.0
 
 
 def _is_finite_unit_score(value: Any) -> bool:

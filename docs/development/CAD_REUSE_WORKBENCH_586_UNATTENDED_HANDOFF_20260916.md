@@ -133,3 +133,13 @@ geometric scores, reject zero-scale INSERT and zero-sweep ARC. Never merge.
 |---|---|
 | Local `make test-review-reuse` | **150 passed** |
 | Merge | still not done |
+
+## Continuation — 2026-09-17 wave25
+
+PR monitor restarted after 10h. `tests (3.10)` / `tests (3.11)` **pass** on
+`a999cc63`. Sol P2: boolean JSON numbers still L4. Never merge.
+
+| Item | State |
+|---|---|
+| Local `make test-review-reuse` | **151 passed** |
+| Merge | still not done |

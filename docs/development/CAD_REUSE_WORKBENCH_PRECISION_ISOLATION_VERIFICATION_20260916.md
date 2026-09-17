@@ -111,6 +111,9 @@ make test-review-reuse
 | tests (3.10) / tests (3.11) on `d2d0beb5` | **pass** |
 | Sol wave24 vs `origin/main` on `d2d0beb5` | P2 drop out-of-range geom score; zero-scale INSERT; zero-sweep ARC |
 | `make test-review-reuse` after scale/sweep/score-clear | **150 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) on `a999cc63` | **pass** |
+| Sol wave25 vs `origin/main` on `a999cc63` | P2 boolean coords (`true`/`false`) still L4 |
+| `make test-review-reuse` after rejecting bool numerics | **151 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
