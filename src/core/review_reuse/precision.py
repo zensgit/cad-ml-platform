@@ -131,6 +131,21 @@ def _distinct_xy(left: Any, right: Any) -> bool:
     return float(left[0]) != float(right[0]) or float(left[1]) != float(right[1])
 
 
+def _has_two_distinct_xy(points: Any) -> bool:
+    if not isinstance(points, list):
+        return False
+    seen: List[tuple[float, float]] = []
+    for point in points:
+        if not _xy(point):
+            continue
+        pair = (float(point[0]), float(point[1]))
+        if any(pair != other for other in seen):
+            return True
+        if pair not in seen:
+            seen.append(pair)
+    return False
+
+
 def _is_geom_entity(ent: Any) -> bool:
     """True for a supported, nondegenerate geometric primitive."""
     if not isinstance(ent, dict):
@@ -150,19 +165,11 @@ def _is_geom_entity(ent: Any) -> bool:
             and _finite_number(ent.get("end_angle"))
         )
     if et in ("LWPOLYLINE", "POLYLINE"):
-        pts = ent.get("points")
-        if not isinstance(pts, list):
-            return False
-        valid = [p for p in pts if _xy(p)]
-        return len(valid) >= 2
+        return _has_two_distinct_xy(ent.get("points"))
     if et == "ELLIPSE":
         return _xy(ent.get("center")) and _nonzero_xy(ent.get("major"))
     if et == "SPLINE":
-        cps = ent.get("control_points")
-        if not isinstance(cps, list):
-            return False
-        valid = [p for p in cps if _xy(p)]
-        return len(valid) >= 2
+        return _has_two_distinct_xy(ent.get("control_points"))
     return False
 
 

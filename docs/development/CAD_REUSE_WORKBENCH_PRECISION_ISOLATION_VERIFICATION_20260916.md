@@ -37,6 +37,7 @@
 | Empty DXF extract is not L4 geom | `test_empty_dxf_extract_is_not_l4_geometry` | pass locally |
 | Malformed entity dict is not L4 geom | `test_malformed_entity_dict_is_not_l4_geometry` | pass locally |
 | Negative-radius circle is not L4 geom | `test_negative_radius_circle_is_not_l4_geometry` | pass locally |
+| Zero-length polyline is not L4 geom | `test_zero_length_polyline_is_not_l4_geometry` | pass locally |
 | Cancel on occupied hashed dir is 409 | `test_cancel_translates_occupied_hashed_dir` | pass locally |
 | Mid-flight decision pack rebuilt with candidates | `test_pipeline_rebuilds_pack_after_mid_flight_decision` | pass locally |
 | Terminal merge keeps pipeline events | same tests assert `recall_completed` / `precision_completed` / `evidence_pack_ready` | pass locally |
@@ -98,6 +99,9 @@ make test-review-reuse
 | `make test-review-reuse` after entity-shape + cancel 409 | **142 passed**, 7 ezdxf warnings |
 | Sol wave21 vs `origin/main` on `f049a14c` | P2 negative/NaN/inf degenerate primitives still L4 |
 | `make test-review-reuse` after finite positive radius | **143 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) / lint-type on `52c820b5` | **pass** |
+| Sol wave22 vs `origin/main` on `52c820b5` | P2 zero-length polyline `[[0,0],[0,0]]` still L4 |
+| `make test-review-reuse` after distinct polyline points | **144 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

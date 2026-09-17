@@ -103,3 +103,13 @@ still received L4. Finite positive radius / nondegenerate fields required.
 |---|---|
 | Local `make test-review-reuse` | **143 passed** |
 | Merge | still not done |
+
+## Continuation — 2026-09-17 wave22
+
+`tests (3.10)` / `tests (3.11)` **pass** on `52c820b5`. Sol P2: zero-length
+polyline still L4. Require two distinct points. Never merge.
+
+| Item | State |
+|---|---|
+| Local `make test-review-reuse` | **144 passed** |
+| Merge | still not done |
