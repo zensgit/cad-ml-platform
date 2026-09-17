@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: `4d4bb285` (geom-json schema + loop timeout; Sol wave14 found no P1/P2)  
+**HEAD at writing**: `7002bfa2` (3.10/3.11 green; Sol wave18 no P1/P2)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -84,6 +84,8 @@ make test-review-reuse
 | tests (3.10) / tests (3.11) on `6b29ab81` | **pass** |
 | `make test-review-reuse` after inline-geom store fallback | **136 passed**, 7 ezdxf warnings |
 | Unattended deadline 2026-09-16 17:00 UTC | stopped at `704fd1c6`; last green 3.10/3.11 was `6b29ab81` |
+| tests (3.10) / tests (3.11) / lint-type on `7002bfa2` | **pass** (2026-09-17 01:00 UTC) |
+| Sol wave18 vs `origin/main` on `7002bfa2` | no P1/P2 |
 
 ### CI (PR #586)
 

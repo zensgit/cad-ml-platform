@@ -55,3 +55,16 @@ Unattended loop stopped. Scheduler deleted. PR monitor not restarted.
 | Decisions | still default-off |
 
 Owner next: wait for 3.10 on `704fd1c6`; human review of #586; do not enable `REVIEW_REUSE_DECISIONS_ENABLED`.
+
+## Continuation — 2026-09-17 01:08 UTC (owner `continue`)
+
+Scheduler stays deleted. PR monitor restarted. No new product code.
+
+| Item | State |
+|---|---|
+| HEAD | `7002bfa2` |
+| `tests (3.10)` / `tests (3.11)` / `lint-type` | **pass** |
+| Local `make test-review-reuse` | **136 passed** |
+| Sol 5.6 vs `origin/main` | **no P1/P2** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
