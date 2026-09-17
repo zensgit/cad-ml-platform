@@ -623,6 +623,36 @@ def test_precision_scores_json_query_and_candidate_geom() -> None:
     assert RejectionReason.missing_geom_json.value not in out[0].rejection_reasons
 
 
+def test_empty_dxf_extract_is_not_l4_geometry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "src.core.dedupcad_precision.cad_pipeline.extract_geom_json_from_dxf",
+        lambda _path: {"schema": "geom-json/v2", "entities": []},
+    )
+    geom = _line_geom()
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "arch-geom",
+                "state": "similar",
+                "geom_json": geom,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="a.dxf",
+    )
+    out = apply_precision(
+        cands,
+        file_name="empty.dxf",
+        file_bytes=b"0\nSECTION\n2\nHEADER\n0\nENDSEC\n0\nEOF\n",
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+    assert out[0].scores.get("geometric") is None
+
+
 def test_empty_json_object_is_not_l4_geometry() -> None:
     cands = map_raw_hits_to_candidates(
         [

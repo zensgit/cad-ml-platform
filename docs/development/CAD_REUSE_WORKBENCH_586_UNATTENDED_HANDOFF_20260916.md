@@ -68,3 +68,16 @@ Scheduler stays deleted. PR monitor restarted. No new product code.
 | Sol 5.6 vs `origin/main` | **no P1/P2** |
 | Evaluation Report | fail (Track E; out of scope) |
 | Merge | still not done |
+
+## Continuation — 2026-09-17 (owner `continue`, wave19)
+
+Sol 5.6 on `f58e80ee` vs `origin/main`: remaining P1 multi-worker FS
+lock and P2 empty DXF extract. Implemented; never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P1 | store-root flock + unique tmp on `FilesystemReviewReuseStore` |
+| P2 | `_is_geom_json` on DXF extract / query geom / `_try_l4_score` |
+| Local `make test-review-reuse` | **140 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |

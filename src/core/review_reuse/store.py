@@ -12,6 +12,8 @@ from typing import Callable, Dict, List, Optional, Protocol
 
 from .models import ReviewReuseTask
 
+_STORE_LOCK_NAME = ".review_reuse.lock"
+
 ENV_STORE = "REVIEW_REUSE_STORE"
 ENV_STORE_DIR = "REVIEW_REUSE_STORE_DIR"
 _TRUE_BACKENDS_FS = frozenset({"fs", "file", "filesystem", "disk"})
@@ -30,6 +32,85 @@ class OccupiedTenantDirError(RuntimeError):
             f"hashed tenant dir {path} is occupied by {occupants!r}, "
             f"refusing write for {tenant_id!r}"
         )
+
+
+def _flock(fd: int, exclusive: bool) -> None:
+    """Best-effort POSIX flock; no-op when fcntl is unavailable."""
+    try:
+        import fcntl
+    except ImportError:  # pragma: no cover - Windows
+        return
+    fcntl.flock(fd, fcntl.LOCK_EX if exclusive else fcntl.LOCK_UN)
+
+
+def _atomic_write_text(path: Path, text: str) -> None:
+    """Write ``text`` via a unique tmp file in the same directory, then replace."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(
+        dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp"
+    )
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(text)
+        tmp_path.replace(path)
+    except Exception:
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
+
+
+class _StoreFileLock:
+    """Reentrant thread lock plus exclusive flock for multi-worker FS stores.
+
+    ``threading.RLock`` alone is per-process; gunicorn/uvicorn workers each
+    have their own, so cancel/decision/idempotent create can clobber each
+    other. flock on a store-root lockfile serializes those read-modify-write
+    paths across processes. Nested methods (update_atomically → get/put)
+    re-enter on the same thread without dropping the flock.
+    """
+
+    def __init__(self, path: Path) -> None:
+        self._path = Path(path)
+        self._thread = threading.RLock()
+        self._local = threading.local()
+        self._fd: Optional[int] = None
+        self._fd_guard = threading.Lock()
+
+    def _ensure_fd(self) -> int:
+        with self._fd_guard:
+            if self._fd is None:
+                self._path.parent.mkdir(parents=True, exist_ok=True)
+                flags = os.O_RDWR | os.O_CREAT
+                if hasattr(os, "O_CLOEXEC"):
+                    flags |= os.O_CLOEXEC
+                self._fd = os.open(str(self._path), flags, 0o644)
+            return self._fd
+
+    def __enter__(self) -> "_StoreFileLock":
+        self._thread.acquire()
+        try:
+            depth = getattr(self._local, "depth", 0)
+            if depth == 0:
+                _flock(self._ensure_fd(), exclusive=True)
+            self._local.depth = depth + 1
+        except Exception:
+            self._thread.release()
+            raise
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> bool:
+        del exc_type, exc, tb
+        depth = getattr(self._local, "depth", 1) - 1
+        self._local.depth = depth
+        try:
+            if depth == 0 and self._fd is not None:
+                _flock(self._fd, exclusive=False)
+        finally:
+            self._thread.release()
+        return False
 
 
 def tenant_dir_key(tenant_id: str) -> str:
@@ -144,7 +225,10 @@ class FilesystemReviewReuseStore:
         {root}/{sha256(tenant_id)[:24]}/tasks/{task_id}.json
         {root}/{sha256(tenant_id)[:24]}/idempotency.json
         {root}/{sha256(tenant_id)[:24]}/tenant_meta.json
+        {root}/.review_reuse.lock
 
+    Writes use a store-root flock so multi-worker processes cannot clobber
+    cancel/decision/idempotent create. Unique tmp names avoid ``.tmp`` races.
     Legacy sanitized ``{root}/{safe_tenant}/`` dirs are still read (get/list)
     so existing stores keep working; new writes always use the hash dir so
     ``a/b`` and ``a_b`` cannot collide.
@@ -152,8 +236,8 @@ class FilesystemReviewReuseStore:
 
     def __init__(self, root: Path | str) -> None:
         self._root = Path(root)
-        self._lock = threading.RLock()
         self._root.mkdir(parents=True, exist_ok=True)
+        self._lock = _StoreFileLock(self._root / _STORE_LOCK_NAME)
 
     def _hashed_dir(self, tenant_id: str) -> Path:
         return self._root / tenant_dir_key(tenant_id)
@@ -208,20 +292,7 @@ class FilesystemReviewReuseStore:
             return
         path = tenant_dir / _TENANT_META
         payload = json.dumps({"tenant_id": tenant_id}, ensure_ascii=False)
-        fd, tmp_name = tempfile.mkstemp(
-            dir=str(tenant_dir), prefix=".tenant_meta.", suffix=".tmp"
-        )
-        tmp_path = Path(tmp_name)
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as handle:
-                handle.write(payload)
-            tmp_path.replace(path)
-        except Exception:
-            try:
-                tmp_path.unlink(missing_ok=True)
-            except OSError:
-                pass
-            raise
+        _atomic_write_text(path, payload)
 
     def _read_dirs(self, tenant_id: str) -> List[Path]:
         hashed = self._hashed_dir(tenant_id)
@@ -252,20 +323,18 @@ class FilesystemReviewReuseStore:
 
     def _save_idem(self, tenant_dir: Path, mapping: Dict[str, str]) -> None:
         path = self._idem_path(tenant_dir)
-        tmp = path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(mapping, ensure_ascii=False, indent=0), encoding="utf-8")
-        tmp.replace(path)
+        _atomic_write_text(
+            path, json.dumps(mapping, ensure_ascii=False, indent=0)
+        )
 
     def put(self, task: ReviewReuseTask) -> ReviewReuseTask:
         with self._lock:
             tenant_dir = self._ensure_write_dir(task.tenant_id)
             path = self._task_path(tenant_dir, task.task_id)
-            tmp = path.with_suffix(".tmp")
             payload = task.model_dump(mode="json")
-            tmp.write_text(
-                json.dumps(payload, ensure_ascii=False, indent=0), encoding="utf-8"
+            _atomic_write_text(
+                path, json.dumps(payload, ensure_ascii=False, indent=0)
             )
-            tmp.replace(path)
             if task.idempotency_key:
                 idem = self._load_idem(tenant_dir)
                 idem[task.idempotency_key] = task.task_id

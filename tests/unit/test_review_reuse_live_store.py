@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import multiprocessing
 import os
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -306,6 +308,135 @@ def test_update_atomically_does_not_write_when_updater_raises() -> None:
     found = store.get("ten", "t-raise")
     assert found is not None
     assert found.status == TaskStatus.running
+
+
+def _fs_lock_bump_events(root: str, n: int, result_path: str) -> None:
+    from src.core.review_reuse.models import TaskEvent, TaskEventType
+    from src.core.review_reuse.store import FilesystemReviewReuseStore
+
+    store = FilesystemReviewReuseStore(root)
+    for _ in range(n):
+        def updater(current):
+            if current is None:
+                raise RuntimeError("missing task")
+            current.events = list(current.events) + [
+                TaskEvent(event_type=TaskEventType.recall_started, ts=time.time())
+            ]
+            return current
+
+        store.update_atomically("ten", "t-lock", updater)
+    Path(result_path).write_text("ok", encoding="utf-8")
+
+
+def _fs_idempotent_put(root: str, task_id: str, result_path: str) -> None:
+    from src.core.review_reuse.models import ReviewReuseTask, TaskStatus
+    from src.core.review_reuse.store import FilesystemReviewReuseStore
+
+    store = FilesystemReviewReuseStore(root)
+    now = time.time()
+    task = ReviewReuseTask(
+        task_id=task_id,
+        tenant_id="ten",
+        status=TaskStatus.running,
+        created_at=now,
+        updated_at=now,
+        source_file_name="a.dxf",
+        source_content_sha256="ab",
+        trace_id="tr",
+        idempotency_key="idem-mp",
+    )
+    got = store.put_new_idempotent(task)
+    Path(result_path).write_text(got.task_id, encoding="utf-8")
+
+
+def test_filesystem_update_atomically_serializes_processes(tmp_path: Path) -> None:
+    root = tmp_path / "tasks"
+    store = FilesystemReviewReuseStore(root)
+    store.put(_running_task("ten", "t-lock"))
+    n = 12
+    results = [tmp_path / "r1", tmp_path / "r2"]
+    ctx = multiprocessing.get_context("spawn")
+    procs = [
+        ctx.Process(
+            target=_fs_lock_bump_events, args=(str(root), n, str(results[i]))
+        )
+        for i in range(2)
+    ]
+    for proc in procs:
+        proc.start()
+    try:
+        for proc in procs:
+            proc.join(timeout=30)
+            if proc.is_alive():
+                proc.terminate()
+                proc.join(timeout=5)
+                raise AssertionError("filesystem lock worker hung")
+            assert proc.exitcode == 0
+    finally:
+        for proc in procs:
+            if proc.is_alive():
+                proc.kill()
+    found = store.get("ten", "t-lock")
+    assert found is not None
+    assert len(found.events) == n * 2
+    assert all(path.read_text(encoding="utf-8") == "ok" for path in results)
+
+
+def test_filesystem_put_new_idempotent_serializes_processes(tmp_path: Path) -> None:
+    root = tmp_path / "tasks"
+    FilesystemReviewReuseStore(root)  # create lock root
+    results = [tmp_path / "id1", tmp_path / "id2"]
+    ctx = multiprocessing.get_context("spawn")
+    procs = [
+        ctx.Process(
+            target=_fs_idempotent_put,
+            args=(str(root), f"task-{i}", str(results[i])),
+        )
+        for i in range(2)
+    ]
+    for proc in procs:
+        proc.start()
+    try:
+        for proc in procs:
+            proc.join(timeout=30)
+            if proc.is_alive():
+                proc.terminate()
+                proc.join(timeout=5)
+                raise AssertionError("idempotent create worker hung")
+            assert proc.exitcode == 0
+    finally:
+        for proc in procs:
+            if proc.is_alive():
+                proc.kill()
+    ids = {path.read_text(encoding="utf-8") for path in results}
+    assert len(ids) == 1
+    store = FilesystemReviewReuseStore(root)
+    listed = store.list_for_tenant("ten")
+    assert len(listed) == 1
+    assert listed[0].task_id in ids
+
+
+def test_filesystem_atomic_write_uses_unique_tmp(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    names: list[str] = []
+    real_mkstemp = tempfile.mkstemp
+
+    def _spy(*args, **kwargs):
+        fd, name = real_mkstemp(*args, **kwargs)
+        names.append(name)
+        return fd, name
+
+    monkeypatch.setattr("src.core.review_reuse.store.tempfile.mkstemp", _spy)
+    store = FilesystemReviewReuseStore(tmp_path / "tasks")
+    store.put(_running_task("ten", "t-tmp"))
+    assert names
+    for name in names:
+        path = Path(name)
+        assert path.suffix == ".tmp"
+        assert not path.exists()
+    leftovers = list((tmp_path / "tasks").rglob("*.tmp"))
+    assert leftovers == []
 
 
 def test_filesystem_update_atomically_keeps_terminal_status(tmp_path: Path) -> None:

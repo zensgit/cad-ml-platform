@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: `7002bfa2` (3.10/3.11 green; Sol wave18 no P1/P2)  
+**HEAD at writing**: local wave19 (empty-DXF `_is_geom_json` + FS flock; parent `f58e80ee`)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -32,6 +32,9 @@
 | R2 HOLD no feedback JSONL | `test_review_reuse_r2_hold.py` | pass |
 | Track C / R11 / R12 not claimed | this PR body + board residual_human | n/a (human) |
 | Pipeline commit cannot clobber cancel/decision | `store.update_atomically`; `test_pipeline_honors_mid_flight_cancel`; `test_filesystem_update_atomically_keeps_terminal_status` | pass locally |
+| FS updates atomic across worker processes | `_StoreFileLock` flock; `test_filesystem_update_atomically_serializes_processes`; `test_filesystem_put_new_idempotent_serializes_processes` | pass locally |
+| Unique tmp for task/idem/meta writes | `_atomic_write_text`; `test_filesystem_atomic_write_uses_unique_tmp` | pass locally |
+| Empty DXF extract is not L4 geom | `test_empty_dxf_extract_is_not_l4_geometry` | pass locally |
 | Mid-flight decision pack rebuilt with candidates | `test_pipeline_rebuilds_pack_after_mid_flight_decision` | pass locally |
 | Terminal merge keeps pipeline events | same tests assert `recall_completed` / `precision_completed` / `evidence_pack_ready` | pass locally |
 | Live recall timeout without running loop | `test_run_coro_applies_timeout_without_running_loop` | pass locally |
@@ -86,6 +89,8 @@ make test-review-reuse
 | Unattended deadline 2026-09-16 17:00 UTC | stopped at `704fd1c6`; last green 3.10/3.11 was `6b29ab81` |
 | tests (3.10) / tests (3.11) / lint-type on `7002bfa2` | **pass** (2026-09-17 01:00 UTC) |
 | Sol wave18 vs `origin/main` on `7002bfa2` | no P1/P2 |
+| Sol wave19 vs `origin/main` on `f58e80ee` | P1 FS inter-process lock; P2 empty DXF `_is_geom_json` |
+| `make test-review-reuse` after FS flock + empty DXF gate | **140 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -131,6 +136,12 @@ cleanup --tenant a/b --apply → exit 1, mixed dir remains
 
 # legacy dir named sha256(pilot-tenant)[:24] with tenant_id=that hash
 cleanup --tenant pilot-tenant --apply → must not delete that dir
+
+# empty DXF extract (entities=[]) with candidate geom present
+→ not precision-l4; missing_geom_json (same as empty JSON)
+
+# two worker processes update_atomically the same running task
+→ event count is the sum; no lost terminal overwrite
 ```
 
 ## 4. Operator commands (decisions off)

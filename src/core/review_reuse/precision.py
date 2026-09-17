@@ -81,7 +81,7 @@ def _extract_dxf_geom(file_bytes: bytes) -> Optional[Dict[str, Any]]:
         )
 
         geom = extract_geom_json_from_dxf(tmp_path)
-        return geom if isinstance(geom, dict) else None
+        return geom if _is_geom_json(geom) else None
     except Exception:
         logger.debug("review_reuse_dxf_geom_extract_failed", exc_info=True)
         return None
@@ -114,7 +114,8 @@ def _parse_query_geom(
             return None
         return obj if _is_geom_json(obj) else None
     if suffix == ".dxf":
-        return _extract_dxf_geom(file_bytes)
+        geom = _extract_dxf_geom(file_bytes)
+        return geom if _is_geom_json(geom) else None
     return None
 
 
@@ -140,8 +141,10 @@ def _try_l4_score(
     candidate: CandidateDecision,
     geom_store: Any = None,
 ) -> Optional[float]:
+    if not _is_geom_json(query_geom):
+        return None
     right = _candidate_geom(candidate, geom_store)
-    if not isinstance(right, dict):
+    if not _is_geom_json(right):
         return None
     try:
         from src.core.dedupcad_precision import PrecisionVerifier

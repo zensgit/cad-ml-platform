@@ -86,6 +86,10 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 10. Sol re-review of `de1f44a6` (wave8): refuse cleanup when meta disagrees
     with task tenant_ids; omit decision-before-evidence from review-time
     median; bump `updated_at` when merging pipeline fields into a terminal task.
+11. Sol re-review of `f58e80ee` (wave19, 2026-09-17): filesystem
+    `update_atomically` / `put_new_idempotent` need an inter-process flock
+    (threading.RLock is per-worker); empty DXF extract (`entities=[]`) must
+    fail `_is_geom_json` like empty JSON, not proceed to L4.
 
 ## 7. Risk
 
@@ -95,7 +99,9 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 | L4 method with level 0 | `_ensure_l4_level` on pre-scored and local L4 paths |
 | Stale vision_only after real L4 | `_clear_provisional_unverified` so `_top_confidence` can use the score |
 | Cross-tenant delete | mixed legacy dirs refused (`refused_mixed`, exit 1) |
-| Temp-file race on `tenant_meta.json` | `mkstemp` unique name; skip rewrite when sidecar valid |
+| Temp-file race on task/idem/meta JSON | `_atomic_write_text` unique `mkstemp` in the same dir, then replace |
+| Multi-worker cancel/decision/idempotency clobber | store-root flock (`_StoreFileLock`) around FS read-modify-write |
+| Empty DXF extract labeled precision-l4 | `_extract_dxf_geom` / `_parse_query_geom` require `_is_geom_json` |
 | DXF parse cost on offline insufficient | extract only when a candidate can be scored |
 | Pipeline overwrites cancel/decision | `store.update_atomically` checks terminal status and writes under one lock |
 | Decided task vs empty EvidencePack | rebuild pack after merging mid-flight candidates into the decided snapshot |
