@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: window 3 wave36 (`c231f79c`; Sol still usage-limited)  
+**HEAD at writing**: window 3 wave37 (`a04f3b91`; Sol still usage-limited)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -143,6 +143,8 @@ make test-review-reuse
 | Sol wave35 vs `origin/main` on `800bb4fd` | **blocked** (same Codex usage limit) |
 | tests (3.10) / tests (3.11) / e2e-smoke on `c231f79c` | **pass** |
 | Sol wave36 vs `origin/main` on `c231f79c` | **blocked** (same Codex usage limit) |
+| tests (3.10) / tests (3.11) / e2e-smoke on `a04f3b91` | **pass** |
+| Sol wave37 vs `origin/main` on `a04f3b91` | **blocked** (same Codex usage limit) |
 
 ### CI (PR #586)
 
@@ -242,7 +244,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `c231f79c` |
+| Python 3.10 CI job | **pass** on `a04f3b91` |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |
