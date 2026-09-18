@@ -347,6 +347,12 @@ def _mark_low_precision(candidate: CandidateDecision) -> None:
     candidate.verification = verification
 
 
+def _had_low_precision(candidate: CandidateDecision) -> bool:
+    return RejectionReason.low_precision_score.value in (
+        candidate.rejection_reasons or []
+    )
+
+
 def _independent_rejections(candidate: CandidateDecision) -> List[str]:
     """Reasons that are not stale low-precision or provisional unverified labels."""
     return [
@@ -357,13 +363,18 @@ def _independent_rejections(candidate: CandidateDecision) -> List[str]:
     ]
 
 
-def _restore_after_high_l4(candidate: CandidateDecision) -> None:
+def _restore_after_high_l4(
+    candidate: CandidateDecision, *, had_low_precision: bool
+) -> None:
     """Restore similar only when `different` was a stale low-precision rejection.
 
-    Independent reasons such as ``version_gate_filtered`` stay ``different``.
+    Reasonless adapter ``different`` and independent reasons such as
+    ``version_gate_filtered`` stay ``different``.
     """
-    if candidate.state == CandidateState.different and not _independent_rejections(
-        candidate
+    if (
+        candidate.state == CandidateState.different
+        and had_low_precision
+        and not _independent_rejections(candidate)
     ):
         candidate.state = CandidateState.similar
     verification = dict(candidate.verification or {})
@@ -371,16 +382,21 @@ def _restore_after_high_l4(candidate: CandidateDecision) -> None:
     candidate.verification = verification
 
 
-def _apply_l4_score(candidate: CandidateDecision, score: float) -> None:
-    candidate.scores = dict(candidate.scores)
-    candidate.scores["geometric"] = score
+def _apply_trusted_l4(candidate: CandidateDecision, score: float) -> None:
+    had_low = _had_low_precision(candidate)
     _ensure_l4_level(candidate)
     _clear_provisional_unverified(candidate)
     _clear_stale_low_precision(candidate)
     if score < LOW_PRECISION_THRESHOLD:
         _mark_low_precision(candidate)
         return
-    _restore_after_high_l4(candidate)
+    _restore_after_high_l4(candidate, had_low_precision=had_low)
+
+
+def _apply_l4_score(candidate: CandidateDecision, score: float) -> None:
+    candidate.scores = dict(candidate.scores)
+    candidate.scores["geometric"] = score
+    _apply_trusted_l4(candidate, score)
 
 
 def apply_precision(
@@ -432,13 +448,7 @@ def apply_precision(
         )
         if _has_method(candidate, "precision-l4"):
             if _is_finite_unit_score(geometric):
-                _ensure_l4_level(candidate)
-                _clear_provisional_unverified(candidate)
-                _clear_stale_low_precision(candidate)
-                if float(geometric) < LOW_PRECISION_THRESHOLD:
-                    _mark_low_precision(candidate)
-                else:
-                    _restore_after_high_l4(candidate)
+                _apply_trusted_l4(candidate, float(geometric))
                 out.append(candidate)
                 continue
             _strip_stale_l4(candidate)

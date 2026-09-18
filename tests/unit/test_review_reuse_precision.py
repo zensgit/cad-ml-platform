@@ -703,6 +703,52 @@ def test_high_prescored_l4_preserves_version_gate_different() -> None:
     assert RejectionReason.low_precision_score.value not in out[0].rejection_reasons
 
 
+def test_high_l4_preserves_reasonless_different() -> None:
+    geom = _line_geom()
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "reasonless",
+                "state": "different",
+                "geom_json": geom,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(geom).encode("utf-8"),
+    )
+    assert out[0].scores.get("geometric") == 1.0
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+    assert out[0].state == CandidateState.different
+    assert out[0].verification.get("verdict") == CandidateState.different.value
+    assert RejectionReason.low_precision_score.value not in out[0].rejection_reasons
+
+
+def test_high_prescored_l4_preserves_reasonless_different() -> None:
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "reasonless-pre",
+                "state": "different",
+                "scores": {"geometric": 1.0},
+                "methods": ["precision-l4"],
+            }
+        ],
+        content_sha="ab",
+        file_name="a.dxf",
+    )
+    out = apply_precision(cands, file_name="a.dxf", file_bytes=b"x")
+    assert out[0].scores.get("geometric") == 1.0
+    assert out[0].state == CandidateState.different
+    assert out[0].verification.get("verdict") == CandidateState.different.value
+    assert RejectionReason.low_precision_score.value not in out[0].rejection_reasons
+
+
 def test_lowercase_line_type_still_scores_l4() -> None:
     geom = {
         "entities": [

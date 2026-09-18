@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: window 3 wave30 (preserve version-gate `different` on high L4)  
+**HEAD at writing**: window 3 wave31 (reasonless adapter `different` stays different)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -50,6 +50,7 @@
 | Decision-before-evidence not counted as 0s review | mid-flight decision test asserts `median_review_time_seconds is None` | pass locally |
 | High L4 restores stale low-precision `different` | `test_rescore_clears_stale_low_precision_reason` | pass locally |
 | High L4 keeps independent version-gate `different` | `test_high_l4_preserves_version_gate_different`, `test_high_prescored_l4_preserves_version_gate_different` | pass locally |
+| High L4 keeps reasonless adapter `different` | `test_high_l4_preserves_reasonless_different`, `test_high_prescored_l4_preserves_reasonless_different` | pass locally |
 
 **Not claimed:** owner design-lock ratification; production decision enable; customer pilot C1–C5; Track E model-release metrics.
 
@@ -129,6 +130,9 @@ make test-review-reuse
 | tests (3.10) / tests (3.11) / e2e-smoke on `23a35ec9` | **pass** |
 | Sol wave30 vs `origin/main` on `23a35ec9` | P2 high L4 must not promote independent `different` |
 | `make test-review-reuse` after preserving version-gate different | **156 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) / e2e-smoke on `b98e23a0` | **pass** |
+| Sol wave31 vs `origin/main` on `b98e23a0` | P2 restore similar only if stale `low_precision_score` existed |
+| `make test-review-reuse` after reasonless-different preserve | **158 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -190,6 +194,9 @@ cancel → ReviewReuseError store_conflict; legacy file unchanged
 
 # version_gate_filtered + matching geom (geometric 1.0)
 → state stays different; version_gate_filtered remains; not similar
+
+# adapter different with no rejection_reasons + matching geom
+→ state stays different; not similar (restore only if low_precision_score existed)
 ```
 
 ## 4. Operator commands (decisions off)
@@ -225,7 +232,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `23a35ec9` |
+| Python 3.10 CI job | **pass** on `b98e23a0` |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |

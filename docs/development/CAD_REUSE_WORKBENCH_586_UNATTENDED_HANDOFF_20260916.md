@@ -233,3 +233,17 @@ when no independent rejection remains. Never merge; decisions stay off.
 | Local `make test-review-reuse` | **156 passed** |
 | Evaluation Report | fail (Track E; out of scope) |
 | Merge | still not done |
+
+## Window 3 wave31 — 2026-09-18 ~18:40 UTC
+
+`tests (3.10)` / `tests (3.11)` / `e2e-smoke` **pass** on `b98e23a0`.
+Sol 5.6 vs `origin/main`: P2 restore similar only when
+`low_precision_score` existed before it was cleared. Reasonless adapter
+`different` stays `different`. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 | `_restore_after_high_l4(..., had_low_precision=)` |
+| Local `make test-review-reuse` | **158 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
