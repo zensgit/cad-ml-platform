@@ -310,3 +310,19 @@ Sol 5.6 vs `origin/main` still **blocked** (Codex usage limit until
 | Sol wave35 | usage-limited; last clean = wave32 no P1/P2 |
 | Evaluation Report | fail (Track E; out of scope) |
 | Merge | still not done |
+
+## Window 3 wave36 — 2026-09-18 ~22:15 UTC
+
+`tests (3.10)` / `tests (3.11)` / `e2e-smoke` **pass** on `c231f79c`.
+Sol 5.6 vs `origin/main` still **blocked** (Codex usage limit until
+2026-09-23 22:47 UTC). Last completed Sol is wave32 on `d46c6156`:
+**no P1/P2**. No product change. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| HEAD | `c231f79c` |
+| Last fully green 3.10/3.11 | `c231f79c` |
+| Local `make test-review-reuse` | **158 passed** (not re-run; no product change) |
+| Sol wave36 | usage-limited; last clean = wave32 no P1/P2 |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
