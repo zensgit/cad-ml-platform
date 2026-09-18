@@ -188,3 +188,23 @@ pass on `d6d9a1c9`. Sol P2: stale `low_precision_score` after high L4 rescore.
 |---|---|
 | Local `make test-review-reuse` | **154 passed** |
 | Merge | still not done |
+
+## Deadline reached — 2026-09-18 04:10 UTC
+
+Window-2 unattended loop stopped (`now` ≥ **2026-09-18 01:30 UTC**).
+No product coding this fire. Scheduler `01a0afa12a55` deleted. PR monitor
+for #586 was not running; not restarted. Never merge.
+
+| Item | State |
+|---|---|
+| Branch | `eng/workbench-precision-isolation-20260915` |
+| HEAD | `aed74d04` — drop stale `low_precision_score` after a high L4 rescore |
+| Last fully green 3.10/3.11 | `aed74d04` (`tests (3.10)` / `tests (3.11)` / `lint-type` / `e2e-smoke` **pass**) |
+| Local `make test-review-reuse` | **154 passed** (recorded after `aed74d04`; not re-run at stop) |
+| Sol 5.6 wave29 vs `origin/main` on `aed74d04` | remaining **P2**: restore `state` / `verification.verdict` when clearing a stale low-score rejection (`precision.py` `_apply_l4_score`) |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | **not done** (`unstable`; needs human review) |
+| Decisions | still default-off |
+
+Owner next: human review of #586; optional remaining Sol P2 (restore
+verdict on high L4 rescore); do not enable `REVIEW_REUSE_DECISIONS_ENABLED`.
