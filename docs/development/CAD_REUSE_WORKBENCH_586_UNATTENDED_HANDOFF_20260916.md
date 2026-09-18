@@ -262,3 +262,19 @@ decisions stay off.
 | Sol wave32 | no P1/P2 |
 | Evaluation Report | fail (Track E; out of scope) |
 | Merge | still not done |
+
+## Window 3 wave33 — 2026-09-18 ~20:00 UTC
+
+`tests (3.10)` / `tests (3.11)` / `e2e-smoke` **pass** on `1211c01f`.
+Sol 5.6 vs `origin/main` **blocked** (Codex usage limit; retry after
+2026-09-23 22:47 UTC). Last completed Sol is wave32 on `d46c6156`:
+**no P1/P2**. No product change. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| HEAD | `1211c01f` |
+| Last fully green 3.10/3.11 | `1211c01f` |
+| Local `make test-review-reuse` | **158 passed** (not re-run; no product change) |
+| Sol wave33 | usage-limited; last clean = wave32 no P1/P2 |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
