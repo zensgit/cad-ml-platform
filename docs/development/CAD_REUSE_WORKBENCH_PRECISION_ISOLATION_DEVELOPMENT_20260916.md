@@ -98,14 +98,17 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
     Sol 5.6 vs `origin/main`. Scheduler `01a0afa12a55`. Never merge.
 14. **Window 3 — 24-hour unattended** (2026-09-18 16:57 UTC → **2026-09-19
     17:00 UTC**). Plan below. Never merge.
+15. Sol re-review of `23a35ec9` (wave30): `_restore_after_high_l4` must not
+    promote an independent `different` (e.g. `version_gate_filtered`) to
+    `similar` just because geometric ≥ threshold.
 
 ## 6b. Window 3 plan (24h, auto-implement)
 
 **Goal:** keep PR #586 honest and CI-green. No new L3 track. No decisions on.
 
-**First product item (this fire):** Sol wave29 P2 — when a high L4 rescore
-clears `low_precision_score`, restore `candidate.state` and
-`verification.verdict` (do not leave `different` at geometric 1.0).
+**Landed:** Sol wave29 P2 — high L4 rescore restores `candidate.state` /
+`verification.verdict` when the only stale reason was `low_precision_score`.
+**This fire:** Sol wave30 P2 — keep independent `different` (version gate).
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.
@@ -145,4 +148,5 @@ Evaluation Report = Track E / ignore.
 | Cleanup deletes another tenant's legacy dir | hash-name fallback only when meta/tasks have no recorded identity |
 | Sidecar tenant A, tasks tenant B | treat as mixed/corrupt; refuse `--apply` |
 | Stale `different` after high L4 rescore | `_restore_after_high_l4` sets similar + matching verdict |
+| High L4 overrides version-gate `different` | restore similar only when no independent rejection remains |
 | 24h unattended overreach | scheduler stops ~2026-09-19 17:00 UTC; never merge; never enable decisions |

@@ -347,9 +347,24 @@ def _mark_low_precision(candidate: CandidateDecision) -> None:
     candidate.verification = verification
 
 
+def _independent_rejections(candidate: CandidateDecision) -> List[str]:
+    """Reasons that are not stale low-precision or provisional unverified labels."""
+    return [
+        reason
+        for reason in candidate.rejection_reasons or []
+        if reason != RejectionReason.low_precision_score.value
+        and reason not in _PROVISIONAL_UNVERIFIED
+    ]
+
+
 def _restore_after_high_l4(candidate: CandidateDecision) -> None:
-    """Do not keep a stale low-precision `different` after a passing rescore."""
-    if candidate.state == CandidateState.different:
+    """Restore similar only when `different` was a stale low-precision rejection.
+
+    Independent reasons such as ``version_gate_filtered`` stay ``different``.
+    """
+    if candidate.state == CandidateState.different and not _independent_rejections(
+        candidate
+    ):
         candidate.state = CandidateState.similar
     verification = dict(candidate.verification or {})
     verification["verdict"] = candidate.state.value

@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: window 3 start (verdict restore after high L4; parent `c148f6e5`)  
+**HEAD at writing**: window 3 wave30 (preserve version-gate `different` on high L4)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -48,6 +48,8 @@
 | Legacy dir named like another hash not cleaned | `test_cleanup_legacy_dir_named_like_other_hash_is_not_selected` | pass locally |
 | Meta vs task tenant disagreement refuses cleanup | `test_cleanup_refuses_when_meta_disagrees_with_task_tenant` | pass locally |
 | Decision-before-evidence not counted as 0s review | mid-flight decision test asserts `median_review_time_seconds is None` | pass locally |
+| High L4 restores stale low-precision `different` | `test_rescore_clears_stale_low_precision_reason` | pass locally |
+| High L4 keeps independent version-gate `different` | `test_high_l4_preserves_version_gate_different`, `test_high_prescored_l4_preserves_version_gate_different` | pass locally |
 
 **Not claimed:** owner design-lock ratification; production decision enable; customer pilot C1–C5; Track E model-release metrics.
 
@@ -124,6 +126,9 @@ make test-review-reuse
 | `make test-review-reuse` after clearing stale low-precision | **154 passed**, 7 ezdxf warnings |
 | High L4 rescore restores state/verdict | `test_rescore_clears_stale_low_precision_reason` asserts not `different` |
 | Window 3 start `make test-review-reuse` after verdict restore | **154 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) / e2e-smoke on `23a35ec9` | **pass** |
+| Sol wave30 vs `origin/main` on `23a35ec9` | P2 high L4 must not promote independent `different` |
+| `make test-review-reuse` after preserving version-gate different | **156 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -182,6 +187,9 @@ cleanup --tenant pilot-tenant --apply → must not delete that dir
 
 # legacy task readable, hashed dir occupied by another tenant
 cancel → ReviewReuseError store_conflict; legacy file unchanged
+
+# version_gate_filtered + matching geom (geometric 1.0)
+→ state stays different; version_gate_filtered remains; not similar
 ```
 
 ## 4. Operator commands (decisions off)
@@ -217,7 +225,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `4d4bb285` |
+| Python 3.10 CI job | **pass** on `23a35ec9` |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |
