@@ -646,6 +646,8 @@ def test_rescore_clears_stale_low_precision_reason() -> None:
     assert out[0].scores.get("geometric") == 1.0
     assert "precision-l4" in (out[0].verification.get("methods") or [])
     assert RejectionReason.low_precision_score.value not in out[0].rejection_reasons
+    assert out[0].state != CandidateState.different
+    assert out[0].verification.get("verdict") != CandidateState.different.value
 
 
 def test_lowercase_line_type_still_scores_l4() -> None:

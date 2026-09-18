@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: `c9a7ce4b` (3.10/3.11 green; Sol wave26 no P1/P2)  
+**HEAD at writing**: window 3 start (verdict restore after high L4; parent `c148f6e5`)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -122,6 +122,8 @@ make test-review-reuse
 | tests (3.10) / tests (3.11) / e2e-smoke on `d6d9a1c9` | **pass** |
 | Sol wave28 vs `origin/main` on `d6d9a1c9` | P2 stale `low_precision_score` after high L4 rescore |
 | `make test-review-reuse` after clearing stale low-precision | **154 passed**, 7 ezdxf warnings |
+| High L4 rescore restores state/verdict | `test_rescore_clears_stale_low_precision_reason` asserts not `different` |
+| Window 3 start `make test-review-reuse` after verdict restore | **154 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

@@ -208,3 +208,14 @@ for #586 was not running; not restarted. Never merge.
 
 Owner next: human review of #586; optional remaining Sol P2 (restore
 verdict on high L4 rescore); do not enable `REVIEW_REUSE_DECISIONS_ENABLED`.
+
+## Window 3 start — 2026-09-18 16:57 UTC (24h)
+
+Owner away ~24h. Deadline **2026-09-19 17:00 UTC**. Plan in development MD §6b.
+Scheduler `01a0b5758345` every 45m. First item: Sol wave29 P2 restore
+state/verdict on high L4 rescore. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| Local `make test-review-reuse` | **154 passed** |
+| Merge | still not done |

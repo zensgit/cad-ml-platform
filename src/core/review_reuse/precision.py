@@ -347,21 +347,25 @@ def _mark_low_precision(candidate: CandidateDecision) -> None:
     candidate.verification = verification
 
 
+def _restore_after_high_l4(candidate: CandidateDecision) -> None:
+    """Do not keep a stale low-precision `different` after a passing rescore."""
+    if candidate.state == CandidateState.different:
+        candidate.state = CandidateState.similar
+    verification = dict(candidate.verification or {})
+    verification["verdict"] = candidate.state.value
+    candidate.verification = verification
+
+
 def _apply_l4_score(candidate: CandidateDecision, score: float) -> None:
     candidate.scores = dict(candidate.scores)
     candidate.scores["geometric"] = score
     _ensure_l4_level(candidate)
     _clear_provisional_unverified(candidate)
     _clear_stale_low_precision(candidate)
-    verification = dict(candidate.verification or {})
     if score < LOW_PRECISION_THRESHOLD:
-        candidate.state = CandidateState.different
-        verification["verdict"] = CandidateState.different.value
-        candidate.verification = verification
-        _append_reason(candidate, RejectionReason.low_precision_score.value)
+        _mark_low_precision(candidate)
         return
-    verification["verdict"] = verification.get("verdict") or candidate.state.value
-    candidate.verification = verification
+    _restore_after_high_l4(candidate)
 
 
 def apply_precision(
@@ -418,6 +422,8 @@ def apply_precision(
                 _clear_stale_low_precision(candidate)
                 if float(geometric) < LOW_PRECISION_THRESHOLD:
                     _mark_low_precision(candidate)
+                else:
+                    _restore_after_high_l4(candidate)
                 out.append(candidate)
                 continue
             _strip_stale_l4(candidate)
