@@ -104,6 +104,7 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 16. Sol re-review of `b98e23a0` (wave31): restore similar only when
     `low_precision_score` was present before clearing; reasonless adapter
     `different` stays `different`.
+17. Sol re-review of `d46c6156` (wave32): **no P1/P2**.
 
 ## 6b. Window 3 plan (24h, auto-implement)
 
@@ -111,8 +112,7 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 
 **Landed:** Sol wave29 P2 — high L4 rescore restores `candidate.state` /
 `verification.verdict` when the only stale reason was `low_precision_score`.
-**This fire:** Sol wave31 P2 — restore similar only if `low_precision_score`
-was recorded before the high L4 path cleared it.
+**This fire:** Sol wave32 vs `d46c6156` — **no P1/P2** (docs-only record).
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.

@@ -247,3 +247,18 @@ Sol 5.6 vs `origin/main`: P2 restore similar only when
 | Local `make test-review-reuse` | **158 passed** |
 | Evaluation Report | fail (Track E; out of scope) |
 | Merge | still not done |
+
+## Window 3 wave32 — 2026-09-18 ~19:20 UTC
+
+`tests (3.10)` / `tests (3.11)` / `e2e-smoke` **pass** on `d46c6156`.
+Sol 5.6 vs `origin/main`: **no P1/P2**. Docs-only record. Never merge;
+decisions stay off.
+
+| Item | State |
+|---|---|
+| HEAD | `d46c6156` |
+| Last fully green 3.10/3.11 | `d46c6156` |
+| Local `make test-review-reuse` | **158 passed** (not re-run; no product change) |
+| Sol wave32 | no P1/P2 |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |

@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: window 3 wave31 (reasonless adapter `different` stays different)  
+**HEAD at writing**: window 3 wave32 (`d46c6156`; Sol no P1/P2)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -133,6 +133,8 @@ make test-review-reuse
 | tests (3.10) / tests (3.11) / e2e-smoke on `b98e23a0` | **pass** |
 | Sol wave31 vs `origin/main` on `b98e23a0` | P2 restore similar only if stale `low_precision_score` existed |
 | `make test-review-reuse` after reasonless-different preserve | **158 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) / e2e-smoke on `d46c6156` | **pass** |
+| Sol wave32 vs `origin/main` on `d46c6156` | **no P1/P2** |
 
 ### CI (PR #586)
 
@@ -232,7 +234,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `b98e23a0` |
+| Python 3.10 CI job | **pass** on `d46c6156` |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |
