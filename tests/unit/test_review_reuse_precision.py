@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from typing import List
 
 import pytest
@@ -942,6 +943,83 @@ def test_zero_scale_insert_is_not_l4_geometry() -> None:
         [
             {
                 "candidate_id": "zscale",
+                "state": "similar",
+                "geom_json": bogus,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(bogus).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
+def test_omitted_ellipse_params_match_full_span() -> None:
+    omitted = {
+        "entities": [
+            {
+                "type": "ELLIPSE",
+                "center": [0.0, 0.0],
+                "major": [1.0, 0.0],
+                "ratio": 0.5,
+            }
+        ]
+    }
+    full = {
+        "entities": [
+            {
+                "type": "ELLIPSE",
+                "center": [0.0, 0.0],
+                "major": [1.0, 0.0],
+                "ratio": 0.5,
+                "start_param": 0.0,
+                "end_param": 2.0 * math.pi,
+            }
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "ell-full",
+                "state": "similar",
+                "geom_json": full,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(omitted).encode("utf-8"),
+    )
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") == 1.0
+    assert RejectionReason.low_precision_score.value not in out[0].rejection_reasons
+
+
+def test_nonfinite_insert_rotation_is_not_l4_geometry() -> None:
+    bogus = {
+        "entities": [
+            {
+                "type": "INSERT",
+                "block": "DOOR",
+                "insert": [10.0, 20.0],
+                "rotation": float("nan"),
+            }
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "nanrot",
                 "state": "similar",
                 "geom_json": bogus,
                 "methods": ["seed-adapter"],

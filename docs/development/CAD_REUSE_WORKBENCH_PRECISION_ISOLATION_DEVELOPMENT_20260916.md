@@ -110,6 +110,8 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 19. Wave45 on `f2acff4f`: independent `different` rejects (version-gate)
     no longer raise EvidencePack confidence. `tests (3.10)` / `(3.11)` /
     `e2e-smoke` **pass**. Sol still usage-limited.
+20. Wave50 on `2c32cae0`: Sol P2 omitted full-ellipse params must
+    canonicalize to `0..2π`; non-finite INSERT rotation is not L4.
 
 ## 6b. Window 3 plan (24h, auto-implement)
 
@@ -118,8 +120,8 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 **Landed:** Sol wave29 P2 — high L4 rescore restores `candidate.state` /
 `verification.verdict` when the only stale reason was `low_precision_score`.
 Independent `different` rejects no longer inflate pack confidence
-(`f2acff4f`). **This fire:** Sol wave45 still usage-limited; last
-completed Sol is wave32 (no P1/P2). Do not invent product tracks.
+(`f2acff4f`). Zero-sweep ELLIPSE rejected (`2c32cae0`). **This fire:**
+Sol wave50 P2 — fill omitted ellipse params; reject NaN INSERT rotation.
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.
@@ -161,6 +163,8 @@ Evaluation Report = Track E / ignore.
 | Stale `different` after high L4 rescore | `_restore_after_high_l4` sets similar + matching verdict |
 | Version-gate L4 1.0 inflates EvidencePack confidence | `_top_confidence` skips independent `different` rejects |
 | Zero-sweep ELLIPSE labeled precision-l4 | equal supplied `start_param`/`end_param` rejected like ARC |
+| Omitted ellipse params vs DXF 0..2π look different | `_canonical_geom` fills full-span params before L4 |
+| NaN/inf INSERT rotation labeled precision-l4 | `_is_geom_entity` requires finite rotation when present |
 | High L4 overrides version-gate `different` | restore similar only when no independent rejection remains |
 | High L4 promotes reasonless adapter `different` | restore only if `low_precision_score` existed before clear |
 | 24h unattended overreach | scheduler stops ~2026-09-19 17:00 UTC; never merge; never enable decisions |

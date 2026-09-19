@@ -216,6 +216,8 @@ def _is_geom_entity(ent: Any) -> bool:
                 return False
             if float(scale[0]) == 0.0 or float(scale[1]) == 0.0:
                 return False
+        if "rotation" in ent and not _finite_number(ent.get("rotation")):
+            return False
         return True
     return False
 
@@ -284,6 +286,12 @@ def _canonical_geom(obj: Dict[str, Any]) -> Dict[str, Any]:
         typ = item.get("type")
         if isinstance(typ, str):
             item["type"] = typ.upper()
+        # Omitted ellipse params mean a full ellipse. normalize_v2 would
+        # otherwise default both to 0.0 (zero-sweep) vs DXF 0..2π.
+        if item.get("type") == "ELLIPSE":
+            if "start_param" not in item and "end_param" not in item:
+                item["start_param"] = 0.0
+                item["end_param"] = 2.0 * math.pi
         canon.append(item)
     out["entities"] = canon
     return out
