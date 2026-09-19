@@ -114,7 +114,7 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 
 **Landed:** Sol wave29 P2 — high L4 rescore restores `candidate.state` /
 `verification.verdict` when the only stale reason was `low_precision_score`.
-**This fire:** Sol wave43 still usage-limited; last completed Sol is
+**This fire:** Sol wave44 still usage-limited; last completed Sol is
 wave32 (no P1/P2). Docs-only. Do not invent product tracks.
 
 **Then each 45m wave:**
