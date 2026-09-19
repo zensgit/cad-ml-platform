@@ -161,8 +161,9 @@ Cleanup refuses unreadable tenant meta on `395c0f5c`. Quantized geom
 gate on `9806f46b`. HATCH exclusion on `256068ce`. Layer-penalty pin
 on `48ec1243`. Polyline explode on `4362c886`. Matcher-cap raise on
 `1a99996f`. Unmatched penalty + hard cap on `167831f6`. Bulge/hash
-fail-closed on `66205333`. **This fire:** Sol P1 — preserve DXF bulge;
-refuse splines with more than 16 control points.
+fail-closed on `66205333`. DXF bulge + spline cap on `0414daca`.
+**This fire:** Sol P1 — unquantized bulge; spline count; per-INSERT
+hash; partial ellipse fail-closed.
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.

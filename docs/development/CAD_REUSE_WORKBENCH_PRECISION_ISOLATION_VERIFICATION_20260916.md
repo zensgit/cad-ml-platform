@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: window 3 wave65 (bulge fail-closed + block_hash veto)  
+**HEAD at writing**: window 3 wave67 (bulge/spline/INSERT/ellipse P1s)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -222,6 +222,8 @@ make test-review-reuse
 | DXF-extracted bulge is not chord L4 | `test_dxf_extracted_bulge_is_not_certified_as_straight_l4` |
 | Long splines are not prefix-certified | `test_long_splines_truncated_by_matcher_are_not_l4` |
 | `make test-review-reuse` after DXF bulge + spline cap | **184 passed**, 7 ezdxf warnings |
+| Sol wave67 vs `origin/main` on `0414daca` | P1 quantized bulge; spline prefix; swapped INSERT hashes; half-ellipses |
+| `make test-review-reuse` after wave67 P1s | **188 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

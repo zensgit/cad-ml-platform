@@ -476,6 +476,24 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave67 — 2026-09-19 ~10:35 UTC
+
+Sol 5.6 vs `origin/main` on `0414daca`: **P1** bulge 0.0004 quantized
+to 0 and exploded to a chord; **P1** 3 vs 16 spline controls with the
+same head scored 1.0; **P1** swapped INSERT hashes kept set equality;
+**P1** opposite half-ellipses 0..π vs π..2π scored 1.0 on span only.
+Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P1 bulge | `_bulge_is_unsafe` without 3-decimal rounding |
+| P1 spline counts | `_spline_control_counts` must match |
+| P1 INSERT identity | per (block, insert) hash compare |
+| P1 ellipse | partial ellipses are not L4 geom |
+| Local `make test-review-reuse` | **188 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave66 — 2026-09-19 ~10:22 UTC
 
 Sol 5.6 vs `origin/main` on `66205333`: **P1** `dxf_extract` stored
