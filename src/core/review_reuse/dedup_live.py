@@ -8,7 +8,9 @@ Does not call training paths or eval_integrity_gate.
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import mimetypes
+import threading
 from typing import Any, Dict, List
 
 from .dedup_adapter import optional_unit_score
@@ -125,18 +127,43 @@ def _run_coro(coro, *, timeout: float) -> Any:
         except asyncio.TimeoutError as exc:
             # 3.10: asyncio.TimeoutError is not a TimeoutError subclass.
             raise TimeoutError(str(exc) or "live recall timed out") from exc
-    import concurrent.futures
 
-    pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    loop = asyncio.new_event_loop()
+    started = threading.Event()
+
+    def _runner() -> None:
+        asyncio.set_event_loop(loop)
+        started.set()
+        loop.run_forever()
+
+    worker = threading.Thread(
+        target=_runner, name="review-reuse-live-recall", daemon=True
+    )
+    worker.start()
+    if not started.wait(timeout=1.0):
+        raise TimeoutError("live recall worker failed to start")
     try:
-        future = pool.submit(asyncio.run, bounded)
+        future = asyncio.run_coroutine_threadsafe(bounded, loop)
         try:
             return future.result(timeout=timeout)
         except (concurrent.futures.TimeoutError, asyncio.TimeoutError) as exc:
             future.cancel()
+
+            def _cancel_all() -> None:
+                for task in asyncio.all_tasks(loop):
+                    task.cancel()
+
+            loop.call_soon_threadsafe(_cancel_all)
             raise TimeoutError(str(exc) or "live recall timed out") from exc
     finally:
-        pool.shutdown(wait=False, cancel_futures=True)
+
+        def _stop() -> None:
+            loop.stop()
+
+        loop.call_soon_threadsafe(_stop)
+        worker.join(timeout=1.0)
+        if not worker.is_alive():
+            loop.close()
 
 
 def ensure_default_live_hook() -> None:

@@ -167,6 +167,8 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
     Hungarian ARC cost must include radius so concentric reorder is L4.
 46. Wave81 Sol P2s on `02fa35dd`: same-center/radius ARC reorder must
     L4; prefork workers must reopen the store flock fd.
+47. Wave82 Sol P2s on `bcc9cc76`: mid-flight decision must not hide a
+    later pipeline failure; live-recall timeout must stop the worker loop.
 
 ## 6b. Window 3 plan (24h, auto-implement)
 
@@ -191,8 +193,9 @@ strip + width/units on `e3357abd`. Wrapped ARC sweep + integral
 INSUNITS on `86e7c783` / `f45c6586`. Center-bound ARC pairing on
 `8957213a` / `04e97e8d`. Radius-bound pairing on `cc28e09b`.
 Bipartite pairing on `dfb0efe9`. Nearest-center + bool closed on
-`0604807b`. Pre-explode cap + radius cost on `02fa35dd`. **This fire:**
-Sol P2 — angle tie-break for same-center ARCs; reopen flock after fork.
+`0604807b`. Pre-explode cap + radius cost on `02fa35dd`. Angle
+tie-break + flock PID on `bcc9cc76`. **This fire:** Sol P2 — persist
+pipeline error on decided/canceled; cancel live-recall worker on timeout.
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.
@@ -228,7 +231,8 @@ Evaluation Report = Track E / ignore.
 | Pipeline overwrites cancel/decision | `store.update_atomically` checks terminal status and writes under one lock |
 | Decided task vs empty EvidencePack | rebuild pack after merging mid-flight candidates into the decided snapshot |
 | Terminal merge drops pipeline events | `_merge_append_only_events` keeps cancel/decision and fills recall/precision/pack |
-| Live recall hangs the AnyIO worker | `_run_coro` wraps the coroutine in `asyncio.wait_for` (120s) even with no loop |
+| Live recall hangs the AnyIO worker | `_run_coro` wait_for + cancel worker-loop tasks on timeout |
+| Mid-flight decision hides pipeline_failed | always raise; copy `task.error` onto terminal snapshot |
 | Cleanup deletes another tenant's legacy dir | hash-name fallback only when meta/tasks have no recorded identity |
 | Sidecar tenant A, tasks tenant B | treat as mixed/corrupt; refuse `--apply` |
 | Stale `different` after high L4 rescore | `_restore_after_high_l4` sets similar + matching verdict |

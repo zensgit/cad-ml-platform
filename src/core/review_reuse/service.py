@@ -162,15 +162,9 @@ class ReviewReuseService:
                 task, TaskEventType.failed, {"error": PIPELINE_FAILED_PUBLIC}
             )
             try:
-                committed = self._commit_pipeline_result(task)
+                self._commit_pipeline_result(task)
             except Exception:
                 logger.warning("review_reuse_failed_task_persist_failed", exc_info=True)
-                raise ReviewReuseError(
-                    "pipeline_failed",
-                    PIPELINE_FAILED_PUBLIC,
-                ) from exc
-            if committed.status in (TaskStatus.canceled, TaskStatus.decided):
-                return committed
             raise ReviewReuseError(
                 "pipeline_failed",
                 PIPELINE_FAILED_PUBLIC,
@@ -256,6 +250,11 @@ class ReviewReuseService:
                 current.events = _merge_append_only_events(
                     current.events, task.events
                 )
+                # Keep a concurrent cancel/decision, but do not drop the
+                # pipeline failure: GET/audit must still show the error.
+                if task.error and not current.error:
+                    current.error = task.error
+                    merged = True
                 if merged or len(current.events) != before_events:
                     current.updated_at = time.time()
                 return current

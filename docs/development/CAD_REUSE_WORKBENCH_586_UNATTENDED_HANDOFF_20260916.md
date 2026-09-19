@@ -476,6 +476,22 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave82 — 2026-09-19 ~14:26 UTC
+
+Sol 5.6 vs `origin/main` on `bcc9cc76`: **P2** mid-flight decision made
+`POST /tasks` return 200 with `status=decided` and no error after a
+pipeline boom; **P2** nested-loop live-recall timeout leaked the worker
+thread. Always raise `pipeline_failed` and persist `error`; cancel
+tasks on the worker loop then stop it. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 pipeline fail | `_commit_pipeline_result` copies `error`; always raise |
+| P2 live recall | `_run_coro` uses a dedicated loop and cancels on timeout |
+| Local `make test-review-reuse` | **221 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave81 — 2026-09-19 ~14:08 UTC
 
 Sol 5.6 vs `origin/main` on `02fa35dd`: **P2** same-center/radius

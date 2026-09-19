@@ -489,6 +489,52 @@ def test_pipeline_failed_persists_failed_task(monkeypatch: pytest.MonkeyPatch) -
         assert secret not in str(event.detail)
 
 
+def test_pipeline_failed_after_mid_flight_decision_keeps_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A concurrent decision must not hide a later pipeline failure."""
+    from src.core.review_reuse.models import TaskEventType, TaskStatus
+
+    monkeypatch.setenv(ENV_DECISIONS_ENABLED, "true")
+    svc = _svc()
+
+    def _decide_then_boom(*_a, **_k):
+        running = svc.list_tasks("t-dec-fail")
+        assert running
+        decided = svc.submit_decision(
+            tenant_id="t-dec-fail",
+            task_id=running[0].task_id,
+            state=HumanDecisionState.new,
+            reviewer_id="reviewer-1",
+        )
+        assert decided.status == TaskStatus.decided
+        raise RuntimeError("precision exploded")
+
+    monkeypatch.setattr(
+        "src.core.review_reuse.service.apply_precision", _decide_then_boom
+    )
+    with pytest.raises(ReviewReuseError) as ei:
+        svc.create_task(
+            tenant_id="t-dec-fail",
+            file_name="a.dxf",
+            file_bytes=b"x",
+            seed_candidates=[
+                {
+                    "candidate_id": "c1",
+                    "state": "similar",
+                    "scores": {"geometric": 0.9, "semantic": 0.8},
+                    "methods": ["precision-l4"],
+                }
+            ],
+        )
+    assert ei.value.code == "pipeline_failed"
+    stored = svc.list_tasks("t-dec-fail")[0]
+    assert stored.status == TaskStatus.decided
+    assert stored.error == "review-reuse pipeline failed"
+    assert any(e.event_type == TaskEventType.failed for e in stored.events)
+    assert any(e.event_type == TaskEventType.decision_submitted for e in stored.events)
+
+
 def test_low_precision_confidence_ignores_visual() -> None:
     from src.core.review_reuse.models import TaskStatus
 

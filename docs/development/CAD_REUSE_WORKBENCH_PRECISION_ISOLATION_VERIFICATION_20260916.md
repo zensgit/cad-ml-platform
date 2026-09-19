@@ -267,6 +267,9 @@ make test-review-reuse
 | Reordered same-center ARCs still L4 | `test_reordered_same_center_arcs_still_l4` |
 | Flock fd reopens after PID change | `test_store_file_lock_reopens_fd_after_pid_change` |
 | `make test-review-reuse` after ARC angle tie-break + flock PID | **220 passed**, 7 ezdxf warnings |
+| Sol wave82 vs `origin/main` on `bcc9cc76` | P2 decided+pipeline_failed; P2 live-recall worker cancel |
+| Decision then pipeline boom keeps error | `test_pipeline_failed_after_mid_flight_decision_keeps_error` |
+| `make test-review-reuse` after pipeline-fail + worker cancel | **221 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
