@@ -549,9 +549,9 @@ def _spline_signatures(geom: Dict[str, Any]) -> List[tuple[int, Optional[int]]]:
 
 def _arc_records(
     geom: Dict[str, Any],
-) -> Optional[List[tuple[tuple[float, float], float, float]]]:
-    """(quantized center, radius, CCW sweep). None if an ARC cannot be measured."""
-    records: List[tuple[tuple[float, float], float, float]] = []
+) -> Optional[List[tuple[tuple[float, float], float, float, float]]]:
+    """(center, radius, CCW sweep, start mod 360). None if unmeasurable."""
+    records: List[tuple[tuple[float, float], float, float, float]] = []
     ents = geom.get("entities")
     if not isinstance(ents, list):
         return records
@@ -576,10 +576,20 @@ def _arc_records(
         if raw_sweep is None:
             return None
         quantized = _quantized(raw_sweep)
-        if quantized is None:
+        start_mod = _quantized(start_q % 360.0)
+        if quantized is None or start_mod is None:
             return None
-        records.append((center, radius, quantized))
+        records.append((center, radius, quantized, start_mod))
     return records
+
+
+def _arc_angle_tie(
+    sweep: float, start: float, rsweep: float, rstart: float
+) -> float:
+    """Tiny cost so same-center/radius ARCs pair by span, not list order."""
+    dstart = abs(start - rstart) % 360.0
+    dstart = min(dstart, 360.0 - dstart)
+    return abs(sweep - rsweep) + dstart
 
 
 def _arc_sweeps_conflict(
@@ -612,9 +622,11 @@ def _arc_sweeps_conflict(
     if n == 0:
         return False
     inf = 1e9
+    # Angle tie-break must stay below a 0.001 center/radius mismatch.
+    angle_tie = 1e-6
     cost = [[inf] * n for _ in range(n)]
-    for i, (center, radius, _sweep) in enumerate(left_r):
-        for j, (rcenter, rradius, _rsweep) in enumerate(right_r):
+    for i, (center, radius, sweep, start) in enumerate(left_r):
+        for j, (rcenter, rradius, rsweep, rstart) in enumerate(right_r):
             dx = rcenter[0] - center[0]
             dy = rcenter[1] - center[1]
             dist = math.hypot(dx, dy)
@@ -623,7 +635,9 @@ def _arc_sweeps_conflict(
             dr = abs(rradius - radius)
             if dr > radius_tol:
                 continue
-            cost[i][j] = dist + dr
+            cost[i][j] = dist + dr + angle_tie * _arc_angle_tie(
+                sweep, start, rsweep, rstart
+            )
     from src.core.dedupcad_precision.vendor.entities_match import _hungarian
 
     assign, _total = _hungarian(cost)

@@ -165,6 +165,8 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
     L4; polyline ``closed: "false"`` must not explode a closer.
 45. Wave80 Sol P1/P2 on `0604807b`: cap entities/vertices before explode;
     Hungarian ARC cost must include radius so concentric reorder is L4.
+46. Wave81 Sol P2s on `02fa35dd`: same-center/radius ARC reorder must
+    L4; prefork workers must reopen the store flock fd.
 
 ## 6b. Window 3 plan (24h, auto-implement)
 
@@ -189,8 +191,8 @@ strip + width/units on `e3357abd`. Wrapped ARC sweep + integral
 INSUNITS on `86e7c783` / `f45c6586`. Center-bound ARC pairing on
 `8957213a` / `04e97e8d`. Radius-bound pairing on `cc28e09b`.
 Bipartite pairing on `dfb0efe9`. Nearest-center + bool closed on
-`0604807b`. **This fire:** Sol P1 — cap geom before explode; P2 include
-radius in ARC assignment cost.
+`0604807b`. Pre-explode cap + radius cost on `02fa35dd`. **This fire:**
+Sol P2 — angle tie-break for same-center ARCs; reopen flock after fork.
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.
@@ -215,7 +217,7 @@ Evaluation Report = Track E / ignore.
 | Stale vision_only after real L4 | `_clear_provisional_unverified` so `_top_confidence` can use the score |
 | Cross-tenant delete | mixed legacy dirs refused (`refused_mixed`, exit 1) |
 | Temp-file race on task/idem/meta JSON | `_atomic_write_text` unique `mkstemp` in the same dir, then replace |
-| Multi-worker cancel/decision/idempotency clobber | store-root flock (`_StoreFileLock`) around FS read-modify-write |
+| Multi-worker cancel/decision/idempotency clobber | store-root flock; reopen fd when PID changes after prefork |
 | Empty DXF extract labeled precision-l4 | `_extract_dxf_geom` / `_parse_query_geom` require `_is_geom_json` |
 | Lowercase `"line"` scored as unknown | `_canonical_geom` uppercases types before PrecisionVerifier |
 | `precision_score: true` becomes L4 1.0 | `optional_unit_score` rejects bool before Pydantic coerce |
@@ -259,6 +261,7 @@ Evaluation Report = Track E / ignore.
 | Greedy ARC pairing zeros identical reorder | Hungarian nearest-center then sweep check |
 | Nearby ARC sweep swap scores L4 ~0.9 | `_arc_sweeps_conflict` assigns by center+radius, not sweep |
 | Concentric near-radii reorder zeros L4 | Hungarian cost is center dist + radius delta |
+| Same-center/radius ARC reorder zeros L4 | tiny sweep/start tie-break in assignment cost |
 | ``closed: "false"`` explodes a closer | `_polyline_closed` requires a real bool |
 | Fractional INSUNITS 4.9 truncates to 4 | `_drawing_units` requires an integral value |
 | 24h unattended overreach | scheduler stops ~2026-09-19 17:00 UTC; never merge; never enable decisions |

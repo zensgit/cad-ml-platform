@@ -34,6 +34,7 @@ from src.core.review_reuse.store import (
     ENV_STORE_DIR,
     FilesystemReviewReuseStore,
     InMemoryReviewReuseStore,
+    _StoreFileLock,
     create_review_reuse_store,
     tenant_dir_key,
 )
@@ -457,6 +458,20 @@ def _fs_idempotent_put(root: str, task_id: str, result_path: str) -> None:
     )
     got = store.put_new_idempotent(task)
     Path(result_path).write_text(got.task_id, encoding="utf-8")
+
+
+def test_store_file_lock_reopens_fd_after_pid_change(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Prefork children must not flock the inherited file description."""
+    lock = _StoreFileLock(tmp_path / ".review_reuse.lock")
+    monkeypatch.setattr("src.core.review_reuse.store.os.getpid", lambda: 1001)
+    lock._ensure_fd()
+    assert lock._fd_pid == 1001
+    monkeypatch.setattr("src.core.review_reuse.store.os.getpid", lambda: 2002)
+    lock._ensure_fd()
+    assert lock._fd_pid == 2002
+    assert lock._fd is not None
 
 
 def test_filesystem_update_atomically_serializes_processes(tmp_path: Path) -> None:

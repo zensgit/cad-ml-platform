@@ -263,6 +263,10 @@ make test-review-reuse
 | Sol wave80 vs `origin/main` on `0604807b` | P1 cap before explode; P2 ARC radius in assignment |
 | Reordered concentric near-radii still L4 | `test_reordered_concentric_near_radii_still_l4` |
 | `make test-review-reuse` after pre-explode cap + radius cost | **218 passed**, 7 ezdxf warnings |
+| Sol wave81 vs `origin/main` on `02fa35dd` | P2 same-center ARC reorder; P2 flock reopen after fork |
+| Reordered same-center ARCs still L4 | `test_reordered_same_center_arcs_still_l4` |
+| Flock fd reopens after PID change | `test_store_file_lock_reopens_fd_after_pid_change` |
+| `make test-review-reuse` after ARC angle tie-break + flock PID | **220 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

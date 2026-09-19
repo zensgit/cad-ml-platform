@@ -476,6 +476,22 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave81 — 2026-09-19 ~14:08 UTC
+
+Sol 5.6 vs `origin/main` on `02fa35dd`: **P2** same-center/radius
+`ARC(0→90)` + `ARC(180→0)` reorder zeros L4; **P2** prefork workers
+inherit the parent's flock fd so `flock` is not exclusive. Angle
+tie-break; reopen lock fd when PID changes. Never merge; decisions
+stay off.
+
+| Item | State |
+|---|---|
+| P2 ARC tie-break | Hungarian cost adds 1e-6 sweep/start delta |
+| P2 flock fork | `_StoreFileLock._ensure_fd` reopens when PID changes |
+| Local `make test-review-reuse` | **220 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave80 — 2026-09-19 ~13:44 UTC
 
 Sol 5.6 vs `origin/main` on `0604807b`: **P1** the 128-entity cap ran

@@ -77,16 +77,29 @@ class _StoreFileLock:
         self._thread = threading.RLock()
         self._local = threading.local()
         self._fd: Optional[int] = None
+        self._fd_pid: Optional[int] = None
         self._fd_guard = threading.Lock()
 
     def _ensure_fd(self) -> int:
         with self._fd_guard:
+            pid = os.getpid()
+            # Prefork workers inherit the parent's open-file description;
+            # flock on that shared description is not exclusive across
+            # children. Reopen when the PID changes.
+            if self._fd is not None and self._fd_pid != pid:
+                try:
+                    os.close(self._fd)
+                except OSError:
+                    pass
+                self._fd = None
+                self._fd_pid = None
             if self._fd is None:
                 self._path.parent.mkdir(parents=True, exist_ok=True)
                 flags = os.O_RDWR | os.O_CREAT
                 if hasattr(os, "O_CLOEXEC"):
                     flags |= os.O_CLOEXEC
                 self._fd = os.open(str(self._path), flags, 0o644)
+                self._fd_pid = pid
             return self._fd
 
     def __enter__(self) -> "_StoreFileLock":
