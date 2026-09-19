@@ -569,15 +569,21 @@ def _arc_records(
 
 
 def _arc_sweeps_conflict(
-    left: Dict[str, Any], right: Dict[str, Any], *, angle_tol: float
+    left: Dict[str, Any],
+    right: Dict[str, Any],
+    *,
+    angle_tol: float,
+    center_tol: float,
 ) -> bool:
     """True when a matched ARC's CCW sweep differs beyond angle_tol.
 
-    Pair by quantized center so a near-full arc and a sliver cannot swap
-    between two locations and still match as sorted sweep bags. Radius
-    stays with PrecisionVerifier so near-similar radii are not zeroed.
+    Pair by center within ``tol_circle_center`` so a near-full arc and a
+    sliver cannot swap locations, while a 0.1 offset still reaches L4.
+    Radius stays with PrecisionVerifier.
     """
     if not math.isfinite(angle_tol) or angle_tol < 0.0:
+        return True
+    if not math.isfinite(center_tol) or center_tol < 0.0:
         return True
     left_r = _arc_records(left)
     right_r = _arc_records(right)
@@ -590,7 +596,11 @@ def _arc_sweeps_conflict(
         best_idx: Optional[int] = None
         best_delta: Optional[float] = None
         for idx, (rcenter, rsweep) in enumerate(right_r):
-            if idx in used or rcenter != center:
+            if idx in used:
+                continue
+            dx = rcenter[0] - center[0]
+            dy = rcenter[1] - center[1]
+            if math.hypot(dx, dy) > center_tol:
                 continue
             delta = abs(sweep - rsweep)
             if delta > angle_tol:
@@ -767,7 +777,10 @@ def _try_l4_score(
         if _spline_signatures(left) != _spline_signatures(right_g):
             return 0.0
         if _arc_sweeps_conflict(
-            left, right_g, angle_tol=float(cfg.tol_arc_angle_deg)
+            left,
+            right_g,
+            angle_tol=float(cfg.tol_arc_angle_deg),
+            center_tol=float(cfg.tol_circle_center),
         ):
             return 0.0
         scored = PrecisionVerifier(settings=cfg).score_pair(left, right_g)
