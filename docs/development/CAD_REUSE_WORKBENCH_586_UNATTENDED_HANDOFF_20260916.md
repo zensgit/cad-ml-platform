@@ -476,6 +476,25 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave73 — 2026-09-19 ~11:40 UTC
+
+Sol vs `origin/main` on `01ec8379`: **P1** live `geom_json` was
+forwarded into tenant GET/EvidencePack (cross-tenant geometry if
+search_2d is unscoped); **P2** nonzero polyline widths exploded to
+zero-width LINEs; **P2** DXF `$INSUNITS` was dropped so inch vs mm
+with the same numbers scored L4 1.0. Strip inline geom after L4;
+fail closed on width and unknown/mismatched units; extract cache v3.
+HEAD `e3357abd`. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P1 live geom_json | stripped after L4; EvidencePack/GET/audit have no key |
+| P2 polyline width | explode refuses nonzero/non-finite width |
+| P2 $INSUNITS | missing vs set, 0, or mismatch → no L4 |
+| Local `make test-review-reuse` | **208 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave72 — 2026-09-19 ~11:21 UTC
 
 Sol 5.6 vs `origin/main` on `9dfc3b87`: **P1** POINT/SOLID/3DFACE/XLINE

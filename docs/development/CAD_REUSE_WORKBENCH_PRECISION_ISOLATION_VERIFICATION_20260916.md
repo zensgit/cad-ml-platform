@@ -236,6 +236,13 @@ make test-review-reuse
 | LINE+POINT is not L4 | `test_line_plus_point_is_not_certified_as_l4` |
 | similar version-gate confidence stays 0 | `test_similar_version_gate_does_not_raise_confidence` |
 | `make test-review-reuse` after leftover-geom + confidence P2 | **198 passed**, 7 ezdxf warnings |
+| Sol wave73 vs `origin/main` on `01ec8379` | P1 live geom_json tenant leak; P2 polyline width explode; P2 $INSUNITS |
+| Live geom_json is L4-only then stripped | `test_precision_strips_inline_geom_json_after_l4` |
+| GET/EvidencePack/audit have no geom_json | `test_task_export_does_not_include_candidate_geom_json` |
+| Thick polyline is not zero-width L4 | `test_wide_polyline_is_not_certified_as_zero_width_l4` |
+| Inch vs mm same numbers are not L4 | `test_dxf_inch_vs_mm_same_numbers_are_not_l4` |
+| v2 extract cache without width is re-extracted | `test_legacy_v2_extract_cache_without_width_is_reextracted` |
+| `make test-review-reuse` after geom-strip/width/units | **208 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
