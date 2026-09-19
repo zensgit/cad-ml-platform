@@ -3233,6 +3233,43 @@ def test_swapped_nearby_arc_sweeps_are_not_certified() -> None:
     assert out[0].state == CandidateState.different
 
 
+def test_reordered_concentric_near_radii_still_l4() -> None:
+    """Identical concentric ARCs within radius_tol must L4 after reorder."""
+
+    def _arc(radius: float, end: float) -> dict:
+        return {
+            "type": "ARC",
+            "center": [0.0, 0.0],
+            "radius": radius,
+            "start_angle": 0.0,
+            "end_angle": end,
+        }
+
+    query = {"entities": [_arc(10.0, 90.0), _arc(10.3, 180.0)]}
+    other = {"entities": [_arc(10.3, 180.0), _arc(10.0, 90.0)]}
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "reorder-concentric",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    geo = out[0].scores.get("geometric")
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+    assert geo is not None
+    assert geo > LOW_PRECISION_THRESHOLD
+
+
 def test_reordered_nearby_arcs_still_l4() -> None:
     """Greedy sweep pairing must not zero identical ARCs listed in another order."""
 

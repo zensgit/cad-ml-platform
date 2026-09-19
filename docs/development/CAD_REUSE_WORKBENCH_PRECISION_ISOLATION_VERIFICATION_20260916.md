@@ -260,6 +260,9 @@ make test-review-reuse
 | Nearby ARC sweep swaps are not L4 | `test_swapped_nearby_arc_sweeps_are_not_certified` |
 | String ``closed: "false"`` is not L4 | `test_string_false_polyline_closed_is_not_certified` |
 | `make test-review-reuse` after nearest-center ARC + closed bool | **217 passed**, 7 ezdxf warnings |
+| Sol wave80 vs `origin/main` on `0604807b` | P1 cap before explode; P2 ARC radius in assignment |
+| Reordered concentric near-radii still L4 | `test_reordered_concentric_near_radii_still_l4` |
+| `make test-review-reuse` after pre-explode cap + radius cost | **218 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

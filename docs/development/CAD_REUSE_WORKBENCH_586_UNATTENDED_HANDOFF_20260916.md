@@ -476,6 +476,22 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave80 — 2026-09-19 ~13:44 UTC
+
+Sol 5.6 vs `origin/main` on `0604807b`: **P1** the 128-entity cap ran
+after polyline explode, so a huge vertex list could exhaust workers;
+**P2** concentric r=10/r=10.3 reorder could Hungarian-pair by list
+order and zero a valid L4. Cap before explode; add radius to assignment
+cost. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P1 cap | `_is_geom_json` / polyline vertex cap before explode |
+| P2 ARC cost | Hungarian `dist + abs(radius)` |
+| Local `make test-review-reuse` | **218 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave79 — 2026-09-19 ~13:22 UTC
 
 Sol 5.6 vs `origin/main` on `dfb0efe9`: **P1** nearby r=10 arcs at

@@ -265,7 +265,10 @@ def _is_geom_entity(ent: Any) -> bool:
     if et in ("LWPOLYLINE", "POLYLINE"):
         if _polyline_closed(ent) is None:
             return False
-        return _has_two_distinct_xy(ent.get("points"))
+        pts = ent.get("points")
+        if not isinstance(pts, list) or len(pts) > _L4_MAX_MATCH_ENTITIES:
+            return False
+        return _has_two_distinct_xy(pts)
     if et == "ELLIPSE":
         ratio = ent.get("ratio", 1.0)
         if not (
@@ -319,6 +322,8 @@ def _is_geom_json(obj: Any) -> bool:
         return False
     entities = obj.get("entities")
     if not isinstance(entities, list) or not entities:
+        return False
+    if len(entities) > _L4_MAX_MATCH_ENTITIES:
         return False
     has_valid = False
     for entity in entities:
@@ -615,9 +620,10 @@ def _arc_sweeps_conflict(
             dist = math.hypot(dx, dy)
             if dist > center_tol:
                 continue
-            if abs(rradius - radius) > radius_tol:
+            dr = abs(rradius - radius)
+            if dr > radius_tol:
                 continue
-            cost[i][j] = dist
+            cost[i][j] = dist + dr
     from src.core.dedupcad_precision.vendor.entities_match import _hungarian
 
     assign, _total = _hungarian(cost)
@@ -654,7 +660,11 @@ def _explode_polyline(entity: Dict[str, Any]) -> List[Dict[str, Any]]:
     if closed is None:
         return []
     pts = entity.get("points")
-    if not isinstance(pts, list) or len(pts) < 2:
+    if (
+        not isinstance(pts, list)
+        or len(pts) < 2
+        or len(pts) > _L4_MAX_MATCH_ENTITIES
+    ):
         return []
     vertices: List[List[float]] = []
     for point in pts:
@@ -791,6 +801,13 @@ def _try_l4_score(
             layer_mismatch_penalty=0.0,
             max_match_entities=_L4_MAX_MATCH_ENTITIES,
         )
+        # Cap before copy/explode: a million-vertex polyline must not
+        # materialize LINEs and then get rejected.
+        if (
+            _entity_count(query_geom) > _L4_MAX_MATCH_ENTITIES
+            or _entity_count(right) > _L4_MAX_MATCH_ENTITIES
+        ):
+            return None
         left = _geometry_only_geom(query_geom)
         right_g = _geometry_only_geom(right)
         left_n = _entity_count(left)
