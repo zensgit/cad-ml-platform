@@ -390,7 +390,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `e5da5144` |
+| Python 3.10 CI job | **pass** on `ea4c612f`; `adcd3b6e` in_progress at window-3 stop |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |

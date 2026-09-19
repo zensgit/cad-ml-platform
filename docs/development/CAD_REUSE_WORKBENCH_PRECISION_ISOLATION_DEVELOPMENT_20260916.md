@@ -198,8 +198,8 @@ tie-break + flock PID on `bcc9cc76`. Pipeline-fail + worker cancel on
 `37aac287`. Angle-only-on-equal-center + mixed cleanup grouping on
 `d1c3a93e`. Equal-spatial angle scale + DXF size cap on `ea4c612f`.
 Two-stage row/column equality on `e5cdc765`. Min-total tight edges on
-`ee1d21c6`. **This fire:** Sol P2 — bound JSON geom decode with
-`max_file_bytes`; stop live-recall worker if startup wait times out.
+`ee1d21c6`. JSON size cap + live-recall start-stop on `adcd3b6e`.
+**Window 3 closed** at 2026-09-19 17:00 UTC. No further auto-implement.
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.

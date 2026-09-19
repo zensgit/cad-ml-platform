@@ -476,6 +476,29 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Deadline reached — 2026-09-19 17:01 UTC
+
+Window-3 unattended loop stopped (`now` ≥ **2026-09-19 17:00 UTC**).
+No product coding this fire. Scheduler `01a0b5758345` deleted. PR
+monitor for #586 was still running; not killed. Never merge; decisions
+stay default-off.
+
+| Item | State |
+|---|---|
+| Branch | `eng/workbench-precision-isolation-20260915` |
+| HEAD | `adcd3b6e` — cap JSON geom decode; stop live-recall on start timeout |
+| Last fully green 3.10/3.11 | `ea4c612f` |
+| `lint-type` / `e2e-smoke` on `adcd3b6e` | **pass** |
+| `tests (3.10)` / `tests (3.11)` on `adcd3b6e` | in_progress at stop (not red) |
+| Local `make test-review-reuse` | **229 passed** (recorded after `adcd3b6e`) |
+| Last Sol 5.6 | wave89 P2s implemented on `adcd3b6e`; no further Sol this fire |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | **not done** (`blocked`; needs human review) |
+| Decisions | still default-off |
+
+Owner next: wait for 3.10 on `adcd3b6e`; human review of #586; do not
+enable `REVIEW_REUSE_DECISIONS_ENABLED`.
+
 ## Window 3 wave89 — 2026-09-19 ~16:50 UTC
 
 Sol 5.6 vs `origin/main` on `ee1d21c6`: **P2** JSON query geom decoded
