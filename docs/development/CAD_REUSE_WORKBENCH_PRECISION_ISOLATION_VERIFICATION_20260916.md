@@ -275,6 +275,10 @@ make test-review-reuse
 | Quantized 0.001 ARC sweep swaps are not L4 | `test_swapped_quantized_step_arc_sweeps_are_not_certified` |
 | `--tenant A --apply` keeps hashed A when mixed B holds A | `test_cleanup_tenant_apply_keeps_hashed_when_mixed_other_holds_tasks` |
 | `make test-review-reuse` after ARC tie-break + mixed grouping | **223 passed**, 7 ezdxf warnings |
+| Sol wave85 vs `origin/main` on `d1c3a93e` | P2 equal-spatial ARC angle; P2 DXF size cap |
+| Uniform-offset same-center ARC reorder still L4 | `test_reordered_uniform_offset_same_center_arcs_still_l4` |
+| Oversized DXF skips local extract | `test_oversized_dxf_extract_is_skipped` |
+| `make test-review-reuse` after equal-spatial ARC + DXF cap | **225 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

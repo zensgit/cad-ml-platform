@@ -195,10 +195,10 @@ INSUNITS on `86e7c783` / `f45c6586`. Center-bound ARC pairing on
 Bipartite pairing on `dfb0efe9`. Nearest-center + bool closed on
 `0604807b`. Pre-explode cap + radius cost on `02fa35dd`. Angle
 tie-break + flock PID on `bcc9cc76`. Pipeline-fail + worker cancel on
-`37aac287`. **This fire:** Sol P1 — ARC angle tie-break only when
-center+radius already match; cleanup groups every recorded identity so
-`--tenant A --apply` cannot rmtree A's hashed dir while a mixed B dir
-still holds A tasks.
+`37aac287`. Angle-only-on-equal-center + mixed cleanup grouping on
+`d1c3a93e`. **This fire:** Sol P2 — ARC angle is a lexicographic
+tie-break among equal spatial ranks (uniform offset reorder stays L4);
+skip local DXF extract over `DEDUPCAD2_MAX_FILE_MB` before write/parse.
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.

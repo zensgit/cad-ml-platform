@@ -476,6 +476,23 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave85 — 2026-09-19 ~15:25 UTC
+
+`lint-type` pass / `e2e-smoke` pass on `d1c3a93e`; `tests (3.10)` was
+still in progress at Sol start. Sol 5.6 vs `origin/main`: **P2**
+uniform-offset reordered ARCs lost angle tie-break when `base != 0`;
+**P2** local DXF extract wrote/parsed bytes over `DEDUPCAD2_MAX_FILE_MB`.
+Lexicographic spatial-then-angle cost; skip extract before write.
+Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 ARC equal-spatial | `_arc_sweeps_conflict` scales spatial then angle |
+| P2 DXF size cap | `_extract_dxf_geom` checks `_dxf_extract_limit_bytes` |
+| Local `make test-review-reuse` | **225 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave84 — 2026-09-19 ~15:10 UTC
 
 `tests (3.10)` / `tests (3.11)` **pass** on `37aac287`. Sol 5.6 vs

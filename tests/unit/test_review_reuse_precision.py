@@ -2523,6 +2523,46 @@ def test_malformed_entity_dict_is_not_l4_geometry() -> None:
     assert out[0].scores.get("geometric") is None
 
 
+def test_oversized_dxf_extract_is_skipped(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Skip local DXF parse before write when over DEDUPCAD2_MAX_FILE_MB."""
+    monkeypatch.setattr(
+        "src.core.review_reuse.precision._dxf_extract_limit_bytes",
+        lambda: 16,
+    )
+    called = {"n": 0}
+
+    def _boom(_path: Path) -> dict:
+        called["n"] += 1
+        raise AssertionError("must not parse oversized dxf")
+
+    monkeypatch.setattr(
+        "src.core.dedupcad_precision.cad_pipeline.extract_geom_json_from_dxf",
+        _boom,
+    )
+    geom = _line_geom()
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "arch-geom",
+                "state": "similar",
+                "geom_json": geom,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="a.dxf",
+    )
+    out = apply_precision(
+        cands,
+        file_name="huge.dxf",
+        file_bytes=b"0\nSECTION\n" + b"x" * 32,
+    )
+    assert called["n"] == 0
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+    assert out[0].scores.get("geometric") is None
+
+
 def test_empty_dxf_extract_is_not_l4_geometry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -3336,6 +3376,43 @@ def test_reordered_same_center_arcs_still_l4() -> None:
         [
             {
                 "candidate_id": "reorder-same-center",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    geo = out[0].scores.get("geometric")
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+    assert geo is not None
+    assert geo > LOW_PRECISION_THRESHOLD
+
+
+def test_reordered_uniform_offset_same_center_arcs_still_l4() -> None:
+    """Uniform center offset must still pair by sweep after reorder."""
+
+    def _arc(x: float, start: float, end: float) -> dict:
+        return {
+            "type": "ARC",
+            "center": [x, 0.0],
+            "radius": 10.0,
+            "start_angle": start,
+            "end_angle": end,
+        }
+
+    query = {"entities": [_arc(0.0, 0.0, 90.0), _arc(0.0, 180.0, 0.0)]}
+    other = {"entities": [_arc(0.001, 180.0, 0.0), _arc(0.001, 0.0, 90.0)]}
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "reorder-uniform-offset",
                 "state": "similar",
                 "geom_json": other,
                 "methods": ["seed-adapter"],

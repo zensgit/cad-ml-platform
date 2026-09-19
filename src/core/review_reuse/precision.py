@@ -85,9 +85,23 @@ def _looks_like_file_hash(value: str) -> bool:
     return len(value) == 64 and all(c in "0123456789abcdef" for c in value)
 
 
+def _dxf_extract_limit_bytes() -> int:
+    """Configured DXF parse cap (``DEDUPCAD2_MAX_FILE_MB`` / ``max_file_bytes``)."""
+    from src.core.dedupcad_precision.vendor.config import Settings
+
+    return int(Settings().max_file_bytes)
+
+
 def _extract_dxf_geom(file_bytes: bytes) -> Optional[Dict[str, Any]]:
     tmp_path: Optional[Path] = None
     try:
+        limit = _dxf_extract_limit_bytes()
+        if limit < 1 or len(file_bytes) > limit:
+            logger.debug(
+                "review_reuse_dxf_geom_extract_skipped_oversize",
+                extra={"n_bytes": len(file_bytes), "limit": limit},
+            )
+            return None
         with tempfile.NamedTemporaryFile(suffix=".dxf", delete=False) as tmp:
             tmp.write(file_bytes)
             tmp_path = Path(tmp.name)
@@ -622,10 +636,12 @@ def _arc_sweeps_conflict(
     if n == 0:
         return False
     inf = 1e9
-    # Angle is a tie-break only when center+radius already match. A 1e-6
-    # sweep term can outweigh a 0.001 quantized step and pair swapped
-    # nearby ARCs, so L4 would miss the sweep conflict (~0.995).
-    angle_tie = 1e-6
+    # Lexicographic: spatial first, angle among equal spatial ranks.
+    # Scale so a 1e-6 spatial gap outranks max sweep+start (~720), while a
+    # uniform nonzero offset (every pairing shares the same base) still
+    # pairs by sweep so reorder stays L4.
+    spatial_scale = 1e6
+    angle_scale = 1e-3
     cost = [[inf] * n for _ in range(n)]
     for i, (center, radius, sweep, start) in enumerate(left_r):
         for j, (rcenter, rradius, rsweep, rstart) in enumerate(right_r):
@@ -637,12 +653,9 @@ def _arc_sweeps_conflict(
             dr = abs(rradius - radius)
             if dr > radius_tol:
                 continue
-            base = dist + dr
-            cost[i][j] = base
-            if base == 0.0:
-                cost[i][j] = base + angle_tie * _arc_angle_tie(
-                    sweep, start, rsweep, rstart
-                )
+            cost[i][j] = (dist + dr) * spatial_scale + angle_scale * _arc_angle_tie(
+                sweep, start, rsweep, rstart
+            )
     from src.core.dedupcad_precision.vendor.entities_match import _hungarian
 
     assign, _total = _hungarian(cost)
