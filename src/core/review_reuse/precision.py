@@ -347,9 +347,16 @@ def _geometry_only_geom(obj: Dict[str, Any]) -> Dict[str, Any]:
     out = _canonical_geom(obj)
     ents = out.get("entities")
     if isinstance(ents, list):
-        out["entities"] = [
-            entity for entity in ents if _is_geom_entity(entity)
-        ]
+        cleaned: List[Any] = []
+        for entity in ents:
+            if not _is_geom_entity(entity):
+                continue
+            item = dict(entity)
+            # Per-entity layer names still feed layer_mismatch_penalty even
+            # when w_layers=0. Geometry-only L4 must ignore CAD layers.
+            item.pop("layer", None)
+            cleaned.append(item)
+        out["entities"] = cleaned
     out.pop("text_content", None)
     out.pop("dimensions", None)
     out.pop("hatches", None)
@@ -384,6 +391,7 @@ def _try_l4_score(
             w_dimensions=0.0,
             w_hatch_extra=0.0,
             entities_geom_hash=False,
+            layer_mismatch_penalty=0.0,
         )
         left = _geometry_only_geom(query_geom)
         right_g = _geometry_only_geom(right)

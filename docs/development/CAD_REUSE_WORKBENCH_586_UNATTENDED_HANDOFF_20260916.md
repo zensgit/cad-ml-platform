@@ -476,6 +476,20 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave61 — 2026-09-19 ~09:24 UTC
+
+Sol 5.6 vs `origin/main` on `256068ce`: **P2** `w_layers=0` does not
+clear `layer_mismatch_penalty`, so identical LINEs on different CAD
+layers can score 0 and be labeled `different`. Strip entity `layer`
+and force `layer_mismatch_penalty=0`. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 layer penalty | strip `layer`; Settings `layer_mismatch_penalty=0` |
+| Local `make test-review-reuse` | **175 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave60 — 2026-09-19 ~09:15 UTC
 
 Sol 5.6 vs `origin/main` on `9806f46b`: **P2** `_geometry_only_geom`

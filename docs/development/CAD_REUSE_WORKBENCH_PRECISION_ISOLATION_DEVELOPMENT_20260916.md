@@ -132,6 +132,8 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
     after verifier 3-decimal rounding must not be L4 geometry.
 30. Wave60 Sol P2 on `9806f46b`: HATCH proxies must not dominate
     geometry-only L4 scores.
+31. Wave61 Sol P2 on `256068ce`: per-entity `layer_mismatch_penalty`
+    must not reject identical geometry on different CAD layers.
 
 ## 6b. Window 3 plan (24h, auto-implement)
 
@@ -146,8 +148,9 @@ forward on `d31a9942`. Non-finite local L4 + unreadable meta on
 `eebaf117`. Geometry-only L4 on `fa3eb91d`. Positional L4 + ignore
 live fused scores on `a3d97c35`. Geom-hash pin on `b86733a4`.
 Cleanup refuses unreadable tenant meta on `395c0f5c`. Quantized geom
-gate on `9806f46b`. **This fire:** Sol P2 — drop HATCH from
-geometry-only L4. Do not invent product tracks.
+gate on `9806f46b`. HATCH exclusion on `256068ce`. **This fire:**
+Sol P2 — zero per-entity layer mismatch penalty in geometry-only L4.
+Do not invent product tracks.
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.
@@ -198,4 +201,5 @@ Evaluation Report = Track E / ignore.
 | High L4 promotes reasonless adapter `different` | restore only if `low_precision_score` existed before clear |
 | Env `CAD_ML_PLATFORM_L4_ENTITIES_GEOM_HASH=1` recertifies shifted clones | `_try_l4_score` replace() forces `entities_geom_hash=False` |
 | Sub-0.001 LINEs/radii collapse to identical zero-length L4 | `_is_geom_entity` + post-normalize `_is_geom_json` use 3-decimal quant |
+| Layer names reject identical geometry via entity penalty | strip `layer`; `layer_mismatch_penalty=0` in L4 Settings |
 | 24h unattended overreach | scheduler stops ~2026-09-19 17:00 UTC; never merge; never enable decisions |

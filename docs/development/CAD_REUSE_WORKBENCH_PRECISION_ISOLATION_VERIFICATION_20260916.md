@@ -201,6 +201,9 @@ make test-review-reuse
 | Sol wave60 vs `origin/main` on `9806f46b` | P2 HATCH proxies inflate geometry-only L4 |
 | Shared HATCH does not certify different geometry | `test_shared_hatch_does_not_certify_different_geometry` |
 | `make test-review-reuse` after HATCH exclusion | **174 passed**, 7 ezdxf warnings |
+| Sol wave61 vs `origin/main` on `256068ce` | P2 per-entity layer penalty rejects identical geometry |
+| Layer mismatch does not reject identical LINEs | `test_layer_mismatch_does_not_reject_identical_geometry` |
+| `make test-review-reuse` after layer-penalty pin | **175 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

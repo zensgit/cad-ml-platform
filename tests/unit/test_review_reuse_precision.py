@@ -1295,6 +1295,54 @@ def test_valid_line_with_unknown_type_still_l4() -> None:
     assert RejectionReason.missing_geom_json.value not in out[0].rejection_reasons
 
 
+def test_layer_mismatch_does_not_reject_identical_geometry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Per-entity layer_mismatch_penalty must not change geometry-only L4."""
+    monkeypatch.setenv("DEDUPCAD2_LAYER_MISMATCH_PENALTY", "1")
+    query = {
+        "entities": [
+            {
+                "type": "LINE",
+                "layer": "A",
+                "start": [0.0, 0.0],
+                "end": [10.0, 0.0],
+            }
+        ]
+    }
+    other = {
+        "entities": [
+            {
+                "type": "LINE",
+                "layer": "B",
+                "start": [0.0, 0.0],
+                "end": [10.0, 0.0],
+            }
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "layer-mismatch",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") == 1.0
+    assert RejectionReason.low_precision_score.value not in out[0].rejection_reasons
+    assert out[0].state == CandidateState.similar
+
+
 def test_shared_text_does_not_certify_different_geometry() -> None:
     """Orthogonal LINEs plus identical TEXT must not pass the L4 threshold."""
     query = {
