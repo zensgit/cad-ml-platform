@@ -540,12 +540,12 @@ def _spline_signatures(geom: Dict[str, Any]) -> List[tuple[int, Optional[int]]]:
     return sorted(sigs)
 
 
-def _arc_signatures(geom: Dict[str, Any]) -> List[tuple[Any, ...]]:
-    """Directed CCW sweep, not modulo-360 endpoint pairing."""
-    sigs: List[tuple[Any, ...]] = []
+def _arc_sweeps(geom: Dict[str, Any]) -> Optional[List[float]]:
+    """Directed CCW sweep degrees. None if an ARC cannot be measured."""
+    sweeps: List[float] = []
     ents = geom.get("entities")
     if not isinstance(ents, list):
-        return sigs
+        return sweeps
     for entity in ents:
         if not isinstance(entity, dict):
             continue
@@ -553,22 +553,35 @@ def _arc_signatures(geom: Dict[str, Any]) -> List[tuple[Any, ...]]:
             continue
         start_q = _quantized(entity.get("start_angle"))
         end_q = _quantized(entity.get("end_angle"))
-        sweep = None
-        start_mod = None
-        if start_q is not None and end_q is not None:
-            raw_sweep = _ccw_sweep_deg(start_q, end_q)
-            if raw_sweep is not None:
-                sweep = _quantized(raw_sweep)
-            start_mod = _quantized(start_q % 360.0)
-        sigs.append(
-            (
-                _quantized_xy(entity.get("center")),
-                _quantized(entity.get("radius")),
-                start_mod,
-                sweep,
-            )
-        )
-    return sorted(sigs)
+        if start_q is None or end_q is None:
+            return None
+        raw_sweep = _ccw_sweep_deg(start_q, end_q)
+        if raw_sweep is None:
+            return None
+        quantized = _quantized(raw_sweep)
+        if quantized is None:
+            return None
+        sweeps.append(quantized)
+    return sorted(sweeps)
+
+
+def _arc_sweeps_conflict(
+    left: Dict[str, Any], right: Dict[str, Any], *, angle_tol: float
+) -> bool:
+    """True when CCW sweeps differ beyond the verifier's ARC angle tolerance.
+
+    Center/radius/start stay with PrecisionVerifier; this only blocks the
+    modulo-endpoint false match (near-full vs tiny sliver).
+    """
+    if not math.isfinite(angle_tol) or angle_tol < 0.0:
+        return True
+    left_s = _arc_sweeps(left)
+    right_s = _arc_sweeps(right)
+    if left_s is None or right_s is None:
+        return True
+    if len(left_s) != len(right_s):
+        return True
+    return any(abs(a - b) > angle_tol for a, b in zip(left_s, right_s))
 
 
 def _explode_polyline(entity: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -733,7 +746,9 @@ def _try_l4_score(
             return 0.0
         if _spline_signatures(left) != _spline_signatures(right_g):
             return 0.0
-        if _arc_signatures(left) != _arc_signatures(right_g):
+        if _arc_sweeps_conflict(
+            left, right_g, angle_tol=float(cfg.tol_arc_angle_deg)
+        ):
             return 0.0
         scored = PrecisionVerifier(settings=cfg).score_pair(left, right_g)
         score = scored.score
