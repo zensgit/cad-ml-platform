@@ -476,6 +476,22 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave65 — 2026-09-19 ~10:12 UTC
+
+Sol 5.6 vs `origin/main` on `167831f6`: **P1** exploding LWPOLYLINE
+drops bulge, so a semicircle and its chord scored L4 1.0; **P1** same
+INSERT pose with different `block_hash` fused to 0.5556 and passed
+the L4 threshold. Fail closed on bulge; veto hash mismatch as 0.0.
+Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P1 bulge | `_polyline_has_bulge` empties geometry-only entities |
+| P1 block_hash | `_insert_block_hash_conflict` returns 0.0 |
+| Local `make test-review-reuse` | **182 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave64 — 2026-09-19 ~10:03 UTC
 
 Sol 5.6 vs `origin/main` on `1a99996f`: **P1** `entities_similarity`

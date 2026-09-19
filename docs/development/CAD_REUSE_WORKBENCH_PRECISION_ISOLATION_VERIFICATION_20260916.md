@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: window 3 wave63 (polyline matcher cap)  
+**HEAD at writing**: window 3 wave65 (bulge fail-closed + block_hash veto)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -214,6 +214,10 @@ make test-review-reuse
 | Extra unmatched LINE is not L4 1.0 | `test_extra_unmatched_line_is_not_certified` |
 | Over-cap geometry is not prefix-certified | `test_over_cap_geometry_is_not_certified_as_l4` |
 | `make test-review-reuse` after unmatched penalty + hard cap | **180 passed**, 7 ezdxf warnings |
+| Sol wave65 vs `origin/main` on `167831f6` | P1 bulged polyline exploded to chord; P1 INSERT hash 0.5556 L4 |
+| Bulged polyline is not straight L4 | `test_bulged_polyline_is_not_certified_as_straight_l4` |
+| Mismatched INSERT block_hash is not L4 | `test_mismatched_insert_block_hash_is_not_certified` |
+| `make test-review-reuse` after bulge/hash P1s | **182 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

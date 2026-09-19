@@ -340,6 +340,54 @@ def _canonical_geom(obj: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
+def _vertex_bulge(point: Any) -> Optional[float]:
+    if isinstance(point, dict):
+        return _quantized(point.get("bulge", 0.0))
+    if isinstance(point, (list, tuple)) and len(point) >= 5:
+        return _quantized(point[4])
+    return 0.0
+
+
+def _polyline_has_bulge(entity: Dict[str, Any]) -> bool:
+    """True when a polyline encodes a curved segment we would drop as LINE."""
+    raw_bulges = entity.get("bulges")
+    if isinstance(raw_bulges, list) and any(
+        (b := _quantized(item)) is not None and b != 0.0 for item in raw_bulges
+    ):
+        return True
+    pts = entity.get("points")
+    if not isinstance(pts, list):
+        return False
+    for point in pts:
+        bulge = _vertex_bulge(point)
+        if bulge is not None and bulge != 0.0:
+            return True
+    return False
+
+
+def _insert_block_hashes(geom: Dict[str, Any]) -> set[str]:
+    found: set[str] = set()
+    ents = geom.get("entities")
+    if not isinstance(ents, list):
+        return found
+    for entity in ents:
+        if not isinstance(entity, dict):
+            continue
+        if str(entity.get("type") or "").upper() != "INSERT":
+            continue
+        bhash = entity.get("block_hash")
+        if isinstance(bhash, str) and bhash.strip():
+            found.add(bhash.strip())
+    return found
+
+
+def _insert_block_hash_conflict(left: Dict[str, Any], right: Dict[str, Any]) -> bool:
+    """Different non-empty block hashes must not pass L4 (fused 0.55+)."""
+    left_h = _insert_block_hashes(left)
+    right_h = _insert_block_hashes(right)
+    return bool(left_h) and bool(right_h) and left_h != right_h
+
+
 def _explode_polyline(entity: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Turn a polyline into absolute LINE segments.
 
@@ -389,6 +437,11 @@ def _geometry_only_geom(obj: Dict[str, Any]) -> Dict[str, Any]:
             item.pop("layer", None)
             et = str(item.get("type") or "").upper()
             if et in ("LWPOLYLINE", "POLYLINE"):
+                # Straight-LINE explode drops bulge; fail closed rather than
+                # certify a semicircle as the chord between the same endpoints.
+                if _polyline_has_bulge(item):
+                    out["entities"] = []
+                    return out
                 cleaned.extend(_explode_polyline(item))
             else:
                 cleaned.append(item)
@@ -457,6 +510,8 @@ def _try_l4_score(
             normalize_v2(right_g, cfg)
         ):
             return None
+        if _insert_block_hash_conflict(left, right_g):
+            return 0.0
         scored = PrecisionVerifier(settings=cfg).score_pair(left, right_g)
         score = scored.score
         if not _is_finite_unit_score(score):

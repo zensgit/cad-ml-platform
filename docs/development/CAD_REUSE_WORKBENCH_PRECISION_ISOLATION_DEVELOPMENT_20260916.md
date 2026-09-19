@@ -140,6 +140,8 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
     64-entity matcher cap must still affect L4.
 34. Wave64 Sol P1s on `1a99996f`: unmatched extra entities must not
     score L4 1.0; matcher cap must stay a hard bound.
+35. Wave65 Sol P1s on `167831f6`: bulged polylines must not explode to
+    chords; INSERT `block_hash` mismatch must not pass L4.
 
 ## 6b. Window 3 plan (24h, auto-implement)
 
@@ -156,8 +158,8 @@ live fused scores on `a3d97c35`. Geom-hash pin on `b86733a4`.
 Cleanup refuses unreadable tenant meta on `395c0f5c`. Quantized geom
 gate on `9806f46b`. HATCH exclusion on `256068ce`. Layer-penalty pin
 on `48ec1243`. Polyline explode on `4362c886`. Matcher-cap raise on
-`1a99996f`. **This fire:** Sol P1 — unmatched-entity penalty + hard
-128-entity cap (no unbounded matcher).
+`1a99996f`. Unmatched penalty + hard cap on `167831f6`. **This fire:**
+Sol P1 — fail closed on polyline bulge; veto INSERT block_hash mismatch.
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.

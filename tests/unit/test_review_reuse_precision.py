@@ -1593,6 +1593,90 @@ def test_long_polylines_diverging_after_matcher_cap_are_not_certified() -> None:
     assert out[0].state == CandidateState.different
 
 
+def test_bulged_polyline_is_not_certified_as_straight_l4() -> None:
+    """A chord LINE must not match a bulged LWPOLYLINE with the same ends."""
+    query = {
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
+        ]
+    }
+    other = {
+        "entities": [
+            {
+                "type": "LWPOLYLINE",
+                "points": [[0.0, 0.0, 0.0, 0.0, 1.0], [10.0, 0.0]],
+            }
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "bulge",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
+def test_mismatched_insert_block_hash_is_not_certified() -> None:
+    """Same INSERT pose with different block_hash must not pass L4."""
+    query = {
+        "entities": [
+            {
+                "type": "INSERT",
+                "block": "DOOR",
+                "insert": [0.0, 0.0],
+                "block_hash": "aaa",
+            }
+        ]
+    }
+    other = {
+        "entities": [
+            {
+                "type": "INSERT",
+                "block": "DOOR",
+                "insert": [0.0, 0.0],
+                "block_hash": "bbb",
+            }
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "blk-hash",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    geo = out[0].scores.get("geometric")
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+    assert geo is not None
+    assert geo < LOW_PRECISION_THRESHOLD
+    assert RejectionReason.low_precision_score.value in out[0].rejection_reasons
+    assert out[0].state == CandidateState.different
+
+
 def test_extra_unmatched_line_is_not_certified() -> None:
     """A subset LINE match plus extra geometry must not score L4 1.0."""
     query = {
