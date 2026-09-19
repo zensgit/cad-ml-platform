@@ -476,6 +476,20 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave77 — 2026-09-19 ~12:42 UTC
+
+Sol 5.6 vs `origin/main` on `cc28e09b`: **P2** greedy ARC pairing
+consumes the only valid neighbor and zeros identical nearby ARCs
+listed in another order. Bipartite matching. Never merge; decisions
+stay off.
+
+| Item | State |
+|---|---|
+| P2 ARC order | `_arc_sweeps_conflict` Kuhn matching on center/radius/sweep |
+| Local `make test-review-reuse` | **215 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave76 — 2026-09-19 ~12:22 UTC
 
 Sol 5.6 vs `origin/main` on `04e97e8d`: **P1** concentric r=10/r=20

@@ -3168,6 +3168,43 @@ def test_near_similar_arc_radius_is_not_forced_to_zero() -> None:
     assert geo > LOW_PRECISION_THRESHOLD
 
 
+def test_reordered_nearby_arcs_still_l4() -> None:
+    """Greedy sweep pairing must not zero identical ARCs listed in another order."""
+
+    def _arc(x: float, end: float) -> dict:
+        return {
+            "type": "ARC",
+            "center": [x, 0.0],
+            "radius": 10.0,
+            "start_angle": 0.0,
+            "end_angle": end,
+        }
+
+    query = {"entities": [_arc(0.0, 90.0), _arc(0.3, 90.0), _arc(0.6, 90.0)]}
+    other = {"entities": [_arc(0.6, 90.0), _arc(0.3, 90.0), _arc(0.0, 90.0)]}
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "reorder-arc",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    geo = out[0].scores.get("geometric")
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+    assert geo is not None
+    assert geo > LOW_PRECISION_THRESHOLD
+
+
 def test_near_similar_arc_center_is_not_forced_to_zero() -> None:
     """Center offset 0.1 is inside tol_circle_center; do not zero the score."""
     query = {

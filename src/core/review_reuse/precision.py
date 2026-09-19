@@ -586,8 +586,8 @@ def _arc_sweeps_conflict(
     """True when a matched ARC's CCW sweep differs beyond angle_tol.
 
     Pair by center and radius within verifier tolerances so concentric
-    near-full/sliver swaps cannot match by sweep alone. Near-similar
-    radius/center still reach L4.
+    near-full/sliver swaps cannot match by sweep alone. Use bipartite
+    matching so nearby ARC order cannot steal the only valid pair.
     """
     if not math.isfinite(angle_tol) or angle_tol < 0.0:
         return True
@@ -601,29 +601,32 @@ def _arc_sweeps_conflict(
         return True
     if len(left_r) != len(right_r):
         return True
-    used: set[int] = set()
-    for center, radius, sweep in left_r:
-        best_idx: Optional[int] = None
-        best_delta: Optional[float] = None
-        for idx, (rcenter, rradius, rsweep) in enumerate(right_r):
-            if idx in used:
-                continue
+    n = len(left_r)
+    compat: List[List[int]] = [[] for _ in range(n)]
+    for i, (center, radius, sweep) in enumerate(left_r):
+        for j, (rcenter, rradius, rsweep) in enumerate(right_r):
             dx = rcenter[0] - center[0]
             dy = rcenter[1] - center[1]
             if math.hypot(dx, dy) > center_tol:
                 continue
             if abs(rradius - radius) > radius_tol:
                 continue
-            delta = abs(sweep - rsweep)
-            if delta > angle_tol:
+            if abs(sweep - rsweep) > angle_tol:
                 continue
-            if best_delta is None or delta < best_delta:
-                best_delta = delta
-                best_idx = idx
-        if best_idx is None:
-            return True
-        used.add(best_idx)
-    return False
+            compat[i].append(j)
+    match_right = [-1] * n
+
+    def _augment(i: int, seen: set[int]) -> bool:
+        for j in compat[i]:
+            if j in seen:
+                continue
+            seen.add(j)
+            if match_right[j] == -1 or _augment(match_right[j], seen):
+                match_right[j] = i
+                return True
+        return False
+
+    return any(not _augment(i, set()) for i in range(n))
 
 
 def _explode_polyline(entity: Dict[str, Any]) -> List[Dict[str, Any]]:
