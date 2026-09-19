@@ -540,20 +540,23 @@ def _spline_signatures(geom: Dict[str, Any]) -> List[tuple[int, Optional[int]]]:
     return sorted(sigs)
 
 
-def _arc_sweeps(geom: Dict[str, Any]) -> Optional[List[float]]:
-    """Directed CCW sweep degrees. None if an ARC cannot be measured."""
-    sweeps: List[float] = []
+def _arc_records(
+    geom: Dict[str, Any],
+) -> Optional[List[tuple[tuple[float, float], float]]]:
+    """(quantized center, CCW sweep). None if an ARC cannot be measured."""
+    records: List[tuple[tuple[float, float], float]] = []
     ents = geom.get("entities")
     if not isinstance(ents, list):
-        return sweeps
+        return records
     for entity in ents:
         if not isinstance(entity, dict):
             continue
         if str(entity.get("type") or "").upper() != "ARC":
             continue
+        center = _quantized_xy(entity.get("center"))
         start_q = _quantized(entity.get("start_angle"))
         end_q = _quantized(entity.get("end_angle"))
-        if start_q is None or end_q is None:
+        if center is None or start_q is None or end_q is None:
             return None
         raw_sweep = _ccw_sweep_deg(start_q, end_q)
         if raw_sweep is None:
@@ -561,27 +564,44 @@ def _arc_sweeps(geom: Dict[str, Any]) -> Optional[List[float]]:
         quantized = _quantized(raw_sweep)
         if quantized is None:
             return None
-        sweeps.append(quantized)
-    return sorted(sweeps)
+        records.append((center, quantized))
+    return records
 
 
 def _arc_sweeps_conflict(
     left: Dict[str, Any], right: Dict[str, Any], *, angle_tol: float
 ) -> bool:
-    """True when CCW sweeps differ beyond the verifier's ARC angle tolerance.
+    """True when a matched ARC's CCW sweep differs beyond angle_tol.
 
-    Center/radius/start stay with PrecisionVerifier; this only blocks the
-    modulo-endpoint false match (near-full vs tiny sliver).
+    Pair by quantized center so a near-full arc and a sliver cannot swap
+    between two locations and still match as sorted sweep bags. Radius
+    stays with PrecisionVerifier so near-similar radii are not zeroed.
     """
     if not math.isfinite(angle_tol) or angle_tol < 0.0:
         return True
-    left_s = _arc_sweeps(left)
-    right_s = _arc_sweeps(right)
-    if left_s is None or right_s is None:
+    left_r = _arc_records(left)
+    right_r = _arc_records(right)
+    if left_r is None or right_r is None:
         return True
-    if len(left_s) != len(right_s):
+    if len(left_r) != len(right_r):
         return True
-    return any(abs(a - b) > angle_tol for a, b in zip(left_s, right_s))
+    used: set[int] = set()
+    for center, sweep in left_r:
+        best_idx: Optional[int] = None
+        best_delta: Optional[float] = None
+        for idx, (rcenter, rsweep) in enumerate(right_r):
+            if idx in used or rcenter != center:
+                continue
+            delta = abs(sweep - rsweep)
+            if delta > angle_tol:
+                continue
+            if best_delta is None or delta < best_delta:
+                best_delta = delta
+                best_idx = idx
+        if best_idx is None:
+            return True
+        used.add(best_idx)
+    return False
 
 
 def _explode_polyline(entity: Dict[str, Any]) -> List[Dict[str, Any]]:

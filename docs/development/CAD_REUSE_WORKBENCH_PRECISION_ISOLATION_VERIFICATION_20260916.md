@@ -247,6 +247,9 @@ make test-review-reuse
 | Wrapped ARC sweeps are not L4 | `test_wrapped_arc_sweeps_are_not_certified` |
 | Fractional INSUNITS is not L4 | `test_fractional_insunits_is_not_certified` |
 | `make test-review-reuse` after ARC sweep + integral units | **210 passed**, 7 ezdxf warnings |
+| Sol wave75 vs `origin/main` on `f45c6586` | P2 swapped multi-arc sweeps |
+| Swapped multi-arc sweeps are not L4 | `test_swapped_multi_arc_sweeps_are_not_certified` |
+| `make test-review-reuse` after center-bound ARC sweeps | **212 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

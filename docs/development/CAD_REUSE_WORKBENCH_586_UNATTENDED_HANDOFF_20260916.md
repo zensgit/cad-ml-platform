@@ -476,6 +476,19 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave75 — 2026-09-19 ~12:02 UTC
+
+Sol 5.6 vs `origin/main` on `f45c6586`: **P2** sorted ARC sweep bags
+let a 359.9° arc and a 0.1° arc swap centers and still score ~0.9 L4.
+Pair sweeps by quantized center. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 ARC identity | `_arc_records` / `_arc_sweeps_conflict` pair by center |
+| Local `make test-review-reuse` | **212 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave74 — 2026-09-19 ~11:43 UTC
 
 Sol 5.6 vs `origin/main` on `e3357abd`: **P1** vendor ARC matching
