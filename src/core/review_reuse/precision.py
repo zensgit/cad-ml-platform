@@ -337,12 +337,41 @@ def _canonical_geom(obj: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
+def _explode_polyline(entity: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Turn a polyline into absolute LINE segments.
+
+    PrecisionVerifier canonicalizes each polyline (translate/scale/rotate)
+    before matching, so identical shapes at different coordinates score ~1.0.
+    LINE matching is positional.
+    """
+    pts = entity.get("points")
+    if not isinstance(pts, list) or len(pts) < 2:
+        return []
+    vertices: List[List[float]] = []
+    for point in pts:
+        if not _xy(point):
+            continue
+        vertices.append([float(point[0]), float(point[1])])
+    if len(vertices) < 2:
+        return []
+    segments = list(zip(vertices, vertices[1:]))
+    if bool(entity.get("closed")) and len(vertices) >= 3:
+        segments.append((vertices[-1], vertices[0]))
+    lines: List[Dict[str, Any]] = []
+    for start, end in segments:
+        if not _distinct_xy(start, end):
+            continue
+        lines.append({"type": "LINE", "start": start, "end": end})
+    return lines
+
+
 def _geometry_only_geom(obj: Dict[str, Any]) -> Dict[str, Any]:
     """Canonical geom restricted to validated geometric primitives.
 
     PrecisionVerifier fuses text/layers/dimensions/HATCH into ``score``.
     Shared TEXT or HATCH next to different LINEs can then exceed
     LOW_PRECISION_THRESHOLD and be certified as L4 similar.
+    Polylines are exploded to LINEs so translated clones stay positional.
     """
     out = _canonical_geom(obj)
     ents = out.get("entities")
@@ -355,7 +384,11 @@ def _geometry_only_geom(obj: Dict[str, Any]) -> Dict[str, Any]:
             # Per-entity layer names still feed layer_mismatch_penalty even
             # when w_layers=0. Geometry-only L4 must ignore CAD layers.
             item.pop("layer", None)
-            cleaned.append(item)
+            et = str(item.get("type") or "").upper()
+            if et in ("LWPOLYLINE", "POLYLINE"):
+                cleaned.extend(_explode_polyline(item))
+            else:
+                cleaned.append(item)
         out["entities"] = cleaned
     out.pop("text_content", None)
     out.pop("dimensions", None)

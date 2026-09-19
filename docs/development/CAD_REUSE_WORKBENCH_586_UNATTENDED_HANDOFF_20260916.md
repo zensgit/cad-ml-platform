@@ -476,6 +476,21 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave62 — 2026-09-19 ~09:43 UTC
+
+Sol 5.6 vs `origin/main` on `48ec1243`: **P1** PrecisionVerifier
+canonicalizes each `LWPOLYLINE`/`POLYLINE` (translate/scale/rotate)
+so identical shapes at different coordinates score ~1.0 and are
+certified `precision-l4`. Explode polylines to positional LINEs.
+Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P1 polyline pose | `_explode_polyline` before PrecisionVerifier |
+| Local `make test-review-reuse` | **177 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave61 — 2026-09-19 ~09:24 UTC
 
 Sol 5.6 vs `origin/main` on `256068ce`: **P2** `w_layers=0` does not

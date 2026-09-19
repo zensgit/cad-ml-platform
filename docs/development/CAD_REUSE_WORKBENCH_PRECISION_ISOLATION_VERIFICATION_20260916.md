@@ -204,6 +204,9 @@ make test-review-reuse
 | Sol wave61 vs `origin/main` on `256068ce` | P2 per-entity layer penalty rejects identical geometry |
 | Layer mismatch does not reject identical LINEs | `test_layer_mismatch_does_not_reject_identical_geometry` |
 | `make test-review-reuse` after layer-penalty pin | **175 passed**, 7 ezdxf warnings |
+| Sol wave62 vs `origin/main` on `48ec1243` | P1 translated polylines certified via canonical matching |
+| Shifted polylines are not L4 | `test_layout_shifted_polylines_are_not_certified` |
+| `make test-review-reuse` after polyline explode | **177 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
