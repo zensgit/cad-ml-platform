@@ -195,6 +195,9 @@ make test-review-reuse
 | Sol wave58 vs `origin/main` on `b86733a4` | P2 cleanup deletes dirs with unreadable tenant_meta.json |
 | Cleanup refuses unreadable sidecar | `test_cleanup_refuses_unreadable_tenant_meta` |
 | `make test-review-reuse` after cleanup meta P2 | **172 passed**, 7 ezdxf warnings |
+| Sol wave59 vs `origin/main` on `b86733a4` | P2 sub-0.001 primitives collapse after 3-decimal rounding |
+| Tiny orthogonal LINEs are not L4 | `test_sub_millimeter_orthogonal_lines_are_not_l4_geometry` |
+| `make test-review-reuse` after quantized geom P2 | **173 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

@@ -1415,6 +1415,40 @@ def test_layout_shifted_clones_not_certified_when_geom_hash_env_on(
     assert out[0].state == CandidateState.different
 
 
+def test_sub_millimeter_orthogonal_lines_are_not_l4_geometry() -> None:
+    """Verifier rounds to 3 decimals; collapsed LINEs must not score L4 1.0."""
+    query = {
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [0.0001, 0.0]},
+        ]
+    }
+    other = {
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [0.0, 0.0001]},
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "tiny-ortho",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+    assert out[0].scores.get("geometric") is None
+
+
 def test_malformed_entity_dict_is_not_l4_geometry() -> None:
     bogus = {"entities": [{}]}
     cands = map_raw_hits_to_candidates(

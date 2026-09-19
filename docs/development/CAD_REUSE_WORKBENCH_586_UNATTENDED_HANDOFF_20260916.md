@@ -476,6 +476,21 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave59 — 2026-09-19 ~09:02 UTC
+
+Sol 5.6 vs `origin/main` on `b86733a4`: **P2** `_is_geom_entity`
+validated raw coords, then PrecisionVerifier rounded to 3 decimals.
+Orthogonal sub-0.001 LINEs both collapsed to zero-length and scored
+L4 1.0. Quantize the admission gate and re-check after `normalize_v2`.
+Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 quantized geom | `_quantized` / post-normalize `_is_geom_json` |
+| Local `make test-review-reuse` | **173 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave58 — 2026-09-19 ~09:00 UTC
 
 Sol 5.6 vs `origin/main` on `b86733a4`: **P2** cleanup treated

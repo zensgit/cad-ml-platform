@@ -125,10 +125,31 @@ def _finite_number(value: Any) -> bool:
     return math.isfinite(float(value))
 
 
-def _positive_number(value: Any) -> bool:
+# PrecisionVerifier.normalize_v2 rounds coords/radii/angles to 3 decimals.
+# Sub-0.001 primitives that collapse to zero-length after that rounding must
+# not be admitted as L4 geometry.
+_L4_QUANT_NDIGITS = 3
+
+
+def _quantized(value: Any) -> Optional[float]:
     if not _finite_number(value):
-        return False
-    return float(value) > 0.0
+        return None
+    return round(float(value), _L4_QUANT_NDIGITS)
+
+
+def _quantized_xy(value: Any) -> Optional[tuple[float, float]]:
+    if not _xy(value):
+        return None
+    x = _quantized(value[0])
+    y = _quantized(value[1])
+    if x is None or y is None:
+        return None
+    return (x, y)
+
+
+def _positive_number(value: Any) -> bool:
+    quantized = _quantized(value)
+    return quantized is not None and quantized > 0.0
 
 
 def _is_finite_unit_score(value: Any) -> bool:
@@ -145,13 +166,14 @@ def _xy(value: Any) -> bool:
 
 
 def _nonzero_xy(value: Any) -> bool:
-    return _xy(value) and (float(value[0]) != 0.0 or float(value[1]) != 0.0)
+    pair = _quantized_xy(value)
+    return pair is not None and pair != (0.0, 0.0)
 
 
 def _distinct_xy(left: Any, right: Any) -> bool:
-    if not _xy(left) or not _xy(right):
-        return False
-    return float(left[0]) != float(right[0]) or float(left[1]) != float(right[1])
+    a = _quantized_xy(left)
+    b = _quantized_xy(right)
+    return a is not None and b is not None and a != b
 
 
 def _has_two_distinct_xy(points: Any) -> bool:
@@ -159,9 +181,9 @@ def _has_two_distinct_xy(points: Any) -> bool:
         return False
     seen: List[tuple[float, float]] = []
     for point in points:
-        if not _xy(point):
+        pair = _quantized_xy(point)
+        if pair is None:
             continue
-        pair = (float(point[0]), float(point[1]))
         if any(pair != other for other in seen):
             return True
         if pair not in seen:
@@ -181,14 +203,14 @@ def _is_geom_entity(ent: Any) -> bool:
     if et == "CIRCLE":
         return _xy(ent.get("center")) and _positive_number(ent.get("radius"))
     if et == "ARC":
-        start_a = ent.get("start_angle")
-        end_a = ent.get("end_angle")
+        start_q = _quantized(ent.get("start_angle"))
+        end_q = _quantized(ent.get("end_angle"))
         return (
             _xy(ent.get("center"))
             and _positive_number(ent.get("radius"))
-            and _finite_number(start_a)
-            and _finite_number(end_a)
-            and float(start_a) != float(end_a)
+            and start_q is not None
+            and end_q is not None
+            and start_q != end_q
         )
     if et in ("LWPOLYLINE", "POLYLINE"):
         return _has_two_distinct_xy(ent.get("points"))
@@ -204,12 +226,12 @@ def _is_geom_entity(ent: Any) -> bool:
         # a zero-sweep, same as a degenerate ARC.
         if "start_param" not in ent and "end_param" not in ent:
             return True
-        start_p = ent.get("start_param")
-        end_p = ent.get("end_param")
+        start_p = _quantized(ent.get("start_param"))
+        end_p = _quantized(ent.get("end_param"))
         return (
-            _finite_number(start_p)
-            and _finite_number(end_p)
-            and float(start_p) != float(end_p)
+            start_p is not None
+            and end_p is not None
+            and start_p != end_p
         )
     if et == "SPLINE":
         return _has_two_distinct_xy(ent.get("control_points"))
@@ -363,6 +385,7 @@ def _try_l4_score(
         from dataclasses import replace
 
         from src.core.dedupcad_precision import PrecisionVerifier
+        from src.core.dedupcad_precision.vendor.v2_normalize import normalize_v2
 
         # Start from PrecisionVerifier() then force entities_geom_hash off.
         # replace(Settings()) re-enables the bag-of-features fallback via
@@ -376,9 +399,15 @@ def _try_l4_score(
             w_dimensions=0.0,
             entities_geom_hash=False,
         )
-        scored = PrecisionVerifier(settings=cfg).score_pair(
-            _geometry_only_geom(query_geom), _geometry_only_geom(right)
-        )
+        left = _geometry_only_geom(query_geom)
+        right_g = _geometry_only_geom(right)
+        # Re-check after verifier quantization: sub-0.001 LINEs/radii collapse
+        # to zero-length and would otherwise score as identical L4 matches.
+        if not _is_geom_json(normalize_v2(left, cfg)) or not _is_geom_json(
+            normalize_v2(right_g, cfg)
+        ):
+            return None
+        scored = PrecisionVerifier(settings=cfg).score_pair(left, right_g)
         score = scored.score
         if not _is_finite_unit_score(score):
             return None
