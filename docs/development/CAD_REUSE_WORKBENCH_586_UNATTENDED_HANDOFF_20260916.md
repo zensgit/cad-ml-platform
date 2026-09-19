@@ -476,6 +476,22 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave64 — 2026-09-19 ~10:03 UTC
+
+Sol 5.6 vs `origin/main` on `1a99996f`: **P1** `entities_similarity`
+truncates to `min(len(A), len(B))`, so a one-LINE query vs that LINE
+plus extra geometry scored L4 1.0; **P1** raising `max_match_entities`
+to the exploded count is unbounded. Penalize unmatched counts; keep a
+hard 128-entity cap and refuse over-cap L4. Never merge; decisions off.
+
+| Item | State |
+|---|---|
+| P1 unmatched | `_penalize_unmatched` min/max count ratio |
+| P1 matcher bound | `_L4_MAX_MATCH_ENTITIES=128`; over-cap returns None |
+| Local `make test-review-reuse` | **180 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave63 — 2026-09-19 ~09:55 UTC
 
 Sol 5.6 vs `origin/main` on `4362c886`: **P1** exploding polylines into

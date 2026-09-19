@@ -138,6 +138,8 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
     must not score L4 ~1.0 via canonical (pose-invariant) matching.
 33. Wave63 Sol P1 on `4362c886`: exploded polyline segments past the
     64-entity matcher cap must still affect L4.
+34. Wave64 Sol P1s on `1a99996f`: unmatched extra entities must not
+    score L4 1.0; matcher cap must stay a hard bound.
 
 ## 6b. Window 3 plan (24h, auto-implement)
 
@@ -153,8 +155,9 @@ forward on `d31a9942`. Non-finite local L4 + unreadable meta on
 live fused scores on `a3d97c35`. Geom-hash pin on `b86733a4`.
 Cleanup refuses unreadable tenant meta on `395c0f5c`. Quantized geom
 gate on `9806f46b`. HATCH exclusion on `256068ce`. Layer-penalty pin
-on `48ec1243`. Polyline explode on `4362c886`. **This fire:** Sol P1 —
-raise matcher cap so exploded segments past 64 still affect L4.
+on `48ec1243`. Polyline explode on `4362c886`. Matcher-cap raise on
+`1a99996f`. **This fire:** Sol P1 — unmatched-entity penalty + hard
+128-entity cap (no unbounded matcher).
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.
@@ -207,4 +210,6 @@ Evaluation Report = Track E / ignore.
 | Sub-0.001 LINEs/radii collapse to identical zero-length L4 | `_is_geom_entity` + post-normalize `_is_geom_json` use 3-decimal quant |
 | Layer names reject identical geometry via entity penalty | strip `layer`; `layer_mismatch_penalty=0` in L4 Settings |
 | Translated polylines score L4 1.0 after canonical pose | `_explode_polyline` to absolute LINEs before PrecisionVerifier |
+| Subset geometry scores L4 1.0 (min-length truncate) | `_penalize_unmatched` scales by min/max entity counts |
+| Unbounded max_match_entities exhausts workers | hard cap `_L4_MAX_MATCH_ENTITIES=128`; over-cap is not L4 |
 | 24h unattended overreach | scheduler stops ~2026-09-19 17:00 UTC; never merge; never enable decisions |

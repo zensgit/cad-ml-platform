@@ -210,6 +210,10 @@ make test-review-reuse
 | Sol wave63 vs `origin/main` on `4362c886` | P1 exploded polylines truncated at 64 entities |
 | Long polylines diverging after cap are not L4 | `test_long_polylines_diverging_after_matcher_cap_are_not_certified` |
 | `make test-review-reuse` after matcher-cap raise | **178 passed**, 7 ezdxf warnings |
+| Sol wave64 vs `origin/main` on `1a99996f` | P1 unmatched extra entities; P1 unbounded matcher cap |
+| Extra unmatched LINE is not L4 1.0 | `test_extra_unmatched_line_is_not_certified` |
+| Over-cap geometry is not prefix-certified | `test_over_cap_geometry_is_not_certified_as_l4` |
+| `make test-review-reuse` after unmatched penalty + hard cap | **180 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

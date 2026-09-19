@@ -118,6 +118,9 @@ def _finite_number(value: Any) -> bool:
 # Sub-0.001 primitives that collapse to zero-length after that rounding must
 # not be admitted as L4 geometry.
 _L4_QUANT_NDIGITS = 3
+# Hard matcher cap (vendor Hungarian bound). Never raise this to the
+# untrusted exploded entity count.
+_L4_MAX_MATCH_ENTITIES = 128
 
 
 def _quantized(value: Any) -> Optional[float]:
@@ -396,6 +399,20 @@ def _geometry_only_geom(obj: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
+def _entity_count(geom: Dict[str, Any]) -> int:
+    ents = geom.get("entities")
+    return len(ents) if isinstance(ents, list) else 0
+
+
+def _penalize_unmatched(score: float, n_left: int, n_right: int) -> float:
+    """entities_similarity truncates to min(len(A), len(B)); extra entities
+    would otherwise leave a subset match at 1.0."""
+    denom = max(n_left, n_right)
+    if denom <= 0:
+        return score
+    return float(score) * (min(n_left, n_right) / float(denom))
+
+
 def _try_l4_score(
     query_geom: Dict[str, Any],
     candidate: CandidateDecision,
@@ -425,18 +442,15 @@ def _try_l4_score(
             w_hatch_extra=0.0,
             entities_geom_hash=False,
             layer_mismatch_penalty=0.0,
+            max_match_entities=_L4_MAX_MATCH_ENTITIES,
         )
         left = _geometry_only_geom(query_geom)
         right_g = _geometry_only_geom(right)
-        # Exploded polylines can exceed the verifier's 64-entity cap. A prefix
-        # match must not certify the rest of the drawing as L4 1.0.
-        needed = max(
-            int(getattr(cfg, "max_match_entities", 64) or 64),
-            len(left.get("entities") or []),
-            len(right_g.get("entities") or []),
-        )
-        if needed > cfg.max_match_entities:
-            cfg = replace(cfg, max_match_entities=needed)
+        left_n = _entity_count(left)
+        right_n = _entity_count(right_g)
+        # Truncating a large drawing to the cap would certify a prefix match.
+        if left_n > _L4_MAX_MATCH_ENTITIES or right_n > _L4_MAX_MATCH_ENTITIES:
+            return None
         # Re-check after verifier quantization: sub-0.001 LINEs/radii collapse
         # to zero-length and would otherwise score as identical L4 matches.
         if not _is_geom_json(normalize_v2(left, cfg)) or not _is_geom_json(
@@ -445,6 +459,9 @@ def _try_l4_score(
             return None
         scored = PrecisionVerifier(settings=cfg).score_pair(left, right_g)
         score = scored.score
+        if not _is_finite_unit_score(score):
+            return None
+        score = _penalize_unmatched(float(score), left_n, right_n)
         if not _is_finite_unit_score(score):
             return None
         return float(score)
