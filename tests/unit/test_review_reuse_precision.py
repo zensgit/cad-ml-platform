@@ -17,7 +17,11 @@ from src.core.review_reuse.models import (
     RejectionReason,
     TaskEventType,
 )
-from src.core.review_reuse.precision import apply_precision, set_precision_hook
+from src.core.review_reuse.precision import (
+    LOW_PRECISION_THRESHOLD,
+    apply_precision,
+    set_precision_hook,
+)
 from src.core.review_reuse.service import (
     ENV_DECISIONS_ENABLED,
     ReviewReuseError,
@@ -1289,6 +1293,45 @@ def test_valid_line_with_unknown_type_still_l4() -> None:
     assert "precision-l4" in (out[0].verification.get("methods") or [])
     assert out[0].scores.get("geometric") == 1.0
     assert RejectionReason.missing_geom_json.value not in out[0].rejection_reasons
+
+
+def test_shared_text_does_not_certify_different_geometry() -> None:
+    """Orthogonal LINEs plus identical TEXT must not pass the L4 threshold."""
+    query = {
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [100.0, 0.0]},
+            {"type": "TEXT", "insert": [1.0, 1.0], "text": "note"},
+        ]
+    }
+    other = {
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [0.0, 100.0]},
+            {"type": "TEXT", "insert": [1.0, 1.0], "text": "note"},
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "text-inflate",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    geo = out[0].scores.get("geometric")
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+    assert geo is not None
+    assert geo < LOW_PRECISION_THRESHOLD
+    assert RejectionReason.low_precision_score.value in out[0].rejection_reasons
+    assert out[0].state == CandidateState.different
 
 
 def test_malformed_entity_dict_is_not_l4_geometry() -> None:

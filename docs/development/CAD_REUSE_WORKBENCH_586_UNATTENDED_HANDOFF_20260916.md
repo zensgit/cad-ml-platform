@@ -492,6 +492,22 @@ Never merge; decisions stay off.
 | Evaluation Report | fail (Track E; out of scope) |
 | Merge | still not done |
 
+## Window 3 wave55 — 2026-09-19 ~08:30 UTC
+
+Sol 5.6 vs `origin/main` on `d31a9942`: **P1** fused
+`PrecisionVerifier.score_pair()` (entities+text+layers+dims) was stored
+as `scores["geometric"]`. Orthogonal LINEs plus shared TEXT scored
+~0.58, above `LOW_PRECISION_THRESHOLD`, and kept `similar` with
+`precision-l4`. Score geometry only (drop annotation entities; zero
+text/layers/dims weights). Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P1 geometry-only L4 | `_geometry_only_geom` + Settings w_text/layers/dims=0 |
+| Local `make test-review-reuse` | **168 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave54 — 2026-09-19 ~08:20 UTC
 
 Sol 5.6 vs `origin/main` on `21c0dfbc`: P2 live

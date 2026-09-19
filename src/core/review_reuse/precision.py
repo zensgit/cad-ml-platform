@@ -106,6 +106,17 @@ _GEOM_ENTITY_TYPES = frozenset(
         "INSERT",
     }
 )
+_SEMANTIC_ENTITY_TYPES = frozenset(
+    {
+        "TEXT",
+        "MTEXT",
+        "DIMENSION",
+        "LEADER",
+        "MULTILEADER",
+        "ATTRIB",
+        "ATTDEF",
+    }
+)
 
 
 def _finite_number(value: Any) -> bool:
@@ -315,6 +326,29 @@ def _canonical_geom(obj: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
+def _geometry_only_geom(obj: Dict[str, Any]) -> Dict[str, Any]:
+    """Canonical geom without annotation entities or semantic sections.
+
+    PrecisionVerifier fuses text/layers/dimensions into ``score``. Shared
+    TEXT next to different LINEs can then exceed LOW_PRECISION_THRESHOLD
+    and be certified as L4 similar. ReviewReuse geometric scores must not.
+    """
+    out = _canonical_geom(obj)
+    ents = out.get("entities")
+    if isinstance(ents, list):
+        out["entities"] = [
+            entity
+            for entity in ents
+            if not (
+                isinstance(entity, dict)
+                and str(entity.get("type") or "").upper() in _SEMANTIC_ENTITY_TYPES
+            )
+        ]
+    out.pop("text_content", None)
+    out.pop("dimensions", None)
+    return out
+
+
 def _try_l4_score(
     query_geom: Dict[str, Any],
     candidate: CandidateDecision,
@@ -326,10 +360,14 @@ def _try_l4_score(
     if not _is_geom_json(right):
         return None
     try:
-        from src.core.dedupcad_precision import PrecisionVerifier
+        from dataclasses import replace
 
-        scored = PrecisionVerifier().score_pair(
-            _canonical_geom(query_geom), _canonical_geom(right)
+        from src.core.dedupcad_precision import PrecisionVerifier
+        from src.core.dedupcad_precision.vendor.config import Settings
+
+        cfg = replace(Settings(), w_text=0.0, w_layers=0.0, w_dimensions=0.0)
+        scored = PrecisionVerifier(settings=cfg).score_pair(
+            _geometry_only_geom(query_geom), _geometry_only_geom(right)
         )
         score = scored.score
         if not _is_finite_unit_score(score):

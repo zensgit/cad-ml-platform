@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: window 3 wave54 (non-finite local L4 + unreadable meta)  
+**HEAD at writing**: window 3 wave55 (geometry-only L4; Sol P1)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -180,6 +180,9 @@ make test-review-reuse
 | Sol wave54 vs `origin/main` on `21c0dfbc` | P2 live hits drop inline `geom_json` |
 | Live match inline geom_json still L4 | `test_vision_response_forwards_inline_geom_json` |
 | `make test-review-reuse` after live geom_json forward | **164 passed**, 7 ezdxf warnings |
+| Sol wave55 vs `origin/main` on `d31a9942` | P1 fused semantic score stored as geometric L4 |
+| Shared TEXT does not certify different geometry | `test_shared_text_does_not_certify_different_geometry` |
+| `make test-review-reuse` after geometry-only L4 | **168 passed**, 7 ezdxf warnings |
 | Sol wave54 remaining vs `origin/main` on `d31a9942` | P2 non-finite local L4; P2 unreadable tenant meta fail-open |
 | `make test-review-reuse` after local L4 range + unreadable meta | **167 passed**, 7 ezdxf warnings |
 

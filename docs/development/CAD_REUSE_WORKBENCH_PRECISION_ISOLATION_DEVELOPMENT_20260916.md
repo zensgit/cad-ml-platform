@@ -120,6 +120,8 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
     forward match `geom_json` so local L4 can run without a unit score.
 24. Wave54 remaining Sol P2s on `d31a9942`: local L4 scores must be
     finite unit-range; unreadable `tenant_meta.json` must occupy the dir.
+25. Wave55 Sol P1 on `d31a9942`/`eebaf117`: fused PrecisionVerifier
+    score (text/layers/dims) must not be stored as geometric L4.
 
 ## 6b. Window 3 plan (24h, auto-implement)
 
@@ -130,8 +132,9 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 Independent `different` rejects no longer inflate pack confidence
 (`f2acff4f`). Zero-sweep ELLIPSE rejected (`2c32cae0`). Ellipse/INSERT
 P2s on `4858606b`. Mixed-entity L4 gate on `21c0dfbc`. Live geom_json
-forward on `d31a9942`. **This fire:** Sol P2 — reject non-finite local
-L4; fail closed on unreadable tenant meta. Do not invent product tracks.
+forward on `d31a9942`. Non-finite local L4 + unreadable meta on
+`eebaf117`. **This fire:** Sol P1 — geometry-only L4 (strip TEXT;
+zero text/layers/dims weights). Do not invent product tracks.
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.
