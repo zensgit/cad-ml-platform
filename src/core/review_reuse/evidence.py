@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any, Dict, List
 
 from .models import (
@@ -106,12 +107,14 @@ def _top_confidence(candidates: List[CandidateDecision]) -> float:
     best = 0.0
     vision_only = RejectionReason.vision_only_unverified.value
     missing = RejectionReason.missing_geom_json.value
+    low = RejectionReason.low_precision_score.value
     for c in candidates:
         reasons = c.rejection_reasons or []
         methods = list((c.verification or {}).get("methods") or [])
+        geometric = c.scores.get("geometric")
         verified = "precision-l4" in methods and isinstance(
-            c.scores.get("geometric"), (int, float)
-        )
+            geometric, (int, float)
+        ) and not isinstance(geometric, bool)
         if (
             c.state == CandidateState.insufficient_evidence
             or not verified
@@ -119,10 +122,21 @@ def _top_confidence(candidates: List[CandidateDecision]) -> float:
             or missing in reasons
         ):
             continue
-        # L4-backed confidence is the geometric score only (no visual inflation).
-        v = c.scores.get("geometric")
-        if isinstance(v, (int, float)) and float(v) > best:
-            best = float(v)
+        if c.state == CandidateState.different:
+            extras = [
+                reason
+                for reason in reasons
+                if reason != low and reason not in (vision_only, missing)
+            ]
+            # Independent rejects (version gate, etc.) must not inflate confidence.
+            # A lone low-precision L4 score may still contribute a low band.
+            if extras or low not in reasons:
+                continue
+        number = float(geometric)
+        if not math.isfinite(number) or number < 0.0 or number > 1.0:
+            continue
+        if number > best:
+            best = number
     return best
 
 

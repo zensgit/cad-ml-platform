@@ -454,3 +454,14 @@ Sol 5.6 vs `origin/main` still **blocked** (Codex usage limit until
 | Sol wave44 | usage-limited; last clean = wave32 no P1/P2 |
 | Evaluation Report | fail (Track E; out of scope) |
 | Merge | still not done |
+
+## Window 3 accelerate — 2026-09-19 ~04:32 UTC
+
+Owner asked to go faster. Scheduler interval 45m → 20m; skip docs-only
+when Sol is blocked. Product: version-gate `different` must not raise
+EvidencePack confidence to 1.0.
+
+| Item | State |
+|---|---|
+| Local `make test-review-reuse` | **158 passed** |
+| Merge | still not done |

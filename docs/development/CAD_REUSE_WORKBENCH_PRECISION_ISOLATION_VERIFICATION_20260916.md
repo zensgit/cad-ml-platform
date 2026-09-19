@@ -126,6 +126,7 @@ make test-review-reuse
 | Sol wave28 vs `origin/main` on `d6d9a1c9` | P2 stale `low_precision_score` after high L4 rescore |
 | `make test-review-reuse` after clearing stale low-precision | **154 passed**, 7 ezdxf warnings |
 | High L4 rescore restores state/verdict | `test_rescore_clears_stale_low_precision_reason` asserts not `different` |
+| Version-gate `different` does not raise pack confidence | `test_high_l4_preserves_version_gate_different` asserts confidence 0.0 |
 | Window 3 start `make test-review-reuse` after verdict restore | **154 passed**, 7 ezdxf warnings |
 | tests (3.10) / tests (3.11) / e2e-smoke on `23a35ec9` | **pass** |
 | Sol wave30 vs `origin/main` on `23a35ec9` | P2 high L4 must not promote independent `different` |

@@ -676,6 +676,25 @@ def test_high_l4_preserves_version_gate_different() -> None:
     assert out[0].verification.get("verdict") == CandidateState.different.value
     assert RejectionReason.version_gate_filtered.value in out[0].rejection_reasons
     assert RejectionReason.low_precision_score.value not in out[0].rejection_reasons
+    from src.core.review_reuse.evidence import build_evidence_pack
+    from src.core.review_reuse.models import ReviewReuseTask, TaskStatus
+
+    now = 0.0
+    pack = build_evidence_pack(
+        ReviewReuseTask(
+            task_id="t-gate",
+            tenant_id="t",
+            status=TaskStatus.evidence_ready,
+            created_at=now,
+            updated_at=now,
+            source_file_name="query.json",
+            source_content_sha256="ab",
+            trace_id="tr",
+            candidates=out,
+        )
+    )
+    assert pack["confidence"]["score"] == 0.0
+    assert pack["confidence"]["band"] == "low"
 
 
 def test_high_prescored_l4_preserves_version_gate_different() -> None:
