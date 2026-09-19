@@ -234,12 +234,10 @@ def _is_geom_entity(ent: Any) -> bool:
             return False
         return _has_two_distinct_xy(cps)
     if et == "INSERT":
-        name = ent.get("block")
         bhash = ent.get("block_hash")
-        has_id = (isinstance(name, str) and bool(name.strip())) or (
-            isinstance(bhash, str) and bool(bhash.strip())
-        )
-        if not (has_id and _xy(ent.get("insert"))):
+        has_hash = isinstance(bhash, str) and bool(bhash.strip())
+        # Name+pose without block_hash cannot prove the referenced geometry.
+        if not (has_hash and _xy(ent.get("insert"))):
             return False
         if "scale" in ent:
             scale = ent.get("scale")

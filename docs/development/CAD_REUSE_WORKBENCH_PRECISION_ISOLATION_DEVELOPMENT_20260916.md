@@ -144,6 +144,9 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
     chords; INSERT `block_hash` mismatch must not pass L4.
 36. Wave66 Sol P1s on `66205333`: DXF extract must keep LWPOLYLINE
     bulge; splines longer than 16 control points must not be L4.
+37. Wave68 Sol P1/P2 on `0414daca`/`509f59bb`: INSERT needs block_hash;
+    stale extract_sig cache must not drop bulges; cleanup refuses a
+    whole tenant group if any sibling is mixed.
 
 ## 6b. Window 3 plan (24h, auto-implement)
 
@@ -162,8 +165,9 @@ gate on `9806f46b`. HATCH exclusion on `256068ce`. Layer-penalty pin
 on `48ec1243`. Polyline explode on `4362c886`. Matcher-cap raise on
 `1a99996f`. Unmatched penalty + hard cap on `167831f6`. Bulge/hash
 fail-closed on `66205333`. DXF bulge + spline cap on `0414daca`.
-**This fire:** Sol P1 — unquantized bulge; spline count; per-INSERT
-hash; partial ellipse fail-closed.
+Wave67 fail-closed gates on `509f59bb`. **This fire:** Sol P1 —
+require INSERT block_hash; version extract cache; P2 refuse mixed
+tenant group siblings.
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.
@@ -220,4 +224,7 @@ Evaluation Report = Track E / ignore.
 | Unbounded max_match_entities exhausts workers | hard cap `_L4_MAX_MATCH_ENTITIES=128`; over-cap is not L4 |
 | DXF extract drops bulge so curve matches chord | `dxf_extract` keeps `bulges`; `_polyline_has_bulge` refuses L4 |
 | Long SPLINE tails ignored (first 16 controls) | `_is_geom_entity` rejects splines with >16 control points |
+| INSERT name+pose without hash certifies unknown block | `_is_geom_entity` requires non-empty `block_hash` |
+| Stale extract_sig cache omits polyline bulges | `_EXTRACT_CACHE_VERSION=2`; unversioned hits ignored |
+| Cleanup deletes hashed sibling while mixed dir is refused | refuse every dir in the grouped tenant |
 | 24h unattended overreach | scheduler stops ~2026-09-19 17:00 UTC; never merge; never enable decisions |

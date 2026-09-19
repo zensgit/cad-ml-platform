@@ -308,9 +308,10 @@ def cmd_cleanup(
         if newest is None or newest > cutoff:
             continue
         age_days = (time.time() - newest) / 86400.0
+        mixed_group = any(_is_mixed_tenant_dir(d) for d in dirs)
         for tdir in dirs:
             listed += 1
-            if _is_mixed_tenant_dir(tdir):
+            if mixed_group:
                 ids = list(_tenant_ids_from_tasks(tdir))
                 meta = _tenant_id_from_meta(tdir)
                 if meta is not None and meta not in ids:

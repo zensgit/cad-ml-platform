@@ -224,6 +224,11 @@ make test-review-reuse
 | `make test-review-reuse` after DXF bulge + spline cap | **184 passed**, 7 ezdxf warnings |
 | Sol wave67 vs `origin/main` on `0414daca` | P1 quantized bulge; spline prefix; swapped INSERT hashes; half-ellipses |
 | `make test-review-reuse` after wave67 P1s | **188 passed**, 7 ezdxf warnings |
+| Sol wave68 vs `origin/main` on `0414daca` | P1 INSERT without hash; P1 stale extract cache; P2 mixed-group cleanup |
+| INSERT without block_hash is not L4 | `test_insert_without_block_hash_is_not_l4_geometry` |
+| Legacy extract cache is re-extracted | `test_legacy_dxf_extract_cache_without_version_is_reextracted` |
+| Mixed sibling refuses whole tenant group | `test_cleanup_refuses_whole_group_when_sibling_is_mixed` |
+| `make test-review-reuse` after hash/cache/cleanup P1s | **191 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

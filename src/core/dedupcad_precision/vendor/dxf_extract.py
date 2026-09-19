@@ -28,6 +28,10 @@ except Exception as e:  # pragma: no cover - optional dependency
     ezdxf = None
 
 
+# Bump when extract payload fields change. v2 includes polyline bulges.
+_EXTRACT_CACHE_VERSION = 2
+
+
 def _polyline_xy_and_bulges(entity: Any, et: str) -> tuple[List[List[float]], List[float]]:
     """Keep vertex bulge so ReviewReuse can refuse curve-to-chord L4."""
     pts: List[List[float]] = []
@@ -369,7 +373,12 @@ def extract_dxf(path: str) -> Dict[str, Any]:
         if cache_file.exists():
             try:
                 cached = json.loads(cache_file.read_text(encoding="utf-8"))
-                if isinstance(cached, dict) and "entities" in cached and "blocks" in cached:
+                if (
+                    isinstance(cached, dict)
+                    and cached.get("extract_cache_version") == _EXTRACT_CACHE_VERSION
+                    and "entities" in cached
+                    and "blocks" in cached
+                ):
                     return {
                         "file_info": {
                             "dxf_version": doc.dxfversion,
@@ -561,7 +570,14 @@ def extract_dxf(path: str) -> Dict[str, Any]:
     if file_hash:
         try:
             (sig_cache_dir / f"{file_hash}.json").write_text(
-                json.dumps({"entities": entities, "blocks": blocks}, ensure_ascii=False),
+                json.dumps(
+                    {
+                        "extract_cache_version": _EXTRACT_CACHE_VERSION,
+                        "entities": entities,
+                        "blocks": blocks,
+                    },
+                    ensure_ascii=False,
+                ),
                 encoding="utf-8",
             )
         except Exception:

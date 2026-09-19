@@ -476,6 +476,24 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave68 — 2026-09-19 ~10:42 UTC
+
+Sol 5.6 vs `origin/main` on `0414daca`: **P1** INSERT with only a
+block name+pose is admitted as L4, so different `DOOR` definitions
+score 1.0; **P1** pre-bulge `extract_sig` cache hits skip the new
+bulge field; **P2** cleanup deletes hashed siblings while refusing a
+mixed dir in the same tenant group. Require `block_hash`; version the
+extract cache; refuse the whole group. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P1 INSERT hash | `_is_geom_entity` requires `block_hash` |
+| P1 extract cache | `_EXTRACT_CACHE_VERSION=2` |
+| P2 cleanup group | mixed sibling refuses all grouped dirs |
+| Local `make test-review-reuse` | **191 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave67 — 2026-09-19 ~10:35 UTC
 
 Sol 5.6 vs `origin/main` on `0414daca`: **P1** bulge 0.0004 quantized

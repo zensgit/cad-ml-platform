@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+from pathlib import Path
 from typing import List
 
 import pytest
@@ -1931,6 +1932,89 @@ def test_mismatched_insert_block_hash_is_not_certified() -> None:
     assert geo < LOW_PRECISION_THRESHOLD
     assert RejectionReason.low_precision_score.value in out[0].rejection_reasons
     assert out[0].state == CandidateState.different
+
+
+def test_insert_without_block_hash_is_not_l4_geometry() -> None:
+    """Name+pose INSERT cannot prove block contents."""
+    geom = {
+        "entities": [
+            {"type": "INSERT", "block": "DOOR", "insert": [0.0, 0.0]},
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "name-only",
+                "state": "similar",
+                "geom_json": geom,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(geom).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
+def test_legacy_dxf_extract_cache_without_version_is_reextracted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Pre-bulge extract_sig cache must not be reused as a cache hit."""
+    import hashlib
+
+    import ezdxf
+
+    from src.core.dedupcad_precision.vendor import dxf_extract as dxf_mod
+
+    cache = tmp_path / "cache"
+
+    class _Settings:
+        cache_dir = str(cache)
+
+    monkeypatch.setattr(dxf_mod, "get_settings", lambda: _Settings())
+    doc = ezdxf.new("R2010")
+    doc.modelspace().add_lwpolyline(
+        [(0.0, 0.0, 1.0), (10.0, 0.0, 0.0)],
+        format="xyb",
+    )
+    from io import StringIO
+
+    buf = StringIO()
+    doc.write(buf)
+    dxf_path = tmp_path / "bulge.dxf"
+    dxf_path.write_text(buf.getvalue(), encoding="utf-8")
+    digest = hashlib.sha256(dxf_path.read_bytes()).hexdigest()
+    cache_file = cache / "extract_sig" / f"{digest}.json"
+    cache_file.parent.mkdir(parents=True)
+    cache_file.write_text(
+        json.dumps(
+            {
+                "entities": [
+                    {
+                        "type": "LWPOLYLINE",
+                        "points": [[0.0, 0.0], [10.0, 0.0]],
+                    }
+                ],
+                "blocks": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+    extracted = dxf_mod.extract_dxf(str(dxf_path))
+    assert extracted.get("file_info", {}).get("cache_hit") is not True
+    poly = next(
+        e
+        for e in (extracted.get("entities") or [])
+        if e.get("type") == "LWPOLYLINE"
+    )
+    assert poly.get("bulges")
 
 
 def test_extra_unmatched_line_is_not_certified() -> None:

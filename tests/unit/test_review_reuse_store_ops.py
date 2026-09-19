@@ -274,6 +274,28 @@ def test_cleanup_refuses_unreadable_tenant_meta(tmp_path: Path, capsys) -> None:
     assert meta.read_text(encoding="utf-8") == "{not-json"
 
 
+def test_cleanup_refuses_whole_group_when_sibling_is_mixed(
+    tmp_path: Path, capsys
+) -> None:
+    """A mixed sibling must not leave the hashed dir deletable."""
+    store = tmp_path / "store"
+    hashed_dir = _seed_hashed_tenant(store, "pilot-tenant", 60.0)
+    _seed_tenant(store, "pilot-tenant", 60.0)
+    legacy = store / "pilot-tenant"
+    bad = legacy / "tasks" / "broken.json"
+    bad.write_text("{not-json", encoding="utf-8")
+    old = time.time() - (60.0 * 86400.0)
+    os.utime(bad, (old, old))
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=None)
+        == 1
+    )
+    err = capsys.readouterr().err
+    assert "refused_mixed" in err
+    assert hashed_dir.is_dir()
+    assert legacy.is_dir()
+
+
 def test_cleanup_refuses_unreadable_task_json(tmp_path: Path, capsys) -> None:
     store = tmp_path / "store"
     hashed_dir = _seed_hashed_tenant(store, "pilot-tenant", 60.0)
