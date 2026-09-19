@@ -122,16 +122,17 @@ def _top_confidence(candidates: List[CandidateDecision]) -> float:
             or missing in reasons
         ):
             continue
-        if c.state == CandidateState.different:
-            extras = [
-                reason
-                for reason in reasons
-                if reason != low and reason not in (vision_only, missing)
-            ]
-            # Independent rejects (version gate, etc.) must not inflate confidence.
-            # A lone low-precision L4 score may still contribute a low band.
-            if extras or low not in reasons:
-                continue
+        extras = [
+            reason
+            for reason in reasons
+            if reason != low and reason not in (vision_only, missing)
+        ]
+        # Independent rejects (version gate, etc.) must not inflate confidence
+        # even when the adapter still labeled similar/duplicate.
+        if extras:
+            continue
+        if c.state == CandidateState.different and low not in reasons:
+            continue
         number = float(geometric)
         if not math.isfinite(number) or number < 0.0 or number > 1.0:
             continue

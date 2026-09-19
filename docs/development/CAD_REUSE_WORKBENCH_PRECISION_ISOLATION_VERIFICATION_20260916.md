@@ -232,6 +232,10 @@ make test-review-reuse
 | Sol wave70 vs `origin/main` on `89a6667c` | P1 mixed INSERT dropped; P1 incomplete SPLINE identity |
 | LINE+INSERT is not L4 | `test_line_plus_insert_is_not_certified_as_l4` |
 | `make test-review-reuse` after unscored INSERT/SPLINE | **194 passed**, 7 ezdxf warnings |
+| Sol wave72 vs `origin/main` on `9dfc3b87` | P1 leftover geom types; P2 similar+independent reject confidence |
+| LINE+POINT is not L4 | `test_line_plus_point_is_not_certified_as_l4` |
+| similar version-gate confidence stays 0 | `test_similar_version_gate_does_not_raise_confidence` |
+| `make test-review-reuse` after leftover-geom + confidence P2 | **198 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

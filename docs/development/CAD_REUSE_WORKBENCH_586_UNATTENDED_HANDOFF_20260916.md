@@ -476,6 +476,23 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave72 — 2026-09-19 ~11:21 UTC
+
+Sol 5.6 vs `origin/main` on `9dfc3b87`: **P1** POINT/SOLID/3DFACE/XLINE
+/MESH (and other leftover geom types) were dropped so a shared LINE
+scored L4 1.0; **P2** `_top_confidence` skipped independent rejects
+only when `state == different`, so similar+`version_gate_filtered`+L4
+0.99 stayed high. Fail closed on unknown geom; skip independent
+reasons regardless of state. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P1 leftover geom | annotation allowlist; unknown types fail closed |
+| P2 confidence | independent reasons skip `_top_confidence` |
+| Local `make test-review-reuse` | **198 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave70 — 2026-09-19 ~11:02 UTC
 
 Sol 5.6 vs `origin/main` on `89a6667c`: **P1** a valid LINE plus an

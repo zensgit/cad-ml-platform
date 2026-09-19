@@ -108,7 +108,40 @@ _GEOM_ENTITY_TYPES = frozenset(
 # Geometric types we cannot certify faithfully. Presence fails the whole
 # payload: dropping them would let an incidental LINE match two different
 # block/spline drawings as precision-l4 1.0.
-_UNSCORED_GEOM_TYPES = frozenset({"INSERT", "SPLINE", "LEADER", "MULTILEADER"})
+_UNSCORED_GEOM_TYPES = frozenset(
+    {
+        "INSERT",
+        "SPLINE",
+        "LEADER",
+        "MULTILEADER",
+        "POINT",
+        "SOLID",
+        "TRACE",
+        "3DFACE",
+        "3DSOLID",
+        "MESH",
+        "POLYFACE",
+        "REGION",
+        "BODY",
+        "SURFACE",
+        "XLINE",
+        "RAY",
+        "MLINE",
+        "HATCH",
+        "IMAGE",
+        "WIPEOUT",
+        "HELIX",
+    }
+)
+_ANNOTATION_ENTITY_TYPES = frozenset(
+    {
+        "TEXT",
+        "MTEXT",
+        "DIMENSION",
+        "ATTRIB",
+        "ATTDEF",
+    }
+)
 
 
 def _finite_number(value: Any) -> bool:
@@ -265,12 +298,22 @@ def _is_geom_json(obj: Any) -> bool:
         return False
     has_valid = False
     for entity in entities:
+        if not isinstance(entity, dict):
+            return False
+        et = str(entity.get("type") or "").upper()
+        if not et:
+            return False
         if _is_unscored_geom_type(entity):
             return False
         if _is_supported_geom_type(entity) and not _is_geom_entity(entity):
             return False
         if _is_geom_entity(entity):
             has_valid = True
+            continue
+        if et in _ANNOTATION_ENTITY_TYPES:
+            continue
+        # Unknown geometric type (POINT, MESH, …) must not be dropped.
+        return False
     return has_valid
 
 

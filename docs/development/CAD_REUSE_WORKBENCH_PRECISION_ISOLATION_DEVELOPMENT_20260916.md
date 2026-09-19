@@ -150,6 +150,9 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 38. Wave70 Sol P1s on `89a6667c`/`a6a67123`: mixed LINE+INSERT must not
     drop the INSERT and L4-match; incomplete SPLINE (no knots/weights)
     must fail closed.
+39. Wave72 Sol P1/P2 on `9dfc3b87`: unknown geom types (POINT/SOLID/…)
+    must fail closed; independent rejects suppress confidence even if
+    state is similar.
 
 ## 6b. Window 3 plan (24h, auto-implement)
 
@@ -169,8 +172,9 @@ on `48ec1243`. Polyline explode on `4362c886`. Matcher-cap raise on
 `1a99996f`. Unmatched penalty + hard cap on `167831f6`. Bulge/hash
 fail-closed on `66205333`. DXF bulge + spline cap on `0414daca`.
 Wave67 fail-closed gates on `509f59bb`. INSERT drop + spline degree on
-`a6a67123`. **This fire:** Sol P1 — fail closed on INSERT/SPLINE
-presence so incidental LINEs cannot certify L4.
+`a6a67123`. LEADER + polyline vertex scan on `9dfc3b87`. **This fire:**
+Sol P1 — fail closed on leftover geom types; P2 independent rejects
+do not raise confidence when state is similar.
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.
@@ -232,4 +236,6 @@ Evaluation Report = Track E / ignore.
 | Cleanup deletes hashed sibling while mixed dir is refused | refuse every dir in the grouped tenant |
 | LINE+INSERT drops INSERT and L4-matches the LINE | `_UNSCORED_GEOM_TYPES` fails the whole payload |
 | SPLINE knots/weights omitted, vendor matches 16 points | SPLINE is unscored geom; not precision-l4 |
+| POINT/SOLID/MESH dropped so a shared LINE L4-matches | unknown geom types fail `_is_geom_json` |
+| similar+version_gate still raises EvidencePack confidence | `_top_confidence` skips independent reasons regardless of state |
 | 24h unattended overreach | scheduler stops ~2026-09-19 17:00 UTC; never merge; never enable decisions |

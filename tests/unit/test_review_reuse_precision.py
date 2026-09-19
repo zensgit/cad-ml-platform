@@ -703,6 +703,51 @@ def test_high_l4_preserves_version_gate_different() -> None:
     assert pack["confidence"]["band"] == "low"
 
 
+def test_similar_version_gate_does_not_raise_confidence() -> None:
+    """Independent rejection must suppress confidence even if state is similar."""
+    geom = _line_geom()
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "gated-similar",
+                "state": "similar",
+                "geom_json": geom,
+                "methods": ["seed-adapter"],
+                "rejection_reasons": [RejectionReason.version_gate_filtered.value],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(geom).encode("utf-8"),
+    )
+    assert out[0].scores.get("geometric") == 1.0
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+    assert RejectionReason.version_gate_filtered.value in out[0].rejection_reasons
+    from src.core.review_reuse.evidence import build_evidence_pack
+    from src.core.review_reuse.models import ReviewReuseTask, TaskStatus
+
+    now = 0.0
+    pack = build_evidence_pack(
+        ReviewReuseTask(
+            task_id="t-gate-sim",
+            tenant_id="t",
+            status=TaskStatus.evidence_ready,
+            created_at=now,
+            updated_at=now,
+            source_file_name="query.json",
+            source_content_sha256="ab",
+            trace_id="tr",
+            candidates=out,
+        )
+    )
+    assert pack["confidence"]["score"] == 0.0
+    assert pack["confidence"]["band"] == "low"
+
+
 def test_high_prescored_l4_preserves_version_gate_different() -> None:
     cands = map_raw_hits_to_candidates(
         [
@@ -1342,6 +1387,42 @@ def test_valid_line_with_unknown_type_still_l4() -> None:
     assert RejectionReason.missing_geom_json.value not in out[0].rejection_reasons
 
 
+def test_line_plus_point_is_not_certified_as_l4() -> None:
+    """Unsupported POINT must not be dropped so an incidental LINE can L4-match."""
+    query = {
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
+            {"type": "POINT", "location": [1.0, 1.0]},
+        ]
+    }
+    other = {
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
+            {"type": "POINT", "location": [99.0, 99.0]},
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "line-point",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
 def test_layer_mismatch_does_not_reject_identical_geometry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1430,7 +1511,7 @@ def test_shared_text_does_not_certify_different_geometry() -> None:
 
 
 def test_shared_hatch_does_not_certify_different_geometry() -> None:
-    """Matching HATCH metadata must not lift orthogonal LINEs over L4."""
+    """HATCH is unscored geometry; mixed LINE+HATCH must not be L4."""
     hatch = {"type": "HATCH", "pattern": "ANSI31", "color": 1, "loops": 1}
     query = {
         "entities": [
@@ -1461,12 +1542,9 @@ def test_shared_hatch_does_not_certify_different_geometry() -> None:
         file_name="query.json",
         file_bytes=json.dumps(query).encode("utf-8"),
     )
-    geo = out[0].scores.get("geometric")
-    assert "precision-l4" in (out[0].verification.get("methods") or [])
-    assert geo is not None
-    assert geo < LOW_PRECISION_THRESHOLD
-    assert RejectionReason.low_precision_score.value in out[0].rejection_reasons
-    assert out[0].state == CandidateState.different
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
 
 
 def test_layout_shifted_same_primitives_are_not_certified() -> None:
