@@ -108,7 +108,7 @@ _GEOM_ENTITY_TYPES = frozenset(
 # Geometric types we cannot certify faithfully. Presence fails the whole
 # payload: dropping them would let an incidental LINE match two different
 # block/spline drawings as precision-l4 1.0.
-_UNSCORED_GEOM_TYPES = frozenset({"INSERT", "SPLINE"})
+_UNSCORED_GEOM_TYPES = frozenset({"INSERT", "SPLINE", "LEADER", "MULTILEADER"})
 
 
 def _finite_number(value: Any) -> bool:
@@ -181,11 +181,9 @@ def _has_two_distinct_xy(points: Any) -> bool:
         pair = _quantized_xy(point)
         if pair is None:
             return False
-        if any(pair != other for other in seen):
-            return True
         if pair not in seen:
             seen.append(pair)
-    return False
+    return len(seen) >= 2
 
 
 def _is_geom_entity(ent: Any) -> bool:

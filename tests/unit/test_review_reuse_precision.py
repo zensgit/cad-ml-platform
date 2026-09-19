@@ -1892,6 +1892,84 @@ def test_malformed_polyline_vertex_is_not_joined_as_l4() -> None:
     assert out[0].scores.get("geometric") is None
 
 
+def test_polyline_tail_malformed_vertex_fails_closed() -> None:
+    """A valid prefix plus a later bad vertex must not leave a shared LINE as L4."""
+    shared = {"type": "LINE", "start": [0.0, 0.0], "end": [1.0, 0.0]}
+    query = {
+        "entities": [
+            shared,
+            {
+                "type": "LWPOLYLINE",
+                "points": [[0.0, 0.0], [10.0, 0.0], ["bad", 1]],
+            },
+        ]
+    }
+    other = {
+        "entities": [
+            shared,
+            {
+                "type": "LWPOLYLINE",
+                "points": [[0.0, 0.0], [10.0, 0.0], ["worse", 2]],
+            },
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "tail-bad",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+
+
+def test_leader_plus_line_is_not_l4() -> None:
+    """Different LEADERs plus the same LINE must not score precision-l4 1.0."""
+    query = {
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
+            {"type": "LEADER", "vertices": [[0.0, 0.0], [1.0, 1.0]]},
+        ]
+    }
+    other = {
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
+            {"type": "LEADER", "vertices": [[9.0, 9.0], [8.0, 8.0]]},
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "leader",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
 def test_opposite_half_ellipses_are_not_l4_geometry() -> None:
     """Vendor span-only ELLIPSE cost would treat 0..π and π..2π as equal."""
     left = {
