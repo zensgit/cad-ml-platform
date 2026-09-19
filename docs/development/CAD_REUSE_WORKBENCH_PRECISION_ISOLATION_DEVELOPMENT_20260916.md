@@ -197,9 +197,9 @@ Bipartite pairing on `dfb0efe9`. Nearest-center + bool closed on
 tie-break + flock PID on `bcc9cc76`. Pipeline-fail + worker cancel on
 `37aac287`. Angle-only-on-equal-center + mixed cleanup grouping on
 `d1c3a93e`. Equal-spatial angle scale + DXF size cap on `ea4c612f`.
-**This fire:** Sol P2 — two-stage ARC assignment (spatial Hungarian,
-then angle only on equal-spatial edges) so a ~5e-7 3-decimal gap
-cannot lose to a 359° sweep swap.
+Two-stage row/column equality on `e5cdc765`. **This fire:** Sol P2 —
+angle rematch on every tight (reduced-cost 0) edge of the min-total
+spatial assignment so 0.1+0.1 vs 0.0+0.2 still L4.
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.

@@ -606,6 +606,60 @@ def _arc_angle_tie(
     return abs(sweep - rsweep) + dstart
 
 
+def _arc_hungarian(
+    cost: List[List[float]],
+) -> tuple[List[int], float, List[float], List[float]]:
+    """Hungarian assignment plus duals (equality subgraph / tight edges)."""
+    n = len(cost)
+    if n == 0:
+        return [], 0.0, [], []
+    a = [row[:] for row in cost]
+    u = [0.0] * (n + 1)
+    v = [0.0] * (n + 1)
+    p = [0] * (n + 1)
+    way = [0] * (n + 1)
+    for i in range(1, n + 1):
+        p[0] = i
+        j0 = 0
+        minv = [float("inf")] * (n + 1)
+        used = [False] * (n + 1)
+        while True:
+            used[j0] = True
+            i0 = p[j0]
+            delta = float("inf")
+            j1 = 0
+            for j in range(1, n + 1):
+                if not used[j]:
+                    cur = a[i0 - 1][j - 1] - u[i0] - v[j]
+                    if cur < minv[j]:
+                        minv[j] = cur
+                        way[j] = j0
+                    if minv[j] < delta:
+                        delta = minv[j]
+                        j1 = j
+            for j in range(n + 1):
+                if used[j]:
+                    u[p[j]] += delta
+                    v[j] -= delta
+                else:
+                    minv[j] -= delta
+            j0 = j1
+            if p[j0] == 0:
+                break
+        while True:
+            j1 = way[j0]
+            p[j0] = p[j1]
+            j0 = j1
+            if j0 == 0:
+                break
+    assign = [-1] * n
+    for j in range(1, n + 1):
+        if p[j] > 0:
+            assign[p[j] - 1] = j - 1
+    total = sum(cost[i][assign[i]] for i in range(n) if assign[i] != -1)
+    return assign, total, u[1:], v[1:]
+
+
 def _arc_sweeps_conflict(
     left: Dict[str, Any],
     right: Dict[str, Any],
@@ -636,10 +690,10 @@ def _arc_sweeps_conflict(
     if n == 0:
         return False
     inf = 1e9
-    # Two-stage: spatial Hungarian first, then angle only among edges
-    # whose spatial cost equals both the row's and the column's assigned
-    # spatial cost. A scaled sum lets a ~5e-7 3-decimal gap lose to a
-    # 359° sweep term and certify a swapped pairing as L4.
+    # Two-stage: spatial Hungarian, then angle on every tight edge of the
+    # min-total assignment (reduced cost 0). Row/column equality misses
+    # alternate assignments that redistribute the same total (0.1+0.1 vs
+    # 0.0+0.2). Slack 1e-9 stays below the 5e-7 3-decimal gap.
     spatial = [[inf] * n for _ in range(n)]
     angle = [[0.0] * n for _ in range(n)]
     for i, (center, radius, sweep, start) in enumerate(left_r):
@@ -654,28 +708,20 @@ def _arc_sweeps_conflict(
                 continue
             spatial[i][j] = dist + dr
             angle[i][j] = _arc_angle_tie(sweep, start, rsweep, rstart)
-    from src.core.dedupcad_precision.vendor.entities_match import _hungarian
-
-    spatial_assign, _total = _hungarian(spatial)
-    owner: Dict[int, int] = {}
+    spatial_assign, _total, dual_u, dual_v = _arc_hungarian(spatial)
     for i, j in enumerate(spatial_assign):
         if j < 0 or spatial[i][j] >= inf:
             return True
-        owner[j] = i
+    slack_eps = 1e-9
     angle_cost = [[inf] * n for _ in range(n)]
     for i in range(n):
-        j0 = spatial_assign[i]
-        s_row = spatial[i][j0]
         for j in range(n):
             if spatial[i][j] >= inf:
                 continue
-            i_j = owner.get(j)
-            if i_j is None:
-                continue
-            s_col = spatial[i_j][j]
-            if spatial[i][j] == s_row and spatial[i][j] == s_col:
+            slack = spatial[i][j] - dual_u[i] - dual_v[j]
+            if slack <= slack_eps:
                 angle_cost[i][j] = angle[i][j]
-    assign, _angle_total = _hungarian(angle_cost)
+    assign, _angle_total, _au, _av = _arc_hungarian(angle_cost)
     for i, j in enumerate(assign):
         if j < 0 or angle_cost[i][j] >= inf:
             return True

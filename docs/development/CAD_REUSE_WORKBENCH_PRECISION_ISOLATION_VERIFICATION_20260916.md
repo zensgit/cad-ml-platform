@@ -283,6 +283,9 @@ make test-review-reuse
 | Sol wave87 vs `origin/main` on `ea4c612f` | P2 two-stage ARC assignment |
 | Near-equal 3-decimal ARC sweep swaps are not L4 | `test_near_equal_spatial_arc_sweep_swap_is_not_certified` |
 | `make test-review-reuse` after two-stage ARC assignment | **226 passed**, 7 ezdxf warnings |
+| Sol wave88 vs `origin/main` on `e5cdc765` | P2 min-total ARC tight edges |
+| Colinear equal-total ARC shift still L4 | `test_shifted_colinear_arcs_matching_sweeps_still_l4` |
+| `make test-review-reuse` after min-total ARC tight edges | **227 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

@@ -476,6 +476,21 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave88 — 2026-09-19 ~16:22 UTC
+
+Sol 5.6 vs `origin/main` on `e5cdc765`: **P2** row/column spatial
+equality dropped the other min-total assignment (0.1+0.1 vs 0.0+0.2),
+so matching sweeps on the alternate were a fake conflict. Rematch by
+angle on tight dual edges (reduced cost ≤ 1e-9). Never merge;
+decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 min-total ARC | `_arc_hungarian` duals; angle on tight spatial edges |
+| Local `make test-review-reuse` | **227 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave87 — 2026-09-19 ~16:05 UTC
 
 `tests (3.10)` / `tests (3.11)` **pass** on `ea4c612f`. Sol 5.6 vs
