@@ -124,6 +124,8 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
     score (text/layers/dims) must not be stored as geometric L4.
 26. Wave56 Sol P1s on `fa3eb91d`: keep `entities_geom_hash` off when
     customizing Settings; do not stamp live fused `precision_score` as L4.
+27. Wave57 Sol P1 on `a3d97c35`: `CAD_ML_PLATFORM_L4_ENTITIES_GEOM_HASH=1`
+    must not re-enable bag-of-features on the ReviewReuse L4 path.
 
 ## 6b. Window 3 plan (24h, auto-implement)
 
@@ -135,8 +137,9 @@ Independent `different` rejects no longer inflate pack confidence
 (`f2acff4f`). Zero-sweep ELLIPSE rejected (`2c32cae0`). Ellipse/INSERT
 P2s on `4858606b`. Mixed-entity L4 gate on `21c0dfbc`. Live geom_json
 forward on `d31a9942`. Non-finite local L4 + unreadable meta on
-`eebaf117`. Geometry-only L4 on `fa3eb91d`. **This fire:** Sol P1 —
-keep bag-of-features off; do not trust live fused `precision_score`.
+`eebaf117`. Geometry-only L4 on `fa3eb91d`. Positional L4 + ignore
+live fused scores on `a3d97c35`. **This fire:** Sol P1 — force
+`entities_geom_hash=False` even when the L4 env flag is on.
 Do not invent product tracks.
 
 **Then each 45m wave:**
@@ -186,4 +189,5 @@ Evaluation Report = Track E / ignore.
 | Corrupt tenant_meta.json overwritten by new tenant | `_existing_dir_tenants` treats unreadable sidecar as `_UNREADABLE` |
 | High L4 overrides version-gate `different` | restore similar only when no independent rejection remains |
 | High L4 promotes reasonless adapter `different` | restore only if `low_precision_score` existed before clear |
+| Env `CAD_ML_PLATFORM_L4_ENTITIES_GEOM_HASH=1` recertifies shifted clones | `_try_l4_score` replace() forces `entities_geom_hash=False` |
 | 24h unattended overreach | scheduler stops ~2026-09-19 17:00 UTC; never merge; never enable decisions |

@@ -189,6 +189,9 @@ make test-review-reuse
 | Layout-shifted clones not certified | `test_layout_shifted_same_primitives_are_not_certified` |
 | Live fused score does not skip local L4 | `test_live_fused_precision_score_does_not_skip_local_l4` |
 | `make test-review-reuse` after wave56 P1s | **170 passed**, 7 ezdxf warnings |
+| Sol wave57 vs `origin/main` on `a3d97c35` | P1 `CAD_ML_PLATFORM_L4_ENTITIES_GEOM_HASH=1` re-enables bag-of-features |
+| Env-on layout-shifted clones not certified | `test_layout_shifted_clones_not_certified_when_geom_hash_env_on` |
+| `make test-review-reuse` after env geom-hash pin | **171 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

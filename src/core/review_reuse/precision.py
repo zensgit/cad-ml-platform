@@ -364,14 +364,17 @@ def _try_l4_score(
 
         from src.core.dedupcad_precision import PrecisionVerifier
 
-        # Start from PrecisionVerifier() so CAD_ML_PLATFORM_L4_ENTITIES_GEOM_HASH
-        # stays off. replace(Settings()) would re-enable the bag-of-features
-        # fallback and certify layout-shifted clones as geometric matches.
+        # Start from PrecisionVerifier() then force entities_geom_hash off.
+        # replace(Settings()) re-enables the bag-of-features fallback via
+        # DEDUPCAD2_ENTITIES_GEOM_HASH. Cloning PrecisionVerifier().settings
+        # is not enough: CAD_ML_PLATFORM_L4_ENTITIES_GEOM_HASH=1 would still
+        # certify layout-shifted clones as geometric matches.
         cfg = replace(
             PrecisionVerifier().settings,
             w_text=0.0,
             w_layers=0.0,
             w_dimensions=0.0,
+            entities_geom_hash=False,
         )
         scored = PrecisionVerifier(settings=cfg).score_pair(
             _geometry_only_geom(query_geom), _geometry_only_geom(right)

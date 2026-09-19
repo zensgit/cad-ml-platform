@@ -476,6 +476,21 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave57 — 2026-09-19 ~08:51 UTC
+
+Sol 5.6 vs `origin/main` on `a3d97c35`: **P1** cloning
+`PrecisionVerifier().settings` still keeps `entities_geom_hash=True`
+when `CAD_ML_PLATFORM_L4_ENTITIES_GEOM_HASH=1`, so layout-shifted
+clones are certified as `precision-l4`. Force `entities_geom_hash=False`
+in the ReviewReuse L4 config. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P1 env geom-hash | `_try_l4_score` replace() sets `entities_geom_hash=False` |
+| Local `make test-review-reuse` | **171 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave56 — 2026-09-19 ~08:40 UTC
 
 Sol 5.6 vs `origin/main` on `fa3eb91d`: **P1** `replace(Settings())`

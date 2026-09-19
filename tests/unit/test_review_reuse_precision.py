@@ -1373,6 +1373,48 @@ def test_layout_shifted_same_primitives_are_not_certified() -> None:
     assert out[0].state == CandidateState.different
 
 
+def test_layout_shifted_clones_not_certified_when_geom_hash_env_on(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CAD_ML_PLATFORM_L4_ENTITIES_GEOM_HASH=1 must not re-enable bag-of-features."""
+    monkeypatch.setenv("CAD_ML_PLATFORM_L4_ENTITIES_GEOM_HASH", "1")
+    query = {
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
+            {"type": "LINE", "start": [0.0, 10.0], "end": [10.0, 10.0]},
+        ]
+    }
+    shifted = {
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
+            {"type": "LINE", "start": [100.0, 100.0], "end": [110.0, 100.0]},
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "shifted-env",
+                "state": "similar",
+                "geom_json": shifted,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    geo = out[0].scores.get("geometric")
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+    assert geo is not None
+    assert geo < LOW_PRECISION_THRESHOLD
+    assert RejectionReason.low_precision_score.value in out[0].rejection_reasons
+    assert out[0].state == CandidateState.different
+
+
 def test_malformed_entity_dict_is_not_l4_geometry() -> None:
     bogus = {"entities": [{}]}
     cands = map_raw_hits_to_candidates(
