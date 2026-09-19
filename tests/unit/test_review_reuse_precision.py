@@ -1630,6 +1630,42 @@ def test_bulged_polyline_is_not_certified_as_straight_l4() -> None:
     assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
 
 
+def test_sub_quantum_bulge_is_not_certified_as_straight_l4() -> None:
+    """Bulge 0.0004 must not round to 0 and explode into a chord."""
+    query = {
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
+        ]
+    }
+    other = {
+        "entities": [
+            {
+                "type": "LWPOLYLINE",
+                "points": [[0.0, 0.0, 0.0, 0.0, 0.0004], [10.0, 0.0]],
+            }
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "tiny-bulge",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+
+
 def test_dxf_extracted_bulge_is_not_certified_as_straight_l4() -> None:
     """DXF extract must keep bulge so a chord LINE cannot match a semicircle."""
     import ezdxf
@@ -1706,6 +1742,148 @@ def test_long_splines_truncated_by_matcher_are_not_l4() -> None:
     assert "precision-l4" not in (out[0].verification.get("methods") or [])
     assert out[0].scores.get("geometric") is None
     assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
+def test_spline_prefix_with_unequal_controls_is_not_certified() -> None:
+    """3 vs 16 controls with the same head must not score L4 1.0."""
+    head = [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]]
+    query = {"entities": [{"type": "SPLINE", "control_points": head}]}
+    other = {
+        "entities": [
+            {
+                "type": "SPLINE",
+                "control_points": head + [[float(i), 1000.0] for i in range(3, 16)],
+            }
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "spline-prefix",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    geo = out[0].scores.get("geometric")
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+    assert geo is not None
+    assert geo < LOW_PRECISION_THRESHOLD
+    assert out[0].state == CandidateState.different
+
+
+def test_opposite_half_ellipses_are_not_l4_geometry() -> None:
+    """Vendor span-only ELLIPSE cost would treat 0..π and π..2π as equal."""
+    left = {
+        "entities": [
+            {
+                "type": "ELLIPSE",
+                "center": [0.0, 0.0],
+                "major": [1.0, 0.0],
+                "ratio": 0.5,
+                "start_param": 0.0,
+                "end_param": math.pi,
+            }
+        ]
+    }
+    right = {
+        "entities": [
+            {
+                "type": "ELLIPSE",
+                "center": [0.0, 0.0],
+                "major": [1.0, 0.0],
+                "ratio": 0.5,
+                "start_param": math.pi,
+                "end_param": 2.0 * math.pi,
+            }
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "half-ell",
+                "state": "similar",
+                "geom_json": right,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(left).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
+def test_swapped_insert_block_hashes_are_not_certified() -> None:
+    """Hash sets can match while per-INSERT contents are swapped."""
+    query = {
+        "entities": [
+            {
+                "type": "INSERT",
+                "block": "A",
+                "insert": [0.0, 0.0],
+                "block_hash": "hA",
+            },
+            {
+                "type": "INSERT",
+                "block": "B",
+                "insert": [10.0, 0.0],
+                "block_hash": "hB",
+            },
+        ]
+    }
+    other = {
+        "entities": [
+            {
+                "type": "INSERT",
+                "block": "A",
+                "insert": [0.0, 0.0],
+                "block_hash": "hB",
+            },
+            {
+                "type": "INSERT",
+                "block": "B",
+                "insert": [10.0, 0.0],
+                "block_hash": "hA",
+            },
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "swapped-hash",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    geo = out[0].scores.get("geometric")
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+    assert geo is not None
+    assert geo < LOW_PRECISION_THRESHOLD
+    assert out[0].state == CandidateState.different
 
 
 def test_mismatched_insert_block_hash_is_not_certified() -> None:

@@ -222,11 +222,12 @@ def _is_geom_entity(ent: Any) -> bool:
             return True
         start_p = _quantized(ent.get("start_param"))
         end_p = _quantized(ent.get("end_param"))
-        return (
-            start_p is not None
-            and end_p is not None
-            and start_p != end_p
-        )
+        if start_p is None or end_p is None or start_p == end_p:
+            return False
+        # Vendor ELLIPSE cost uses only |end-start|, so 0..π vs π..2π
+        # would score 1.0. Admit full ellipses only.
+        span = abs(end_p - start_p)
+        return abs(span - 2.0 * math.pi) <= 10 ** (-_L4_QUANT_NDIGITS)
     if et == "SPLINE":
         cps = ent.get("control_points")
         if not isinstance(cps, list) or len(cps) > _L4_MAX_SPLINE_CTRL:
@@ -345,33 +346,41 @@ def _canonical_geom(obj: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
-def _vertex_bulge(point: Any) -> Optional[float]:
-    if isinstance(point, dict):
-        return _quantized(point.get("bulge", 0.0))
+def _bulge_is_unsafe(raw: Any) -> bool:
+    """Any nonzero or non-finite bulge is unsafe to explode into a chord."""
+    if raw is None:
+        return False
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        return True
+    number = float(raw)
+    return (not math.isfinite(number)) or number != 0.0
+
+
+def _vertex_has_unsafe_bulge(point: Any) -> bool:
+    if isinstance(point, dict) and "bulge" in point:
+        return _bulge_is_unsafe(point.get("bulge"))
     if isinstance(point, (list, tuple)) and len(point) >= 5:
-        return _quantized(point[4])
-    return 0.0
+        return _bulge_is_unsafe(point[4])
+    return False
 
 
 def _polyline_has_bulge(entity: Dict[str, Any]) -> bool:
     """True when a polyline encodes a curved segment we would drop as LINE."""
     raw_bulges = entity.get("bulges")
     if isinstance(raw_bulges, list) and any(
-        (b := _quantized(item)) is not None and b != 0.0 for item in raw_bulges
+        _bulge_is_unsafe(item) for item in raw_bulges
     ):
         return True
     pts = entity.get("points")
     if not isinstance(pts, list):
         return False
-    for point in pts:
-        bulge = _vertex_bulge(point)
-        if bulge is not None and bulge != 0.0:
-            return True
-    return False
+    return any(_vertex_has_unsafe_bulge(point) for point in pts)
 
 
-def _insert_block_hashes(geom: Dict[str, Any]) -> set[str]:
-    found: set[str] = set()
+def _insert_identities(
+    geom: Dict[str, Any],
+) -> List[tuple[str, Optional[tuple[float, float]], str]]:
+    found: List[tuple[str, Optional[tuple[float, float]], str]] = []
     ents = geom.get("entities")
     if not isinstance(ents, list):
         return found
@@ -380,17 +389,47 @@ def _insert_block_hashes(geom: Dict[str, Any]) -> set[str]:
             continue
         if str(entity.get("type") or "").upper() != "INSERT":
             continue
+        name = str(entity.get("block") or "")
         bhash = entity.get("block_hash")
-        if isinstance(bhash, str) and bhash.strip():
-            found.add(bhash.strip())
+        hashed = bhash.strip() if isinstance(bhash, str) else ""
+        if not hashed:
+            continue
+        found.append((name, _quantized_xy(entity.get("insert")), hashed))
     return found
 
 
 def _insert_block_hash_conflict(left: Dict[str, Any], right: Dict[str, Any]) -> bool:
-    """Different non-empty block hashes must not pass L4 (fused 0.55+)."""
-    left_h = _insert_block_hashes(left)
-    right_h = _insert_block_hashes(right)
-    return bool(left_h) and bool(right_h) and left_h != right_h
+    """Same INSERT identity with a different block_hash must not pass L4."""
+    left_ids = _insert_identities(left)
+    right_ids = _insert_identities(right)
+    if not left_ids or not right_ids:
+        return False
+    used: set[int] = set()
+    for name, pos, left_hash in left_ids:
+        for idx, (rname, rpos, right_hash) in enumerate(right_ids):
+            if idx in used:
+                continue
+            if name == rname and pos == rpos:
+                used.add(idx)
+                if left_hash != right_hash:
+                    return True
+                break
+    return False
+
+
+def _spline_control_counts(geom: Dict[str, Any]) -> List[int]:
+    counts: List[int] = []
+    ents = geom.get("entities")
+    if not isinstance(ents, list):
+        return counts
+    for entity in ents:
+        if not isinstance(entity, dict):
+            continue
+        if str(entity.get("type") or "").upper() != "SPLINE":
+            continue
+        cps = entity.get("control_points")
+        counts.append(len(cps) if isinstance(cps, list) else 0)
+    return sorted(counts)
 
 
 def _explode_polyline(entity: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -516,6 +555,8 @@ def _try_l4_score(
         ):
             return None
         if _insert_block_hash_conflict(left, right_g):
+            return 0.0
+        if _spline_control_counts(left) != _spline_control_counts(right_g):
             return 0.0
         scored = PrecisionVerifier(settings=cfg).score_pair(left, right_g)
         score = scored.score
