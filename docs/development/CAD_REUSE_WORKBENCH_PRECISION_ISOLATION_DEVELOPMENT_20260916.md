@@ -112,6 +112,8 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
     `e2e-smoke` **pass**. Sol still usage-limited.
 20. Wave50 on `2c32cae0`: Sol P2 omitted full-ellipse params must
     canonicalize to `0..2π`; non-finite INSERT rotation is not L4.
+21. Wave51 on `4858606b`: `tests (3.10)` / `(3.11)` / `e2e-smoke`
+    **pass**. Sol 5.6 vs `origin/main`: **no P1/P2**.
 
 ## 6b. Window 3 plan (24h, auto-implement)
 
@@ -120,8 +122,9 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 **Landed:** Sol wave29 P2 — high L4 rescore restores `candidate.state` /
 `verification.verdict` when the only stale reason was `low_precision_score`.
 Independent `different` rejects no longer inflate pack confidence
-(`f2acff4f`). Zero-sweep ELLIPSE rejected (`2c32cae0`). **This fire:**
-Sol wave50 P2 — fill omitted ellipse params; reject NaN INSERT rotation.
+(`f2acff4f`). Zero-sweep ELLIPSE rejected (`2c32cae0`). Ellipse/INSERT
+P2s on `4858606b`. **This fire:** Sol wave51 **no P1/P2**. Docs-only
+record of 3.10 green. Do not invent product tracks.
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.

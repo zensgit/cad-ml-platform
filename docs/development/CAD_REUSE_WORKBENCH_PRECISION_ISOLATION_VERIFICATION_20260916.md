@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: window 3 wave50 (`2c32cae0` + Sol P2 ellipse/INSERT)  
+**HEAD at writing**: window 3 wave51 (`4858606b`; Sol no P1/P2)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -169,6 +169,8 @@ make test-review-reuse
 | Non-finite INSERT rotation is not L4 geom | `test_nonfinite_insert_rotation_is_not_l4_geometry` |
 | Sol wave50 vs `origin/main` on `2c32cae0` | P2 omitted ellipse params; P2 NaN INSERT rotation |
 | `make test-review-reuse` after ellipse/INSERT P2 | **161 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) / e2e-smoke on `4858606b` | **pass** |
+| Sol wave51 vs `origin/main` on `4858606b` | **no P1/P2** |
 
 ### CI (PR #586)
 

@@ -476,6 +476,20 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave51 — 2026-09-19 ~07:16 UTC
+
+`tests (3.10)` / `tests (3.11)` / `e2e-smoke` **pass** on `4858606b`.
+Sol 5.6 vs `origin/main`: **no P1/P2**. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| HEAD | `4858606b` |
+| Last fully green 3.10/3.11 | `4858606b` |
+| Local `make test-review-reuse` | **161 passed** (not re-run; no product change) |
+| Sol wave51 | no P1/P2 |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave50 — 2026-09-19 ~06:42 UTC
 
 `2c32cae0` is a new product SHA (zero-sweep ELLIPSE). Sol 5.6 vs
