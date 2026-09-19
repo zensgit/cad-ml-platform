@@ -476,6 +476,22 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave54 remaining P2 — 2026-09-19 ~08:25 UTC
+
+Sol 5.6 vs `origin/main` on `d31a9942`: P2 local `PrecisionVerifier`
+NaN/inf/out-of-range scores were trusted as L4; P2 unreadable
+`tenant_meta.json` with no tasks was treated as empty and overwritten.
+Reject non-finite local scores; occupy the dir as `_UNREADABLE`.
+Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 local L4 range | `_try_l4_score` uses `_is_finite_unit_score` |
+| P2 unreadable meta | `_existing_dir_tenants` fail-closed |
+| Local `make test-review-reuse` | **167 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave54 — 2026-09-19 ~08:20 UTC
 
 Sol 5.6 vs `origin/main` on `21c0dfbc`: P2 live

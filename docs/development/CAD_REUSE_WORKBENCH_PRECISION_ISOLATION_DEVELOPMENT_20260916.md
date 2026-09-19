@@ -118,6 +118,8 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
     entities (`any(...)`) must not admit junk into L4 scoring.
 23. Wave54 Sol P2 on `21c0dfbc`: live `vision_response_to_hits` must
     forward match `geom_json` so local L4 can run without a unit score.
+24. Wave54 remaining Sol P2s on `d31a9942`: local L4 scores must be
+    finite unit-range; unreadable `tenant_meta.json` must occupy the dir.
 
 ## 6b. Window 3 plan (24h, auto-implement)
 
@@ -127,8 +129,9 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 `verification.verdict` when the only stale reason was `low_precision_score`.
 Independent `different` rejects no longer inflate pack confidence
 (`f2acff4f`). Zero-sweep ELLIPSE rejected (`2c32cae0`). Ellipse/INSERT
-P2s on `4858606b`. Mixed-entity L4 gate on `21c0dfbc`. **This fire:**
-Sol wave54 P2 — forward live match `geom_json`. Do not invent product tracks.
+P2s on `4858606b`. Mixed-entity L4 gate on `21c0dfbc`. Live geom_json
+forward on `d31a9942`. **This fire:** Sol P2 — reject non-finite local
+L4; fail closed on unreadable tenant meta. Do not invent product tracks.
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.
@@ -173,6 +176,8 @@ Evaluation Report = Track E / ignore.
 | Omitted ellipse params vs DXF 0..2π look different | `_canonical_geom` fills full-span params before L4 |
 | NaN/inf INSERT rotation labeled precision-l4 | `_is_geom_entity` requires finite rotation when present |
 | Mixed valid LINE + zero-radius CIRCLE fake L4 match | `_is_geom_json` rejects malformed supported types; `_canonical_geom` drops them |
+| Local L4 NaN/inf/out-of-range trusted as similar | `_try_l4_score` requires `_is_finite_unit_score` before persist |
+| Corrupt tenant_meta.json overwritten by new tenant | `_existing_dir_tenants` treats unreadable sidecar as `_UNREADABLE` |
 | High L4 overrides version-gate `different` | restore similar only when no independent rejection remains |
 | High L4 promotes reasonless adapter `different` | restore only if `low_precision_score` existed before clear |
 | 24h unattended overreach | scheduler stops ~2026-09-19 17:00 UTC; never merge; never enable decisions |

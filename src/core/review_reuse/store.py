@@ -255,9 +255,14 @@ class FilesystemReviewReuseStore:
                 seen.add(tid)
                 found.append(tid)
 
-        meta = read_tenant_meta_id(tenant_dir)
-        if meta:
-            _add(meta)
+        meta_path = tenant_dir / _TENANT_META
+        if meta_path.is_file():
+            meta = read_tenant_meta_id(tenant_dir)
+            if meta:
+                _add(meta)
+            else:
+                # Sidecar present but unreadable/invalid: fail closed.
+                _add(_UNREADABLE)
         tasks_dir = tenant_dir / "tasks"
         if not tasks_dir.is_dir():
             return found

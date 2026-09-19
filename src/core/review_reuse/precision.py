@@ -331,7 +331,10 @@ def _try_l4_score(
         scored = PrecisionVerifier().score_pair(
             _canonical_geom(query_geom), _canonical_geom(right)
         )
-        return float(scored.score)
+        score = scored.score
+        if not _is_finite_unit_score(score):
+            return None
+        return float(score)
     except Exception:
         logger.warning("review_reuse_l4_score_failed", exc_info=True)
         return None

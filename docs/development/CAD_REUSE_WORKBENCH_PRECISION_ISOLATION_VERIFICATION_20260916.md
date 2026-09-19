@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: window 3 wave54 (live geom_json forward; Sol P2)  
+**HEAD at writing**: window 3 wave54 (non-finite local L4 + unreadable meta)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -53,6 +53,8 @@
 | High L4 keeps reasonless adapter `different` | `test_high_l4_preserves_reasonless_different`, `test_high_prescored_l4_preserves_reasonless_different` | pass locally |
 | Mixed valid + degenerate supported entities not L4 | `test_mixed_valid_line_and_zero_radius_circle_is_not_l4` | pass locally |
 | Unknown TEXT beside a valid LINE still L4 | `test_valid_line_with_unknown_type_still_l4` | pass locally |
+| Non-finite / out-of-range local L4 not trusted | `test_nonfinite_local_l4_score_is_not_trusted`, `test_out_of_range_local_l4_score_is_not_trusted` | pass locally |
+| Unreadable tenant_meta.json is occupied | `test_filesystem_put_refuses_unreadable_tenant_meta` | pass locally |
 
 **Not claimed:** owner design-lock ratification; production decision enable; customer pilot C1–C5; Track E model-release metrics.
 
@@ -178,6 +180,8 @@ make test-review-reuse
 | Sol wave54 vs `origin/main` on `21c0dfbc` | P2 live hits drop inline `geom_json` |
 | Live match inline geom_json still L4 | `test_vision_response_forwards_inline_geom_json` |
 | `make test-review-reuse` after live geom_json forward | **164 passed**, 7 ezdxf warnings |
+| Sol wave54 remaining vs `origin/main` on `d31a9942` | P2 non-finite local L4; P2 unreadable tenant meta fail-open |
+| `make test-review-reuse` after local L4 range + unreadable meta | **167 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

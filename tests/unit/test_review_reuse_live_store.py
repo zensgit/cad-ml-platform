@@ -575,6 +575,26 @@ def test_filesystem_put_refuses_hashed_dir_occupied_by_legacy_tenant(
     assert leftover["tenant_id"] == occupant
 
 
+def test_filesystem_put_refuses_unreadable_tenant_meta(tmp_path: Path) -> None:
+    from src.core.review_reuse.service import ReviewReuseError
+
+    root = tmp_path / "tasks"
+    hashed = root / tenant_dir_key("pilot-tenant")
+    hashed.mkdir(parents=True)
+    meta = hashed / "tenant_meta.json"
+    meta.write_text("{not-json", encoding="utf-8")
+    store = FilesystemReviewReuseStore(root)
+    svc = ReviewReuseService(store)
+    with pytest.raises(ReviewReuseError) as ei:
+        svc.create_task(
+            tenant_id="pilot-tenant",
+            file_name="p.dxf",
+            file_bytes=b"x",
+        )
+    assert ei.value.code == "store_conflict"
+    assert meta.read_text(encoding="utf-8") == "{not-json"
+
+
 def test_cancel_translates_occupied_hashed_dir(tmp_path: Path) -> None:
     from src.core.review_reuse.service import ReviewReuseError
 

@@ -889,6 +889,78 @@ def test_zero_ratio_ellipse_is_not_l4_geometry() -> None:
     assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
 
 
+def test_nonfinite_local_l4_score_is_not_trusted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Scored:
+        score = float("nan")
+
+    class _Verifier:
+        def score_pair(self, *_args: object, **_kwargs: object) -> _Scored:
+            return _Scored()
+
+    monkeypatch.setattr(
+        "src.core.dedupcad_precision.PrecisionVerifier", _Verifier
+    )
+    geom = _line_geom()
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "nan-local",
+                "state": "similar",
+                "geom_json": geom,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(geom).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
+def test_out_of_range_local_l4_score_is_not_trusted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Scored:
+        score = 2.0
+
+    class _Verifier:
+        def score_pair(self, *_args: object, **_kwargs: object) -> _Scored:
+            return _Scored()
+
+    monkeypatch.setattr(
+        "src.core.dedupcad_precision.PrecisionVerifier", _Verifier
+    )
+    geom = _line_geom()
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "hi-local",
+                "state": "duplicate",
+                "geom_json": geom,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(geom).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
 def test_nonfinite_prescored_l4_is_not_trusted() -> None:
     cands = map_raw_hits_to_candidates(
         [
