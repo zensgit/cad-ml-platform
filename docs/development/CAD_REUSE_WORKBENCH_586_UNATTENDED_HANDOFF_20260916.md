@@ -476,6 +476,21 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave63 — 2026-09-19 ~09:55 UTC
+
+Sol 5.6 vs `origin/main` on `4362c886`: **P1** exploding polylines into
+LINEs hits `max_match_entities=64`, so 101-point polylines that match
+on the first 64 segments and diverge after scored L4 1.0. Raise the
+matcher cap to the exploded entity count. Never merge; decisions stay
+off.
+
+| Item | State |
+|---|---|
+| P1 matcher cap | `_try_l4_score` sets `max_match_entities` to full count |
+| Local `make test-review-reuse` | **178 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave62 — 2026-09-19 ~09:43 UTC
 
 Sol 5.6 vs `origin/main` on `48ec1243`: **P1** PrecisionVerifier

@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: window 3 wave60 (HATCH excluded from geometry-only L4)  
+**HEAD at writing**: window 3 wave63 (polyline matcher cap)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -207,6 +207,9 @@ make test-review-reuse
 | Sol wave62 vs `origin/main` on `48ec1243` | P1 translated polylines certified via canonical matching |
 | Shifted polylines are not L4 | `test_layout_shifted_polylines_are_not_certified` |
 | `make test-review-reuse` after polyline explode | **177 passed**, 7 ezdxf warnings |
+| Sol wave63 vs `origin/main` on `4362c886` | P1 exploded polylines truncated at 64 entities |
+| Long polylines diverging after cap are not L4 | `test_long_polylines_diverging_after_matcher_cap_are_not_certified` |
+| `make test-review-reuse` after matcher-cap raise | **178 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

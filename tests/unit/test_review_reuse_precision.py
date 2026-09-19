@@ -1549,6 +1549,50 @@ def test_layout_shifted_polylines_are_not_certified() -> None:
         assert out[0].state == CandidateState.different
 
 
+def test_long_polylines_diverging_after_matcher_cap_are_not_certified() -> None:
+    """Exploded segments past max_match_entities=64 must still affect L4."""
+    query = {
+        "entities": [
+            {
+                "type": "LWPOLYLINE",
+                "points": [[float(i), 0.0] for i in range(101)],
+            }
+        ]
+    }
+    other = {
+        "entities": [
+            {
+                "type": "LWPOLYLINE",
+                "points": [[float(i), 0.0] for i in range(10)]
+                + [[float(i), 1000.0] for i in range(10, 101)],
+            }
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "long-poly",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    geo = out[0].scores.get("geometric")
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+    assert geo is not None
+    assert geo < LOW_PRECISION_THRESHOLD
+    assert RejectionReason.low_precision_score.value in out[0].rejection_reasons
+    assert out[0].state == CandidateState.different
+
+
 def test_layout_shifted_clones_not_certified_when_geom_hash_env_on(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

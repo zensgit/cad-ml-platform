@@ -428,6 +428,15 @@ def _try_l4_score(
         )
         left = _geometry_only_geom(query_geom)
         right_g = _geometry_only_geom(right)
+        # Exploded polylines can exceed the verifier's 64-entity cap. A prefix
+        # match must not certify the rest of the drawing as L4 1.0.
+        needed = max(
+            int(getattr(cfg, "max_match_entities", 64) or 64),
+            len(left.get("entities") or []),
+            len(right_g.get("entities") or []),
+        )
+        if needed > cfg.max_match_entities:
+            cfg = replace(cfg, max_match_entities=needed)
         # Re-check after verifier quantization: sub-0.001 LINEs/radii collapse
         # to zero-length and would otherwise score as identical L4 matches.
         if not _is_geom_json(normalize_v2(left, cfg)) or not _is_geom_json(

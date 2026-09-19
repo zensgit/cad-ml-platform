@@ -136,6 +136,8 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
     must not reject identical geometry on different CAD layers.
 32. Wave62 Sol P1 on `48ec1243`: translated `LWPOLYLINE`/`POLYLINE`
     must not score L4 ~1.0 via canonical (pose-invariant) matching.
+33. Wave63 Sol P1 on `4362c886`: exploded polyline segments past the
+    64-entity matcher cap must still affect L4.
 
 ## 6b. Window 3 plan (24h, auto-implement)
 
@@ -151,8 +153,8 @@ forward on `d31a9942`. Non-finite local L4 + unreadable meta on
 live fused scores on `a3d97c35`. Geom-hash pin on `b86733a4`.
 Cleanup refuses unreadable tenant meta on `395c0f5c`. Quantized geom
 gate on `9806f46b`. HATCH exclusion on `256068ce`. Layer-penalty pin
-on `48ec1243`. **This fire:** Sol P1 — explode polylines to positional
-LINEs so translated clones are not L4. Do not invent product tracks.
+on `48ec1243`. Polyline explode on `4362c886`. **This fire:** Sol P1 —
+raise matcher cap so exploded segments past 64 still affect L4.
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.
