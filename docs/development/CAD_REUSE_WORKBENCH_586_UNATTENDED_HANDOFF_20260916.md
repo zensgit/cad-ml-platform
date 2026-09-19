@@ -476,6 +476,21 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave54 — 2026-09-19 ~08:20 UTC
+
+Sol 5.6 vs `origin/main` on `21c0dfbc`: P2 live
+`vision_response_to_hits` dropped match `geom_json`, so L4-verifiable
+hits without a unit `precision_score` (and without a 64-hex file hash)
+were labeled `missing_geom_json` / `vision_only_unverified`. Forward
+inline geometry. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 live geom_json | `vision_response_to_hits` copies match/provenance geom |
+| Local `make test-review-reuse` | **164 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave53 — 2026-09-19 ~08:05 UTC
 
 `tests (3.10)` green on docs HEAD `b76c67d8` (product `4858606b`).

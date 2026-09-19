@@ -22,6 +22,7 @@ from src.core.review_reuse.dedup_live import vision_response_to_hits
 from src.core.review_reuse.precision import apply_precision
 from src.core.review_reuse.models import (
     CandidateState,
+    RejectionReason,
     ReviewReuseTask,
     TaskEvent,
     TaskEventType,
@@ -71,6 +72,44 @@ def test_vision_response_to_hits_maps_buckets() -> None:
     # Visual similarity must not be copied into geometric (strategy §3.3).
     assert hits[1]["scores"]["geometric"] is None
     assert hits[1]["scores"]["semantic"] == 0.85
+
+
+def test_vision_response_forwards_inline_geom_json() -> None:
+    """Live matches with geom_json but no precision_score must still L4."""
+    geom = {
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]}
+        ]
+    }
+    hits = vision_response_to_hits(
+        {
+            "similar": [
+                {
+                    "drawing_id": "not-a-file-hash",
+                    "similarity": 0.88,
+                    "verdict": "similar",
+                    "match_level": 2,
+                    "geom_json": geom,
+                }
+            ]
+        }
+    )
+    assert hits[0]["geom_json"] == geom
+    assert hits[0]["scores"]["geometric"] is None
+    assert "precision-l4" not in hits[0]["methods"]
+    cands = map_raw_hits_to_candidates(
+        hits, content_sha="ab", file_name="query.json"
+    )
+    assert cands[0].provenance.get("geom_json") == geom
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(geom).encode("utf-8"),
+    )
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") == 1.0
+    assert RejectionReason.missing_geom_json.value not in out[0].rejection_reasons
+    assert RejectionReason.vision_only_unverified.value not in out[0].rejection_reasons
 
 
 def test_vision_boolean_precision_score_is_not_l4() -> None:

@@ -116,6 +116,8 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
     **pass**. Sol 5.6 vs `origin/main`: **no P1/P2**.
 22. Wave53 Sol P2 on `b76c67d8`: mixed valid + malformed supported
     entities (`any(...)`) must not admit junk into L4 scoring.
+23. Wave54 Sol P2 on `21c0dfbc`: live `vision_response_to_hits` must
+    forward match `geom_json` so local L4 can run without a unit score.
 
 ## 6b. Window 3 plan (24h, auto-implement)
 
@@ -125,8 +127,8 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 `verification.verdict` when the only stale reason was `low_precision_score`.
 Independent `different` rejects no longer inflate pack confidence
 (`f2acff4f`). Zero-sweep ELLIPSE rejected (`2c32cae0`). Ellipse/INSERT
-P2s on `4858606b`. **This fire:** Sol wave53 P2 — reject mixed valid +
-degenerate supported entities before L4. Do not invent product tracks.
+P2s on `4858606b`. Mixed-entity L4 gate on `21c0dfbc`. **This fire:**
+Sol wave54 P2 — forward live match `geom_json`. Do not invent product tracks.
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.

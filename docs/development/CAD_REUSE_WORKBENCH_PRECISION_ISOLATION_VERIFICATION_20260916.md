@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: window 3 wave53 (mixed-entity L4 gate; Sol P2)  
+**HEAD at writing**: window 3 wave54 (live geom_json forward; Sol P2)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -175,6 +175,9 @@ make test-review-reuse
 | Sol wave51 vs `origin/main` on `4858606b` | **no P1/P2** |
 | Sol wave53 vs `origin/main` on `b76c67d8` | P2 mixed valid + degenerate supported entities still L4 |
 | `make test-review-reuse` after mixed-entity L4 gate | **163 passed**, 7 ezdxf warnings |
+| Sol wave54 vs `origin/main` on `21c0dfbc` | P2 live hits drop inline `geom_json` |
+| Live match inline geom_json still L4 | `test_vision_response_forwards_inline_geom_json` |
+| `make test-review-reuse` after live geom_json forward | **164 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

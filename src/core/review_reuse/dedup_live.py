@@ -46,33 +46,42 @@ def vision_response_to_hits(response: Dict[str, Any]) -> List[Dict[str, Any]]:
                 geom = l4_score
             if geom is not None:
                 methods.append("precision-l4")
-            hits.append(
-                {
-                    "candidate_id": str(
-                        match.get("file_hash")
-                        or match.get("drawing_id")
-                        or match.get("file_name")
-                        or match.get("id")
-                        or f"live-{len(hits)}"
-                    ),
-                    "candidate_source": "archive",
-                    "state": verdict,
-                    "scores": {
-                        "geometric": geom,
-                        "semantic": visual,
-                        "visual": visual,
-                    },
-                    "match_level": match.get("match_level", 0),
+            hit: Dict[str, Any] = {
+                "candidate_id": str(
+                    match.get("file_hash")
+                    or match.get("drawing_id")
+                    or match.get("file_name")
+                    or match.get("id")
+                    or f"live-{len(hits)}"
+                ),
+                "candidate_source": "archive",
+                "state": verdict,
+                "scores": {
+                    "geometric": geom,
+                    "semantic": visual,
+                    "visual": visual,
+                },
+                "match_level": match.get("match_level", 0),
+                "methods": methods,
+                "verification": {
+                    "verdict": verdict,
+                    "level": match.get("match_level", 0),
                     "methods": methods,
-                    "verification": {
-                        "verdict": verdict,
-                        "level": match.get("match_level", 0),
-                        "methods": methods,
-                    },
-                    "decision_source": match.get("decision_source") or "dedup2d-vision",
-                    "rejection_reasons": list(match.get("rejection_reasons") or []),
-                }
-            )
+                },
+                "decision_source": match.get("decision_source") or "dedup2d-vision",
+                "rejection_reasons": list(match.get("rejection_reasons") or []),
+            }
+            # Inline geometry must survive mapping so apply_precision can
+            # run local L4 when the match has no unit precision_score and
+            # the candidate id is not a 64-hex geom-store key.
+            geom_json = match.get("geom_json")
+            if not isinstance(geom_json, dict):
+                nested = match.get("provenance")
+                if isinstance(nested, dict):
+                    geom_json = nested.get("geom_json")
+            if isinstance(geom_json, dict):
+                hit["geom_json"] = geom_json
+            hits.append(hit)
     return hits
 
 
