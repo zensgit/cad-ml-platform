@@ -142,6 +142,8 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
     score L4 1.0; matcher cap must stay a hard bound.
 35. Wave65 Sol P1s on `167831f6`: bulged polylines must not explode to
     chords; INSERT `block_hash` mismatch must not pass L4.
+36. Wave66 Sol P1s on `66205333`: DXF extract must keep LWPOLYLINE
+    bulge; splines longer than 16 control points must not be L4.
 
 ## 6b. Window 3 plan (24h, auto-implement)
 
@@ -158,8 +160,9 @@ live fused scores on `a3d97c35`. Geom-hash pin on `b86733a4`.
 Cleanup refuses unreadable tenant meta on `395c0f5c`. Quantized geom
 gate on `9806f46b`. HATCH exclusion on `256068ce`. Layer-penalty pin
 on `48ec1243`. Polyline explode on `4362c886`. Matcher-cap raise on
-`1a99996f`. Unmatched penalty + hard cap on `167831f6`. **This fire:**
-Sol P1 — fail closed on polyline bulge; veto INSERT block_hash mismatch.
+`1a99996f`. Unmatched penalty + hard cap on `167831f6`. Bulge/hash
+fail-closed on `66205333`. **This fire:** Sol P1 — preserve DXF bulge;
+refuse splines with more than 16 control points.
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.
@@ -214,4 +217,6 @@ Evaluation Report = Track E / ignore.
 | Translated polylines score L4 1.0 after canonical pose | `_explode_polyline` to absolute LINEs before PrecisionVerifier |
 | Subset geometry scores L4 1.0 (min-length truncate) | `_penalize_unmatched` scales by min/max entity counts |
 | Unbounded max_match_entities exhausts workers | hard cap `_L4_MAX_MATCH_ENTITIES=128`; over-cap is not L4 |
+| DXF extract drops bulge so curve matches chord | `dxf_extract` keeps `bulges`; `_polyline_has_bulge` refuses L4 |
+| Long SPLINE tails ignored (first 16 controls) | `_is_geom_entity` rejects splines with >16 control points |
 | 24h unattended overreach | scheduler stops ~2026-09-19 17:00 UTC; never merge; never enable decisions |

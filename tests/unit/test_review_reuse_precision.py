@@ -1630,6 +1630,84 @@ def test_bulged_polyline_is_not_certified_as_straight_l4() -> None:
     assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
 
 
+def test_dxf_extracted_bulge_is_not_certified_as_straight_l4() -> None:
+    """DXF extract must keep bulge so a chord LINE cannot match a semicircle."""
+    import ezdxf
+
+    doc = ezdxf.new("R2010")
+    doc.modelspace().add_lwpolyline(
+        [(0.0, 0.0, 1.0), (10.0, 0.0, 0.0)],
+        format="xyb",
+    )
+    from io import StringIO
+
+    buf = StringIO()
+    doc.write(buf)
+    chord = {
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "dxf-bulge",
+                "state": "similar",
+                "geom_json": chord,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="bulge.dxf",
+    )
+    out = apply_precision(
+        cands,
+        file_name="bulge.dxf",
+        file_bytes=buf.getvalue().encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
+def test_long_splines_truncated_by_matcher_are_not_l4() -> None:
+    """Matcher only compares 16 spline controls; longer tails must not be L4."""
+    head = [[float(i), 0.0] for i in range(16)]
+    query = {
+        "entities": [
+            {"type": "SPLINE", "control_points": head + [[16.0, 0.0], [17.0, 0.0]]},
+        ]
+    }
+    other = {
+        "entities": [
+            {
+                "type": "SPLINE",
+                "control_points": head + [[16.0, 1000.0], [17.0, 1000.0]],
+            }
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "long-spline",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
 def test_mismatched_insert_block_hash_is_not_certified() -> None:
     """Same INSERT pose with different block_hash must not pass L4."""
     query = {

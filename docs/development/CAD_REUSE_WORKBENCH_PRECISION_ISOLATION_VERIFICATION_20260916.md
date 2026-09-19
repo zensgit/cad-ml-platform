@@ -218,6 +218,10 @@ make test-review-reuse
 | Bulged polyline is not straight L4 | `test_bulged_polyline_is_not_certified_as_straight_l4` |
 | Mismatched INSERT block_hash is not L4 | `test_mismatched_insert_block_hash_is_not_certified` |
 | `make test-review-reuse` after bulge/hash P1s | **182 passed**, 7 ezdxf warnings |
+| Sol wave66 vs `origin/main` on `66205333` | P1 DXF extract drops bulge; P1 spline matcher truncates at 16 |
+| DXF-extracted bulge is not chord L4 | `test_dxf_extracted_bulge_is_not_certified_as_straight_l4` |
+| Long splines are not prefix-certified | `test_long_splines_truncated_by_matcher_are_not_l4` |
+| `make test-review-reuse` after DXF bulge + spline cap | **184 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

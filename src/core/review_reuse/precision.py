@@ -121,6 +121,8 @@ _L4_QUANT_NDIGITS = 3
 # Hard matcher cap (vendor Hungarian bound). Never raise this to the
 # untrusted exploded entity count.
 _L4_MAX_MATCH_ENTITIES = 128
+# PrecisionVerifier compares only the first 16 spline control points.
+_L4_MAX_SPLINE_CTRL = 16
 
 
 def _quantized(value: Any) -> Optional[float]:
@@ -226,7 +228,10 @@ def _is_geom_entity(ent: Any) -> bool:
             and start_p != end_p
         )
     if et == "SPLINE":
-        return _has_two_distinct_xy(ent.get("control_points"))
+        cps = ent.get("control_points")
+        if not isinstance(cps, list) or len(cps) > _L4_MAX_SPLINE_CTRL:
+            return False
+        return _has_two_distinct_xy(cps)
     if et == "INSERT":
         name = ent.get("block")
         bhash = ent.get("block_hash")

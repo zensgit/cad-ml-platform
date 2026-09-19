@@ -476,6 +476,23 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave66 — 2026-09-19 ~10:22 UTC
+
+Sol 5.6 vs `origin/main` on `66205333`: **P1** `dxf_extract` stored
+LWPOLYLINE vertices as `[x, y]`, so `_polyline_has_bulge` never saw
+DXF curves and a chord still scored L4 1.0; **P1** SPLINE matching
+uses only 16 control points, so identical heads with different tails
+scored 1.0. Keep `bulges` in extract; refuse splines with >16 controls.
+Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P1 DXF bulge | `_polyline_xy_and_bulges` on extract |
+| P1 spline cap | `_L4_MAX_SPLINE_CTRL=16` in `_is_geom_entity` |
+| Local `make test-review-reuse` | **184 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave65 — 2026-09-19 ~10:12 UTC
 
 Sol 5.6 vs `origin/main` on `167831f6`: **P1** exploding LWPOLYLINE

@@ -28,6 +28,25 @@ except Exception as e:  # pragma: no cover - optional dependency
     ezdxf = None
 
 
+def _polyline_xy_and_bulges(entity: Any, et: str) -> tuple[List[List[float]], List[float]]:
+    """Keep vertex bulge so ReviewReuse can refuse curve-to-chord L4."""
+    pts: List[List[float]] = []
+    bulges: List[float] = []
+    if et == "LWPOLYLINE":
+        for p in entity.get_points():
+            pts.append([float(p[0]), float(p[1])])
+            bulges.append(float(p[4]) if len(p) >= 5 else 0.0)
+        return pts, bulges
+    for v in entity.vertices:
+        loc = v.dxf.location
+        pts.append([float(loc.x), float(loc.y)])
+        try:
+            bulges.append(float(getattr(v.dxf, "bulge", 0.0) or 0.0))
+        except Exception:
+            bulges.append(0.0)
+    return pts, bulges
+
+
 def extract_dxf(path: str) -> Dict[str, Any]:
     if ezdxf is None:
         raise RuntimeError("ezdxf not installed: pip install ezdxf")
@@ -82,17 +101,15 @@ def extract_dxf(path: str) -> Dict[str, Any]:
                             pass
                     elif t in ("LWPOLYLINE", "POLYLINE"):
                         pts: List[List[float]] = []
+                        bulges: List[float] = []
                         try:
-                            if t == "LWPOLYLINE":
-                                for p in be.get_points():
-                                    pts.append([float(p[0]), float(p[1])])
-                            else:
-                                for v in be.vertices:
-                                    pts.append([float(v.dxf.location.x), float(v.dxf.location.y)])
+                            pts, bulges = _polyline_xy_and_bulges(be, t)
                         except Exception:
                             pass
                         if pts:
                             ie.update({"points": pts})
+                            if any(b != 0.0 for b in bulges):
+                                ie["bulges"] = bulges
                     elif t == "ELLIPSE":
                         try:
                             center = [float(be.dxf.center.x), float(be.dxf.center.y)]
@@ -394,18 +411,16 @@ def extract_dxf(path: str) -> Dict[str, Any]:
             )
         elif et in ("LWPOLYLINE", "POLYLINE"):
             pts: List[List[float]] = []
+            bulges: List[float] = []
             try:
                 # LWPOLYLINE .points() -> (x,y[,start_width,end_width,bulge])
-                if et == "LWPOLYLINE":
-                    for p in e.get_points():
-                        pts.append([float(p[0]), float(p[1])])
-                else:
-                    for v in e.vertices:
-                        pts.append([float(v.dxf.location.x), float(v.dxf.location.y)])
+                pts, bulges = _polyline_xy_and_bulges(e, et)
             except Exception:
                 pass
             if pts:
                 item.update({"points": pts, "closed": bool(getattr(e, "closed", False))})
+                if any(b != 0.0 for b in bulges):
+                    item["bulges"] = bulges
         elif et == "ELLIPSE":
             # Represent by center and radii (approx)
             try:
