@@ -5,6 +5,7 @@ from __future__ import annotations
 from statistics import median
 from typing import Any, Dict, List, Optional
 
+from .labels import extract_pilot_labels
 from .models import CandidateState, ReviewReuseTask, TaskEventType, TaskStatus
 from .store import ReviewReuseStoreProtocol
 
@@ -19,7 +20,11 @@ def compute_review_metrics(
     insufficient = 0
     candidate_total = 0
     times_to_evidence: List[float] = []
+    times_to_review: List[float] = []
     reviewers: set = set()
+    false_duplicate = 0
+    missed_reuse = 0
+    usefulness_scores: List[int] = []
 
     for t in tasks:
         st = t.status.value if isinstance(t.status, TaskStatus) else str(t.status)
@@ -29,6 +34,15 @@ def compute_review_metrics(
             ds = t.human_decision.state.value
             by_decision[ds] = by_decision.get(ds, 0) + 1
             reviewers.add(t.human_decision.reviewer_id)
+            is_false_dup, is_missed, usefulness = extract_pilot_labels(
+                t.human_decision.reason_codes
+            )
+            if is_false_dup:
+                false_duplicate += 1
+            if is_missed:
+                missed_reuse += 1
+            if usefulness is not None:
+                usefulness_scores.append(usefulness)
 
         for c in t.candidates:
             candidate_total += 1
@@ -38,7 +52,11 @@ def compute_review_metrics(
         tte = _time_to_evidence(t)
         if tte is not None:
             times_to_evidence.append(tte)
+        ttr = _time_to_review(t)
+        if ttr is not None:
+            times_to_review.append(ttr)
 
+    labeled = false_duplicate + missed_reuse + len(usefulness_scores)
     return {
         "schema_version": "review-reuse-metrics-v1",
         "metric_family": "review_workflow",  # NOT track_e_model_release
@@ -55,11 +73,24 @@ def compute_review_metrics(
         "median_time_to_evidence_seconds": (
             float(median(times_to_evidence)) if times_to_evidence else None
         ),
+        "median_review_time_seconds": (
+            float(median(times_to_review)) if times_to_review else None
+        ),
         "reviewer_coverage": len(reviewers),
+        "false_duplicate_count": false_duplicate,
+        "missed_reuse_count": missed_reuse,
+        "usefulness_scores": usefulness_scores,
+        "mean_usefulness": (
+            (sum(usefulness_scores) / len(usefulness_scores))
+            if usefulness_scores
+            else None
+        ),
         "notes": [
-            "Human false-duplicate / missed-reuse / top-5 usefulness require pilot labels",
+            "false_duplicate / missed_reuse / usefulness:1-5 come from HumanDecision.reason_codes",
+            "Counts stay 0 until an owner-enabled pilot records those labels",
             "Does not replace Track E model-release metrics or eval_integrity_gate",
         ],
+        "pilot_labels_recorded": labeled,
     }
 
 
@@ -78,7 +109,11 @@ def format_metrics_markdown(metrics_dict: Dict[str, Any]) -> str:
         f"- insufficient_evidence_count: {m.get('insufficient_evidence_count')}",
         f"- insufficient_evidence_rate: {m.get('insufficient_evidence_rate')}",
         f"- median_time_to_evidence_seconds: {m.get('median_time_to_evidence_seconds')}",
+        f"- median_review_time_seconds: {m.get('median_review_time_seconds')}",
         f"- reviewer_coverage: {m.get('reviewer_coverage')}",
+        f"- false_duplicate_count: {m.get('false_duplicate_count')}",
+        f"- missed_reuse_count: {m.get('missed_reuse_count')}",
+        f"- mean_usefulness: {m.get('mean_usefulness')}",
         "",
         "## By status",
         "",
@@ -117,3 +152,21 @@ def _time_to_evidence(task: ReviewReuseTask) -> Optional[float]:
     if ready is None:
         return None
     return max(0.0, float(ready) - float(start))
+
+
+def _time_to_review(task: ReviewReuseTask) -> Optional[float]:
+    """Evidence-ready → human decision (median review time), not model-run time."""
+    ready = None
+    decided = None
+    for e in task.events:
+        if e.event_type == TaskEventType.evidence_pack_ready and ready is None:
+            ready = e.ts
+        if e.event_type == TaskEventType.decision_submitted:
+            decided = e.ts
+    if ready is None or decided is None:
+        return None
+    delta = float(decided) - float(ready)
+    if delta < 0:
+        # Decision-before-evidence is a supported race; do not count as 0s review.
+        return None
+    return delta

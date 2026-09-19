@@ -119,6 +119,84 @@ def test_isolated_archive_script_seed_similar(tmp_path: Path) -> None:
     assert "similar" in task
 
 
+def test_isolated_archive_script_file_offline_no_seed(tmp_path: Path) -> None:
+    """--file real DXF, no --seed-similar: hashes the drawing, stays offline."""
+    import hashlib
+    import json
+
+    from scripts.review_reuse_isolated_archive_run import main
+
+    fixture = (
+        Path(__file__).resolve().parents[1]
+        / "fixtures"
+        / "ci"
+        / "hybrid_blind_dxf"
+        / "J2925001-01人孔v2.dxf"
+    )
+    assert fixture.is_file(), fixture
+    expected_sha = hashlib.sha256(fixture.read_bytes()).hexdigest()
+    out = tmp_path / "exports"
+    rc = main(
+        [
+            "--out",
+            str(out),
+            "--file",
+            str(fixture),
+            "--tenant",
+            "script-tenant-file",
+            "--idempotency-key",
+            "script-file-1",
+        ]
+    )
+    assert rc == 0
+    _assert_isolated_exports(out)
+    task = json.loads((out / "task.json").read_text(encoding="utf-8"))
+    pack = json.loads((out / "evidence.json").read_text(encoding="utf-8"))
+    assert task["source_file_name"] == fixture.name
+    assert task["source_content_sha256"] == expected_sha
+    assert pack["source"]["content_sha256"] == expected_sha
+    assert task["status"] == "evidence_ready"
+    assert task["candidates"][0]["state"] == "insufficient_evidence"
+    assert "synthetic-archive-001" not in (out / "evidence.json").read_text(
+        encoding="utf-8"
+    )
+    assert os.environ.get("REVIEW_REUSE_DECISIONS_ENABLED") != "true"
+
+
+def test_isolated_archive_script_missing_file_exits_2(tmp_path: Path) -> None:
+    from scripts.review_reuse_isolated_archive_run import main
+
+    rc = main(
+        [
+            "--out",
+            str(tmp_path / "exports"),
+            "--file",
+            str(tmp_path / "no-such.dxf"),
+            "--tenant",
+            "script-missing-file",
+        ]
+    )
+    assert rc == 2
+
+
+def test_isolated_archive_script_unsupported_file_exits_2(tmp_path: Path) -> None:
+    from scripts.review_reuse_isolated_archive_run import main
+
+    bad = tmp_path / "payload.exe"
+    bad.write_bytes(b"MZ")
+    rc = main(
+        [
+            "--out",
+            str(tmp_path / "exports"),
+            "--file",
+            str(bad),
+            "--tenant",
+            "script-bad-type",
+        ]
+    )
+    assert rc == 2
+
+
 def test_isolated_archive_script_offline_insufficient_evidence(tmp_path: Path) -> None:
     """main() without seed still writes exports (offline insufficient_evidence)."""
     from scripts.review_reuse_isolated_archive_run import main

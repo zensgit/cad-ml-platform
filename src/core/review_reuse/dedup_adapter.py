@@ -8,13 +8,27 @@ Does not call training paths, hosted LLMs, or eval_integrity_gate.
 
 from __future__ import annotations
 
+import logging
+import math
 import os
 from typing import Any, Callable, Dict, List, Optional, Protocol
 
 from .models import CandidateDecision, CandidateState, RejectionReason
 
+logger = logging.getLogger(__name__)
+
 ENV_LIVE_DEDUP = "REVIEW_REUSE_LIVE_DEDUP"
 _TRUE = frozenset({"1", "true", "yes", "on"})
+
+
+def optional_unit_score(value: Any) -> Optional[float]:
+    """Finite [0, 1] float, or None. Booleans are not scores."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    number = float(value)
+    if not math.isfinite(number) or number < 0.0 or number > 1.0:
+        return None
+    return number
 
 # Injectable hook for tests / process wiring (sync callable).
 LiveRecallFn = Callable[[str, bytes, str], List[Dict[str, Any]]]
@@ -67,13 +81,21 @@ def map_raw_hits_to_candidates(
                 state = CandidateState.similar
 
         scores = dict(raw.get("scores") or {})
-        if "geometric" not in scores and raw.get("geometric") is not None:
+        if "geometric" not in scores:
             scores["geometric"] = raw.get("geometric")
         if "semantic" not in scores and raw.get("semantic") is not None:
             scores["semantic"] = raw.get("semantic")
-        # Ensure strategy-minimum keys exist (nullable).
-        scores.setdefault("geometric", raw.get("score"))
+        # Strategy-minimum keys exist (nullable). Do not copy visual `score`
+        # into geometric — that is a §3.3 honesty violation.
+        scores["geometric"] = optional_unit_score(scores.get("geometric"))
+        scores["semantic"] = optional_unit_score(scores.get("semantic"))
+        if "visual" in scores:
+            scores["visual"] = optional_unit_score(scores.get("visual"))
+        scores.setdefault("geometric", None)
         scores.setdefault("semantic", None)
+        methods = list(raw.get("methods") or ["dedup2d-live-adapter"])
+        if scores.get("geometric") is None:
+            methods = [m for m in methods if m != "precision-l4"]
 
         reasons = list(raw.get("rejection_reasons") or [])
         if state == CandidateState.insufficient_evidence and not reasons:
@@ -84,9 +106,33 @@ def map_raw_hits_to_candidates(
             or {
                 "verdict": state.value,
                 "level": raw.get("match_level", raw.get("level", 0)),
-                "methods": list(raw.get("methods") or ["dedup2d-live-adapter"]),
+                "methods": methods,
             }
         )
+        if scores.get("geometric") is None:
+            verification["methods"] = [
+                m
+                for m in list(verification.get("methods") or methods)
+                if m != "precision-l4"
+            ]
+            try:
+                level = int(verification.get("level") or 0)
+            except (TypeError, ValueError):
+                level = 0
+            if level >= 4:
+                verification["level"] = 0
+        provenance: Dict[str, Any] = {
+            "input_sha256": content_sha,
+            "query_file": file_name,
+            "model": raw.get("decision_source") or "dedup2d-live",
+        }
+        geom_json = raw.get("geom_json")
+        if not isinstance(geom_json, dict):
+            nested = raw.get("provenance")
+            if isinstance(nested, dict):
+                geom_json = nested.get("geom_json")
+        if isinstance(geom_json, dict):
+            provenance["geom_json"] = geom_json
         out.append(
             CandidateDecision(
                 candidate_id=str(
@@ -100,11 +146,7 @@ def map_raw_hits_to_candidates(
                 scores=scores,
                 verification=verification,
                 rejection_reasons=reasons,
-                provenance={
-                    "input_sha256": content_sha,
-                    "query_file": file_name,
-                    "model": raw.get("decision_source") or "dedup2d-live",
-                },
+                provenance=provenance,
             )
         )
     return out
@@ -155,7 +197,7 @@ def recall_candidates(
 
                 ensure_default_live_hook()
             except Exception:
-                pass
+                logger.warning("review_reuse_live_hook_install_failed", exc_info=True)
         hook = get_live_recall_hook()
         if hook is None:
             return offline_insufficient(

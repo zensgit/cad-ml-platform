@@ -98,6 +98,15 @@ def test_evidence_pack_format_markdown(client: TestClient) -> None:
     assert task_id in md.text
 
 
+def test_create_rejects_unsupported_file_type(client: TestClient) -> None:
+    r = client.post(
+        "/api/v1/review-reuse/tasks",
+        files={"file": ("payload.exe", b"MZ", "application/octet-stream")},
+    )
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"]["code"] == "unsupported_file_type"
+
+
 def test_decision_default_off_403(client: TestClient) -> None:
     r = client.post(
         "/api/v1/review-reuse/tasks",
@@ -181,14 +190,50 @@ def test_decision_require_validated_reviewer_api_key_403(
         ).lower()
 
 
+def _jwt_review_reuse_app(*, secret: str, audience: str, issuer: str):
+    """Mini app: real IntegrationAuthMiddleware + real review-reuse router."""
+    import time
+    from types import SimpleNamespace
+
+    from fastapi import FastAPI
+
+    from src.api.middleware.integration_auth import IntegrationAuthMiddleware
+    from src.api.v1.review_reuse import router as review_reuse_router
+
+    settings = SimpleNamespace(
+        INTEGRATION_AUTH_MODE="required",
+        INTEGRATION_JWT_SECRET=secret,
+        INTEGRATION_JWT_ALG="HS256",
+        INTEGRATION_JWT_AUDIENCE=audience,
+        INTEGRATION_JWT_ISSUER=issuer,
+        INTEGRATION_TENANT_HEADER="x-tenant-id",
+        INTEGRATION_ORG_HEADER="x-org-id",
+        INTEGRATION_USER_HEADER="x-user-id",
+    )
+    app = FastAPI()
+    app.add_middleware(IntegrationAuthMiddleware, settings=settings)
+    app.include_router(review_reuse_router, prefix="/api/v1/review-reuse")
+    now = int(time.time())
+    return app, {
+        "sub": "jwt-sub-123",
+        "tenant_id": "pilot-tenant",
+        "iat": now,
+        "exp": now + 3600,
+        "aud": audience,
+        "iss": issuer,
+    }
+
+
 def test_decision_require_validated_reviewer_with_jwt_subject(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Decisions on + require validated: JWT/integration subject → 200.
+    """Decisions on + require validated: real JWT middleware subject → 200.
 
-    Patches _reviewer_id to simulate middleware-set user_id/auth_subject
-    without standing up full OIDC (simplest reliable TestClient path).
+    Does **not** patch ``_reviewer_id``. IntegrationAuthMiddleware must set
+    ``request.state.user_id`` / ``tenant_id`` from a verified token.
     """
+    import jwt as pyjwt
+
     monkeypatch.setenv("ENVIRONMENT", "development")
     monkeypatch.setenv("API_KEY", "test")
     monkeypatch.setenv("REVIEW_REUSE_DECISIONS_ENABLED", "true")
@@ -197,24 +242,35 @@ def test_decision_require_validated_reviewer_with_jwt_subject(
     from src.core.review_reuse.store import InMemoryReviewReuseStore
 
     svc_mod.reset_review_reuse_store_for_tests(InMemoryReviewReuseStore())
-    import src.api.v1.review_reuse as rr_api
-    from src.main import app
 
-    monkeypatch.setattr(
-        rr_api,
-        "_reviewer_id",
-        lambda request, api_key: ("jwt-sub-123", True),
-    )
+    secret = "review-reuse-jwt-secret-32bytes!"
+    audience = "cad-ml-api"
+    issuer = "cad-ml-issuer"
+    app, claims = _jwt_review_reuse_app(secret=secret, audience=audience, issuer=issuer)
+    token = pyjwt.encode(claims, secret, algorithm="HS256")
+    if not isinstance(token, str):
+        token = token.decode("utf-8")
 
-    with TestClient(app, headers={"X-API-Key": "test"}) as client:
+    auth_headers = {"X-API-Key": "test", "Authorization": f"Bearer {token}"}
+    with TestClient(app) as client:
+        missing = client.post(
+            "/api/v1/review-reuse/tasks",
+            files={"file": ("a.dxf", b"x", "application/octet-stream")},
+            headers={"X-API-Key": "test"},
+        )
+        assert missing.status_code == 401
+
         r = client.post(
             "/api/v1/review-reuse/tasks",
             files={"file": ("a.dxf", b"x", "application/octet-stream")},
+            headers=auth_headers,
         )
         assert r.status_code == 200, r.text
+        assert r.json()["tenant_id"] == "pilot-tenant"
         task_id = r.json()["task_id"]
         dec = client.post(
             f"/api/v1/review-reuse/tasks/{task_id}/decision",
+            headers=auth_headers,
             json={
                 "state": "revise",
                 "reason_codes": ["validated_ok"],
@@ -226,6 +282,88 @@ def test_decision_require_validated_reviewer_with_jwt_subject(
         assert body["status"] == "decided"
         assert body["human_decision"]["state"] == "revise"
         assert body["human_decision"]["reviewer_id"] == "jwt-sub-123"
+
+
+def test_decision_jwt_invalid_token_401(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Required integration auth: garbage bearer is 401, not API-key fallback."""
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.setenv("API_KEY", "test")
+    from src.core.review_reuse import service as svc_mod
+    from src.core.review_reuse.store import InMemoryReviewReuseStore
+
+    svc_mod.reset_review_reuse_store_for_tests(InMemoryReviewReuseStore())
+    app, _claims = _jwt_review_reuse_app(
+        secret="review-reuse-jwt-secret-32bytes!",
+        audience="cad-ml-api",
+        issuer="cad-ml-issuer",
+    )
+    with TestClient(app) as client:
+        r = client.post(
+            "/api/v1/review-reuse/tasks",
+            files={"file": ("a.dxf", b"x", "application/octet-stream")},
+            headers={
+                "X-API-Key": "test",
+                "Authorization": "Bearer not-a-jwt",
+            },
+        )
+        assert r.status_code == 401
+
+
+def test_decision_jwt_tenant_mismatch_401(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Valid JWT + mismatched x-tenant-id header is 401."""
+    import jwt as pyjwt
+
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.setenv("API_KEY", "test")
+    from src.core.review_reuse import service as svc_mod
+    from src.core.review_reuse.store import InMemoryReviewReuseStore
+
+    svc_mod.reset_review_reuse_store_for_tests(InMemoryReviewReuseStore())
+    secret = "review-reuse-jwt-secret-32bytes!"
+    audience = "cad-ml-api"
+    issuer = "cad-ml-issuer"
+    app, claims = _jwt_review_reuse_app(secret=secret, audience=audience, issuer=issuer)
+    token = pyjwt.encode(claims, secret, algorithm="HS256")
+    if not isinstance(token, str):
+        token = token.decode("utf-8")
+    with TestClient(app) as client:
+        r = client.post(
+            "/api/v1/review-reuse/tasks",
+            files={"file": ("a.dxf", b"x", "application/octet-stream")},
+            headers={
+                "X-API-Key": "test",
+                "Authorization": f"Bearer {token}",
+                "x-tenant-id": "other-tenant",
+            },
+        )
+        assert r.status_code == 401
+
+
+def test_create_pipeline_failed_500(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.setenv("API_KEY", "test")
+    monkeypatch.delenv("REVIEW_REUSE_DECISIONS_ENABLED", raising=False)
+    from src.core.review_reuse import service as svc_mod
+    from src.core.review_reuse.store import InMemoryReviewReuseStore
+
+    svc_mod.reset_review_reuse_store_for_tests(InMemoryReviewReuseStore())
+    monkeypatch.setattr(
+        svc_mod,
+        "apply_precision",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+    from src.main import app
+
+    with TestClient(app, headers={"X-API-Key": "test"}) as client:
+        r = client.post(
+            "/api/v1/review-reuse/tasks",
+            files={"file": ("a.dxf", b"x", "application/octet-stream")},
+        )
+        assert r.status_code == 500, r.text
+        detail = r.json()["detail"]
+        assert detail["code"] == "pipeline_failed"
+        assert detail["message"] == "review-reuse pipeline failed"
+        assert "boom" not in r.text
 
 
 def test_tenant_isolation_different_api_keys(monkeypatch: pytest.MonkeyPatch) -> None:

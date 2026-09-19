@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any, Dict, List
 
-from .models import CandidateDecision, ReviewReuseTask
+from .models import (
+    CandidateDecision,
+    CandidateState,
+    RejectionReason,
+    ReviewReuseTask,
+)
 
 
 def build_evidence_pack(task: ReviewReuseTask) -> Dict[str, Any]:
@@ -18,6 +24,8 @@ def build_evidence_pack(task: ReviewReuseTask) -> Dict[str, Any]:
         # Implementation extension (optional): visual score if present.
         if "visual" in c.scores:
             scores["visual"] = c.scores.get("visual")
+        provenance = dict(c.provenance or {})
+        provenance.pop("geom_json", None)
         candidates.append(
             {
                 "candidate_id": c.candidate_id,
@@ -27,7 +35,7 @@ def build_evidence_pack(task: ReviewReuseTask) -> Dict[str, Any]:
                 "score_normalization": c.scores.get("normalization", "dedup2d-v1"),
                 "verification": c.verification,
                 "rejection_reasons": list(c.rejection_reasons),
-                "provenance": c.provenance,
+                "provenance": provenance,
             }
         )
 
@@ -97,12 +105,41 @@ def evidence_pack_markdown(pack: Dict[str, Any]) -> str:
 
 
 def _top_confidence(candidates: List[CandidateDecision]) -> float:
+    """Calibrated confidence must not treat unverified visual similarity as geometric."""
     best = 0.0
+    vision_only = RejectionReason.vision_only_unverified.value
+    missing = RejectionReason.missing_geom_json.value
+    low = RejectionReason.low_precision_score.value
     for c in candidates:
-        for k in ("geometric", "semantic", "visual", "confidence"):
-            v = c.scores.get(k)
-            if isinstance(v, (int, float)) and float(v) > best:
-                best = float(v)
+        reasons = c.rejection_reasons or []
+        methods = list((c.verification or {}).get("methods") or [])
+        geometric = c.scores.get("geometric")
+        verified = "precision-l4" in methods and isinstance(
+            geometric, (int, float)
+        ) and not isinstance(geometric, bool)
+        if (
+            c.state == CandidateState.insufficient_evidence
+            or not verified
+            or vision_only in reasons
+            or missing in reasons
+        ):
+            continue
+        extras = [
+            reason
+            for reason in reasons
+            if reason != low and reason not in (vision_only, missing)
+        ]
+        # Independent rejects (version gate, etc.) must not inflate confidence
+        # even when the adapter still labeled similar/duplicate.
+        if extras:
+            continue
+        if c.state == CandidateState.different and low not in reasons:
+            continue
+        number = float(geometric)
+        if not math.isfinite(number) or number < 0.0 or number > 1.0:
+            continue
+        if number > best:
+            best = number
     return best
 
 
