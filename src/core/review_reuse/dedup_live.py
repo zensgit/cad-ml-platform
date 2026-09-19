@@ -35,17 +35,10 @@ def vision_response_to_hits(response: Dict[str, Any]) -> List[Dict[str, Any]]:
             if visual is None:
                 visual = match.get("similarity")
             visual = optional_unit_score(visual)
-            # Geometric is independent of visual similarity (strategy §3.3).
-            geom = optional_unit_score(match.get("precision_score"))
+            # Remote precision_score is a fused semantic/geometric score, not
+            # geometry-only L4. Do not copy it into geometric; local scoring
+            # uses forwarded geom_json instead.
             methods = ["dedup2d-vision"]
-            levels = match.get("levels") or {}
-            l4_score = None
-            if isinstance(levels, dict) and isinstance(levels.get("l4"), dict):
-                l4_score = optional_unit_score(levels["l4"].get("precision_score"))
-            if geom is None:
-                geom = l4_score
-            if geom is not None:
-                methods.append("precision-l4")
             hit: Dict[str, Any] = {
                 "candidate_id": str(
                     match.get("file_hash")
@@ -57,7 +50,7 @@ def vision_response_to_hits(response: Dict[str, Any]) -> List[Dict[str, Any]]:
                 "candidate_source": "archive",
                 "state": verdict,
                 "scores": {
-                    "geometric": geom,
+                    "geometric": None,
                     "semantic": visual,
                     "visual": visual,
                 },

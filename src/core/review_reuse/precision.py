@@ -363,9 +363,16 @@ def _try_l4_score(
         from dataclasses import replace
 
         from src.core.dedupcad_precision import PrecisionVerifier
-        from src.core.dedupcad_precision.vendor.config import Settings
 
-        cfg = replace(Settings(), w_text=0.0, w_layers=0.0, w_dimensions=0.0)
+        # Start from PrecisionVerifier() so CAD_ML_PLATFORM_L4_ENTITIES_GEOM_HASH
+        # stays off. replace(Settings()) would re-enable the bag-of-features
+        # fallback and certify layout-shifted clones as geometric matches.
+        cfg = replace(
+            PrecisionVerifier().settings,
+            w_text=0.0,
+            w_layers=0.0,
+            w_dimensions=0.0,
+        )
         scored = PrecisionVerifier(settings=cfg).score_pair(
             _geometry_only_geom(query_geom), _geometry_only_geom(right)
         )
@@ -525,23 +532,11 @@ def apply_precision(
         has_numeric_geom = isinstance(geometric, (int, float)) and not isinstance(
             geometric, bool
         )
-        if _has_method(candidate, "precision-l4"):
-            if _is_finite_unit_score(geometric):
-                _apply_trusted_l4(candidate, float(geometric))
-                out.append(candidate)
-                continue
-            _strip_stale_l4(candidate)
-            if has_numeric_geom:
-                scores = dict(candidate.scores)
-                scores.pop("geometric", None)
-                candidate.scores = scores
-                has_numeric_geom = False
-                geometric = None
-
         has_cand_geom = _is_geom_json(
             (candidate.provenance or {}).get("geom_json")
         )
         hash_id = _looks_like_file_hash(candidate.candidate_id or "")
+        # Local geometry-only L4 wins over a remote fused precision_score.
         if has_cand_geom or hash_id:
             q = _query_geom()
             l4 = (
@@ -557,6 +552,19 @@ def apply_precision(
                 _apply_l4_score(candidate, l4)
                 out.append(candidate)
                 continue
+
+        if _has_method(candidate, "precision-l4"):
+            if _is_finite_unit_score(geometric):
+                _apply_trusted_l4(candidate, float(geometric))
+                out.append(candidate)
+                continue
+            _strip_stale_l4(candidate)
+            if has_numeric_geom:
+                scores = dict(candidate.scores)
+                scores.pop("geometric", None)
+                candidate.scores = scores
+                has_numeric_geom = False
+                geometric = None
 
         if _is_live_vision(candidate):
             _strip_stale_l4(candidate)

@@ -476,6 +476,22 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave56 — 2026-09-19 ~08:40 UTC
+
+Sol 5.6 vs `origin/main` on `fa3eb91d`: **P1** `replace(Settings())`
+re-enabled `entities_geom_hash` so layout-shifted clones scored ~1.0;
+**P1** live `precision_score` is fused and was stamped as geometric L4.
+Keep platform geom-hash off; do not copy fused remote scores; local
+geometry-only rescore wins when geom is present. Never merge.
+
+| Item | State |
+|---|---|
+| P1 geom-hash | `_try_l4_score` clones `PrecisionVerifier().settings` |
+| P1 live fused | `vision_response_to_hits` leaves geometric None |
+| Local `make test-review-reuse` | **170 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave54 remaining P2 — 2026-09-19 ~08:25 UTC
 
 Sol 5.6 vs `origin/main` on `d31a9942`: P2 local `PrecisionVerifier`

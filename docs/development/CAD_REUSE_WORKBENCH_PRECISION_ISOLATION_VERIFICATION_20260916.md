@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: window 3 wave55 (geometry-only L4; Sol P1)  
+**HEAD at writing**: window 3 wave56 (geom-hash off + live fused not L4)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -185,6 +185,10 @@ make test-review-reuse
 | `make test-review-reuse` after geometry-only L4 | **168 passed**, 7 ezdxf warnings |
 | Sol wave54 remaining vs `origin/main` on `d31a9942` | P2 non-finite local L4; P2 unreadable tenant meta fail-open |
 | `make test-review-reuse` after local L4 range + unreadable meta | **167 passed**, 7 ezdxf warnings |
+| Sol wave56 vs `origin/main` on `fa3eb91d` | P1 bag-of-features re-enabled; P1 live fused score as L4 |
+| Layout-shifted clones not certified | `test_layout_shifted_same_primitives_are_not_certified` |
+| Live fused score does not skip local L4 | `test_live_fused_precision_score_does_not_skip_local_l4` |
+| `make test-review-reuse` after wave56 P1s | **170 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

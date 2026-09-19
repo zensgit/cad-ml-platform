@@ -66,8 +66,9 @@ def test_vision_response_to_hits_maps_buckets() -> None:
     assert len(hits) == 2
     assert hits[0]["candidate_id"] == "abc"
     assert hits[0]["state"] == "duplicate"
-    assert hits[0]["scores"]["geometric"] == 0.95
-    assert "precision-l4" in hits[0]["methods"]
+    # Fused remote precision_score is not geometry-only L4.
+    assert hits[0]["scores"]["geometric"] is None
+    assert "precision-l4" not in hits[0]["methods"]
     assert hits[1]["state"] == "similar"
     # Visual similarity must not be copied into geometric (strategy §3.3).
     assert hits[1]["scores"]["geometric"] is None
@@ -110,6 +111,50 @@ def test_vision_response_forwards_inline_geom_json() -> None:
     assert out[0].scores.get("geometric") == 1.0
     assert RejectionReason.missing_geom_json.value not in out[0].rejection_reasons
     assert RejectionReason.vision_only_unverified.value not in out[0].rejection_reasons
+
+
+def test_live_fused_precision_score_does_not_skip_local_l4() -> None:
+    """A high fused precision_score must not override geometry-only local L4."""
+    query = {
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [100.0, 0.0]},
+            {"type": "TEXT", "insert": [1.0, 1.0], "text": "note"},
+        ]
+    }
+    other = {
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [0.0, 100.0]},
+            {"type": "TEXT", "insert": [1.0, 1.0], "text": "note"},
+        ]
+    }
+    hits = vision_response_to_hits(
+        {
+            "similar": [
+                {
+                    "drawing_id": "fused-remote",
+                    "similarity": 0.9,
+                    "precision_score": 0.92,
+                    "verdict": "similar",
+                    "match_level": 4,
+                    "geom_json": other,
+                }
+            ]
+        }
+    )
+    assert hits[0]["scores"]["geometric"] is None
+    cands = map_raw_hits_to_candidates(
+        hits, content_sha="ab", file_name="query.json"
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    geo = out[0].scores.get("geometric")
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+    assert geo is not None
+    assert geo < 0.55
+    assert RejectionReason.low_precision_score.value in out[0].rejection_reasons
 
 
 def test_vision_boolean_precision_score_is_not_l4() -> None:
@@ -167,7 +212,7 @@ def test_live_default_hook_path_with_inject(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 def test_default_live_recall_requests_geometric(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Live hook must ask vision for geometric/L4 and keep that score."""
+    """Live hook asks vision for geom payloads but does not trust fused scores."""
     from src.core.review_reuse.dedup_live import default_live_recall
 
     captured: dict = {}
@@ -196,9 +241,9 @@ def test_default_live_recall_requests_geometric(monkeypatch: pytest.MonkeyPatch)
     hits = default_live_recall("a.dxf", b"x", "0" * 64)
     assert captured.get("enable_geometric") is True
     assert captured.get("enable_ml") is False
-    assert hits[0]["scores"]["geometric"] == 0.94
+    assert hits[0]["scores"]["geometric"] is None
     assert hits[0]["scores"]["semantic"] == 0.91
-    assert "precision-l4" in hits[0]["methods"]
+    assert "precision-l4" not in hits[0]["methods"]
 
 
 def test_run_coro_applies_timeout_without_running_loop() -> None:
@@ -245,7 +290,7 @@ def test_run_coro_completes_within_timeout() -> None:
     assert _run_coro(_fast(), timeout=1) == 42
 
 
-def test_create_task_live_geometric_not_vision_only(
+def test_create_task_live_fused_precision_is_not_geometric_l4(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(ENV_LIVE_DEDUP, "true")
@@ -279,9 +324,9 @@ def test_create_task_live_geometric_not_vision_only(
         )
         cand = task.candidates[0]
         assert cand.candidate_id == "live-geom-1"
-        assert cand.scores.get("geometric") == 0.88
-        assert "vision_only_unverified" not in cand.rejection_reasons
-        assert "precision-l4" in (cand.verification.get("methods") or [])
+        assert cand.scores.get("geometric") is None
+        assert "vision_only_unverified" in cand.rejection_reasons
+        assert "precision-l4" not in (cand.verification.get("methods") or [])
     finally:
         set_live_recall_hook(None)
         monkeypatch.delenv(ENV_LIVE_DEDUP, raising=False)
