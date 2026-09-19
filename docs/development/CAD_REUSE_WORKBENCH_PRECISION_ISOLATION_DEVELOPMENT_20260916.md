@@ -130,6 +130,8 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
     `tenant_meta.json` (not treat it as missing).
 29. Wave59 Sol P2 on `395c0f5c`: sub-0.001 primitives that collapse
     after verifier 3-decimal rounding must not be L4 geometry.
+30. Wave60 Sol P2 on `9806f46b`: HATCH proxies must not dominate
+    geometry-only L4 scores.
 
 ## 6b. Window 3 plan (24h, auto-implement)
 
@@ -143,9 +145,9 @@ P2s on `4858606b`. Mixed-entity L4 gate on `21c0dfbc`. Live geom_json
 forward on `d31a9942`. Non-finite local L4 + unreadable meta on
 `eebaf117`. Geometry-only L4 on `fa3eb91d`. Positional L4 + ignore
 live fused scores on `a3d97c35`. Geom-hash pin on `b86733a4`.
-Cleanup refuses unreadable tenant meta on `395c0f5c`. **This fire:**
-Sol P2 — reject geometry that is degenerate after 3-decimal rounding.
-Do not invent product tracks.
+Cleanup refuses unreadable tenant meta on `395c0f5c`. Quantized geom
+gate on `9806f46b`. **This fire:** Sol P2 — drop HATCH from
+geometry-only L4. Do not invent product tracks.
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.

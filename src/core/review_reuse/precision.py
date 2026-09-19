@@ -106,17 +106,6 @@ _GEOM_ENTITY_TYPES = frozenset(
         "INSERT",
     }
 )
-_SEMANTIC_ENTITY_TYPES = frozenset(
-    {
-        "TEXT",
-        "MTEXT",
-        "DIMENSION",
-        "LEADER",
-        "MULTILEADER",
-        "ATTRIB",
-        "ATTDEF",
-    }
-)
 
 
 def _finite_number(value: Any) -> bool:
@@ -349,25 +338,21 @@ def _canonical_geom(obj: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _geometry_only_geom(obj: Dict[str, Any]) -> Dict[str, Any]:
-    """Canonical geom without annotation entities or semantic sections.
+    """Canonical geom restricted to validated geometric primitives.
 
-    PrecisionVerifier fuses text/layers/dimensions into ``score``. Shared
-    TEXT next to different LINEs can then exceed LOW_PRECISION_THRESHOLD
-    and be certified as L4 similar. ReviewReuse geometric scores must not.
+    PrecisionVerifier fuses text/layers/dimensions/HATCH into ``score``.
+    Shared TEXT or HATCH next to different LINEs can then exceed
+    LOW_PRECISION_THRESHOLD and be certified as L4 similar.
     """
     out = _canonical_geom(obj)
     ents = out.get("entities")
     if isinstance(ents, list):
         out["entities"] = [
-            entity
-            for entity in ents
-            if not (
-                isinstance(entity, dict)
-                and str(entity.get("type") or "").upper() in _SEMANTIC_ENTITY_TYPES
-            )
+            entity for entity in ents if _is_geom_entity(entity)
         ]
     out.pop("text_content", None)
     out.pop("dimensions", None)
+    out.pop("hatches", None)
     return out
 
 
@@ -397,6 +382,7 @@ def _try_l4_score(
             w_text=0.0,
             w_layers=0.0,
             w_dimensions=0.0,
+            w_hatch_extra=0.0,
             entities_geom_hash=False,
         )
         left = _geometry_only_geom(query_geom)

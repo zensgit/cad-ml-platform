@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: window 3 wave58 (cleanup unreadable tenant meta)  
+**HEAD at writing**: window 3 wave60 (HATCH excluded from geometry-only L4)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -198,6 +198,9 @@ make test-review-reuse
 | Sol wave59 vs `origin/main` on `b86733a4` | P2 sub-0.001 primitives collapse after 3-decimal rounding |
 | Tiny orthogonal LINEs are not L4 | `test_sub_millimeter_orthogonal_lines_are_not_l4_geometry` |
 | `make test-review-reuse` after quantized geom P2 | **173 passed**, 7 ezdxf warnings |
+| Sol wave60 vs `origin/main` on `9806f46b` | P2 HATCH proxies inflate geometry-only L4 |
+| Shared HATCH does not certify different geometry | `test_shared_hatch_does_not_certify_different_geometry` |
+| `make test-review-reuse` after HATCH exclusion | **174 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

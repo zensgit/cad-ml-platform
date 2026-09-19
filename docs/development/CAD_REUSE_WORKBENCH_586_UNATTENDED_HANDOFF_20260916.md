@@ -476,6 +476,20 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave60 — 2026-09-19 ~09:15 UTC
+
+Sol 5.6 vs `origin/main` on `9806f46b`: **P2** `_geometry_only_geom`
+kept HATCH rows (not in `_GEOM_ENTITY_TYPES`). Matching HATCH plus
+orthogonal LINEs scored ~0.667 and passed L4. Keep only
+`_is_geom_entity` primitives. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 HATCH | `_geometry_only_geom` keeps validated geom entities only |
+| Local `make test-review-reuse` | **174 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave59 — 2026-09-19 ~09:02 UTC
 
 Sol 5.6 vs `origin/main` on `b86733a4`: **P2** `_is_geom_entity`
