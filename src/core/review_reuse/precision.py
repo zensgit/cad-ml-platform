@@ -105,6 +105,10 @@ _GEOM_ENTITY_TYPES = frozenset(
         "SPLINE",
     }
 )
+# Geometric types we cannot certify faithfully. Presence fails the whole
+# payload: dropping them would let an incidental LINE match two different
+# block/spline drawings as precision-l4 1.0.
+_UNSCORED_GEOM_TYPES = frozenset({"INSERT", "SPLINE"})
 
 
 def _finite_number(value: Any) -> bool:
@@ -241,6 +245,12 @@ def _is_supported_geom_type(ent: Any) -> bool:
     return str(ent.get("type") or "").upper() in _GEOM_ENTITY_TYPES
 
 
+def _is_unscored_geom_type(ent: Any) -> bool:
+    if not isinstance(ent, dict):
+        return False
+    return str(ent.get("type") or "").upper() in _UNSCORED_GEOM_TYPES
+
+
 def _is_geom_json(obj: Any) -> bool:
     """True only for declared v2-like geometry with a real geometric entity.
 
@@ -257,6 +267,8 @@ def _is_geom_json(obj: Any) -> bool:
         return False
     has_valid = False
     for entity in entities:
+        if _is_unscored_geom_type(entity):
+            return False
         if _is_supported_geom_type(entity) and not _is_geom_entity(entity):
             return False
         if _is_geom_entity(entity):

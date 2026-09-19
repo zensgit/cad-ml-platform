@@ -1004,6 +1004,52 @@ def test_out_of_range_prescored_l4_is_not_trusted() -> None:
     assert out[0].scores.get("geometric") is None
 
 
+def test_line_plus_insert_is_not_certified_as_l4() -> None:
+    """Dropping INSERT would let an incidental LINE fake an L4 match."""
+    query = {
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
+            {
+                "type": "INSERT",
+                "block": "DOOR",
+                "insert": [1.0, 1.0],
+                "block_hash": "hash-a",
+            },
+        ]
+    }
+    other = {
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
+            {
+                "type": "INSERT",
+                "block": "WINDOW",
+                "insert": [50.0, 50.0],
+                "block_hash": "hash-b",
+            },
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "line-insert",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
 def test_zero_scale_insert_is_not_l4_geometry() -> None:
     bogus = {
         "entities": [
@@ -1746,7 +1792,7 @@ def test_long_splines_truncated_by_matcher_are_not_l4() -> None:
 
 
 def test_spline_prefix_with_unequal_controls_is_not_certified() -> None:
-    """3 vs 16 controls with the same head must not score L4 1.0."""
+    """Incomplete spline identity must not be certified as L4."""
     head = [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]]
     query = {"entities": [{"type": "SPLINE", "control_points": head}]}
     other = {
@@ -1774,15 +1820,13 @@ def test_spline_prefix_with_unequal_controls_is_not_certified() -> None:
         file_name="query.json",
         file_bytes=json.dumps(query).encode("utf-8"),
     )
-    geo = out[0].scores.get("geometric")
-    assert "precision-l4" in (out[0].verification.get("methods") or [])
-    assert geo is not None
-    assert geo < LOW_PRECISION_THRESHOLD
-    assert out[0].state == CandidateState.different
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
 
 
 def test_spline_degree_mismatch_is_not_certified() -> None:
-    """Vendor matching ignores degree; degree 1 vs 3 must not score L4 1.0."""
+    """Splines lack knots/weights in L4; fail closed rather than score 1.0."""
     cps = [[0.0, 0.0], [1.0, 2.0], [2.0, 0.0], [3.0, 3.0]]
     query = {
         "entities": [{"type": "SPLINE", "control_points": cps, "degree": 1}]
@@ -1807,11 +1851,9 @@ def test_spline_degree_mismatch_is_not_certified() -> None:
         file_name="query.json",
         file_bytes=json.dumps(query).encode("utf-8"),
     )
-    geo = out[0].scores.get("geometric")
-    assert "precision-l4" in (out[0].verification.get("methods") or [])
-    assert geo is not None
-    assert geo < LOW_PRECISION_THRESHOLD
-    assert out[0].state == CandidateState.different
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
 
 
 def test_malformed_polyline_vertex_is_not_joined_as_l4() -> None:

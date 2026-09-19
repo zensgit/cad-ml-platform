@@ -476,6 +476,23 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave70 — 2026-09-19 ~11:02 UTC
+
+Sol 5.6 vs `origin/main` on `89a6667c`: **P1** a valid LINE plus an
+`INSERT` was admitted, then `_geometry_only_geom` dropped the INSERT,
+so different blocks with the same incidental LINE scored L4 1.0;
+**P1** SPLINE identity omits knots/weights and the matcher uses 16
+control points. Fail closed on INSERT/SPLINE presence. Never merge;
+decisions stay off.
+
+| Item | State |
+|---|---|
+| P1 mixed INSERT | `_UNSCORED_GEOM_TYPES` includes INSERT |
+| P1 spline | `_UNSCORED_GEOM_TYPES` includes SPLINE |
+| Local `make test-review-reuse` | **194 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave68 — 2026-09-19 ~10:42 UTC
 
 Sol 5.6 vs `origin/main` on `0414daca`: **P1** INSERT with only a

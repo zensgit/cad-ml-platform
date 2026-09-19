@@ -229,6 +229,9 @@ make test-review-reuse
 | Legacy extract cache is re-extracted | `test_legacy_dxf_extract_cache_without_version_is_reextracted` |
 | Mixed sibling refuses whole tenant group | `test_cleanup_refuses_whole_group_when_sibling_is_mixed` |
 | `make test-review-reuse` after hash/cache/cleanup P1s | **191 passed**, 7 ezdxf warnings |
+| Sol wave70 vs `origin/main` on `89a6667c` | P1 mixed INSERT dropped; P1 incomplete SPLINE identity |
+| LINE+INSERT is not L4 | `test_line_plus_insert_is_not_certified_as_l4` |
+| `make test-review-reuse` after unscored INSERT/SPLINE | **194 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

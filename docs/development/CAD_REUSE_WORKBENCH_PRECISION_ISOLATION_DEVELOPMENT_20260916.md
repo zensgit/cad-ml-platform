@@ -147,6 +147,9 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 37. Wave68 Sol P1/P2 on `0414daca`/`509f59bb`: INSERT needs block_hash;
     stale extract_sig cache must not drop bulges; cleanup refuses a
     whole tenant group if any sibling is mixed.
+38. Wave70 Sol P1s on `89a6667c`/`a6a67123`: mixed LINE+INSERT must not
+    drop the INSERT and L4-match; incomplete SPLINE (no knots/weights)
+    must fail closed.
 
 ## 6b. Window 3 plan (24h, auto-implement)
 
@@ -165,9 +168,9 @@ gate on `9806f46b`. HATCH exclusion on `256068ce`. Layer-penalty pin
 on `48ec1243`. Polyline explode on `4362c886`. Matcher-cap raise on
 `1a99996f`. Unmatched penalty + hard cap on `167831f6`. Bulge/hash
 fail-closed on `66205333`. DXF bulge + spline cap on `0414daca`.
-Wave67 fail-closed gates on `509f59bb`. **This fire:** Sol P1 —
-require INSERT block_hash; version extract cache; P2 refuse mixed
-tenant group siblings.
+Wave67 fail-closed gates on `509f59bb`. INSERT drop + spline degree on
+`a6a67123`. **This fire:** Sol P1 — fail closed on INSERT/SPLINE
+presence so incidental LINEs cannot certify L4.
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.
@@ -227,4 +230,6 @@ Evaluation Report = Track E / ignore.
 | INSERT name+pose without hash certifies unknown block | `_is_geom_entity` requires non-empty `block_hash` |
 | Stale extract_sig cache omits polyline bulges | `_EXTRACT_CACHE_VERSION=2`; unversioned hits ignored |
 | Cleanup deletes hashed sibling while mixed dir is refused | refuse every dir in the grouped tenant |
+| LINE+INSERT drops INSERT and L4-matches the LINE | `_UNSCORED_GEOM_TYPES` fails the whole payload |
+| SPLINE knots/weights omitted, vendor matches 16 points | SPLINE is unscored geom; not precision-l4 |
 | 24h unattended overreach | scheduler stops ~2026-09-19 17:00 UTC; never merge; never enable decisions |
