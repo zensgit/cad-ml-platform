@@ -542,9 +542,9 @@ def _spline_signatures(geom: Dict[str, Any]) -> List[tuple[int, Optional[int]]]:
 
 def _arc_records(
     geom: Dict[str, Any],
-) -> Optional[List[tuple[tuple[float, float], float]]]:
-    """(quantized center, CCW sweep). None if an ARC cannot be measured."""
-    records: List[tuple[tuple[float, float], float]] = []
+) -> Optional[List[tuple[tuple[float, float], float, float]]]:
+    """(quantized center, radius, CCW sweep). None if an ARC cannot be measured."""
+    records: List[tuple[tuple[float, float], float, float]] = []
     ents = geom.get("entities")
     if not isinstance(ents, list):
         return records
@@ -554,9 +554,16 @@ def _arc_records(
         if str(entity.get("type") or "").upper() != "ARC":
             continue
         center = _quantized_xy(entity.get("center"))
+        radius = _quantized(entity.get("radius"))
         start_q = _quantized(entity.get("start_angle"))
         end_q = _quantized(entity.get("end_angle"))
-        if center is None or start_q is None or end_q is None:
+        if (
+            center is None
+            or radius is None
+            or radius <= 0.0
+            or start_q is None
+            or end_q is None
+        ):
             return None
         raw_sweep = _ccw_sweep_deg(start_q, end_q)
         if raw_sweep is None:
@@ -564,7 +571,7 @@ def _arc_records(
         quantized = _quantized(raw_sweep)
         if quantized is None:
             return None
-        records.append((center, quantized))
+        records.append((center, radius, quantized))
     return records
 
 
@@ -574,16 +581,19 @@ def _arc_sweeps_conflict(
     *,
     angle_tol: float,
     center_tol: float,
+    radius_tol: float,
 ) -> bool:
     """True when a matched ARC's CCW sweep differs beyond angle_tol.
 
-    Pair by center within ``tol_circle_center`` so a near-full arc and a
-    sliver cannot swap locations, while a 0.1 offset still reaches L4.
-    Radius stays with PrecisionVerifier.
+    Pair by center and radius within verifier tolerances so concentric
+    near-full/sliver swaps cannot match by sweep alone. Near-similar
+    radius/center still reach L4.
     """
     if not math.isfinite(angle_tol) or angle_tol < 0.0:
         return True
     if not math.isfinite(center_tol) or center_tol < 0.0:
+        return True
+    if not math.isfinite(radius_tol) or radius_tol < 0.0:
         return True
     left_r = _arc_records(left)
     right_r = _arc_records(right)
@@ -592,15 +602,17 @@ def _arc_sweeps_conflict(
     if len(left_r) != len(right_r):
         return True
     used: set[int] = set()
-    for center, sweep in left_r:
+    for center, radius, sweep in left_r:
         best_idx: Optional[int] = None
         best_delta: Optional[float] = None
-        for idx, (rcenter, rsweep) in enumerate(right_r):
+        for idx, (rcenter, rradius, rsweep) in enumerate(right_r):
             if idx in used:
                 continue
             dx = rcenter[0] - center[0]
             dy = rcenter[1] - center[1]
             if math.hypot(dx, dy) > center_tol:
+                continue
+            if abs(rradius - radius) > radius_tol:
                 continue
             delta = abs(sweep - rsweep)
             if delta > angle_tol:
@@ -781,6 +793,7 @@ def _try_l4_score(
             right_g,
             angle_tol=float(cfg.tol_arc_angle_deg),
             center_tol=float(cfg.tol_circle_center),
+            radius_tol=float(cfg.tol_circle_radius),
         ):
             return 0.0
         scored = PrecisionVerifier(settings=cfg).score_pair(left, right_g)

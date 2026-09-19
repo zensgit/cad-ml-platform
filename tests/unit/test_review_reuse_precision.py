@@ -3082,6 +3082,45 @@ def test_swapped_multi_arc_sweeps_are_not_certified() -> None:
     assert out[0].state == CandidateState.different
 
 
+def test_swapped_concentric_arc_sweeps_are_not_certified() -> None:
+    """Sweeps exchanged across concentric radii must not L4-match by sweep bags."""
+
+    def _arc(radius: float, end: float) -> dict:
+        return {
+            "type": "ARC",
+            "center": [0.0, 0.0],
+            "radius": radius,
+            "start_angle": 0.0,
+            "end_angle": end,
+        }
+
+    query = {"entities": [_arc(10.0, 359.9), _arc(20.0, 0.1)]}
+    other = {"entities": [_arc(10.0, 0.1), _arc(20.0, 359.9)]}
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "swap-concentric",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    geo = out[0].scores.get("geometric")
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+    assert geo is not None
+    assert geo < LOW_PRECISION_THRESHOLD
+    assert RejectionReason.low_precision_score.value in out[0].rejection_reasons
+    assert out[0].state == CandidateState.different
+
+
 def test_near_similar_arc_radius_is_not_forced_to_zero() -> None:
     """Radius 10.0 vs 10.1 is inside tol_circle_radius; do not zero the score."""
     query = {

@@ -157,6 +157,8 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
     0→0.1 must not L4; fractional INSUNITS must not truncate.
 41. Wave75 Sol P2 on `f45c6586`: multi-arc sorted sweep bags must not
     L4-match a near-full arc swapped with a sliver at another center.
+42. Wave76 Sol P1 on `04e97e8d`: concentric r=10/r=20 sweep swaps must
+    not L4-match; pair ARC sweeps by center and radius tolerances.
 
 ## 6b. Window 3 plan (24h, auto-implement)
 
@@ -178,8 +180,9 @@ fail-closed on `66205333`. DXF bulge + spline cap on `0414daca`.
 Wave67 fail-closed gates on `509f59bb`. INSERT drop + spline degree on
 `a6a67123`. LEADER + polyline vertex scan on `9dfc3b87`. Live geom
 strip + width/units on `e3357abd`. Wrapped ARC sweep + integral
-INSUNITS on `86e7c783` / `f45c6586`. **This fire:** Sol P2 — bind ARC
-sweeps to quantized centers so swapped multi-arc slivers are not L4.
+INSUNITS on `86e7c783` / `f45c6586`. Center-bound ARC pairing on
+`8957213a` / `04e97e8d`. **This fire:** Sol P1 — include radius
+tolerance so concentric near-full/sliver swaps are not L4.
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.
@@ -244,6 +247,6 @@ Evaluation Report = Track E / ignore.
 | POINT/SOLID/MESH dropped so a shared LINE L4-matches | unknown geom types fail `_is_geom_json` |
 | similar+version_gate still raises EvidencePack confidence | `_top_confidence` skips independent reasons regardless of state |
 | ARC 0→359.9 vs 0→0.1 scores L4 ~0.9 via modulo ends | `_arc_records` uses CCW sweep, not endpoint pairing |
-| Multi-arc sorted sweep bags swap near-full vs sliver | `_arc_sweeps_conflict` pairs by quantized center |
+| Multi-arc sorted sweep bags swap near-full vs sliver | `_arc_sweeps_conflict` pairs by center/radius tols |
 | Fractional INSUNITS 4.9 truncates to 4 | `_drawing_units` requires an integral value |
 | 24h unattended overreach | scheduler stops ~2026-09-19 17:00 UTC; never merge; never enable decisions |

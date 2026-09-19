@@ -250,6 +250,9 @@ make test-review-reuse
 | Sol wave75 vs `origin/main` on `f45c6586` | P2 swapped multi-arc sweeps |
 | Swapped multi-arc sweeps are not L4 | `test_swapped_multi_arc_sweeps_are_not_certified` |
 | `make test-review-reuse` after center-bound ARC sweeps | **212 passed**, 7 ezdxf warnings |
+| Sol wave76 vs `origin/main` on `04e97e8d` | P1 concentric ARC sweep swap |
+| Concentric multi-arc sweep swaps are not L4 | `test_swapped_concentric_arc_sweeps_are_not_certified` |
+| `make test-review-reuse` after radius-bound ARC sweeps | **214 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
