@@ -23,6 +23,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+_UNREADABLE = "__unreadable__"
+
 
 def _tenant_dirs(store_dir: Path) -> List[Path]:
     if not store_dir.is_dir():
@@ -60,18 +62,19 @@ def _tenant_ids_from_tasks(tdir: Path) -> List[str]:
 
 
 def _tenant_id_from_meta(tdir: Path) -> Optional[str]:
+    """Sidecar tenant_id, ``_UNREADABLE`` if present-but-invalid, else None."""
     meta_path = tdir / "tenant_meta.json"
     if not meta_path.is_file():
         return None
     try:
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError, TypeError, ValueError):
-        return None
+        return _UNREADABLE
     if isinstance(meta, dict):
         tid = meta.get("tenant_id")
         if isinstance(tid, str) and tid:
             return tid
-    return None
+    return _UNREADABLE
 
 
 def _is_mixed_tenant_dir(tdir: Path) -> bool:
@@ -81,13 +84,15 @@ def _is_mixed_tenant_dir(tdir: Path) -> bool:
     if len(ids) > 1:
         return True
     meta = _tenant_id_from_meta(tdir)
+    if meta == _UNREADABLE:
+        return True
     return meta is not None and any(tid != meta for tid in ids)
 
 
 def _recorded_tenant_id(tdir: Path) -> Optional[str]:
     """Original tenant_id from sidecar or a unique task payload, if any."""
     meta = _tenant_id_from_meta(tdir)
-    if meta is not None:
+    if meta is not None and meta != _UNREADABLE:
         return meta
     ids = _tenant_ids_from_tasks(tdir)
     if len(ids) == 1:

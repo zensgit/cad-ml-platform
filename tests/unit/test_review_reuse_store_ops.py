@@ -256,6 +256,24 @@ def test_cleanup_hashed_dir_without_meta_matches_original_id(
     assert not hashed_dir.exists()
 
 
+def test_cleanup_refuses_unreadable_tenant_meta(tmp_path: Path, capsys) -> None:
+    """Present-but-invalid sidecar must not be treated as missing."""
+    store = tmp_path / "store"
+    hashed_dir = _seed_hashed_tenant(store, "pilot-tenant", 60.0)
+    meta = hashed_dir / "tenant_meta.json"
+    meta.write_text("{not-json", encoding="utf-8")
+    assert (
+        cmd_cleanup(
+            store, older_than_days=30, dry_run=False, tenant="pilot-tenant"
+        )
+        == 1
+    )
+    err = capsys.readouterr().err
+    assert "refused_mixed" in err
+    assert hashed_dir.is_dir()
+    assert meta.read_text(encoding="utf-8") == "{not-json"
+
+
 def test_cleanup_refuses_unreadable_task_json(tmp_path: Path, capsys) -> None:
     store = tmp_path / "store"
     hashed_dir = _seed_hashed_tenant(store, "pilot-tenant", 60.0)

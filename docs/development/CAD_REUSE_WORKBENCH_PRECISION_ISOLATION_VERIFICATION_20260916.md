@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: window 3 wave56 (geom-hash off + live fused not L4)  
+**HEAD at writing**: window 3 wave58 (cleanup unreadable tenant meta)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -192,6 +192,9 @@ make test-review-reuse
 | Sol wave57 vs `origin/main` on `a3d97c35` | P1 `CAD_ML_PLATFORM_L4_ENTITIES_GEOM_HASH=1` re-enables bag-of-features |
 | Env-on layout-shifted clones not certified | `test_layout_shifted_clones_not_certified_when_geom_hash_env_on` |
 | `make test-review-reuse` after env geom-hash pin | **171 passed**, 7 ezdxf warnings |
+| Sol wave58 vs `origin/main` on `b86733a4` | P2 cleanup deletes dirs with unreadable tenant_meta.json |
+| Cleanup refuses unreadable sidecar | `test_cleanup_refuses_unreadable_tenant_meta` |
+| `make test-review-reuse` after cleanup meta P2 | **172 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

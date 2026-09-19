@@ -126,6 +126,8 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
     customizing Settings; do not stamp live fused `precision_score` as L4.
 27. Wave57 Sol P1 on `a3d97c35`: `CAD_ML_PLATFORM_L4_ENTITIES_GEOM_HASH=1`
     must not re-enable bag-of-features on the ReviewReuse L4 path.
+28. Wave58 Sol P2 on `b86733a4`: cleanup must refuse unreadable
+    `tenant_meta.json` (not treat it as missing).
 
 ## 6b. Window 3 plan (24h, auto-implement)
 
@@ -138,8 +140,8 @@ Independent `different` rejects no longer inflate pack confidence
 P2s on `4858606b`. Mixed-entity L4 gate on `21c0dfbc`. Live geom_json
 forward on `d31a9942`. Non-finite local L4 + unreadable meta on
 `eebaf117`. Geometry-only L4 on `fa3eb91d`. Positional L4 + ignore
-live fused scores on `a3d97c35`. **This fire:** Sol P1 — force
-`entities_geom_hash=False` even when the L4 env flag is on.
+live fused scores on `a3d97c35`. Geom-hash pin on `b86733a4`.
+**This fire:** Sol P2 — cleanup refuses unreadable tenant meta.
 Do not invent product tracks.
 
 **Then each 45m wave:**

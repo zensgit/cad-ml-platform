@@ -476,6 +476,20 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave58 — 2026-09-19 ~09:00 UTC
+
+Sol 5.6 vs `origin/main` on `b86733a4`: **P2** cleanup treated
+unreadable `tenant_meta.json` as missing and could `rmtree` a dir
+whose identity sidecar could not be validated. Fail closed like the
+FS store (`_UNREADABLE`). Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 cleanup meta | `_tenant_id_from_meta` returns `_UNREADABLE`; mixed refuse |
+| Local `make test-review-reuse` | **172 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave57 — 2026-09-19 ~08:51 UTC
 
 Sol 5.6 vs `origin/main` on `a3d97c35`: **P1** cloning
