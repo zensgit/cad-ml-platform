@@ -586,7 +586,7 @@ def _arc_records(
 def _arc_angle_tie(
     sweep: float, start: float, rsweep: float, rstart: float
 ) -> float:
-    """Tiny cost so same-center/radius ARCs pair by span, not list order."""
+    """Tie-break for equal center+radius ARCs so reorder still L4."""
     dstart = abs(start - rstart) % 360.0
     dstart = min(dstart, 360.0 - dstart)
     return abs(sweep - rsweep) + dstart
@@ -622,7 +622,9 @@ def _arc_sweeps_conflict(
     if n == 0:
         return False
     inf = 1e9
-    # Angle tie-break must stay below a 0.001 center/radius mismatch.
+    # Angle is a tie-break only when center+radius already match. A 1e-6
+    # sweep term can outweigh a 0.001 quantized step and pair swapped
+    # nearby ARCs, so L4 would miss the sweep conflict (~0.995).
     angle_tie = 1e-6
     cost = [[inf] * n for _ in range(n)]
     for i, (center, radius, sweep, start) in enumerate(left_r):
@@ -635,9 +637,12 @@ def _arc_sweeps_conflict(
             dr = abs(rradius - radius)
             if dr > radius_tol:
                 continue
-            cost[i][j] = dist + dr + angle_tie * _arc_angle_tie(
-                sweep, start, rsweep, rstart
-            )
+            base = dist + dr
+            cost[i][j] = base
+            if base == 0.0:
+                cost[i][j] = base + angle_tie * _arc_angle_tie(
+                    sweep, start, rsweep, rstart
+                )
     from src.core.dedupcad_precision.vendor.entities_match import _hungarian
 
     assign, _total = _hungarian(cost)

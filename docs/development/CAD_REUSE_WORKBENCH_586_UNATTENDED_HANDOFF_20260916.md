@@ -476,6 +476,25 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave84 — 2026-09-19 ~15:10 UTC
+
+`tests (3.10)` / `tests (3.11)` **pass** on `37aac287`. Sol 5.6 vs
+`origin/main`: **P1** ARC angle tie-break can outweigh a 0.001
+center/radius step and pair swapped nearby sweeps (L4 ~0.995);
+**P1** `cleanup --tenant A --apply` grouped mixed dirs only under
+`_tenant_label`, so A's hashed dir was deleted while mixed B (holding
+A tasks) was refused. Angle cost only when `dist+dr == 0`; group
+cleanup by every recorded identity and refuse the linked set. Never
+merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P1 ARC tie-break | `_arc_sweeps_conflict` adds angle only on equal center+radius |
+| P1 mixed cleanup | `_dir_tenant_identities` groups mixed siblings before rmtree |
+| Local `make test-review-reuse` | **223 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave82 — 2026-09-19 ~14:26 UTC
 
 Sol 5.6 vs `origin/main` on `bcc9cc76`: **P2** mid-flight decision made

@@ -270,6 +270,11 @@ make test-review-reuse
 | Sol wave82 vs `origin/main` on `bcc9cc76` | P2 decided+pipeline_failed; P2 live-recall worker cancel |
 | Decision then pipeline boom keeps error | `test_pipeline_failed_after_mid_flight_decision_keeps_error` |
 | `make test-review-reuse` after pipeline-fail + worker cancel | **221 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) on `37aac287` | **pass** |
+| Sol wave84 vs `origin/main` on `37aac287` | P1 ARC angle only on equal center+radius; P1 mixed cleanup grouping |
+| Quantized 0.001 ARC sweep swaps are not L4 | `test_swapped_quantized_step_arc_sweeps_are_not_certified` |
+| `--tenant A --apply` keeps hashed A when mixed B holds A | `test_cleanup_tenant_apply_keeps_hashed_when_mixed_other_holds_tasks` |
+| `make test-review-reuse` after ARC tie-break + mixed grouping | **223 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

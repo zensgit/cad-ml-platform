@@ -194,8 +194,11 @@ INSUNITS on `86e7c783` / `f45c6586`. Center-bound ARC pairing on
 `8957213a` / `04e97e8d`. Radius-bound pairing on `cc28e09b`.
 Bipartite pairing on `dfb0efe9`. Nearest-center + bool closed on
 `0604807b`. Pre-explode cap + radius cost on `02fa35dd`. Angle
-tie-break + flock PID on `bcc9cc76`. **This fire:** Sol P2 — persist
-pipeline error on decided/canceled; cancel live-recall worker on timeout.
+tie-break + flock PID on `bcc9cc76`. Pipeline-fail + worker cancel on
+`37aac287`. **This fire:** Sol P1 — ARC angle tie-break only when
+center+radius already match; cleanup groups every recorded identity so
+`--tenant A --apply` cannot rmtree A's hashed dir while a mixed B dir
+still holds A tasks.
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.
@@ -233,6 +236,8 @@ Evaluation Report = Track E / ignore.
 | Terminal merge drops pipeline events | `_merge_append_only_events` keeps cancel/decision and fills recall/precision/pack |
 | Live recall hangs the AnyIO worker | `_run_coro` wait_for + cancel worker-loop tasks on timeout |
 | Mid-flight decision hides pipeline_failed | always raise; copy `task.error` onto terminal snapshot |
+| ARC angle tie-break outweighs a 0.001 center step | add sweep/start cost only when `dist+dr == 0` |
+| Cleanup `--tenant A` deletes hashed A while mixed B holds A | group dirs by every recorded identity before rmtree |
 | Cleanup deletes another tenant's legacy dir | hash-name fallback only when meta/tasks have no recorded identity |
 | Sidecar tenant A, tasks tenant B | treat as mixed/corrupt; refuse `--apply` |
 | Stale `different` after high L4 rescore | `_restore_after_high_l4` sets similar + matching verdict |

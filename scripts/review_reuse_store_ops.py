@@ -105,6 +105,27 @@ def _tenant_label(tdir: Path) -> str:
     return recorded if recorded is not None else tdir.name
 
 
+def _dir_tenant_identities(tdir: Path) -> List[str]:
+    """Every recorded tenant identity on a dir (meta + task payloads).
+
+    Cleanup groups by this set so a mixed sibling labeled B that still
+    holds A tasks blocks A's hashed directory before any rmtree.
+    """
+    ids: List[str] = []
+    seen = set()
+    meta = _tenant_id_from_meta(tdir)
+    if meta is not None and meta != _UNREADABLE and meta not in seen:
+        seen.add(meta)
+        ids.append(meta)
+    for tid in _tenant_ids_from_tasks(tdir):
+        if tid not in seen:
+            seen.add(tid)
+            ids.append(tid)
+    if ids:
+        return ids
+    return [_tenant_label(tdir)]
+
+
 def _tenant_dir_key(tenant_id: str) -> str:
     return hashlib.sha256((tenant_id or "").encode("utf-8")).hexdigest()[:24]
 
@@ -294,11 +315,15 @@ def cmd_cleanup(
 
     groups: Dict[str, List[Path]] = {}
     for tdir in tenants:
-        groups.setdefault(_tenant_label(tdir), []).append(tdir)
+        for ident in _dir_tenant_identities(tdir):
+            bucket = groups.setdefault(ident, [])
+            if tdir not in bucket:
+                bucket.append(tdir)
 
     removed = 0
     listed = 0
     refused = 0
+    seen_paths = set()
     for label, dirs in groups.items():
         newest: Optional[float] = None
         for tdir in dirs:
@@ -310,6 +335,10 @@ def cmd_cleanup(
         age_days = (time.time() - newest) / 86400.0
         mixed_group = any(_is_mixed_tenant_dir(d) for d in dirs)
         for tdir in dirs:
+            resolved = tdir.resolve()
+            if resolved in seen_paths:
+                continue
+            seen_paths.add(resolved)
             listed += 1
             if mixed_group:
                 ids = list(_tenant_ids_from_tasks(tdir))

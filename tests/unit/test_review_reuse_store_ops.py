@@ -387,9 +387,37 @@ def test_cleanup_refuses_mixed_legacy_tenant_dir(
     assert "refused_mixed" in err
     assert "a/b" in err
     assert "a_b" in err
-    assert not hashed_dir.exists()
+    assert hashed_dir.is_dir()
     assert (store / "a_b").is_dir()
     assert (mixed / "task-under.json").is_file()
+
+
+def test_cleanup_tenant_apply_keeps_hashed_when_mixed_other_holds_tasks(
+    tmp_path: Path, capsys
+) -> None:
+    """--tenant A must not delete A's hashed dir if mixed B still holds A."""
+    store = tmp_path / "store"
+    hashed_a = _seed_hashed_tenant(store, "tenant-a", 60.0)
+    hashed_b = _seed_hashed_tenant(store, "tenant-b", 60.0)
+    extra = hashed_b / "tasks" / "task-from-a.json"
+    extra.write_text(
+        json.dumps({"task_id": "task-from-a", "tenant_id": "tenant-a"}),
+        encoding="utf-8",
+    )
+    old = time.time() - (60.0 * 86400.0)
+    os.utime(extra, (old, old))
+
+    assert (
+        cmd_cleanup(
+            store, older_than_days=30, dry_run=False, tenant="tenant-a"
+        )
+        == 1
+    )
+    err = capsys.readouterr().err
+    assert "refused_mixed" in err
+    assert hashed_a.is_dir()
+    assert hashed_b.is_dir()
+    assert extra.is_file()
 
 
 def test_cleanup_refuses_when_meta_disagrees_with_task_tenant(
