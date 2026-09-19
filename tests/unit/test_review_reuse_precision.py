@@ -3358,6 +3358,55 @@ def test_swapped_quantized_step_arc_sweeps_are_not_certified() -> None:
     assert out[0].state == CandidateState.different
 
 
+def test_near_equal_spatial_arc_sweep_swap_is_not_certified() -> None:
+    """A 5e-7 spatial gap must outrank angle on swapped 3-decimal centers."""
+
+    def _arc(x: float, y: float, end: float) -> dict:
+        return {
+            "type": "ARC",
+            "center": [x, y],
+            "radius": 10.0,
+            "start_angle": 0.0,
+            "end_angle": end,
+        }
+
+    query = {
+        "entities": [
+            _arc(0.266, 0.185, 359.9),
+            _arc(0.087, 0.026, 0.1),
+        ]
+    }
+    other = {
+        "entities": [
+            _arc(0.254, 0.298, 0.1),
+            _arc(0.245, 0.252, 359.9),
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "near-equal-spatial-swap",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    geo = out[0].scores.get("geometric")
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+    assert geo is not None
+    assert geo < LOW_PRECISION_THRESHOLD
+    assert RejectionReason.low_precision_score.value in out[0].rejection_reasons
+    assert out[0].state == CandidateState.different
+
+
 def test_reordered_same_center_arcs_still_l4() -> None:
     """Same-center/radius ARCs with different spans must L4 after reorder."""
 

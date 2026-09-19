@@ -196,9 +196,10 @@ Bipartite pairing on `dfb0efe9`. Nearest-center + bool closed on
 `0604807b`. Pre-explode cap + radius cost on `02fa35dd`. Angle
 tie-break + flock PID on `bcc9cc76`. Pipeline-fail + worker cancel on
 `37aac287`. Angle-only-on-equal-center + mixed cleanup grouping on
-`d1c3a93e`. **This fire:** Sol P2 — ARC angle is a lexicographic
-tie-break among equal spatial ranks (uniform offset reorder stays L4);
-skip local DXF extract over `DEDUPCAD2_MAX_FILE_MB` before write/parse.
+`d1c3a93e`. Equal-spatial angle scale + DXF size cap on `ea4c612f`.
+**This fire:** Sol P2 — two-stage ARC assignment (spatial Hungarian,
+then angle only on equal-spatial edges) so a ~5e-7 3-decimal gap
+cannot lose to a 359° sweep swap.
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.

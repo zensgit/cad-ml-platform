@@ -636,13 +636,12 @@ def _arc_sweeps_conflict(
     if n == 0:
         return False
     inf = 1e9
-    # Lexicographic: spatial first, angle among equal spatial ranks.
-    # Scale so a 1e-6 spatial gap outranks max sweep+start (~720), while a
-    # uniform nonzero offset (every pairing shares the same base) still
-    # pairs by sweep so reorder stays L4.
-    spatial_scale = 1e6
-    angle_scale = 1e-3
-    cost = [[inf] * n for _ in range(n)]
+    # Two-stage: spatial Hungarian first, then angle only among edges
+    # whose spatial cost equals both the row's and the column's assigned
+    # spatial cost. A scaled sum lets a ~5e-7 3-decimal gap lose to a
+    # 359° sweep term and certify a swapped pairing as L4.
+    spatial = [[inf] * n for _ in range(n)]
+    angle = [[0.0] * n for _ in range(n)]
     for i, (center, radius, sweep, start) in enumerate(left_r):
         for j, (rcenter, rradius, rsweep, rstart) in enumerate(right_r):
             dx = rcenter[0] - center[0]
@@ -653,14 +652,32 @@ def _arc_sweeps_conflict(
             dr = abs(rradius - radius)
             if dr > radius_tol:
                 continue
-            cost[i][j] = (dist + dr) * spatial_scale + angle_scale * _arc_angle_tie(
-                sweep, start, rsweep, rstart
-            )
+            spatial[i][j] = dist + dr
+            angle[i][j] = _arc_angle_tie(sweep, start, rsweep, rstart)
     from src.core.dedupcad_precision.vendor.entities_match import _hungarian
 
-    assign, _total = _hungarian(cost)
+    spatial_assign, _total = _hungarian(spatial)
+    owner: Dict[int, int] = {}
+    for i, j in enumerate(spatial_assign):
+        if j < 0 or spatial[i][j] >= inf:
+            return True
+        owner[j] = i
+    angle_cost = [[inf] * n for _ in range(n)]
+    for i in range(n):
+        j0 = spatial_assign[i]
+        s_row = spatial[i][j0]
+        for j in range(n):
+            if spatial[i][j] >= inf:
+                continue
+            i_j = owner.get(j)
+            if i_j is None:
+                continue
+            s_col = spatial[i_j][j]
+            if spatial[i][j] == s_row and spatial[i][j] == s_col:
+                angle_cost[i][j] = angle[i][j]
+    assign, _angle_total = _hungarian(angle_cost)
     for i, j in enumerate(assign):
-        if j < 0 or cost[i][j] >= inf:
+        if j < 0 or angle_cost[i][j] >= inf:
             return True
         if abs(left_r[i][2] - right_r[j][2]) > angle_tol:
             return True

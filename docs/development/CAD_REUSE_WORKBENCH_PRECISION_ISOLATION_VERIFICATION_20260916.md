@@ -279,6 +279,10 @@ make test-review-reuse
 | Uniform-offset same-center ARC reorder still L4 | `test_reordered_uniform_offset_same_center_arcs_still_l4` |
 | Oversized DXF skips local extract | `test_oversized_dxf_extract_is_skipped` |
 | `make test-review-reuse` after equal-spatial ARC + DXF cap | **225 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) on `ea4c612f` | **pass** |
+| Sol wave87 vs `origin/main` on `ea4c612f` | P2 two-stage ARC assignment |
+| Near-equal 3-decimal ARC sweep swaps are not L4 | `test_near_equal_spatial_arc_sweep_swap_is_not_certified` |
+| `make test-review-reuse` after two-stage ARC assignment | **226 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -289,6 +293,7 @@ make test-review-reuse
 | tests (3.11) on `957546f6` | **success** |
 | lint-type on `4d4bb285` | **pass** |
 | tests (3.10) / tests (3.11) on `4d4bb285` | **pass** |
+| tests (3.10) / tests (3.11) on `ea4c612f` | **pass** |
 | e2e-smoke on `2f76c87c` | pass |
 | Evaluation Report | fail (Track E; out of scope) |
 | tests (3.10) / tests (3.11) / lint-type on `c9a7ce4b` | **pass** |

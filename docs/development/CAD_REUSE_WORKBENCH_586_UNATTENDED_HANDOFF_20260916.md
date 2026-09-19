@@ -476,6 +476,21 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave87 — 2026-09-19 ~16:05 UTC
+
+`tests (3.10)` / `tests (3.11)` **pass** on `ea4c612f`. Sol 5.6 vs
+`origin/main`: **P2** scaled spatial+angle cost lets a ~5e-7
+3-decimal assignment gap lose to a 359° sweep term, so swapped
+nearby ARCs score L4 ~0.61. Two-stage: spatial Hungarian, then
+angle only on equal-spatial edges. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 two-stage ARC | `_arc_sweeps_conflict` rematch by angle only on equal spatial |
+| Local `make test-review-reuse` | **226 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave85 — 2026-09-19 ~15:25 UTC
 
 `lint-type` pass / `e2e-smoke` pass on `d1c3a93e`; `tests (3.10)` was
