@@ -256,6 +256,10 @@ make test-review-reuse
 | Sol wave77 vs `origin/main` on `cc28e09b` | P2 greedy ARC reorder false reject |
 | Reordered nearby ARCs still L4 | `test_reordered_nearby_arcs_still_l4` |
 | `make test-review-reuse` after bipartite ARC pairing | **215 passed**, 7 ezdxf warnings |
+| Sol wave79 vs `origin/main` on `dfb0efe9` | P1 nearby ARC sweep swap; P2 string polyline closed |
+| Nearby ARC sweep swaps are not L4 | `test_swapped_nearby_arc_sweeps_are_not_certified` |
+| String ``closed: "false"`` is not L4 | `test_string_false_polyline_closed_is_not_certified` |
+| `make test-review-reuse` after nearest-center ARC + closed bool | **217 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

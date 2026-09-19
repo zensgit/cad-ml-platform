@@ -161,6 +161,8 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
     not L4-match; pair ARC sweeps by center and radius tolerances.
 43. Wave77 Sol P2 on `cc28e09b`: greedy ARC pairing must not zero
     identical nearby ARCs listed in another order; use bipartite match.
+44. Wave79 Sol P1/P2 on `dfb0efe9`: nearby-center sweep swaps must not
+    L4; polyline ``closed: "false"`` must not explode a closer.
 
 ## 6b. Window 3 plan (24h, auto-implement)
 
@@ -184,7 +186,8 @@ Wave67 fail-closed gates on `509f59bb`. INSERT drop + spline degree on
 strip + width/units on `e3357abd`. Wrapped ARC sweep + integral
 INSUNITS on `86e7c783` / `f45c6586`. Center-bound ARC pairing on
 `8957213a` / `04e97e8d`. Radius-bound pairing on `cc28e09b`.
-**This fire:** Sol P2 — bipartite ARC pairing so reorder is not L4 0.
+Bipartite pairing on `dfb0efe9`. **This fire:** Sol P1 — pair ARCs by
+nearest center then compare sweeps; P2 reject string polyline `closed`.
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.
@@ -250,6 +253,8 @@ Evaluation Report = Track E / ignore.
 | similar+version_gate still raises EvidencePack confidence | `_top_confidence` skips independent reasons regardless of state |
 | ARC 0→359.9 vs 0→0.1 scores L4 ~0.9 via modulo ends | `_arc_records` uses CCW sweep, not endpoint pairing |
 | Multi-arc sorted sweep bags swap near-full vs sliver | `_arc_sweeps_conflict` pairs by center/radius tols |
-| Greedy ARC pairing zeros identical reorder | bipartite matching in `_arc_sweeps_conflict` |
+| Greedy ARC pairing zeros identical reorder | Hungarian nearest-center then sweep check |
+| Nearby ARC sweep swap scores L4 ~0.9 | `_arc_sweeps_conflict` assigns by center, not sweep |
+| ``closed: "false"`` explodes a closer | `_polyline_closed` requires a real bool |
 | Fractional INSUNITS 4.9 truncates to 4 | `_drawing_units` requires an integral value |
 | 24h unattended overreach | scheduler stops ~2026-09-19 17:00 UTC; never merge; never enable decisions |

@@ -263,6 +263,8 @@ def _is_geom_entity(ent: Any) -> bool:
             and _ccw_sweep_deg(start_q, end_q) is not None
         )
     if et in ("LWPOLYLINE", "POLYLINE"):
+        if _polyline_closed(ent) is None:
+            return False
         return _has_two_distinct_xy(ent.get("points"))
     if et == "ELLIPSE":
         ratio = ent.get("ratio", 1.0)
@@ -585,9 +587,9 @@ def _arc_sweeps_conflict(
 ) -> bool:
     """True when a matched ARC's CCW sweep differs beyond angle_tol.
 
-    Pair by center and radius within verifier tolerances so concentric
-    near-full/sliver swaps cannot match by sweep alone. Use bipartite
-    matching so nearby ARC order cannot steal the only valid pair.
+    Pair by nearest center/radius (same positional assignment the scorer
+    uses) then compare CCW sweeps. Sweep-compatible matching would pair
+    a nearby sliver with a near-full arc and still score L4 ~0.9.
     """
     if not math.isfinite(angle_tol) or angle_tol < 0.0:
         return True
@@ -602,31 +604,43 @@ def _arc_sweeps_conflict(
     if len(left_r) != len(right_r):
         return True
     n = len(left_r)
-    compat: List[List[int]] = [[] for _ in range(n)]
-    for i, (center, radius, sweep) in enumerate(left_r):
-        for j, (rcenter, rradius, rsweep) in enumerate(right_r):
+    if n == 0:
+        return False
+    inf = 1e9
+    cost = [[inf] * n for _ in range(n)]
+    for i, (center, radius, _sweep) in enumerate(left_r):
+        for j, (rcenter, rradius, _rsweep) in enumerate(right_r):
             dx = rcenter[0] - center[0]
             dy = rcenter[1] - center[1]
-            if math.hypot(dx, dy) > center_tol:
+            dist = math.hypot(dx, dy)
+            if dist > center_tol:
                 continue
             if abs(rradius - radius) > radius_tol:
                 continue
-            if abs(sweep - rsweep) > angle_tol:
-                continue
-            compat[i].append(j)
-    match_right = [-1] * n
+            cost[i][j] = dist
+    from src.core.dedupcad_precision.vendor.entities_match import _hungarian
 
-    def _augment(i: int, seen: set[int]) -> bool:
-        for j in compat[i]:
-            if j in seen:
-                continue
-            seen.add(j)
-            if match_right[j] == -1 or _augment(match_right[j], seen):
-                match_right[j] = i
-                return True
+    assign, _total = _hungarian(cost)
+    for i, j in enumerate(assign):
+        if j < 0 or cost[i][j] >= inf:
+            return True
+        if abs(left_r[i][2] - right_r[j][2]) > angle_tol:
+            return True
+    return False
+
+
+def _polyline_closed(entity: Dict[str, Any]) -> Optional[bool]:
+    """True/False when ``closed`` is a real bool; None if malformed.
+
+    ``bool("false")`` is True, so a string flag must not explode a closer.
+    Missing ``closed`` means open.
+    """
+    if "closed" not in entity:
         return False
-
-    return any(not _augment(i, set()) for i in range(n))
+    raw = entity.get("closed")
+    if isinstance(raw, bool):
+        return raw
+    return None
 
 
 def _explode_polyline(entity: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -636,6 +650,9 @@ def _explode_polyline(entity: Dict[str, Any]) -> List[Dict[str, Any]]:
     before matching, so identical shapes at different coordinates score ~1.0.
     LINE matching is positional.
     """
+    closed = _polyline_closed(entity)
+    if closed is None:
+        return []
     pts = entity.get("points")
     if not isinstance(pts, list) or len(pts) < 2:
         return []
@@ -647,7 +664,7 @@ def _explode_polyline(entity: Dict[str, Any]) -> List[Dict[str, Any]]:
     if len(vertices) < 2:
         return []
     segments = list(zip(vertices, vertices[1:]))
-    if bool(entity.get("closed")) and len(vertices) >= 3:
+    if closed and len(vertices) >= 3:
         segments.append((vertices[-1], vertices[0]))
     lines: List[Dict[str, Any]] = []
     for start, end in segments:

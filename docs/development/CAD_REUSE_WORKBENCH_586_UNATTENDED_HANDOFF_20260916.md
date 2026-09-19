@@ -476,6 +476,22 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave79 — 2026-09-19 ~13:22 UTC
+
+Sol 5.6 vs `origin/main` on `dfb0efe9`: **P1** nearby r=10 arcs at
+x=0/x=0.3 can swap 359.9°/0.1° sweeps and still score ~0.9 L4;
+**P2** ``closed: "false"`` explodes a closer. Pair by nearest center
+then compare sweeps; require boolean `closed`. Never merge; decisions
+stay off.
+
+| Item | State |
+|---|---|
+| P1 ARC assign | `_arc_sweeps_conflict` Hungarian on center, then sweep |
+| P2 polyline closed | `_polyline_closed` rejects non-bool |
+| Local `make test-review-reuse` | **217 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave77 — 2026-09-19 ~12:42 UTC
 
 Sol 5.6 vs `origin/main` on `cc28e09b`: **P2** greedy ARC pairing
