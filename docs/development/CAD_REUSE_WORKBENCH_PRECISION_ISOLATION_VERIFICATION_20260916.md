@@ -243,6 +243,10 @@ make test-review-reuse
 | Inch vs mm same numbers are not L4 | `test_dxf_inch_vs_mm_same_numbers_are_not_l4` |
 | v2 extract cache without width is re-extracted | `test_legacy_v2_extract_cache_without_width_is_reextracted` |
 | `make test-review-reuse` after geom-strip/width/units | **208 passed**, 7 ezdxf warnings |
+| Sol wave74 vs `origin/main` on `e3357abd` | P1 wrapped ARC sweep; P2 fractional INSUNITS |
+| Wrapped ARC sweeps are not L4 | `test_wrapped_arc_sweeps_are_not_certified` |
+| Fractional INSUNITS is not L4 | `test_fractional_insunits_is_not_certified` |
+| `make test-review-reuse` after ARC sweep + integral units | **210 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

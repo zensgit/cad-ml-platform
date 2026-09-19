@@ -476,6 +476,21 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave74 — 2026-09-19 ~11:43 UTC
+
+Sol 5.6 vs `origin/main` on `e3357abd`: **P1** vendor ARC matching
+pairs endpoints modulo 360, so 0→359.9 vs 0→0.1 scored ~0.9 L4;
+**P2** `int(4.9)` treated fractional INSUNITS as millimeters. Compare
+CCW sweep; require integral units. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P1 ARC sweep | `_arc_signatures` / `_ccw_sweep_deg` |
+| P2 INSUNITS | `_drawing_units` rejects non-integers |
+| Local `make test-review-reuse` | **210 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave73 — 2026-09-19 ~11:40 UTC
 
 Sol vs `origin/main` on `01ec8379`: **P1** live `geom_json` was

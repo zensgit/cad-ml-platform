@@ -233,6 +233,14 @@ def _has_two_distinct_xy(points: Any) -> bool:
     return len(seen) >= 2
 
 
+def _ccw_sweep_deg(start: float, end: float) -> Optional[float]:
+    """DXF ARC is CCW from start to end. 0 means a full wrap, not a tiny arc."""
+    sweep = (float(end) - float(start)) % 360.0
+    if sweep == 0.0:
+        return None
+    return sweep
+
+
 def _is_geom_entity(ent: Any) -> bool:
     """True for a supported, nondegenerate geometric primitive."""
     if not isinstance(ent, dict):
@@ -252,7 +260,7 @@ def _is_geom_entity(ent: Any) -> bool:
             and _positive_number(ent.get("radius"))
             and start_q is not None
             and end_q is not None
-            and start_q != end_q
+            and _ccw_sweep_deg(start_q, end_q) is not None
         )
     if et in ("LWPOLYLINE", "POLYLINE"):
         return _has_two_distinct_xy(ent.get("points"))
@@ -532,6 +540,37 @@ def _spline_signatures(geom: Dict[str, Any]) -> List[tuple[int, Optional[int]]]:
     return sorted(sigs)
 
 
+def _arc_signatures(geom: Dict[str, Any]) -> List[tuple[Any, ...]]:
+    """Directed CCW sweep, not modulo-360 endpoint pairing."""
+    sigs: List[tuple[Any, ...]] = []
+    ents = geom.get("entities")
+    if not isinstance(ents, list):
+        return sigs
+    for entity in ents:
+        if not isinstance(entity, dict):
+            continue
+        if str(entity.get("type") or "").upper() != "ARC":
+            continue
+        start_q = _quantized(entity.get("start_angle"))
+        end_q = _quantized(entity.get("end_angle"))
+        sweep = None
+        start_mod = None
+        if start_q is not None and end_q is not None:
+            raw_sweep = _ccw_sweep_deg(start_q, end_q)
+            if raw_sweep is not None:
+                sweep = _quantized(raw_sweep)
+            start_mod = _quantized(start_q % 360.0)
+        sigs.append(
+            (
+                _quantized_xy(entity.get("center")),
+                _quantized(entity.get("radius")),
+                start_mod,
+                sweep,
+            )
+        )
+    return sorted(sigs)
+
+
 def _explode_polyline(entity: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Turn a polyline into absolute LINE segments.
 
@@ -620,11 +659,15 @@ def _drawing_units(geom: Dict[str, Any]) -> Optional[int]:
             raw = info.get("insunits")
     if raw is None:
         return None
-    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+    if isinstance(raw, bool):
         return 0
-    if not math.isfinite(float(raw)):
-        return 0
-    return int(raw)
+    if isinstance(raw, int):
+        return raw
+    if isinstance(raw, float):
+        if not math.isfinite(raw) or raw != math.floor(raw):
+            return 0
+        return int(raw)
+    return 0
 
 
 def _units_conflict(left: Dict[str, Any], right: Dict[str, Any]) -> bool:
@@ -689,6 +732,8 @@ def _try_l4_score(
         if _insert_block_hash_conflict(left, right_g):
             return 0.0
         if _spline_signatures(left) != _spline_signatures(right_g):
+            return 0.0
+        if _arc_signatures(left) != _arc_signatures(right_g):
             return 0.0
         scored = PrecisionVerifier(settings=cfg).score_pair(left, right_g)
         score = scored.score

@@ -153,6 +153,8 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 39. Wave72 Sol P1/P2 on `9dfc3b87`: unknown geom types (POINT/SOLID/…)
     must fail closed; independent rejects suppress confidence even if
     state is similar.
+40. Wave74 Sol P1/P2 on `e3357abd`: wrapped ARC sweeps 0→359.9 vs
+    0→0.1 must not L4; fractional INSUNITS must not truncate.
 
 ## 6b. Window 3 plan (24h, auto-implement)
 
@@ -172,9 +174,9 @@ on `48ec1243`. Polyline explode on `4362c886`. Matcher-cap raise on
 `1a99996f`. Unmatched penalty + hard cap on `167831f6`. Bulge/hash
 fail-closed on `66205333`. DXF bulge + spline cap on `0414daca`.
 Wave67 fail-closed gates on `509f59bb`. INSERT drop + spline degree on
-`a6a67123`. LEADER + polyline vertex scan on `9dfc3b87`. **This fire:**
-Sol P1 — fail closed on leftover geom types; P2 independent rejects
-do not raise confidence when state is similar.
+`a6a67123`. LEADER + polyline vertex scan on `9dfc3b87`. Live geom
+strip + width/units on `e3357abd`. **This fire:** Sol P1 — compare
+ARC CCW sweep; P2 reject fractional INSUNITS.
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.
@@ -238,4 +240,6 @@ Evaluation Report = Track E / ignore.
 | SPLINE knots/weights omitted, vendor matches 16 points | SPLINE is unscored geom; not precision-l4 |
 | POINT/SOLID/MESH dropped so a shared LINE L4-matches | unknown geom types fail `_is_geom_json` |
 | similar+version_gate still raises EvidencePack confidence | `_top_confidence` skips independent reasons regardless of state |
+| ARC 0→359.9 vs 0→0.1 scores L4 ~0.9 via modulo ends | `_arc_signatures` uses CCW sweep, not endpoint pairing |
+| Fractional INSUNITS 4.9 truncates to 4 | `_drawing_units` requires an integral value |
 | 24h unattended overreach | scheduler stops ~2026-09-19 17:00 UTC; never merge; never enable decisions |
