@@ -466,6 +466,16 @@ EvidencePack confidence to 1.0.
 | Local `make test-review-reuse` | **158 passed** |
 | Merge | still not done |
 
+## Window 3 wave49 — 2026-09-19 ~06:19 UTC
+
+Owner `continue`. `tests (3.10)` green on `8fe2c393`. Sol P2: zero-sweep
+ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
+
+| Item | State |
+|---|---|
+| Local `make test-review-reuse` | **159 passed** |
+| Merge | still not done |
+
 ## Window 3 wave45 — 2026-09-19 ~05:04 UTC
 
 `tests (3.10)` / `tests (3.11)` / `e2e-smoke` **pass** on `f2acff4f`.

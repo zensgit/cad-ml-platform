@@ -959,6 +959,40 @@ def test_zero_scale_insert_is_not_l4_geometry() -> None:
     assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
 
 
+def test_zero_sweep_ellipse_is_not_l4_geometry() -> None:
+    bogus = {
+        "entities": [
+            {
+                "type": "ELLIPSE",
+                "center": [0.0, 0.0],
+                "major": [1.0, 0.0],
+                "ratio": 0.5,
+                "start_param": 0.0,
+                "end_param": 0.0,
+            }
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "zell",
+                "state": "similar",
+                "geom_json": bogus,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(bogus).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
 def test_zero_sweep_arc_is_not_l4_geometry() -> None:
     bogus = {
         "entities": [

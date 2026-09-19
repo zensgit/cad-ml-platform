@@ -183,10 +183,22 @@ def _is_geom_entity(ent: Any) -> bool:
         return _has_two_distinct_xy(ent.get("points"))
     if et == "ELLIPSE":
         ratio = ent.get("ratio", 1.0)
-        return (
+        if not (
             _xy(ent.get("center"))
             and _nonzero_xy(ent.get("major"))
             and _positive_number(ratio)
+        ):
+            return False
+        # Omitted params mean a full ellipse. Equal supplied params are
+        # a zero-sweep, same as a degenerate ARC.
+        if "start_param" not in ent and "end_param" not in ent:
+            return True
+        start_p = ent.get("start_param")
+        end_p = ent.get("end_param")
+        return (
+            _finite_number(start_p)
+            and _finite_number(end_p)
+            and float(start_p) != float(end_p)
         )
     if et == "SPLINE":
         return _has_two_distinct_xy(ent.get("control_points"))

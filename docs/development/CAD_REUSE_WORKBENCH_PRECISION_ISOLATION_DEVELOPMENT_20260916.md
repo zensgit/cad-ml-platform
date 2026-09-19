@@ -160,6 +160,7 @@ Evaluation Report = Track E / ignore.
 | Sidecar tenant A, tasks tenant B | treat as mixed/corrupt; refuse `--apply` |
 | Stale `different` after high L4 rescore | `_restore_after_high_l4` sets similar + matching verdict |
 | Version-gate L4 1.0 inflates EvidencePack confidence | `_top_confidence` skips independent `different` rejects |
+| Zero-sweep ELLIPSE labeled precision-l4 | equal supplied `start_param`/`end_param` rejected like ARC |
 | High L4 overrides version-gate `different` | restore similar only when no independent rejection remains |
 | High L4 promotes reasonless adapter `different` | restore only if `low_precision_score` existed before clear |
 | 24h unattended overreach | scheduler stops ~2026-09-19 17:00 UTC; never merge; never enable decisions |
