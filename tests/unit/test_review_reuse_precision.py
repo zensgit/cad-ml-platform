@@ -2563,6 +2563,36 @@ def test_oversized_dxf_extract_is_skipped(monkeypatch: pytest.MonkeyPatch) -> No
     assert out[0].scores.get("geometric") is None
 
 
+def test_oversized_json_geom_is_skipped(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Skip JSON decode when over DEDUPCAD2_MAX_FILE_MB."""
+    monkeypatch.setattr(
+        "src.core.review_reuse.precision._dxf_extract_limit_bytes",
+        lambda: 16,
+    )
+    geom = _line_geom()
+    payload = json.dumps(geom).encode("utf-8") + b"x" * 32
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "arch-geom",
+                "state": "similar",
+                "geom_json": geom,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="huge.json",
+        file_bytes=payload,
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+    assert out[0].scores.get("geometric") is None
+
+
 def test_empty_dxf_extract_is_not_l4_geometry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

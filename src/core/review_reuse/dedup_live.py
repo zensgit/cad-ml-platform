@@ -140,9 +140,9 @@ def _run_coro(coro, *, timeout: float) -> Any:
         target=_runner, name="review-reuse-live-recall", daemon=True
     )
     worker.start()
-    if not started.wait(timeout=1.0):
-        raise TimeoutError("live recall worker failed to start")
     try:
+        if not started.wait(timeout=1.0):
+            raise TimeoutError("live recall worker failed to start")
         future = asyncio.run_coroutine_threadsafe(bounded, loop)
         try:
             return future.result(timeout=timeout)
@@ -160,10 +160,22 @@ def _run_coro(coro, *, timeout: float) -> Any:
         def _stop() -> None:
             loop.stop()
 
-        loop.call_soon_threadsafe(_stop)
+        try:
+            loop.call_soon_threadsafe(_stop)
+        except RuntimeError:
+            pass
+        loop.stop()
         worker.join(timeout=1.0)
         if not worker.is_alive():
             loop.close()
+        for pending in (bounded, coro):
+            close = getattr(pending, "close", None)
+            if close is None:
+                continue
+            try:
+                close()
+            except (RuntimeError, ValueError):
+                pass
 
 
 def ensure_default_live_hook() -> None:

@@ -293,6 +293,53 @@ def test_run_coro_completes_within_timeout() -> None:
     assert _run_coro(_fast(), timeout=1) == 42
 
 
+def test_run_coro_stops_worker_when_startup_times_out(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import asyncio
+
+    from src.core.review_reuse import dedup_live
+
+    orig_event = threading.Event
+    first: dict = {"ev": None}
+
+    def _factory() -> threading.Event:
+        ev = orig_event()
+        if first["ev"] is None:
+            first["ev"] = ev
+
+            def _wait(timeout: float | None = None) -> bool:
+                return False
+
+            ev.wait = _wait  # type: ignore[method-assign]
+        return ev
+
+    monkeypatch.setattr(dedup_live.threading, "Event", _factory)
+
+    async def _inner() -> None:
+        async def _fast() -> int:
+            return 1
+
+        before = {
+            id(t)
+            for t in threading.enumerate()
+            if t.name == "review-reuse-live-recall" and t.is_alive()
+        }
+        with pytest.raises((TimeoutError, asyncio.TimeoutError)):
+            dedup_live._run_coro(_fast(), timeout=1)
+        time.sleep(0.05)
+        after = [
+            t
+            for t in threading.enumerate()
+            if t.name == "review-reuse-live-recall"
+            and t.is_alive()
+            and id(t) not in before
+        ]
+        assert after == []
+
+    asyncio.run(_inner())
+
+
 def test_create_task_live_fused_precision_is_not_geometric_l4(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

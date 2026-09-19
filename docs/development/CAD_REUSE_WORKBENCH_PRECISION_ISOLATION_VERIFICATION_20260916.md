@@ -286,6 +286,10 @@ make test-review-reuse
 | Sol wave88 vs `origin/main` on `e5cdc765` | P2 min-total ARC tight edges |
 | Colinear equal-total ARC shift still L4 | `test_shifted_colinear_arcs_matching_sweeps_still_l4` |
 | `make test-review-reuse` after min-total ARC tight edges | **227 passed**, 7 ezdxf warnings |
+| Sol wave89 vs `origin/main` on `ee1d21c6` | P2 JSON size cap; P2 live-recall start stop |
+| Oversized JSON skips decode | `test_oversized_json_geom_is_skipped` |
+| Nested live-recall start timeout stops worker | `test_run_coro_stops_worker_when_startup_times_out` |
+| `make test-review-reuse` after JSON cap + live-recall start stop | **229 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

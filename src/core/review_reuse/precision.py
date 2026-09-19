@@ -368,6 +368,16 @@ def _parse_query_geom(
     suffix = file_suffix(file_name)
     if suffix == ".json":
         try:
+            limit = _dxf_extract_limit_bytes()
+        except Exception:
+            return None
+        if limit < 1 or len(file_bytes) > limit:
+            logger.debug(
+                "review_reuse_json_geom_skipped_oversize",
+                extra={"n_bytes": len(file_bytes), "limit": limit},
+            )
+            return None
+        try:
             obj = json.loads(file_bytes.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
             return None

@@ -476,6 +476,22 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave89 — 2026-09-19 ~16:50 UTC
+
+Sol 5.6 vs `origin/main` on `ee1d21c6`: **P2** JSON query geom decoded
+the full payload before the DXF size cap; **P2** live-recall nested
+loop raised on worker start timeout before `finally`, leaking
+`run_forever`. Cap JSON bytes first; always stop/join the worker.
+Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 JSON size cap | `_parse_query_geom` uses `_dxf_extract_limit_bytes` |
+| P2 live-recall start | `_run_coro` stops loop on startup timeout |
+| Local `make test-review-reuse` | **229 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave88 — 2026-09-19 ~16:22 UTC
 
 Sol 5.6 vs `origin/main` on `e5cdc765`: **P2** row/column spatial
