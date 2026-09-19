@@ -103,7 +103,6 @@ _GEOM_ENTITY_TYPES = frozenset(
         "POLYLINE",
         "ELLIPSE",
         "SPLINE",
-        "INSERT",
     }
 )
 
@@ -177,7 +176,7 @@ def _has_two_distinct_xy(points: Any) -> bool:
     for point in points:
         pair = _quantized_xy(point)
         if pair is None:
-            continue
+            return False
         if any(pair != other for other in seen):
             return True
         if pair not in seen:
@@ -233,21 +232,6 @@ def _is_geom_entity(ent: Any) -> bool:
         if not isinstance(cps, list) or len(cps) > _L4_MAX_SPLINE_CTRL:
             return False
         return _has_two_distinct_xy(cps)
-    if et == "INSERT":
-        bhash = ent.get("block_hash")
-        has_hash = isinstance(bhash, str) and bool(bhash.strip())
-        # Name+pose without block_hash cannot prove the referenced geometry.
-        if not (has_hash and _xy(ent.get("insert"))):
-            return False
-        if "scale" in ent:
-            scale = ent.get("scale")
-            if not _xy(scale):
-                return False
-            if float(scale[0]) == 0.0 or float(scale[1]) == 0.0:
-                return False
-        if "rotation" in ent and not _finite_number(ent.get("rotation")):
-            return False
-        return True
     return False
 
 
@@ -415,19 +399,30 @@ def _insert_block_hash_conflict(left: Dict[str, Any], right: Dict[str, Any]) -> 
     return False
 
 
-def _spline_control_counts(geom: Dict[str, Any]) -> List[int]:
-    counts: List[int] = []
+def _spline_degree(entity: Dict[str, Any]) -> Optional[int]:
+    raw = entity.get("degree", 3)
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        return None
+    if not math.isfinite(float(raw)):
+        return None
+    return int(raw)
+
+
+def _spline_signatures(geom: Dict[str, Any]) -> List[tuple[int, Optional[int]]]:
+    """Control-count plus degree; vendor matching ignores degree/knots."""
+    sigs: List[tuple[int, Optional[int]]] = []
     ents = geom.get("entities")
     if not isinstance(ents, list):
-        return counts
+        return sigs
     for entity in ents:
         if not isinstance(entity, dict):
             continue
         if str(entity.get("type") or "").upper() != "SPLINE":
             continue
         cps = entity.get("control_points")
-        counts.append(len(cps) if isinstance(cps, list) else 0)
-    return sorted(counts)
+        n = len(cps) if isinstance(cps, list) else 0
+        sigs.append((n, _spline_degree(entity)))
+    return sorted(sigs)
 
 
 def _explode_polyline(entity: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -443,7 +438,7 @@ def _explode_polyline(entity: Dict[str, Any]) -> List[Dict[str, Any]]:
     vertices: List[List[float]] = []
     for point in pts:
         if not _xy(point):
-            continue
+            return []
         vertices.append([float(point[0]), float(point[1])])
     if len(vertices) < 2:
         return []
@@ -554,7 +549,7 @@ def _try_l4_score(
             return None
         if _insert_block_hash_conflict(left, right_g):
             return 0.0
-        if _spline_control_counts(left) != _spline_control_counts(right_g):
+        if _spline_signatures(left) != _spline_signatures(right_g):
             return 0.0
         scored = PrecisionVerifier(settings=cfg).score_pair(left, right_g)
         score = scored.score

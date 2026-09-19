@@ -857,9 +857,9 @@ def test_insert_block_geom_is_l4_geometry() -> None:
         file_name="query.json",
         file_bytes=json.dumps(geom).encode("utf-8"),
     )
-    assert "precision-l4" in (out[0].verification.get("methods") or [])
-    assert RejectionReason.missing_geom_json.value not in out[0].rejection_reasons
-    assert out[0].scores.get("geometric") is not None
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+    assert out[0].scores.get("geometric") is None
 
 
 def test_zero_ratio_ellipse_is_not_l4_geometry() -> None:
@@ -1781,6 +1781,75 @@ def test_spline_prefix_with_unequal_controls_is_not_certified() -> None:
     assert out[0].state == CandidateState.different
 
 
+def test_spline_degree_mismatch_is_not_certified() -> None:
+    """Vendor matching ignores degree; degree 1 vs 3 must not score L4 1.0."""
+    cps = [[0.0, 0.0], [1.0, 2.0], [2.0, 0.0], [3.0, 3.0]]
+    query = {
+        "entities": [{"type": "SPLINE", "control_points": cps, "degree": 1}]
+    }
+    other = {
+        "entities": [{"type": "SPLINE", "control_points": cps, "degree": 3}]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "deg",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    geo = out[0].scores.get("geometric")
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+    assert geo is not None
+    assert geo < LOW_PRECISION_THRESHOLD
+    assert out[0].state == CandidateState.different
+
+
+def test_malformed_polyline_vertex_is_not_joined_as_l4() -> None:
+    """Invalid intermediate vertices must not be skipped into a chord LINE."""
+    query = {
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
+        ]
+    }
+    other = {
+        "entities": [
+            {
+                "type": "LWPOLYLINE",
+                "points": [[0.0, 0.0], ["bad", 1], [10.0, 0.0]],
+            }
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "bad-vert",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+
+
 def test_opposite_half_ellipses_are_not_l4_geometry() -> None:
     """Vendor span-only ELLIPSE cost would treat 0..π and π..2π as equal."""
     left = {
@@ -1880,11 +1949,9 @@ def test_swapped_insert_block_hashes_are_not_certified() -> None:
         file_name="query.json",
         file_bytes=json.dumps(query).encode("utf-8"),
     )
-    geo = out[0].scores.get("geometric")
-    assert "precision-l4" in (out[0].verification.get("methods") or [])
-    assert geo is not None
-    assert geo < LOW_PRECISION_THRESHOLD
-    assert out[0].state == CandidateState.different
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
 
 
 def test_mismatched_insert_block_hash_is_not_certified() -> None:
@@ -1926,12 +1993,9 @@ def test_mismatched_insert_block_hash_is_not_certified() -> None:
         file_name="query.json",
         file_bytes=json.dumps(query).encode("utf-8"),
     )
-    geo = out[0].scores.get("geometric")
-    assert "precision-l4" in (out[0].verification.get("methods") or [])
-    assert geo is not None
-    assert geo < LOW_PRECISION_THRESHOLD
-    assert RejectionReason.low_precision_score.value in out[0].rejection_reasons
-    assert out[0].state == CandidateState.different
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
 
 
 def test_insert_without_block_hash_is_not_l4_geometry() -> None:
