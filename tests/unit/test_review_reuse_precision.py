@@ -1154,6 +1154,71 @@ def test_negative_radius_circle_is_not_l4_geometry() -> None:
     assert out[0].scores.get("geometric") is None
 
 
+def test_mixed_valid_line_and_zero_radius_circle_is_not_l4() -> None:
+    """A valid LINE must not admit a degenerate CIRCLE into L4 scoring."""
+    mixed = {
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [100.0, 0.0]},
+            {"type": "CIRCLE", "center": [0.0, 0.0], "radius": 0.0},
+        ]
+    }
+    other = {
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [0.0, 100.0]},
+            {"type": "CIRCLE", "center": [0.0, 0.0], "radius": 0.0},
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "mixed-junk",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(mixed).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+    assert out[0].scores.get("geometric") is None
+
+
+def test_valid_line_with_unknown_type_still_l4() -> None:
+    geom = {
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [100.0, 0.0]},
+            {"type": "TEXT", "insert": [1.0, 1.0], "text": "note"},
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "line-text",
+                "state": "similar",
+                "geom_json": geom,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(geom).encode("utf-8"),
+    )
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") == 1.0
+    assert RejectionReason.missing_geom_json.value not in out[0].rejection_reasons
+
+
 def test_malformed_entity_dict_is_not_l4_geometry() -> None:
     bogus = {"entities": [{}]}
     cands = map_raw_hits_to_candidates(

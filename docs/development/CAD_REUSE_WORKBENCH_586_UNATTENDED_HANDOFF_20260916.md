@@ -476,6 +476,21 @@ ELLIPSE (`start_param == end_param`) still L4. Reject like ARC.
 | Local `make test-review-reuse` | **159 passed** |
 | Merge | still not done |
 
+## Window 3 wave53 — 2026-09-19 ~08:05 UTC
+
+`tests (3.10)` green on docs HEAD `b76c67d8` (product `4858606b`).
+Sol 5.6 vs `origin/main`: P2 mixed valid LINE + zero-radius CIRCLE
+still admitted by `_is_geom_json` `any(...)` and scored as similar.
+Reject malformed supported entities before L4; drop them in
+`_canonical_geom`. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 mixed entities | `_is_geom_json` fails closed; `_canonical_geom` drops junk |
+| Local `make test-review-reuse` | **163 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave51 — 2026-09-19 ~07:16 UTC
 
 `tests (3.10)` / `tests (3.11)` / `e2e-smoke` **pass** on `4858606b`.

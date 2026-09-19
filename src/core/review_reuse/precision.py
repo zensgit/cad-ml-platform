@@ -222,18 +222,33 @@ def _is_geom_entity(ent: Any) -> bool:
     return False
 
 
+def _is_supported_geom_type(ent: Any) -> bool:
+    if not isinstance(ent, dict):
+        return False
+    return str(ent.get("type") or "").upper() in _GEOM_ENTITY_TYPES
+
+
 def _is_geom_json(obj: Any) -> bool:
     """True only for declared v2-like geometry with a real geometric entity.
 
     A non-empty ``entities`` list is not enough: ``{"entities":[{}]}``
     normalizes to UNKNOWN and must not be labeled precision-l4.
+    One valid primitive also is not enough when the same list still
+    contains a malformed supported type (zero-radius CIRCLE next to a
+    LINE): that junk would otherwise be scored and can fake a match.
     """
     if not isinstance(obj, dict):
         return False
     entities = obj.get("entities")
     if not isinstance(entities, list) or not entities:
         return False
-    return any(_is_geom_entity(e) for e in entities)
+    has_valid = False
+    for entity in entities:
+        if _is_supported_geom_type(entity) and not _is_geom_entity(entity):
+            return False
+        if _is_geom_entity(entity):
+            has_valid = True
+    return has_valid
 
 
 def _parse_query_geom(
@@ -286,6 +301,9 @@ def _canonical_geom(obj: Dict[str, Any]) -> Dict[str, Any]:
         typ = item.get("type")
         if isinstance(typ, str):
             item["type"] = typ.upper()
+        # Malformed supported primitives must not reach PrecisionVerifier.
+        if _is_supported_geom_type(item) and not _is_geom_entity(item):
+            continue
         # Omitted ellipse params mean a full ellipse. normalize_v2 would
         # otherwise default both to 0.0 (zero-sweep) vs DXF 0..2π.
         if item.get("type") == "ELLIPSE":

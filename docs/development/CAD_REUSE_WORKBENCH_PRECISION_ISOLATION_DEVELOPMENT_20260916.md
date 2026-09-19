@@ -114,6 +114,8 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
     canonicalize to `0..2π`; non-finite INSERT rotation is not L4.
 21. Wave51 on `4858606b`: `tests (3.10)` / `(3.11)` / `e2e-smoke`
     **pass**. Sol 5.6 vs `origin/main`: **no P1/P2**.
+22. Wave53 Sol P2 on `b76c67d8`: mixed valid + malformed supported
+    entities (`any(...)`) must not admit junk into L4 scoring.
 
 ## 6b. Window 3 plan (24h, auto-implement)
 
@@ -123,8 +125,8 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 `verification.verdict` when the only stale reason was `low_precision_score`.
 Independent `different` rejects no longer inflate pack confidence
 (`f2acff4f`). Zero-sweep ELLIPSE rejected (`2c32cae0`). Ellipse/INSERT
-P2s on `4858606b`. **This fire:** Sol wave51 **no P1/P2**. Docs-only
-record of 3.10 green. Do not invent product tracks.
+P2s on `4858606b`. **This fire:** Sol wave53 P2 — reject mixed valid +
+degenerate supported entities before L4. Do not invent product tracks.
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.
@@ -168,6 +170,7 @@ Evaluation Report = Track E / ignore.
 | Zero-sweep ELLIPSE labeled precision-l4 | equal supplied `start_param`/`end_param` rejected like ARC |
 | Omitted ellipse params vs DXF 0..2π look different | `_canonical_geom` fills full-span params before L4 |
 | NaN/inf INSERT rotation labeled precision-l4 | `_is_geom_entity` requires finite rotation when present |
+| Mixed valid LINE + zero-radius CIRCLE fake L4 match | `_is_geom_json` rejects malformed supported types; `_canonical_geom` drops them |
 | High L4 overrides version-gate `different` | restore similar only when no independent rejection remains |
 | High L4 promotes reasonless adapter `different` | restore only if `low_precision_score` existed before clear |
 | 24h unattended overreach | scheduler stops ~2026-09-19 17:00 UTC; never merge; never enable decisions |

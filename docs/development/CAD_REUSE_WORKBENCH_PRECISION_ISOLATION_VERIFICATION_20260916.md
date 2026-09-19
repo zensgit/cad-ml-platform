@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: window 3 wave51 (`4858606b`; Sol no P1/P2)  
+**HEAD at writing**: window 3 wave53 (mixed-entity L4 gate; Sol P2)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -51,6 +51,8 @@
 | High L4 restores stale low-precision `different` | `test_rescore_clears_stale_low_precision_reason` | pass locally |
 | High L4 keeps independent version-gate `different` | `test_high_l4_preserves_version_gate_different`, `test_high_prescored_l4_preserves_version_gate_different` | pass locally |
 | High L4 keeps reasonless adapter `different` | `test_high_l4_preserves_reasonless_different`, `test_high_prescored_l4_preserves_reasonless_different` | pass locally |
+| Mixed valid + degenerate supported entities not L4 | `test_mixed_valid_line_and_zero_radius_circle_is_not_l4` | pass locally |
+| Unknown TEXT beside a valid LINE still L4 | `test_valid_line_with_unknown_type_still_l4` | pass locally |
 
 **Not claimed:** owner design-lock ratification; production decision enable; customer pilot C1–C5; Track E model-release metrics.
 
@@ -171,6 +173,8 @@ make test-review-reuse
 | `make test-review-reuse` after ellipse/INSERT P2 | **161 passed**, 7 ezdxf warnings |
 | tests (3.10) / tests (3.11) / e2e-smoke on `4858606b` | **pass** |
 | Sol wave51 vs `origin/main` on `4858606b` | **no P1/P2** |
+| Sol wave53 vs `origin/main` on `b76c67d8` | P2 mixed valid + degenerate supported entities still L4 |
+| `make test-review-reuse` after mixed-entity L4 gate | **163 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
