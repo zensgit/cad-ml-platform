@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: window 3 wave44 (`e5da5144`; Sol still usage-limited)  
+**HEAD at writing**: window 3 wave45 (`f2acff4f`; Sol still usage-limited)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -160,6 +160,9 @@ make test-review-reuse
 | Sol wave43 vs `origin/main` on `715401d0` | **blocked** (same Codex usage limit) |
 | tests (3.10) / tests (3.11) / e2e-smoke on `e5da5144` | **pass** |
 | Sol wave44 vs `origin/main` on `e5da5144` | **blocked** (same Codex usage limit) |
+| tests (3.10) / tests (3.11) / e2e-smoke on `f2acff4f` | **pass** |
+| Sol wave45 vs `origin/main` on `f2acff4f` | **blocked** (same Codex usage limit) |
+| `make test-review-reuse` after independent-reject confidence skip | **158 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

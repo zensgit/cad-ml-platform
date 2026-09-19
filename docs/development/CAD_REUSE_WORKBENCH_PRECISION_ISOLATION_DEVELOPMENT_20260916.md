@@ -107,6 +107,9 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 17. Sol re-review of `d46c6156` (wave32): **no P1/P2**.
 18. Wave33 Sol retry vs `1211c01f` hit Codex usage limit (retry after
     2026-09-23 22:47 UTC). Last completed Sol remains wave32.
+19. Wave45 on `f2acff4f`: independent `different` rejects (version-gate)
+    no longer raise EvidencePack confidence. `tests (3.10)` / `(3.11)` /
+    `e2e-smoke` **pass**. Sol still usage-limited.
 
 ## 6b. Window 3 plan (24h, auto-implement)
 
@@ -114,8 +117,9 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
 
 **Landed:** Sol wave29 P2 — high L4 rescore restores `candidate.state` /
 `verification.verdict` when the only stale reason was `low_precision_score`.
-**This fire:** Sol wave44 still usage-limited; last completed Sol is
-wave32 (no P1/P2). Docs-only. Do not invent product tracks.
+Independent `different` rejects no longer inflate pack confidence
+(`f2acff4f`). **This fire:** Sol wave45 still usage-limited; last
+completed Sol is wave32 (no P1/P2). Do not invent product tracks.
 
 **Then each 45m wave:**
 1. If UTC ≥ 2026-09-19 17:00: stop coding; append handoff; delete scheduler.

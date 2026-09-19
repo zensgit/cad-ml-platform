@@ -465,3 +465,19 @@ EvidencePack confidence to 1.0.
 |---|---|
 | Local `make test-review-reuse` | **158 passed** |
 | Merge | still not done |
+
+## Window 3 wave45 — 2026-09-19 ~05:04 UTC
+
+`tests (3.10)` / `tests (3.11)` / `e2e-smoke` **pass** on `f2acff4f`.
+Sol 5.6 vs `origin/main` still **blocked** (Codex usage limit until
+2026-09-23 22:47 UTC). Last completed Sol is wave32 on `d46c6156`:
+**no P1/P2**. Product SHA recorded; never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| HEAD | `f2acff4f` |
+| Last fully green 3.10/3.11 | `f2acff4f` |
+| Local `make test-review-reuse` | **158 passed** |
+| Sol wave45 | usage-limited; last clean = wave32 no P1/P2 |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
