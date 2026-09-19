@@ -1796,6 +1796,7 @@ def test_dxf_extracted_bulge_is_not_certified_as_straight_l4() -> None:
     import ezdxf
 
     doc = ezdxf.new("R2010")
+    doc.header["$INSUNITS"] = 4
     doc.modelspace().add_lwpolyline(
         [(0.0, 0.0, 1.0), (10.0, 0.0, 0.0)],
         format="xyb",
@@ -1805,6 +1806,7 @@ def test_dxf_extracted_bulge_is_not_certified_as_straight_l4() -> None:
     buf = StringIO()
     doc.write(buf)
     chord = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
         ]
@@ -2777,3 +2779,353 @@ def test_local_l4_reject_downgrades_duplicate_verdict(
     assert out[0].verification.get("verdict") == "different"
     assert RejectionReason.low_precision_score.value in out[0].rejection_reasons
     assert int(out[0].verification.get("level") or 0) >= 4
+
+
+def test_precision_strips_inline_geom_json_after_l4() -> None:
+    geom = _line_geom()
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "arch-geom",
+                "state": "similar",
+                "geom_json": geom,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    assert cands[0].provenance.get("geom_json") == geom
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(geom).encode("utf-8"),
+    )
+    assert out[0].scores.get("geometric") == 1.0
+    assert "geom_json" not in (out[0].provenance or {})
+
+
+def test_task_export_does_not_include_candidate_geom_json() -> None:
+    """Live/seed geom_json must not appear on GET, EvidencePack, or audit."""
+    svc = _svc()
+    geom = _line_geom()
+    task = svc.create_task(
+        tenant_id="t-no-leak",
+        file_name="query.json",
+        file_bytes=json.dumps(geom).encode("utf-8"),
+        seed_candidates=[
+            {
+                "candidate_id": "arch-geom",
+                "state": "similar",
+                "geom_json": geom,
+                "methods": ["seed-adapter"],
+            }
+        ],
+    )
+    stored = svc.get_task("t-no-leak", task.task_id)
+    pack, _ = svc.get_evidence_pack("t-no-leak", task.task_id)
+    bundle = svc.export_audit_bundle("t-no-leak", task.task_id)
+
+    def _no_inline_geom(obj: object) -> None:
+        if isinstance(obj, dict):
+            assert "geom_json" not in obj
+            for value in obj.values():
+                _no_inline_geom(value)
+        elif isinstance(obj, list):
+            for item in obj:
+                _no_inline_geom(item)
+
+    _no_inline_geom(stored.model_dump(mode="json"))
+    _no_inline_geom(pack)
+    _no_inline_geom(bundle)
+    assert stored.candidates[0].scores.get("geometric") == 1.0
+
+
+def test_wide_polyline_is_not_certified_as_zero_width_l4() -> None:
+    """Exploding a thick LWPOLYLINE into LINEs would drop stroke width."""
+    query = {
+        "entities": [
+            {
+                "type": "LWPOLYLINE",
+                "points": [[0.0, 0.0], [10.0, 0.0]],
+                "const_width": 2.5,
+            }
+        ]
+    }
+    other = {
+        "entities": [
+            {
+                "type": "LWPOLYLINE",
+                "points": [[0.0, 0.0], [10.0, 0.0]],
+            }
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "thin-poly",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
+def test_vertex_polyline_width_is_not_certified_as_l4() -> None:
+    query = {
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
+        ]
+    }
+    other = {
+        "entities": [
+            {
+                "type": "LWPOLYLINE",
+                "points": [[0.0, 0.0, 1.0, 1.0, 0.0], [10.0, 0.0]],
+            }
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "wide-vertex",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+
+
+def test_insunits_mismatch_is_not_certified() -> None:
+    line = {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]}
+    query = {"file_info": {"insunits": 1}, "entities": [line]}
+    other = {"file_info": {"insunits": 4}, "entities": [line]}
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "mm",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
+def test_matching_insunits_still_l4() -> None:
+    line = {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]}
+    geom = {"file_info": {"insunits": 4}, "entities": [line]}
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "same-mm",
+                "state": "similar",
+                "geom_json": geom,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(geom).encode("utf-8"),
+    )
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") == 1.0
+
+
+def test_unknown_insunits_is_not_certified() -> None:
+    line = {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]}
+    geom = {"file_info": {"insunits": 0}, "entities": [line]}
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "unitless",
+                "state": "similar",
+                "geom_json": geom,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(geom).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+
+
+def test_dxf_extracted_polyline_width_is_not_certified_as_l4() -> None:
+    """DXF extract must keep const_width so a thin clone cannot match."""
+    import ezdxf
+    from io import StringIO
+
+    doc = ezdxf.new("R2010")
+    doc.header["$INSUNITS"] = 4
+    doc.modelspace().add_lwpolyline(
+        [(0.0, 0.0), (10.0, 0.0)],
+        dxfattribs={"const_width": 2.5},
+    )
+    buf = StringIO()
+    doc.write(buf)
+    thin = {
+        "file_info": {"insunits": 4},
+        "entities": [
+            {
+                "type": "LWPOLYLINE",
+                "points": [[0.0, 0.0], [10.0, 0.0]],
+            }
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "dxf-width",
+                "state": "similar",
+                "geom_json": thin,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="wide.dxf",
+    )
+    out = apply_precision(
+        cands,
+        file_name="wide.dxf",
+        file_bytes=buf.getvalue().encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
+def test_dxf_inch_vs_mm_same_numbers_are_not_l4(tmp_path: Path) -> None:
+    """$INSUNITS 1 vs 4 with identical coordinates must not score L4 1.0."""
+    import ezdxf
+    from io import StringIO
+
+    from src.core.dedupcad_precision.vendor.dxf_extract import extract_dxf
+
+    def _dxf_bytes(units: int) -> bytes:
+        doc = ezdxf.new("R2010")
+        doc.header["$INSUNITS"] = units
+        doc.modelspace().add_line((0.0, 0.0), (10.0, 0.0))
+        buf = StringIO()
+        doc.write(buf)
+        return buf.getvalue().encode("utf-8")
+
+    mm_path = tmp_path / "mm.dxf"
+    mm_path.write_bytes(_dxf_bytes(4))
+    other = extract_dxf(str(mm_path))
+    assert other.get("file_info", {}).get("insunits") == 4
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "mm-dxf",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="inch.dxf",
+    )
+    out = apply_precision(
+        cands,
+        file_name="inch.dxf",
+        file_bytes=_dxf_bytes(1),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
+def test_legacy_v2_extract_cache_without_width_is_reextracted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """v2 extract_sig cache dropped polyline widths and must not be reused."""
+    import hashlib
+
+    import ezdxf
+
+    from src.core.dedupcad_precision.vendor import dxf_extract as dxf_mod
+
+    cache = tmp_path / "cache"
+
+    class _Settings:
+        cache_dir = str(cache)
+
+    monkeypatch.setattr(dxf_mod, "get_settings", lambda: _Settings())
+    doc = ezdxf.new("R2010")
+    doc.modelspace().add_lwpolyline(
+        [(0.0, 0.0), (10.0, 0.0)],
+        dxfattribs={"const_width": 2.5},
+    )
+    from io import StringIO
+
+    buf = StringIO()
+    doc.write(buf)
+    dxf_path = tmp_path / "wide.dxf"
+    dxf_path.write_text(buf.getvalue(), encoding="utf-8")
+    digest = hashlib.sha256(dxf_path.read_bytes()).hexdigest()
+    cache_file = cache / "extract_sig" / f"{digest}.json"
+    cache_file.parent.mkdir(parents=True)
+    cache_file.write_text(
+        json.dumps(
+            {
+                "extract_cache_version": 2,
+                "entities": [
+                    {
+                        "type": "LWPOLYLINE",
+                        "points": [[0.0, 0.0], [10.0, 0.0]],
+                    }
+                ],
+                "blocks": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+    extracted = dxf_mod.extract_dxf(str(dxf_path))
+    assert extracted.get("file_info", {}).get("cache_hit") is not True
+    poly = next(
+        e
+        for e in (extracted.get("entities") or [])
+        if e.get("type") == "LWPOLYLINE"
+    )
+    assert poly.get("has_width") is True

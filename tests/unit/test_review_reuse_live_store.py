@@ -111,6 +111,8 @@ def test_vision_response_forwards_inline_geom_json() -> None:
     assert out[0].scores.get("geometric") == 1.0
     assert RejectionReason.missing_geom_json.value not in out[0].rejection_reasons
     assert RejectionReason.vision_only_unverified.value not in out[0].rejection_reasons
+    # Live geometry is transient: used for L4, then stripped before persist.
+    assert "geom_json" not in (out[0].provenance or {})
 
 
 def test_live_fused_precision_score_does_not_skip_local_l4() -> None:

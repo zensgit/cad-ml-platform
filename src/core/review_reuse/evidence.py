@@ -24,6 +24,8 @@ def build_evidence_pack(task: ReviewReuseTask) -> Dict[str, Any]:
         # Implementation extension (optional): visual score if present.
         if "visual" in c.scores:
             scores["visual"] = c.scores.get("visual")
+        provenance = dict(c.provenance or {})
+        provenance.pop("geom_json", None)
         candidates.append(
             {
                 "candidate_id": c.candidate_id,
@@ -33,7 +35,7 @@ def build_evidence_pack(task: ReviewReuseTask) -> Dict[str, Any]:
                 "score_normalization": c.scores.get("normalization", "dedup2d-v1"),
                 "verification": c.verification,
                 "rejection_reasons": list(c.rejection_reasons),
-                "provenance": c.provenance,
+                "provenance": provenance,
             }
         )
 

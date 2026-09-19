@@ -22,7 +22,7 @@ from .models import (
     TaskEventType,
     TaskStatus,
 )
-from .precision import apply_precision
+from .precision import apply_precision, strip_transient_candidate_geom
 from .store import (
     OccupiedTenantDirError,
     ReviewReuseStoreProtocol,
@@ -154,7 +154,9 @@ class ReviewReuseService:
         except Exception as exc:
             logger.warning("review_reuse_pipeline_failed", exc_info=True)
             task.status = TaskStatus.failed
-            # Persist a public message only; GET/audit must not leak str(exc).
+            # Persist a public message only; GET/audit must not leak str(exc)
+            # or live unscoped candidate geometry.
+            strip_transient_candidate_geom(task.candidates)
             task.error = PIPELINE_FAILED_PUBLIC
             task = self._emit(
                 task, TaskEventType.failed, {"error": PIPELINE_FAILED_PUBLIC}

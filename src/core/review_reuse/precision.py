@@ -4,6 +4,8 @@ Does **not** invent geometric scores from visual similarity.
 When both query and candidate geom-json payloads are present, scores with
 ``PrecisionVerifier`` (L4). Query geom comes from JSON uploads or local DXF
 extract; candidate geom comes from hit ``geom_json`` or the geom store.
+Inline ``geom_json`` is used only for local L4 and stripped before
+persist/export so live unscoped hits cannot leak across tenants.
 Otherwise labels ``vision_only_unverified`` or ``missing_geom_json``.
 Injectable hook is for tests / DI only. DWG is not auto-converted.
 
@@ -44,6 +46,18 @@ def set_precision_hook(fn: Optional[PrecisionFn]) -> None:
 
 def get_precision_hook() -> Optional[PrecisionFn]:
     return _PRECISION
+
+
+def strip_transient_candidate_geom(
+    candidates: List[CandidateDecision],
+) -> List[CandidateDecision]:
+    """Drop inline geom_json so tenant GET/export cannot leak live hits."""
+    for candidate in candidates:
+        provenance = dict(candidate.provenance or {})
+        if "geom_json" in provenance:
+            provenance.pop("geom_json", None)
+            candidate.provenance = provenance
+    return candidates
 
 
 def _append_reason(candidate: CandidateDecision, reason: str) -> None:
@@ -412,6 +426,46 @@ def _polyline_has_bulge(entity: Dict[str, Any]) -> bool:
     return any(_vertex_has_unsafe_bulge(point) for point in pts)
 
 
+def _width_is_unsafe(raw: Any) -> bool:
+    """Any nonzero or non-finite width is unsafe to explode into a LINE."""
+    if raw is None:
+        return False
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        return True
+    number = float(raw)
+    return (not math.isfinite(number)) or number != 0.0
+
+
+def _polyline_has_unsafe_width(entity: Dict[str, Any]) -> bool:
+    """True when exploding would drop a nonzero polyline width."""
+    if entity.get("has_width") is True:
+        return True
+    if "const_width" in entity and _width_is_unsafe(entity.get("const_width")):
+        return True
+    if "width" in entity:
+        raw = entity.get("width")
+        if isinstance(raw, list):
+            if any(_width_is_unsafe(item) for item in raw):
+                return True
+        elif _width_is_unsafe(raw):
+            return True
+    widths = entity.get("widths")
+    if isinstance(widths, list) and any(_width_is_unsafe(item) for item in widths):
+        return True
+    pts = entity.get("points")
+    if not isinstance(pts, list):
+        return False
+    for point in pts:
+        if isinstance(point, dict):
+            for key in ("start_width", "end_width", "width"):
+                if key in point and _width_is_unsafe(point.get(key)):
+                    return True
+        elif isinstance(point, (list, tuple)) and len(point) >= 4:
+            if _width_is_unsafe(point[2]) or _width_is_unsafe(point[3]):
+                return True
+    return False
+
+
 def _insert_identities(
     geom: Dict[str, Any],
 ) -> List[tuple[str, Optional[tuple[float, float]], str]]:
@@ -527,9 +581,10 @@ def _geometry_only_geom(obj: Dict[str, Any]) -> Dict[str, Any]:
             item.pop("layer", None)
             et = str(item.get("type") or "").upper()
             if et in ("LWPOLYLINE", "POLYLINE"):
-                # Straight-LINE explode drops bulge; fail closed rather than
-                # certify a semicircle as the chord between the same endpoints.
-                if _polyline_has_bulge(item):
+                # Straight-LINE explode drops bulge and width; fail closed
+                # rather than certify a semicircle or a thick stroke as a
+                # zero-width chord between the same endpoints.
+                if _polyline_has_bulge(item) or _polyline_has_unsafe_width(item):
                     out["entities"] = []
                     return out
                 cleaned.extend(_explode_polyline(item))
@@ -556,6 +611,35 @@ def _penalize_unmatched(score: float, n_left: int, n_right: int) -> float:
     return float(score) * (min(n_left, n_right) / float(denom))
 
 
+def _drawing_units(geom: Dict[str, Any]) -> Optional[int]:
+    """INSUNITS from geom JSON. None means the payload never declared units."""
+    raw = geom.get("insunits")
+    if raw is None:
+        info = geom.get("file_info")
+        if isinstance(info, dict):
+            raw = info.get("insunits")
+    if raw is None:
+        return None
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        return 0
+    if not math.isfinite(float(raw)):
+        return 0
+    return int(raw)
+
+
+def _units_conflict(left: Dict[str, Any], right: Dict[str, Any]) -> bool:
+    """Inch vs mm (or unknown $INSUNITS) must not score as identical L4."""
+    left_u = _drawing_units(left)
+    right_u = _drawing_units(right)
+    if left_u is None and right_u is None:
+        return False
+    if left_u is None or right_u is None:
+        return True
+    if left_u <= 0 or right_u <= 0:
+        return True
+    return left_u != right_u
+
+
 def _try_l4_score(
     query_geom: Dict[str, Any],
     candidate: CandidateDecision,
@@ -565,6 +649,8 @@ def _try_l4_score(
         return None
     right = _candidate_geom(candidate, geom_store)
     if not _is_geom_json(right):
+        return None
+    if _units_conflict(query_geom, right):
         return None
     try:
         from dataclasses import replace
@@ -726,7 +812,9 @@ def apply_precision(
     """Run the precision stage. Hook wins; otherwise honest default labeling."""
     hook = get_precision_hook()
     if hook is not None:
-        return list(hook(file_name, file_bytes, list(candidates)))
+        return strip_transient_candidate_geom(
+            list(hook(file_name, file_bytes, list(candidates)))
+        )
 
     query_geom: Optional[Dict[str, Any]] = None
     query_geom_loaded = False
@@ -809,4 +897,4 @@ def apply_precision(
         elif float(geometric) < LOW_PRECISION_THRESHOLD:
             _mark_low_precision(candidate)
         out.append(candidate)
-    return out
+    return strip_transient_candidate_geom(out)

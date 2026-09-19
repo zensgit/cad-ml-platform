@@ -4,6 +4,7 @@ Relies on ezdxf to parse DXF and produce a simple JSON structure.
 """
 
 import json
+import math
 from pathlib import Path  # ensure Path available for cache directory logic
 from typing import Any, Dict, List
 
@@ -28,19 +29,51 @@ except Exception as e:  # pragma: no cover - optional dependency
     ezdxf = None
 
 
-# Bump when extract payload fields change. v2 includes polyline bulges.
-_EXTRACT_CACHE_VERSION = 2
+# Bump when extract payload fields change. v3 includes polyline widths
+# and $INSUNITS so thick/unit-mismatched drawings cannot reuse v2 cache.
+_EXTRACT_CACHE_VERSION = 3
 
 
-def _polyline_xy_and_bulges(entity: Any, et: str) -> tuple[List[List[float]], List[float]]:
-    """Keep vertex bulge so ReviewReuse can refuse curve-to-chord L4."""
+def _header_insunits(doc: Any) -> int:
+    """DXF $INSUNITS; 0 means unitless/unknown and must not be L4-certified."""
+    try:
+        raw = doc.header.get("$INSUNITS")
+        if raw is None:
+            raw = getattr(doc, "units", 0)
+        number = int(raw)
+        return number if number >= 0 else 0
+    except Exception:
+        return 0
+
+
+def _width_nonzero(raw: Any) -> bool:
+    if raw is None:
+        return False
+    try:
+        number = float(raw)
+    except (TypeError, ValueError):
+        return True
+    return (not math.isfinite(number)) or number != 0.0
+
+
+def _polyline_xy_and_bulges(
+    entity: Any, et: str
+) -> tuple[List[List[float]], List[float], bool]:
+    """Keep bulge/width so ReviewReuse can refuse unsafe LINE explode."""
     pts: List[List[float]] = []
     bulges: List[float] = []
+    has_width = False
     if et == "LWPOLYLINE":
+        try:
+            has_width = _width_nonzero(getattr(entity.dxf, "const_width", 0.0))
+        except Exception:
+            has_width = True
         for p in entity.get_points():
             pts.append([float(p[0]), float(p[1])])
             bulges.append(float(p[4]) if len(p) >= 5 else 0.0)
-        return pts, bulges
+            if len(p) >= 4 and (_width_nonzero(p[2]) or _width_nonzero(p[3])):
+                has_width = True
+        return pts, bulges, has_width
     for v in entity.vertices:
         loc = v.dxf.location
         pts.append([float(loc.x), float(loc.y)])
@@ -48,7 +81,14 @@ def _polyline_xy_and_bulges(entity: Any, et: str) -> tuple[List[List[float]], Li
             bulges.append(float(getattr(v.dxf, "bulge", 0.0) or 0.0))
         except Exception:
             bulges.append(0.0)
-    return pts, bulges
+        try:
+            if _width_nonzero(getattr(v.dxf, "start_width", 0.0)) or _width_nonzero(
+                getattr(v.dxf, "end_width", 0.0)
+            ):
+                has_width = True
+        except Exception:
+            has_width = True
+    return pts, bulges, has_width
 
 
 def extract_dxf(path: str) -> Dict[str, Any]:
@@ -56,6 +96,7 @@ def extract_dxf(path: str) -> Dict[str, Any]:
         raise RuntimeError("ezdxf not installed: pip install ezdxf")
     doc = ezdxf.readfile(path)
     msp = doc.modelspace()
+    insunits = _header_insunits(doc)
 
     layers = {}
     for layer in doc.layers:
@@ -106,14 +147,17 @@ def extract_dxf(path: str) -> Dict[str, Any]:
                     elif t in ("LWPOLYLINE", "POLYLINE"):
                         pts: List[List[float]] = []
                         bulges: List[float] = []
+                        has_width = False
                         try:
-                            pts, bulges = _polyline_xy_and_bulges(be, t)
+                            pts, bulges, has_width = _polyline_xy_and_bulges(be, t)
                         except Exception:
                             pass
                         if pts:
                             ie.update({"points": pts})
                             if any(b != 0.0 for b in bulges):
                                 ie["bulges"] = bulges
+                            if has_width:
+                                ie["has_width"] = True
                     elif t == "ELLIPSE":
                         try:
                             center = [float(be.dxf.center.x), float(be.dxf.center.y)]
@@ -383,6 +427,7 @@ def extract_dxf(path: str) -> Dict[str, Any]:
                         "file_info": {
                             "dxf_version": doc.dxfversion,
                             "cache_hit": True,
+                            "insunits": insunits,
                         },
                         "layers": layers,
                         "entities": cached["entities"],
@@ -421,15 +466,18 @@ def extract_dxf(path: str) -> Dict[str, Any]:
         elif et in ("LWPOLYLINE", "POLYLINE"):
             pts: List[List[float]] = []
             bulges: List[float] = []
+            has_width = False
             try:
                 # LWPOLYLINE .points() -> (x,y[,start_width,end_width,bulge])
-                pts, bulges = _polyline_xy_and_bulges(e, et)
+                pts, bulges, has_width = _polyline_xy_and_bulges(e, et)
             except Exception:
                 pass
             if pts:
                 item.update({"points": pts, "closed": bool(getattr(e, "closed", False))})
                 if any(b != 0.0 for b in bulges):
                     item["bulges"] = bulges
+                if has_width:
+                    item["has_width"] = True
         elif et == "ELLIPSE":
             # Represent by center and radii (approx)
             try:
@@ -562,6 +610,7 @@ def extract_dxf(path: str) -> Dict[str, Any]:
         "file_info": {
             "dxf_version": doc.dxfversion,
             "cache_hit": False,
+            "insunits": insunits,
         },
         "layers": layers,
         "entities": entities,
@@ -575,6 +624,7 @@ def extract_dxf(path: str) -> Dict[str, Any]:
                         "extract_cache_version": _EXTRACT_CACHE_VERSION,
                         "entities": entities,
                         "blocks": blocks,
+                        "insunits": insunits,
                     },
                     ensure_ascii=False,
                 ),
