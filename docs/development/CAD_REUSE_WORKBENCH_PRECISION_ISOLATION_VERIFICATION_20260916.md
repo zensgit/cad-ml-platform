@@ -350,6 +350,8 @@ make test-review-reuse
 | Valid tenant_meta skips task scan | `test_filesystem_put_skips_task_scan_when_tenant_meta_matches` |
 | Missing meta still scans foreign tasks | `test_filesystem_put_scans_tasks_when_tenant_meta_missing` |
 | `make test-review-reuse` after store meta fast-path | **254 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) / lint-type / e2e-smoke on `27399d99` | **pass** |
+| Sol window4-w23 vs `origin/main` on `27399d99` | **no P1/P2** |
 
 ### CI (PR #586)
 
@@ -461,7 +463,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `1b3afc29` (last fully green HEAD) |
+| Python 3.10 CI job | **pass** on `27399d99` (last fully green HEAD) |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |
