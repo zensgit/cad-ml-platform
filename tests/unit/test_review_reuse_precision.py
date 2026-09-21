@@ -241,6 +241,40 @@ def test_idempotency_replay_skips_file_gate() -> None:
     assert again.task_id == "pre-gate"
 
 
+def test_idempotent_replay_of_failed_task_raises_pipeline_failed() -> None:
+    import time
+
+    from src.core.review_reuse.models import ReviewReuseTask, TaskStatus
+    from src.core.review_reuse.service import PIPELINE_FAILED_PUBLIC
+
+    svc = _svc()
+    now = time.time()
+    prior = ReviewReuseTask(
+        task_id="failed-run",
+        tenant_id="t-fail",
+        status=TaskStatus.failed,
+        created_at=now,
+        updated_at=now,
+        source_file_name="part.dxf",
+        source_content_sha256="ab",
+        idempotency_key="idem-failed",
+        trace_id="tr-failed",
+        error=PIPELINE_FAILED_PUBLIC,
+    )
+    svc.store.put(prior)
+    with pytest.raises(ReviewReuseError) as exc:
+        svc.create_task(
+            tenant_id="t-fail",
+            file_name="part.dxf",
+            file_bytes=b"x",
+            idempotency_key="idem-failed",
+        )
+    assert exc.value.code == "pipeline_failed"
+    assert exc.value.message == PIPELINE_FAILED_PUBLIC
+    stuck = svc.get_task("t-fail", "failed-run")
+    assert stuck.status == TaskStatus.failed
+
+
 def test_stale_running_idempotency_resumes_pipeline() -> None:
     import hashlib
     import time

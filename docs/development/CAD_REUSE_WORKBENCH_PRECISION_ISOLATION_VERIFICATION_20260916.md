@@ -313,6 +313,9 @@ make test-review-reuse
 | Sol window4-w6 vs `origin/main` on `22de1b87` | P2 omitted units on both sides still L4 |
 | Omitted INSUNITS both sides is not L4 | `test_omitted_insunits_on_both_sides_is_not_certified` |
 | `make test-review-reuse` after omitted-units fail-closed | **240 passed**, 7 ezdxf warnings |
+| Sol window4-w8 vs `origin/main` on `ccc2f3af` | P2 failed idempotent replay returned HTTP 200 |
+| Failed idempotent replay stays 500 | `test_idempotent_replay_of_failed_task_raises_pipeline_failed` |
+| `make test-review-reuse` after failed-replay 500 | **241 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

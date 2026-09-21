@@ -358,12 +358,20 @@ def test_create_pipeline_failed_500(monkeypatch: pytest.MonkeyPatch) -> None:
         r = client.post(
             "/api/v1/review-reuse/tasks",
             files={"file": ("a.dxf", b"x", "application/octet-stream")},
+            data={"idempotency_key": "api-fail-1"},
         )
         assert r.status_code == 500, r.text
         detail = r.json()["detail"]
         assert detail["code"] == "pipeline_failed"
         assert detail["message"] == "review-reuse pipeline failed"
         assert "boom" not in r.text
+        again = client.post(
+            "/api/v1/review-reuse/tasks",
+            files={"file": ("a.dxf", b"x", "application/octet-stream")},
+            data={"idempotency_key": "api-fail-1"},
+        )
+        assert again.status_code == 500, again.text
+        assert again.json()["detail"]["code"] == "pipeline_failed"
 
 
 def test_tenant_isolation_different_api_keys(monkeypatch: pytest.MonkeyPatch) -> None:

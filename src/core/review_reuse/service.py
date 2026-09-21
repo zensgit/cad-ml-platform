@@ -192,6 +192,11 @@ class ReviewReuseService:
         seed_candidates: Optional[List[Dict[str, Any]]],
     ) -> ReviewReuseTask:
         """Replay a stored idempotent task; resume stale ``running`` snapshots."""
+        if existing.status == TaskStatus.failed:
+            raise ReviewReuseError(
+                "pipeline_failed",
+                existing.error or PIPELINE_FAILED_PUBLIC,
+            )
         if existing.status != TaskStatus.running:
             return existing
         age = time.time() - float(existing.updated_at or 0.0)

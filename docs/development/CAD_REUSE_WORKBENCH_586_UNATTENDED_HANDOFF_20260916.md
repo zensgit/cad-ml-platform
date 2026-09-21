@@ -523,6 +523,20 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave8 — 2026-09-21 ~18:02 UTC
+
+Sol 5.6 vs `origin/main` on `ccc2f3af`: **P2** first POST of a pipeline
+crash persisted `failed` and returned HTTP 500, but the same
+idempotency key retried as HTTP 200 with `status=failed`. Re-raise
+`pipeline_failed` on replay. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 failed replay | `_return_idempotent` re-raises `pipeline_failed` |
+| Local `make test-review-reuse` | **241 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 4 wave6 — 2026-09-21 ~17:22 UTC
 
 Sol 5.6 vs `origin/main` on `22de1b87`: **P2** both JSON payloads
