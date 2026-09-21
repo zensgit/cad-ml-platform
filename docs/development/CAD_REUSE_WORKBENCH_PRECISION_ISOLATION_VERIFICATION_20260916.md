@@ -337,6 +337,10 @@ make test-review-reuse
 | Sol window4-w16 vs `origin/main` on `be0e60ae` | P2 pre-scored L4 overrode local units/shape refuse |
 | Pre-scored L4 does not certify inch vs mm | `test_prescored_l4_does_not_override_units_conflict` |
 | `make test-review-reuse` after local-conflict L4 | **249 passed**, 7 ezdxf warnings |
+| Sol window4-w17 vs `origin/main` on `c22d8f42` | P2 conflicting INSUNITS aliases; P2 non-boolean has_width |
+| Conflicting insunits aliases are not L4 | `test_conflicting_insunits_aliases_are_not_certified` |
+| Integer has_width is not thin LINE L4 | `test_integer_has_width_marker_is_not_certified_as_thin_l4` |
+| `make test-review-reuse` after alias-units + has_width | **251 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

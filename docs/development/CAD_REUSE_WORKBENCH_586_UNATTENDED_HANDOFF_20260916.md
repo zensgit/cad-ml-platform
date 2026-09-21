@@ -523,6 +523,24 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave17 — 2026-09-21 ~21:07 UTC
+
+Sol 5.6 vs `origin/main` on `c22d8f42`: **P2** top-level `insunits`
+vs `file_info.insunits` silently preferred the top-level value so
+`{insunits:4, file_info:{insunits:1}}` scored 1.0 vs mm; **P2**
+`has_width: 1` missed `is True` and exploded as a thin LINE L4.
+Fail closed on conflicting aliases; treat non-boolean width markers
+as unsafe. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 INSUNITS aliases | `_drawing_units` conflicts → 0 |
+| P2 has_width marker | `_polyline_has_unsafe_width` rejects non-bool |
+| Local `make test-review-reuse` | **251 passed** |
+| tests (3.10) on `c22d8f42` | pending at fire (not red) |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 4 wave16 — 2026-09-21 ~20:43 UTC
 
 Sol 5.6 vs `origin/main` on `be0e60ae`: **P2** when both query and

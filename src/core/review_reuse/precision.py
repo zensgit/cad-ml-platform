@@ -485,8 +485,11 @@ def _width_is_unsafe(raw: Any) -> bool:
 
 def _polyline_has_unsafe_width(entity: Dict[str, Any]) -> bool:
     """True when exploding would drop a nonzero polyline width."""
-    if entity.get("has_width") is True:
-        return True
+    if "has_width" in entity:
+        marker = entity.get("has_width")
+        # True or any non-boolean marker must not explode as a thin LINE.
+        if marker is True or (marker is not False and marker is not None):
+            return True
     if "const_width" in entity and _width_is_unsafe(entity.get("const_width")):
         return True
     if "width" in entity:
@@ -848,13 +851,8 @@ def _penalize_unmatched(score: float, n_left: int, n_right: int) -> float:
     return float(score) * (min(n_left, n_right) / float(denom))
 
 
-def _drawing_units(geom: Dict[str, Any]) -> Optional[int]:
-    """INSUNITS from geom JSON. None means the payload never declared units."""
-    raw = geom.get("insunits")
-    if raw is None:
-        info = geom.get("file_info")
-        if isinstance(info, dict):
-            raw = info.get("insunits")
+def _normalize_insunits(raw: Any) -> Optional[int]:
+    """Map one INSUNITS value. None if omitted; 0 if unusable."""
     if raw is None:
         return None
     if isinstance(raw, bool):
@@ -867,6 +865,22 @@ def _drawing_units(geom: Dict[str, Any]) -> Optional[int]:
         number = int(raw)
         return number if number in _DXF_INSUNITS else 0
     return 0
+
+
+def _drawing_units(geom: Dict[str, Any]) -> Optional[int]:
+    """INSUNITS from geom JSON. None means the payload never declared units."""
+    declared: List[Optional[int]] = []
+    if "insunits" in geom:
+        declared.append(_normalize_insunits(geom.get("insunits")))
+    info = geom.get("file_info")
+    if isinstance(info, dict) and "insunits" in info:
+        declared.append(_normalize_insunits(info.get("insunits")))
+    if not declared:
+        return None
+    first = declared[0]
+    if any(item != first for item in declared[1:]):
+        return 0
+    return first
 
 
 def _units_conflict(left: Dict[str, Any], right: Dict[str, Any]) -> bool:

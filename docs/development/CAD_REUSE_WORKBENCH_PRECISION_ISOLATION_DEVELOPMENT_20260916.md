@@ -247,6 +247,8 @@ are missing_geom_json (not 500); present non-list polyline `bulges`
 fail closed. Wave15: ReviewReuse DXF extract skips shared
 `extract_sig` cache; overflow adapter scores return None. Wave16:
 pre-scored `precision-l4` cannot override a local units/shape refuse.
+Wave17: conflicting top-level vs `file_info` INSUNITS fail closed;
+non-boolean `has_width` is unsafe.
 
 ### Model routing (by difficulty)
 
