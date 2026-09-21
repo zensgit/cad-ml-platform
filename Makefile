@@ -260,6 +260,7 @@ test-review-reuse: ## ReviewReuse workbench unit tests + EvidencePack goldens
 # Does NOT set REVIEW_REUSE_DECISIONS_ENABLED (human decisions stay fail-closed).
 # Default: --seed-similar. Pass FILE=path.dxf for a real drawing (still offline /
 # no live dedup unless REVIEW_REUSE_LIVE_DEDUP is already set by the operator).
+# FILE= uses a content-hash idempotency key, not isolated-archive-demo.
 # See docs/development/CAD_REUSE_WORKBENCH_PILOT_CHECKLIST_20260808.md §4.
 review-reuse-isolated-archive: ## Offline ReviewReuse isolated-archive run (seed-similar or FILE=, decisions off)
 	@echo "$(GREEN)Running ReviewReuse isolated-archive demo (decisions disabled)...$(NC)"

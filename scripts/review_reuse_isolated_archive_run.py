@@ -20,10 +20,24 @@ Env (optional)::
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
 from pathlib import Path
+
+_DEFAULT_IDEM = "isolated-archive-demo"
+
+
+def resolve_idempotency_key(
+    explicit: str | None, file_bytes: bytes, *, from_file: bool
+) -> str:
+    """FILE runs must not reuse the synthetic demo key."""
+    if explicit:
+        return explicit
+    if from_file:
+        return "isolated-file-" + hashlib.sha256(file_bytes).hexdigest()[:24]
+    return _DEFAULT_IDEM
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -47,8 +61,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--idempotency-key",
-        default="isolated-archive-demo",
-        help="Create-task idempotency key",
+        default=None,
+        help="Create-task idempotency key (FILE runs default to a content hash)",
     )
     args = parser.parse_args(argv)
 
@@ -94,7 +108,9 @@ def main(argv: list[str] | None = None) -> int:
             tenant_id=args.tenant,
             file_name=file_name,
             file_bytes=file_bytes,
-            idempotency_key=args.idempotency_key,
+            idempotency_key=resolve_idempotency_key(
+                args.idempotency_key, file_bytes, from_file=args.file is not None
+            ),
             seed_candidates=seed,
         )
     except ReviewReuseError as exc:

@@ -3909,6 +3909,107 @@ def test_unknown_insunits_is_not_certified() -> None:
     assert out[0].scores.get("geometric") is None
 
 
+def test_dxf_extracted_closed_polyline_is_not_open_l4(tmp_path: Path) -> None:
+    """Classic POLYLINE is_closed must not L4-match an open vertex list."""
+    import ezdxf
+    from io import StringIO
+
+    from src.core.dedupcad_precision.vendor.dxf_extract import extract_dxf
+
+    doc = ezdxf.new("R2000")
+    doc.header["$INSUNITS"] = 4
+    doc.modelspace().add_polyline2d(
+        [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0)],
+        close=True,
+    )
+    buf = StringIO()
+    doc.write(buf)
+    dxf_bytes = buf.getvalue().encode("utf-8")
+    path = tmp_path / "closed.dxf"
+    path.write_bytes(dxf_bytes)
+    extracted = extract_dxf(str(path))
+    poly = next(
+        e
+        for e in (extracted.get("entities") or [])
+        if e.get("type") in ("POLYLINE", "LWPOLYLINE")
+    )
+    assert poly.get("closed") is True
+    open_clone = {
+        "file_info": {"insunits": 4},
+        "entities": [
+            {
+                "type": "POLYLINE",
+                "points": [[0.0, 0.0], [10.0, 0.0], [10.0, 10.0]],
+                "closed": False,
+            }
+        ],
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "open-poly",
+                "state": "similar",
+                "geom_json": open_clone,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.dxf",
+    )
+    out = apply_precision(cands, file_name="query.dxf", file_bytes=dxf_bytes)
+    geo = out[0].scores.get("geometric")
+    assert geo is None or geo < 0.999
+
+
+def test_dxf_fractional_insunits_header_is_not_certified(tmp_path: Path) -> None:
+    from src.core.dedupcad_precision.vendor.dxf_extract import extract_dxf
+
+    dxf = (
+        "0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n70\n4.9\n0\nENDSEC\n"
+        "0\nSECTION\n2\nENTITIES\n0\nLINE\n8\n0\n10\n0.0\n20\n0.0\n"
+        "11\n10.0\n21\n0.0\n0\nENDSEC\n0\nEOF\n"
+    )
+    path = tmp_path / "frac_units.dxf"
+    path.write_text(dxf, encoding="utf-8")
+    extracted = extract_dxf(str(path))
+    assert extracted.get("file_info", {}).get("insunits") == 0
+    mm = {
+        "file_info": {"insunits": 4},
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
+        ],
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "mm-line",
+                "state": "similar",
+                "geom_json": mm,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.dxf",
+    )
+    out = apply_precision(
+        cands, file_name="query.dxf", file_bytes=path.read_bytes()
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+
+
+def test_isolated_file_run_uses_content_idempotency_key() -> None:
+    from scripts.review_reuse_isolated_archive_run import resolve_idempotency_key
+
+    left = resolve_idempotency_key(None, b"drawing-a", from_file=True)
+    right = resolve_idempotency_key(None, b"drawing-b", from_file=True)
+    assert left != right
+    assert left.startswith("isolated-file-")
+    assert (
+        resolve_idempotency_key(None, b"x", from_file=False)
+        == "isolated-archive-demo"
+    )
+
+
 def test_dxf_extracted_polyline_width_is_not_certified_as_l4() -> None:
     """DXF extract must keep const_width so a thin clone cannot match."""
     import ezdxf

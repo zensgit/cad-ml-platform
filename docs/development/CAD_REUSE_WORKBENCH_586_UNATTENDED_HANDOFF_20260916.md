@@ -523,6 +523,23 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave4 — 2026-09-21 ~16:52 UTC
+
+Sol 5.6 vs `origin/main` on `bacbb539`: **P2** classic POLYLINE used
+`closed` instead of `is_closed`; **P2** ezdxf truncated `$INSUNITS` 4.9
+to mm; **P2** `FILE=` reused `isolated-archive-demo`. Preserve
+`is_closed`; scan raw group-70; hash FILE idempotency keys.
+Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 POLYLINE closed | `_dxf_polyline_closed` uses `is_closed` |
+| P2 fractional units | `_raw_insunits_non_integral` before cache |
+| P2 FILE idem key | `resolve_idempotency_key` content hash |
+| Local `make test-review-reuse` | **238 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 4 wave3 — 2026-09-21 ~16:30 UTC
 
 Sol 5.6 vs `origin/main` on `b611a21f`: **P2** `insunits: 999` still

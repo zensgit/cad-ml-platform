@@ -302,6 +302,11 @@ make test-review-reuse
 | Out-of-range INSUNITS is not L4 | `test_out_of_range_insunits_is_not_certified` |
 | Stolen claim cannot commit evidence | `test_stale_claim_blocks_previous_owner_commit` |
 | `make test-review-reuse` after INSUNITS + claim fence | **235 passed**, 7 ezdxf warnings |
+| Sol window4-w4 vs `origin/main` on `bacbb539` | P2 POLYLINE is_closed; P2 raw fractional INSUNITS; P2 FILE idem key |
+| Classic closed POLYLINE is not open L4 | `test_dxf_extracted_closed_polyline_is_not_open_l4` |
+| Fractional DXF $INSUNITS is not mm | `test_dxf_fractional_insunits_header_is_not_certified` |
+| FILE isolated run hashes idempotency key | `test_isolated_file_run_uses_content_idempotency_key` |
+| `make test-review-reuse` after extract closed/units + FILE key | **238 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

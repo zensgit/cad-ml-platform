@@ -5,6 +5,7 @@ Relies on ezdxf to parse DXF and produce a simple JSON structure.
 
 import json
 import math
+import re
 from pathlib import Path  # ensure Path available for cache directory logic
 from typing import Any, Dict, List
 
@@ -29,9 +30,9 @@ except Exception as e:  # pragma: no cover - optional dependency
     ezdxf = None
 
 
-# Bump when extract payload fields change. v3 includes polyline widths
-# and $INSUNITS so thick/unit-mismatched drawings cannot reuse v2 cache.
-_EXTRACT_CACHE_VERSION = 3
+# Bump when extract payload fields change. v4 keeps classic POLYLINE
+# is_closed and rejects fractional $INSUNITS before ezdxf truncation.
+_EXTRACT_CACHE_VERSION = 4
 
 
 def _header_insunits(doc: Any) -> int:
@@ -40,10 +41,56 @@ def _header_insunits(doc: Any) -> int:
         raw = doc.header.get("$INSUNITS")
         if raw is None:
             raw = getattr(doc, "units", 0)
-        number = int(raw)
+        if isinstance(raw, bool):
+            return 0
+        if isinstance(raw, float):
+            if not math.isfinite(raw) or raw != math.floor(raw):
+                return 0
+            number = int(raw)
+        elif isinstance(raw, int):
+            number = raw
+        else:
+            parsed = float(str(raw).strip())
+            if not math.isfinite(parsed) or parsed != math.floor(parsed):
+                return 0
+            number = int(parsed)
         return number if 1 <= number <= 24 else 0
     except Exception:
         return 0
+
+
+def _raw_insunits_non_integral(path: str) -> bool:
+    """True when group-70 $INSUNITS is fractional before ezdxf truncates."""
+    try:
+        text = Path(path).read_bytes().decode("latin-1", errors="ignore")
+    except Exception:
+        return False
+    match = re.search(
+        r"\$INSUNITS[^\n]*\n[ \t]*70[ \t]*\n[ \t]*([^\n]+)",
+        text,
+        flags=re.IGNORECASE,
+    )
+    if match is None:
+        return False
+    token = match.group(1).strip()
+    try:
+        number = float(token)
+    except ValueError:
+        return True
+    return (not math.isfinite(number)) or number != math.floor(number)
+
+
+def _dxf_polyline_closed(entity: Any, et: str) -> bool:
+    """Classic POLYLINE uses is_closed; LWPOLYLINE uses closed."""
+    if et == "POLYLINE":
+        if hasattr(entity, "is_closed"):
+            return bool(entity.is_closed)
+        flags = getattr(getattr(entity, "dxf", None), "flags", 0) or 0
+        try:
+            return bool(int(flags) & 1)
+        except Exception:
+            return False
+    return bool(getattr(entity, "closed", False))
 
 
 def _width_nonzero(raw: Any) -> bool:
@@ -97,6 +144,8 @@ def extract_dxf(path: str) -> Dict[str, Any]:
     doc = ezdxf.readfile(path)
     msp = doc.modelspace()
     insunits = _header_insunits(doc)
+    if _raw_insunits_non_integral(path):
+        insunits = 0
 
     layers = {}
     for layer in doc.layers:
@@ -153,7 +202,12 @@ def extract_dxf(path: str) -> Dict[str, Any]:
                         except Exception:
                             pass
                         if pts:
-                            ie.update({"points": pts})
+                            ie.update(
+                                {
+                                    "points": pts,
+                                    "closed": _dxf_polyline_closed(be, t),
+                                }
+                            )
                             if any(b != 0.0 for b in bulges):
                                 ie["bulges"] = bulges
                             if has_width:
@@ -473,7 +527,9 @@ def extract_dxf(path: str) -> Dict[str, Any]:
             except Exception:
                 pass
             if pts:
-                item.update({"points": pts, "closed": bool(getattr(e, "closed", False))})
+                item.update(
+                    {"points": pts, "closed": _dxf_polyline_closed(e, et)}
+                )
                 if any(b != 0.0 for b in bulges):
                     item["bulges"] = bulges
                 if has_width:
