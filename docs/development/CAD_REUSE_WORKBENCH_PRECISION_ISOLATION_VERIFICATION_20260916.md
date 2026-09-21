@@ -326,6 +326,10 @@ make test-review-reuse
 | Sol window4-w13 vs `origin/main` on `9fa69cac` | P2 drain `loop.stop()` blocked the thread-safe future |
 | Nested live-recall success does not wait 1s | `test_run_coro_nested_success_does_not_wait_drain_timeout` |
 | `make test-review-reuse` after drain-stop-after-future | **244 passed**, 7 ezdxf warnings |
+| Sol window4-w14 vs `origin/main` on `b6598ccb` | P2 overflow int coords 500; P2 non-list polyline bulges L4 |
+| Overflow JSON ints are not L4 | `test_overflow_integer_coords_are_not_l4_geometry` |
+| Non-list bulges are not chord L4 | `test_non_list_polyline_bulges_is_not_certified_as_straight_l4` |
+| `make test-review-reuse` after overflow + bulge-shape | **246 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

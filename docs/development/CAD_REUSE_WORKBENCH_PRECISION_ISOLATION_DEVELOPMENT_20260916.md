@@ -242,7 +242,9 @@ Wave11: classic POLYLINE parent `default_start_width` /
 `default_end_width` set `has_width`; extract cache v6. Wave12: nested
 live-recall timeout drains canceled tasks before stopping the worker
 loop. Wave13: stop the nested worker loop only after the drain future
-resolves (no 1s hang on nested success).
+resolves (no 1s hang on nested success). Wave14: overflow JSON ints
+are missing_geom_json (not 500); present non-list polyline `bulges`
+fail closed.
 
 ### Model routing (by difficulty)
 

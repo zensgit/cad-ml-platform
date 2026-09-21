@@ -523,6 +523,24 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave14 — 2026-09-21 ~20:02 UTC
+
+Sol 5.6 vs `origin/main` on `b6598ccb`: **P2** JSON ints too large
+for `float()` raised `OverflowError` out of `_finite_number` (HTTP
+500 instead of `missing_geom_json`); **P2** present non-list polyline
+`bulges` was ignored so a curve could explode as a chord LINE L4.
+Catch overflow as non-finite; fail closed on unsupported bulge shape.
+Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 overflow int | `_finite_number` catches `OverflowError` |
+| P2 bulge shape | `_polyline_has_bulge` rejects non-list `bulges` |
+| Local `make test-review-reuse` | **246 passed** |
+| tests (3.10) on `b6598ccb` | in_progress at fire (not red) |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 4 wave13 — 2026-09-21 ~19:42 UTC
 
 Sol 5.6 vs `origin/main` on `9fa69cac`: **P2** `_drain` called

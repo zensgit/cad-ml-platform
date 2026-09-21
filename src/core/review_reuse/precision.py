@@ -177,7 +177,11 @@ _ANNOTATION_ENTITY_TYPES = frozenset(
 def _finite_number(value: Any) -> bool:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return False
-    return math.isfinite(float(value))
+    try:
+        return math.isfinite(float(value))
+    except (OverflowError, ValueError):
+        # json.loads may yield ints larger than float can represent.
+        return False
 
 
 # PrecisionVerifier.normalize_v2 rounds coords/radii/angles to 3 decimals.
@@ -456,11 +460,13 @@ def _vertex_has_unsafe_bulge(point: Any) -> bool:
 
 def _polyline_has_bulge(entity: Dict[str, Any]) -> bool:
     """True when a polyline encodes a curved segment we would drop as LINE."""
-    raw_bulges = entity.get("bulges")
-    if isinstance(raw_bulges, list) and any(
-        _bulge_is_unsafe(item) for item in raw_bulges
-    ):
-        return True
+    if "bulges" in entity:
+        raw_bulges = entity.get("bulges")
+        # Present but non-list bulges must not explode as a chord LINE.
+        if not isinstance(raw_bulges, list):
+            return True
+        if any(_bulge_is_unsafe(item) for item in raw_bulges):
+            return True
     pts = entity.get("points")
     if not isinstance(pts, list):
         return False

@@ -2077,6 +2077,78 @@ def test_bulged_polyline_is_not_certified_as_straight_l4() -> None:
     assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
 
 
+def test_overflow_integer_coords_are_not_l4_geometry() -> None:
+    """JSON ints too large for float must be missing_geom_json, not 500."""
+    huge = 10**400
+    geom = {
+        "file_info": {"insunits": 4},
+        "entities": [
+            {"type": "LINE", "start": [huge, 0], "end": [10, 0]},
+        ],
+    }
+    payload = json.dumps(geom).encode("utf-8")
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "overflow-int",
+                "state": "similar",
+                "geom_json": geom,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=payload,
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
+def test_non_list_polyline_bulges_is_not_certified_as_straight_l4() -> None:
+    """Present non-list bulges must not explode into a chord LINE."""
+    query = {
+        "file_info": {"insunits": 4},
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
+        ],
+    }
+    other = {
+        "file_info": {"insunits": 4},
+        "entities": [
+            {
+                "type": "LWPOLYLINE",
+                "points": [[0.0, 0.0], [10.0, 0.0]],
+                "bulges": {"0": 1.0},
+            }
+        ],
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "bulge-dict",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
 def test_sub_quantum_bulge_is_not_certified_as_straight_l4() -> None:
     """Bulge 0.0004 must not round to 0 and explode into a chord."""
     query = {
