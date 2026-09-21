@@ -523,6 +523,21 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave20 — 2026-09-21 ~22:01 UTC
+
+tests (3.10) **pass** on `88b0706d`. Sol 5.6 vs `origin/main` on that
+HEAD: **P2** present non-list polyline `widths` (e.g. `"2.5"`) was
+ignored so a thick poly exploded as a thin LINE L4. Fail closed on
+unsupported `widths` shape. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 widths shape | `_polyline_has_unsafe_width` rejects non-list `widths` |
+| Local `make test-review-reuse` | **252 passed** |
+| tests (3.10) on `88b0706d` | **pass** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`unstable`) |
+
 ## Window 4 wave17 — 2026-09-21 ~21:07 UTC
 
 Sol 5.6 vs `origin/main` on `c22d8f42`: **P2** top-level `insunits`

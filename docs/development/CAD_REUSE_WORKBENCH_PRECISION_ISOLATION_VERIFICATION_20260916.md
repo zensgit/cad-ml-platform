@@ -341,6 +341,10 @@ make test-review-reuse
 | Conflicting insunits aliases are not L4 | `test_conflicting_insunits_aliases_are_not_certified` |
 | Integer has_width is not thin LINE L4 | `test_integer_has_width_marker_is_not_certified_as_thin_l4` |
 | `make test-review-reuse` after alias-units + has_width | **251 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) / lint-type / e2e-smoke on `88b0706d` | **pass** |
+| Sol window4-w20 vs `origin/main` on `88b0706d` | P2 non-list polyline `widths` exploded as thin LINE |
+| Non-list widths are not thin LINE L4 | `test_non_list_polyline_widths_is_not_certified_as_thin_l4` |
+| `make test-review-reuse` after widths-shape | **252 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -452,7 +456,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `eed168f0` (last fully green HEAD) |
+| Python 3.10 CI job | **pass** on `88b0706d` (last fully green HEAD) |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |

@@ -499,9 +499,13 @@ def _polyline_has_unsafe_width(entity: Dict[str, Any]) -> bool:
                 return True
         elif _width_is_unsafe(raw):
             return True
-    widths = entity.get("widths")
-    if isinstance(widths, list) and any(_width_is_unsafe(item) for item in widths):
-        return True
+    if "widths" in entity:
+        widths = entity.get("widths")
+        # Present but non-list widths must not explode as a thin LINE.
+        if not isinstance(widths, list):
+            return True
+        if any(_width_is_unsafe(item) for item in widths):
+            return True
     pts = entity.get("points")
     if not isinstance(pts, list):
         return False

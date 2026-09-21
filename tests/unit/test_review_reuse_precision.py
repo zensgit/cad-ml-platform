@@ -3495,6 +3495,46 @@ def test_integer_has_width_marker_is_not_certified_as_thin_l4() -> None:
     assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
 
 
+def test_non_list_polyline_widths_is_not_certified_as_thin_l4() -> None:
+    """Present non-list widths must not explode into a zero-width chord LINE."""
+    query = {
+        "file_info": {"insunits": 4},
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
+        ],
+    }
+    other = {
+        "file_info": {"insunits": 4},
+        "entities": [
+            {
+                "type": "LWPOLYLINE",
+                "points": [[0.0, 0.0], [10.0, 0.0]],
+                "widths": "2.5",
+            }
+        ],
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "widths-str",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
 def test_vertex_polyline_width_is_not_certified_as_l4() -> None:
     query = {
         "file_info": {"insunits": 4},
