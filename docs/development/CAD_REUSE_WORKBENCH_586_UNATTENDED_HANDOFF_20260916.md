@@ -523,6 +523,24 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave11 — 2026-09-21 ~18:55 UTC
+
+Sol 5.6 vs `origin/main` on `eed168f0`: **P2** classic POLYLINE
+`default_start_width` / `default_end_width` live on the parent entity,
+but extract only inspected vertex widths. A thick polyline with zero
+vertex overrides exploded into thin LINEs and could L4-match a thin
+drawing. Inspect parent defaults; bump extract cache to v6. Never
+merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 POLYLINE parent width | `_polyline_xy_and_bulges` sets `has_width` |
+| Extract cache | v6 |
+| Local `make test-review-reuse` | **242 passed** |
+| tests (3.10) on `eed168f0` | **pass** (pre-this commit) |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 4 wave8 — 2026-09-21 ~18:02 UTC
 
 Sol 5.6 vs `origin/main` on `ccc2f3af`: **P2** first POST of a pipeline

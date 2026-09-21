@@ -30,9 +30,10 @@ except Exception as e:  # pragma: no cover - optional dependency
     ezdxf = None
 
 
-# Bump when extract payload fields change. v5 CRLF-normalizes the raw
-# $INSUNITS scan so Windows DXFs cannot skip the fractional check.
-_EXTRACT_CACHE_VERSION = 5
+# Bump when extract payload fields change. v6 treats classic POLYLINE
+# default_start_width / default_end_width as has_width so thick strokes
+# cannot explode into thin LINEs.
+_EXTRACT_CACHE_VERSION = 6
 
 
 def _header_insunits(doc: Any) -> int:
@@ -122,6 +123,12 @@ def _polyline_xy_and_bulges(
             if len(p) >= 4 and (_width_nonzero(p[2]) or _width_nonzero(p[3])):
                 has_width = True
         return pts, bulges, has_width
+    try:
+        has_width = _width_nonzero(
+            getattr(entity.dxf, "default_start_width", 0.0)
+        ) or _width_nonzero(getattr(entity.dxf, "default_end_width", 0.0))
+    except Exception:
+        has_width = True
     for v in entity.vertices:
         loc = v.dxf.location
         pts.append([float(loc.x), float(loc.y)])

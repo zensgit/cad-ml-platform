@@ -238,6 +238,8 @@ Wave4: classic POLYLINE `is_closed`; raw fractional `$INSUNITS`; FILE
 runs hash the idempotency key. Wave5: CRLF-normalize the raw INSUNITS
 scan. Wave6: omit-both `insunits` is a units conflict (no L4). Wave8:
 idempotent replay of `failed` re-raises `pipeline_failed` (HTTP 500).
+Wave11: classic POLYLINE parent `default_start_width` /
+`default_end_width` set `has_width`; extract cache v6.
 
 ### Model routing (by difficulty)
 

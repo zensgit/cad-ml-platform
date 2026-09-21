@@ -4096,6 +4096,57 @@ def test_dxf_extracted_closed_polyline_is_not_open_l4(tmp_path: Path) -> None:
     assert geo is None or geo < 0.999
 
 
+def test_dxf_extracted_polyline_default_width_is_not_certified_as_l4(
+    tmp_path: Path,
+) -> None:
+    """Classic POLYLINE parent default widths must not explode into thin LINEs."""
+    import ezdxf
+    from io import StringIO
+
+    from src.core.dedupcad_precision.vendor.dxf_extract import extract_dxf
+
+    doc = ezdxf.new("R2000")
+    doc.header["$INSUNITS"] = 4
+    doc.modelspace().add_polyline2d(
+        [(0.0, 0.0), (10.0, 0.0)],
+        dxfattribs={"default_start_width": 2.5},
+    )
+    buf = StringIO()
+    doc.write(buf)
+    dxf_bytes = buf.getvalue().encode("utf-8")
+    path = tmp_path / "wide_poly.dxf"
+    path.write_bytes(dxf_bytes)
+    extracted = extract_dxf(str(path))
+    poly = next(
+        e
+        for e in (extracted.get("entities") or [])
+        if e.get("type") in ("POLYLINE", "LWPOLYLINE")
+    )
+    assert poly.get("has_width") is True
+    thin = {
+        "file_info": {"insunits": 4},
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
+        ],
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "thin-line",
+                "state": "similar",
+                "geom_json": thin,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.dxf",
+    )
+    out = apply_precision(cands, file_name="query.dxf", file_bytes=dxf_bytes)
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
 def test_dxf_fractional_insunits_header_is_not_certified(tmp_path: Path) -> None:
     from src.core.dedupcad_precision.vendor.dxf_extract import extract_dxf
 

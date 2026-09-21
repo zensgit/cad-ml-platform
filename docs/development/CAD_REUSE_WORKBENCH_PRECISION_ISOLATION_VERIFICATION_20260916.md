@@ -316,6 +316,10 @@ make test-review-reuse
 | Sol window4-w8 vs `origin/main` on `ccc2f3af` | P2 failed idempotent replay returned HTTP 200 |
 | Failed idempotent replay stays 500 | `test_idempotent_replay_of_failed_task_raises_pipeline_failed` |
 | `make test-review-reuse` after failed-replay 500 | **241 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) / lint-type / e2e-smoke on `eed168f0` | **pass** |
+| Sol window4-w11 vs `origin/main` on `eed168f0` | P2 classic POLYLINE parent default widths dropped |
+| Thick classic POLYLINE is not thin LINE L4 | `test_dxf_extracted_polyline_default_width_is_not_certified_as_l4` |
+| `make test-review-reuse` after POLYLINE default-width extract | **242 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -331,7 +335,8 @@ make test-review-reuse
 | Evaluation Report | fail (Track E; out of scope) |
 | tests (3.10) / tests (3.11) / lint-type on `c9a7ce4b` | **pass** |
 | tests (3.10) / tests (3.11) / lint-type / core-fast-gate on `dc9267e0` | **pass** (Window 4 start) |
-| mergeable_state | `blocked` (review required; do not merge) |
+| tests (3.10) / tests (3.11) / lint-type / e2e-smoke on `eed168f0` | **pass** |
+| mergeable_state | `unstable` (Evaluation Report Track E; do not merge) |
 
 Re-run `make test-review-reuse` after each follow-up commit and record the count here.
 
@@ -426,7 +431,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `dc9267e0` (Window 4 start) |
+| Python 3.10 CI job | **pass** on `eed168f0` (last fully green HEAD) |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |
