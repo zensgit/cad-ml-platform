@@ -25,7 +25,10 @@ def optional_unit_score(value: Any) -> Optional[float]:
     """Finite [0, 1] float, or None. Booleans are not scores."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
-    number = float(value)
+    try:
+        number = float(value)
+    except (OverflowError, ValueError):
+        return None
     if not math.isfinite(number) or number < 0.0 or number > 1.0:
         return None
     return number

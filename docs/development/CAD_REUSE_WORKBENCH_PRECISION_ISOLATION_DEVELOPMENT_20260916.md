@@ -244,7 +244,8 @@ live-recall timeout drains canceled tasks before stopping the worker
 loop. Wave13: stop the nested worker loop only after the drain future
 resolves (no 1s hang on nested success). Wave14: overflow JSON ints
 are missing_geom_json (not 500); present non-list polyline `bulges`
-fail closed.
+fail closed. Wave15: ReviewReuse DXF extract skips shared
+`extract_sig` cache; overflow adapter scores return None.
 
 ### Model routing (by difficulty)
 

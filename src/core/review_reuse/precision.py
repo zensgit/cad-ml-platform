@@ -111,7 +111,7 @@ def _extract_dxf_geom(file_bytes: bytes) -> Optional[Dict[str, Any]]:
             extract_geom_json_from_dxf,
         )
 
-        geom = extract_geom_json_from_dxf(tmp_path)
+        geom = extract_geom_json_from_dxf(tmp_path, use_cache=False)
         return geom if _is_geom_json(geom) else None
     except Exception:
         logger.debug("review_reuse_dxf_geom_extract_failed", exc_info=True)

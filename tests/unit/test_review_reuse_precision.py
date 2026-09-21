@@ -2109,6 +2109,36 @@ def test_overflow_integer_coords_are_not_l4_geometry() -> None:
     assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
 
 
+def test_overflow_integer_adapter_score_is_not_a_unit_score() -> None:
+    """JSON ints too large for float must not crash score mapping."""
+    huge = 10**400
+    geom = _line_geom()
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "overflow-score",
+                "state": "similar",
+                "geometric": huge,
+                "semantic": huge,
+                "visual": huge,
+                "geom_json": geom,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    assert cands[0].scores.get("geometric") is None
+    assert cands[0].scores.get("semantic") is None
+    assert cands[0].scores.get("visual") is None
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(geom).encode("utf-8"),
+    )
+    assert out[0].scores.get("geometric") is not None
+
+
 def test_non_list_polyline_bulges_is_not_certified_as_straight_l4() -> None:
     """Present non-list bulges must not explode into a chord LINE."""
     query = {
@@ -2695,6 +2725,56 @@ def test_legacy_dxf_extract_cache_without_version_is_reextracted(
     assert poly.get("bulges")
 
 
+def test_review_reuse_dxf_extract_does_not_write_shared_cache(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Tenant DXF L4 extract must not persist into DEDUPCAD2_CACHE_DIR."""
+    import ezdxf
+
+    from src.core.dedupcad_precision.vendor import dxf_extract as dxf_mod
+
+    cache = tmp_path / "shared-cache"
+    cache.mkdir()
+
+    class _Settings:
+        cache_dir = str(cache)
+
+    monkeypatch.setattr(dxf_mod, "get_settings", lambda: _Settings())
+    doc = ezdxf.new("R2010")
+    doc.header["$INSUNITS"] = 4
+    doc.modelspace().add_line((0.0, 0.0), (10.0, 0.0))
+    from io import StringIO
+
+    buf = StringIO()
+    doc.write(buf)
+    dxf_bytes = buf.getvalue().encode("utf-8")
+    geom = {
+        "file_info": {"insunits": 4},
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
+        ],
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "arch-geom",
+                "state": "similar",
+                "geom_json": geom,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.dxf",
+    )
+    apply_precision(
+        cands,
+        file_name="query.dxf",
+        file_bytes=dxf_bytes,
+    )
+    extract_sig = cache / "extract_sig"
+    assert not extract_sig.exists() or not any(extract_sig.iterdir())
+
+
 def test_extra_unmatched_line_is_not_certified() -> None:
     """A subset LINE match plus extra geometry must not score L4 1.0."""
     query = {
@@ -2880,7 +2960,7 @@ def test_oversized_dxf_extract_is_skipped(monkeypatch: pytest.MonkeyPatch) -> No
     )
     called = {"n": 0}
 
-    def _boom(_path: Path) -> dict:
+    def _boom(_path: Path, **_kwargs: object) -> dict:
         called["n"] += 1
         raise AssertionError("must not parse oversized dxf")
 
@@ -2947,7 +3027,7 @@ def test_empty_dxf_extract_is_not_l4_geometry(
 ) -> None:
     monkeypatch.setattr(
         "src.core.dedupcad_precision.cad_pipeline.extract_geom_json_from_dxf",
-        lambda _path: {"schema": "geom-json/v2", "entities": []},
+        lambda _path, **_kwargs: {"schema": "geom-json/v2", "entities": []},
     )
     geom = _line_geom()
     cands = map_raw_hits_to_candidates(
@@ -3081,7 +3161,7 @@ def test_json_bytes_on_dxf_filename_are_not_query_geom() -> None:
 def test_precision_skips_dxf_extract_when_no_candidate_geom(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def _boom(_path: object) -> dict:
+    def _boom(_path: object, **_kwargs: object) -> dict:
         raise AssertionError("dxf extract should not run")
 
     monkeypatch.setattr(
@@ -3114,7 +3194,7 @@ def test_precision_extracts_dxf_query_geom(monkeypatch: pytest.MonkeyPatch) -> N
     geom = _line_geom()
     monkeypatch.setattr(
         "src.core.dedupcad_precision.cad_pipeline.extract_geom_json_from_dxf",
-        lambda _path: geom,
+        lambda _path, **_kwargs: geom,
     )
     cands = map_raw_hits_to_candidates(
         [

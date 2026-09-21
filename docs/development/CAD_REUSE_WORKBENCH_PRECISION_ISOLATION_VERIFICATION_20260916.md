@@ -330,6 +330,10 @@ make test-review-reuse
 | Overflow JSON ints are not L4 | `test_overflow_integer_coords_are_not_l4_geometry` |
 | Non-list bulges are not chord L4 | `test_non_list_polyline_bulges_is_not_certified_as_straight_l4` |
 | `make test-review-reuse` after overflow + bulge-shape | **246 passed**, 7 ezdxf warnings |
+| Sol window4-w15 vs `origin/main` on `e70f6e9f` | P2 tenant DXF extract_sig cache; P2 overflow adapter scores |
+| ReviewReuse DXF extract does not write shared cache | `test_review_reuse_dxf_extract_does_not_write_shared_cache` |
+| Overflow adapter scores are not unit scores | `test_overflow_integer_adapter_score_is_not_a_unit_score` |
+| `make test-review-reuse` after uncached DXF + score overflow | **248 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

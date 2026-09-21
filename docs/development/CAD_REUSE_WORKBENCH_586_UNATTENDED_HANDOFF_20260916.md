@@ -523,6 +523,25 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave15 — 2026-09-21 ~20:28 UTC
+
+Sol 5.6 vs `origin/main` on `e70f6e9f`: **P2** local L4 DXF extract
+wrote tenant geometry into global `DEDUPCAD2_CACHE_DIR/extract_sig`
+(shared across tenants, survives store cleanup); **P2** overflow JSON
+ints in adapter scores raised `OverflowError` (live recall
+`external_service_unavailable` / seeded pipeline 500). Skip extract
+cache on the ReviewReuse path; treat overflow scores as None. Never
+merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 uncached DXF | `extract_geom_json_from_dxf(..., use_cache=False)` |
+| P2 overflow score | `optional_unit_score` catches `OverflowError` |
+| Local `make test-review-reuse` | **248 passed** |
+| tests (3.10) on `e70f6e9f` | in_progress at fire (not red) |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 4 wave14 — 2026-09-21 ~20:02 UTC
 
 Sol 5.6 vs `origin/main` on `b6598ccb`: **P2** JSON ints too large

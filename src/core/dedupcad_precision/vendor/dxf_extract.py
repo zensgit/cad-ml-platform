@@ -7,7 +7,7 @@ import json
 import math
 import re
 from pathlib import Path  # ensure Path available for cache directory logic
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 # Settings import (works for both package and script modes)
 try:  # pragma: no cover - flexible import
@@ -146,7 +146,7 @@ def _polyline_xy_and_bulges(
     return pts, bulges, has_width
 
 
-def extract_dxf(path: str) -> Dict[str, Any]:
+def extract_dxf(path: str, *, use_cache: bool = True) -> Dict[str, Any]:
     if ezdxf is None:
         raise RuntimeError("ezdxf not installed: pip install ezdxf")
     doc = ezdxf.readfile(path)
@@ -451,30 +451,34 @@ def extract_dxf(path: str) -> Dict[str, Any]:
 
     # ---- Simple signature cache (file-level) ----
     # Use sha256 of the DXF file to cache extracted entities + block hash results
-    sig_cache_dir = (
-        Path(getattr(get_settings(), "cache_dir", "standalone-product/dedupcad2/cache"))
-        / "extract_sig"
-    )
-    try:
-        sig_cache_dir.mkdir(parents=True, exist_ok=True)
-    except Exception:
-        pass
+    sig_cache_dir: Optional[Path] = None
     file_hash = None
-    try:
-        import hashlib
+    if use_cache:
+        sig_cache_dir = (
+            Path(
+                getattr(get_settings(), "cache_dir", "standalone-product/dedupcad2/cache")
+            )
+            / "extract_sig"
+        )
+        try:
+            sig_cache_dir.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+        try:
+            import hashlib
 
-        h = hashlib.sha256()
-        with open(path, "rb") as fbin:
-            while True:
-                chunk = fbin.read(65536)
-                if not chunk:
-                    break
-                h.update(chunk)
-        file_hash = h.hexdigest()
-    except Exception:
-        pass
+            h = hashlib.sha256()
+            with open(path, "rb") as fbin:
+                while True:
+                    chunk = fbin.read(65536)
+                    if not chunk:
+                        break
+                    h.update(chunk)
+            file_hash = h.hexdigest()
+        except Exception:
+            pass
     entities: List[Dict[str, Any]] = []
-    if file_hash:
+    if use_cache and file_hash and sig_cache_dir is not None:
         cache_file = sig_cache_dir / f"{file_hash}.json"
         if cache_file.exists():
             try:
@@ -680,7 +684,7 @@ def extract_dxf(path: str) -> Dict[str, Any]:
         "entities": entities,
         "blocks": blocks,
     }
-    if file_hash:
+    if use_cache and file_hash and sig_cache_dir is not None:
         try:
             (sig_cache_dir / f"{file_hash}.json").write_text(
                 json.dumps(
