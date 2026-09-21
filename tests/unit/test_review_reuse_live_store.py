@@ -866,6 +866,58 @@ def test_list_for_tenant_prefers_hashed_over_stale_legacy(tmp_path: Path) -> Non
     assert stale["status"] == TaskStatus.evidence_ready.value
 
 
+def test_filesystem_put_skips_task_scan_when_tenant_meta_matches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Valid tenant_meta must not glob/parse every task JSON on put."""
+    root = tmp_path / "tasks"
+    store = FilesystemReviewReuseStore(root)
+    first = store.put(_running_task("pilot-tenant", "t1"))
+    scans = {"n": 0}
+    orig = store._existing_dir_tenants
+
+    def _count(tenant_dir: Path) -> list:
+        scans["n"] += 1
+        return orig(tenant_dir)
+
+    monkeypatch.setattr(store, "_existing_dir_tenants", _count)
+    store.put(first.model_copy(update={"status": TaskStatus.canceled}))
+    assert scans["n"] == 0
+
+
+def test_filesystem_put_scans_tasks_when_tenant_meta_missing(tmp_path: Path) -> None:
+    from src.core.review_reuse.service import ReviewReuseError
+
+    root = tmp_path / "tasks"
+    hashed = root / tenant_dir_key("pilot-tenant")
+    tasks = hashed / "tasks"
+    tasks.mkdir(parents=True)
+    (tasks / "foreign.json").write_text(
+        json.dumps(
+            {
+                "task_id": "foreign",
+                "tenant_id": "other-tenant",
+                "status": "evidence_ready",
+                "created_at": 1.0,
+                "updated_at": 1.0,
+                "source_file_name": "a.dxf",
+                "source_content_sha256": "ab",
+                "trace_id": "tr",
+            }
+        ),
+        encoding="utf-8",
+    )
+    store = FilesystemReviewReuseStore(root)
+    svc = ReviewReuseService(store)
+    with pytest.raises(ReviewReuseError) as ei:
+        svc.create_task(
+            tenant_id="pilot-tenant",
+            file_name="p.dxf",
+            file_bytes=b"x",
+        )
+    assert ei.value.code == "store_conflict"
+
+
 def test_filesystem_store_skips_rewriting_valid_tenant_meta(tmp_path: Path) -> None:
     root = tmp_path / "tasks"
     store = FilesystemReviewReuseStore(root)

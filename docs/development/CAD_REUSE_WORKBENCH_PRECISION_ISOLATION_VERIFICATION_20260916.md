@@ -345,6 +345,11 @@ make test-review-reuse
 | Sol window4-w20 vs `origin/main` on `88b0706d` | P2 non-list polyline `widths` exploded as thin LINE |
 | Non-list widths are not thin LINE L4 | `test_non_list_polyline_widths_is_not_certified_as_thin_l4` |
 | `make test-review-reuse` after widths-shape | **252 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) / lint-type / e2e-smoke on `1b3afc29` | **pass** |
+| Sol window4-w22 vs `origin/main` on `1b3afc29` | P2 put() rescanned every task JSON under flock |
+| Valid tenant_meta skips task scan | `test_filesystem_put_skips_task_scan_when_tenant_meta_matches` |
+| Missing meta still scans foreign tasks | `test_filesystem_put_scans_tasks_when_tenant_meta_missing` |
+| `make test-review-reuse` after store meta fast-path | **254 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -456,7 +461,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `88b0706d` (last fully green HEAD) |
+| Python 3.10 CI job | **pass** on `1b3afc29` (last fully green HEAD) |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |

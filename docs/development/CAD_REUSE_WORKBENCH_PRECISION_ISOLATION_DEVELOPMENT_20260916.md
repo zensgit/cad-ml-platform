@@ -249,7 +249,9 @@ fail closed. Wave15: ReviewReuse DXF extract skips shared
 pre-scored `precision-l4` cannot override a local units/shape refuse.
 Wave17: conflicting top-level vs `file_info` INSUNITS fail closed;
 non-boolean `has_width` is unsafe. Wave20: present non-list polyline
-`widths` fail closed.
+`widths` fail closed. Wave22: filesystem `put()` uses validated
+`tenant_meta` as the write fast path (full task scan only if meta is
+missing).
 
 ### Model routing (by difficulty)
 

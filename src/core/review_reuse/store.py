@@ -297,10 +297,21 @@ class FilesystemReviewReuseStore:
 
     def _ensure_write_dir(self, tenant_id: str) -> Path:
         d = self._hashed_dir(tenant_id)
-        occupants = self._existing_dir_tenants(d) if d.exists() else []
-        foreign = [tid for tid in occupants if tid != tenant_id]
-        if foreign:
-            raise OccupiedTenantDirError(tenant_id, d, foreign)
+        if d.exists():
+            meta_path = d / _TENANT_META
+            if meta_path.is_file():
+                # Valid sidecar is the write fast path; do not rescan
+                # every task JSON on put/lease.
+                meta = read_tenant_meta_id(d)
+                if not meta:
+                    raise OccupiedTenantDirError(tenant_id, d, [_UNREADABLE])
+                if meta != tenant_id:
+                    raise OccupiedTenantDirError(tenant_id, d, [meta])
+            else:
+                occupants = self._existing_dir_tenants(d)
+                foreign = [tid for tid in occupants if tid != tenant_id]
+                if foreign:
+                    raise OccupiedTenantDirError(tenant_id, d, foreign)
         (d / "tasks").mkdir(parents=True, exist_ok=True)
         self._write_meta(d, tenant_id)
         return d

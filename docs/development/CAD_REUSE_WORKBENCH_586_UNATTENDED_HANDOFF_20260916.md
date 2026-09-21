@@ -523,6 +523,22 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave22 — 2026-09-21 ~22:41 UTC
+
+tests (3.10) **pass** on `1b3afc29`. Sol 5.6 vs `origin/main` on that
+HEAD: **P2** every filesystem `put()` scanned all task JSON via
+`_existing_dir_tenants` under the store-wide flock. Use validated
+`tenant_meta` as the write fast path; scan tasks only when meta is
+missing. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 store scan | `_ensure_write_dir` trusts valid `tenant_meta` |
+| Local `make test-review-reuse` | **254 passed** |
+| tests (3.10) on `1b3afc29` | **pass** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`unstable`) |
+
 ## Window 4 wave20 — 2026-09-21 ~22:01 UTC
 
 tests (3.10) **pass** on `88b0706d`. Sol 5.6 vs `origin/main` on that
