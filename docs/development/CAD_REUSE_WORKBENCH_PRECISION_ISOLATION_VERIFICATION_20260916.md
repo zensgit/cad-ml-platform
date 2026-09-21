@@ -307,6 +307,9 @@ make test-review-reuse
 | Fractional DXF $INSUNITS is not mm | `test_dxf_fractional_insunits_header_is_not_certified` |
 | FILE isolated run hashes idempotency key | `test_isolated_file_run_uses_content_idempotency_key` |
 | `make test-review-reuse` after extract closed/units + FILE key | **238 passed**, 7 ezdxf warnings |
+| Sol window4-w5 vs `origin/main` on `1192d5bf` | P2 CRLF fractional $INSUNITS scan |
+| CRLF fractional INSUNITS is not mm | `test_dxf_crlf_fractional_insunits_header_is_not_certified` |
+| `make test-review-reuse` after CRLF INSUNITS scan | **239 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

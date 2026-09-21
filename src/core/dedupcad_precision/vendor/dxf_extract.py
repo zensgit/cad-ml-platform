@@ -30,9 +30,9 @@ except Exception as e:  # pragma: no cover - optional dependency
     ezdxf = None
 
 
-# Bump when extract payload fields change. v4 keeps classic POLYLINE
-# is_closed and rejects fractional $INSUNITS before ezdxf truncation.
-_EXTRACT_CACHE_VERSION = 4
+# Bump when extract payload fields change. v5 CRLF-normalizes the raw
+# $INSUNITS scan so Windows DXFs cannot skip the fractional check.
+_EXTRACT_CACHE_VERSION = 5
 
 
 def _header_insunits(doc: Any) -> int:
@@ -65,6 +65,7 @@ def _raw_insunits_non_integral(path: str) -> bool:
         text = Path(path).read_bytes().decode("latin-1", errors="ignore")
     except Exception:
         return False
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
     match = re.search(
         r"\$INSUNITS[^\n]*\n[ \t]*70[ \t]*\n[ \t]*([^\n]+)",
         text,

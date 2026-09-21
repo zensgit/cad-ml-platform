@@ -235,7 +235,8 @@ CI on that SHA: `tests (3.10)` / `tests (3.11)` / `lint-type` /
 resume (180s) on `0edbaf22`. Wave2 bind+CAS on `b611a21f`. Wave3:
 INSUNITS 1–24 only; `pipeline_claim_id` lease + heartbeat at commit.
 Wave4: classic POLYLINE `is_closed`; raw fractional `$INSUNITS`; FILE
-runs hash the idempotency key.
+runs hash the idempotency key. Wave5: CRLF-normalize the raw INSUNITS
+scan.
 
 ### Model routing (by difficulty)
 

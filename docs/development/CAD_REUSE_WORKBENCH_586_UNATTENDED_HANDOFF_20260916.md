@@ -523,6 +523,19 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave5 — 2026-09-21 ~17:02 UTC
+
+Sol 5.6 vs `origin/main` on `1192d5bf`: **P2** CRLF DXFs skipped the
+raw `$INSUNITS` fractional scan because the regex expected LF only.
+Normalize line endings before the match. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 CRLF INSUNITS | `_raw_insunits_non_integral` LF-normalizes |
+| Local `make test-review-reuse` | **239 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 4 wave4 — 2026-09-21 ~16:52 UTC
 
 Sol 5.6 vs `origin/main` on `bacbb539`: **P2** classic POLYLINE used
