@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-16  
 **Branch**: `eng/workbench-precision-isolation-20260915`  
-**HEAD at writing**: window 3 wave67 (bulge/spline/INSERT/ellipse P1s)  
+**HEAD at writing**: window 4 start `dc9267e0` (product `adcd3b6e`)  
 **PR**: https://github.com/zensgit/cad-ml-platform/pull/586  
 **Plan**: `CAD_REUSE_WORKBENCH_PRECISION_ISOLATION_DEVELOPMENT_20260916.md`
 
@@ -304,9 +304,19 @@ make test-review-reuse
 | e2e-smoke on `2f76c87c` | pass |
 | Evaluation Report | fail (Track E; out of scope) |
 | tests (3.10) / tests (3.11) / lint-type on `c9a7ce4b` | **pass** |
+| tests (3.10) / tests (3.11) / lint-type / core-fast-gate on `dc9267e0` | **pass** (Window 4 start) |
 | mergeable_state | `blocked` (review required; do not merge) |
 
 Re-run `make test-review-reuse` after each follow-up commit and record the count here.
+
+### Window 4 (72h, 2026-09-21 15:03 UTC → 2026-09-24 15:00 UTC)
+
+| Check | Result |
+|---|---|
+| Window 4 start HEAD | `dc9267e0` |
+| tests (3.10) / tests (3.11) / lint-type / core-fast-gate | **pass** on `dc9267e0` |
+| Evaluation Report | fail (Track E; out of scope) |
+| mergeable_state | do not merge (review required) |
 
 ## 3. Honesty probes (must stay true)
 
@@ -390,7 +400,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `ea4c612f`; `adcd3b6e` in_progress at window-3 stop |
+| Python 3.10 CI job | **pass** on `dc9267e0` (Window 4 start) |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |

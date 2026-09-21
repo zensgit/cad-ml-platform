@@ -169,6 +169,8 @@ Close the honesty and isolation gaps that remained after the ReviewReuse MVP
     L4; prefork workers must reopen the store flock fd.
 47. Wave82 Sol P2s on `bcc9cc76`: mid-flight decision must not hide a
     later pipeline failure; live-recall timeout must stop the worker loop.
+48. **Window 4 — 72-hour unattended** (2026-09-21 15:03 UTC → **2026-09-24
+    15:00 UTC**). Plan in §6c. Never merge.
 
 ## 6b. Window 3 plan (24h, auto-implement)
 
@@ -214,6 +216,64 @@ no eval_integrity_gate/cost_cap/PLM; L3 WIP=1; DWG not auto-converted;
 Evaluation Report = Track E / ignore.
 
 **Models:** grok-4.6 isolation/precision/CI; grok-4.5 docs; Sol 5.6 honesty.
+
+## 6c. Window 4 plan (72h, auto-implement)
+
+**Owner away:** ~72 hours from 2026-09-21 15:03 UTC.
+**Deadline:** **2026-09-24 15:00 UTC**. After that: stop coding, append
+handoff, delete the Window-4 scheduler, kill the PR monitor.
+
+**Goal:** keep PR #586 honest and CI-green. No new L3 track. No decisions
+on. Continue the Sol honesty loop on ReviewReuse precision + tenant
+isolation only.
+
+**Start HEAD:** `dc9267e0` (Window-3 docs closeout on product `adcd3b6e`).
+CI on that SHA: `tests (3.10)` / `tests (3.11)` / `lint-type` /
+`core-fast-gate` **pass**. Evaluation Report fail = Track E / ignore.
+
+### Model routing (by difficulty)
+
+| Difficulty | Model | Work |
+|---|---|---|
+| D1 mechanical | grok-4.5 | design/verification/handoff MD, board, list JSON, golden tests |
+| D2 contract | grok-4.6 | precision/store/evidence/live-recall honesty; CI 3.10 |
+| D3 “closed/safe” | grok-4.6 implement + Codex Sol 5.6 review | do not self-approve; Sol vs `origin/main` |
+| Isolation / tenancy | grok-4.6 | hashed dirs, mixed-legacy refuse, flock |
+
+Sol command (read-only):
+
+```bash
+codex exec --sandbox read-only review -m gpt-5.6-sol --base origin/main
+```
+
+If Codex is usage-limited, grok-4.6 may implement from the last completed
+Sol P1/P2; do not invent a “closed” claim without Sol.
+
+### Wave rule (every 20m)
+
+1. If UTC ≥ **2026-09-24 15:00**: stop coding; append handoff; delete this
+   scheduler; kill the PR monitor. Do not start a new product commit.
+2. If the PR monitor died (10h cap): restart
+   `python3 ~/.grok/bundled/skills/long-running-background-tasks/watch_pr.py https://github.com/zensgit/cad-ml-platform/pull/586`
+3. If `tests (3.10)` red: fix (grok-4.6). Not Evaluation Report.
+4. Else Sol 5.6 vs `origin/main` on current HEAD; implement remaining
+   **P1/P2 only** (grok-4.6). No Track C, no decisions enable, no merge.
+5. Else idle: do **not** docs-spam. One handoff line is enough when Sol
+   is clean and 3.10 is green.
+6. After a product change: `flake8 --max-line-length=100` on changed
+   files; `make test-review-reuse`; conventional commit; push; never merge.
+7. After a product wave, grok-4.5 (or same agent if 4.5 unavailable)
+   records the SHA + tests in verification MD + a short handoff stanza.
+   Design MD §6c “Landed” line only when the gate actually changed.
+
+**Holds (unchanged):** decisions default-off; R2 no training JSONL; no
+Track C claim; no eval_integrity_gate/cost_cap/PLM; L3 WIP=1; DWG not
+auto-converted; Evaluation Report = Track E / ignore; **never merge**.
+
+**PR monitor:** 10-hour max; scheduler restarts it. Ignore
+`kind: mergeable` for merge action (owner must merge). Ignore Evaluation
+Report failures. Ignore GitHub EOF/transport. Human review comments:
+record in handoff, do not guess owner intent; do not resolve threads.
 
 ## 7. Risk
 
@@ -274,4 +334,5 @@ Evaluation Report = Track E / ignore.
 | Same-center/radius ARC reorder zeros L4 | tiny sweep/start tie-break in assignment cost |
 | ``closed: "false"`` explodes a closer | `_polyline_closed` requires a real bool |
 | Fractional INSUNITS 4.9 truncates to 4 | `_drawing_units` requires an integral value |
-| 24h unattended overreach | scheduler stops ~2026-09-19 17:00 UTC; never merge; never enable decisions |
+| 24h unattended overreach | Window 3 stopped 2026-09-19 17:00 UTC |
+| 72h unattended overreach | Window 4 scheduler stops **2026-09-24 15:00 UTC**; never merge; never enable decisions |

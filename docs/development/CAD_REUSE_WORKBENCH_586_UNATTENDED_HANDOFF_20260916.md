@@ -499,6 +499,30 @@ stay default-off.
 Owner next: wait for 3.10 on `adcd3b6e`; human review of #586; do not
 enable `REVIEW_REUSE_DECISIONS_ENABLED`.
 
+## Window 4 start — 2026-09-21 15:03 UTC (72h)
+
+Owner away ~72h. Deadline **2026-09-24 15:00 UTC**. Plan in development
+MD §6c. Verification MD is the evidence log.
+
+**Never merge. Never enable `REVIEW_REUSE_DECISIONS_ENABLED`.**
+
+| Item | State |
+|---|---|
+| Branch | `eng/workbench-precision-isolation-20260915` |
+| Start HEAD | `dc9267e0` (docs closeout; product `adcd3b6e`) |
+| `tests (3.10)` / `tests (3.11)` / `lint-type` / `core-fast-gate` | **pass** on `dc9267e0` |
+| Local `make test-review-reuse` | **229 passed** (last Window-3 record) |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+| Decisions | still default-off |
+
+**Models:** grok-4.6 isolation/precision/CI; grok-4.5 docs; Codex
+`gpt-5.6-sol` vs `origin/main`.
+
+**Wave rule:** if UTC ≥ 2026-09-24 15:00 stop + delete scheduler + kill
+PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
+else idle (no docs-spam). Restart the 10h PR monitor if it died.
+
 ## Window 3 wave89 — 2026-09-19 ~16:50 UTC
 
 Sol 5.6 vs `origin/main` on `ee1d21c6`: **P2** JSON query geom decoded
