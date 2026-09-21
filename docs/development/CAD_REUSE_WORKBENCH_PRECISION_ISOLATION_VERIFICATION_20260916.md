@@ -334,6 +334,9 @@ make test-review-reuse
 | ReviewReuse DXF extract does not write shared cache | `test_review_reuse_dxf_extract_does_not_write_shared_cache` |
 | Overflow adapter scores are not unit scores | `test_overflow_integer_adapter_score_is_not_a_unit_score` |
 | `make test-review-reuse` after uncached DXF + score overflow | **248 passed**, 7 ezdxf warnings |
+| Sol window4-w16 vs `origin/main` on `be0e60ae` | P2 pre-scored L4 overrode local units/shape refuse |
+| Pre-scored L4 does not certify inch vs mm | `test_prescored_l4_does_not_override_units_conflict` |
+| `make test-review-reuse` after local-conflict L4 | **249 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

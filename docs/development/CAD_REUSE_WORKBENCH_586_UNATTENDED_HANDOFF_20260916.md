@@ -523,6 +523,22 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave16 — 2026-09-21 ~20:43 UTC
+
+Sol 5.6 vs `origin/main` on `be0e60ae`: **P2** when both query and
+candidate geom were present, `_try_l4_score` None (units/shape)
+fell through to `_apply_trusted_l4` on a pre-scored adapter 1.0.
+Inch vs mm identical coords could still certify. Strip stale L4 on
+local conflict. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 local L4 conflict | `apply_precision` does not trust pre-scored L4 |
+| Local `make test-review-reuse` | **249 passed** |
+| tests (3.10) on `be0e60ae` | pending at fire (not red) |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 4 wave15 — 2026-09-21 ~20:28 UTC
 
 Sol 5.6 vs `origin/main` on `e70f6e9f`: **P2** local L4 DXF extract

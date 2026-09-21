@@ -1114,17 +1114,21 @@ def apply_precision(
         # Local geometry-only L4 wins over a remote fused precision_score.
         if has_cand_geom or hash_id:
             q = _query_geom()
-            l4 = (
-                _try_l4_score(
-                    q,
-                    candidate,
-                    None if has_cand_geom else _geom_store(),
-                )
-                if q
-                else None
-            )
+            store = None if has_cand_geom else _geom_store()
+            l4 = _try_l4_score(q, candidate, store) if q else None
             if l4 is not None:
                 _apply_l4_score(candidate, l4)
+                out.append(candidate)
+                continue
+            # Both sides had usable geom but L4 refused (units/shape). Do
+            # not fall through to a pre-scored precision-l4 claim.
+            if q is not None and _is_geom_json(_candidate_geom(candidate, store)):
+                _strip_stale_l4(candidate)
+                if has_numeric_geom:
+                    scores = dict(candidate.scores)
+                    scores.pop("geometric", None)
+                    candidate.scores = scores
+                _append_reason(candidate, RejectionReason.missing_geom_json.value)
                 out.append(candidate)
                 continue
 

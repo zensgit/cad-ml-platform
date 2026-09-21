@@ -3518,6 +3518,35 @@ def test_insunits_mismatch_is_not_certified() -> None:
     assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
 
 
+def test_prescored_l4_does_not_override_units_conflict() -> None:
+    """Adapter precision-l4 1.0 must not certify inch vs mm identical coords."""
+    line = {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]}
+    query = {"file_info": {"insunits": 1}, "entities": [line]}
+    other = {"file_info": {"insunits": 4}, "entities": [line]}
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "prescored-units",
+                "state": "similar",
+                "scores": {"geometric": 1.0},
+                "geom_json": other,
+                "methods": ["precision-l4"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert int(out[0].verification.get("level") or 0) < 4
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
 def test_matching_insunits_still_l4() -> None:
     line = {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]}
     geom = {"file_info": {"insunits": 4}, "entities": [line]}

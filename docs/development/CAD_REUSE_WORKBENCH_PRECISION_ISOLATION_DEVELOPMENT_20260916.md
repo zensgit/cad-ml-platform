@@ -245,7 +245,8 @@ loop. Wave13: stop the nested worker loop only after the drain future
 resolves (no 1s hang on nested success). Wave14: overflow JSON ints
 are missing_geom_json (not 500); present non-list polyline `bulges`
 fail closed. Wave15: ReviewReuse DXF extract skips shared
-`extract_sig` cache; overflow adapter scores return None.
+`extract_sig` cache; overflow adapter scores return None. Wave16:
+pre-scored `precision-l4` cannot override a local units/shape refuse.
 
 ### Model routing (by difficulty)
 
