@@ -523,6 +523,20 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave6 — 2026-09-21 ~17:22 UTC
+
+Sol 5.6 vs `origin/main` on `22de1b87`: **P2** both JSON payloads
+omitting `insunits` still L4-matched, so identical numbers at unknown
+scale could certify. Conflict whenever either side lacks a valid unit.
+Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 omitted units | `_units_conflict` if either side is None/invalid |
+| Local `make test-review-reuse` | **240 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 4 wave5 — 2026-09-21 ~17:02 UTC
 
 Sol 5.6 vs `origin/main` on `1192d5bf`: **P2** CRLF DXFs skipped the

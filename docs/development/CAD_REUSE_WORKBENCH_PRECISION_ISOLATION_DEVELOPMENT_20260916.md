@@ -236,7 +236,7 @@ resume (180s) on `0edbaf22`. Wave2 bind+CAS on `b611a21f`. Wave3:
 INSUNITS 1–24 only; `pipeline_claim_id` lease + heartbeat at commit.
 Wave4: classic POLYLINE `is_closed`; raw fractional `$INSUNITS`; FILE
 runs hash the idempotency key. Wave5: CRLF-normalize the raw INSUNITS
-scan.
+scan. Wave6: omit-both `insunits` is a units conflict (no L4).
 
 ### Model routing (by difficulty)
 

@@ -310,6 +310,9 @@ make test-review-reuse
 | Sol window4-w5 vs `origin/main` on `1192d5bf` | P2 CRLF fractional $INSUNITS scan |
 | CRLF fractional INSUNITS is not mm | `test_dxf_crlf_fractional_insunits_header_is_not_certified` |
 | `make test-review-reuse` after CRLF INSUNITS scan | **239 passed**, 7 ezdxf warnings |
+| Sol window4-w6 vs `origin/main` on `22de1b87` | P2 omitted units on both sides still L4 |
+| Omitted INSUNITS both sides is not L4 | `test_omitted_insunits_on_both_sides_is_not_certified` |
+| `make test-review-reuse` after omitted-units fail-closed | **240 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

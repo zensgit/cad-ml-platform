@@ -79,6 +79,7 @@ def test_vision_response_to_hits_maps_buckets() -> None:
 def test_vision_response_forwards_inline_geom_json() -> None:
     """Live matches with geom_json but no precision_score must still L4."""
     geom = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]}
         ]
@@ -119,12 +120,14 @@ def test_vision_response_forwards_inline_geom_json() -> None:
 def test_live_fused_precision_score_does_not_skip_local_l4() -> None:
     """A high fused precision_score must not override geometry-only local L4."""
     query = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [100.0, 0.0]},
             {"type": "TEXT", "insert": [1.0, 1.0], "text": "note"},
         ]
     }
     other = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [0.0, 100.0]},
             {"type": "TEXT", "insert": [1.0, 1.0], "text": "note"},

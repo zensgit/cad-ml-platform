@@ -864,11 +864,9 @@ def _drawing_units(geom: Dict[str, Any]) -> Optional[int]:
 
 
 def _units_conflict(left: Dict[str, Any], right: Dict[str, Any]) -> bool:
-    """Inch vs mm (or unknown $INSUNITS) must not score as identical L4."""
+    """Inch vs mm (or unknown/$INSUNITS omitted) must not score as identical L4."""
     left_u = _drawing_units(left)
     right_u = _drawing_units(right)
-    if left_u is None and right_u is None:
-        return False
     if left_u is None or right_u is None:
         return True
     if left_u <= 0 or right_u <= 0:

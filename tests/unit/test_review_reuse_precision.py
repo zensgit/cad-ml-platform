@@ -453,6 +453,7 @@ def test_precision_labels_vision_only_without_copying_visual() -> None:
 
 def _line_geom() -> dict:
     return {
+        "file_info": {"insunits": 4},
         "layers": {"0": {"color": 7, "linetype": "CONTINUOUS"}},
         "entities": [
             {
@@ -1057,6 +1058,7 @@ def test_high_prescored_l4_preserves_reasonless_different() -> None:
 
 def test_lowercase_line_type_still_scores_l4() -> None:
     geom = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "line", "start": [0.0, 0.0], "end": [100.0, 0.0]}
         ]
@@ -1112,6 +1114,7 @@ def test_boolean_circle_coords_are_not_l4_geometry() -> None:
 
 def test_insert_block_geom_is_l4_geometry() -> None:
     geom = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "INSERT",
@@ -1288,6 +1291,7 @@ def test_out_of_range_prescored_l4_is_not_trusted() -> None:
 def test_line_plus_insert_is_not_certified_as_l4() -> None:
     """Dropping INSERT would let an incidental LINE fake an L4 match."""
     query = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
             {
@@ -1299,6 +1303,7 @@ def test_line_plus_insert_is_not_certified_as_l4() -> None:
         ]
     }
     other = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
             {
@@ -1366,6 +1371,7 @@ def test_zero_scale_insert_is_not_l4_geometry() -> None:
 
 def test_omitted_ellipse_params_match_full_span() -> None:
     omitted = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "ELLIPSE",
@@ -1376,6 +1382,7 @@ def test_omitted_ellipse_params_match_full_span() -> None:
         ]
     }
     full = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "ELLIPSE",
@@ -1567,6 +1574,7 @@ def test_mixed_valid_line_and_zero_radius_circle_is_not_l4() -> None:
         ]
     }
     other = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [0.0, 100.0]},
             {"type": "CIRCLE", "center": [0.0, 0.0], "radius": 0.0},
@@ -1596,6 +1604,7 @@ def test_mixed_valid_line_and_zero_radius_circle_is_not_l4() -> None:
 
 def test_valid_line_with_unknown_type_still_l4() -> None:
     geom = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [100.0, 0.0]},
             {"type": "TEXT", "insert": [1.0, 1.0], "text": "note"},
@@ -1626,12 +1635,14 @@ def test_valid_line_with_unknown_type_still_l4() -> None:
 def test_line_plus_point_is_not_certified_as_l4() -> None:
     """Unsupported POINT must not be dropped so an incidental LINE can L4-match."""
     query = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
             {"type": "POINT", "location": [1.0, 1.0]},
         ]
     }
     other = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
             {"type": "POINT", "location": [99.0, 99.0]},
@@ -1665,6 +1676,7 @@ def test_layer_mismatch_does_not_reject_identical_geometry(
     """Per-entity layer_mismatch_penalty must not change geometry-only L4."""
     monkeypatch.setenv("DEDUPCAD2_LAYER_MISMATCH_PENALTY", "1")
     query = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "LINE",
@@ -1675,6 +1687,7 @@ def test_layer_mismatch_does_not_reject_identical_geometry(
         ]
     }
     other = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "LINE",
@@ -1710,12 +1723,14 @@ def test_layer_mismatch_does_not_reject_identical_geometry(
 def test_shared_text_does_not_certify_different_geometry() -> None:
     """Orthogonal LINEs plus identical TEXT must not pass the L4 threshold."""
     query = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [100.0, 0.0]},
             {"type": "TEXT", "insert": [1.0, 1.0], "text": "note"},
         ]
     }
     other = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [0.0, 100.0]},
             {"type": "TEXT", "insert": [1.0, 1.0], "text": "note"},
@@ -1750,12 +1765,14 @@ def test_shared_hatch_does_not_certify_different_geometry() -> None:
     """HATCH is unscored geometry; mixed LINE+HATCH must not be L4."""
     hatch = {"type": "HATCH", "pattern": "ANSI31", "color": 1, "loops": 1}
     query = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [100.0, 0.0]},
             hatch,
         ]
     }
     other = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [0.0, 100.0]},
             hatch,
@@ -1786,12 +1803,14 @@ def test_shared_hatch_does_not_certify_different_geometry() -> None:
 def test_layout_shifted_same_primitives_are_not_certified() -> None:
     """Bag-of-features fallback must not treat translated clones as L4 matches."""
     query = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
             {"type": "LINE", "start": [0.0, 10.0], "end": [10.0, 10.0]},
         ]
     }
     shifted = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
             {"type": "LINE", "start": [100.0, 100.0], "end": [110.0, 100.0]},
@@ -1824,6 +1843,7 @@ def test_layout_shifted_same_primitives_are_not_certified() -> None:
 
 def test_identical_polyline_still_l4() -> None:
     geom = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "LWPOLYLINE",
@@ -1884,6 +1904,7 @@ def test_layout_shifted_polylines_are_not_certified() -> None:
     """Canonical polyline matching must not treat translated clones as L4."""
     for poly_type in ("LWPOLYLINE", "POLYLINE"):
         query = {
+            "file_info": {"insunits": 4},
             "entities": [
                 {
                     "type": poly_type,
@@ -1898,6 +1919,7 @@ def test_layout_shifted_polylines_are_not_certified() -> None:
             ]
         }
         shifted = {
+            "file_info": {"insunits": 4},
             "entities": [
                 {
                     "type": poly_type,
@@ -1939,6 +1961,7 @@ def test_layout_shifted_polylines_are_not_certified() -> None:
 def test_long_polylines_diverging_after_matcher_cap_are_not_certified() -> None:
     """Exploded segments past max_match_entities=64 must still affect L4."""
     query = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "LWPOLYLINE",
@@ -1947,6 +1970,7 @@ def test_long_polylines_diverging_after_matcher_cap_are_not_certified() -> None:
         ]
     }
     other = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "LWPOLYLINE",
@@ -1983,11 +2007,13 @@ def test_long_polylines_diverging_after_matcher_cap_are_not_certified() -> None:
 def test_bulged_polyline_is_not_certified_as_straight_l4() -> None:
     """A chord LINE must not match a bulged LWPOLYLINE with the same ends."""
     query = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
         ]
     }
     other = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "LWPOLYLINE",
@@ -2020,11 +2046,13 @@ def test_bulged_polyline_is_not_certified_as_straight_l4() -> None:
 def test_sub_quantum_bulge_is_not_certified_as_straight_l4() -> None:
     """Bulge 0.0004 must not round to 0 and explode into a chord."""
     query = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
         ]
     }
     other = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "LWPOLYLINE",
@@ -2099,11 +2127,13 @@ def test_long_splines_truncated_by_matcher_are_not_l4() -> None:
     """Matcher only compares 16 spline controls; longer tails must not be L4."""
     head = [[float(i), 0.0] for i in range(16)]
     query = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "SPLINE", "control_points": head + [[16.0, 0.0], [17.0, 0.0]]},
         ]
     }
     other = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "SPLINE",
@@ -2138,6 +2168,7 @@ def test_spline_prefix_with_unequal_controls_is_not_certified() -> None:
     head = [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]]
     query = {"entities": [{"type": "SPLINE", "control_points": head}]}
     other = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "SPLINE",
@@ -2171,9 +2202,11 @@ def test_spline_degree_mismatch_is_not_certified() -> None:
     """Splines lack knots/weights in L4; fail closed rather than score 1.0."""
     cps = [[0.0, 0.0], [1.0, 2.0], [2.0, 0.0], [3.0, 3.0]]
     query = {
+        "file_info": {"insunits": 4},
         "entities": [{"type": "SPLINE", "control_points": cps, "degree": 1}]
     }
     other = {
+        "file_info": {"insunits": 4},
         "entities": [{"type": "SPLINE", "control_points": cps, "degree": 3}]
     }
     cands = map_raw_hits_to_candidates(
@@ -2201,11 +2234,13 @@ def test_spline_degree_mismatch_is_not_certified() -> None:
 def test_malformed_polyline_vertex_is_not_joined_as_l4() -> None:
     """Invalid intermediate vertices must not be skipped into a chord LINE."""
     query = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
         ]
     }
     other = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "LWPOLYLINE",
@@ -2238,6 +2273,7 @@ def test_polyline_tail_malformed_vertex_fails_closed() -> None:
     """A valid prefix plus a later bad vertex must not leave a shared LINE as L4."""
     shared = {"type": "LINE", "start": [0.0, 0.0], "end": [1.0, 0.0]}
     query = {
+        "file_info": {"insunits": 4},
         "entities": [
             shared,
             {
@@ -2247,6 +2283,7 @@ def test_polyline_tail_malformed_vertex_fails_closed() -> None:
         ]
     }
     other = {
+        "file_info": {"insunits": 4},
         "entities": [
             shared,
             {
@@ -2279,12 +2316,14 @@ def test_polyline_tail_malformed_vertex_fails_closed() -> None:
 def test_leader_plus_line_is_not_l4() -> None:
     """Different LEADERs plus the same LINE must not score precision-l4 1.0."""
     query = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
             {"type": "LEADER", "vertices": [[0.0, 0.0], [1.0, 1.0]]},
         ]
     }
     other = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
             {"type": "LEADER", "vertices": [[9.0, 9.0], [8.0, 8.0]]},
@@ -2315,6 +2354,7 @@ def test_leader_plus_line_is_not_l4() -> None:
 def test_opposite_half_ellipses_are_not_l4_geometry() -> None:
     """Vendor span-only ELLIPSE cost would treat 0..π and π..2π as equal."""
     left = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "ELLIPSE",
@@ -2327,6 +2367,7 @@ def test_opposite_half_ellipses_are_not_l4_geometry() -> None:
         ]
     }
     right = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "ELLIPSE",
@@ -2363,6 +2404,7 @@ def test_opposite_half_ellipses_are_not_l4_geometry() -> None:
 def test_swapped_insert_block_hashes_are_not_certified() -> None:
     """Hash sets can match while per-INSERT contents are swapped."""
     query = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "INSERT",
@@ -2379,6 +2421,7 @@ def test_swapped_insert_block_hashes_are_not_certified() -> None:
         ]
     }
     other = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "INSERT",
@@ -2419,6 +2462,7 @@ def test_swapped_insert_block_hashes_are_not_certified() -> None:
 def test_mismatched_insert_block_hash_is_not_certified() -> None:
     """Same INSERT pose with different block_hash must not pass L4."""
     query = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "INSERT",
@@ -2429,6 +2473,7 @@ def test_mismatched_insert_block_hash_is_not_certified() -> None:
         ]
     }
     other = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "INSERT",
@@ -2463,6 +2508,7 @@ def test_mismatched_insert_block_hash_is_not_certified() -> None:
 def test_insert_without_block_hash_is_not_l4_geometry() -> None:
     """Name+pose INSERT cannot prove block contents."""
     geom = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "INSERT", "block": "DOOR", "insert": [0.0, 0.0]},
         ]
@@ -2546,11 +2592,13 @@ def test_legacy_dxf_extract_cache_without_version_is_reextracted(
 def test_extra_unmatched_line_is_not_certified() -> None:
     """A subset LINE match plus extra geometry must not score L4 1.0."""
     query = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
         ]
     }
     other = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
             {"type": "LINE", "start": [100.0, 100.0], "end": [110.0, 100.0]},
@@ -2584,6 +2632,7 @@ def test_extra_unmatched_line_is_not_certified() -> None:
 def test_over_cap_geometry_is_not_certified_as_l4() -> None:
     """Drawings larger than the matcher cap must not be prefix-certified."""
     geom = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "LWPOLYLINE",
@@ -2619,12 +2668,14 @@ def test_layout_shifted_clones_not_certified_when_geom_hash_env_on(
     """CAD_ML_PLATFORM_L4_ENTITIES_GEOM_HASH=1 must not re-enable bag-of-features."""
     monkeypatch.setenv("CAD_ML_PLATFORM_L4_ENTITIES_GEOM_HASH", "1")
     query = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
             {"type": "LINE", "start": [0.0, 10.0], "end": [10.0, 10.0]},
         ]
     }
     shifted = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
             {"type": "LINE", "start": [100.0, 100.0], "end": [110.0, 100.0]},
@@ -2658,11 +2709,13 @@ def test_layout_shifted_clones_not_certified_when_geom_hash_env_on(
 def test_sub_millimeter_orthogonal_lines_are_not_l4_geometry() -> None:
     """Verifier rounds to 3 decimals; collapsed LINEs must not score L4 1.0."""
     query = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [0.0001, 0.0]},
         ]
     }
     other = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [0.0, 0.0001]},
         ]
@@ -3176,6 +3229,7 @@ def test_task_export_does_not_include_candidate_geom_json() -> None:
 def test_wide_polyline_is_not_certified_as_zero_width_l4() -> None:
     """Exploding a thick LWPOLYLINE into LINEs would drop stroke width."""
     query = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "LWPOLYLINE",
@@ -3185,6 +3239,7 @@ def test_wide_polyline_is_not_certified_as_zero_width_l4() -> None:
         ]
     }
     other = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "LWPOLYLINE",
@@ -3216,11 +3271,13 @@ def test_wide_polyline_is_not_certified_as_zero_width_l4() -> None:
 
 def test_vertex_polyline_width_is_not_certified_as_l4() -> None:
     query = {
+        "file_info": {"insunits": 4},
         "entities": [
             {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
         ]
     }
     other = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "LWPOLYLINE",
@@ -3329,6 +3386,7 @@ def test_fractional_insunits_is_not_certified() -> None:
 def test_wrapped_arc_sweeps_are_not_certified() -> None:
     """0→359.9 vs 0→0.1 are not the same ARC; modulo endpoints would score ~0.9."""
     query = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "ARC",
@@ -3340,6 +3398,7 @@ def test_wrapped_arc_sweeps_are_not_certified() -> None:
         ]
     }
     other = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "ARC",
@@ -3387,8 +3446,8 @@ def test_swapped_multi_arc_sweeps_are_not_certified() -> None:
             "end_angle": end,
         }
 
-    query = {"entities": [_arc(0.0, 359.9), _arc(100.0, 0.1)]}
-    other = {"entities": [_arc(0.0, 0.1), _arc(100.0, 359.9)]}
+    query = {"file_info": {"insunits": 4}, "entities": [_arc(0.0, 359.9), _arc(100.0, 0.1)]}
+    other = {"file_info": {"insunits": 4}, "entities": [_arc(0.0, 0.1), _arc(100.0, 359.9)]}
     cands = map_raw_hits_to_candidates(
         [
             {
@@ -3426,8 +3485,8 @@ def test_swapped_concentric_arc_sweeps_are_not_certified() -> None:
             "end_angle": end,
         }
 
-    query = {"entities": [_arc(10.0, 359.9), _arc(20.0, 0.1)]}
-    other = {"entities": [_arc(10.0, 0.1), _arc(20.0, 359.9)]}
+    query = {"file_info": {"insunits": 4}, "entities": [_arc(10.0, 359.9), _arc(20.0, 0.1)]}
+    other = {"file_info": {"insunits": 4}, "entities": [_arc(10.0, 0.1), _arc(20.0, 359.9)]}
     cands = map_raw_hits_to_candidates(
         [
             {
@@ -3456,6 +3515,7 @@ def test_swapped_concentric_arc_sweeps_are_not_certified() -> None:
 def test_near_similar_arc_radius_is_not_forced_to_zero() -> None:
     """Radius 10.0 vs 10.1 is inside tol_circle_radius; do not zero the score."""
     query = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "ARC",
@@ -3467,6 +3527,7 @@ def test_near_similar_arc_radius_is_not_forced_to_zero() -> None:
         ]
     }
     other = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "ARC",
@@ -3512,8 +3573,8 @@ def test_swapped_nearby_arc_sweeps_are_not_certified() -> None:
             "end_angle": end,
         }
 
-    query = {"entities": [_arc(0.0, 359.9), _arc(0.3, 0.1)]}
-    other = {"entities": [_arc(0.0, 0.1), _arc(0.3, 359.9)]}
+    query = {"file_info": {"insunits": 4}, "entities": [_arc(0.0, 359.9), _arc(0.3, 0.1)]}
+    other = {"file_info": {"insunits": 4}, "entities": [_arc(0.0, 0.1), _arc(0.3, 359.9)]}
     cands = map_raw_hits_to_candidates(
         [
             {
@@ -3551,8 +3612,8 @@ def test_swapped_quantized_step_arc_sweeps_are_not_certified() -> None:
             "end_angle": end,
         }
 
-    query = {"entities": [_arc(0.0, 359.9), _arc(0.001, 0.1)]}
-    other = {"entities": [_arc(0.0, 0.1), _arc(0.001, 359.9)]}
+    query = {"file_info": {"insunits": 4}, "entities": [_arc(0.0, 359.9), _arc(0.001, 0.1)]}
+    other = {"file_info": {"insunits": 4}, "entities": [_arc(0.0, 0.1), _arc(0.001, 359.9)]}
     cands = map_raw_hits_to_candidates(
         [
             {
@@ -3591,12 +3652,14 @@ def test_near_equal_spatial_arc_sweep_swap_is_not_certified() -> None:
         }
 
     query = {
+        "file_info": {"insunits": 4},
         "entities": [
             _arc(0.266, 0.185, 359.9),
             _arc(0.087, 0.026, 0.1),
         ]
     }
     other = {
+        "file_info": {"insunits": 4},
         "entities": [
             _arc(0.254, 0.298, 0.1),
             _arc(0.245, 0.252, 359.9),
@@ -3641,8 +3704,8 @@ def test_shifted_colinear_arcs_matching_sweeps_still_l4() -> None:
 
     # Identity 0.1+0.1 and shift 0.0+0.2 both total 0.2; matching sweeps
     # live on the shift. Row/column equality would keep only identity.
-    query = {"entities": [_arc(0.0, 359.9), _arc(0.1, 0.1)]}
-    other = {"entities": [_arc(0.1, 0.1), _arc(0.2, 359.9)]}
+    query = {"file_info": {"insunits": 4}, "entities": [_arc(0.0, 359.9), _arc(0.1, 0.1)]}
+    other = {"file_info": {"insunits": 4}, "entities": [_arc(0.1, 0.1), _arc(0.2, 359.9)]}
     cands = map_raw_hits_to_candidates(
         [
             {
@@ -3678,8 +3741,8 @@ def test_reordered_same_center_arcs_still_l4() -> None:
             "end_angle": end,
         }
 
-    query = {"entities": [_arc(0.0, 90.0), _arc(180.0, 0.0)]}
-    other = {"entities": [_arc(180.0, 0.0), _arc(0.0, 90.0)]}
+    query = {"file_info": {"insunits": 4}, "entities": [_arc(0.0, 90.0), _arc(180.0, 0.0)]}
+    other = {"file_info": {"insunits": 4}, "entities": [_arc(180.0, 0.0), _arc(0.0, 90.0)]}
     cands = map_raw_hits_to_candidates(
         [
             {
@@ -3715,8 +3778,14 @@ def test_reordered_uniform_offset_same_center_arcs_still_l4() -> None:
             "end_angle": end,
         }
 
-    query = {"entities": [_arc(0.0, 0.0, 90.0), _arc(0.0, 180.0, 0.0)]}
-    other = {"entities": [_arc(0.001, 180.0, 0.0), _arc(0.001, 0.0, 90.0)]}
+    query = {
+        "file_info": {"insunits": 4},
+        "entities": [_arc(0.0, 0.0, 90.0), _arc(0.0, 180.0, 0.0)],
+    }
+    other = {
+        "file_info": {"insunits": 4},
+        "entities": [_arc(0.001, 180.0, 0.0), _arc(0.001, 0.0, 90.0)],
+    }
     cands = map_raw_hits_to_candidates(
         [
             {
@@ -3752,8 +3821,8 @@ def test_reordered_concentric_near_radii_still_l4() -> None:
             "end_angle": end,
         }
 
-    query = {"entities": [_arc(10.0, 90.0), _arc(10.3, 180.0)]}
-    other = {"entities": [_arc(10.3, 180.0), _arc(10.0, 90.0)]}
+    query = {"file_info": {"insunits": 4}, "entities": [_arc(10.0, 90.0), _arc(10.3, 180.0)]}
+    other = {"file_info": {"insunits": 4}, "entities": [_arc(10.3, 180.0), _arc(10.0, 90.0)]}
     cands = map_raw_hits_to_candidates(
         [
             {
@@ -3789,8 +3858,14 @@ def test_reordered_nearby_arcs_still_l4() -> None:
             "end_angle": end,
         }
 
-    query = {"entities": [_arc(0.0, 90.0), _arc(0.3, 90.0), _arc(0.6, 90.0)]}
-    other = {"entities": [_arc(0.6, 90.0), _arc(0.3, 90.0), _arc(0.0, 90.0)]}
+    query = {
+        "file_info": {"insunits": 4},
+        "entities": [_arc(0.0, 90.0), _arc(0.3, 90.0), _arc(0.6, 90.0)],
+    }
+    other = {
+        "file_info": {"insunits": 4},
+        "entities": [_arc(0.6, 90.0), _arc(0.3, 90.0), _arc(0.0, 90.0)],
+    }
     cands = map_raw_hits_to_candidates(
         [
             {
@@ -3817,6 +3892,7 @@ def test_reordered_nearby_arcs_still_l4() -> None:
 def test_near_similar_arc_center_is_not_forced_to_zero() -> None:
     """Center offset 0.1 is inside tol_circle_center; do not zero the score."""
     query = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "ARC",
@@ -3828,6 +3904,7 @@ def test_near_similar_arc_center_is_not_forced_to_zero() -> None:
         ]
     }
     other = {
+        "file_info": {"insunits": 4},
         "entities": [
             {
                 "type": "ARC",
@@ -3868,6 +3945,30 @@ def test_out_of_range_insunits_is_not_certified() -> None:
         [
             {
                 "candidate_id": "bad-units",
+                "state": "similar",
+                "geom_json": geom,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(geom).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+
+
+def test_omitted_insunits_on_both_sides_is_not_certified() -> None:
+    line = {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]}
+    geom = {"entities": [line]}
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "no-units",
                 "state": "similar",
                 "geom_json": geom,
                 "methods": ["seed-adapter"],
