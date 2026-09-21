@@ -27,6 +27,8 @@ from .models import CandidateDecision, CandidateState, RejectionReason
 logger = logging.getLogger(__name__)
 
 LOW_PRECISION_THRESHOLD = 0.55
+# DXF $INSUNITS 1–24 (inches … US survey mile). 0/other is unknown.
+_DXF_INSUNITS = frozenset(range(1, 25))
 _PROVISIONAL_UNVERIFIED = frozenset(
     {
         RejectionReason.vision_only_unverified.value,
@@ -852,11 +854,12 @@ def _drawing_units(geom: Dict[str, Any]) -> Optional[int]:
     if isinstance(raw, bool):
         return 0
     if isinstance(raw, int):
-        return raw
+        return raw if raw in _DXF_INSUNITS else 0
     if isinstance(raw, float):
         if not math.isfinite(raw) or raw != math.floor(raw):
             return 0
-        return int(raw)
+        number = int(raw)
+        return number if number in _DXF_INSUNITS else 0
     return 0
 
 

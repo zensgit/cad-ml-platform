@@ -523,6 +523,22 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave3 — 2026-09-21 ~16:30 UTC
+
+Sol 5.6 vs `origin/main` on `b611a21f`: **P2** `insunits: 999` still
+L4-matched; **P2** one-shot `updated_at` lease went stale mid-pipeline
+so a later failure could mask success. Restrict units to DXF 1–24;
+owner token + heartbeat; commit only if claim matches.
+Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 INSUNITS | `_drawing_units` accepts only 1–24 |
+| P2 claim fence | `pipeline_claim_id` + `_renew_pipeline_claim` |
+| Local `make test-review-reuse` | **235 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 4 wave2 — 2026-09-21 ~15:50 UTC
 
 Sol 5.6 vs `origin/main` on `0edbaf22`: **P2** stale resume scored a

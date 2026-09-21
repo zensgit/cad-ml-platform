@@ -367,6 +367,40 @@ def test_stale_running_idempotency_claim_is_single_winner(
     assert final.evidence_pack is not None
 
 
+def test_stale_claim_blocks_previous_owner_commit() -> None:
+    import hashlib
+    import time
+
+    from src.core.review_reuse.models import ReviewReuseTask, TaskStatus
+    from src.core.review_reuse.service import STALE_RUNNING_SECONDS
+
+    svc = _svc()
+    now = time.time()
+    payload = b"claim-fence"
+    original = ReviewReuseTask(
+        task_id="stuck-fence",
+        tenant_id="t-claim-fence",
+        status=TaskStatus.running,
+        created_at=now - STALE_RUNNING_SECONDS - 10.0,
+        updated_at=now - STALE_RUNNING_SECONDS - 10.0,
+        source_file_name="part.dxf",
+        source_content_sha256=hashlib.sha256(payload).hexdigest(),
+        idempotency_key="idem-claim-fence",
+        trace_id="tr-claim-fence",
+        pipeline_claim_id="claim-original",
+    )
+    svc.store.put(original)
+    claimed, won = svc._claim_stale_running(original)
+    assert won
+    assert claimed.pipeline_claim_id != "claim-original"
+    original.status = TaskStatus.evidence_ready
+    original.evidence_pack = {"schema_version": "test"}
+    kept = svc._commit_pipeline_result(original)
+    assert kept.pipeline_claim_id == claimed.pipeline_claim_id
+    assert kept.status == TaskStatus.running
+    assert kept.evidence_pack is None
+
+
 def test_fresh_running_idempotency_is_not_resumed() -> None:
     import time
 
@@ -3825,6 +3859,30 @@ def test_near_similar_arc_center_is_not_forced_to_zero() -> None:
     assert "precision-l4" in (out[0].verification.get("methods") or [])
     assert geo is not None
     assert geo > LOW_PRECISION_THRESHOLD
+
+
+def test_out_of_range_insunits_is_not_certified() -> None:
+    line = {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]}
+    geom = {"file_info": {"insunits": 999}, "entities": [line]}
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "bad-units",
+                "state": "similar",
+                "geom_json": geom,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(geom).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
 
 
 def test_unknown_insunits_is_not_certified() -> None:

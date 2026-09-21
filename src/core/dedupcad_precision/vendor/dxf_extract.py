@@ -41,7 +41,7 @@ def _header_insunits(doc: Any) -> int:
         if raw is None:
             raw = getattr(doc, "units", 0)
         number = int(raw)
-        return number if number >= 0 else 0
+        return number if 1 <= number <= 24 else 0
     except Exception:
         return 0
 

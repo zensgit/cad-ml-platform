@@ -298,6 +298,10 @@ make test-review-reuse
 | Mismatched stale retry is 409 | `test_stale_running_idempotency_rejects_mismatched_input` |
 | Concurrent stale resume is single-winner | `test_stale_running_idempotency_claim_is_single_winner` |
 | `make test-review-reuse` after stale claim/bind | **233 passed**, 7 ezdxf warnings |
+| Sol window4-w3 vs `origin/main` on `b611a21f` | P2 INSUNITS 1–24; P2 pipeline claim token |
+| Out-of-range INSUNITS is not L4 | `test_out_of_range_insunits_is_not_certified` |
+| Stolen claim cannot commit evidence | `test_stale_claim_blocks_previous_owner_commit` |
+| `make test-review-reuse` after INSUNITS + claim fence | **235 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

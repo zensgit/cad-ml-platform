@@ -131,6 +131,7 @@ class ReviewReuseService:
         task = self._emit(task, TaskEventType.submitted, {"file_name": task.source_file_name})
         task = self._emit(task, TaskEventType.input_validated, {"bytes": len(file_bytes)})
         task.status = TaskStatus.running
+        task.pipeline_claim_id = str(uuid.uuid4())
         task.updated_at = time.time()
         try:
             stored = self.store.put_new_idempotent(task)
@@ -262,6 +263,7 @@ class ReviewReuseService:
         self, existing: ReviewReuseTask
     ) -> Tuple[ReviewReuseTask, bool]:
         """CAS-lease a stale running snapshot so only one worker resumes."""
+        claim_id = str(uuid.uuid4())
         claim_at = time.time()
 
         def updater(current: Optional[ReviewReuseTask]) -> ReviewReuseTask:
@@ -272,15 +274,49 @@ class ReviewReuseService:
             if age < STALE_RUNNING_SECONDS:
                 return task
             task.updated_at = claim_at
+            task.pipeline_claim_id = claim_id
             return task
 
         updated = self._update_atomically(
             existing.tenant_id, existing.task_id, updater
         )
         won = (
-            updated.status == TaskStatus.running and updated.updated_at == claim_at
+            updated.status == TaskStatus.running
+            and updated.pipeline_claim_id == claim_id
         )
         return updated, won
+
+    def _owns_pipeline_claim(
+        self, stored: ReviewReuseTask, claim_id: Optional[str]
+    ) -> bool:
+        return (
+            bool(claim_id)
+            and stored.status == TaskStatus.running
+            and stored.pipeline_claim_id == claim_id
+        )
+
+    def _renew_pipeline_claim(self, task: ReviewReuseTask) -> ReviewReuseTask:
+        """Refresh the running lease; return the stored snapshot if stolen."""
+        claim_id = task.pipeline_claim_id
+        if not claim_id:
+            return task
+        now = time.time()
+
+        def updater(current: Optional[ReviewReuseTask]) -> ReviewReuseTask:
+            stored = current if current is not None else task
+            if stored.pipeline_claim_id != claim_id:
+                return stored
+            if stored.status != TaskStatus.running:
+                return stored
+            stored.updated_at = now
+            return stored
+
+        stored = self._update_atomically(task.tenant_id, task.task_id, updater)
+        if stored.pipeline_claim_id != claim_id:
+            return stored
+        if stored.status == TaskStatus.running:
+            task.updated_at = stored.updated_at
+        return task
 
     def _run_pipeline(
         self,
@@ -292,6 +328,10 @@ class ReviewReuseService:
         seed_candidates: Optional[List[Dict[str, Any]]],
     ) -> ReviewReuseTask:
         # Pipeline: recall → precision → evidence (adapter; no training path).
+        claim_id = task.pipeline_claim_id
+        task = self._renew_pipeline_claim(task)
+        if claim_id and task.pipeline_claim_id != claim_id:
+            return task
         task = self._emit(task, TaskEventType.recall_started, {})
         candidates = recall_candidates(
             file_name=file_name,
@@ -305,6 +345,9 @@ class ReviewReuseService:
             TaskEventType.recall_completed,
             {"count": len(candidates)},
         )
+        task = self._renew_pipeline_claim(task)
+        if claim_id and task.pipeline_claim_id != claim_id:
+            return task
         task = self._emit(task, TaskEventType.precision_started, {})
         candidates = apply_precision(
             candidates, file_name=file_name, file_bytes=file_bytes
@@ -329,6 +372,9 @@ class ReviewReuseService:
                 "vision_only_unverified": vision_only,
             },
         )
+        task = self._renew_pipeline_claim(task)
+        if claim_id and task.pipeline_claim_id != claim_id:
+            return task
         pack = build_evidence_pack(task)
         task.evidence_pack = pack
         task.status = TaskStatus.evidence_ready
@@ -341,12 +387,12 @@ class ReviewReuseService:
         """Do not overwrite a concurrent cancel/decision with pipeline completion."""
 
         def updater(current: Optional[ReviewReuseTask]) -> ReviewReuseTask:
-            if current is not None and current.status in (
-                TaskStatus.evidence_ready,
-                TaskStatus.failed,
+            if (
+                current is not None
+                and task.pipeline_claim_id
+                and current.pipeline_claim_id != task.pipeline_claim_id
             ):
-                # First terminal pipeline result wins; a late resume/original
-                # worker must not replace persisted evidence.
+                # Another worker holds the lease; do not mask their result.
                 return current
             if current is not None and current.status in (
                 TaskStatus.canceled,

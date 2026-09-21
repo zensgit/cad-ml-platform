@@ -232,8 +232,8 @@ CI on that SHA: `tests (3.10)` / `tests (3.11)` / `lint-type` /
 `core-fast-gate` **pass**. Evaluation Report fail = Track E / ignore.
 
 **Landed:** Window-4 docs `a6f3e2b5`. Sol P2 stale running idempotency
-resume (180s) on `0edbaf22`. Window-4 wave2: resume binds retry
-bytes/name to the reservation and CAS-claims before rerun.
+resume (180s) on `0edbaf22`. Wave2 bind+CAS on `b611a21f`. Wave3:
+INSUNITS 1–24 only; `pipeline_claim_id` lease + heartbeat at commit.
 
 ### Model routing (by difficulty)
 
