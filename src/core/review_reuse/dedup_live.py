@@ -173,13 +173,23 @@ def _shutdown_nested_loop(
     """Drain canceled tasks so timeout cleanup can run before close."""
 
     async def _drain() -> None:
+        # Do not loop.stop() here: that prevents the thread-safe drain
+        # future from completing and adds a 1s wait on every nested call.
         current = asyncio.current_task()
         pending = [task for task in asyncio.all_tasks() if task is not current]
         for task in pending:
             task.cancel()
         if pending:
             await asyncio.gather(*pending, return_exceptions=True)
-        loop.stop()
+
+    def _stop_loop() -> None:
+        try:
+            loop.call_soon_threadsafe(loop.stop)
+        except RuntimeError:
+            try:
+                loop.stop()
+            except RuntimeError:
+                pass
 
     try:
         if loop.is_closed():
@@ -187,20 +197,13 @@ def _shutdown_nested_loop(
             return
         drain = asyncio.run_coroutine_threadsafe(_drain(), loop)
     except RuntimeError:
-        try:
-            loop.call_soon_threadsafe(loop.stop)
-        except RuntimeError:
-            pass
-        loop.stop()
+        _stop_loop()
     else:
         try:
             drain.result(timeout=1.0)
         except Exception:
-            try:
-                loop.call_soon_threadsafe(loop.stop)
-            except RuntimeError:
-                pass
-            loop.stop()
+            pass
+        _stop_loop()
     worker.join(timeout=1.0)
     if not worker.is_alive() and not loop.is_closed():
         loop.close()

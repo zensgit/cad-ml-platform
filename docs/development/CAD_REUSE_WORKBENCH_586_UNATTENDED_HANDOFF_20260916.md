@@ -523,6 +523,22 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave13 — 2026-09-21 ~19:42 UTC
+
+Sol 5.6 vs `origin/main` on `9fa69cac`: **P2** `_drain` called
+`loop.stop()` before the thread-safe future could complete, so
+`drain.result(timeout=1.0)` always waited one second on nested-loop
+success (reproduced: fast coro returned 42 in 1.003s). Stop the worker
+loop only after drain resolves. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 drain-then-stop | `_shutdown_nested_loop` stops after `drain.result` |
+| Local `make test-review-reuse` | **244 passed** |
+| tests (3.10) on `9fa69cac` | in_progress at fire (not red) |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 4 wave12 — 2026-09-21 ~19:22 UTC
 
 Sol 5.6 vs `origin/main` on `7f15b214`: **P2** nested-loop live-recall

@@ -241,7 +241,8 @@ idempotent replay of `failed` re-raises `pipeline_failed` (HTTP 500).
 Wave11: classic POLYLINE parent `default_start_width` /
 `default_end_width` set `has_width`; extract cache v6. Wave12: nested
 live-recall timeout drains canceled tasks before stopping the worker
-loop.
+loop. Wave13: stop the nested worker loop only after the drain future
+resolves (no 1s hang on nested success).
 
 ### Model routing (by difficulty)
 

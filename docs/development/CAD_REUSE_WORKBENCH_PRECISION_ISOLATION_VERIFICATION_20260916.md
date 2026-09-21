@@ -323,6 +323,9 @@ make test-review-reuse
 | Sol window4-w12 vs `origin/main` on `7f15b214` | P2 nested-loop timeout stopped before canceled cleanup |
 | Nested live-recall timeout runs CancelledError cleanup | `test_run_coro_timeout_runs_canceled_cleanup` |
 | `make test-review-reuse` after live-recall drain | **243 passed**, 7 ezdxf warnings |
+| Sol window4-w13 vs `origin/main` on `9fa69cac` | P2 drain `loop.stop()` blocked the thread-safe future |
+| Nested live-recall success does not wait 1s | `test_run_coro_nested_success_does_not_wait_drain_timeout` |
+| `make test-review-reuse` after drain-stop-after-future | **244 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

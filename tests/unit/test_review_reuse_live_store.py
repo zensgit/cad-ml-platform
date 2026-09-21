@@ -316,6 +316,24 @@ def test_run_coro_timeout_runs_canceled_cleanup() -> None:
     asyncio.run(_inner())
 
 
+def test_run_coro_nested_success_does_not_wait_drain_timeout() -> None:
+    """Nested success must not pay drain.result's 1s timeout."""
+    import asyncio
+    import time
+
+    from src.core.review_reuse.dedup_live import _run_coro
+
+    async def _inner() -> None:
+        async def _fast() -> int:
+            return 42
+
+        started = time.monotonic()
+        assert _run_coro(_fast(), timeout=2) == 42
+        assert time.monotonic() - started < 0.5
+
+    asyncio.run(_inner())
+
+
 def test_run_coro_completes_within_timeout() -> None:
     from src.core.review_reuse.dedup_live import _run_coro
 
