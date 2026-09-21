@@ -196,7 +196,12 @@ class ReviewReuseService:
         age = time.time() - float(existing.updated_at or 0.0)
         if age < STALE_RUNNING_SECONDS:
             return existing
-        content_sha = hashlib.sha256(file_bytes).hexdigest()
+        content_sha = self._require_idempotent_input(
+            existing, file_name=file_name, file_bytes=file_bytes
+        )
+        existing, claimed = self._claim_stale_running(existing)
+        if not claimed:
+            return existing
         try:
             return self._run_pipeline(
                 existing,
@@ -228,6 +233,54 @@ class ReviewReuseService:
                 "pipeline_failed",
                 PIPELINE_FAILED_PUBLIC,
             ) from exc
+
+    def _require_idempotent_input(
+        self,
+        existing: ReviewReuseTask,
+        *,
+        file_name: str,
+        file_bytes: bytes,
+    ) -> str:
+        """Resume only when retry bytes/name match the stored reservation."""
+        content_sha = hashlib.sha256(file_bytes).hexdigest()
+        stored_sha = (existing.source_content_sha256 or "").strip().lower()
+        if stored_sha != content_sha.lower():
+            raise ReviewReuseError(
+                "idempotency_conflict",
+                "idempotency key is bound to a different source file",
+            )
+        stored_name = existing.source_file_name or ""
+        retry_name = file_name or stored_name
+        if stored_name and retry_name != stored_name:
+            raise ReviewReuseError(
+                "idempotency_conflict",
+                "idempotency key is bound to a different source file",
+            )
+        return content_sha
+
+    def _claim_stale_running(
+        self, existing: ReviewReuseTask
+    ) -> Tuple[ReviewReuseTask, bool]:
+        """CAS-lease a stale running snapshot so only one worker resumes."""
+        claim_at = time.time()
+
+        def updater(current: Optional[ReviewReuseTask]) -> ReviewReuseTask:
+            task = current if current is not None else existing
+            if task.status != TaskStatus.running:
+                return task
+            age = time.time() - float(task.updated_at or 0.0)
+            if age < STALE_RUNNING_SECONDS:
+                return task
+            task.updated_at = claim_at
+            return task
+
+        updated = self._update_atomically(
+            existing.tenant_id, existing.task_id, updater
+        )
+        won = (
+            updated.status == TaskStatus.running and updated.updated_at == claim_at
+        )
+        return updated, won
 
     def _run_pipeline(
         self,
@@ -288,6 +341,13 @@ class ReviewReuseService:
         """Do not overwrite a concurrent cancel/decision with pipeline completion."""
 
         def updater(current: Optional[ReviewReuseTask]) -> ReviewReuseTask:
+            if current is not None and current.status in (
+                TaskStatus.evidence_ready,
+                TaskStatus.failed,
+            ):
+                # First terminal pipeline result wins; a late resume/original
+                # worker must not replace persisted evidence.
+                return current
             if current is not None and current.status in (
                 TaskStatus.canceled,
                 TaskStatus.decided,

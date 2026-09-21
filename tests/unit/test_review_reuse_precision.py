@@ -242,6 +242,40 @@ def test_idempotency_replay_skips_file_gate() -> None:
 
 
 def test_stale_running_idempotency_resumes_pipeline() -> None:
+    import hashlib
+    import time
+
+    from src.core.review_reuse.models import ReviewReuseTask, TaskStatus
+    from src.core.review_reuse.service import STALE_RUNNING_SECONDS
+
+    svc = _svc()
+    now = time.time()
+    payload = b"x"
+    prior = ReviewReuseTask(
+        task_id="stuck-run",
+        tenant_id="t-stale",
+        status=TaskStatus.running,
+        created_at=now - STALE_RUNNING_SECONDS - 10.0,
+        updated_at=now - STALE_RUNNING_SECONDS - 10.0,
+        source_file_name="part.dxf",
+        source_content_sha256=hashlib.sha256(payload).hexdigest(),
+        idempotency_key="idem-stale",
+        trace_id="tr-stale",
+    )
+    svc.store.put(prior)
+    again = svc.create_task(
+        tenant_id="t-stale",
+        file_name="part.dxf",
+        file_bytes=payload,
+        idempotency_key="idem-stale",
+    )
+    assert again.task_id == "stuck-run"
+    assert again.status == TaskStatus.evidence_ready
+    assert again.evidence_pack is not None
+
+
+def test_stale_running_idempotency_rejects_mismatched_input() -> None:
+    import hashlib
     import time
 
     from src.core.review_reuse.models import ReviewReuseTask, TaskStatus
@@ -250,26 +284,87 @@ def test_stale_running_idempotency_resumes_pipeline() -> None:
     svc = _svc()
     now = time.time()
     prior = ReviewReuseTask(
-        task_id="stuck-run",
-        tenant_id="t-stale",
+        task_id="stuck-mismatch",
+        tenant_id="t-stale-mis",
         status=TaskStatus.running,
         created_at=now - STALE_RUNNING_SECONDS - 10.0,
         updated_at=now - STALE_RUNNING_SECONDS - 10.0,
         source_file_name="part.dxf",
-        source_content_sha256="ab",
-        idempotency_key="idem-stale",
-        trace_id="tr-stale",
+        source_content_sha256=hashlib.sha256(b"orig").hexdigest(),
+        idempotency_key="idem-stale-mis",
+        trace_id="tr-stale-mis",
     )
     svc.store.put(prior)
-    again = svc.create_task(
-        tenant_id="t-stale",
-        file_name="part.dxf",
-        file_bytes=b"x",
-        idempotency_key="idem-stale",
+    with pytest.raises(ReviewReuseError) as exc:
+        svc.create_task(
+            tenant_id="t-stale-mis",
+            file_name="other.dxf",
+            file_bytes=b"other",
+            idempotency_key="idem-stale-mis",
+        )
+    assert exc.value.code == "idempotency_conflict"
+    stuck = svc.get_task("t-stale-mis", "stuck-mismatch")
+    assert stuck.status == TaskStatus.running
+    assert stuck.evidence_pack is None
+
+
+def test_stale_running_idempotency_claim_is_single_winner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import hashlib
+    import threading
+    import time
+
+    from src.core.review_reuse.models import ReviewReuseTask, TaskStatus
+    from src.core.review_reuse.service import STALE_RUNNING_SECONDS
+    import src.core.review_reuse.service as service_mod
+
+    svc = _svc()
+    now = time.time()
+    payload = b"same-bytes"
+    prior = ReviewReuseTask(
+        task_id="stuck-race",
+        tenant_id="t-stale-race",
+        status=TaskStatus.running,
+        created_at=now - STALE_RUNNING_SECONDS - 10.0,
+        updated_at=now - STALE_RUNNING_SECONDS - 10.0,
+        source_file_name="part.dxf",
+        source_content_sha256=hashlib.sha256(payload).hexdigest(),
+        idempotency_key="idem-stale-race",
+        trace_id="tr-stale-race",
     )
-    assert again.task_id == "stuck-run"
-    assert again.status == TaskStatus.evidence_ready
-    assert again.evidence_pack is not None
+    svc.store.put(prior)
+    calls = {"n": 0}
+    orig = service_mod.recall_candidates
+
+    def _count(*args: object, **kwargs: object):
+        calls["n"] += 1
+        return orig(*args, **kwargs)
+
+    monkeypatch.setattr(service_mod, "recall_candidates", _count)
+    out: list = []
+
+    def _run() -> None:
+        out.append(
+            svc.create_task(
+                tenant_id="t-stale-race",
+                file_name="part.dxf",
+                file_bytes=payload,
+                idempotency_key="idem-stale-race",
+            )
+        )
+
+    threads = [threading.Thread(target=_run) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert len(out) == 2
+    assert {task.task_id for task in out} == {"stuck-race"}
+    assert calls["n"] == 1
+    final = svc.get_task("t-stale-race", "stuck-race")
+    assert final.status == TaskStatus.evidence_ready
+    assert final.evidence_pack is not None
 
 
 def test_fresh_running_idempotency_is_not_resumed() -> None:

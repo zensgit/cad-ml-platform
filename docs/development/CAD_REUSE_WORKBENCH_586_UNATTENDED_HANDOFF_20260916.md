@@ -523,6 +523,22 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave2 — 2026-09-21 ~15:50 UTC
+
+Sol 5.6 vs `origin/main` on `0edbaf22`: **P2** stale resume scored a
+retry's bytes under the old task identity; **P2** two workers could
+both rerun and overwrite `evidence_ready`. Bind retry name/hash;
+CAS-claim before `_run_pipeline`; first terminal result wins.
+Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 resume bind | `_require_idempotent_input` 409 `idempotency_conflict` |
+| P2 stale claim | `_claim_stale_running` CAS on `updated_at` |
+| Local `make test-review-reuse` | **233 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 4 wave1 — 2026-09-21 ~15:22 UTC
 
 Sol 5.6 vs `origin/main` on `a6f3e2b5`: **P2** filesystem idempotency
