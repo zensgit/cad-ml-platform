@@ -231,6 +231,9 @@ isolation only.
 CI on that SHA: `tests (3.10)` / `tests (3.11)` / `lint-type` /
 `core-fast-gate` **pass**. Evaluation Report fail = Track E / ignore.
 
+**Landed:** Window-4 docs `a6f3e2b5`. Sol P2 stale running idempotency
+resume (180s) on this wave.
+
 ### Model routing (by difficulty)
 
 | Difficulty | Model | Work |

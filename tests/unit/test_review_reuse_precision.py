@@ -241,6 +241,67 @@ def test_idempotency_replay_skips_file_gate() -> None:
     assert again.task_id == "pre-gate"
 
 
+def test_stale_running_idempotency_resumes_pipeline() -> None:
+    import time
+
+    from src.core.review_reuse.models import ReviewReuseTask, TaskStatus
+    from src.core.review_reuse.service import STALE_RUNNING_SECONDS
+
+    svc = _svc()
+    now = time.time()
+    prior = ReviewReuseTask(
+        task_id="stuck-run",
+        tenant_id="t-stale",
+        status=TaskStatus.running,
+        created_at=now - STALE_RUNNING_SECONDS - 10.0,
+        updated_at=now - STALE_RUNNING_SECONDS - 10.0,
+        source_file_name="part.dxf",
+        source_content_sha256="ab",
+        idempotency_key="idem-stale",
+        trace_id="tr-stale",
+    )
+    svc.store.put(prior)
+    again = svc.create_task(
+        tenant_id="t-stale",
+        file_name="part.dxf",
+        file_bytes=b"x",
+        idempotency_key="idem-stale",
+    )
+    assert again.task_id == "stuck-run"
+    assert again.status == TaskStatus.evidence_ready
+    assert again.evidence_pack is not None
+
+
+def test_fresh_running_idempotency_is_not_resumed() -> None:
+    import time
+
+    from src.core.review_reuse.models import ReviewReuseTask, TaskStatus
+
+    svc = _svc()
+    now = time.time()
+    prior = ReviewReuseTask(
+        task_id="live-run",
+        tenant_id="t-fresh",
+        status=TaskStatus.running,
+        created_at=now,
+        updated_at=now,
+        source_file_name="part.dxf",
+        source_content_sha256="ab",
+        idempotency_key="idem-fresh",
+        trace_id="tr-fresh",
+    )
+    svc.store.put(prior)
+    again = svc.create_task(
+        tenant_id="t-fresh",
+        file_name="part.dxf",
+        file_bytes=b"x",
+        idempotency_key="idem-fresh",
+    )
+    assert again.task_id == "live-run"
+    assert again.status == TaskStatus.running
+    assert again.evidence_pack is None
+
+
 def test_precision_labels_vision_only_without_copying_visual() -> None:
     cands = map_raw_hits_to_candidates(
         [

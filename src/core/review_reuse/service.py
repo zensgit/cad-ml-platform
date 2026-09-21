@@ -37,6 +37,8 @@ ENV_DECISIONS_ENABLED = "REVIEW_REUSE_DECISIONS_ENABLED"
 ENV_REQUIRE_VALIDATED_REVIEWER = "REVIEW_REUSE_REQUIRE_VALIDATED_REVIEWER"
 _TRUE = frozenset({"1", "true", "yes", "on"})
 PIPELINE_FAILED_PUBLIC = "review-reuse pipeline failed"
+# Live recall bound is 120s; a running snapshot older than this is a crash.
+STALE_RUNNING_SECONDS = 180.0
 
 _STORE: Optional[ReviewReuseStoreProtocol] = None
 
@@ -98,7 +100,12 @@ class ReviewReuseService:
         if idempotency_key:
             existing = self.store.get_by_idempotency(tenant_id, idempotency_key)
             if existing is not None:
-                return existing
+                return self._return_idempotent(
+                    existing,
+                    file_name=file_name,
+                    file_bytes=file_bytes,
+                    seed_candidates=seed_candidates,
+                )
         if not is_allowed_review_reuse_filename(file_name):
             raise ReviewReuseError(
                 RejectionReason.unsupported_file_type.value,
@@ -133,7 +140,12 @@ class ReviewReuseService:
                 "hashed tenant directory is occupied by another tenant",
             ) from exc
         if stored.task_id != task.task_id:
-            return stored
+            return self._return_idempotent(
+                stored,
+                file_name=file_name,
+                file_bytes=file_bytes,
+                seed_candidates=seed_candidates,
+            )
         task = stored
 
         try:
@@ -163,6 +175,53 @@ class ReviewReuseService:
             )
             try:
                 self._commit_pipeline_result(task)
+            except Exception:
+                logger.warning("review_reuse_failed_task_persist_failed", exc_info=True)
+            raise ReviewReuseError(
+                "pipeline_failed",
+                PIPELINE_FAILED_PUBLIC,
+            ) from exc
+
+    def _return_idempotent(
+        self,
+        existing: ReviewReuseTask,
+        *,
+        file_name: str,
+        file_bytes: bytes,
+        seed_candidates: Optional[List[Dict[str, Any]]],
+    ) -> ReviewReuseTask:
+        """Replay a stored idempotent task; resume stale ``running`` snapshots."""
+        if existing.status != TaskStatus.running:
+            return existing
+        age = time.time() - float(existing.updated_at or 0.0)
+        if age < STALE_RUNNING_SECONDS:
+            return existing
+        content_sha = hashlib.sha256(file_bytes).hexdigest()
+        try:
+            return self._run_pipeline(
+                existing,
+                file_name=file_name or existing.source_file_name,
+                file_bytes=file_bytes,
+                content_sha=content_sha,
+                seed_candidates=seed_candidates,
+            )
+        except OccupiedTenantDirError as exc:
+            raise ReviewReuseError(
+                "store_conflict",
+                "hashed tenant directory is occupied by another tenant",
+            ) from exc
+        except ReviewReuseError:
+            raise
+        except Exception as exc:
+            logger.warning("review_reuse_pipeline_failed", exc_info=True)
+            existing.status = TaskStatus.failed
+            strip_transient_candidate_geom(existing.candidates)
+            existing.error = PIPELINE_FAILED_PUBLIC
+            existing = self._emit(
+                existing, TaskEventType.failed, {"error": PIPELINE_FAILED_PUBLIC}
+            )
+            try:
+                self._commit_pipeline_result(existing)
             except Exception:
                 logger.warning("review_reuse_failed_task_persist_failed", exc_info=True)
             raise ReviewReuseError(

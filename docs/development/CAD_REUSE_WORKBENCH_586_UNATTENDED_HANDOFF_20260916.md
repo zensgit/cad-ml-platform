@@ -523,6 +523,20 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave1 — 2026-09-21 ~15:22 UTC
+
+Sol 5.6 vs `origin/main` on `a6f3e2b5`: **P2** filesystem idempotency
+replay returned a crashed `running` snapshot forever. Resume when
+`updated_at` is older than 180s; leave in-flight running tasks alone.
+Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 stale running | `_return_idempotent` resumes after `STALE_RUNNING_SECONDS` |
+| Local `make test-review-reuse` | **231 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 3 wave89 — 2026-09-19 ~16:50 UTC
 
 Sol 5.6 vs `origin/main` on `ee1d21c6`: **P2** JSON query geom decoded

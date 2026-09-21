@@ -290,6 +290,10 @@ make test-review-reuse
 | Oversized JSON skips decode | `test_oversized_json_geom_is_skipped` |
 | Nested live-recall start timeout stops worker | `test_run_coro_stops_worker_when_startup_times_out` |
 | `make test-review-reuse` after JSON cap + live-recall start stop | **229 passed**, 7 ezdxf warnings |
+| Sol window4-w1 vs `origin/main` on `a6f3e2b5` | P2 stale running idempotency replay |
+| Stale running idempotency resumes pipeline | `test_stale_running_idempotency_resumes_pipeline` |
+| Fresh running idempotency is not resumed | `test_fresh_running_idempotency_is_not_resumed` |
+| `make test-review-reuse` after stale-running recovery | **231 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
