@@ -156,18 +156,7 @@ def _run_coro(coro, *, timeout: float) -> Any:
             loop.call_soon_threadsafe(_cancel_all)
             raise TimeoutError(str(exc) or "live recall timed out") from exc
     finally:
-
-        def _stop() -> None:
-            loop.stop()
-
-        try:
-            loop.call_soon_threadsafe(_stop)
-        except RuntimeError:
-            pass
-        loop.stop()
-        worker.join(timeout=1.0)
-        if not worker.is_alive():
-            loop.close()
+        _shutdown_nested_loop(loop, worker)
         for pending in (bounded, coro):
             close = getattr(pending, "close", None)
             if close is None:
@@ -176,6 +165,45 @@ def _run_coro(coro, *, timeout: float) -> Any:
                 close()
             except (RuntimeError, ValueError):
                 pass
+
+
+def _shutdown_nested_loop(
+    loop: asyncio.AbstractEventLoop, worker: threading.Thread
+) -> None:
+    """Drain canceled tasks so timeout cleanup can run before close."""
+
+    async def _drain() -> None:
+        current = asyncio.current_task()
+        pending = [task for task in asyncio.all_tasks() if task is not current]
+        for task in pending:
+            task.cancel()
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
+        loop.stop()
+
+    try:
+        if loop.is_closed():
+            worker.join(timeout=1.0)
+            return
+        drain = asyncio.run_coroutine_threadsafe(_drain(), loop)
+    except RuntimeError:
+        try:
+            loop.call_soon_threadsafe(loop.stop)
+        except RuntimeError:
+            pass
+        loop.stop()
+    else:
+        try:
+            drain.result(timeout=1.0)
+        except Exception:
+            try:
+                loop.call_soon_threadsafe(loop.stop)
+            except RuntimeError:
+                pass
+            loop.stop()
+    worker.join(timeout=1.0)
+    if not worker.is_alive() and not loop.is_closed():
+        loop.close()
 
 
 def ensure_default_live_hook() -> None:

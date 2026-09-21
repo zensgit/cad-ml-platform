@@ -523,6 +523,22 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave12 — 2026-09-21 ~19:22 UTC
+
+Sol 5.6 vs `origin/main` on `7f15b214`: **P2** nested-loop live-recall
+timeout queued cancellation then immediately `loop.stop()`, so
+`CancelledError` cleanup (httpx transports) never ran. Drain canceled
+tasks on the worker loop before stop/close. Never merge; decisions
+stay off.
+
+| Item | State |
+|---|---|
+| P2 live-recall drain | `_shutdown_nested_loop` awaits canceled tasks |
+| Local `make test-review-reuse` | **243 passed** |
+| tests (3.10) on `7f15b214` | in_progress at fire (not red) |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+
 ## Window 4 wave11 — 2026-09-21 ~18:55 UTC
 
 Sol 5.6 vs `origin/main` on `eed168f0`: **P2** classic POLYLINE

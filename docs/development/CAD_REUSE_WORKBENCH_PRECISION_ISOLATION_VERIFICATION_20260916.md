@@ -320,6 +320,9 @@ make test-review-reuse
 | Sol window4-w11 vs `origin/main` on `eed168f0` | P2 classic POLYLINE parent default widths dropped |
 | Thick classic POLYLINE is not thin LINE L4 | `test_dxf_extracted_polyline_default_width_is_not_certified_as_l4` |
 | `make test-review-reuse` after POLYLINE default-width extract | **242 passed**, 7 ezdxf warnings |
+| Sol window4-w12 vs `origin/main` on `7f15b214` | P2 nested-loop timeout stopped before canceled cleanup |
+| Nested live-recall timeout runs CancelledError cleanup | `test_run_coro_timeout_runs_canceled_cleanup` |
+| `make test-review-reuse` after live-recall drain | **243 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

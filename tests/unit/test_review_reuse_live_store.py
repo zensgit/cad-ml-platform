@@ -287,6 +287,35 @@ def test_run_coro_timeout_when_loop_already_running() -> None:
     asyncio.run(_inner())
 
 
+def test_run_coro_timeout_runs_canceled_cleanup() -> None:
+    """Nested-loop timeout must finish CancelledError cleanup before close."""
+    import asyncio
+    import warnings
+
+    from src.core.review_reuse.dedup_live import _run_coro
+
+    cleaned = threading.Event()
+
+    async def _inner() -> None:
+        async def _slow() -> str:
+            try:
+                await asyncio.sleep(2)
+                return "done"
+            finally:
+                cleaned.set()
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            with pytest.raises((TimeoutError, asyncio.TimeoutError)):
+                _run_coro(_slow(), timeout=0.05)
+        assert cleaned.wait(timeout=1.0)
+        assert not any(
+            "destroyed but it is pending" in str(item.message) for item in caught
+        )
+
+    asyncio.run(_inner())
+
+
 def test_run_coro_completes_within_timeout() -> None:
     from src.core.review_reuse.dedup_live import _run_coro
 

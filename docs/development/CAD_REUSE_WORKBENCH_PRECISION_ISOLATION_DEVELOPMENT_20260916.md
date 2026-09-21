@@ -239,7 +239,9 @@ runs hash the idempotency key. Wave5: CRLF-normalize the raw INSUNITS
 scan. Wave6: omit-both `insunits` is a units conflict (no L4). Wave8:
 idempotent replay of `failed` re-raises `pipeline_failed` (HTTP 500).
 Wave11: classic POLYLINE parent `default_start_width` /
-`default_end_width` set `has_width`; extract cache v6.
+`default_end_width` set `has_width`; extract cache v6. Wave12: nested
+live-recall timeout drains canceled tasks before stopping the worker
+loop.
 
 ### Model routing (by difficulty)
 
