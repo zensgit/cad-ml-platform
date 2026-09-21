@@ -34,6 +34,7 @@ from src.core.review_reuse.store import (
     ENV_STORE_DIR,
     FilesystemReviewReuseStore,
     InMemoryReviewReuseStore,
+    StoreLockUnavailableError,
     _StoreFileLock,
     create_review_reuse_store,
     tenant_dir_key,
@@ -569,6 +570,45 @@ def test_store_file_lock_reopens_fd_after_pid_change(
     lock._ensure_fd()
     assert lock._fd_pid == 2002
     assert lock._fd is not None
+
+
+def test_store_file_lock_fails_closed_without_fcntl_or_msvcrt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "src.core.review_reuse.store._import_optional", lambda _name: None
+    )
+    with pytest.raises(StoreLockUnavailableError, match="inter-process lock"):
+        with _StoreFileLock(tmp_path / ".review_reuse.lock"):
+            pass
+
+
+def test_store_file_lock_uses_msvcrt_when_fcntl_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[int] = []
+
+    class _FakeMsvcrt:
+        LK_NBLCK = 1
+        LK_UNLCK = 0
+
+        @staticmethod
+        def locking(_fd: int, mode: int, _nbytes: int) -> None:
+            calls.append(mode)
+
+    def _import_optional(name: str) -> object:
+        if name == "fcntl":
+            return None
+        if name == "msvcrt":
+            return _FakeMsvcrt
+        raise AssertionError(name)
+
+    monkeypatch.setattr(
+        "src.core.review_reuse.store._import_optional", _import_optional
+    )
+    with _StoreFileLock(tmp_path / ".review_reuse.lock"):
+        assert calls == [_FakeMsvcrt.LK_NBLCK]
+    assert calls == [_FakeMsvcrt.LK_NBLCK, _FakeMsvcrt.LK_UNLCK]
 
 
 def test_filesystem_update_atomically_serializes_processes(tmp_path: Path) -> None:

@@ -251,7 +251,8 @@ Wave17: conflicting top-level vs `file_info` INSUNITS fail closed;
 non-boolean `has_width` is unsafe. Wave20: present non-list polyline
 `widths` fail closed. Wave22: filesystem `put()` uses validated
 `tenant_meta` as the write fast path (full task scan only if meta is
-missing).
+missing). Wave24: Windows FS store uses `msvcrt.locking`; missing both
+fcntl and msvcrt fails closed.
 
 ### Model routing (by difficulty)
 

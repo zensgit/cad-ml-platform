@@ -7,8 +7,9 @@ import json
 import os
 import tempfile
 import threading
+import time
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Protocol
+from typing import Any, Callable, Dict, List, Optional, Protocol
 
 from .models import ReviewReuseTask
 
@@ -34,13 +35,49 @@ class OccupiedTenantDirError(RuntimeError):
         )
 
 
-def _flock(fd: int, exclusive: bool) -> None:
-    """Best-effort POSIX flock; no-op when fcntl is unavailable."""
+class StoreLockUnavailableError(RuntimeError):
+    """Filesystem store cannot take an inter-process lock on this platform."""
+
+
+def _import_optional(name: str) -> Any:
     try:
-        import fcntl
-    except ImportError:  # pragma: no cover - Windows
+        return __import__(name)
+    except ImportError:
+        return None
+
+
+def _msvcrt_lock(fd: int, exclusive: bool, msvcrt: Any) -> None:
+    """Byte-range lock on the dedicated store lockfile (Windows)."""
+    if os.fstat(fd).st_size < 1:
+        os.write(fd, b"\0")
+    os.lseek(fd, 0, os.SEEK_SET)
+    if exclusive:
+        while True:
+            try:
+                msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+                return
+            except OSError:
+                time.sleep(0.01)
+                os.lseek(fd, 0, os.SEEK_SET)
+    else:
+        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+
+
+def _flock(fd: int, exclusive: bool) -> None:
+    """Inter-process lock; fail closed if fcntl and msvcrt are both missing."""
+    fcntl_mod = _import_optional("fcntl")
+    if fcntl_mod is not None:
+        fcntl_mod.flock(
+            fd, fcntl_mod.LOCK_EX if exclusive else fcntl_mod.LOCK_UN
+        )
         return
-    fcntl.flock(fd, fcntl.LOCK_EX if exclusive else fcntl.LOCK_UN)
+    msvcrt_mod = _import_optional("msvcrt")
+    if msvcrt_mod is None:
+        raise StoreLockUnavailableError(
+            "FilesystemReviewReuseStore requires an inter-process lock "
+            "(fcntl or msvcrt); neither is available"
+        )
+    _msvcrt_lock(fd, exclusive, msvcrt_mod)
 
 
 def _atomic_write_text(path: Path, text: str) -> None:
@@ -68,8 +105,9 @@ class _StoreFileLock:
     ``threading.RLock`` alone is per-process; gunicorn/uvicorn workers each
     have their own, so cancel/decision/idempotent create can clobber each
     other. flock on a store-root lockfile serializes those read-modify-write
-    paths across processes. Nested methods (update_atomically → get/put)
-    re-enter on the same thread without dropping the flock.
+    paths across processes (``msvcrt.locking`` on Windows). Nested methods
+    (update_atomically → get/put) re-enter on the same thread without
+    dropping the flock. Missing both backends fails closed.
     """
 
     def __init__(self, path: Path) -> None:

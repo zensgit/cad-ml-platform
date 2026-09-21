@@ -352,6 +352,11 @@ make test-review-reuse
 | `make test-review-reuse` after store meta fast-path | **254 passed**, 7 ezdxf warnings |
 | tests (3.10) / tests (3.11) / lint-type / e2e-smoke on `27399d99` | **pass** |
 | Sol window4-w23 vs `origin/main` on `27399d99` | **no P1/P2** |
+| tests (3.10) / lint-type / e2e-smoke on `5ce7c2df` | **pass** |
+| Sol window4-w24 vs `origin/main` on `5ce7c2df` | P2 Windows flock no-op left only RLock |
+| Missing fcntl+msvcrt fails closed | `test_store_file_lock_fails_closed_without_fcntl_or_msvcrt` |
+| msvcrt path when fcntl missing | `test_store_file_lock_uses_msvcrt_when_fcntl_missing` |
+| `make test-review-reuse` after Windows lock | **256 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -463,7 +468,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `27399d99` (last fully green HEAD) |
+| Python 3.10 CI job | **pass** on `5ce7c2df` (last fully green HEAD) |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |
