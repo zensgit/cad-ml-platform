@@ -272,6 +272,8 @@ Wave67: hashed task JSON that exists but is unreadable does not fall
 through to leftover legacy state on get / idempotency / list.
 Wave68: a present hashed file is authoritative on tenant mismatch, and
 legacy idempotency lookups consult the hashed task path first.
+Wave69: a present-but-junk hashed ``idempotency.json`` fails closed
+instead of replaying leftover legacy mappings.
 
 ### Model routing (by difficulty)
 

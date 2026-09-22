@@ -27,6 +27,7 @@
 | Corrupt hashed task does not resurrect legacy | `test_corrupt_hashed_task_does_not_resurrect_legacy` | pass locally |
 | Hashed tenant mismatch does not resurrect legacy | `test_hashed_tenant_mismatch_does_not_resurrect_legacy` | pass locally |
 | Legacy idempotency does not skip hashed task | `test_legacy_idempotency_does_not_skip_hashed_task` | pass locally |
+| Corrupt hashed idempotency does not replay legacy | `test_corrupt_hashed_idempotency_does_not_replay_legacy` | pass locally |
 | cleanup `--tenant` by original id / hash | `test_cleanup_matches_hashed_tenant_by_original_id` | pass |
 | Mixed legacy dir not rmtree'd | `test_cleanup_refuses_mixed_legacy_tenant_dir` | pass |
 | JWT missing/invalid → 401 | `tests/unit/test_review_reuse_api.py` | pass |
@@ -425,6 +426,9 @@ make test-review-reuse
 | Hashed tenant mismatch does not return leftover | `test_hashed_tenant_mismatch_does_not_resurrect_legacy` |
 | Legacy idempotency consults hashed task path | `test_legacy_idempotency_does_not_skip_hashed_task` |
 | `make test-review-reuse` after hashed-authoritative reads | **277 passed**, 7 ezdxf warnings |
+| Sol window4-w69 vs `origin/main` on `11a6c6c8` | P2 corrupt hashed idempotency replayed leftover mapping |
+| Corrupt hashed idempotency.json does not replay | `test_corrupt_hashed_idempotency_does_not_replay_legacy` |
+| `make test-review-reuse` after hashed-idempotency fail-closed | **278 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -536,7 +540,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pending** on `4cdd3ed5`; product `af05416a` |
+| Python 3.10 CI job | **pending** on `11a6c6c8`; product `09d67662` |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |
