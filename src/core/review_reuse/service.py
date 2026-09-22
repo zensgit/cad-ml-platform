@@ -512,7 +512,11 @@ class ReviewReuseService:
                 raise ReviewReuseError(
                     "not_found", f"task {task_id!r} not found for tenant"
                 )
-            if current.status in (TaskStatus.decided, TaskStatus.canceled):
+            if current.status in (
+                TaskStatus.decided,
+                TaskStatus.canceled,
+                TaskStatus.failed,
+            ):
                 return current
             current.status = TaskStatus.canceled
             return self._emit(current, TaskEventType.canceled, {})
