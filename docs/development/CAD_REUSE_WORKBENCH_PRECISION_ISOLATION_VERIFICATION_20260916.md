@@ -481,6 +481,8 @@ make test-review-reuse
 | Sol window4-w88 vs `origin/main` on `3ed17d57` | P2 hashed inline geom skipped the store |
 | Hashed inline does not bypass store | `test_hashed_inline_geom_does_not_bypass_store` |
 | `make test-review-reuse` after hashed-store-over-inline | **292 passed**, 7 ezdxf warnings |
+| Hashed store miss does not revive prescored L4 | `test_hashed_store_miss_does_not_revive_prescored_l4` |
+| `make test-review-reuse` after hashed-store-miss refuse | **293 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

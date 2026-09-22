@@ -523,6 +523,21 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave89 — 2026-09-22 ~23:50 UTC
+
+Follow-up to wave88. Hashed ids skip inline `geom_json`; an empty
+geom store still fell through to adapter `precision-l4` 1.0 when the
+live hit also carried query-mirroring JSON. Refuse prescored L4 on
+hashed store miss. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 hashed store miss | hashed branch strips stale L4 when store is empty |
+| Product | `1c86fb13` |
+| Local `make test-review-reuse` | **293 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`MERGEABLE`; owner must merge) |
+
 ## Window 4 wave88 — 2026-09-22 ~23:41 UTC
 
 tests (3.10) / tests (3.11) **pass** on `3ed17d57` (product
