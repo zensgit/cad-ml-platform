@@ -4833,7 +4833,29 @@ def test_isolated_file_run_uses_content_idempotency_key() -> None:
     assert left.startswith("isolated-file-")
     assert (
         resolve_idempotency_key(None, b"x", from_file=False)
-        == "isolated-archive-demo"
+        == "isolated-archive-demo-unseeded-offline"
+    )
+
+
+def test_isolated_file_idempotency_key_binds_seed_and_live_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from scripts.review_reuse_isolated_archive_run import resolve_idempotency_key
+
+    monkeypatch.delenv("REVIEW_REUSE_LIVE_DEDUP", raising=False)
+    body = b"drawing-a"
+    unseeded = resolve_idempotency_key(None, body, from_file=True)
+    seeded = resolve_idempotency_key(None, body, from_file=True, seed_similar=True)
+    assert unseeded != seeded
+    assert "unseeded-offline" in unseeded
+    assert "seed-offline" in seeded
+    monkeypatch.setenv("REVIEW_REUSE_LIVE_DEDUP", "true")
+    live = resolve_idempotency_key(None, body, from_file=True)
+    assert live != unseeded
+    assert "unseeded-live" in live
+    assert (
+        resolve_idempotency_key("explicit", body, from_file=True, seed_similar=True)
+        == "explicit"
     )
 
 

@@ -523,6 +523,22 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave46 — 2026-09-22 ~09:22 UTC
+
+tests (3.10) **pass** on `e77a07d8`. Sol 5.6 vs `origin/main` on that
+HEAD: **P2** generated isolated-archive FILE keys were content-only, so
+the same drawing replayed across `--seed-similar` / live-recall. Bind
+seed+recall mode into the generated key. Never merge; decisions stay
+off.
+
+| Item | State |
+|---|---|
+| P2 isolated-archive mode key | `resolve_idempotency_key` includes seed/live |
+| Local `make test-review-reuse` | **272 passed** |
+| tests (3.10) on `e77a07d8` | **pass** (pre-push) |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`unstable`) |
+
 ## Window 4 wave41 — 2026-09-22 ~07:45 UTC
 
 tests (3.10) **pass** on `7872bd32`. Sol 5.6 vs `origin/main` on that

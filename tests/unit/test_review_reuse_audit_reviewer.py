@@ -119,6 +119,43 @@ def test_isolated_archive_script_seed_similar(tmp_path: Path) -> None:
     assert "similar" in task
 
 
+def test_isolated_file_seed_does_not_replay_unseeded_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Same drawing + tenant must not replay across seed/recall modes."""
+    import json
+
+    from scripts.review_reuse_isolated_archive_run import main
+
+    monkeypatch.setenv("REVIEW_REUSE_STORE", "filesystem")
+    monkeypatch.setenv("REVIEW_REUSE_STORE_DIR", str(tmp_path / "store"))
+    monkeypatch.delenv("REVIEW_REUSE_LIVE_DEDUP", raising=False)
+    dxf = tmp_path / "part.dxf"
+    dxf.write_bytes(b"0\nSECTION\n2\nHEADER\n0\nENDSEC\n0\nEOF\n")
+    out1 = tmp_path / "unseeded"
+    out2 = tmp_path / "seeded"
+    assert main(["--out", str(out1), "--file", str(dxf), "--tenant", "t-mode"]) == 0
+    assert (
+        main(
+            [
+                "--out",
+                str(out2),
+                "--file",
+                str(dxf),
+                "--tenant",
+                "t-mode",
+                "--seed-similar",
+            ]
+        )
+        == 0
+    )
+    t1 = json.loads((out1 / "task.json").read_text(encoding="utf-8"))
+    t2 = json.loads((out2 / "task.json").read_text(encoding="utf-8"))
+    assert t1["task_id"] != t2["task_id"]
+    assert "synthetic-archive-001" not in json.dumps(t1)
+    assert "synthetic-archive-001" in json.dumps(t2)
+
+
 def test_isolated_archive_script_file_offline_no_seed(tmp_path: Path) -> None:
     """--file real DXF, no --seed-similar: hashes the drawing, stays offline."""
     import hashlib

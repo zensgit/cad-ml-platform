@@ -263,7 +263,9 @@ Wave39: local L4 refuse reuses the first-loaded candidate geom so a
 later store miss cannot revive a stale pre-scored `precision-l4`.
 Wave40: every idempotent replay checks bound input; ELLIPSE ratio must
 be in `(0, 1]`. Wave41: the ratio bound uses the unrounded finite value
-so `1.0004` cannot round into L4.
+so `1.0004` cannot round into L4. Wave46: generated isolated-archive
+idempotency keys bind seed vs live-recall mode so a later
+``--seed-similar`` or ``REVIEW_REUSE_LIVE_DEDUP`` change cannot replay.
 
 ### Model routing (by difficulty)
 

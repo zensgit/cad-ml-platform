@@ -404,6 +404,11 @@ make test-review-reuse
 | Sol window4-w41 vs `origin/main` on `7872bd32` | P2 quantized ellipse ratio 1.0004 |
 | Ellipse ratio 1.0004 is not L4 | `test_ratio_just_above_one_ellipse_is_not_l4_geometry` |
 | `make test-review-reuse` after unrounded ellipse ratio | **270 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) on `e77a07d8` | **pass** |
+| Sol window4-w46 vs `origin/main` on `e77a07d8` | P2 isolated-archive key ignored seed/live mode |
+| Generated FILE key binds seed vs live | `test_isolated_file_idempotency_key_binds_seed_and_live_mode` |
+| Same file seed does not replay unseeded | `test_isolated_file_seed_does_not_replay_unseeded_run` |
+| `make test-review-reuse` after isolated-archive mode key | **272 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

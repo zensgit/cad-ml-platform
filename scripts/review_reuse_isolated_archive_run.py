@@ -27,17 +27,36 @@ import sys
 from pathlib import Path
 
 _DEFAULT_IDEM = "isolated-archive-demo"
+_LIVE_TRUE = frozenset({"1", "true", "yes", "on"})
+
+
+def _generated_recall_mode(*, seed_similar: bool) -> str:
+    """Seed vs live-recall must not share a generated idempotency key."""
+    seed = "seed" if seed_similar else "unseeded"
+    live = os.environ.get("REVIEW_REUSE_LIVE_DEDUP", "").strip().lower() in _LIVE_TRUE
+    recall = "live" if live else "offline"
+    return f"{seed}-{recall}"
 
 
 def resolve_idempotency_key(
-    explicit: str | None, file_bytes: bytes, *, from_file: bool
+    explicit: str | None,
+    file_bytes: bytes,
+    *,
+    from_file: bool,
+    seed_similar: bool = False,
 ) -> str:
-    """FILE runs must not reuse the synthetic demo key."""
+    """FILE runs must not reuse the synthetic demo key.
+
+    Generated keys include seed/recall mode so a later ``--seed-similar`` or
+    ``REVIEW_REUSE_LIVE_DEDUP`` change cannot silently replay the other mode.
+    """
     if explicit:
         return explicit
+    mode = _generated_recall_mode(seed_similar=seed_similar)
     if from_file:
-        return "isolated-file-" + hashlib.sha256(file_bytes).hexdigest()[:24]
-    return _DEFAULT_IDEM
+        digest = hashlib.sha256(file_bytes).hexdigest()[:24]
+        return f"isolated-file-{mode}-{digest}"
+    return f"{_DEFAULT_IDEM}-{mode}"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -62,7 +81,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--idempotency-key",
         default=None,
-        help="Create-task idempotency key (FILE runs default to a content hash)",
+        help="Create-task idempotency key (FILE default: content+mode hash)",
     )
     args = parser.parse_args(argv)
 
@@ -109,7 +128,10 @@ def main(argv: list[str] | None = None) -> int:
             file_name=file_name,
             file_bytes=file_bytes,
             idempotency_key=resolve_idempotency_key(
-                args.idempotency_key, file_bytes, from_file=args.file is not None
+                args.idempotency_key,
+                file_bytes,
+                from_file=args.file is not None,
+                seed_similar=args.seed_similar,
             ),
             seed_candidates=seed,
         )
