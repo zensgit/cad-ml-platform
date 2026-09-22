@@ -25,6 +25,8 @@
 | Hashed tenant dirs, no `a/b` vs `a_b` collision | `test_filesystem_store_tenant_path_no_collision` | pass |
 | list prefers hashed over stale legacy | `test_list_for_tenant_prefers_hashed_over_stale_legacy` | pass |
 | Corrupt hashed task does not resurrect legacy | `test_corrupt_hashed_task_does_not_resurrect_legacy` | pass locally |
+| Hashed tenant mismatch does not resurrect legacy | `test_hashed_tenant_mismatch_does_not_resurrect_legacy` | pass locally |
+| Legacy idempotency does not skip hashed task | `test_legacy_idempotency_does_not_skip_hashed_task` | pass locally |
 | cleanup `--tenant` by original id / hash | `test_cleanup_matches_hashed_tenant_by_original_id` | pass |
 | Mixed legacy dir not rmtree'd | `test_cleanup_refuses_mixed_legacy_tenant_dir` | pass |
 | JWT missing/invalid → 401 | `tests/unit/test_review_reuse_api.py` | pass |
@@ -419,6 +421,10 @@ make test-review-reuse
 | Sol window4-w67 vs `origin/main` on `5de8baef` | P2 corrupt hashed task resurrected leftover legacy |
 | Corrupt hashed JSON does not return legacy running | `test_corrupt_hashed_task_does_not_resurrect_legacy` |
 | `make test-review-reuse` after hashed-corruption fail-closed | **275 passed**, 7 ezdxf warnings |
+| Sol window4-w68 vs `origin/main` on `4cdd3ed5` | P2 hashed tenant mismatch; P2 stale legacy idempotency |
+| Hashed tenant mismatch does not return leftover | `test_hashed_tenant_mismatch_does_not_resurrect_legacy` |
+| Legacy idempotency consults hashed task path | `test_legacy_idempotency_does_not_skip_hashed_task` |
+| `make test-review-reuse` after hashed-authoritative reads | **277 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -530,7 +536,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `5de8baef`; product `c56ba4b1` pending |
+| Python 3.10 CI job | **pending** on `4cdd3ed5`; product `af05416a` |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |

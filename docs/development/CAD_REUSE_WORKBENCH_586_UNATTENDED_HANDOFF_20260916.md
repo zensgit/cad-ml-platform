@@ -523,6 +523,24 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave68 — 2026-09-22 ~16:42 UTC
+
+tests (3.10) still **in progress** on `4cdd3ed5` (not red). Sol 5.6 vs
+`origin/main` on that HEAD: **P2** hashed files with a mismatched
+`tenant_id` still fell through to leftover legacy JSON; **P2** a
+corrupt hashed `idempotency.json` accepted a stale legacy mapping.
+Treat any present hashed task file as authoritative. Never merge;
+decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 hashed tenant mismatch | `_hashed_task_if_present` returns a miss |
+| P2 legacy idempotency | hashed task path checked before leftover mapping |
+| Local `make test-review-reuse` | **277 passed** |
+| tests (3.10) on `4cdd3ed5` | in progress (not red); product `af05416a` |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`unstable`) |
+
 ## Window 4 wave67 — 2026-09-22 ~16:22 UTC
 
 tests (3.10) **pass** on `5de8baef`. Sol 5.6 vs `origin/main` on that
