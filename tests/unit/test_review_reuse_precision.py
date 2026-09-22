@@ -273,7 +273,7 @@ def test_pipeline_rebuilds_pack_after_mid_flight_decision(
     assert metrics["median_review_time_seconds"] is None
 
 
-def test_idempotency_replay_skips_file_gate() -> None:
+def test_idempotency_replay_does_not_skip_file_gate() -> None:
     import time
 
     from src.core.review_reuse.models import ReviewReuseTask, TaskStatus
@@ -292,13 +292,48 @@ def test_idempotency_replay_skips_file_gate() -> None:
         trace_id="tr-legacy",
     )
     svc.store.put(prior)
-    again = svc.create_task(
-        tenant_id="t-a",
-        file_name="legacy.bin",
-        file_bytes=b"x",
-        idempotency_key="idem-legacy",
+    with pytest.raises(ReviewReuseError) as ei:
+        svc.create_task(
+            tenant_id="t-a",
+            file_name="legacy.bin",
+            file_bytes=b"x",
+            idempotency_key="idem-legacy",
+        )
+    assert ei.value.code == RejectionReason.unsupported_file_type.value
+    stuck = svc.get_task("t-a", "pre-gate")
+    assert stuck.status == TaskStatus.evidence_ready
+
+
+def test_stale_running_unsupported_filename_does_not_resume() -> None:
+    import time
+
+    from src.core.review_reuse.models import ReviewReuseTask, TaskStatus
+    from src.core.review_reuse.service import STALE_RUNNING_SECONDS
+
+    svc = _svc()
+    now = time.time()
+    prior = ReviewReuseTask(
+        task_id="pre-gate-run",
+        tenant_id="t-stale-bin",
+        status=TaskStatus.running,
+        created_at=now - STALE_RUNNING_SECONDS - 10.0,
+        updated_at=now - STALE_RUNNING_SECONDS - 10.0,
+        source_file_name="legacy.bin",
+        source_content_sha256=hashlib.sha256(b"x").hexdigest(),
+        idempotency_key="idem-stale-bin",
+        trace_id="tr-stale-bin",
     )
-    assert again.task_id == "pre-gate"
+    svc.store.put(prior)
+    with pytest.raises(ReviewReuseError) as ei:
+        svc.create_task(
+            tenant_id="t-stale-bin",
+            file_name="legacy.bin",
+            file_bytes=b"x",
+            idempotency_key="idem-stale-bin",
+        )
+    assert ei.value.code == RejectionReason.unsupported_file_type.value
+    stuck = svc.get_task("t-stale-bin", "pre-gate-run")
+    assert stuck.status == TaskStatus.running
 
 
 def test_idempotent_replay_of_failed_task_raises_pipeline_failed() -> None:
