@@ -1151,7 +1151,9 @@ def apply_precision(
                 continue
             # Reuse the first loaded geom. A later store miss must not
             # fall through to a stale pre-scored precision-l4 claim.
-            if q is not None and _is_geom_json(right):
+            # Hashed ids skip inline geom, so an empty store must refuse
+            # even when a live hit still carries query-mirroring JSON.
+            if hash_id or (q is not None and _is_geom_json(right)):
                 _strip_stale_l4(candidate)
                 if has_numeric_geom:
                     scores = dict(candidate.scores)

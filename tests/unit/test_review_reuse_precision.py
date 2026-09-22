@@ -3603,6 +3603,42 @@ def test_hashed_inline_geom_does_not_bypass_store(
     assert RejectionReason.low_precision_score.value in out[0].rejection_reasons
 
 
+def test_hashed_store_miss_does_not_revive_prescored_l4(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Hashed ids must not fall through to adapter L4 when the store is empty."""
+    query = _line_geom()
+
+    class _EmptyStore:
+        def load(self, _cid: str) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "src.core.dedupcad_precision.create_geom_store", lambda: _EmptyStore()
+    )
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "a" * 64,
+                "state": "similar",
+                "geom_json": query,
+                "scores": {"geometric": 1.0},
+                "methods": ["precision-l4", "dedup2d-vision"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
 def test_json_bytes_on_dxf_filename_are_not_query_geom() -> None:
     geom = _line_geom()
     cands = map_raw_hits_to_candidates(
