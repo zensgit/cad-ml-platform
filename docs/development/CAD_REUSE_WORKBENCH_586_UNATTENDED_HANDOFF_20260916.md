@@ -523,6 +523,20 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave32 — 2026-09-22 ~03:51 UTC
+
+tests (3.10) **pass** on `d4ec44f1`. Sol 5.6 vs `origin/main`: **no P1/P2**.
+No product change. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| HEAD | `d4ec44f1` |
+| Local `make test-review-reuse` | **261 passed** (unchanged) |
+| tests (3.10) on `d4ec44f1` | **pass** |
+| Sol wave32 | no P1/P2 |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`unstable`) |
+
 ## Window 4 wave31 — 2026-09-22 ~03:22 UTC
 
 tests (3.10) **pass** on `bf9dcfd7`. Sol 5.6 vs `origin/main`: **no P1/P2**.
