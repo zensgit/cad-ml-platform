@@ -361,6 +361,8 @@ make test-review-reuse
 | Permanent msvcrt errors fail closed | `test_store_file_lock_msvcrt_permanent_error_fails_closed` |
 | Contention EACCES still retries | `test_store_file_lock_msvcrt_retries_contention` |
 | `make test-review-reuse` after msvcrt contention gate | **258 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) / lint-type / e2e-smoke on `26a727e0` | **pass** |
+| Sol window4-w26 vs `origin/main` on `26a727e0` | **no P1/P2** |
 
 ### CI (PR #586)
 
@@ -472,7 +474,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `5ce7c2df` (last fully green HEAD) |
+| Python 3.10 CI job | **pass** on `26a727e0` (last fully green HEAD) |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |
