@@ -460,6 +460,8 @@ make test-review-reuse
 | Sol window4-w80 vs `origin/main` on `0439bd37` | P2 decision overwrote failed, masking pipeline_failed |
 | Decision does not overwrite failed | `test_submit_decision_does_not_overwrite_failed_task` |
 | `make test-review-reuse` after failed-terminal decision | **286 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) on `bb74279f` | **pass** |
+| Sol window4-w82 vs `origin/main` on `bb74279f` | no P1/P2 |
 
 ### CI (PR #586)
 
