@@ -156,6 +156,33 @@ def test_isolated_file_seed_does_not_replay_unseeded_run(
     assert "synthetic-archive-001" in json.dumps(t2)
 
 
+def test_isolated_file_distinct_names_same_bytes_do_not_conflict(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Same bytes under a.dxf vs b.dxf must not share the generated key."""
+    import json
+
+    from scripts.review_reuse_isolated_archive_run import main
+
+    monkeypatch.setenv("REVIEW_REUSE_STORE", "filesystem")
+    monkeypatch.setenv("REVIEW_REUSE_STORE_DIR", str(tmp_path / "store"))
+    monkeypatch.delenv("REVIEW_REUSE_LIVE_DEDUP", raising=False)
+    body = b"0\nSECTION\n2\nHEADER\n0\nENDSEC\n0\nEOF\n"
+    a = tmp_path / "a.dxf"
+    b = tmp_path / "b.dxf"
+    a.write_bytes(body)
+    b.write_bytes(body)
+    out1 = tmp_path / "out-a"
+    out2 = tmp_path / "out-b"
+    assert main(["--out", str(out1), "--file", str(a), "--tenant", "t-name"]) == 0
+    assert main(["--out", str(out2), "--file", str(b), "--tenant", "t-name"]) == 0
+    t1 = json.loads((out1 / "task.json").read_text(encoding="utf-8"))
+    t2 = json.loads((out2 / "task.json").read_text(encoding="utf-8"))
+    assert t1["task_id"] != t2["task_id"]
+    assert t1["source_file_name"] == "a.dxf"
+    assert t2["source_file_name"] == "b.dxf"
+
+
 def test_isolated_archive_script_file_offline_no_seed(tmp_path: Path) -> None:
     """--file real DXF, no --seed-similar: hashes the drawing, stays offline."""
     import hashlib

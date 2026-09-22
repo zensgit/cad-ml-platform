@@ -523,6 +523,21 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave49 — 2026-09-22 ~10:22 UTC
+
+tests (3.10) **pass** on `09112d9e`. Sol 5.6 vs `origin/main` on that
+HEAD: **P2** generated isolated-archive FILE keys ignored basename, so
+same-bytes `a.dxf` then `b.dxf` hit `idempotency_conflict`. Bind the
+basename into the generated key. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 isolated-archive name key | `resolve_idempotency_key` includes basename |
+| Local `make test-review-reuse` | **274 passed** |
+| tests (3.10) on `09112d9e` | **pass** (pre-push) |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`unstable`) |
+
 ## Window 4 wave46 — 2026-09-22 ~09:22 UTC
 
 tests (3.10) **pass** on `e77a07d8`. Sol 5.6 vs `origin/main` on that

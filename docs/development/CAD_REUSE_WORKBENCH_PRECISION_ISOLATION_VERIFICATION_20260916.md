@@ -409,6 +409,11 @@ make test-review-reuse
 | Generated FILE key binds seed vs live | `test_isolated_file_idempotency_key_binds_seed_and_live_mode` |
 | Same file seed does not replay unseeded | `test_isolated_file_seed_does_not_replay_unseeded_run` |
 | `make test-review-reuse` after isolated-archive mode key | **272 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) on `09112d9e` | **pass** |
+| Sol window4-w49 vs `origin/main` on `09112d9e` | P2 same-bytes distinct names collided |
+| Generated FILE key binds basename | `test_isolated_file_idempotency_key_binds_basename` |
+| a.dxf vs b.dxf same bytes do not conflict | `test_isolated_file_distinct_names_same_bytes_do_not_conflict` |
+| `make test-review-reuse` after basename-bound key | **274 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

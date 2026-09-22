@@ -266,6 +266,8 @@ be in `(0, 1]`. Wave41: the ratio bound uses the unrounded finite value
 so `1.0004` cannot round into L4. Wave46: generated isolated-archive
 idempotency keys bind seed vs live-recall mode so a later
 ``--seed-similar`` or ``REVIEW_REUSE_LIVE_DEDUP`` change cannot replay.
+Wave49: generated FILE keys also bind the basename so same-bytes
+``a.dxf`` vs ``b.dxf`` cannot collide on filesystem-store replay.
 
 ### Model routing (by difficulty)
 

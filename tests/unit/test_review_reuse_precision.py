@@ -4844,19 +4844,36 @@ def test_isolated_file_idempotency_key_binds_seed_and_live_mode(
 
     monkeypatch.delenv("REVIEW_REUSE_LIVE_DEDUP", raising=False)
     body = b"drawing-a"
-    unseeded = resolve_idempotency_key(None, body, from_file=True)
-    seeded = resolve_idempotency_key(None, body, from_file=True, seed_similar=True)
+    unseeded = resolve_idempotency_key(None, body, from_file=True, file_name="a.dxf")
+    seeded = resolve_idempotency_key(
+        None, body, from_file=True, seed_similar=True, file_name="a.dxf"
+    )
     assert unseeded != seeded
     assert "unseeded-offline" in unseeded
     assert "seed-offline" in seeded
     monkeypatch.setenv("REVIEW_REUSE_LIVE_DEDUP", "true")
-    live = resolve_idempotency_key(None, body, from_file=True)
+    live = resolve_idempotency_key(None, body, from_file=True, file_name="a.dxf")
     assert live != unseeded
     assert "unseeded-live" in live
     assert (
-        resolve_idempotency_key("explicit", body, from_file=True, seed_similar=True)
+        resolve_idempotency_key(
+            "explicit", body, from_file=True, seed_similar=True, file_name="a.dxf"
+        )
         == "explicit"
     )
+
+
+def test_isolated_file_idempotency_key_binds_basename() -> None:
+    from scripts.review_reuse_isolated_archive_run import resolve_idempotency_key
+
+    body = b"same-bytes"
+    left = resolve_idempotency_key(None, body, from_file=True, file_name="a.dxf")
+    right = resolve_idempotency_key(None, body, from_file=True, file_name="b.dxf")
+    again = resolve_idempotency_key(
+        None, body, from_file=True, file_name="/tmp/a.dxf"
+    )
+    assert left != right
+    assert left == again
 
 
 def test_dxf_extracted_polyline_width_is_not_certified_as_l4() -> None:

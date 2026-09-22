@@ -44,18 +44,23 @@ def resolve_idempotency_key(
     *,
     from_file: bool,
     seed_similar: bool = False,
+    file_name: str = "",
 ) -> str:
     """FILE runs must not reuse the synthetic demo key.
 
-    Generated keys include seed/recall mode so a later ``--seed-similar`` or
-    ``REVIEW_REUSE_LIVE_DEDUP`` change cannot silently replay the other mode.
+    Generated keys include basename and seed/recall mode so a later
+    ``--seed-similar``, ``REVIEW_REUSE_LIVE_DEDUP`` change, or same-bytes
+    different filename cannot silently replay or conflict.
     """
     if explicit:
         return explicit
     mode = _generated_recall_mode(seed_similar=seed_similar)
     if from_file:
         digest = hashlib.sha256(file_bytes).hexdigest()[:24]
-        return f"isolated-file-{mode}-{digest}"
+        name_digest = hashlib.sha256(Path(file_name).name.encode("utf-8")).hexdigest()[
+            :16
+        ]
+        return f"isolated-file-{mode}-{name_digest}-{digest}"
     return f"{_DEFAULT_IDEM}-{mode}"
 
 
@@ -81,7 +86,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--idempotency-key",
         default=None,
-        help="Create-task idempotency key (FILE default: content+mode hash)",
+        help="Create-task idempotency key (FILE default: name+content+mode)",
     )
     args = parser.parse_args(argv)
 
@@ -132,6 +137,7 @@ def main(argv: list[str] | None = None) -> int:
                 file_bytes,
                 from_file=args.file is not None,
                 seed_similar=args.seed_similar,
+                file_name=file_name,
             ),
             seed_candidates=seed,
         )
