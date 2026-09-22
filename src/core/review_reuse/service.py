@@ -212,7 +212,10 @@ class ReviewReuseService:
         content_sha = self._require_idempotent_input(
             existing, file_name=file_name, file_bytes=file_bytes
         )
-        if existing.status == TaskStatus.failed:
+        if existing.status == TaskStatus.failed or (
+            existing.status in (TaskStatus.decided, TaskStatus.canceled)
+            and existing.error
+        ):
             raise ReviewReuseError(
                 "pipeline_failed",
                 existing.error or PIPELINE_FAILED_PUBLIC,

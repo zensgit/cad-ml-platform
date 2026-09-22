@@ -416,6 +416,78 @@ def test_submit_decision_does_not_overwrite_failed_task(
     assert replay.value.code == "pipeline_failed"
 
 
+def test_idempotent_replay_of_decided_task_with_pipeline_error_raises() -> None:
+    """A decided snapshot that still carries pipeline_failed must not 200."""
+    import time
+
+    from src.core.review_reuse.models import ReviewReuseTask, TaskStatus
+    from src.core.review_reuse.service import PIPELINE_FAILED_PUBLIC
+
+    svc = _svc()
+    now = time.time()
+    prior = ReviewReuseTask(
+        task_id="decided-fail",
+        tenant_id="t-dec-fail-replay",
+        status=TaskStatus.decided,
+        created_at=now,
+        updated_at=now,
+        source_file_name="part.dxf",
+        source_content_sha256=hashlib.sha256(b"x").hexdigest(),
+        idempotency_key="idem-decided-fail",
+        trace_id="tr-decided-fail",
+        error=PIPELINE_FAILED_PUBLIC,
+    )
+    svc.store.put(prior)
+    with pytest.raises(ReviewReuseError) as exc:
+        svc.create_task(
+            tenant_id="t-dec-fail-replay",
+            file_name="part.dxf",
+            file_bytes=b"x",
+            idempotency_key="idem-decided-fail",
+        )
+    assert exc.value.code == "pipeline_failed"
+    assert exc.value.message == PIPELINE_FAILED_PUBLIC
+    stuck = svc.get_task("t-dec-fail-replay", "decided-fail")
+    assert stuck.status == TaskStatus.decided
+    assert stuck.error == PIPELINE_FAILED_PUBLIC
+
+
+def test_idempotent_replay_of_canceled_task_with_pipeline_error_raises() -> None:
+    """A canceled snapshot that still carries pipeline_failed must not 200."""
+    import time
+
+    from src.core.review_reuse.models import ReviewReuseTask, TaskStatus
+    from src.core.review_reuse.service import PIPELINE_FAILED_PUBLIC
+
+    svc = _svc()
+    now = time.time()
+    prior = ReviewReuseTask(
+        task_id="canceled-fail",
+        tenant_id="t-can-fail-replay",
+        status=TaskStatus.canceled,
+        created_at=now,
+        updated_at=now,
+        source_file_name="part.dxf",
+        source_content_sha256=hashlib.sha256(b"x").hexdigest(),
+        idempotency_key="idem-canceled-fail",
+        trace_id="tr-canceled-fail",
+        error=PIPELINE_FAILED_PUBLIC,
+    )
+    svc.store.put(prior)
+    with pytest.raises(ReviewReuseError) as exc:
+        svc.create_task(
+            tenant_id="t-can-fail-replay",
+            file_name="part.dxf",
+            file_bytes=b"x",
+            idempotency_key="idem-canceled-fail",
+        )
+    assert exc.value.code == "pipeline_failed"
+    assert exc.value.message == PIPELINE_FAILED_PUBLIC
+    stuck = svc.get_task("t-can-fail-replay", "canceled-fail")
+    assert stuck.status == TaskStatus.canceled
+    assert stuck.error == PIPELINE_FAILED_PUBLIC
+
+
 def test_stale_running_idempotency_resumes_pipeline() -> None:
     import hashlib
     import time
