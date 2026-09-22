@@ -280,6 +280,8 @@ Wave71: ``put()`` validates the hashed idempotency index before
 replacing the task file so cancel cannot persist then error.
 Wave72: hashed ``idempotency.json`` entries must be non-empty strings;
 a JSON number task id is ``store_conflict``, not HTTP 500.
+Wave73: a hashed mapping to a present-but-junk task file is
+``store_conflict``, not a create miss that overwrites the reservation.
 
 ### Model routing (by difficulty)
 

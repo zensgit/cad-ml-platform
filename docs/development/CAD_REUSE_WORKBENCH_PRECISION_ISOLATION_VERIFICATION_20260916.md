@@ -441,6 +441,9 @@ make test-review-reuse
 | Sol window4-w72 vs `origin/main` on `1299c19f` | P2 non-string idempotency value crashed `_task_path` |
 | Non-string hashed idempotency value is store_conflict | `test_non_string_hashed_idempotency_value_is_corrupt` |
 | `make test-review-reuse` after string-only idempotency index | **280 passed**, 7 ezdxf warnings |
+| Sol window4-w73 vs `origin/main` on `007a04c0` | P2 mapped hashed junk task was a create miss |
+| Mapped junk hashed task is store_conflict | `test_corrupt_hashed_task_idempotency_is_store_conflict` |
+| `make test-review-reuse` after mapped-task fail-closed | **281 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
