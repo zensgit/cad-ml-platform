@@ -1021,7 +1021,8 @@ def test_corrupt_hashed_task_does_not_resurrect_legacy(tmp_path: Path) -> None:
     hashed_corrupt.write_text("{not-json", encoding="utf-8")
 
     assert store.get("pilot-tenant", canceled.task_id) is None
-    assert store.get_by_idempotency("pilot-tenant", "idem-corrupt") is None
+    with pytest.raises(CorruptIdempotencyIndexError):
+        store.get_by_idempotency("pilot-tenant", "idem-corrupt")
     assert store.get("pilot-tenant", other.task_id) is not None
     assert store.get("pilot-tenant", only_legacy.task_id) is not None
     listed = {task.task_id: task.status for task in store.list_for_tenant("pilot-tenant")}
@@ -1151,6 +1152,45 @@ def test_corrupt_hashed_idempotency_does_not_replay_legacy(tmp_path: Path) -> No
             idempotency_key="idem-corrupt-map",
         )
     assert ei.value.code == "store_conflict"
+
+
+def test_corrupt_hashed_task_idempotency_is_store_conflict(tmp_path: Path) -> None:
+    """A mapped hashed task file that is junk must not start a duplicate."""
+    root = tmp_path / "tasks"
+    store = FilesystemReviewReuseStore(root)
+    stored = store.put(
+        ReviewReuseTask(
+            task_id="t-idem-mapped-junk",
+            tenant_id="pilot-tenant",
+            status=TaskStatus.canceled,
+            created_at=1.0,
+            updated_at=2.0,
+            source_file_name="a.dxf",
+            source_content_sha256="ab",
+            idempotency_key="idem-mapped-junk",
+            trace_id="tr",
+        )
+    )
+    hashed_dir = root / tenant_dir_key("pilot-tenant")
+    task_path = hashed_dir / "tasks" / f"{stored.task_id}.json"
+    task_path.write_text("{not-json", encoding="utf-8")
+    mapping_before = (hashed_dir / "idempotency.json").read_text(encoding="utf-8")
+    with pytest.raises(CorruptIdempotencyIndexError):
+        store.get_by_idempotency("pilot-tenant", "idem-mapped-junk")
+    from src.core.review_reuse.service import ReviewReuseError, ReviewReuseService
+
+    svc = ReviewReuseService(store)
+    with pytest.raises(ReviewReuseError) as ei:
+        svc.create_task(
+            tenant_id="pilot-tenant",
+            file_name="a.dxf",
+            file_bytes=b"x",
+            idempotency_key="idem-mapped-junk",
+        )
+    assert ei.value.code == "store_conflict"
+    assert (hashed_dir / "idempotency.json").read_text(encoding="utf-8") == mapping_before
+    task_ids = {path.stem for path in (hashed_dir / "tasks").glob("*.json")}
+    assert task_ids == {stored.task_id}
 
 
 def test_non_string_hashed_idempotency_value_is_corrupt(tmp_path: Path) -> None:

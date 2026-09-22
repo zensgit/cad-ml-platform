@@ -41,7 +41,7 @@ class StoreLockUnavailableError(RuntimeError):
 
 
 class CorruptIdempotencyIndexError(RuntimeError):
-    """Hashed idempotency.json exists but cannot be read as a mapping."""
+    """Hashed idempotency mapping cannot be resolved to a valid task."""
 
     def __init__(self, tenant_id: str, path: Path) -> None:
         self.tenant_id = tenant_id
@@ -509,6 +509,10 @@ class FilesystemReviewReuseStore:
                     hashed, tenant_id, hashed_tid
                 )
                 if present:
+                    if task is None:
+                        raise CorruptIdempotencyIndexError(
+                            tenant_id, self._task_path(hashed, hashed_tid)
+                        )
                     return task
             for tenant_dir in self._read_dirs(tenant_id):
                 if tenant_dir == hashed:
@@ -518,6 +522,10 @@ class FilesystemReviewReuseStore:
                     continue
                 present, task = self._hashed_task_if_present(hashed, tenant_id, tid)
                 if present:
+                    if task is None:
+                        raise CorruptIdempotencyIndexError(
+                            tenant_id, self._task_path(hashed, tid)
+                        )
                     return task
                 path = self._task_path(tenant_dir, tid)
                 if not path.exists():
