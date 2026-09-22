@@ -292,6 +292,8 @@ Wave80: ``submit_decision`` rejects persisted ``failed`` tasks so a
 pilot decision cannot mask ``pipeline_failed``.
 Wave83: overflowing polyline ``bulges`` / ``const_width`` JSON ints
 are ``missing_geom_json``, not ``pipeline_failed``.
+Wave84: idempotent replay of a decided/canceled snapshot that still
+carries ``task.error`` re-raises ``pipeline_failed`` (not HTTP 200).
 
 ### Model routing (by difficulty)
 

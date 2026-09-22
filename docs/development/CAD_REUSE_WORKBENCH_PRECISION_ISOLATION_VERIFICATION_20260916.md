@@ -466,6 +466,10 @@ make test-review-reuse
 | Overflow bulge is missing_geom_json | `test_overflow_integer_polyline_bulge_is_not_pipeline_failed` |
 | Overflow width is missing_geom_json | `test_overflow_integer_polyline_width_is_not_pipeline_failed` |
 | `make test-review-reuse` after overflow polyline metadata | **288 passed**, 7 ezdxf warnings |
+| Sol window4-w84 vs `origin/main` on `cc63d54d` | P2 decided/canceled+error idempotent replay returned 200 |
+| Decided+error replay is pipeline_failed | `test_idempotent_replay_of_decided_task_with_pipeline_error_raises` |
+| Canceled+error replay is pipeline_failed | `test_idempotent_replay_of_canceled_task_with_pipeline_error_raises` |
+| `make test-review-reuse` after terminal-error replay | **290 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
