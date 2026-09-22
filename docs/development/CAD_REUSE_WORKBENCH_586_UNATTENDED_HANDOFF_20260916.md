@@ -523,6 +523,22 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave37 — 2026-09-22 ~05:47 UTC
+
+tests (3.10) / tests (3.11) **pass** on `92e8f885`. Sol 5.6 vs
+`origin/main` on that HEAD: **P2** ASCII HEADER miss wiped `$INSUNITS`
+on valid binary DXF. Detect the binary sentinel and scan HEADER tags;
+keep integer units. Wave36 was idle (no docs push) so 3.10 could
+finish. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 binary INSUNITS | `_raw_binary_insunits_unsafe` + sentinel |
+| Local `make test-review-reuse` | **265 passed** |
+| tests (3.10) on `92e8f885` | **pass** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`unstable`) |
+
 ## Window 4 wave35 — 2026-09-22 ~05:03 UTC
 
 lint-type / e2e-smoke **pass** on `6dae6110`; tests (3.10) still pending.

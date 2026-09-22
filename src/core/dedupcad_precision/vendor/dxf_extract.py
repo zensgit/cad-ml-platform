@@ -30,10 +30,9 @@ except Exception as e:  # pragma: no cover - optional dependency
     ezdxf = None
 
 
-# Bump when extract payload fields change. v7 invalidates caches that
-# certified the first $INSUNITS while a later HEADER declaration was
-# fractional or conflicted.
-_EXTRACT_CACHE_VERSION = 7
+# Bump when extract payload fields change. v8 stops treating valid binary
+# DXF as missing ASCII HEADER (which zeroed $INSUNITS).
+_EXTRACT_CACHE_VERSION = 8
 
 
 def _header_insunits(doc: Any) -> int:
@@ -62,6 +61,7 @@ def _header_insunits(doc: Any) -> int:
 
 # HEADER is at the start of a DXF; never slurp ENTITIES/BLOCKS for $INSUNITS.
 _HEADER_SCAN_MAX_BYTES = 1_048_576
+_BINARY_DXF_SENTINEL = b"AutoCAD Binary DXF\r\n\x1a\x00"
 
 
 def _read_dxf_header_text(path: str) -> Optional[str]:
@@ -92,29 +92,24 @@ def _read_dxf_header_text(path: str) -> Optional[str]:
     return rest[: end.start()]
 
 
-def _raw_insunits_non_integral(path: str) -> bool:
-    """True when raw HEADER $INSUNITS is unsafe before ezdxf truncates.
+def _is_binary_dxf(path: str) -> bool:
+    try:
+        with open(path, "rb") as handle:
+            prefix = handle.read(len(_BINARY_DXF_SENTINEL))
+    except OSError:
+        return False
+    return prefix == _BINARY_DXF_SENTINEL
 
-    Fail closed on a fractional/non-finite/unparseable group-70 token, or
-    when repeated $INSUNITS declarations disagree. The first match is not
-    enough: ezdxf may apply a later truncated value.
-    """
-    header = _read_dxf_header_text(path)
-    if header is None:
-        # Unbounded/missing HEADER: do not trust ezdxf's truncated value.
-        return True
-    tokens = re.findall(
-        r"\$INSUNITS[^\n]*\n[ \t]*70[ \t]*\n[ \t]*([^\n]+)",
-        header,
-        flags=re.IGNORECASE,
-    )
+
+def _insunits_tokens_unsafe(tokens: List[Any]) -> bool:
+    """True when any $INSUNITS token is junk or they disagree."""
     if not tokens:
         return False
     seen: Optional[float] = None
     for raw_token in tokens:
         try:
-            number = float(raw_token.strip())
-        except ValueError:
+            number = float(str(raw_token).strip())
+        except (TypeError, ValueError):
             return True
         if (not math.isfinite(number)) or number != math.floor(number):
             return True
@@ -123,6 +118,87 @@ def _raw_insunits_non_integral(path: str) -> bool:
         elif number != seen:
             return True
     return False
+
+
+def _raw_binary_insunits_unsafe(path: str) -> bool:
+    """Scan binary HEADER $INSUNITS; fail closed on conflict or junk.
+
+    Group 70 is an integer in binary DXF, so ASCII truncation does not
+    apply. Duplicate declarations still must agree.
+    """
+    try:
+        with open(path, "rb") as handle:
+            raw = handle.read(_HEADER_SCAN_MAX_BYTES)
+    except OSError:
+        return True
+    if not raw.startswith(_BINARY_DXF_SENTINEL):
+        return True
+    try:
+        from ezdxf.lldxf.tagger import binary_tags_loader
+    except Exception:
+        return True
+    in_header = False
+    saw_section = False
+    expecting_70 = False
+    header_closed = False
+    tokens: List[Any] = []
+    try:
+        for tag in binary_tags_loader(raw):
+            code = int(tag.code)
+            value = tag.value
+            if not in_header:
+                if code == 0 and str(value).strip().upper() == "SECTION":
+                    saw_section = True
+                    continue
+                if (
+                    saw_section
+                    and code == 2
+                    and str(value).strip().upper() == "HEADER"
+                ):
+                    in_header = True
+                    saw_section = False
+                    continue
+                saw_section = False
+                continue
+            if code == 0 and str(value).strip().upper() == "ENDSEC":
+                header_closed = True
+                break
+            if expecting_70:
+                if code != 70:
+                    return True
+                tokens.append(value)
+                expecting_70 = False
+                continue
+            if code == 9 and str(value).strip().upper() == "$INSUNITS":
+                expecting_70 = True
+    except Exception:
+        if not header_closed:
+            return True
+    if expecting_70 or not header_closed:
+        return True
+    return _insunits_tokens_unsafe(tokens)
+
+
+def _raw_insunits_non_integral(path: str) -> bool:
+    """True when raw HEADER $INSUNITS is unsafe before ezdxf truncates.
+
+    Fail closed on a fractional/non-finite/unparseable group-70 token, or
+    when repeated $INSUNITS declarations disagree. The first match is not
+    enough: ezdxf may apply a later truncated value. Binary DXF has no
+    ASCII HEADER framing; scan its tags instead of wiping units.
+    """
+    if _is_binary_dxf(path):
+        return _raw_binary_insunits_unsafe(path)
+    header = _read_dxf_header_text(path)
+    if header is None:
+        # Unbounded/missing ASCII HEADER: do not trust ezdxf's truncated value.
+        return True
+    tokens = re.findall(
+        r"\$INSUNITS[^\n]*\n[ \t]*70[ \t]*\n[ \t]*([^\n]+)",
+        header,
+        flags=re.IGNORECASE,
+    )
+    return _insunits_tokens_unsafe(tokens)
 
 
 def _dxf_polyline_closed(entity: Any, et: str) -> bool:

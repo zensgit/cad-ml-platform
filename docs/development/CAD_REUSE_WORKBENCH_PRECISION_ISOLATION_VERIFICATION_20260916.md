@@ -386,6 +386,10 @@ make test-review-reuse
 | `make test-review-reuse` after duplicate INSUNITS scan | **264 passed**, 7 ezdxf warnings |
 | lint-type / e2e-smoke on `6dae6110` | **pass** (tests 3.10 pending) |
 | Sol window4-w35 vs `origin/main` on `6dae6110` | **no P1/P2** |
+| tests (3.10) / tests (3.11) / lint-type / e2e-smoke on `92e8f885` | **pass** |
+| Sol window4-w37 vs `origin/main` on `92e8f885` | P2 binary DXF INSUNITS wiped |
+| Binary DXF INSUNITS still L4 | `test_binary_dxf_insunits_is_certified` |
+| `make test-review-reuse` after binary INSUNITS scan | **265 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -497,7 +501,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `fc9f5bfb` (last fully green HEAD; product SHA pending) |
+| Python 3.10 CI job | **pass** on `92e8f885` (last fully green HEAD; new product SHA pending) |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |

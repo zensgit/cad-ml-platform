@@ -257,6 +257,8 @@ contention; permanent `OSError` fails closed. Wave30: `$INSUNITS` scan
 is HEADER-only (1 MiB cap); nested JSON RecursionError is missing geom.
 Wave34: every HEADER `$INSUNITS` is scanned; a later fractional or
 conflicting declaration fail-closes units (extract cache v7).
+Wave37: binary DXF `$INSUNITS` is scanned from HEADER tags (cache v8);
+missing ASCII HEADER no longer zeros valid binary units.
 
 ### Model routing (by difficulty)
 

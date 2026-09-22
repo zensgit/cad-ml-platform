@@ -4609,6 +4609,46 @@ def test_raw_insunits_duplicate_same_integral_is_ok(tmp_path: Path) -> None:
     assert mod._raw_insunits_non_integral(str(path)) is False
 
 
+def test_binary_dxf_insunits_is_certified(tmp_path: Path) -> None:
+    """ASCII HEADER scan must not wipe units from a valid binary DXF."""
+    import ezdxf
+    from src.core.dedupcad_precision.vendor.dxf_extract import extract_dxf
+    from src.core.dedupcad_precision.vendor import dxf_extract as mod
+
+    doc = ezdxf.new("R2010")
+    doc.header["$INSUNITS"] = 4
+    doc.modelspace().add_line((0.0, 0.0), (10.0, 0.0))
+    path = tmp_path / "bin_units.dxf"
+    doc.saveas(str(path), fmt="bin")
+    assert path.read_bytes().startswith(b"AutoCAD Binary DXF")
+    assert mod._raw_insunits_non_integral(str(path)) is False
+    extracted = extract_dxf(str(path))
+    assert extracted.get("file_info", {}).get("insunits") == 4
+    mm = {
+        "file_info": {"insunits": 4},
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
+        ],
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "mm-line",
+                "state": "similar",
+                "geom_json": mm,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.dxf",
+    )
+    out = apply_precision(
+        cands, file_name="query.dxf", file_bytes=path.read_bytes()
+    )
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") == 1.0
+
+
 def test_isolated_file_run_uses_content_idempotency_key() -> None:
     from scripts.review_reuse_isolated_archive_run import resolve_idempotency_key
 
