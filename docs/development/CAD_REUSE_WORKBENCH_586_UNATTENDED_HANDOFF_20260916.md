@@ -523,6 +523,21 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave41 — 2026-09-22 ~07:45 UTC
+
+tests (3.10) **pass** on `7872bd32`. Sol 5.6 vs `origin/main` on that
+HEAD: **P2** `_minor_major_ratio` quantized `1.0004` to `1.0` and still
+L4-certified. Check the unrounded finite ratio. Never merge; decisions
+stay off.
+
+| Item | State |
+|---|---|
+| P2 ellipse ratio raw | `_minor_major_ratio` uses unrounded value |
+| Local `make test-review-reuse` | **270 passed** |
+| tests (3.10) on `7872bd32` | **pass** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`unstable`) |
+
 ## Window 4 wave40 — 2026-09-22 ~07:14 UTC
 
 tests (3.10) **pass** on `5db75326`. Sol 5.6 vs `origin/main` on that

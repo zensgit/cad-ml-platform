@@ -217,9 +217,14 @@ def _positive_number(value: Any) -> bool:
 
 
 def _minor_major_ratio(value: Any) -> bool:
-    """DXF ELLIPSE ratio is minor/major; ezdxf rejects values above 1."""
-    quantized = _quantized(value)
-    return quantized is not None and 0.0 < quantized <= 1.0
+    """DXF ELLIPSE ratio is minor/major; ezdxf rejects values above 1.
+
+    Check the unrounded finite value. Quantizing first would admit 1.0004.
+    """
+    if not _finite_number(value):
+        return False
+    number = float(value)
+    return 0.0 < number <= 1.0
 
 
 def _is_finite_unit_score(value: Any) -> bool:

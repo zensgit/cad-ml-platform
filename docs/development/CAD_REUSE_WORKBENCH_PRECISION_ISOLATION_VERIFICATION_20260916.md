@@ -400,6 +400,10 @@ make test-review-reuse
 | Idempotent replay of different bytes is conflict | `test_idempotent_replay_rejects_mismatched_input` |
 | Ellipse ratio 1.5 is not L4 | `test_ratio_above_one_ellipse_is_not_l4_geometry` |
 | `make test-review-reuse` after idempotent bind + ellipse ratio | **269 passed**, 7 ezdxf warnings |
+| tests (3.10) / lint-type / e2e-smoke on `7872bd32` | **pass** |
+| Sol window4-w41 vs `origin/main` on `7872bd32` | P2 quantized ellipse ratio 1.0004 |
+| Ellipse ratio 1.0004 is not L4 | `test_ratio_just_above_one_ellipse_is_not_l4_geometry` |
+| `make test-review-reuse` after unrounded ellipse ratio | **270 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -511,7 +515,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `5db75326` (last fully green HEAD; new product SHA pending) |
+| Python 3.10 CI job | **pass** on `7872bd32` (last fully green HEAD; new product SHA pending) |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |

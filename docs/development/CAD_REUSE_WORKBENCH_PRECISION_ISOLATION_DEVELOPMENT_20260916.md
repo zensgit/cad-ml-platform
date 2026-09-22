@@ -262,7 +262,8 @@ missing ASCII HEADER no longer zeros valid binary units.
 Wave39: local L4 refuse reuses the first-loaded candidate geom so a
 later store miss cannot revive a stale pre-scored `precision-l4`.
 Wave40: every idempotent replay checks bound input; ELLIPSE ratio must
-be in `(0, 1]`.
+be in `(0, 1]`. Wave41: the ratio bound uses the unrounded finite value
+so `1.0004` cannot round into L4.
 
 ### Model routing (by difficulty)
 
