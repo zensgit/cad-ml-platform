@@ -367,6 +367,8 @@ make test-review-reuse
 | Sol window4-w27 vs `origin/main` on `65b317ba` | **no P1/P2** |
 | tests (3.10) / tests (3.11) / lint-type / e2e-smoke on `31b91ffa` | **pass** |
 | Sol window4-w28 vs `origin/main` on `31b91ffa` | **no P1/P2** |
+| tests (3.10) / tests (3.11) / lint-type / e2e-smoke on `044eab2e` | **pass** |
+| Sol window4-w29 vs `origin/main` on `044eab2e` | **no P1/P2** |
 
 ### CI (PR #586)
 
@@ -478,7 +480,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `31b91ffa` (last fully green HEAD) |
+| Python 3.10 CI job | **pass** on `044eab2e` (last fully green HEAD) |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |
