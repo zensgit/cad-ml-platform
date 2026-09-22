@@ -363,6 +363,8 @@ make test-review-reuse
 | `make test-review-reuse` after msvcrt contention gate | **258 passed**, 7 ezdxf warnings |
 | tests (3.10) / tests (3.11) / lint-type / e2e-smoke on `26a727e0` | **pass** |
 | Sol window4-w26 vs `origin/main` on `26a727e0` | **no P1/P2** |
+| tests (3.10) / lint-type / e2e-smoke on `65b317ba` | **pass** |
+| Sol window4-w27 vs `origin/main` on `65b317ba` | **no P1/P2** |
 
 ### CI (PR #586)
 
@@ -474,7 +476,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `26a727e0` (last fully green HEAD) |
+| Python 3.10 CI job | **pass** on `65b317ba` (last fully green HEAD) |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |
