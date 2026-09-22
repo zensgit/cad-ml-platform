@@ -432,7 +432,14 @@ class FilesystemReviewReuseStore:
             return None
         if not isinstance(data, dict):
             return None
-        return dict(data)
+        mapping: Dict[str, str] = {}
+        for key, value in data.items():
+            if not isinstance(key, str) or not key:
+                return None
+            if not isinstance(value, str) or not value:
+                return None
+            mapping[key] = value
+        return mapping
 
     def _load_idem(self, tenant_dir: Path) -> Dict[str, str]:
         loaded = self._try_load_idem(tenant_dir)

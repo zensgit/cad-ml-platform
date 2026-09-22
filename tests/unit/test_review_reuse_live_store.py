@@ -1153,6 +1153,42 @@ def test_corrupt_hashed_idempotency_does_not_replay_legacy(tmp_path: Path) -> No
     assert ei.value.code == "store_conflict"
 
 
+def test_non_string_hashed_idempotency_value_is_corrupt(tmp_path: Path) -> None:
+    """A JSON number task id must not become an uncaught TypeError."""
+    root = tmp_path / "tasks"
+    store = FilesystemReviewReuseStore(root)
+    store.put(
+        ReviewReuseTask(
+            task_id="t-idem-type",
+            tenant_id="pilot-tenant",
+            status=TaskStatus.canceled,
+            created_at=1.0,
+            updated_at=2.0,
+            source_file_name="a.dxf",
+            source_content_sha256="ab",
+            idempotency_key="idem-type-map",
+            trace_id="tr",
+        )
+    )
+    hashed_dir = root / tenant_dir_key("pilot-tenant")
+    (hashed_dir / "idempotency.json").write_text(
+        json.dumps({"idem-type-map": 123}), encoding="utf-8"
+    )
+    with pytest.raises(CorruptIdempotencyIndexError):
+        store.get_by_idempotency("pilot-tenant", "idem-type-map")
+    from src.core.review_reuse.service import ReviewReuseError, ReviewReuseService
+
+    svc = ReviewReuseService(store)
+    with pytest.raises(ReviewReuseError) as ei:
+        svc.create_task(
+            tenant_id="pilot-tenant",
+            file_name="a.dxf",
+            file_bytes=b"x",
+            idempotency_key="idem-type-map",
+        )
+    assert ei.value.code == "store_conflict"
+
+
 def test_corrupt_hashed_idempotency_does_not_persist_cancel(tmp_path: Path) -> None:
     """Cancel must not write canceled JSON if the hashed index is junk."""
     root = tmp_path / "tasks"
