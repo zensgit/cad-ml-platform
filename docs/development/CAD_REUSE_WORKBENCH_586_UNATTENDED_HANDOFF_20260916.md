@@ -523,6 +523,21 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave35 — 2026-09-22 ~05:03 UTC
+
+lint-type / e2e-smoke **pass** on `6dae6110`; tests (3.10) still pending.
+Sol 5.6 vs `origin/main` on `6dae6110`: **no P1/P2**. No product change.
+Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| HEAD | `6dae6110` |
+| Local `make test-review-reuse` | **264 passed** (unchanged) |
+| tests (3.10) last green | `fc9f5bfb` |
+| Sol wave35 | no P1/P2 |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`blocked` / Evaluation Report) |
+
 ## Window 4 wave34 — 2026-09-22 ~04:47 UTC
 
 tests (3.10) **pass** on `fc9f5bfb` (docs HEAD `9aa3c0ac` still pending).

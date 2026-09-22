@@ -384,6 +384,8 @@ make test-review-reuse
 | Duplicate then fractional INSUNITS is not L4 | `test_dxf_duplicate_fractional_insunits_header_is_not_certified` |
 | Conflicting duplicate INSUNITS is unsafe | `test_raw_insunits_duplicate_conflict_is_unsafe` |
 | `make test-review-reuse` after duplicate INSUNITS scan | **264 passed**, 7 ezdxf warnings |
+| lint-type / e2e-smoke on `6dae6110` | **pass** (tests 3.10 pending) |
+| Sol window4-w35 vs `origin/main` on `6dae6110` | **no P1/P2** |
 
 ### CI (PR #586)
 
