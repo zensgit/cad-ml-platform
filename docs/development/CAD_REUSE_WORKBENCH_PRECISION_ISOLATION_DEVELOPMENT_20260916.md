@@ -276,6 +276,8 @@ Wave69: a present-but-junk hashed ``idempotency.json`` fails closed
 instead of replaying leftover legacy mappings.
 Wave70: a concurrent cancel aborts later pipeline stages; a corrupt
 hashed idempotency index is ``store_conflict``, not a create miss.
+Wave71: ``put()`` validates the hashed idempotency index before
+replacing the task file so cancel cannot persist then error.
 
 ### Model routing (by difficulty)
 

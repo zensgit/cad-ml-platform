@@ -523,6 +523,22 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave71 — 2026-09-22 ~17:42 UTC
+
+tests (3.10) still **in progress** on `1598bb84` (not red). Sol 5.6 vs
+`origin/main` on that HEAD: **P2** `put()` wrote the updated task JSON
+before detecting a corrupt hashed `idempotency.json`, so cancel could
+persist then return `store_conflict`. Validate the index first. Never
+merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 put order | hashed idempotency index loaded before task replace |
+| Local `make test-review-reuse` | **279 passed** |
+| tests (3.10) on `1598bb84` | in progress (not red); product `01627f9d` |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`unstable`) |
+
 ## Window 4 wave70 — 2026-09-22 ~17:20 UTC
 
 tests (3.10) still **in progress** on `964794c1` (not red). Sol 5.6 vs

@@ -28,6 +28,7 @@
 | Hashed tenant mismatch does not resurrect legacy | `test_hashed_tenant_mismatch_does_not_resurrect_legacy` | pass locally |
 | Legacy idempotency does not skip hashed task | `test_legacy_idempotency_does_not_skip_hashed_task` | pass locally |
 | Corrupt hashed idempotency does not replay legacy | `test_corrupt_hashed_idempotency_does_not_replay_legacy` | pass locally |
+| Corrupt hashed index does not persist cancel | `test_corrupt_hashed_idempotency_does_not_persist_cancel` | pass locally |
 | cleanup `--tenant` by original id / hash | `test_cleanup_matches_hashed_tenant_by_original_id` | pass |
 | Mixed legacy dir not rmtree'd | `test_cleanup_refuses_mixed_legacy_tenant_dir` | pass |
 | JWT missing/invalid → 401 | `tests/unit/test_review_reuse_api.py` | pass |
@@ -433,6 +434,9 @@ make test-review-reuse
 | Mid-flight cancel does not emit precision/evidence | `test_pipeline_honors_mid_flight_cancel` |
 | Corrupt hashed idempotency is store_conflict | `test_corrupt_hashed_idempotency_does_not_replay_legacy` |
 | `make test-review-reuse` after cancel-abort + index error | **278 passed**, 7 ezdxf warnings |
+| Sol window4-w71 vs `origin/main` on `1598bb84` | P2 put wrote canceled JSON before corrupt-index error |
+| Cancel with junk hashed index does not persist | `test_corrupt_hashed_idempotency_does_not_persist_cancel` |
+| `make test-review-reuse` after index-before-task put | **279 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -544,7 +548,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pending** on `964794c1`; product `d859b5fe` |
+| Python 3.10 CI job | **pending** on `1598bb84`; product `01627f9d` |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |
