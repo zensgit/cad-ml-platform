@@ -400,6 +400,18 @@ class FilesystemReviewReuseStore:
         except (OSError, json.JSONDecodeError, ValueError):
             return None
 
+    def _hashed_task_if_present(
+        self, hashed: Path, tenant_id: str, task_id: str
+    ) -> tuple[bool, Optional[ReviewReuseTask]]:
+        """Hashed file, if present, is authoritative (including junk/mismatch)."""
+        path = self._task_path(hashed, task_id)
+        if not path.exists():
+            return False, None
+        task = self._parse_task_file(path)
+        if task is None or task.tenant_id != tenant_id:
+            return True, None
+        return True, task
+
     def _load_idem(self, tenant_dir: Path) -> Dict[str, str]:
         path = self._idem_path(tenant_dir)
         if not path.exists():
@@ -433,38 +445,45 @@ class FilesystemReviewReuseStore:
     def get(self, tenant_id: str, task_id: str) -> Optional[ReviewReuseTask]:
         with self._lock:
             hashed = self._hashed_dir(tenant_id)
+            present, task = self._hashed_task_if_present(hashed, tenant_id, task_id)
+            if present:
+                return task
             for tenant_dir in self._read_dirs(tenant_id):
+                if tenant_dir == hashed:
+                    continue
                 path = self._task_path(tenant_dir, task_id)
                 if not path.exists():
                     continue
-                task = self._parse_task_file(path)
-                if task is None:
-                    # Hashed file present but unreadable is corruption, not
-                    # a miss that may resurrect a leftover legacy snapshot.
-                    if tenant_dir == hashed:
-                        return None
-                    continue
-                if task.tenant_id == tenant_id:
-                    return task
+                loaded = self._parse_task_file(path)
+                if loaded is not None and loaded.tenant_id == tenant_id:
+                    return loaded
             return None
 
     def get_by_idempotency(self, tenant_id: str, key: str) -> Optional[ReviewReuseTask]:
         with self._lock:
             hashed = self._hashed_dir(tenant_id)
+            hashed_tid = self._load_idem(hashed).get(key)
+            if hashed_tid:
+                present, task = self._hashed_task_if_present(
+                    hashed, tenant_id, hashed_tid
+                )
+                if present:
+                    return task
             for tenant_dir in self._read_dirs(tenant_id):
+                if tenant_dir == hashed:
+                    continue
                 tid = self._load_idem(tenant_dir).get(key)
                 if not tid:
                     continue
+                present, task = self._hashed_task_if_present(hashed, tenant_id, tid)
+                if present:
+                    return task
                 path = self._task_path(tenant_dir, tid)
                 if not path.exists():
                     continue
-                task = self._parse_task_file(path)
-                if task is None:
-                    if tenant_dir == hashed:
-                        return None
-                    continue
-                if task.tenant_id == tenant_id:
-                    return task
+                loaded = self._parse_task_file(path)
+                if loaded is not None and loaded.tenant_id == tenant_id:
+                    return loaded
             return None
 
     def put_new_idempotent(self, task: ReviewReuseTask) -> ReviewReuseTask:
@@ -499,15 +518,20 @@ class FilesystemReviewReuseStore:
                     if path.stem in blocked:
                         continue
                     task = self._parse_task_file(path)
+                    if tenant_dir == hashed:
+                        # Present hashed file is authoritative, including
+                        # junk or a mismatched tenant_id.
+                        blocked.add(path.stem)
+                        if (
+                            task is not None
+                            and task.tenant_id == tenant_id
+                            and task.task_id not in seen
+                        ):
+                            seen[task.task_id] = task
+                        continue
                     if task is None:
-                        # Same-name leftover in legacy must not replace a
-                        # corrupt hashed file.
-                        if tenant_dir == hashed:
-                            blocked.add(path.stem)
                         continue
                     if task.tenant_id == tenant_id and task.task_id not in seen:
-                        # Hashed dir is visited first; keep that copy over a
-                        # stale leftover in the legacy layout.
                         seen[task.task_id] = task
             return list(seen.values())
 
