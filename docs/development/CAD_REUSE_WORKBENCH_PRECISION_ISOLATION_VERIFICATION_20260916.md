@@ -474,6 +474,8 @@ make test-review-reuse
 | File gate before idempotency | `test_idempotency_replay_does_not_skip_file_gate` |
 | Stale running unsupported suffix does not resume | `test_stale_running_unsupported_filename_does_not_resume` |
 | `make test-review-reuse` after file-gate-before-idempotency | **291 passed**, 7 ezdxf warnings |
+| Sol window4-w87 vs `origin/main` on `b28f8dea` | **no P1/P2** |
+| tests (3.10) / tests (3.11) on `b28f8dea` | **pass** |
 
 ### CI (PR #586)
 
@@ -490,6 +492,7 @@ make test-review-reuse
 | tests (3.10) / tests (3.11) / lint-type on `c9a7ce4b` | **pass** |
 | tests (3.10) / tests (3.11) / lint-type / core-fast-gate on `dc9267e0` | **pass** (Window 4 start) |
 | tests (3.10) / tests (3.11) / lint-type / e2e-smoke on `eed168f0` | **pass** |
+| tests (3.10) / tests (3.11) on `b28f8dea` | **pass** (product `ba36b5ea`) |
 | mergeable_state | `unstable` (Evaluation Report Track E; do not merge) |
 
 Re-run `make test-review-reuse` after each follow-up commit and record the count here.
@@ -500,6 +503,9 @@ Re-run `make test-review-reuse` after each follow-up commit and record the count
 |---|---|
 | Window 4 start HEAD | `dc9267e0` |
 | tests (3.10) / tests (3.11) / lint-type / core-fast-gate | **pass** on `dc9267e0` |
+| Current HEAD | `b28f8dea` (docs; product `ba36b5ea`) |
+| tests (3.10) / tests (3.11) on `b28f8dea` | **pass** |
+| Sol vs `origin/main` on `b28f8dea` | **no P1/P2** |
 | Evaluation Report | fail (Track E; out of scope) |
 | mergeable_state | do not merge (review required) |
 
@@ -585,7 +591,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pending** on `1299c19f`; product `273604f4` |
+| Python 3.10 CI job | **pass** on `b28f8dea` (product `ba36b5ea`) |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |
