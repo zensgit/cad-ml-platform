@@ -208,9 +208,9 @@ def test_pipeline_honors_mid_flight_cancel(monkeypatch: pytest.MonkeyPatch) -> N
     assert task.updated_at >= canceled_at["ts"]
     types = {e.event_type for e in task.events}
     assert TaskEventType.canceled in types
-    assert TaskEventType.recall_completed in types
-    assert TaskEventType.precision_completed in types
-    assert TaskEventType.evidence_pack_ready in types
+    assert TaskEventType.precision_completed not in types
+    assert TaskEventType.evidence_pack_ready not in types
+    assert task.evidence_pack is None
 
 
 def test_pipeline_rebuilds_pack_after_mid_flight_decision(

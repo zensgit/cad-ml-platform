@@ -33,6 +33,7 @@ from src.core.review_reuse.service import ReviewReuseService
 from src.core.review_reuse.store import (
     ENV_STORE,
     ENV_STORE_DIR,
+    CorruptIdempotencyIndexError,
     FilesystemReviewReuseStore,
     InMemoryReviewReuseStore,
     StoreLockUnavailableError,
@@ -1136,8 +1137,20 @@ def test_corrupt_hashed_idempotency_does_not_replay_legacy(tmp_path: Path) -> No
         json.dumps({"idem-corrupt-map": older.task_id}), encoding="utf-8"
     )
 
-    assert store.get_by_idempotency("pilot-tenant", "idem-corrupt-map") is None
+    with pytest.raises(CorruptIdempotencyIndexError):
+        store.get_by_idempotency("pilot-tenant", "idem-corrupt-map")
     assert store.get("pilot-tenant", canceled.task_id) is not None
+    from src.core.review_reuse.service import ReviewReuseError, ReviewReuseService
+
+    svc = ReviewReuseService(store)
+    with pytest.raises(ReviewReuseError) as ei:
+        svc.create_task(
+            tenant_id="pilot-tenant",
+            file_name="a.dxf",
+            file_bytes=b"x",
+            idempotency_key="idem-corrupt-map",
+        )
+    assert ei.value.code == "store_conflict"
 
 
 def test_filesystem_put_skips_task_scan_when_tenant_meta_matches(

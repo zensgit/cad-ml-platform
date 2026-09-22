@@ -40,6 +40,15 @@ class StoreLockUnavailableError(RuntimeError):
     """Filesystem store cannot take an inter-process lock on this platform."""
 
 
+class CorruptIdempotencyIndexError(RuntimeError):
+    """Hashed idempotency.json exists but cannot be read as a mapping."""
+
+    def __init__(self, tenant_id: str, path: Path) -> None:
+        self.tenant_id = tenant_id
+        self.path = path
+        super().__init__(f"hashed idempotency index {path} is unreadable")
+
+
 def _import_optional(name: str) -> Any:
     try:
         return __import__(name)
@@ -444,7 +453,11 @@ class FilesystemReviewReuseStore:
                 path, json.dumps(payload, ensure_ascii=False, indent=0)
             )
             if task.idempotency_key:
-                idem = self._load_idem(tenant_dir)
+                idem = self._try_load_idem(tenant_dir)
+                if idem is None:
+                    raise CorruptIdempotencyIndexError(
+                        task.tenant_id, self._idem_path(tenant_dir)
+                    )
                 idem[task.idempotency_key] = task.task_id
                 self._save_idem(tenant_dir, idem)
             return task
@@ -472,7 +485,9 @@ class FilesystemReviewReuseStore:
             hashed_idem = self._try_load_idem(hashed)
             if hashed_idem is None:
                 # Present-but-junk hashed index is corruption, not a miss.
-                return None
+                raise CorruptIdempotencyIndexError(
+                    tenant_id, self._idem_path(hashed)
+                )
             hashed_tid = hashed_idem.get(key)
             if hashed_tid:
                 present, task = self._hashed_task_if_present(

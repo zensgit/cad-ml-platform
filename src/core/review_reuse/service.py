@@ -24,6 +24,7 @@ from .models import (
 )
 from .precision import apply_precision, strip_transient_candidate_geom
 from .store import (
+    CorruptIdempotencyIndexError,
     OccupiedTenantDirError,
     ReviewReuseStoreProtocol,
     create_review_reuse_store,
@@ -98,7 +99,13 @@ class ReviewReuseService:
         if not tenant_id or not str(tenant_id).strip():
             raise ReviewReuseError("tenant_required", "tenant_id is required")
         if idempotency_key:
-            existing = self.store.get_by_idempotency(tenant_id, idempotency_key)
+            try:
+                existing = self.store.get_by_idempotency(tenant_id, idempotency_key)
+            except CorruptIdempotencyIndexError as exc:
+                raise ReviewReuseError(
+                    "store_conflict",
+                    "hashed idempotency index is unreadable",
+                ) from exc
             if existing is not None:
                 return self._return_idempotent(
                     existing,
@@ -140,6 +147,11 @@ class ReviewReuseService:
                 "store_conflict",
                 "hashed tenant directory is occupied by another tenant",
             ) from exc
+        except CorruptIdempotencyIndexError as exc:
+            raise ReviewReuseError(
+                "store_conflict",
+                "hashed idempotency index is unreadable",
+            ) from exc
         if stored.task_id != task.task_id:
             return self._return_idempotent(
                 stored,
@@ -161,6 +173,11 @@ class ReviewReuseService:
             raise ReviewReuseError(
                 "store_conflict",
                 "hashed tenant directory is occupied by another tenant",
+            ) from exc
+        except CorruptIdempotencyIndexError as exc:
+            raise ReviewReuseError(
+                "store_conflict",
+                "hashed idempotency index is unreadable",
             ) from exc
         except ReviewReuseError:
             raise
@@ -220,6 +237,11 @@ class ReviewReuseService:
             raise ReviewReuseError(
                 "store_conflict",
                 "hashed tenant directory is occupied by another tenant",
+            ) from exc
+        except CorruptIdempotencyIndexError as exc:
+            raise ReviewReuseError(
+                "store_conflict",
+                "hashed idempotency index is unreadable",
             ) from exc
         except ReviewReuseError:
             raise
@@ -323,6 +345,20 @@ class ReviewReuseService:
             task.updated_at = stored.updated_at
         return task
 
+    def _abort_if_pipeline_lost(
+        self, task: ReviewReuseTask, claim_id: Optional[str]
+    ) -> Optional[ReviewReuseTask]:
+        """Return the stored snapshot when the lease was stolen or canceled."""
+        renewed = self._renew_pipeline_claim(task)
+        stored = self.store.get(task.tenant_id, task.task_id)
+        snapshot = stored if stored is not None else renewed
+        if claim_id and not self._owns_pipeline_claim(snapshot, claim_id):
+            if snapshot.status == TaskStatus.canceled:
+                return snapshot
+            if snapshot.pipeline_claim_id != claim_id:
+                return snapshot
+        return None
+
     def _run_pipeline(
         self,
         task: ReviewReuseTask,
@@ -334,9 +370,9 @@ class ReviewReuseService:
     ) -> ReviewReuseTask:
         # Pipeline: recall → precision → evidence (adapter; no training path).
         claim_id = task.pipeline_claim_id
-        task = self._renew_pipeline_claim(task)
-        if claim_id and task.pipeline_claim_id != claim_id:
-            return task
+        aborted = self._abort_if_pipeline_lost(task, claim_id)
+        if aborted is not None:
+            return aborted
         task = self._emit(task, TaskEventType.recall_started, {})
         candidates = recall_candidates(
             file_name=file_name,
@@ -344,19 +380,25 @@ class ReviewReuseService:
             content_sha=content_sha,
             seed=seed_candidates,
         )
+        aborted = self._abort_if_pipeline_lost(task, claim_id)
+        if aborted is not None:
+            return aborted
         task.candidates = candidates
         task = self._emit(
             task,
             TaskEventType.recall_completed,
             {"count": len(candidates)},
         )
-        task = self._renew_pipeline_claim(task)
-        if claim_id and task.pipeline_claim_id != claim_id:
-            return task
+        aborted = self._abort_if_pipeline_lost(task, claim_id)
+        if aborted is not None:
+            return aborted
         task = self._emit(task, TaskEventType.precision_started, {})
         candidates = apply_precision(
             candidates, file_name=file_name, file_bytes=file_bytes
         )
+        aborted = self._abort_if_pipeline_lost(task, claim_id)
+        if aborted is not None:
+            return aborted
         task.candidates = candidates
         vision_only = sum(
             1
@@ -377,9 +419,9 @@ class ReviewReuseService:
                 "vision_only_unverified": vision_only,
             },
         )
-        task = self._renew_pipeline_claim(task)
-        if claim_id and task.pipeline_claim_id != claim_id:
-            return task
+        aborted = self._abort_if_pipeline_lost(task, claim_id)
+        if aborted is not None:
+            return aborted
         pack = build_evidence_pack(task)
         task.evidence_pack = pack
         task.status = TaskStatus.evidence_ready
@@ -444,6 +486,11 @@ class ReviewReuseService:
             raise ReviewReuseError(
                 "store_conflict",
                 "hashed tenant directory is occupied by another tenant",
+            ) from exc
+        except CorruptIdempotencyIndexError as exc:
+            raise ReviewReuseError(
+                "store_conflict",
+                "hashed idempotency index is unreadable",
             ) from exc
 
     def get_task(self, tenant_id: str, task_id: str) -> ReviewReuseTask:
