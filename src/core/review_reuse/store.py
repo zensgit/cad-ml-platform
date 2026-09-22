@@ -412,15 +412,22 @@ class FilesystemReviewReuseStore:
             return True, None
         return True, task
 
-    def _load_idem(self, tenant_dir: Path) -> Dict[str, str]:
+    def _try_load_idem(self, tenant_dir: Path) -> Optional[Dict[str, str]]:
+        """Return mapping, empty if missing, None if present but invalid."""
         path = self._idem_path(tenant_dir)
         if not path.exists():
             return {}
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-            return dict(data) if isinstance(data, dict) else {}
         except (OSError, json.JSONDecodeError):
-            return {}
+            return None
+        if not isinstance(data, dict):
+            return None
+        return dict(data)
+
+    def _load_idem(self, tenant_dir: Path) -> Dict[str, str]:
+        loaded = self._try_load_idem(tenant_dir)
+        return loaded if loaded is not None else {}
 
     def _save_idem(self, tenant_dir: Path, mapping: Dict[str, str]) -> None:
         path = self._idem_path(tenant_dir)
@@ -462,7 +469,11 @@ class FilesystemReviewReuseStore:
     def get_by_idempotency(self, tenant_id: str, key: str) -> Optional[ReviewReuseTask]:
         with self._lock:
             hashed = self._hashed_dir(tenant_id)
-            hashed_tid = self._load_idem(hashed).get(key)
+            hashed_idem = self._try_load_idem(hashed)
+            if hashed_idem is None:
+                # Present-but-junk hashed index is corruption, not a miss.
+                return None
+            hashed_tid = hashed_idem.get(key)
             if hashed_tid:
                 present, task = self._hashed_task_if_present(
                     hashed, tenant_id, hashed_tid

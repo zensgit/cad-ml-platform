@@ -1081,7 +1081,7 @@ def test_legacy_idempotency_does_not_skip_hashed_task(tmp_path: Path) -> None:
         )
     )
     hashed_dir = root / tenant_dir_key("pilot-tenant")
-    (hashed_dir / "idempotency.json").write_text("{not-json", encoding="utf-8")
+    (hashed_dir / "idempotency.json").unlink()
     legacy_dir = root / "pilot-tenant"
     (legacy_dir / "tasks").mkdir(parents=True)
     running = canceled.model_copy(update={"status": TaskStatus.running})
@@ -1095,6 +1095,49 @@ def test_legacy_idempotency_does_not_skip_hashed_task(tmp_path: Path) -> None:
     loaded = store.get_by_idempotency("pilot-tenant", "idem-stale-map")
     assert loaded is not None
     assert loaded.status == TaskStatus.canceled
+
+
+def test_corrupt_hashed_idempotency_does_not_replay_legacy(tmp_path: Path) -> None:
+    """Present-but-junk hashed idempotency.json must not fall through."""
+    root = tmp_path / "tasks"
+    store = FilesystemReviewReuseStore(root)
+    canceled = store.put(
+        ReviewReuseTask(
+            task_id="t-idem-corrupt",
+            tenant_id="pilot-tenant",
+            status=TaskStatus.canceled,
+            created_at=1.0,
+            updated_at=2.0,
+            source_file_name="a.dxf",
+            source_content_sha256="ab",
+            idempotency_key="idem-corrupt-map",
+            trace_id="tr",
+        )
+    )
+    hashed_dir = root / tenant_dir_key("pilot-tenant")
+    (hashed_dir / "idempotency.json").write_text("{not-json", encoding="utf-8")
+    legacy_dir = root / "pilot-tenant"
+    (legacy_dir / "tasks").mkdir(parents=True)
+    older = ReviewReuseTask(
+        task_id="t-legacy-older",
+        tenant_id="pilot-tenant",
+        status=TaskStatus.running,
+        created_at=1.0,
+        updated_at=1.0,
+        source_file_name="a.dxf",
+        source_content_sha256="ab",
+        idempotency_key="idem-corrupt-map",
+        trace_id="tr",
+    )
+    (legacy_dir / "tasks" / f"{older.task_id}.json").write_text(
+        json.dumps(older.model_dump(mode="json")), encoding="utf-8"
+    )
+    (legacy_dir / "idempotency.json").write_text(
+        json.dumps({"idem-corrupt-map": older.task_id}), encoding="utf-8"
+    )
+
+    assert store.get_by_idempotency("pilot-tenant", "idem-corrupt-map") is None
+    assert store.get("pilot-tenant", canceled.task_id) is not None
 
 
 def test_filesystem_put_skips_task_scan_when_tenant_meta_matches(
