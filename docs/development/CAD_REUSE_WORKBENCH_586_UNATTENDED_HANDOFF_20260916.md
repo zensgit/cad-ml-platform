@@ -523,6 +523,22 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave85 — 2026-09-22 ~22:27 UTC
+
+tests (3.10) still **in progress** on `40559a13` (not red; last pass
+`bb74279f`). Sol 5.6 vs `origin/main` on that HEAD: **P2** a pre-upgrade
+unsupported suffix (`legacy.bin`) skipped the filename gate via
+idempotency lookup, including stale `running` resume. Validate file
+type before `get_by_idempotency`. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 file gate before replay | `create_task` checks suffix before idempotency |
+| Product | `ba36b5ea` |
+| Local `make test-review-reuse` | **291 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`MERGEABLE`; owner must merge) |
+
 ## Window 4 wave84 — 2026-09-22 ~22:03 UTC
 
 tests (3.10) still **in progress** on `cc63d54d` (not red; last pass

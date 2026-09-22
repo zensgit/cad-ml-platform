@@ -294,6 +294,8 @@ Wave83: overflowing polyline ``bulges`` / ``const_width`` JSON ints
 are ``missing_geom_json``, not ``pipeline_failed``.
 Wave84: idempotent replay of a decided/canceled snapshot that still
 carries ``task.error`` re-raises ``pipeline_failed`` (not HTTP 200).
+Wave85: filename gate runs before idempotency lookup so a pre-upgrade
+unsupported suffix cannot replay or resume a stale pipeline.
 
 ### Model routing (by difficulty)
 

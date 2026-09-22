@@ -470,6 +470,10 @@ make test-review-reuse
 | Decided+error replay is pipeline_failed | `test_idempotent_replay_of_decided_task_with_pipeline_error_raises` |
 | Canceled+error replay is pipeline_failed | `test_idempotent_replay_of_canceled_task_with_pipeline_error_raises` |
 | `make test-review-reuse` after terminal-error replay | **290 passed**, 7 ezdxf warnings |
+| Sol window4-w85 vs `origin/main` on `40559a13` | P2 unsupported suffix skipped the file gate on idempotent replay |
+| File gate before idempotency | `test_idempotency_replay_does_not_skip_file_gate` |
+| Stale running unsupported suffix does not resume | `test_stale_running_unsupported_filename_does_not_resume` |
+| `make test-review-reuse` after file-gate-before-idempotency | **291 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
