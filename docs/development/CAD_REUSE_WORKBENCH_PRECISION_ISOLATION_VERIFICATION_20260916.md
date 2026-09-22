@@ -29,6 +29,7 @@
 | Legacy idempotency does not skip hashed task | `test_legacy_idempotency_does_not_skip_hashed_task` | pass locally |
 | Corrupt hashed idempotency does not replay legacy | `test_corrupt_hashed_idempotency_does_not_replay_legacy` | pass locally |
 | Corrupt hashed index does not persist cancel | `test_corrupt_hashed_idempotency_does_not_persist_cancel` | pass locally |
+| Non-string hashed idempotency value is corrupt | `test_non_string_hashed_idempotency_value_is_corrupt` | pass locally |
 | cleanup `--tenant` by original id / hash | `test_cleanup_matches_hashed_tenant_by_original_id` | pass |
 | Mixed legacy dir not rmtree'd | `test_cleanup_refuses_mixed_legacy_tenant_dir` | pass |
 | JWT missing/invalid → 401 | `tests/unit/test_review_reuse_api.py` | pass |
@@ -437,6 +438,9 @@ make test-review-reuse
 | Sol window4-w71 vs `origin/main` on `1598bb84` | P2 put wrote canceled JSON before corrupt-index error |
 | Cancel with junk hashed index does not persist | `test_corrupt_hashed_idempotency_does_not_persist_cancel` |
 | `make test-review-reuse` after index-before-task put | **279 passed**, 7 ezdxf warnings |
+| Sol window4-w72 vs `origin/main` on `1299c19f` | P2 non-string idempotency value crashed `_task_path` |
+| Non-string hashed idempotency value is store_conflict | `test_non_string_hashed_idempotency_value_is_corrupt` |
+| `make test-review-reuse` after string-only idempotency index | **280 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -548,7 +552,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pending** on `1598bb84`; product `01627f9d` |
+| Python 3.10 CI job | **pending** on `1299c19f`; product `273604f4` |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |

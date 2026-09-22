@@ -278,6 +278,8 @@ Wave70: a concurrent cancel aborts later pipeline stages; a corrupt
 hashed idempotency index is ``store_conflict``, not a create miss.
 Wave71: ``put()`` validates the hashed idempotency index before
 replacing the task file so cancel cannot persist then error.
+Wave72: hashed ``idempotency.json`` entries must be non-empty strings;
+a JSON number task id is ``store_conflict``, not HTTP 500.
 
 ### Model routing (by difficulty)
 

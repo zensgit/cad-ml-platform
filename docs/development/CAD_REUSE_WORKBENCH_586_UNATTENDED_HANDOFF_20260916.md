@@ -523,6 +523,22 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave72 — 2026-09-22 ~18:00 UTC
+
+tests (3.10) still **in progress** on `1299c19f` (not red). Sol 5.6 vs
+`origin/main` on that HEAD: **P2** a hashed `idempotency.json` with a
+JSON-number task id was treated as valid and later crashed
+`_task_path` with `TypeError` (HTTP 500). Require non-empty string
+keys/values. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 idempotency value types | `_try_load_idem` requires `str` keys and values |
+| Local `make test-review-reuse` | **280 passed** |
+| tests (3.10) on `1299c19f` | in progress (not red); product `273604f4` |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`unstable`) |
+
 ## Window 4 wave71 — 2026-09-22 ~17:42 UTC
 
 tests (3.10) still **in progress** on `1598bb84` (not red). Sol 5.6 vs
