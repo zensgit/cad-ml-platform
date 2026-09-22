@@ -523,6 +523,24 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave70 — 2026-09-22 ~17:20 UTC
+
+tests (3.10) still **in progress** on `964794c1` (not red). Sol 5.6 vs
+`origin/main` on that HEAD: **P2** mid-flight cancel kept the same
+claim id so precision/evidence still ran; **P2** a junk hashed
+`idempotency.json` looked like a miss and `put()` started a duplicate.
+Abort when the stored snapshot is not a running owner; raise
+`store_conflict` on a corrupt index. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 cancel abort | `_abort_if_pipeline_lost` uses `_owns_pipeline_claim` |
+| P2 corrupt index | `CorruptIdempotencyIndexError` → `store_conflict` |
+| Local `make test-review-reuse` | **278 passed** |
+| tests (3.10) on `964794c1` | in progress (not red); product `d859b5fe` |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`unstable`) |
+
 ## Window 4 wave69 — 2026-09-22 ~17:00 UTC
 
 tests (3.10) still **in progress** on `11a6c6c8` (not red). Sol 5.6 vs

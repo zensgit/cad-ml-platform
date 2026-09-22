@@ -429,6 +429,10 @@ make test-review-reuse
 | Sol window4-w69 vs `origin/main` on `11a6c6c8` | P2 corrupt hashed idempotency replayed leftover mapping |
 | Corrupt hashed idempotency.json does not replay | `test_corrupt_hashed_idempotency_does_not_replay_legacy` |
 | `make test-review-reuse` after hashed-idempotency fail-closed | **278 passed**, 7 ezdxf warnings |
+| Sol window4-w70 vs `origin/main` on `964794c1` | P2 cancel continued pipeline; P2 corrupt index was a create miss |
+| Mid-flight cancel does not emit precision/evidence | `test_pipeline_honors_mid_flight_cancel` |
+| Corrupt hashed idempotency is store_conflict | `test_corrupt_hashed_idempotency_does_not_replay_legacy` |
+| `make test-review-reuse` after cancel-abort + index error | **278 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -540,7 +544,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pending** on `11a6c6c8`; product `09d67662` |
+| Python 3.10 CI job | **pending** on `964794c1`; product `d859b5fe` |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |

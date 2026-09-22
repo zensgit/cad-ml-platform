@@ -274,6 +274,8 @@ Wave68: a present hashed file is authoritative on tenant mismatch, and
 legacy idempotency lookups consult the hashed task path first.
 Wave69: a present-but-junk hashed ``idempotency.json`` fails closed
 instead of replaying leftover legacy mappings.
+Wave70: a concurrent cancel aborts later pipeline stages; a corrupt
+hashed idempotency index is ``store_conflict``, not a create miss.
 
 ### Model routing (by difficulty)
 
