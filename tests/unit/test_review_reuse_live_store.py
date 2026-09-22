@@ -966,6 +966,69 @@ def test_list_for_tenant_prefers_hashed_over_stale_legacy(tmp_path: Path) -> Non
     assert stale["status"] == TaskStatus.evidence_ready.value
 
 
+def test_corrupt_hashed_task_does_not_resurrect_legacy(tmp_path: Path) -> None:
+    """Hashed JSON that exists but is junk must not fall through to leftover legacy."""
+    root = tmp_path / "tasks"
+    store = FilesystemReviewReuseStore(root)
+    canceled = store.put(
+        ReviewReuseTask(
+            task_id="t-corrupt",
+            tenant_id="pilot-tenant",
+            status=TaskStatus.canceled,
+            created_at=1.0,
+            updated_at=2.0,
+            source_file_name="a.dxf",
+            source_content_sha256="ab",
+            idempotency_key="idem-corrupt",
+            trace_id="tr",
+        )
+    )
+    other = store.put(
+        ReviewReuseTask(
+            task_id="t-ok",
+            tenant_id="pilot-tenant",
+            status=TaskStatus.evidence_ready,
+            created_at=1.0,
+            updated_at=2.0,
+            source_file_name="b.dxf",
+            source_content_sha256="cd",
+            trace_id="tr",
+        )
+    )
+    hashed_corrupt = (
+        root / tenant_dir_key("pilot-tenant") / "tasks" / f"{canceled.task_id}.json"
+    )
+    legacy_dir = root / "pilot-tenant" / "tasks"
+    legacy_dir.mkdir(parents=True)
+    running = canceled.model_copy(update={"status": TaskStatus.running})
+    (legacy_dir / f"{canceled.task_id}.json").write_text(
+        json.dumps(running.model_dump(mode="json")), encoding="utf-8"
+    )
+    only_legacy = ReviewReuseTask(
+        task_id="t-legacy-only",
+        tenant_id="pilot-tenant",
+        status=TaskStatus.evidence_ready,
+        created_at=1.0,
+        updated_at=2.0,
+        source_file_name="c.dxf",
+        source_content_sha256="ef",
+        trace_id="tr",
+    )
+    (legacy_dir / f"{only_legacy.task_id}.json").write_text(
+        json.dumps(only_legacy.model_dump(mode="json")), encoding="utf-8"
+    )
+    hashed_corrupt.write_text("{not-json", encoding="utf-8")
+
+    assert store.get("pilot-tenant", canceled.task_id) is None
+    assert store.get_by_idempotency("pilot-tenant", "idem-corrupt") is None
+    assert store.get("pilot-tenant", other.task_id) is not None
+    assert store.get("pilot-tenant", only_legacy.task_id) is not None
+    listed = {task.task_id: task.status for task in store.list_for_tenant("pilot-tenant")}
+    assert canceled.task_id not in listed
+    assert listed[other.task_id] == TaskStatus.evidence_ready
+    assert listed[only_legacy.task_id] == TaskStatus.evidence_ready
+
+
 def test_filesystem_put_skips_task_scan_when_tenant_meta_matches(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

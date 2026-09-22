@@ -393,6 +393,13 @@ class FilesystemReviewReuseStore:
     def _idem_path(self, tenant_dir: Path) -> Path:
         return tenant_dir / "idempotency.json"
 
+    def _parse_task_file(self, path: Path) -> Optional[ReviewReuseTask]:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            return ReviewReuseTask.model_validate(data)
+        except (OSError, json.JSONDecodeError, ValueError):
+            return None
+
     def _load_idem(self, tenant_dir: Path) -> Dict[str, str]:
         path = self._idem_path(tenant_dir)
         if not path.exists():
@@ -425,14 +432,17 @@ class FilesystemReviewReuseStore:
 
     def get(self, tenant_id: str, task_id: str) -> Optional[ReviewReuseTask]:
         with self._lock:
+            hashed = self._hashed_dir(tenant_id)
             for tenant_dir in self._read_dirs(tenant_id):
                 path = self._task_path(tenant_dir, task_id)
                 if not path.exists():
                     continue
-                try:
-                    data = json.loads(path.read_text(encoding="utf-8"))
-                    task = ReviewReuseTask.model_validate(data)
-                except (OSError, json.JSONDecodeError, ValueError):
+                task = self._parse_task_file(path)
+                if task is None:
+                    # Hashed file present but unreadable is corruption, not
+                    # a miss that may resurrect a leftover legacy snapshot.
+                    if tenant_dir == hashed:
+                        return None
                     continue
                 if task.tenant_id == tenant_id:
                     return task
@@ -440,6 +450,7 @@ class FilesystemReviewReuseStore:
 
     def get_by_idempotency(self, tenant_id: str, key: str) -> Optional[ReviewReuseTask]:
         with self._lock:
+            hashed = self._hashed_dir(tenant_id)
             for tenant_dir in self._read_dirs(tenant_id):
                 tid = self._load_idem(tenant_dir).get(key)
                 if not tid:
@@ -447,10 +458,10 @@ class FilesystemReviewReuseStore:
                 path = self._task_path(tenant_dir, tid)
                 if not path.exists():
                     continue
-                try:
-                    data = json.loads(path.read_text(encoding="utf-8"))
-                    task = ReviewReuseTask.model_validate(data)
-                except (OSError, json.JSONDecodeError, ValueError):
+                task = self._parse_task_file(path)
+                if task is None:
+                    if tenant_dir == hashed:
+                        return None
                     continue
                 if task.tenant_id == tenant_id:
                     return task
@@ -478,15 +489,21 @@ class FilesystemReviewReuseStore:
     def list_for_tenant(self, tenant_id: str) -> List[ReviewReuseTask]:
         with self._lock:
             seen: Dict[str, ReviewReuseTask] = {}
+            blocked: set[str] = set()
+            hashed = self._hashed_dir(tenant_id)
             for tenant_dir in self._read_dirs(tenant_id):
                 tasks_dir = tenant_dir / "tasks"
                 if not tasks_dir.exists():
                     continue
                 for path in tasks_dir.glob("*.json"):
-                    try:
-                        data = json.loads(path.read_text(encoding="utf-8"))
-                        task = ReviewReuseTask.model_validate(data)
-                    except (OSError, json.JSONDecodeError, ValueError):
+                    if path.stem in blocked:
+                        continue
+                    task = self._parse_task_file(path)
+                    if task is None:
+                        # Same-name leftover in legacy must not replace a
+                        # corrupt hashed file.
+                        if tenant_dir == hashed:
+                            blocked.add(path.stem)
                         continue
                     if task.tenant_id == tenant_id and task.task_id not in seen:
                         # Hashed dir is visited first; keep that copy over a
