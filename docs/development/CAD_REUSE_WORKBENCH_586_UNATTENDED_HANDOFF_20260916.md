@@ -523,6 +523,22 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave67 — 2026-09-22 ~16:22 UTC
+
+tests (3.10) **pass** on `5de8baef`. Sol 5.6 vs `origin/main` on that
+HEAD: **P2** hashed-plus-legacy reads treated an unreadable hashed
+task file as a miss, so leftover legacy JSON could resurrect a
+canceled task as running. Fail closed on present-but-junk hashed
+files in get / idempotency / list. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 corrupt hashed task | `_parse_task_file`; hashed present-but-junk is authoritative |
+| Local `make test-review-reuse` | **275 passed** |
+| tests (3.10) on `5de8baef` | **pass** (pre-push product `c56ba4b1`) |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`unstable`) |
+
 ## Window 4 wave49 — 2026-09-22 ~10:22 UTC
 
 tests (3.10) **pass** on `09112d9e`. Sol 5.6 vs `origin/main` on that

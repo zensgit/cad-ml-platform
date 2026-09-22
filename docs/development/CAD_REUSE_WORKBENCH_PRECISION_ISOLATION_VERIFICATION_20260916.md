@@ -24,6 +24,7 @@
 | Occupied hashed dir not overwritten | `test_filesystem_put_refuses_hashed_dir_occupied_by_legacy_tenant` | pass locally |
 | Hashed tenant dirs, no `a/b` vs `a_b` collision | `test_filesystem_store_tenant_path_no_collision` | pass |
 | list prefers hashed over stale legacy | `test_list_for_tenant_prefers_hashed_over_stale_legacy` | pass |
+| Corrupt hashed task does not resurrect legacy | `test_corrupt_hashed_task_does_not_resurrect_legacy` | pass locally |
 | cleanup `--tenant` by original id / hash | `test_cleanup_matches_hashed_tenant_by_original_id` | pass |
 | Mixed legacy dir not rmtree'd | `test_cleanup_refuses_mixed_legacy_tenant_dir` | pass |
 | JWT missing/invalid → 401 | `tests/unit/test_review_reuse_api.py` | pass |
@@ -414,6 +415,10 @@ make test-review-reuse
 | Generated FILE key binds basename | `test_isolated_file_idempotency_key_binds_basename` |
 | a.dxf vs b.dxf same bytes do not conflict | `test_isolated_file_distinct_names_same_bytes_do_not_conflict` |
 | `make test-review-reuse` after basename-bound key | **274 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) on `5de8baef` | **pass** |
+| Sol window4-w67 vs `origin/main` on `5de8baef` | P2 corrupt hashed task resurrected leftover legacy |
+| Corrupt hashed JSON does not return legacy running | `test_corrupt_hashed_task_does_not_resurrect_legacy` |
+| `make test-review-reuse` after hashed-corruption fail-closed | **275 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -525,7 +530,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `7872bd32` (last fully green HEAD; new product SHA pending) |
+| Python 3.10 CI job | **pass** on `5de8baef`; product `c56ba4b1` pending |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |

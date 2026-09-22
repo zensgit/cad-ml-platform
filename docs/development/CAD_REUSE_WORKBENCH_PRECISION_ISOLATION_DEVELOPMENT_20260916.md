@@ -268,6 +268,8 @@ idempotency keys bind seed vs live-recall mode so a later
 ``--seed-similar`` or ``REVIEW_REUSE_LIVE_DEDUP`` change cannot replay.
 Wave49: generated FILE keys also bind the basename so same-bytes
 ``a.dxf`` vs ``b.dxf`` cannot collide on filesystem-store replay.
+Wave67: hashed task JSON that exists but is unreadable does not fall
+through to leftover legacy state on get / idempotency / list.
 
 ### Model routing (by difficulty)
 
