@@ -594,6 +594,8 @@ class ReviewReuseService:
                 )
             if current.status == TaskStatus.canceled:
                 raise ReviewReuseError("canceled", "cannot decide a canceled task")
+            if current.status == TaskStatus.failed:
+                raise ReviewReuseError("failed", "cannot decide a failed task")
             if candidate_id:
                 known = {c.candidate_id for c in current.candidates}
                 if candidate_id not in known:

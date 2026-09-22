@@ -371,6 +371,51 @@ def test_cancel_does_not_overwrite_failed_task() -> None:
     assert stuck.status == TaskStatus.failed
 
 
+def test_submit_decision_does_not_overwrite_failed_task(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import time
+
+    from src.core.review_reuse.models import ReviewReuseTask, TaskStatus
+    from src.core.review_reuse.service import PIPELINE_FAILED_PUBLIC
+
+    monkeypatch.setenv(ENV_DECISIONS_ENABLED, "true")
+    svc = _svc()
+    now = time.time()
+    prior = ReviewReuseTask(
+        task_id="failed-decide",
+        tenant_id="t-fail-decide",
+        status=TaskStatus.failed,
+        created_at=now,
+        updated_at=now,
+        source_file_name="part.dxf",
+        source_content_sha256=hashlib.sha256(b"x").hexdigest(),
+        idempotency_key="idem-failed-decide",
+        trace_id="tr-failed-decide",
+        error=PIPELINE_FAILED_PUBLIC,
+    )
+    svc.store.put(prior)
+    with pytest.raises(ReviewReuseError) as ei:
+        svc.submit_decision(
+            tenant_id="t-fail-decide",
+            task_id="failed-decide",
+            state=HumanDecisionState.new,
+            reviewer_id="r1",
+        )
+    assert ei.value.code == "failed"
+    stuck = svc.get_task("t-fail-decide", "failed-decide")
+    assert stuck.status == TaskStatus.failed
+    assert stuck.human_decision is None
+    with pytest.raises(ReviewReuseError) as replay:
+        svc.create_task(
+            tenant_id="t-fail-decide",
+            file_name="part.dxf",
+            file_bytes=b"x",
+            idempotency_key="idem-failed-decide",
+        )
+    assert replay.value.code == "pipeline_failed"
+
+
 def test_stale_running_idempotency_resumes_pipeline() -> None:
     import hashlib
     import time
