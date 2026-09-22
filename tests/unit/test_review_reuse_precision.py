@@ -2109,6 +2109,32 @@ def test_overflow_integer_coords_are_not_l4_geometry() -> None:
     assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
 
 
+def test_deeply_nested_json_geom_is_not_pipeline_failed() -> None:
+    """RecursionError from json.loads must be missing_geom_json, not 500."""
+    payload = ("[" * 2000 + "0" + "]" * 2000).encode("utf-8")
+    geom = _line_geom()
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "nested-json",
+                "state": "similar",
+                "geom_json": geom,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=payload,
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
 def test_overflow_integer_adapter_score_is_not_a_unit_score() -> None:
     """JSON ints too large for float must not crash score mapping."""
     huge = 10**400
@@ -4487,6 +4513,36 @@ def test_dxf_crlf_fractional_insunits_header_is_not_certified(tmp_path: Path) ->
     path.write_bytes(dxf.encode("ascii"))
     extracted = extract_dxf(str(path))
     assert extracted.get("file_info", {}).get("insunits") == 0
+
+
+def test_raw_insunits_scan_does_not_slurp_whole_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from src.core.dedupcad_precision.vendor import dxf_extract as mod
+
+    def _forbid_slurp(self: Path) -> bytes:
+        raise AssertionError("INSUNITS scan must not Path.read_bytes the DXF")
+
+    monkeypatch.setattr(mod.Path, "read_bytes", _forbid_slurp)
+    path = tmp_path / "frac_units_noslurp.dxf"
+    path.write_text(
+        "0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n70\n4.9\n0\nENDSEC\n",
+        encoding="utf-8",
+    )
+    assert mod._raw_insunits_non_integral(str(path)) is True
+
+
+def test_raw_insunits_ignores_tokens_after_header(tmp_path: Path) -> None:
+    from src.core.dedupcad_precision.vendor import dxf_extract as mod
+
+    dxf = (
+        "0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n70\n4\n0\nENDSEC\n"
+        "0\nSECTION\n2\nENTITIES\n9\n$INSUNITS\n70\n4.9\n"
+        "0\nENDSEC\n0\nEOF\n"
+    )
+    path = tmp_path / "units_after_header.dxf"
+    path.write_text(dxf, encoding="utf-8")
+    assert mod._raw_insunits_non_integral(str(path)) is False
 
 
 def test_isolated_file_run_uses_content_idempotency_key() -> None:

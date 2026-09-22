@@ -385,7 +385,7 @@ def _parse_query_geom(
             return None
         try:
             obj = json.loads(file_bytes.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
+        except (UnicodeDecodeError, json.JSONDecodeError, ValueError, RecursionError):
             return None
         return obj if _is_geom_json(obj) else None
     if suffix == ".dxf":

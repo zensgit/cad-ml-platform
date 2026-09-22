@@ -60,16 +60,47 @@ def _header_insunits(doc: Any) -> int:
         return 0
 
 
+# HEADER is at the start of a DXF; never slurp ENTITIES/BLOCKS for $INSUNITS.
+_HEADER_SCAN_MAX_BYTES = 1_048_576
+
+
+def _read_dxf_header_text(path: str) -> Optional[str]:
+    """HEADER section text, or None if missing or not closed within the cap."""
+    try:
+        with open(path, "rb") as handle:
+            raw = handle.read(_HEADER_SCAN_MAX_BYTES)
+    except OSError:
+        return None
+    text = raw.decode("latin-1", errors="ignore")
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    start = re.search(
+        r"(?:^|\n)[ \t]*0[ \t]*\n[ \t]*SECTION[ \t]*\n[ \t]*2[ \t]*\n"
+        r"[ \t]*HEADER[ \t]*\n",
+        text,
+        flags=re.IGNORECASE,
+    )
+    if start is None:
+        return None
+    rest = text[start.end() :]
+    end = re.search(
+        r"(?:^|\n)[ \t]*0[ \t]*\n[ \t]*ENDSEC[ \t]*(?:\n|\Z)",
+        rest,
+        flags=re.IGNORECASE,
+    )
+    if end is None:
+        return None
+    return rest[: end.start()]
+
+
 def _raw_insunits_non_integral(path: str) -> bool:
     """True when group-70 $INSUNITS is fractional before ezdxf truncates."""
-    try:
-        text = Path(path).read_bytes().decode("latin-1", errors="ignore")
-    except Exception:
-        return False
-    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    header = _read_dxf_header_text(path)
+    if header is None:
+        # Unbounded/missing HEADER: do not trust ezdxf's truncated value.
+        return True
     match = re.search(
         r"\$INSUNITS[^\n]*\n[ \t]*70[ \t]*\n[ \t]*([^\n]+)",
-        text,
+        header,
         flags=re.IGNORECASE,
     )
     if match is None:

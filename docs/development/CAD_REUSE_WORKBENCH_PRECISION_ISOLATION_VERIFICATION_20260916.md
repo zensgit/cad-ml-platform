@@ -368,7 +368,12 @@ make test-review-reuse
 | tests (3.10) / tests (3.11) / lint-type / e2e-smoke on `31b91ffa` | **pass** |
 | Sol window4-w28 vs `origin/main` on `31b91ffa` | **no P1/P2** |
 | tests (3.10) / tests (3.11) / lint-type / e2e-smoke on `044eab2e` | **pass** |
+| tests (3.10) / tests (3.11) / lint-type / e2e-smoke on `1e620c52` | **pass** |
 | Sol window4-w29 vs `origin/main` on `044eab2e` | **no P1/P2** |
+| Sol window4-w30 vs `origin/main` on `1e620c52` | P2 whole-file INSUNITS slurp; P2 nested JSON RecursionError |
+| HEADER-only INSUNITS scan | `test_raw_insunits_scan_does_not_slurp_whole_file` |
+| Nested JSON is not pipeline_failed | `test_deeply_nested_json_geom_is_not_pipeline_failed` |
+| `make test-review-reuse` after header-scan + nested JSON | **261 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -480,7 +485,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `044eab2e` (last fully green HEAD) |
+| Python 3.10 CI job | **pass** on `1e620c52` (last fully green HEAD) |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |

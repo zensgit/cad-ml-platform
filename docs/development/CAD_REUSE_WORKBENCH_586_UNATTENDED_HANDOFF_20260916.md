@@ -523,6 +523,23 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave30 — 2026-09-22 ~02:28 UTC
+
+tests (3.10) **pass** on `1e620c52`. Sol 5.6 vs `origin/main` on that
+HEAD: **P2** whole-file `$INSUNITS` latin-1 decode duplicated ezdxf
+memory; **P2** nested JSON `RecursionError` became `pipeline_failed`
+HTTP 500. Scan only the HEADER section (1 MiB cap); catch RecursionError
+as missing geom. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 INSUNITS scan | `_read_dxf_header_text` bounds HEADER |
+| P2 nested JSON | `_parse_query_geom` catches RecursionError |
+| Local `make test-review-reuse` | **261 passed** |
+| tests (3.10) on `1e620c52` | **pass** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`unstable`) |
+
 ## Window 4 wave29 — 2026-09-22 ~02:05 UTC
 
 tests (3.10) **pass** on `044eab2e`. Sol 5.6 vs `origin/main`: **no P1/P2**.
