@@ -462,6 +462,10 @@ make test-review-reuse
 | `make test-review-reuse` after failed-terminal decision | **286 passed**, 7 ezdxf warnings |
 | tests (3.10) / tests (3.11) on `bb74279f` | **pass** |
 | Sol window4-w82 vs `origin/main` on `bb74279f` | no P1/P2 |
+| Sol window4-w83 vs `origin/main` on `63df0f99` | P2 overflow bulge/width `float()` was pipeline_failed |
+| Overflow bulge is missing_geom_json | `test_overflow_integer_polyline_bulge_is_not_pipeline_failed` |
+| Overflow width is missing_geom_json | `test_overflow_integer_polyline_width_is_not_pipeline_failed` |
+| `make test-review-reuse` after overflow polyline metadata | **288 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

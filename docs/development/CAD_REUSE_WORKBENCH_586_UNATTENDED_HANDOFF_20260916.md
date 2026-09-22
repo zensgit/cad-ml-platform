@@ -523,6 +523,22 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave83 — 2026-09-22 ~21:42 UTC
+
+tests (3.10) still **in progress** on `63df0f99` (not red; last pass
+`bb74279f`). Sol 5.6 vs `origin/main` on that HEAD: **P2** overflowing
+polyline bulge/width JSON ints raised `OverflowError` in explode
+checks and became `pipeline_failed`. Catch via `_finite_number` and
+reject as `missing_geom_json`. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 overflow bulge/width | `_bulge_is_unsafe` / `_width_is_unsafe` use `_finite_number` |
+| Product | `03d2f9cb` |
+| Local `make test-review-reuse` | **288 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`MERGEABLE`; owner must merge) |
+
 ## Window 4 wave82 — 2026-09-22 ~21:21 UTC
 
 tests (3.10) / tests (3.11) **pass** on `bb74279f`. Sol 5.6 vs

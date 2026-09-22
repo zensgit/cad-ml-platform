@@ -290,6 +290,8 @@ Wave79: cancel leaves a persisted ``failed`` task unchanged so
 idempotent retries still re-raise ``pipeline_failed``.
 Wave80: ``submit_decision`` rejects persisted ``failed`` tasks so a
 pilot decision cannot mask ``pipeline_failed``.
+Wave83: overflowing polyline ``bulges`` / ``const_width`` JSON ints
+are ``missing_geom_json``, not ``pipeline_failed``.
 
 ### Model routing (by difficulty)
 
