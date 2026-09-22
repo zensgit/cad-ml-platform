@@ -390,6 +390,11 @@ make test-review-reuse
 | Sol window4-w37 vs `origin/main` on `92e8f885` | P2 binary DXF INSUNITS wiped |
 | Binary DXF INSUNITS still L4 | `test_binary_dxf_insunits_is_certified` |
 | `make test-review-reuse` after binary INSUNITS scan | **265 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) / lint-type / e2e-smoke on `a81c1b31` | **pass** |
+| Sol window4-w38 vs `origin/main` on `a81c1b31` | **no P1/P2** (idle, no docs) |
+| Sol window4-w39 vs `origin/main` on `a81c1b31` | P1 store TOCTOU revived prescored L4 |
+| Store miss after local refuse is not L4 | `test_prescored_l4_does_not_override_after_store_geom_disappears` |
+| `make test-review-reuse` after L4 geom reuse | **266 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -501,7 +506,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `92e8f885` (last fully green HEAD; new product SHA pending) |
+| Python 3.10 CI job | **pass** on `a81c1b31` (last fully green HEAD; new product SHA pending) |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |

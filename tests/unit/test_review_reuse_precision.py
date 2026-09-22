@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
-from typing import List
+from typing import Any, Dict, List, Optional
 
 import pytest
 
@@ -3619,6 +3619,56 @@ def test_insunits_mismatch_is_not_certified() -> None:
         file_name="query.json",
         file_bytes=json.dumps(query).encode("utf-8"),
     )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
+def test_prescored_l4_does_not_override_after_store_geom_disappears(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Hash-backed units refuse must stay fail-closed if the store later misses."""
+    from src.core.dedupcad_precision import create_geom_store
+
+    line = {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]}
+    query = {"file_info": {"insunits": 1}, "entities": [line]}
+    other = {"file_info": {"insunits": 4}, "entities": [line]}
+    sha = "b" * 64
+
+    class _OnceStore:
+        def __init__(self) -> None:
+            self.loads = 0
+
+        def load(self, file_hash: str) -> Optional[Dict[str, Any]]:
+            del file_hash
+            self.loads += 1
+            return other if self.loads == 1 else None
+
+    store = _OnceStore()
+    create_geom_store.cache_clear()
+    monkeypatch.setattr(
+        "src.core.dedupcad_precision.create_geom_store", lambda: store
+    )
+    try:
+        cands = map_raw_hits_to_candidates(
+            [
+                {
+                    "candidate_id": sha,
+                    "state": "similar",
+                    "scores": {"geometric": 1.0},
+                    "methods": ["precision-l4"],
+                }
+            ],
+            content_sha="ab",
+            file_name="query.json",
+        )
+        out = apply_precision(
+            cands,
+            file_name="query.json",
+            file_bytes=json.dumps(query).encode("utf-8"),
+        )
+    finally:
+        create_geom_store.cache_clear()
     assert "precision-l4" not in (out[0].verification.get("methods") or [])
     assert out[0].scores.get("geometric") is None
     assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons

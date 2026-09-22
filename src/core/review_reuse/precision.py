@@ -900,13 +900,9 @@ def _units_conflict(left: Dict[str, Any], right: Dict[str, Any]) -> bool:
 
 def _try_l4_score(
     query_geom: Dict[str, Any],
-    candidate: CandidateDecision,
-    geom_store: Any = None,
+    right: Dict[str, Any],
 ) -> Optional[float]:
-    if not _is_geom_json(query_geom):
-        return None
-    right = _candidate_geom(candidate, geom_store)
-    if not _is_geom_json(right):
+    if not _is_geom_json(query_geom) or not _is_geom_json(right):
         return None
     if _units_conflict(query_geom, right):
         return None
@@ -1133,14 +1129,19 @@ def apply_precision(
         if has_cand_geom or hash_id:
             q = _query_geom()
             store = None if has_cand_geom else _geom_store()
-            l4 = _try_l4_score(q, candidate, store) if q else None
+            right = _candidate_geom(candidate, store)
+            l4 = (
+                _try_l4_score(q, right)
+                if q is not None and _is_geom_json(right)
+                else None
+            )
             if l4 is not None:
                 _apply_l4_score(candidate, l4)
                 out.append(candidate)
                 continue
-            # Both sides had usable geom but L4 refused (units/shape). Do
-            # not fall through to a pre-scored precision-l4 claim.
-            if q is not None and _is_geom_json(_candidate_geom(candidate, store)):
+            # Reuse the first loaded geom. A later store miss must not
+            # fall through to a stale pre-scored precision-l4 claim.
+            if q is not None and _is_geom_json(right):
                 _strip_stale_l4(candidate)
                 if has_numeric_geom:
                     scores = dict(candidate.scores)

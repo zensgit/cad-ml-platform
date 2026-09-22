@@ -523,6 +523,22 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave39 — 2026-09-22 ~06:34 UTC
+
+tests (3.10) **pass** on `a81c1b31`. Sol 5.6 vs `origin/main` on that
+HEAD: **P1** a hash-backed local L4 refuse reloaded geom; if the store
+missed the second load, a stale pre-scored `precision-l4` was trusted.
+Load candidate geom once and reuse it for the fail-closed check.
+Wave38 was idle (no docs push). Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P1 store TOCTOU | `_try_l4_score` uses first-loaded right geom |
+| Local `make test-review-reuse` | **266 passed** |
+| tests (3.10) on `a81c1b31` | **pass** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`unstable`) |
+
 ## Window 4 wave37 — 2026-09-22 ~05:47 UTC
 
 tests (3.10) / tests (3.11) **pass** on `92e8f885`. Sol 5.6 vs
