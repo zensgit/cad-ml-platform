@@ -454,6 +454,9 @@ make test-review-reuse
 | `make test-review-reuse` after mapped-key fail-closed | **284 passed**, 7 ezdxf warnings |
 | tests (3.10) / tests (3.11) on `eef58ce1` | **pass** |
 | Sol window4-w78 vs `origin/main` on `eef58ce1` | no P1/P2 |
+| Sol window4-w79 vs `origin/main` on `0b3a2156` | P2 cancel overwrote failed, masking pipeline_failed |
+| Cancel does not overwrite failed | `test_cancel_does_not_overwrite_failed_task` |
+| `make test-review-reuse` after failed-terminal cancel | **285 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

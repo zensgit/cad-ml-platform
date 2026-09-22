@@ -523,6 +523,22 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave79 — 2026-09-22 ~20:24 UTC
+
+tests (3.10) still **pending** on `0b3a2156` (not red). Sol 5.6 vs
+`origin/main` on that HEAD: **P2** cancel overwrote a persisted
+`failed` task, so idempotent retries returned canceled instead of
+re-raising `pipeline_failed`. Treat `failed` as terminal in cancel.
+Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 failed cancel | `cancel()` returns failed snapshots unchanged |
+| Local `make test-review-reuse` | **285 passed** |
+| tests (3.10) on `0b3a2156` | pending (not red); product `9d6f15d0` |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`unstable`) |
+
 ## Window 4 wave78 — 2026-09-22 ~20:04 UTC
 
 tests (3.10) / tests (3.11) **pass** on `eef58ce1`. Sol 5.6 vs

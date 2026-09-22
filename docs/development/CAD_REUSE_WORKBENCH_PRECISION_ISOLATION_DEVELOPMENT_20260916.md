@@ -286,6 +286,8 @@ Wave74: a hashed mapping whose task JSON is missing is
 ``store_conflict``, not a leftover legacy replay.
 Wave76: a hashed or leftover mapping from key A to a task created
 under key B is ``store_conflict``, not a wrong-key replay.
+Wave79: cancel leaves a persisted ``failed`` task unchanged so
+idempotent retries still re-raise ``pipeline_failed``.
 
 ### Model routing (by difficulty)
 
