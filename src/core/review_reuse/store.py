@@ -508,12 +508,13 @@ class FilesystemReviewReuseStore:
                 present, task = self._hashed_task_if_present(
                     hashed, tenant_id, hashed_tid
                 )
-                if present:
-                    if task is None:
-                        raise CorruptIdempotencyIndexError(
-                            tenant_id, self._task_path(hashed, hashed_tid)
-                        )
-                    return task
+                # Hashed mapping is authoritative: missing or junk target
+                # must not fall through to leftover legacy JSON.
+                if not present or task is None:
+                    raise CorruptIdempotencyIndexError(
+                        tenant_id, self._task_path(hashed, hashed_tid)
+                    )
+                return task
             for tenant_dir in self._read_dirs(tenant_id):
                 if tenant_dir == hashed:
                     continue

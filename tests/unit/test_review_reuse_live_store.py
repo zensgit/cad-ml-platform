@@ -1193,6 +1193,65 @@ def test_corrupt_hashed_task_idempotency_is_store_conflict(tmp_path: Path) -> No
     assert task_ids == {stored.task_id}
 
 
+def test_missing_hashed_task_idempotency_does_not_replay_legacy(
+    tmp_path: Path,
+) -> None:
+    """A hashed mapping whose task file is gone must not replay leftover JSON."""
+    root = tmp_path / "tasks"
+    store = FilesystemReviewReuseStore(root)
+    stored = store.put(
+        ReviewReuseTask(
+            task_id="t-idem-missing",
+            tenant_id="pilot-tenant",
+            status=TaskStatus.canceled,
+            created_at=1.0,
+            updated_at=2.0,
+            source_file_name="a.dxf",
+            source_content_sha256="ab",
+            idempotency_key="idem-missing-map",
+            trace_id="tr",
+        )
+    )
+    hashed_dir = root / tenant_dir_key("pilot-tenant")
+    (hashed_dir / "tasks" / f"{stored.task_id}.json").unlink()
+    mapping_before = (hashed_dir / "idempotency.json").read_text(encoding="utf-8")
+    legacy_dir = root / "pilot-tenant"
+    (legacy_dir / "tasks").mkdir(parents=True)
+    older = ReviewReuseTask(
+        task_id="t-legacy-missing",
+        tenant_id="pilot-tenant",
+        status=TaskStatus.running,
+        created_at=1.0,
+        updated_at=1.0,
+        source_file_name="a.dxf",
+        source_content_sha256="ab",
+        idempotency_key="idem-missing-map",
+        trace_id="tr",
+    )
+    (legacy_dir / "tasks" / f"{older.task_id}.json").write_text(
+        json.dumps(older.model_dump(mode="json")), encoding="utf-8"
+    )
+    (legacy_dir / "idempotency.json").write_text(
+        json.dumps({"idem-missing-map": older.task_id}), encoding="utf-8"
+    )
+    with pytest.raises(CorruptIdempotencyIndexError):
+        store.get_by_idempotency("pilot-tenant", "idem-missing-map")
+    from src.core.review_reuse.service import ReviewReuseError, ReviewReuseService
+
+    svc = ReviewReuseService(store)
+    with pytest.raises(ReviewReuseError) as ei:
+        svc.create_task(
+            tenant_id="pilot-tenant",
+            file_name="a.dxf",
+            file_bytes=b"x",
+            idempotency_key="idem-missing-map",
+        )
+    assert ei.value.code == "store_conflict"
+    assert (hashed_dir / "idempotency.json").read_text(encoding="utf-8") == mapping_before
+    assert store.get("pilot-tenant", older.task_id) is not None
+    assert store.get("pilot-tenant", stored.task_id) is None
+
+
 def test_non_string_hashed_idempotency_value_is_corrupt(tmp_path: Path) -> None:
     """A JSON number task id must not become an uncaught TypeError."""
     root = tmp_path / "tasks"
