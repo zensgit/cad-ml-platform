@@ -447,6 +447,11 @@ make test-review-reuse
 | Sol window4-w74 vs `origin/main` on `02dae7dc` | P2 missing hashed task replayed leftover mapping |
 | Missing hashed target is store_conflict | `test_missing_hashed_task_idempotency_does_not_replay_legacy` |
 | `make test-review-reuse` after missing-target fail-closed | **282 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) on `e5d327d1` | **pass** |
+| Sol window4-w76 vs `origin/main` on `e5d327d1` | P2 mapping key A replayed task created under key B |
+| Hashed key mismatch is store_conflict | `test_hashed_idempotency_key_mismatch_is_corrupt` |
+| Leftover key mismatch is store_conflict | `test_legacy_idempotency_key_mismatch_is_corrupt` |
+| `make test-review-reuse` after mapped-key fail-closed | **284 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

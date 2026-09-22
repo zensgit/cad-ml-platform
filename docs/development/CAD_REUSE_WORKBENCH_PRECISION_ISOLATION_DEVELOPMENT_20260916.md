@@ -284,6 +284,8 @@ Wave73: a hashed mapping to a present-but-junk task file is
 ``store_conflict``, not a create miss that overwrites the reservation.
 Wave74: a hashed mapping whose task JSON is missing is
 ``store_conflict``, not a leftover legacy replay.
+Wave76: a hashed or leftover mapping from key A to a task created
+under key B is ``store_conflict``, not a wrong-key replay.
 
 ### Model routing (by difficulty)
 

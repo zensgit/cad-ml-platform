@@ -523,6 +523,22 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave76 — 2026-09-22 ~19:22 UTC
+
+tests (3.10) **pass** on `e5d327d1`. Sol 5.6 vs `origin/main` on that
+HEAD: **P2** a hashed or leftover `idempotency.json` mapping key A to a
+valid task created under key B replayed the wrong reservation. Require
+`task.idempotency_key == key` (and matching `task_id`). Never merge;
+decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 key mismatch | `get_by_idempotency` raises when mapped task key/id disagrees |
+| Local `make test-review-reuse` | **284 passed** |
+| tests (3.10) on `e5d327d1` | **pass**; product `51d5048d` |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`unstable`) |
+
 ## Window 4 wave74 — 2026-09-22 ~18:42 UTC
 
 tests (3.10) still **queued** on `02dae7dc` (not red). Sol 5.6 vs
