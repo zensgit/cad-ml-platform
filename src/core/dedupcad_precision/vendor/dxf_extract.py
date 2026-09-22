@@ -30,10 +30,10 @@ except Exception as e:  # pragma: no cover - optional dependency
     ezdxf = None
 
 
-# Bump when extract payload fields change. v6 treats classic POLYLINE
-# default_start_width / default_end_width as has_width so thick strokes
-# cannot explode into thin LINEs.
-_EXTRACT_CACHE_VERSION = 6
+# Bump when extract payload fields change. v7 invalidates caches that
+# certified the first $INSUNITS while a later HEADER declaration was
+# fractional or conflicted.
+_EXTRACT_CACHE_VERSION = 7
 
 
 def _header_insunits(doc: Any) -> int:
@@ -93,24 +93,36 @@ def _read_dxf_header_text(path: str) -> Optional[str]:
 
 
 def _raw_insunits_non_integral(path: str) -> bool:
-    """True when group-70 $INSUNITS is fractional before ezdxf truncates."""
+    """True when raw HEADER $INSUNITS is unsafe before ezdxf truncates.
+
+    Fail closed on a fractional/non-finite/unparseable group-70 token, or
+    when repeated $INSUNITS declarations disagree. The first match is not
+    enough: ezdxf may apply a later truncated value.
+    """
     header = _read_dxf_header_text(path)
     if header is None:
         # Unbounded/missing HEADER: do not trust ezdxf's truncated value.
         return True
-    match = re.search(
+    tokens = re.findall(
         r"\$INSUNITS[^\n]*\n[ \t]*70[ \t]*\n[ \t]*([^\n]+)",
         header,
         flags=re.IGNORECASE,
     )
-    if match is None:
+    if not tokens:
         return False
-    token = match.group(1).strip()
-    try:
-        number = float(token)
-    except ValueError:
-        return True
-    return (not math.isfinite(number)) or number != math.floor(number)
+    seen: Optional[float] = None
+    for raw_token in tokens:
+        try:
+            number = float(raw_token.strip())
+        except ValueError:
+            return True
+        if (not math.isfinite(number)) or number != math.floor(number):
+            return True
+        if seen is None:
+            seen = number
+        elif number != seen:
+            return True
+    return False
 
 
 def _dxf_polyline_closed(entity: Any, et: str) -> bool:

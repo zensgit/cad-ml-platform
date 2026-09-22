@@ -255,6 +255,8 @@ missing). Wave24: Windows FS store uses `msvcrt.locking`; missing both
 fcntl and msvcrt fails closed. Wave25: msvcrt retries only lock
 contention; permanent `OSError` fails closed. Wave30: `$INSUNITS` scan
 is HEADER-only (1 MiB cap); nested JSON RecursionError is missing geom.
+Wave34: every HEADER `$INSUNITS` is scanned; a later fractional or
+conflicting declaration fail-closes units (extract cache v7).
 
 ### Model routing (by difficulty)
 

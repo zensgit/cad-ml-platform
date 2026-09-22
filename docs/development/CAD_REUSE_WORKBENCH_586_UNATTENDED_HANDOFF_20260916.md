@@ -523,6 +523,22 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave34 — 2026-09-22 ~04:47 UTC
+
+tests (3.10) **pass** on `fc9f5bfb` (docs HEAD `9aa3c0ac` still pending).
+Sol 5.6 vs `origin/main` on `9aa3c0ac`: **P2** first `$INSUNITS` hid a
+later fractional or conflicting HEADER declaration. Scan every group-70
+token; fail closed on invalid or disagreeing repeats. Never merge;
+decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 duplicate INSUNITS | `_raw_insunits_non_integral` findall + conflict |
+| Local `make test-review-reuse` | **264 passed** |
+| tests (3.10) on `fc9f5bfb` | **pass** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`unstable`) |
+
 ## Window 4 wave33 — 2026-09-22 ~04:30 UTC
 
 tests (3.10) **pass** on `fc9f5bfb`. Sol 5.6 vs `origin/main`: **no P1/P2**.

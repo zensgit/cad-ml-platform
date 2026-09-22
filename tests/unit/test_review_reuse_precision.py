@@ -4545,6 +4545,70 @@ def test_raw_insunits_ignores_tokens_after_header(tmp_path: Path) -> None:
     assert mod._raw_insunits_non_integral(str(path)) is False
 
 
+def test_dxf_duplicate_fractional_insunits_header_is_not_certified(
+    tmp_path: Path,
+) -> None:
+    """Integral $INSUNITS then a later 4.9 must not L4-match a mm drawing."""
+    from src.core.dedupcad_precision.vendor.dxf_extract import extract_dxf
+
+    dxf = (
+        "0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n70\n4\n"
+        "9\n$INSUNITS\n70\n4.9\n0\nENDSEC\n"
+        "0\nSECTION\n2\nENTITIES\n0\nLINE\n8\n0\n10\n0.0\n20\n0.0\n"
+        "11\n10.0\n21\n0.0\n0\nENDSEC\n0\nEOF\n"
+    )
+    path = tmp_path / "dup_frac_units.dxf"
+    path.write_text(dxf, encoding="utf-8")
+    extracted = extract_dxf(str(path))
+    assert extracted.get("file_info", {}).get("insunits") == 0
+    mm = {
+        "file_info": {"insunits": 4},
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
+        ],
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "mm-line",
+                "state": "similar",
+                "geom_json": mm,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.dxf",
+    )
+    out = apply_precision(
+        cands, file_name="query.dxf", file_bytes=path.read_bytes()
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+
+
+def test_raw_insunits_duplicate_conflict_is_unsafe(tmp_path: Path) -> None:
+    from src.core.dedupcad_precision.vendor import dxf_extract as mod
+
+    path = tmp_path / "dup_conflict_units.dxf"
+    path.write_text(
+        "0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n70\n4\n"
+        "9\n$INSUNITS\n70\n1\n0\nENDSEC\n",
+        encoding="utf-8",
+    )
+    assert mod._raw_insunits_non_integral(str(path)) is True
+
+
+def test_raw_insunits_duplicate_same_integral_is_ok(tmp_path: Path) -> None:
+    from src.core.dedupcad_precision.vendor import dxf_extract as mod
+
+    path = tmp_path / "dup_same_units.dxf"
+    path.write_text(
+        "0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n70\n4\n"
+        "9\n$INSUNITS\n70\n4\n0\nENDSEC\n",
+        encoding="utf-8",
+    )
+    assert mod._raw_insunits_non_integral(str(path)) is False
+
+
 def test_isolated_file_run_uses_content_idempotency_key() -> None:
     from scripts.review_reuse_isolated_archive_run import resolve_idempotency_key
 
