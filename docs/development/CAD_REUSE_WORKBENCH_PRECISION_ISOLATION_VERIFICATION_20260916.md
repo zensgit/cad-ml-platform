@@ -357,6 +357,10 @@ make test-review-reuse
 | Missing fcntl+msvcrt fails closed | `test_store_file_lock_fails_closed_without_fcntl_or_msvcrt` |
 | msvcrt path when fcntl missing | `test_store_file_lock_uses_msvcrt_when_fcntl_missing` |
 | `make test-review-reuse` after Windows lock | **256 passed**, 7 ezdxf warnings |
+| Sol window4-w25 vs `origin/main` on `52565375` | P2 msvcrt retried permanent OSError |
+| Permanent msvcrt errors fail closed | `test_store_file_lock_msvcrt_permanent_error_fails_closed` |
+| Contention EACCES still retries | `test_store_file_lock_msvcrt_retries_contention` |
+| `make test-review-reuse` after msvcrt contention gate | **258 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

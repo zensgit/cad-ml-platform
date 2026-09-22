@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import os
@@ -46,6 +47,18 @@ def _import_optional(name: str) -> Any:
         return None
 
 
+def _is_msvcrt_contention(exc: OSError) -> bool:
+    """True only for documented msvcrt/Windows lock-busy errors."""
+    if exc.errno in (
+        errno.EACCES,
+        getattr(errno, "EDEADLK", None),
+        getattr(errno, "EDEADLOCK", None),
+    ):
+        return True
+    # ERROR_SHARING_VIOLATION / ERROR_LOCK_VIOLATION
+    return getattr(exc, "winerror", None) in (32, 33)
+
+
 def _msvcrt_lock(fd: int, exclusive: bool, msvcrt: Any) -> None:
     """Byte-range lock on the dedicated store lockfile (Windows)."""
     if os.fstat(fd).st_size < 1:
@@ -56,7 +69,9 @@ def _msvcrt_lock(fd: int, exclusive: bool, msvcrt: Any) -> None:
             try:
                 msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
                 return
-            except OSError:
+            except OSError as exc:
+                if not _is_msvcrt_contention(exc):
+                    raise
                 time.sleep(0.01)
                 os.lseek(fd, 0, os.SEEK_SET)
     else:

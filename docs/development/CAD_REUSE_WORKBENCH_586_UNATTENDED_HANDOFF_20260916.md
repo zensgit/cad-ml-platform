@@ -523,6 +523,22 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave25 — 2026-09-21 ~23:58 UTC
+
+tests (3.10) **pass** on `5ce7c2df` (HEAD `52565375` not yet CI). Sol 5.6
+vs `origin/main` on `52565375`: **P2** Windows `_msvcrt_lock` retried
+every `OSError`, so a permanent lock failure (EINVAL, bad fd) hung the
+store. Retry only documented contention (`EACCES` / lock-violation);
+propagate other errors. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 msvcrt retry | `_is_msvcrt_contention` gates the wait loop |
+| Local `make test-review-reuse` | **258 passed** |
+| tests (3.10) on `5ce7c2df` | **pass** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`blocked`) |
+
 ## Window 4 wave24 — 2026-09-21 ~23:42 UTC
 
 tests (3.10) **pass** on `5ce7c2df`. Sol 5.6 vs `origin/main`: **P2**

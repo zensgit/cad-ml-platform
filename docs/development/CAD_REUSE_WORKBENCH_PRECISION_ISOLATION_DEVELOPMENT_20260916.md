@@ -252,7 +252,8 @@ non-boolean `has_width` is unsafe. Wave20: present non-list polyline
 `widths` fail closed. Wave22: filesystem `put()` uses validated
 `tenant_meta` as the write fast path (full task scan only if meta is
 missing). Wave24: Windows FS store uses `msvcrt.locking`; missing both
-fcntl and msvcrt fails closed.
+fcntl and msvcrt fails closed. Wave25: msvcrt retries only lock
+contention; permanent `OSError` fails closed.
 
 ### Model routing (by difficulty)
 

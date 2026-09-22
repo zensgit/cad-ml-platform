@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import json
 import multiprocessing
 import os
@@ -609,6 +610,65 @@ def test_store_file_lock_uses_msvcrt_when_fcntl_missing(
     with _StoreFileLock(tmp_path / ".review_reuse.lock"):
         assert calls == [_FakeMsvcrt.LK_NBLCK]
     assert calls == [_FakeMsvcrt.LK_NBLCK, _FakeMsvcrt.LK_UNLCK]
+
+
+def _patch_msvcrt_backend(
+    monkeypatch: pytest.MonkeyPatch, fake: object
+) -> None:
+    def _import_optional(name: str) -> object:
+        if name == "fcntl":
+            return None
+        if name == "msvcrt":
+            return fake
+        raise AssertionError(name)
+
+    monkeypatch.setattr(
+        "src.core.review_reuse.store._import_optional", _import_optional
+    )
+
+
+def test_store_file_lock_msvcrt_permanent_error_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = {"n": 0}
+
+    class _FakeMsvcrt:
+        LK_NBLCK = 1
+        LK_UNLCK = 0
+
+        @staticmethod
+        def locking(_fd: int, _mode: int, _nbytes: int) -> None:
+            calls["n"] += 1
+            raise OSError(errno.EINVAL, "locking not supported")
+
+    _patch_msvcrt_backend(monkeypatch, _FakeMsvcrt)
+    with pytest.raises(OSError) as raised:
+        with _StoreFileLock(tmp_path / ".review_reuse.lock"):
+            pass
+    assert raised.value.errno == errno.EINVAL
+    assert calls["n"] == 1
+
+
+def test_store_file_lock_msvcrt_retries_contention(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = {"n": 0}
+
+    class _FakeMsvcrt:
+        LK_NBLCK = 1
+        LK_UNLCK = 0
+
+        @staticmethod
+        def locking(_fd: int, mode: int, _nbytes: int) -> None:
+            if mode == _FakeMsvcrt.LK_NBLCK:
+                calls["n"] += 1
+                if calls["n"] < 3:
+                    raise OSError(errno.EACCES, "region already locked")
+
+    _patch_msvcrt_backend(monkeypatch, _FakeMsvcrt)
+    monkeypatch.setattr("src.core.review_reuse.store.time.sleep", lambda _s: None)
+    with _StoreFileLock(tmp_path / ".review_reuse.lock"):
+        assert calls["n"] == 3
 
 
 def test_filesystem_update_atomically_serializes_processes(tmp_path: Path) -> None:
