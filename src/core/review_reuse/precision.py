@@ -455,10 +455,9 @@ def _bulge_is_unsafe(raw: Any) -> bool:
     """Any nonzero or non-finite bulge is unsafe to explode into a chord."""
     if raw is None:
         return False
-    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+    if not _finite_number(raw):
         return True
-    number = float(raw)
-    return (not math.isfinite(number)) or number != 0.0
+    return float(raw) != 0.0
 
 
 def _vertex_has_unsafe_bulge(point: Any) -> bool:
@@ -488,10 +487,9 @@ def _width_is_unsafe(raw: Any) -> bool:
     """Any nonzero or non-finite width is unsafe to explode into a LINE."""
     if raw is None:
         return False
-    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+    if not _finite_number(raw):
         return True
-    number = float(raw)
-    return (not math.isfinite(number)) or number != 0.0
+    return float(raw) != 0.0
 
 
 def _polyline_has_unsafe_width(entity: Dict[str, Any]) -> bool:
