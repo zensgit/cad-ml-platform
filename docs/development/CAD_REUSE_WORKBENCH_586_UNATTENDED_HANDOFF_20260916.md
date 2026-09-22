@@ -523,6 +523,22 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave80 — 2026-09-22 ~20:41 UTC
+
+tests (3.10) still **pending** on `0439bd37` (not red). Sol 5.6 vs
+`origin/main` on that HEAD: **P2** `submit_decision` could overwrite a
+persisted `failed` task to `decided`, masking `pipeline_failed` on
+idempotent retry. Reject failed snapshots in the decision path. Never
+merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 failed decision | `submit_decision` raises `failed` on persisted pipeline failure |
+| Local `make test-review-reuse` | **286 passed** |
+| tests (3.10) on `0439bd37` | pending (not red); product `99c7cd33` |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`unstable`) |
+
 ## Window 4 wave79 — 2026-09-22 ~20:24 UTC
 
 tests (3.10) still **pending** on `0b3a2156` (not red). Sol 5.6 vs

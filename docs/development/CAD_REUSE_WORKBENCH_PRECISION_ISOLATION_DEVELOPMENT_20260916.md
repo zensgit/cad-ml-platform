@@ -288,6 +288,8 @@ Wave76: a hashed or leftover mapping from key A to a task created
 under key B is ``store_conflict``, not a wrong-key replay.
 Wave79: cancel leaves a persisted ``failed`` task unchanged so
 idempotent retries still re-raise ``pipeline_failed``.
+Wave80: ``submit_decision`` rejects persisted ``failed`` tasks so a
+pilot decision cannot mask ``pipeline_failed``.
 
 ### Model routing (by difficulty)
 
