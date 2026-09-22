@@ -3556,6 +3556,53 @@ def test_invalid_inline_geom_falls_back_to_store(
     assert RejectionReason.missing_geom_json.value not in out[0].rejection_reasons
 
 
+def test_hashed_inline_geom_does_not_bypass_store(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A 64-hex id must score the store geom, not a query-mirroring live payload."""
+    query = _line_geom()
+    stored = {
+        "file_info": {"insunits": 4},
+        "layers": {"0": {"color": 7, "linetype": "CONTINUOUS"}},
+        "entities": [
+            {
+                "type": "LINE",
+                "layer": "0",
+                "start": [0.0, 0.0],
+                "end": [0.0, 100.0],
+            }
+        ],
+    }
+
+    class _Store:
+        def load(self, _cid: str) -> dict:
+            return stored
+
+    monkeypatch.setattr(
+        "src.core.dedupcad_precision.create_geom_store", lambda: _Store()
+    )
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "a" * 64,
+                "state": "similar",
+                "geom_json": query,
+                "methods": ["dedup2d-vision"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    assert out[0].scores.get("geometric") == 0.0
+    assert out[0].state == CandidateState.different
+    assert RejectionReason.low_precision_score.value in out[0].rejection_reasons
+
+
 def test_json_bytes_on_dxf_filename_are_not_query_geom() -> None:
     geom = _line_geom()
     cands = map_raw_hits_to_candidates(

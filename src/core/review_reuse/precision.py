@@ -3,9 +3,9 @@
 Does **not** invent geometric scores from visual similarity.
 When both query and candidate geom-json payloads are present, scores with
 ``PrecisionVerifier`` (L4). Query geom comes from JSON uploads or local DXF
-extract; candidate geom comes from hit ``geom_json`` or the geom store.
-Inline ``geom_json`` is used only for local L4 and stripped before
-persist/export so live unscoped hits cannot leak across tenants.
+extract. Hashed candidate ids load from the geom store; inline
+``geom_json`` is only for non-hash identifiers. Inline payloads are
+stripped before persist/export so live unscoped hits cannot leak.
 Otherwise labels ``vision_only_unverified`` or ``missing_geom_json``.
 Injectable hook is for tests / DI only. DWG is not auto-converted.
 
@@ -408,18 +408,18 @@ def _parse_query_geom(
 def _candidate_geom(
     candidate: CandidateDecision, geom_store: Any
 ) -> Optional[Dict[str, Any]]:
-    right = (candidate.provenance or {}).get("geom_json")
-    if _is_geom_json(right):
-        return right
     cid = candidate.candidate_id or ""
-    if geom_store is None or not _looks_like_file_hash(cid):
-        return None
-    try:
-        loaded = geom_store.load(cid)
-    except Exception:
-        logger.debug("review_reuse_geom_store_load_failed", exc_info=True)
-        return None
-    return loaded if _is_geom_json(loaded) else None
+    if _looks_like_file_hash(cid):
+        if geom_store is None:
+            return None
+        try:
+            loaded = geom_store.load(cid)
+        except Exception:
+            logger.debug("review_reuse_geom_store_load_failed", exc_info=True)
+            return None
+        return loaded if _is_geom_json(loaded) else None
+    right = (candidate.provenance or {}).get("geom_json")
+    return right if _is_geom_json(right) else None
 
 
 def _canonical_geom(obj: Dict[str, Any]) -> Dict[str, Any]:
@@ -1135,9 +1135,10 @@ def apply_precision(
         )
         hash_id = _looks_like_file_hash(candidate.candidate_id or "")
         # Local geometry-only L4 wins over a remote fused precision_score.
+        # Hashed ids use the store even when a live hit also carried inline geom.
         if has_cand_geom or hash_id:
             q = _query_geom()
-            store = None if has_cand_geom else _geom_store()
+            store = _geom_store() if hash_id else None
             right = _candidate_geom(candidate, store)
             l4 = (
                 _try_l4_score(q, right)
