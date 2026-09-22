@@ -13,6 +13,7 @@
 | Plan item | Evidence | Status |
 |---|---|---|
 | Local L4 only with geom-json pairs | `precision.py` `_try_l4_score`; tests `test_precision_scores_json_query_and_candidate_geom`, `test_precision_extracts_dxf_query_geom` | pass locally |
+| Hashed id ignores query-mirroring inline geom | `test_hashed_inline_geom_does_not_bypass_store` | pass locally |
 | Pre-scored L4 exports level >= 4 | `test_seeded_l4_without_match_level_exports_level_4` | pass locally |
 | Local L4 drops stale unverified reasons | `test_local_l4_clears_stale_vision_only_reason` | pass locally |
 | No visual→geometric copy | `dedup_live.py` + `test_precision_labels_vision_only_without_copying_visual` | pass |
@@ -476,6 +477,10 @@ make test-review-reuse
 | `make test-review-reuse` after file-gate-before-idempotency | **291 passed**, 7 ezdxf warnings |
 | Sol window4-w87 vs `origin/main` on `b28f8dea` | **no P1/P2** |
 | tests (3.10) / tests (3.11) on `b28f8dea` | **pass** |
+| tests (3.10) / tests (3.11) on `3ed17d57` | **pass** |
+| Sol window4-w88 vs `origin/main` on `3ed17d57` | P2 hashed inline geom skipped the store |
+| Hashed inline does not bypass store | `test_hashed_inline_geom_does_not_bypass_store` |
+| `make test-review-reuse` after hashed-store-over-inline | **292 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -493,6 +498,7 @@ make test-review-reuse
 | tests (3.10) / tests (3.11) / lint-type / core-fast-gate on `dc9267e0` | **pass** (Window 4 start) |
 | tests (3.10) / tests (3.11) / lint-type / e2e-smoke on `eed168f0` | **pass** |
 | tests (3.10) / tests (3.11) on `b28f8dea` | **pass** (product `ba36b5ea`) |
+| tests (3.10) / tests (3.11) on `3ed17d57` | **pass** (docs; product `ba36b5ea`) |
 | mergeable_state | `unstable` (Evaluation Report Track E; do not merge) |
 
 Re-run `make test-review-reuse` after each follow-up commit and record the count here.
@@ -503,9 +509,9 @@ Re-run `make test-review-reuse` after each follow-up commit and record the count
 |---|---|
 | Window 4 start HEAD | `dc9267e0` |
 | tests (3.10) / tests (3.11) / lint-type / core-fast-gate | **pass** on `dc9267e0` |
-| Current HEAD | `b28f8dea` (docs; product `ba36b5ea`) |
-| tests (3.10) / tests (3.11) on `b28f8dea` | **pass** |
-| Sol vs `origin/main` on `b28f8dea` | **no P1/P2** |
+| Current HEAD | `091561f2` (product; hashed store over inline) |
+| tests (3.10) / tests (3.11) on `3ed17d57` | **pass** |
+| Sol vs `origin/main` on `3ed17d57` | P2 hashed inline geom skipped the store |
 | Evaluation Report | fail (Track E; out of scope) |
 | mergeable_state | do not merge (review required) |
 
@@ -556,6 +562,9 @@ cancel → ReviewReuseError store_conflict; legacy file unchanged
 
 # adapter different with no rejection_reasons + matching geom
 → state stays different; not similar (restore only if low_precision_score existed)
+
+# hashed candidate_id + inline geom mirroring query + store orthogonal LINE
+→ geometric 0.0; different; low_precision_score (not precision-l4 1.0)
 ```
 
 ## 4. Operator commands (decisions off)
@@ -591,7 +600,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `b28f8dea` (product `ba36b5ea`) |
+| Python 3.10 CI job | **pass** on `3ed17d57`; product this wave `091561f2` |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |

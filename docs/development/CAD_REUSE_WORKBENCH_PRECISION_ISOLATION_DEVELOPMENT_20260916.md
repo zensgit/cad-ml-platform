@@ -296,6 +296,8 @@ Wave84: idempotent replay of a decided/canceled snapshot that still
 carries ``task.error`` re-raises ``pipeline_failed`` (not HTTP 200).
 Wave85: filename gate runs before idempotency lookup so a pre-upgrade
 unsupported suffix cannot replay or resume a stale pipeline.
+Wave88: hashed candidate ids load geom from the store even when a live
+hit also carries inline ``geom_json`` (no query-mirroring L4 1.0).
 
 ### Model routing (by difficulty)
 

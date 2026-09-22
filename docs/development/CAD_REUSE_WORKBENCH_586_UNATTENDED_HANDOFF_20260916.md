@@ -523,6 +523,23 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave88 — 2026-09-22 ~23:41 UTC
+
+tests (3.10) / tests (3.11) **pass** on `3ed17d57` (product
+`ba36b5ea`). Sol 5.6 vs `origin/main` on that HEAD: **P2** a hashed
+candidate with query-mirroring inline `geom_json` skipped the
+hash-keyed store and certified `precision-l4` 1.0. Load hashed ids
+from the geom store; keep inline geom for non-hash identifiers. Never
+merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 hashed inline bypass | `_candidate_geom` prefers store for 64-hex ids |
+| Product | `091561f2` |
+| Local `make test-review-reuse` | **292 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`MERGEABLE`; owner must merge) |
+
 ## Window 4 wave87 — 2026-09-22 ~22:55 UTC
 
 Idle. `tests (3.10)` / `tests (3.11)` **pass** on `b28f8dea`
