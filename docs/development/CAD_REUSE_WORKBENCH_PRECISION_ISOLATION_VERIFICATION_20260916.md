@@ -452,6 +452,8 @@ make test-review-reuse
 | Hashed key mismatch is store_conflict | `test_hashed_idempotency_key_mismatch_is_corrupt` |
 | Leftover key mismatch is store_conflict | `test_legacy_idempotency_key_mismatch_is_corrupt` |
 | `make test-review-reuse` after mapped-key fail-closed | **284 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) on `eef58ce1` | **pass** |
+| Sol window4-w78 vs `origin/main` on `eef58ce1` | no P1/P2 |
 
 ### CI (PR #586)
 
