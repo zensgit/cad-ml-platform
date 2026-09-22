@@ -508,9 +508,15 @@ class FilesystemReviewReuseStore:
                 present, task = self._hashed_task_if_present(
                     hashed, tenant_id, hashed_tid
                 )
-                # Hashed mapping is authoritative: missing or junk target
-                # must not fall through to leftover legacy JSON.
-                if not present or task is None:
+                # Hashed mapping is authoritative: missing, junk, or a
+                # task whose id/key does not match the mapping must not
+                # fall through to leftover legacy JSON.
+                if (
+                    not present
+                    or task is None
+                    or task.task_id != hashed_tid
+                    or task.idempotency_key != key
+                ):
                     raise CorruptIdempotencyIndexError(
                         tenant_id, self._task_path(hashed, hashed_tid)
                     )
@@ -523,7 +529,11 @@ class FilesystemReviewReuseStore:
                     continue
                 present, task = self._hashed_task_if_present(hashed, tenant_id, tid)
                 if present:
-                    if task is None:
+                    if (
+                        task is None
+                        or task.task_id != tid
+                        or task.idempotency_key != key
+                    ):
                         raise CorruptIdempotencyIndexError(
                             tenant_id, self._task_path(hashed, tid)
                         )
@@ -533,6 +543,8 @@ class FilesystemReviewReuseStore:
                     continue
                 loaded = self._parse_task_file(path)
                 if loaded is not None and loaded.tenant_id == tenant_id:
+                    if loaded.task_id != tid or loaded.idempotency_key != key:
+                        raise CorruptIdempotencyIndexError(tenant_id, path)
                     return loaded
             return None
 

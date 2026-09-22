@@ -1252,6 +1252,86 @@ def test_missing_hashed_task_idempotency_does_not_replay_legacy(
     assert store.get("pilot-tenant", stored.task_id) is None
 
 
+def test_hashed_idempotency_key_mismatch_is_corrupt(tmp_path: Path) -> None:
+    """Mapping key A to a task created under key B is store_conflict."""
+    root = tmp_path / "tasks"
+    store = FilesystemReviewReuseStore(root)
+    stored = store.put(
+        ReviewReuseTask(
+            task_id="t-idem-key-b",
+            tenant_id="pilot-tenant",
+            status=TaskStatus.canceled,
+            created_at=1.0,
+            updated_at=2.0,
+            source_file_name="a.dxf",
+            source_content_sha256="ab",
+            idempotency_key="idem-key-b",
+            trace_id="tr",
+        )
+    )
+    hashed_dir = root / tenant_dir_key("pilot-tenant")
+    mapping_path = hashed_dir / "idempotency.json"
+    mapping = json.loads(mapping_path.read_text(encoding="utf-8"))
+    mapping["idem-key-a"] = stored.task_id
+    mapping_path.write_text(json.dumps(mapping), encoding="utf-8")
+    mapping_before = mapping_path.read_text(encoding="utf-8")
+    with pytest.raises(CorruptIdempotencyIndexError):
+        store.get_by_idempotency("pilot-tenant", "idem-key-a")
+    replay = store.get_by_idempotency("pilot-tenant", "idem-key-b")
+    assert replay is not None
+    assert replay.task_id == stored.task_id
+    from src.core.review_reuse.service import ReviewReuseError, ReviewReuseService
+
+    svc = ReviewReuseService(store)
+    with pytest.raises(ReviewReuseError) as ei:
+        svc.create_task(
+            tenant_id="pilot-tenant",
+            file_name="a.dxf",
+            file_bytes=b"x",
+            idempotency_key="idem-key-a",
+        )
+    assert ei.value.code == "store_conflict"
+    assert mapping_path.read_text(encoding="utf-8") == mapping_before
+
+
+def test_legacy_idempotency_key_mismatch_is_corrupt(tmp_path: Path) -> None:
+    """Leftover mapping key A to a task created under key B is store_conflict."""
+    root = tmp_path / "tasks"
+    store = FilesystemReviewReuseStore(root)
+    legacy_dir = root / "pilot-tenant"
+    (legacy_dir / "tasks").mkdir(parents=True)
+    older = ReviewReuseTask(
+        task_id="t-legacy-key-b",
+        tenant_id="pilot-tenant",
+        status=TaskStatus.running,
+        created_at=1.0,
+        updated_at=1.0,
+        source_file_name="a.dxf",
+        source_content_sha256="ab",
+        idempotency_key="idem-legacy-b",
+        trace_id="tr",
+    )
+    (legacy_dir / "tasks" / f"{older.task_id}.json").write_text(
+        json.dumps(older.model_dump(mode="json")), encoding="utf-8"
+    )
+    (legacy_dir / "idempotency.json").write_text(
+        json.dumps({"idem-legacy-a": older.task_id}), encoding="utf-8"
+    )
+    with pytest.raises(CorruptIdempotencyIndexError):
+        store.get_by_idempotency("pilot-tenant", "idem-legacy-a")
+    from src.core.review_reuse.service import ReviewReuseError, ReviewReuseService
+
+    svc = ReviewReuseService(store)
+    with pytest.raises(ReviewReuseError) as ei:
+        svc.create_task(
+            tenant_id="pilot-tenant",
+            file_name="a.dxf",
+            file_bytes=b"x",
+            idempotency_key="idem-legacy-a",
+        )
+    assert ei.value.code == "store_conflict"
+
+
 def test_non_string_hashed_idempotency_value_is_corrupt(tmp_path: Path) -> None:
     """A JSON number task id must not become an uncaught TypeError."""
     root = tmp_path / "tasks"
