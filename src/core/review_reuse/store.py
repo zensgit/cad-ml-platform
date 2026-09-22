@@ -447,13 +447,21 @@ class FilesystemReviewReuseStore:
     def put(self, task: ReviewReuseTask) -> ReviewReuseTask:
         with self._lock:
             tenant_dir = self._ensure_write_dir(task.tenant_id)
+            idem: Optional[Dict[str, str]] = None
+            if task.idempotency_key:
+                # Validate before replacing the task file so cancel/decision
+                # cannot persist while the caller sees store_conflict.
+                idem = self._try_load_idem(tenant_dir)
+                if idem is None:
+                    raise CorruptIdempotencyIndexError(
+                        task.tenant_id, self._idem_path(tenant_dir)
+                    )
             path = self._task_path(tenant_dir, task.task_id)
             payload = task.model_dump(mode="json")
             _atomic_write_text(
                 path, json.dumps(payload, ensure_ascii=False, indent=0)
             )
             if task.idempotency_key:
-                idem = self._try_load_idem(tenant_dir)
                 if idem is None:
                     raise CorruptIdempotencyIndexError(
                         task.tenant_id, self._idem_path(tenant_dir)
