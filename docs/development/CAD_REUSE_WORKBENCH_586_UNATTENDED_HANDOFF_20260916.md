@@ -523,6 +523,22 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave74 — 2026-09-22 ~18:42 UTC
+
+tests (3.10) still **queued** on `02dae7dc` (not red). Sol 5.6 vs
+`origin/main` on that HEAD: **P2** a hashed `idempotency.json` mapping
+whose task JSON is missing fell through to leftover legacy JSON and
+could replay a different old task. Fail closed as `store_conflict`.
+Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 missing hashed target | `get_by_idempotency` raises when hashed mapping has no file |
+| Local `make test-review-reuse` | **282 passed** |
+| tests (3.10) on `02dae7dc` | queued (not red); product `fd6c855e` |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`unstable`) |
+
 ## Window 4 wave73 — 2026-09-22 ~18:26 UTC
 
 tests (3.10) still **in progress** on `007a04c0` (not red). Sol 5.6 vs

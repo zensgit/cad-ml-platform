@@ -444,6 +444,9 @@ make test-review-reuse
 | Sol window4-w73 vs `origin/main` on `007a04c0` | P2 mapped hashed junk task was a create miss |
 | Mapped junk hashed task is store_conflict | `test_corrupt_hashed_task_idempotency_is_store_conflict` |
 | `make test-review-reuse` after mapped-task fail-closed | **281 passed**, 7 ezdxf warnings |
+| Sol window4-w74 vs `origin/main` on `02dae7dc` | P2 missing hashed task replayed leftover mapping |
+| Missing hashed target is store_conflict | `test_missing_hashed_task_idempotency_does_not_replay_legacy` |
+| `make test-review-reuse` after missing-target fail-closed | **282 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

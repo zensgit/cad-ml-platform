@@ -282,6 +282,8 @@ Wave72: hashed ``idempotency.json`` entries must be non-empty strings;
 a JSON number task id is ``store_conflict``, not HTTP 500.
 Wave73: a hashed mapping to a present-but-junk task file is
 ``store_conflict``, not a create miss that overwrites the reservation.
+Wave74: a hashed mapping whose task JSON is missing is
+``store_conflict``, not a leftover legacy replay.
 
 ### Model routing (by difficulty)
 
