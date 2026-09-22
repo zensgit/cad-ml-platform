@@ -374,6 +374,8 @@ make test-review-reuse
 | HEADER-only INSUNITS scan | `test_raw_insunits_scan_does_not_slurp_whole_file` |
 | Nested JSON is not pipeline_failed | `test_deeply_nested_json_geom_is_not_pipeline_failed` |
 | `make test-review-reuse` after header-scan + nested JSON | **261 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) / lint-type / e2e-smoke on `bf9dcfd7` | **pass** |
+| Sol window4-w31 vs `origin/main` on `bf9dcfd7` | **no P1/P2** |
 
 ### CI (PR #586)
 
@@ -485,7 +487,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `1e620c52` (last fully green HEAD) |
+| Python 3.10 CI job | **pass** on `bf9dcfd7` (last fully green HEAD) |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |
