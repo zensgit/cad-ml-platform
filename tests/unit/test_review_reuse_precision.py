@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -76,6 +77,65 @@ def test_create_accepts_geom_json_filename() -> None:
     assert task.source_file_name == "query.json"
     assert task.candidates
     assert "precision-l4" in (task.candidates[0].verification.get("methods") or [])
+
+
+def test_idempotent_replay_rejects_mismatched_input() -> None:
+    svc = _svc()
+    first = svc.create_task(
+        tenant_id="t-idem-mis",
+        file_name="a.dxf",
+        file_bytes=b"orig-bytes",
+        idempotency_key="same-key",
+        seed_candidates=[
+            {
+                "candidate_id": "c1",
+                "state": "similar",
+                "scores": {"geometric": 0.9, "semantic": 0.8},
+                "methods": ["precision-l4"],
+            }
+        ],
+    )
+    with pytest.raises(ReviewReuseError) as exc:
+        svc.create_task(
+            tenant_id="t-idem-mis",
+            file_name="a.dxf",
+            file_bytes=b"other-bytes",
+            idempotency_key="same-key",
+        )
+    assert exc.value.code == "idempotency_conflict"
+    stored = svc.get_task("t-idem-mis", first.task_id)
+    assert stored.source_content_sha256 == hashlib.sha256(b"orig-bytes").hexdigest()
+
+
+def test_fresh_running_idempotency_rejects_mismatched_input() -> None:
+    import time
+
+    from src.core.review_reuse.models import ReviewReuseTask, TaskStatus
+
+    svc = _svc()
+    now = time.time()
+    prior = ReviewReuseTask(
+        task_id="fresh-run",
+        tenant_id="t-fresh-mis",
+        status=TaskStatus.running,
+        created_at=now,
+        updated_at=now,
+        source_file_name="part.dxf",
+        source_content_sha256=hashlib.sha256(b"orig").hexdigest(),
+        idempotency_key="idem-fresh-mis",
+        trace_id="tr-fresh-mis",
+    )
+    svc.store.put(prior)
+    with pytest.raises(ReviewReuseError) as exc:
+        svc.create_task(
+            tenant_id="t-fresh-mis",
+            file_name="part.dxf",
+            file_bytes=b"other",
+            idempotency_key="idem-fresh-mis",
+        )
+    assert exc.value.code == "idempotency_conflict"
+    stuck = svc.get_task("t-fresh-mis", "fresh-run")
+    assert stuck.status == TaskStatus.running
 
 
 def test_concurrent_idempotent_creates_single_task() -> None:
@@ -227,7 +287,7 @@ def test_idempotency_replay_skips_file_gate() -> None:
         created_at=now,
         updated_at=now,
         source_file_name="legacy.bin",
-        source_content_sha256="ab",
+        source_content_sha256=hashlib.sha256(b"x").hexdigest(),
         idempotency_key="idem-legacy",
         trace_id="tr-legacy",
     )
@@ -256,7 +316,7 @@ def test_idempotent_replay_of_failed_task_raises_pipeline_failed() -> None:
         created_at=now,
         updated_at=now,
         source_file_name="part.dxf",
-        source_content_sha256="ab",
+        source_content_sha256=hashlib.sha256(b"x").hexdigest(),
         idempotency_key="idem-failed",
         trace_id="tr-failed",
         error=PIPELINE_FAILED_PUBLIC,
@@ -449,7 +509,7 @@ def test_fresh_running_idempotency_is_not_resumed() -> None:
         created_at=now,
         updated_at=now,
         source_file_name="part.dxf",
-        source_content_sha256="ab",
+        source_content_sha256=hashlib.sha256(b"x").hexdigest(),
         idempotency_key="idem-fresh",
         trace_id="tr-fresh",
     )
@@ -1178,6 +1238,38 @@ def test_insert_block_geom_is_l4_geometry() -> None:
     assert "precision-l4" not in (out[0].verification.get("methods") or [])
     assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
     assert out[0].scores.get("geometric") is None
+
+
+def test_ratio_above_one_ellipse_is_not_l4_geometry() -> None:
+    bogus = {
+        "entities": [
+            {
+                "type": "ELLIPSE",
+                "center": [0.0, 0.0],
+                "major": [10.0, 0.0],
+                "ratio": 1.5,
+            }
+        ]
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "ell-hi",
+                "state": "similar",
+                "geom_json": bogus,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(bogus).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
 
 
 def test_zero_ratio_ellipse_is_not_l4_geometry() -> None:

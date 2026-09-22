@@ -395,6 +395,11 @@ make test-review-reuse
 | Sol window4-w39 vs `origin/main` on `a81c1b31` | P1 store TOCTOU revived prescored L4 |
 | Store miss after local refuse is not L4 | `test_prescored_l4_does_not_override_after_store_geom_disappears` |
 | `make test-review-reuse` after L4 geom reuse | **266 passed**, 7 ezdxf warnings |
+| tests (3.10) / lint-type / e2e-smoke on `5db75326` | **pass** |
+| Sol window4-w40 vs `origin/main` on `5db75326` | P2 unbound idempotent replay; P2 ellipse ratio > 1 |
+| Idempotent replay of different bytes is conflict | `test_idempotent_replay_rejects_mismatched_input` |
+| Ellipse ratio 1.5 is not L4 | `test_ratio_above_one_ellipse_is_not_l4_geometry` |
+| `make test-review-reuse` after idempotent bind + ellipse ratio | **269 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -506,7 +511,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `a81c1b31` (last fully green HEAD; new product SHA pending) |
+| Python 3.10 CI job | **pass** on `5db75326` (last fully green HEAD; new product SHA pending) |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |

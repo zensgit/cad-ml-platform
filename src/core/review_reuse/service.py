@@ -192,6 +192,9 @@ class ReviewReuseService:
         seed_candidates: Optional[List[Dict[str, Any]]],
     ) -> ReviewReuseTask:
         """Replay a stored idempotent task; resume stale ``running`` snapshots."""
+        content_sha = self._require_idempotent_input(
+            existing, file_name=file_name, file_bytes=file_bytes
+        )
         if existing.status == TaskStatus.failed:
             raise ReviewReuseError(
                 "pipeline_failed",
@@ -202,9 +205,6 @@ class ReviewReuseService:
         age = time.time() - float(existing.updated_at or 0.0)
         if age < STALE_RUNNING_SECONDS:
             return existing
-        content_sha = self._require_idempotent_input(
-            existing, file_name=file_name, file_bytes=file_bytes
-        )
         existing, claimed = self._claim_stale_running(existing)
         if not claimed:
             return existing

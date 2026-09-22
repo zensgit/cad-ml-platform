@@ -261,6 +261,8 @@ Wave37: binary DXF `$INSUNITS` is scanned from HEADER tags (cache v8);
 missing ASCII HEADER no longer zeros valid binary units.
 Wave39: local L4 refuse reuses the first-loaded candidate geom so a
 later store miss cannot revive a stale pre-scored `precision-l4`.
+Wave40: every idempotent replay checks bound input; ELLIPSE ratio must
+be in `(0, 1]`.
 
 ### Model routing (by difficulty)
 

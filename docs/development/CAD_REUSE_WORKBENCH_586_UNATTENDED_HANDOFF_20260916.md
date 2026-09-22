@@ -523,6 +523,23 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave40 — 2026-09-22 ~07:14 UTC
+
+tests (3.10) **pass** on `5db75326`. Sol 5.6 vs `origin/main` on that
+HEAD: **P2** idempotent replay skipped `_require_idempotent_input` for
+fresh/completed tasks; **P2** ELLIPSE `ratio > 1` still L4. Bind every
+replay to stored bytes/name; require `0 < ratio <= 1`. Never merge;
+decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 idempotent bind | `_return_idempotent` always checks input |
+| P2 ellipse ratio | `_minor_major_ratio` |
+| Local `make test-review-reuse` | **269 passed** |
+| tests (3.10) on `5db75326` | **pass** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`unstable`) |
+
 ## Window 4 wave39 — 2026-09-22 ~06:34 UTC
 
 tests (3.10) **pass** on `a81c1b31`. Sol 5.6 vs `origin/main` on that

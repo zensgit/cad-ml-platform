@@ -216,6 +216,12 @@ def _positive_number(value: Any) -> bool:
     return quantized is not None and quantized > 0.0
 
 
+def _minor_major_ratio(value: Any) -> bool:
+    """DXF ELLIPSE ratio is minor/major; ezdxf rejects values above 1."""
+    quantized = _quantized(value)
+    return quantized is not None and 0.0 < quantized <= 1.0
+
+
 def _is_finite_unit_score(value: Any) -> bool:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return False
@@ -294,7 +300,7 @@ def _is_geom_entity(ent: Any) -> bool:
         if not (
             _xy(ent.get("center"))
             and _nonzero_xy(ent.get("major"))
-            and _positive_number(ratio)
+            and _minor_major_ratio(ratio)
         ):
             return False
         # Omitted params mean a full ellipse. Equal supplied params are
