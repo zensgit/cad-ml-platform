@@ -1065,6 +1065,80 @@ def test_hashed_tenant_mismatch_does_not_resurrect_legacy(tmp_path: Path) -> Non
     assert all(task.task_id != canceled.task_id for task in listed)
 
 
+def test_hashed_payload_task_id_mismatch_does_not_resurrect_legacy(
+    tmp_path: Path,
+) -> None:
+    """A hashed file whose payload id differs from the filename is corrupt."""
+    root = tmp_path / "tasks"
+    store = FilesystemReviewReuseStore(root)
+    requested = store.put(
+        ReviewReuseTask(
+            task_id="t-file",
+            tenant_id="pilot-tenant",
+            status=TaskStatus.canceled,
+            created_at=1.0,
+            updated_at=2.0,
+            source_file_name="a.dxf",
+            source_content_sha256="ab",
+            trace_id="tr",
+        )
+    )
+    hashed_path = (
+        root / tenant_dir_key("pilot-tenant") / "tasks" / f"{requested.task_id}.json"
+    )
+    payload = json.loads(hashed_path.read_text(encoding="utf-8"))
+    payload["task_id"] = "t-embedded"
+    hashed_path.write_text(json.dumps(payload), encoding="utf-8")
+    legacy_dir = root / "pilot-tenant" / "tasks"
+    legacy_dir.mkdir(parents=True)
+    running = requested.model_copy(update={"status": TaskStatus.running})
+    (legacy_dir / f"{requested.task_id}.json").write_text(
+        json.dumps(running.model_dump(mode="json")), encoding="utf-8"
+    )
+
+    assert store.get("pilot-tenant", requested.task_id) is None
+    assert store.get("pilot-tenant", "t-embedded") is None
+    listed = {task.task_id for task in store.list_for_tenant("pilot-tenant")}
+    assert requested.task_id not in listed
+    assert "t-embedded" not in listed
+
+
+def test_hashed_payload_task_id_mismatch_cancel_does_not_write_embedded_id(
+    tmp_path: Path,
+) -> None:
+    """Cancel must not persist under the payload id while leaving the source."""
+    from src.core.review_reuse.service import ReviewReuseError
+
+    root = tmp_path / "tasks"
+    store = FilesystemReviewReuseStore(root)
+    svc = ReviewReuseService(store)
+    requested = store.put(
+        ReviewReuseTask(
+            task_id="t-file",
+            tenant_id="pilot-tenant",
+            status=TaskStatus.running,
+            created_at=1.0,
+            updated_at=2.0,
+            source_file_name="a.dxf",
+            source_content_sha256="ab",
+            trace_id="tr",
+        )
+    )
+    hashed_dir = root / tenant_dir_key("pilot-tenant") / "tasks"
+    hashed_path = hashed_dir / f"{requested.task_id}.json"
+    payload = json.loads(hashed_path.read_text(encoding="utf-8"))
+    payload["task_id"] = "t-embedded"
+    hashed_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ReviewReuseError) as ei:
+        svc.cancel("pilot-tenant", requested.task_id)
+    assert ei.value.code == "not_found"
+    assert not (hashed_dir / "t-embedded.json").exists()
+    leftover = json.loads(hashed_path.read_text(encoding="utf-8"))
+    assert leftover["task_id"] == "t-embedded"
+    assert leftover["status"] == TaskStatus.running.value
+
+
 def test_legacy_idempotency_does_not_skip_hashed_task(tmp_path: Path) -> None:
     """Stale leftover mapping must not win if the hashed task file exists."""
     root = tmp_path / "tasks"

@@ -417,7 +417,11 @@ class FilesystemReviewReuseStore:
         if not path.exists():
             return False, None
         task = self._parse_task_file(path)
-        if task is None or task.tenant_id != tenant_id:
+        if (
+            task is None
+            or task.tenant_id != tenant_id
+            or task.task_id != task_id
+        ):
             return True, None
         return True, task
 
@@ -490,7 +494,11 @@ class FilesystemReviewReuseStore:
                 if not path.exists():
                     continue
                 loaded = self._parse_task_file(path)
-                if loaded is not None and loaded.tenant_id == tenant_id:
+                if (
+                    loaded is not None
+                    and loaded.tenant_id == tenant_id
+                    and loaded.task_id == task_id
+                ):
                     return loaded
             return None
 
@@ -582,18 +590,23 @@ class FilesystemReviewReuseStore:
                     task = self._parse_task_file(path)
                     if tenant_dir == hashed:
                         # Present hashed file is authoritative, including
-                        # junk or a mismatched tenant_id.
+                        # junk or a mismatched tenant_id / payload task_id.
                         blocked.add(path.stem)
                         if (
                             task is not None
                             and task.tenant_id == tenant_id
+                            and self._task_path(tenant_dir, task.task_id) == path
                             and task.task_id not in seen
                         ):
                             seen[task.task_id] = task
                         continue
                     if task is None:
                         continue
-                    if task.tenant_id == tenant_id and task.task_id not in seen:
+                    if (
+                        task.tenant_id == tenant_id
+                        and self._task_path(tenant_dir, task.task_id) == path
+                        and task.task_id not in seen
+                    ):
                         seen[task.task_id] = task
             return list(seen.values())
 
