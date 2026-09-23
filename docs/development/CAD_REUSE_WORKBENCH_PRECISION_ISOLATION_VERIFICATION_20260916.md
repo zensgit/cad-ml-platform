@@ -491,6 +491,8 @@ make test-review-reuse
 | Mixed-case hash uses store | `test_mixed_case_hash_id_uses_store_not_inline` |
 | Mixed-case store miss refuses prescored L4 | `test_mixed_case_hash_store_miss_does_not_revive_prescored_l4` |
 | `make test-review-reuse` after mixed-case hash ids | **295 passed**, 7 ezdxf warnings |
+| Sol window4-w93 vs `origin/main` on `f24cad5b` | **no P1/P2** |
+| tests (3.10) / tests (3.11) on `f24cad5b` | **pass** |
 
 ### CI (PR #586)
 
@@ -511,6 +513,7 @@ make test-review-reuse
 | tests (3.10) / tests (3.11) on `3ed17d57` | **pass** (docs; product `ba36b5ea`) |
 | tests (3.10) / tests (3.11) on `c83b67fe` | **pass** (docs; product `1c86fb13`) |
 | tests (3.10) / tests (3.11) on `a0689de5` | **pass** (docs; product `1c86fb13`) |
+| tests (3.10) / tests (3.11) on `f24cad5b` | **pass** (docs; product `b6420581`) |
 | mergeable_state | `unstable` (Evaluation Report Track E; do not merge) |
 
 Re-run `make test-review-reuse` after each follow-up commit and record the count here.
@@ -521,9 +524,9 @@ Re-run `make test-review-reuse` after each follow-up commit and record the count
 |---|---|
 | Window 4 start HEAD | `dc9267e0` |
 | tests (3.10) / tests (3.11) / lint-type / core-fast-gate | **pass** on `dc9267e0` |
-| Current HEAD | `b6420581` (product; mixed-case hash ids) |
-| tests (3.10) / tests (3.11) on `a0689de5` | **pass** |
-| Sol vs `origin/main` on `a0689de5` | P2 mixed-case hash id skipped the store |
+| Current HEAD | `f24cad5b` (docs; product `b6420581`) |
+| tests (3.10) / tests (3.11) on `f24cad5b` | **pass** |
+| Sol vs `origin/main` on `f24cad5b` | **no P1/P2** |
 | Evaluation Report | fail (Track E; out of scope) |
 | mergeable_state | do not merge (review required) |
 
@@ -615,7 +618,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `a0689de5`; product this wave `b6420581` |
+| Python 3.10 CI job | **pass** on `f24cad5b` (product `b6420581`) |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |
