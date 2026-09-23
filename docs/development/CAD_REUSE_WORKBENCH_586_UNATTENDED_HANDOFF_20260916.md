@@ -523,6 +523,24 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave111 — 2026-09-23 ~17:49 UTC
+
+`tests (3.10)` / `tests (3.11)` **pass** on `ea468dc8` (product
+`cf0f02be`). Sol 5.6 vs `origin/main`: **P1** `DEDUPCAD2_ENTITIES_MATCHING=0`
+lets JSON-path equality certify shifted lines as L4; **P2** an empty
+hash directory is not grouped with its legacy tenant, so cleanup can
+delete old legacy tasks and keep the recent sibling. Fail closed.
+Decisions stay off. Never merge.
+
+| Item | State |
+|---|---|
+| P1 entity matching | L4 pins `use_entities_matching=True` |
+| P2 empty hash dir | identity-less hash sibling joins the tenant group |
+| Product | `dc72cf20` |
+| Local `make test-review-reuse` | **314 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (owner must merge) |
+
 ## Window 4 wave106 — 2026-09-23 ~16:55 UTC
 
 `tests (3.10)` / `tests (3.11)` **pass** on `fee7faa5` (product

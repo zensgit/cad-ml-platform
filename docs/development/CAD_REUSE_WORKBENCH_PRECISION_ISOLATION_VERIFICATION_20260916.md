@@ -523,6 +523,11 @@ make test-review-reuse
 | Stale mid-flight decision resumes | `test_stale_midflight_decision_resumes_until_evidence_ready` |
 | Hash id skips store without query geom | `test_hash_candidate_skips_geom_store_without_query_geometry` |
 | `make test-review-reuse` after wave106 fail-closed | **312 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) on `ea468dc8` | **pass** (docs; product `cf0f02be`) |
+| Sol window4-w111 vs `origin/main` on `ea468dc8` | P1 entity matching env; P2 empty hash sibling cleanup |
+| Matching-off does not certify shifted lines | `test_l4_pins_entity_matching_when_disabled` |
+| Recent empty hash dir keeps legacy | `test_cleanup_keeps_legacy_when_empty_hash_sibling_is_recent` |
+| `make test-review-reuse` after wave111 fail-closed | **314 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

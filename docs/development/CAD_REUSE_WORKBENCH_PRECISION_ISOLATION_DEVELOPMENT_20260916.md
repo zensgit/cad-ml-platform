@@ -321,6 +321,9 @@ flags (2 and 4) are not 2D L4 (extract cache v11); a stale
 ``decided`` snapshot without ``evidence_pack_ready`` resumes; hash
 candidates do not read the geom store when query geometry is missing.
 Decisions stay default-off.
+Wave111: L4 pins ``use_entities_matching=True`` so
+``DEDUPCAD2_ENTITIES_MATCHING=0`` cannot certify shifted lines; an
+empty hashed directory stays in the legacy tenant cleanup group.
 
 ### Model routing (by difficulty)
 
