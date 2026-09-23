@@ -523,6 +523,22 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave102 — 2026-09-23 ~05:45 UTC
+
+`tests (3.10)` / `tests (3.11)` **pass** on `fdd22af0` (product
+`b4c2e406`). Sol 5.6 vs `origin/main` on that HEAD: **P2** `put()`
+rebound a hashed idempotency key when a second task shared it, so
+cancel/decision of the unmapped sibling stole retries. Fail closed
+before replacing either file. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 idempotency rebind | `FilesystemReviewReuseStore.put` mapping must match `task_id` |
+| Product | `9abbdc6e` |
+| Local `make test-review-reuse` | **298 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (owner must merge) |
+
 ## Window 4 wave100 — 2026-09-23 ~04:45 UTC
 
 `tests (3.10)` / `tests (3.11)` **pass** on `53d24f58` (product

@@ -305,6 +305,9 @@ the lowercase key (no inline L4 bypass).
 Wave100: hashed ``tasks/{id}.json`` whose payload ``task_id`` differs
 from the filename is a miss (no legacy resurrect; cancel does not
 persist under the embedded id).
+Wave102: ``put()`` does not rebind a hashed idempotency key already
+mapped to another task (cancel/decision of a sibling is
+``store_conflict``).
 
 ### Model routing (by difficulty)
 

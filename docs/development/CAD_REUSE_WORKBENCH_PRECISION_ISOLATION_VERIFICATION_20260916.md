@@ -498,6 +498,10 @@ make test-review-reuse
 | Payload id mismatch is not the requested task | `test_hashed_payload_task_id_mismatch_does_not_resurrect_legacy` |
 | Cancel does not write embedded id | `test_hashed_payload_task_id_mismatch_cancel_does_not_write_embedded_id` |
 | `make test-review-reuse` after payload-id mismatch | **297 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) on `fdd22af0` | **pass** (docs; product `b4c2e406`) |
+| Sol window4-w102 vs `origin/main` on `fdd22af0` | P2 put() rebound a shared idempotency key |
+| Conflicting mapping is store_conflict | `test_put_does_not_rebind_idempotency_key_to_another_task` |
+| `make test-review-reuse` after idempotency rebind refuse | **298 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -529,10 +533,10 @@ Re-run `make test-review-reuse` after each follow-up commit and record the count
 |---|---|
 | Window 4 start HEAD | `dc9267e0` |
 | tests (3.10) / tests (3.11) / lint-type / core-fast-gate | **pass** on `dc9267e0` |
-| Current HEAD | `b4c2e406` (product; payload task_id mismatch) |
-| tests (3.10) / tests (3.11) on `53d24f58` | **pass** (docs; product `b6420581`) |
-| Sol vs `origin/main` on `53d24f58` | P2 hashed payload task_id skipped filename |
-| Local `make test-review-reuse` | **297 passed** |
+| Current HEAD | `9abbdc6e` (product; idempotency rebind refuse) |
+| tests (3.10) / tests (3.11) on `fdd22af0` | **pass** (docs; product `b4c2e406`) |
+| Sol vs `origin/main` on `fdd22af0` | P2 put() rebound a shared idempotency key |
+| Local `make test-review-reuse` | **298 passed** |
 | Evaluation Report | fail (Track E; out of scope) |
 | mergeable_state | do not merge (review required) |
 
