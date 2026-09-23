@@ -523,6 +523,27 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave104 — 2026-09-23 ~14:50 UTC
+
+`tests (3.10)` / `tests (3.11)` **pass** on `170d9f6a` (product
+`9abbdc6e`). Sol 5.6 vs `origin/main`: **P1** classic 3D/mesh POLYLINE
+flattened to XY; **P1** JSON coordinates longer than 2 scored as XY;
+**P2** group-999 hid fractional `$INSUNITS`; **P2** late cancel merged
+pipeline evidence; **P2** hashed `put` shadowed a legacy idempotency
+key. Fail closed. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P1 3D POLYLINE | extract emits `POLYLINE3D`; cache v9 |
+| P1 extra coordinates | `_xy` requires length 2 |
+| P2 INSUNITS comment | header tag scan skips group 999 |
+| P2 late cancel | canceled snapshot is not merged |
+| P2 legacy idem shadow | hashed put refuses a different legacy binding |
+| Product | `b3a5dec1` |
+| Local `make test-review-reuse` | **303 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (owner must merge) |
+
 ## Window 4 wave102 — 2026-09-23 ~05:45 UTC
 
 `tests (3.10)` / `tests (3.11)` **pass** on `fdd22af0` (product

@@ -502,6 +502,14 @@ make test-review-reuse
 | Sol window4-w102 vs `origin/main` on `fdd22af0` | P2 put() rebound a shared idempotency key |
 | Conflicting mapping is store_conflict | `test_put_does_not_rebind_idempotency_key_to_another_task` |
 | `make test-review-reuse` after idempotency rebind refuse | **298 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) on `170d9f6a` | **pass** (docs; product `9abbdc6e`) |
+| Sol window4-w104 vs `origin/main` on `170d9f6a` | P1 3D POLYLINE + Z coords; P2 INSUNITS comment, late cancel, legacy idem shadow |
+| 3D line coords are not L4 | `test_three_coordinate_line_is_not_certified_as_l4` |
+| 3D POLYLINE is not flattened | `test_classic_3d_polyline_is_not_flattened_to_l4` |
+| Group 999 does not hide fractional INSUNITS | `test_insunits_comment_does_not_hide_fractional_value` |
+| Late cancel drops pipeline evidence | `test_late_cancel_does_not_receive_pipeline_evidence` |
+| Hashed put does not shadow legacy key | `test_hashed_put_does_not_shadow_legacy_idempotency` |
+| `make test-review-reuse` after wave104 fail-closed | **303 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 

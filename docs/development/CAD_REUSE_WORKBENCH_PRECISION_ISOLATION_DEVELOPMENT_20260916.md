@@ -298,6 +298,10 @@ Wave85: filename gate runs before idempotency lookup so a pre-upgrade
 unsupported suffix cannot replay or resume a stale pipeline.
 Wave88: hashed candidate ids load geom from the store even when a live
 hit also carries inline ``geom_json`` (no query-mirroring L4 1.0).
+Wave104: classic 3D/mesh POLYLINE is not flattened to XY; JSON
+coordinates must be exactly 2D; group-999 cannot hide fractional
+``$INSUNITS``; a late cancel does not receive pipeline evidence;
+hashed ``put`` does not shadow a legacy idempotency binding.
 Wave89: a hashed store miss must not fall through to adapter
 ``precision-l4`` even when live inline JSON still mirrors the query.
 Wave92: mixed-case 64-hex candidate ids are hashes; store lookup uses
