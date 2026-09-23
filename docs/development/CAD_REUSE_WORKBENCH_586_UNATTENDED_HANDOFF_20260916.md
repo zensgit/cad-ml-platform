@@ -523,6 +523,22 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave92 — 2026-09-23 ~01:16 UTC
+
+tests (3.10) / tests (3.11) **pass** on `a0689de5` (product
+`1c86fb13`). Sol 5.6 vs `origin/main` on that HEAD: **P2** mixed-case
+64-hex candidate ids skipped the geom store and scored untrusted
+inline `geom_json`. Recognize hex case-insensitively and load the
+lowercase store key. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 mixed-case hash id | `_looks_like_file_hash` + `geom_store.load(cid.lower())` |
+| Product | `b6420581` |
+| Local `make test-review-reuse` | **295 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`MERGEABLE`; owner must merge) |
+
 ## Window 4 wave90 — 2026-09-23 ~00:16 UTC
 
 Idle. `tests (3.10)` / `tests (3.11)` **pass** on `c83b67fe`

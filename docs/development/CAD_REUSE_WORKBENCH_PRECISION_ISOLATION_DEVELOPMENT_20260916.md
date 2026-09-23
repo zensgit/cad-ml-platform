@@ -300,6 +300,8 @@ Wave88: hashed candidate ids load geom from the store even when a live
 hit also carries inline ``geom_json`` (no query-mirroring L4 1.0).
 Wave89: a hashed store miss must not fall through to adapter
 ``precision-l4`` even when live inline JSON still mirrors the query.
+Wave92: mixed-case 64-hex candidate ids are hashes; store lookup uses
+the lowercase key (no inline L4 bypass).
 
 ### Model routing (by difficulty)
 

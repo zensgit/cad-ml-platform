@@ -14,6 +14,7 @@
 |---|---|---|
 | Local L4 only with geom-json pairs | `precision.py` `_try_l4_score`; tests `test_precision_scores_json_query_and_candidate_geom`, `test_precision_extracts_dxf_query_geom` | pass locally |
 | Hashed id ignores query-mirroring inline geom | `test_hashed_inline_geom_does_not_bypass_store` | pass locally |
+| Mixed-case 64-hex id still uses the geom store | `test_mixed_case_hash_id_uses_store_not_inline` | pass locally |
 | Pre-scored L4 exports level >= 4 | `test_seeded_l4_without_match_level_exports_level_4` | pass locally |
 | Local L4 drops stale unverified reasons | `test_local_l4_clears_stale_vision_only_reason` | pass locally |
 | No visual→geometric copy | `dedup_live.py` + `test_precision_labels_vision_only_without_copying_visual` | pass |
@@ -485,6 +486,11 @@ make test-review-reuse
 | `make test-review-reuse` after hashed-store-miss refuse | **293 passed**, 7 ezdxf warnings |
 | Sol window4-w90 vs `origin/main` on `c83b67fe` | **no P1/P2** |
 | tests (3.10) / tests (3.11) on `c83b67fe` | **pass** |
+| tests (3.10) / tests (3.11) on `a0689de5` | **pass** |
+| Sol window4-w92 vs `origin/main` on `a0689de5` | P2 mixed-case hash id skipped the store |
+| Mixed-case hash uses store | `test_mixed_case_hash_id_uses_store_not_inline` |
+| Mixed-case store miss refuses prescored L4 | `test_mixed_case_hash_store_miss_does_not_revive_prescored_l4` |
+| `make test-review-reuse` after mixed-case hash ids | **295 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -504,6 +510,7 @@ make test-review-reuse
 | tests (3.10) / tests (3.11) on `b28f8dea` | **pass** (product `ba36b5ea`) |
 | tests (3.10) / tests (3.11) on `3ed17d57` | **pass** (docs; product `ba36b5ea`) |
 | tests (3.10) / tests (3.11) on `c83b67fe` | **pass** (docs; product `1c86fb13`) |
+| tests (3.10) / tests (3.11) on `a0689de5` | **pass** (docs; product `1c86fb13`) |
 | mergeable_state | `unstable` (Evaluation Report Track E; do not merge) |
 
 Re-run `make test-review-reuse` after each follow-up commit and record the count here.
@@ -514,9 +521,9 @@ Re-run `make test-review-reuse` after each follow-up commit and record the count
 |---|---|
 | Window 4 start HEAD | `dc9267e0` |
 | tests (3.10) / tests (3.11) / lint-type / core-fast-gate | **pass** on `dc9267e0` |
-| Current HEAD | `c83b67fe` (docs; product `1c86fb13`) |
-| tests (3.10) / tests (3.11) on `c83b67fe` | **pass** |
-| Sol vs `origin/main` on `c83b67fe` | **no P1/P2** |
+| Current HEAD | `b6420581` (product; mixed-case hash ids) |
+| tests (3.10) / tests (3.11) on `a0689de5` | **pass** |
+| Sol vs `origin/main` on `a0689de5` | P2 mixed-case hash id skipped the store |
 | Evaluation Report | fail (Track E; out of scope) |
 | mergeable_state | do not merge (review required) |
 
@@ -570,6 +577,9 @@ cancel → ReviewReuseError store_conflict; legacy file unchanged
 
 # hashed candidate_id + inline geom mirroring query + store orthogonal LINE
 → geometric 0.0; different; low_precision_score (not precision-l4 1.0)
+
+# uppercase/mixed 64-hex candidate_id + query-mirroring inline geom
+→ store lookup uses lowercase key; same refuse as hashed ids
 ```
 
 ## 4. Operator commands (decisions off)
@@ -605,7 +615,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `c83b67fe` (product `1c86fb13`) |
+| Python 3.10 CI job | **pass** on `a0689de5`; product this wave `b6420581` |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |
