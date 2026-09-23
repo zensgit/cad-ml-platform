@@ -3603,6 +3603,92 @@ def test_hashed_inline_geom_does_not_bypass_store(
     assert RejectionReason.low_precision_score.value in out[0].rejection_reasons
 
 
+def test_mixed_case_hash_id_uses_store_not_inline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Uppercase 64-hex ids must still load the store, not inline geom_json."""
+    query = _line_geom()
+    stored = {
+        "file_info": {"insunits": 4},
+        "layers": {"0": {"color": 7, "linetype": "CONTINUOUS"}},
+        "entities": [
+            {
+                "type": "LINE",
+                "layer": "0",
+                "start": [0.0, 0.0],
+                "end": [0.0, 100.0],
+            }
+        ],
+    }
+    seen: List[str] = []
+
+    class _Store:
+        def load(self, cid: str) -> dict:
+            seen.append(cid)
+            return stored
+
+    monkeypatch.setattr(
+        "src.core.dedupcad_precision.create_geom_store", lambda: _Store()
+    )
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "A" * 64,
+                "state": "similar",
+                "geom_json": query,
+                "methods": ["dedup2d-vision"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    assert seen == ["a" * 64]
+    assert out[0].scores.get("geometric") == 0.0
+    assert out[0].state == CandidateState.different
+    assert RejectionReason.low_precision_score.value in out[0].rejection_reasons
+
+
+def test_mixed_case_hash_store_miss_does_not_revive_prescored_l4(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    query = _line_geom()
+
+    class _EmptyStore:
+        def load(self, cid: str) -> None:
+            assert cid == "a" * 64
+            return None
+
+    monkeypatch.setattr(
+        "src.core.dedupcad_precision.create_geom_store", lambda: _EmptyStore()
+    )
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "Ab" * 32,
+                "state": "similar",
+                "geom_json": query,
+                "scores": {"geometric": 1.0},
+                "methods": ["precision-l4", "dedup2d-vision"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
 def test_hashed_store_miss_does_not_revive_prescored_l4(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

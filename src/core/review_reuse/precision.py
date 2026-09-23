@@ -84,7 +84,7 @@ def _is_live_vision(candidate: CandidateDecision) -> bool:
 
 
 def _looks_like_file_hash(value: str) -> bool:
-    return len(value) == 64 and all(c in "0123456789abcdef" for c in value)
+    return len(value) == 64 and all(c in "0123456789abcdefABCDEF" for c in value)
 
 
 def _dxf_extract_limit_bytes() -> int:
@@ -413,7 +413,7 @@ def _candidate_geom(
         if geom_store is None:
             return None
         try:
-            loaded = geom_store.load(cid)
+            loaded = geom_store.load(cid.lower())
         except Exception:
             logger.debug("review_reuse_geom_store_load_failed", exc_info=True)
             return None
