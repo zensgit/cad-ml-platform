@@ -523,6 +523,27 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave106 — 2026-09-23 ~16:55 UTC
+
+`tests (3.10)` / `tests (3.11)` **pass** on `fee7faa5` (product
+`761140cf`). Sol 5.6 vs `origin/main`: **P1** nonzero DXF thickness
+flattened to a 2D primitive; **P1** curve-fit/spline-fit POLYLINE flags
+flattened to chords; **P2** a stale mid-flight `decided` snapshot with
+no `evidence_pack_ready` never resumed; **P2** hash candidates read the
+geom store when the query has no geometry. Fail closed. Decisions stay
+off. Never merge.
+
+| Item | State |
+|---|---|
+| P1 thickness | group-39 thickness is `NONPLANAR`; extract cache v11 |
+| P1 fitted POLYLINE | flags 2 and 4 are non-2D |
+| P2 mid-flight decision | stale decided-without-evidence resumes |
+| P2 geom store | no store read when query geom is missing |
+| Product | `cf0f02be` |
+| Local `make test-review-reuse` | **312 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (owner must merge) |
+
 ## Window 4 wave105 — 2026-09-23 ~15:19 UTC
 
 `tests (3.10)` / `tests (3.11)` **pass** on `d52d28ae` (product

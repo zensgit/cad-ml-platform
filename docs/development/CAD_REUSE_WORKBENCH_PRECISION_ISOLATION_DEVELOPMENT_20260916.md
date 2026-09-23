@@ -316,6 +316,11 @@ Wave105: polyface flag 64 is not flattened to 2D (extract cache v10);
 nonzero Z/elevation or a non-default extrusion is ``NONPLANAR``;
 cleanup refuses a readable legacy dir when its hashed sibling is
 unreadable.
+Wave106: nonzero group-39 thickness and curve/spline-fit POLYLINE
+flags (2 and 4) are not 2D L4 (extract cache v11); a stale
+``decided`` snapshot without ``evidence_pack_ready`` resumes; hash
+candidates do not read the geom store when query geometry is missing.
+Decisions stay default-off.
 
 ### Model routing (by difficulty)
 

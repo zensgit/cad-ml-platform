@@ -516,6 +516,13 @@ make test-review-reuse
 | Non-planar DXF is not planar L4 | `test_nonplanar_dxf_primitives_are_not_certified_as_l4` |
 | Unreadable hash sibling blocks legacy delete | `test_cleanup_refuses_legacy_when_hashed_sibling_is_unreadable` |
 | `make test-review-reuse` after wave105 fail-closed | **306 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) on `fee7faa5` | **pass** (docs; product `761140cf`) |
+| Sol window4-w106 vs `origin/main` on `fee7faa5` | P1 thickness; P1 fitted POLYLINE; P2 stale mid-flight decision; P2 geom-store skip |
+| Nonzero thickness is not planar L4 | `test_nonzero_thickness_is_not_certified_as_planar_l4` |
+| Fitted POLYLINE is not a chord | `test_fitted_polyline_is_not_flattened_to_l4` |
+| Stale mid-flight decision resumes | `test_stale_midflight_decision_resumes_until_evidence_ready` |
+| Hash id skips store without query geom | `test_hash_candidate_skips_geom_store_without_query_geometry` |
+| `make test-review-reuse` after wave106 fail-closed | **312 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
