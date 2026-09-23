@@ -668,6 +668,57 @@ def test_decided_with_evidence_ready_is_not_rerun(
     assert again.evidence_pack == {"schema_version": "kept"}
 
 
+def test_l4_pins_entity_matching_when_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """DEDUPCAD2_ENTITIES_MATCHING=0 must not certify shifted lines as L4."""
+    from src.core.dedupcad_precision.verifier import PrecisionVerifier
+    import src.core.dedupcad_precision as dedup_mod
+
+    class _MatchingOff(PrecisionVerifier):
+        def __init__(self, settings=None, *, normalize: bool = True) -> None:
+            if settings is None:
+                from src.core.dedupcad_precision.vendor.config import Settings
+
+                settings = Settings()
+                settings.use_entities_matching = False
+            super().__init__(settings, normalize=normalize)
+
+    monkeypatch.setattr(dedup_mod, "PrecisionVerifier", _MatchingOff)
+    query = {
+        "file_info": {"insunits": 4},
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
+        ],
+    }
+    shifted = {
+        "file_info": {"insunits": 4},
+        "entities": [
+            {"type": "LINE", "start": [100.0, 0.0], "end": [10.0, 0.0]},
+        ],
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "shifted-line",
+                "state": "similar",
+                "geom_json": shifted,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    geo = out[0].scores.get("geometric")
+    assert geo is None or float(geo) < LOW_PRECISION_THRESHOLD
+    assert out[0].state == CandidateState.different
+
+
 def test_hash_candidate_skips_geom_store_without_query_geometry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

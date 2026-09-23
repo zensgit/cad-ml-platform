@@ -935,6 +935,9 @@ def _try_l4_score(
             w_dimensions=0.0,
             w_hatch_extra=0.0,
             entities_geom_hash=False,
+            # DEDUPCAD2_ENTITIES_MATCHING=0 would score JSON-path equality
+            # (shifted lines can exceed 0.55). L4 must use geometry.
+            use_entities_matching=True,
             layer_mismatch_penalty=0.0,
             max_match_entities=_L4_MAX_MATCH_ENTITIES,
         )

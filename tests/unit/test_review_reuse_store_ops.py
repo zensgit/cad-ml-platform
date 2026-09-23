@@ -509,6 +509,23 @@ def test_cleanup_refuses_legacy_when_hashed_sibling_is_unreadable(
     assert hashed.is_dir()
 
 
+def test_cleanup_keeps_legacy_when_empty_hash_sibling_is_recent(
+    tmp_path: Path,
+) -> None:
+    """A recent identity-less hash dir must keep the old legacy tenant."""
+    store = tmp_path / "store"
+    _seed_tenant(store, "pilot-tenant", 60.0)
+    legacy = store / "pilot-tenant"
+    hashed = store / tenant_dir_key("pilot-tenant")
+    hashed.mkdir()
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=None) == 0
+    )
+    assert legacy.is_dir()
+    assert hashed.is_dir()
+    assert (legacy / "tasks" / "task1.json").is_file()
+
+
 def test_cleanup_unknown_tenant_returns_not_found(
     tmp_path: Path, capsys
 ) -> None:

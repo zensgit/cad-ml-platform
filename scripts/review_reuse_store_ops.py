@@ -135,14 +135,20 @@ def _is_hash_dirname(name: str) -> bool:
 
 
 def _unattributable_hash_dir(tdir: Path) -> bool:
-    """Hashed dir whose meta/tasks do not name a tenant."""
+    """Hashed dir whose meta/tasks do not name a tenant.
+
+    An empty hash directory (crash before meta/task write) is included so
+    cleanup does not drop the legacy tenant while keeping the sibling.
+    """
     if not _is_hash_dirname(tdir.name):
         return False
     if _recorded_tenant_id(tdir) is not None:
         return False
     meta = _tenant_id_from_meta(tdir)
     _, unattributable = _task_attribution(tdir)
-    return meta == _UNREADABLE or unattributable
+    if meta == _UNREADABLE or unattributable:
+        return True
+    return meta is None and not _task_files(tdir)
 
 
 def _attach_unreadable_hash_siblings(
