@@ -523,6 +523,21 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave90 — 2026-09-23 ~00:16 UTC
+
+Idle. `tests (3.10)` / `tests (3.11)` **pass** on `c83b67fe`
+(product `1c86fb13`). Sol 5.6 vs `origin/main`: **no P1/P2**.
+No product commit. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| HEAD | `c83b67fe` |
+| Last fully green 3.10/3.11 | `c83b67fe` |
+| Local `make test-review-reuse` | **293 passed** (not re-run; no product change) |
+| Sol wave90 | no P1/P2 |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (`MERGEABLE`; owner must merge) |
+
 ## Window 4 wave89 — 2026-09-22 ~23:50 UTC
 
 Follow-up to wave88. Hashed ids skip inline `geom_json`; an empty

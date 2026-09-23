@@ -483,6 +483,8 @@ make test-review-reuse
 | `make test-review-reuse` after hashed-store-over-inline | **292 passed**, 7 ezdxf warnings |
 | Hashed store miss does not revive prescored L4 | `test_hashed_store_miss_does_not_revive_prescored_l4` |
 | `make test-review-reuse` after hashed-store-miss refuse | **293 passed**, 7 ezdxf warnings |
+| Sol window4-w90 vs `origin/main` on `c83b67fe` | **no P1/P2** |
+| tests (3.10) / tests (3.11) on `c83b67fe` | **pass** |
 
 ### CI (PR #586)
 
@@ -501,6 +503,7 @@ make test-review-reuse
 | tests (3.10) / tests (3.11) / lint-type / e2e-smoke on `eed168f0` | **pass** |
 | tests (3.10) / tests (3.11) on `b28f8dea` | **pass** (product `ba36b5ea`) |
 | tests (3.10) / tests (3.11) on `3ed17d57` | **pass** (docs; product `ba36b5ea`) |
+| tests (3.10) / tests (3.11) on `c83b67fe` | **pass** (docs; product `1c86fb13`) |
 | mergeable_state | `unstable` (Evaluation Report Track E; do not merge) |
 
 Re-run `make test-review-reuse` after each follow-up commit and record the count here.
@@ -511,9 +514,9 @@ Re-run `make test-review-reuse` after each follow-up commit and record the count
 |---|---|
 | Window 4 start HEAD | `dc9267e0` |
 | tests (3.10) / tests (3.11) / lint-type / core-fast-gate | **pass** on `dc9267e0` |
-| Current HEAD | `091561f2` (product; hashed store over inline) |
-| tests (3.10) / tests (3.11) on `3ed17d57` | **pass** |
-| Sol vs `origin/main` on `3ed17d57` | P2 hashed inline geom skipped the store |
+| Current HEAD | `c83b67fe` (docs; product `1c86fb13`) |
+| tests (3.10) / tests (3.11) on `c83b67fe` | **pass** |
+| Sol vs `origin/main` on `c83b67fe` | **no P1/P2** |
 | Evaluation Report | fail (Track E; out of scope) |
 | mergeable_state | do not merge (review required) |
 
@@ -602,7 +605,7 @@ git diff origin/main...HEAD --name-only
 
 | Item | Owner |
 |---|---|
-| Python 3.10 CI job | **pass** on `3ed17d57`; product this wave `091561f2` |
+| Python 3.10 CI job | **pass** on `c83b67fe` (product `1c86fb13`) |
 | Human review + merge of #586 | owner / reviewer |
 | R11 ratify, R12 decision enable | residual_human |
 | Track C C1–C5 | residual_human |
