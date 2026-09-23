@@ -5079,6 +5079,145 @@ def test_dxf_extracted_polyline_default_width_is_not_certified_as_l4(
     assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
 
 
+def test_three_coordinate_line_is_not_certified_as_l4() -> None:
+    """A discarded Z must not make two different 3D lines precision-l4."""
+    query = {
+        "file_info": {"insunits": 4},
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0, 0.0], "end": [10.0, 0.0, 0.0]},
+        ],
+    }
+    other = {
+        "file_info": {"insunits": 4},
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0, 100.0], "end": [10.0, 0.0, 100.0]},
+        ],
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "z-line",
+                "state": "similar",
+                "geom_json": other,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
+def test_classic_3d_polyline_is_not_flattened_to_l4(tmp_path: Path) -> None:
+    """3D POLYLINE (flag 8) must not score as a 2D XY polyline."""
+    import ezdxf
+    from io import StringIO
+
+    from src.core.dedupcad_precision.vendor.dxf_extract import extract_dxf
+
+    doc = ezdxf.new("R2000")
+    doc.header["$INSUNITS"] = 4
+    doc.modelspace().add_polyline3d([(0.0, 0.0, 0.0), (10.0, 0.0, 50.0)])
+    buf = StringIO()
+    doc.write(buf)
+    dxf_bytes = buf.getvalue().encode("utf-8")
+    path = tmp_path / "poly3d.dxf"
+    path.write_bytes(dxf_bytes)
+    extracted = extract_dxf(str(path), use_cache=False)
+    types = [e.get("type") for e in extracted.get("entities") or []]
+    assert "POLYLINE" not in types
+    assert "POLYLINE3D" in types
+    flat = {
+        "file_info": {"insunits": 4},
+        "entities": [
+            {
+                "type": "LWPOLYLINE",
+                "points": [[0.0, 0.0], [10.0, 0.0]],
+                "closed": False,
+            }
+        ],
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "flat-poly",
+                "state": "similar",
+                "geom_json": flat,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.dxf",
+    )
+    out = apply_precision(cands, file_name="query.dxf", file_bytes=dxf_bytes)
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+
+
+def test_insunits_comment_does_not_hide_fractional_value(tmp_path: Path) -> None:
+    """Group 999 between $INSUNITS and group 70 must not drop the token."""
+    from src.core.dedupcad_precision.vendor.dxf_extract import extract_dxf
+
+    dxf = (
+        "0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n999\ncomment\n70\n4.9\n"
+        "0\nENDSEC\n0\nSECTION\n2\nENTITIES\n0\nLINE\n8\n0\n10\n0.0\n"
+        "20\n0.0\n11\n10.0\n21\n0.0\n0\nENDSEC\n0\nEOF\n"
+    )
+    path = tmp_path / "comment_units.dxf"
+    path.write_text(dxf, encoding="utf-8")
+    extracted = extract_dxf(str(path), use_cache=False)
+    assert extracted.get("file_info", {}).get("insunits") == 0
+
+
+def test_late_cancel_does_not_receive_pipeline_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Cancel between the last abort check and commit stays evidence-free."""
+    from src.core.review_reuse.models import TaskStatus
+    from src.core.review_reuse.service import ReviewReuseService
+
+    svc = _svc()
+    orig = ReviewReuseService._commit_pipeline_result
+
+    def _cancel_then_commit(self: ReviewReuseService, task):  # type: ignore[no-untyped-def]
+        current = self.store.get(task.tenant_id, task.task_id)
+        assert current is not None
+        current.status = TaskStatus.canceled
+        self.store.put(current)
+        return orig(self, task)
+
+    monkeypatch.setattr(
+        ReviewReuseService, "_commit_pipeline_result", _cancel_then_commit
+    )
+    task = svc.create_task(
+        tenant_id="t-late-cancel",
+        file_name="a.dxf",
+        file_bytes=b"x",
+        seed_candidates=[
+            {
+                "candidate_id": "c1",
+                "state": "similar",
+                "scores": {"geometric": 0.9},
+                "methods": ["seed-adapter"],
+            }
+        ],
+    )
+    assert task.status == TaskStatus.canceled
+    assert not task.candidates
+    assert task.evidence_pack is None
+    stored = svc.get_task("t-late-cancel", task.task_id)
+    assert stored.status == TaskStatus.canceled
+    assert not stored.candidates
+    assert stored.evidence_pack is None
+
+
 def test_dxf_fractional_insunits_header_is_not_certified(tmp_path: Path) -> None:
     from src.core.dedupcad_precision.vendor.dxf_extract import extract_dxf
 

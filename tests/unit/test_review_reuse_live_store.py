@@ -1195,6 +1195,49 @@ def test_put_does_not_rebind_idempotency_key_to_another_task(
     assert replay_after.status == TaskStatus.canceled
 
 
+def test_hashed_put_does_not_shadow_legacy_idempotency(tmp_path: Path) -> None:
+    """A new hashed sibling must not steal a key still bound in legacy."""
+    root = tmp_path / "tasks"
+    store = FilesystemReviewReuseStore(root)
+    legacy_dir = root / "pilot-tenant"
+    (legacy_dir / "tasks").mkdir(parents=True)
+    legacy = ReviewReuseTask(
+        task_id="t-legacy",
+        tenant_id="pilot-tenant",
+        status=TaskStatus.running,
+        created_at=1.0,
+        updated_at=1.0,
+        source_file_name="a.dxf",
+        source_content_sha256="ab",
+        idempotency_key="idem-legacy",
+        trace_id="tr",
+    )
+    (legacy_dir / "tasks" / "t-legacy.json").write_text(
+        json.dumps(legacy.model_dump(mode="json")), encoding="utf-8"
+    )
+    (legacy_dir / "idempotency.json").write_text(
+        json.dumps({"idem-legacy": "t-legacy"}), encoding="utf-8"
+    )
+    sibling = ReviewReuseTask(
+        task_id="t-sibling",
+        tenant_id="pilot-tenant",
+        status=TaskStatus.running,
+        created_at=2.0,
+        updated_at=2.0,
+        source_file_name="b.dxf",
+        source_content_sha256="cd",
+        idempotency_key="idem-legacy",
+        trace_id="tr",
+    )
+    with pytest.raises(CorruptIdempotencyIndexError):
+        store.put(sibling)
+    hashed_dir = root / tenant_dir_key("pilot-tenant")
+    assert not (hashed_dir / "tasks" / "t-sibling.json").exists()
+    replay = store.get_by_idempotency("pilot-tenant", "idem-legacy")
+    assert replay is not None
+    assert replay.task_id == "t-legacy"
+
+
 def test_legacy_idempotency_does_not_skip_hashed_task(tmp_path: Path) -> None:
     """Stale leftover mapping must not win if the hashed task file exists."""
     root = tmp_path / "tasks"

@@ -235,7 +235,8 @@ def _is_finite_unit_score(value: Any) -> bool:
 
 
 def _xy(value: Any) -> bool:
-    if not isinstance(value, (list, tuple)) or len(value) < 2:
+    """Exactly two finite coordinates. A third component is not XY."""
+    if not isinstance(value, (list, tuple)) or len(value) != 2:
         return False
     return _finite_number(value[0]) and _finite_number(value[1])
 

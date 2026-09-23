@@ -32,7 +32,9 @@ except Exception as e:  # pragma: no cover - optional dependency
 
 # Bump when extract payload fields change. v8 stops treating valid binary
 # DXF as missing ASCII HEADER (which zeroed $INSUNITS).
-_EXTRACT_CACHE_VERSION = 8
+_EXTRACT_CACHE_VERSION = 9
+# Classic POLYLINE flags: 8=3D, 16=polygon mesh, 32=polyface mesh.
+_NON_2D_POLYLINE_FLAGS = 8 | 16 | 32
 
 
 def _header_insunits(doc: Any) -> int:
@@ -193,12 +195,49 @@ def _raw_insunits_non_integral(path: str) -> bool:
     if header is None:
         # Unbounded/missing ASCII HEADER: do not trust ezdxf's truncated value.
         return True
-    tokens = re.findall(
-        r"\$INSUNITS[^\n]*\n[ \t]*70[ \t]*\n[ \t]*([^\n]+)",
-        header,
-        flags=re.IGNORECASE,
-    )
+    return _ascii_header_insunits_unsafe(header)
+
+
+def _ascii_header_insunits_unsafe(header: str) -> bool:
+    """Bind each ``$INSUNITS`` to its group-70 value, skipping group 999.
+
+    An adjacency regex misses a comment between the variable and the
+    integer, then ezdxf truncates ``4.9`` to ``4``. Unbound declarations
+    fail closed.
+    """
+    lines = header.split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+    if len(lines) % 2 != 0:
+        return True
+    pairs = [
+        (lines[index].strip(), lines[index + 1].strip())
+        for index in range(0, len(lines), 2)
+    ]
+    tokens: List[str] = []
+    index = 0
+    while index < len(pairs):
+        code, value = pairs[index]
+        if code == "9" and value.upper() == "$INSUNITS":
+            bound = index + 1
+            while bound < len(pairs) and pairs[bound][0] == "999":
+                bound += 1
+            if bound >= len(pairs) or pairs[bound][0] != "70":
+                return True
+            tokens.append(pairs[bound][1])
+            index = bound + 1
+            continue
+        index += 1
     return _insunits_tokens_unsafe(tokens)
+
+
+def _classic_polyline_is_non_2d(entity: Any) -> bool:
+    """3D polylines, polygon meshes, and polyfaces are not 2D L4 geometry."""
+    flags = getattr(getattr(entity, "dxf", None), "flags", 0)
+    try:
+        return bool(int(flags or 0) & _NON_2D_POLYLINE_FLAGS)
+    except (TypeError, ValueError):
+        return True
 
 
 def _dxf_polyline_closed(entity: Any, et: str) -> bool:
@@ -648,6 +687,9 @@ def extract_dxf(path: str, *, use_cache: bool = True) -> Dict[str, Any]:
                     "end_angle": float(e.dxf.end_angle),
                 }
             )
+        elif et == "POLYLINE" and _classic_polyline_is_non_2d(e):
+            # Do not flatten Z/mesh vertices into a 2D POLYLINE.
+            item["type"] = "POLYLINE3D"
         elif et in ("LWPOLYLINE", "POLYLINE"):
             pts: List[List[float]] = []
             bulges: List[float] = []

@@ -444,10 +444,11 @@ class ReviewReuseService:
             ):
                 # Another worker holds the lease; do not mask their result.
                 return current
-            if current is not None and current.status in (
-                TaskStatus.canceled,
-                TaskStatus.decided,
-            ):
+            if current is not None and current.status == TaskStatus.canceled:
+                # A cancel that lands after the last abort check must not
+                # receive candidates, an EvidencePack, or completion events.
+                return current
+            if current is not None and current.status == TaskStatus.decided:
                 merged = False
                 if task.candidates and not current.candidates:
                     current.candidates = task.candidates

@@ -445,6 +445,28 @@ class FilesystemReviewReuseStore:
             mapping[key] = value
         return mapping
 
+    def _refuse_legacy_idempotency_shadow(
+        self, task: ReviewReuseTask, hashed_dir: Path
+    ) -> None:
+        """Do not create the first hashed mapping over a different legacy task."""
+        if not task.idempotency_key:
+            return
+        for other in self._read_dirs(task.tenant_id):
+            if other == hashed_dir:
+                continue
+            legacy = self._try_load_idem(other)
+            if legacy is None:
+                raise CorruptIdempotencyIndexError(
+                    task.tenant_id, self._idem_path(other)
+                )
+            legacy_tid = legacy.get(task.idempotency_key)
+            if not legacy_tid:
+                continue
+            if legacy_tid != task.task_id:
+                raise CorruptIdempotencyIndexError(
+                    task.tenant_id, self._idem_path(other)
+                )
+
     def _load_idem(self, tenant_dir: Path) -> Dict[str, str]:
         loaded = self._try_load_idem(tenant_dir)
         return loaded if loaded is not None else {}
@@ -472,6 +494,8 @@ class FilesystemReviewReuseStore:
                     raise CorruptIdempotencyIndexError(
                         task.tenant_id, self._idem_path(tenant_dir)
                     )
+                if not mapped_tid:
+                    self._refuse_legacy_idempotency_shadow(task, tenant_dir)
             path = self._task_path(tenant_dir, task.task_id)
             payload = task.model_dump(mode="json")
             _atomic_write_text(
