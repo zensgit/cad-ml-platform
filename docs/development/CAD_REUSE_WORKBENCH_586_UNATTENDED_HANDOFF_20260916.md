@@ -523,6 +523,25 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave105 — 2026-09-23 ~15:19 UTC
+
+`tests (3.10)` / `tests (3.11)` **pass** on `d52d28ae` (product
+`b3a5dec1`). Sol 5.6 vs `origin/main`:
+**P1** polyface flag 64 flattened to XY; **P1** nonzero Z/elevation or a
+non-default extrusion certified as planar L4; **P1** an unreadable hashed
+sibling was omitted from the cleanup group, so `--apply` could delete the
+readable legacy directory. Fail closed. Never merge; decisions stay off.
+
+| Item | State |
+|---|---|
+| P1 polyface | group-70 bit 64 is non-2D; extract cache v10 |
+| P1 non-planar | extractor emits `NONPLANAR` (not XY) |
+| P1 hash cleanup | unreadable hash sibling stays in the tenant group |
+| Product | `761140cf` |
+| Local `make test-review-reuse` | **306 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (owner must merge) |
+
 ## Window 4 wave104 — 2026-09-23 ~14:50 UTC
 
 `tests (3.10)` / `tests (3.11)` **pass** on `170d9f6a` (product

@@ -312,6 +312,10 @@ persist under the embedded id).
 Wave102: ``put()`` does not rebind a hashed idempotency key already
 mapped to another task (cancel/decision of a sibling is
 ``store_conflict``).
+Wave105: polyface flag 64 is not flattened to 2D (extract cache v10);
+nonzero Z/elevation or a non-default extrusion is ``NONPLANAR``;
+cleanup refuses a readable legacy dir when its hashed sibling is
+unreadable.
 
 ### Model routing (by difficulty)
 

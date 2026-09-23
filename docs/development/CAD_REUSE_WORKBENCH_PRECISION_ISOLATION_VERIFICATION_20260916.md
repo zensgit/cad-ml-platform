@@ -510,6 +510,12 @@ make test-review-reuse
 | Late cancel drops pipeline evidence | `test_late_cancel_does_not_receive_pipeline_evidence` |
 | Hashed put does not shadow legacy key | `test_hashed_put_does_not_shadow_legacy_idempotency` |
 | `make test-review-reuse` after wave104 fail-closed | **303 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) on `d52d28ae` | **pass** (docs; product `b3a5dec1`) |
+| Sol window4-w105 vs `origin/main` on `d52d28ae` | P1 polyface flag 64; P1 non-planar DXF; P1 unreadable hash sibling cleanup |
+| Polyface flag 64 is not 2D | `test_polyface_flag_64_is_not_flattened_to_l4` |
+| Non-planar DXF is not planar L4 | `test_nonplanar_dxf_primitives_are_not_certified_as_l4` |
+| Unreadable hash sibling blocks legacy delete | `test_cleanup_refuses_legacy_when_hashed_sibling_is_unreadable` |
+| `make test-review-reuse` after wave105 fail-closed | **306 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
