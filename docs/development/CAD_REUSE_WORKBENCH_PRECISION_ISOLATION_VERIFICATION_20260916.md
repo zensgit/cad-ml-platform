@@ -493,6 +493,11 @@ make test-review-reuse
 | `make test-review-reuse` after mixed-case hash ids | **295 passed**, 7 ezdxf warnings |
 | Sol window4-w93 vs `origin/main` on `f24cad5b` | **no P1/P2** |
 | tests (3.10) / tests (3.11) on `f24cad5b` | **pass** |
+| tests (3.10) / tests (3.11) on `53d24f58` | **pass** (docs; product `b6420581`) |
+| Sol window4-w100 vs `origin/main` on `53d24f58` | P2 hashed payload task_id skipped filename |
+| Payload id mismatch is not the requested task | `test_hashed_payload_task_id_mismatch_does_not_resurrect_legacy` |
+| Cancel does not write embedded id | `test_hashed_payload_task_id_mismatch_cancel_does_not_write_embedded_id` |
+| `make test-review-reuse` after payload-id mismatch | **297 passed**, 7 ezdxf warnings |
 
 ### CI (PR #586)
 
@@ -524,9 +529,10 @@ Re-run `make test-review-reuse` after each follow-up commit and record the count
 |---|---|
 | Window 4 start HEAD | `dc9267e0` |
 | tests (3.10) / tests (3.11) / lint-type / core-fast-gate | **pass** on `dc9267e0` |
-| Current HEAD | `f24cad5b` (docs; product `b6420581`) |
-| tests (3.10) / tests (3.11) on `f24cad5b` | **pass** |
-| Sol vs `origin/main` on `f24cad5b` | **no P1/P2** |
+| Current HEAD | `b4c2e406` (product; payload task_id mismatch) |
+| tests (3.10) / tests (3.11) on `53d24f58` | **pass** (docs; product `b6420581`) |
+| Sol vs `origin/main` on `53d24f58` | P2 hashed payload task_id skipped filename |
+| Local `make test-review-reuse` | **297 passed** |
 | Evaluation Report | fail (Track E; out of scope) |
 | mergeable_state | do not merge (review required) |
 

@@ -302,6 +302,9 @@ Wave89: a hashed store miss must not fall through to adapter
 ``precision-l4`` even when live inline JSON still mirrors the query.
 Wave92: mixed-case 64-hex candidate ids are hashes; store lookup uses
 the lowercase key (no inline L4 bypass).
+Wave100: hashed ``tasks/{id}.json`` whose payload ``task_id`` differs
+from the filename is a miss (no legacy resurrect; cancel does not
+persist under the embedded id).
 
 ### Model routing (by difficulty)
 

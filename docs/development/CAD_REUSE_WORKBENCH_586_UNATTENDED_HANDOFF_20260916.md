@@ -523,6 +523,23 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave100 — 2026-09-23 ~04:45 UTC
+
+`tests (3.10)` / `tests (3.11)` **pass** on `53d24f58` (product
+`b6420581`). Sol 5.6 vs `origin/main` on that HEAD: **P2** hashed
+`tasks/{id}.json` whose payload `task_id` differed from the filename
+was returned as the requested task, so cancel/decision could persist
+under the embedded id. Require `task.task_id == task_id`. Never merge;
+decisions stay off.
+
+| Item | State |
+|---|---|
+| P2 payload task_id | `_hashed_task_if_present` / `get` / `list_for_tenant` |
+| Product | `b4c2e406` |
+| Local `make test-review-reuse` | **297 passed** |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (owner must merge) |
+
 ## Window 4 wave94 — 2026-09-23 ~02:42 UTC
 
 Idle. `tests (3.10)` / `tests (3.11)` **pass** on `57a027c1`
