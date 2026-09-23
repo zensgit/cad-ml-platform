@@ -1139,6 +1139,62 @@ def test_hashed_payload_task_id_mismatch_cancel_does_not_write_embedded_id(
     assert leftover["status"] == TaskStatus.running.value
 
 
+def test_put_does_not_rebind_idempotency_key_to_another_task(
+    tmp_path: Path,
+) -> None:
+    """Two tasks sharing a key: cancel of the unmapped one must not steal retries."""
+    from src.core.review_reuse.service import ReviewReuseError
+
+    root = tmp_path / "tasks"
+    store = FilesystemReviewReuseStore(root)
+    mapped = store.put(
+        ReviewReuseTask(
+            task_id="t-mapped",
+            tenant_id="pilot-tenant",
+            status=TaskStatus.running,
+            created_at=1.0,
+            updated_at=1.0,
+            source_file_name="a.dxf",
+            source_content_sha256="ab",
+            idempotency_key="idem-shared",
+            trace_id="tr",
+        )
+    )
+    hashed_dir = root / tenant_dir_key("pilot-tenant")
+    sibling = ReviewReuseTask(
+        task_id="t-sibling",
+        tenant_id="pilot-tenant",
+        status=TaskStatus.running,
+        created_at=1.0,
+        updated_at=1.0,
+        source_file_name="b.dxf",
+        source_content_sha256="cd",
+        idempotency_key="idem-shared",
+        trace_id="tr",
+    )
+    sibling_path = hashed_dir / "tasks" / f"{sibling.task_id}.json"
+    sibling_path.write_text(
+        json.dumps(sibling.model_dump(mode="json")), encoding="utf-8"
+    )
+    mapping_before = (hashed_dir / "idempotency.json").read_text(encoding="utf-8")
+    svc = ReviewReuseService(store)
+    with pytest.raises(ReviewReuseError) as ei:
+        svc.cancel("pilot-tenant", sibling.task_id)
+    assert ei.value.code == "store_conflict"
+    assert (hashed_dir / "idempotency.json").read_text(encoding="utf-8") == mapping_before
+    leftover = json.loads(sibling_path.read_text(encoding="utf-8"))
+    assert leftover["status"] == TaskStatus.running.value
+    replay = store.get_by_idempotency("pilot-tenant", "idem-shared")
+    assert replay is not None
+    assert replay.task_id == mapped.task_id
+    canceled = svc.cancel("pilot-tenant", mapped.task_id)
+    assert canceled.status == TaskStatus.canceled
+    replay_after = store.get_by_idempotency("pilot-tenant", "idem-shared")
+    assert replay_after is not None
+    assert replay_after.task_id == mapped.task_id
+    assert replay_after.status == TaskStatus.canceled
+
+
 def test_legacy_idempotency_does_not_skip_hashed_task(tmp_path: Path) -> None:
     """Stale leftover mapping must not win if the hashed task file exists."""
     root = tmp_path / "tasks"

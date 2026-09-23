@@ -467,6 +467,11 @@ class FilesystemReviewReuseStore:
                     raise CorruptIdempotencyIndexError(
                         task.tenant_id, self._idem_path(tenant_dir)
                     )
+                mapped_tid = idem.get(task.idempotency_key)
+                if mapped_tid and mapped_tid != task.task_id:
+                    raise CorruptIdempotencyIndexError(
+                        task.tenant_id, self._idem_path(tenant_dir)
+                    )
             path = self._task_path(tenant_dir, task.task_id)
             payload = task.model_dump(mode="json")
             _atomic_write_text(
