@@ -30,12 +30,12 @@ except Exception as e:  # pragma: no cover - optional dependency
     ezdxf = None
 
 
-# Bump when extract payload fields change. v10 does not flatten polyface
-# meshes (flag 64) or non-planar primitives into 2D coordinates.
-_EXTRACT_CACHE_VERSION = 10
-# Classic POLYLINE group-70: 8=3D, 16=polygon mesh, 32=mesh closed in N,
-# 64=polyface. Bit 32 alone is not a polyface.
-_NON_2D_POLYLINE_FLAGS = 8 | 16 | 32 | 64
+# Bump when extract payload fields change. v11 refuses fitted polylines
+# and nonzero thickness instead of emitting a flat 2D primitive.
+_EXTRACT_CACHE_VERSION = 11
+# Classic POLYLINE group-70: 2=curve-fit, 4=spline-fit, 8=3D,
+# 16=polygon mesh, 32=mesh closed in N, 64=polyface.
+_NON_2D_POLYLINE_FLAGS = 2 | 4 | 8 | 16 | 32 | 64
 
 
 def _header_insunits(doc: Any) -> int:
@@ -284,11 +284,29 @@ def _extrusion_leaves_xy_plane(entity: Any) -> bool:
     return rounded != (0.0, 0.0, 1.0)
 
 
+def _thickness_leaves_plane(entity: Any) -> bool:
+    """Group-39 thickness extrudes a primitive out of the XY plane."""
+    dxf = getattr(entity, "dxf", None)
+    if dxf is None:
+        return True
+    try:
+        raw = dxf.thickness
+    except AttributeError:
+        return False
+    except Exception:
+        return True
+    if raw is None:
+        return False
+    return _offset_from_xy_plane(raw)
+
+
 def _dxf_primitive_non_planar(entity: Any, et: str) -> bool:
     """LINE/CIRCLE/ARC/ELLIPSE/LWPOLYLINE/POLYLINE that are not XY-planar."""
     if et not in ("LINE", "CIRCLE", "ARC", "ELLIPSE", "LWPOLYLINE", "POLYLINE"):
         return False
     if _extrusion_leaves_xy_plane(entity):
+        return True
+    if _thickness_leaves_plane(entity):
         return True
     dxf = getattr(entity, "dxf", None)
     if dxf is None:

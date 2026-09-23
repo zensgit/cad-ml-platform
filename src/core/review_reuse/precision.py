@@ -1140,7 +1140,9 @@ def apply_precision(
         # Hashed ids use the store even when a live hit also carried inline geom.
         if has_cand_geom or hash_id:
             q = _query_geom()
-            store = _geom_store() if hash_id else None
+            # No query geometry means L4 cannot certify. Do not read the
+            # geom store for hash ids (PNG/PDF/DWG or a failed parse).
+            store = _geom_store() if hash_id and q is not None else None
             right = _candidate_geom(candidate, store)
             l4 = (
                 _try_l4_score(q, right)

@@ -523,6 +523,181 @@ def test_idempotent_replay_of_canceled_task_with_pipeline_error_raises() -> None
     assert stuck.error == PIPELINE_FAILED_PUBLIC
 
 
+def test_stale_midflight_decision_resumes_until_evidence_ready() -> None:
+    """A decided snapshot with no evidence_pack_ready must still resume."""
+    import time
+
+    from src.core.review_reuse.models import HumanDecision, ReviewReuseTask, TaskStatus
+    from src.core.review_reuse.service import STALE_RUNNING_SECONDS
+
+    svc = _svc()
+    now = time.time()
+    payload = b"midflight"
+    prior = ReviewReuseTask(
+        task_id="stuck-decided",
+        tenant_id="t-midflight",
+        status=TaskStatus.decided,
+        created_at=now - STALE_RUNNING_SECONDS - 10.0,
+        updated_at=now - STALE_RUNNING_SECONDS - 10.0,
+        source_file_name="part.dxf",
+        source_content_sha256=hashlib.sha256(payload).hexdigest(),
+        idempotency_key="idem-midflight",
+        trace_id="tr-midflight",
+        human_decision=HumanDecision(
+            state=HumanDecisionState.reuse,
+            reviewer_id="reviewer-1",
+            ts=now - STALE_RUNNING_SECONDS - 10.0,
+        ),
+        evidence_pack={"schema_version": "empty-midflight"},
+    )
+    svc.store.put(prior)
+    again = svc.create_task(
+        tenant_id="t-midflight",
+        file_name="part.dxf",
+        file_bytes=payload,
+        idempotency_key="idem-midflight",
+    )
+    assert again.task_id == "stuck-decided"
+    assert again.status == TaskStatus.decided
+    assert again.human_decision is not None
+    assert again.human_decision.reviewer_id == "reviewer-1"
+    assert again.evidence_pack is not None
+    assert any(
+        event.event_type == TaskEventType.evidence_pack_ready for event in again.events
+    )
+
+
+def test_fresh_midflight_decision_is_not_resumed() -> None:
+    import time
+
+    from src.core.review_reuse.models import HumanDecision, ReviewReuseTask, TaskStatus
+    from src.core.review_reuse.service import STALE_RUNNING_SECONDS
+
+    svc = _svc()
+    now = time.time()
+    payload = b"fresh-decision"
+    prior = ReviewReuseTask(
+        task_id="fresh-decided",
+        tenant_id="t-fresh-decided",
+        status=TaskStatus.decided,
+        created_at=now,
+        updated_at=now,
+        source_file_name="part.dxf",
+        source_content_sha256=hashlib.sha256(payload).hexdigest(),
+        idempotency_key="idem-fresh-decided",
+        trace_id="tr-fresh-decided",
+        human_decision=HumanDecision(
+            state=HumanDecisionState.reuse,
+            reviewer_id="reviewer-1",
+            ts=now,
+        ),
+    )
+    svc.store.put(prior)
+    again = svc.create_task(
+        tenant_id="t-fresh-decided",
+        file_name="part.dxf",
+        file_bytes=payload,
+        idempotency_key="idem-fresh-decided",
+    )
+    assert again.status == TaskStatus.decided
+    assert again.evidence_pack is None
+    assert not any(
+        event.event_type == TaskEventType.evidence_pack_ready for event in again.events
+    )
+    assert STALE_RUNNING_SECONDS > 0
+
+
+def test_decided_with_evidence_ready_is_not_rerun(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import time
+
+    from src.core.review_reuse.models import (
+        HumanDecision,
+        ReviewReuseTask,
+        TaskEvent,
+        TaskStatus,
+    )
+    from src.core.review_reuse.service import STALE_RUNNING_SECONDS
+    import src.core.review_reuse.service as service_mod
+
+    svc = _svc()
+    now = time.time()
+    payload = b"already-ready"
+    prior = ReviewReuseTask(
+        task_id="done-decided",
+        tenant_id="t-done-decided",
+        status=TaskStatus.decided,
+        created_at=now - STALE_RUNNING_SECONDS - 10.0,
+        updated_at=now - STALE_RUNNING_SECONDS - 10.0,
+        source_file_name="part.dxf",
+        source_content_sha256=hashlib.sha256(payload).hexdigest(),
+        idempotency_key="idem-done-decided",
+        trace_id="tr-done-decided",
+        human_decision=HumanDecision(
+            state=HumanDecisionState.new,
+            reviewer_id="reviewer-1",
+            ts=now - STALE_RUNNING_SECONDS - 10.0,
+        ),
+        evidence_pack={"schema_version": "kept"},
+        events=[
+            TaskEvent(
+                event_type=TaskEventType.evidence_pack_ready,
+                ts=now - STALE_RUNNING_SECONDS - 20.0,
+                detail={},
+            )
+        ],
+    )
+    svc.store.put(prior)
+    calls = {"n": 0}
+    orig = service_mod.recall_candidates
+
+    def _count(*args: object, **kwargs: object):
+        calls["n"] += 1
+        return orig(*args, **kwargs)
+
+    monkeypatch.setattr(service_mod, "recall_candidates", _count)
+    again = svc.create_task(
+        tenant_id="t-done-decided",
+        file_name="part.dxf",
+        file_bytes=payload,
+        idempotency_key="idem-done-decided",
+    )
+    assert calls["n"] == 0
+    assert again.status == TaskStatus.decided
+    assert again.evidence_pack == {"schema_version": "kept"}
+
+
+def test_hash_candidate_skips_geom_store_without_query_geometry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import src.core.dedupcad_precision as dedup_mod
+
+    def _boom() -> None:
+        raise AssertionError("geom store must not load without query geometry")
+
+    monkeypatch.setattr(dedup_mod, "create_geom_store", _boom)
+    digest = "ab" * 32
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": digest,
+                "state": "similar",
+                "scores": {"geometric": 0.99},
+                "methods": ["precision-l4"],
+            }
+        ],
+        content_sha="cd",
+        file_name="query.png",
+    )
+    out = apply_precision(
+        cands, file_name="query.png", file_bytes=b"\x89PNG\r\n"
+    )
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
 def test_stale_running_idempotency_resumes_pipeline() -> None:
     import hashlib
     import time
@@ -5177,6 +5352,69 @@ def _assert_not_planar_l4(dxf_bytes: bytes, planar: dict) -> None:
     out = apply_precision(cands, file_name="query.dxf", file_bytes=dxf_bytes)
     assert "precision-l4" not in (out[0].verification.get("methods") or [])
     assert out[0].scores.get("geometric") is None
+
+
+def test_nonzero_thickness_is_not_certified_as_planar_l4(tmp_path: Path) -> None:
+    """Group-39 thickness must not collapse to a zero-thickness primitive."""
+    import ezdxf
+    from io import StringIO
+
+    from src.core.dedupcad_precision.vendor.dxf_extract import extract_dxf
+
+    doc = ezdxf.new("R2000")
+    doc.header["$INSUNITS"] = 4
+    line = doc.modelspace().add_line((0.0, 0.0, 0.0), (10.0, 0.0, 0.0))
+    line.dxf.thickness = 5.0
+    buf = StringIO()
+    doc.write(buf)
+    dxf_bytes = buf.getvalue().encode("utf-8")
+    path = tmp_path / "thick.dxf"
+    path.write_bytes(dxf_bytes)
+    extracted = extract_dxf(str(path), use_cache=False)
+    types = [e.get("type") for e in extracted.get("entities") or []]
+    assert "LINE" not in types
+    assert "NONPLANAR" in types
+    planar = {
+        "file_info": {"insunits": 4},
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
+        ],
+    }
+    _assert_not_planar_l4(dxf_bytes, planar)
+
+
+def test_fitted_polyline_is_not_flattened_to_l4(tmp_path: Path) -> None:
+    """Curve-fit and spline-fit POLYLINE flags are not straight chords."""
+    import ezdxf
+    from io import StringIO
+
+    from src.core.dedupcad_precision.vendor.dxf_extract import extract_dxf
+
+    for flag in (2, 4):
+        doc = ezdxf.new("R2000")
+        doc.header["$INSUNITS"] = 4
+        poly = doc.modelspace().add_polyline2d([(0.0, 0.0), (5.0, 5.0), (10.0, 0.0)])
+        poly.dxf.flags = int(poly.dxf.flags or 0) | flag
+        buf = StringIO()
+        doc.write(buf)
+        dxf_bytes = buf.getvalue().encode("utf-8")
+        path = tmp_path / f"fit_{flag}.dxf"
+        path.write_bytes(dxf_bytes)
+        extracted = extract_dxf(str(path), use_cache=False)
+        types = [e.get("type") for e in extracted.get("entities") or []]
+        assert "POLYLINE" not in types
+        assert "POLYLINE3D" in types
+        flat = {
+            "file_info": {"insunits": 4},
+            "entities": [
+                {
+                    "type": "LWPOLYLINE",
+                    "points": [[0.0, 0.0], [5.0, 5.0], [10.0, 0.0]],
+                    "closed": False,
+                }
+            ],
+        }
+        _assert_not_planar_l4(dxf_bytes, flat)
 
 
 def test_polyface_flag_64_is_not_flattened_to_l4(tmp_path: Path) -> None:

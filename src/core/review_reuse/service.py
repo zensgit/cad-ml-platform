@@ -41,6 +41,20 @@ PIPELINE_FAILED_PUBLIC = "review-reuse pipeline failed"
 # Live recall bound is 120s; a running snapshot older than this is a crash.
 STALE_RUNNING_SECONDS = 180.0
 
+
+def _pipeline_still_open(task: ReviewReuseTask) -> bool:
+    """Running, or a mid-flight decision that never reached evidence."""
+    if task.error:
+        return False
+    if task.status == TaskStatus.running:
+        return True
+    if task.status != TaskStatus.decided:
+        return False
+    return not any(
+        event.event_type == TaskEventType.evidence_pack_ready for event in task.events
+    )
+
+
 _STORE: Optional[ReviewReuseStoreProtocol] = None
 
 
@@ -220,7 +234,7 @@ class ReviewReuseService:
                 "pipeline_failed",
                 existing.error or PIPELINE_FAILED_PUBLIC,
             )
-        if existing.status != TaskStatus.running:
+        if not _pipeline_still_open(existing):
             return existing
         age = time.time() - float(existing.updated_at or 0.0)
         if age < STALE_RUNNING_SECONDS:
@@ -298,7 +312,7 @@ class ReviewReuseService:
 
         def updater(current: Optional[ReviewReuseTask]) -> ReviewReuseTask:
             task = current if current is not None else existing
-            if task.status != TaskStatus.running:
+            if not _pipeline_still_open(task):
                 return task
             age = time.time() - float(task.updated_at or 0.0)
             if age < STALE_RUNNING_SECONDS:
@@ -311,8 +325,7 @@ class ReviewReuseService:
             existing.tenant_id, existing.task_id, updater
         )
         won = (
-            updated.status == TaskStatus.running
-            and updated.pipeline_claim_id == claim_id
+            _pipeline_still_open(updated) and updated.pipeline_claim_id == claim_id
         )
         return updated, won
 
@@ -336,7 +349,7 @@ class ReviewReuseService:
             stored = current if current is not None else task
             if stored.pipeline_claim_id != claim_id:
                 return stored
-            if stored.status != TaskStatus.running:
+            if not _pipeline_still_open(stored):
                 return stored
             stored.updated_at = now
             return stored
