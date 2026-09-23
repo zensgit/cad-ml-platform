@@ -470,6 +470,45 @@ def test_list_merges_legacy_and_hashed_same_tenant(tmp_path: Path) -> None:
     assert abs(float(by_tenant["pilot-tenant"]["age_days"]) - 10.0) < 0.05
 
 
+def test_cleanup_refuses_legacy_when_hashed_sibling_is_unreadable(
+    tmp_path: Path, capsys
+) -> None:
+    """Unreadable hash sibling must block deletion of the readable legacy dir."""
+    store = tmp_path / "store"
+    _seed_tenant(store, "pilot-tenant", 60.0)
+    legacy = store / "pilot-tenant"
+    hashed = store / tenant_dir_key("pilot-tenant")
+    tasks = hashed / "tasks"
+    tasks.mkdir(parents=True)
+    bad_task = tasks / "task1.json"
+    bad_task.write_text("{not-json", encoding="utf-8")
+    meta = hashed / "tenant_meta.json"
+    meta.write_text("{not-json", encoding="utf-8")
+    old = time.time() - (60.0 * 86400.0)
+    os.utime(bad_task, (old, old))
+    os.utime(meta, (old, old))
+
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=None) == 1
+    )
+    err = capsys.readouterr().err
+    assert "refused_mixed" in err
+    assert legacy.is_dir()
+    assert hashed.is_dir()
+    assert bad_task.is_file()
+
+    assert (
+        cmd_cleanup(
+            store, older_than_days=30, dry_run=False, tenant="pilot-tenant"
+        )
+        == 1
+    )
+    err = capsys.readouterr().err
+    assert "refused_mixed" in err
+    assert legacy.is_dir()
+    assert hashed.is_dir()
+
+
 def test_cleanup_unknown_tenant_returns_not_found(
     tmp_path: Path, capsys
 ) -> None:

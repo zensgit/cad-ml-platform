@@ -5161,6 +5161,126 @@ def test_classic_3d_polyline_is_not_flattened_to_l4(tmp_path: Path) -> None:
     assert out[0].scores.get("geometric") is None
 
 
+def _assert_not_planar_l4(dxf_bytes: bytes, planar: dict) -> None:
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "planar-xy",
+                "state": "similar",
+                "geom_json": planar,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.dxf",
+    )
+    out = apply_precision(cands, file_name="query.dxf", file_bytes=dxf_bytes)
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") is None
+
+
+def test_polyface_flag_64_is_not_flattened_to_l4(tmp_path: Path) -> None:
+    """Polyface (group-70 bit 64) must not become a 2D polyline."""
+    import ezdxf
+    from io import StringIO
+
+    from src.core.dedupcad_precision.vendor.dxf_extract import extract_dxf
+
+    doc = ezdxf.new("R2000")
+    doc.header["$INSUNITS"] = 4
+    face = doc.modelspace().add_polyface()
+    face.append_face([(0.0, 0.0, 0.0), (10.0, 0.0, 0.0), (10.0, 10.0, 5.0)])
+    buf = StringIO()
+    doc.write(buf)
+    dxf_bytes = buf.getvalue().encode("utf-8")
+    path = tmp_path / "polyface.dxf"
+    path.write_bytes(dxf_bytes)
+    extracted = extract_dxf(str(path), use_cache=False)
+    types = [e.get("type") for e in extracted.get("entities") or []]
+    assert "POLYLINE" not in types
+    assert "POLYLINE3D" in types
+    planar = {
+        "file_info": {"insunits": 4},
+        "entities": [
+            {
+                "type": "LWPOLYLINE",
+                "points": [[0.0, 0.0], [10.0, 0.0], [10.0, 10.0]],
+                "closed": True,
+            }
+        ],
+    }
+    _assert_not_planar_l4(dxf_bytes, planar)
+
+
+def test_nonplanar_dxf_primitives_are_not_certified_as_l4(tmp_path: Path) -> None:
+    """Nonzero Z/elevation or a non-default extrusion must not score as XY."""
+    import ezdxf
+    from io import StringIO
+
+    from src.core.dedupcad_precision.vendor.dxf_extract import extract_dxf
+
+    def _bytes(build) -> bytes:  # type: ignore[no-untyped-def]
+        doc = ezdxf.new("R2000")
+        doc.header["$INSUNITS"] = 4
+        build(doc.modelspace())
+        buf = StringIO()
+        doc.write(buf)
+        return buf.getvalue().encode("utf-8")
+
+    def _line_z(msp) -> None:  # type: ignore[no-untyped-def]
+        msp.add_line((0.0, 0.0, 5.0), (10.0, 0.0, 5.0))
+
+    def _circle_z(msp) -> None:  # type: ignore[no-untyped-def]
+        msp.add_circle((0.0, 0.0, 5.0), radius=2.0)
+
+    def _arc_z(msp) -> None:  # type: ignore[no-untyped-def]
+        msp.add_arc(
+            (0.0, 0.0, 5.0), radius=2.0, start_angle=0.0, end_angle=90.0
+        )
+
+    def _ellipse_z(msp) -> None:  # type: ignore[no-untyped-def]
+        msp.add_ellipse(
+            center=(0.0, 0.0, 5.0), major_axis=(4.0, 0.0, 0.0), ratio=0.5
+        )
+
+    def _lw_elev(msp) -> None:  # type: ignore[no-untyped-def]
+        msp.add_lwpolyline(
+            [(0.0, 0.0), (10.0, 0.0)], dxfattribs={"elevation": 5.0}
+        )
+
+    def _line_extrusion(msp) -> None:  # type: ignore[no-untyped-def]
+        line = msp.add_line((0.0, 0.0, 0.0), (10.0, 0.0, 0.0))
+        line.dxf.extrusion = (0.0, 0.0, -1.0)
+
+    planar_line = {
+        "file_info": {"insunits": 4},
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [10.0, 0.0]},
+        ],
+    }
+    builders = (
+        _line_z,
+        _circle_z,
+        _arc_z,
+        _ellipse_z,
+        _lw_elev,
+        _line_extrusion,
+    )
+    for index, build in enumerate(builders):
+        dxf_bytes = _bytes(build)
+        path = tmp_path / f"nonplanar_{index}.dxf"
+        path.write_bytes(dxf_bytes)
+        extracted = extract_dxf(str(path), use_cache=False)
+        types = [e.get("type") for e in extracted.get("entities") or []]
+        assert "NONPLANAR" in types, types
+        assert "LINE" not in types
+        assert "CIRCLE" not in types
+        assert "ARC" not in types
+        assert "ELLIPSE" not in types
+        assert "LWPOLYLINE" not in types
+        _assert_not_planar_l4(dxf_bytes, planar_line)
+
+
 def test_insunits_comment_does_not_hide_fractional_value(tmp_path: Path) -> None:
     """Group 999 between $INSUNITS and group 70 must not drop the token."""
     from src.core.dedupcad_precision.vendor.dxf_extract import extract_dxf

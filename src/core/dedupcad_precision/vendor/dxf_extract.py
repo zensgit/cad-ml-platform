@@ -30,11 +30,12 @@ except Exception as e:  # pragma: no cover - optional dependency
     ezdxf = None
 
 
-# Bump when extract payload fields change. v8 stops treating valid binary
-# DXF as missing ASCII HEADER (which zeroed $INSUNITS).
-_EXTRACT_CACHE_VERSION = 9
-# Classic POLYLINE flags: 8=3D, 16=polygon mesh, 32=polyface mesh.
-_NON_2D_POLYLINE_FLAGS = 8 | 16 | 32
+# Bump when extract payload fields change. v10 does not flatten polyface
+# meshes (flag 64) or non-planar primitives into 2D coordinates.
+_EXTRACT_CACHE_VERSION = 10
+# Classic POLYLINE group-70: 8=3D, 16=polygon mesh, 32=mesh closed in N,
+# 64=polyface. Bit 32 alone is not a polyface.
+_NON_2D_POLYLINE_FLAGS = 8 | 16 | 32 | 64
 
 
 def _header_insunits(doc: Any) -> int:
@@ -240,6 +241,84 @@ def _classic_polyline_is_non_2d(entity: Any) -> bool:
         return True
 
 
+def _offset_from_xy_plane(raw: Any) -> bool:
+    """True when Z/elevation is non-finite or survives L4's 3-decimal quant."""
+    try:
+        number = float(raw)
+    except (TypeError, ValueError):
+        return True
+    if not math.isfinite(number):
+        return True
+    return round(number, 3) != 0.0
+
+
+def _vec3(raw: Any) -> Optional[tuple[float, float, float]]:
+    if raw is None:
+        return None
+    try:
+        return (float(raw[0]), float(raw[1]), float(raw[2]))
+    except (TypeError, ValueError, IndexError):
+        try:
+            return (float(raw.x), float(raw.y), float(raw.z))
+        except (TypeError, ValueError, AttributeError):
+            return None
+
+
+def _extrusion_leaves_xy_plane(entity: Any) -> bool:
+    """Default extrusion (0, 0, 1) is the XY plane. Anything else is not."""
+    dxf = getattr(entity, "dxf", None)
+    if dxf is None:
+        return True
+    try:
+        raw = dxf.extrusion
+    except AttributeError:
+        return False
+    except Exception:
+        return True
+    coords = _vec3(raw)
+    if coords is None:
+        return True
+    if not all(math.isfinite(value) for value in coords):
+        return True
+    rounded = tuple(round(value, 3) for value in coords)
+    return rounded != (0.0, 0.0, 1.0)
+
+
+def _dxf_primitive_non_planar(entity: Any, et: str) -> bool:
+    """LINE/CIRCLE/ARC/ELLIPSE/LWPOLYLINE/POLYLINE that are not XY-planar."""
+    if et not in ("LINE", "CIRCLE", "ARC", "ELLIPSE", "LWPOLYLINE", "POLYLINE"):
+        return False
+    if _extrusion_leaves_xy_plane(entity):
+        return True
+    dxf = getattr(entity, "dxf", None)
+    if dxf is None:
+        return True
+    try:
+        if et == "LINE":
+            return _offset_from_xy_plane(dxf.start.z) or _offset_from_xy_plane(
+                dxf.end.z
+            )
+        if et in ("CIRCLE", "ARC"):
+            return _offset_from_xy_plane(dxf.center.z)
+        if et == "ELLIPSE":
+            return _offset_from_xy_plane(dxf.center.z) or _offset_from_xy_plane(
+                dxf.major_axis.z
+            )
+        if et == "LWPOLYLINE":
+            return _offset_from_xy_plane(getattr(dxf, "elevation", 0.0))
+        elev = getattr(dxf, "elevation", None)
+        elev_z = getattr(elev, "z", 0.0 if elev is None else elev)
+        if _offset_from_xy_plane(elev_z):
+            return True
+        for vertex in entity.vertices:
+            loc = vertex.dxf.location
+            if _offset_from_xy_plane(getattr(loc, "z", 0.0)):
+                return True
+    except Exception:
+        return True
+    return False
+
+
 def _dxf_polyline_closed(entity: Any, et: str) -> bool:
     """Classic POLYLINE uses is_closed; LWPOLYLINE uses closed."""
     if et == "POLYLINE":
@@ -339,7 +418,11 @@ def extract_dxf(path: str, *, use_cache: bool = True) -> Dict[str, Any]:
                     type_counts[t] = type_counts.get(t, 0) + 1
                     # capture minimal inner entity for matching
                     ie: Dict[str, Any] = {"type": t}
-                    if t == "LINE":
+                    if t == "POLYLINE" and _classic_polyline_is_non_2d(be):
+                        ie["type"] = "POLYLINE3D"
+                    elif _dxf_primitive_non_planar(be, t):
+                        ie["type"] = "NONPLANAR"
+                    elif t == "LINE":
                         try:
                             ie.update(
                                 {
@@ -664,7 +747,13 @@ def extract_dxf(path: str, *, use_cache: bool = True) -> Dict[str, Any]:
         layer = getattr(e.dxf, "layer", None)
         item = {"type": et, "layer": layer}
         # Minimal geometry capture (can be expanded later)
-        if et == "LINE":
+        if et == "POLYLINE" and _classic_polyline_is_non_2d(e):
+            # Do not flatten Z/mesh/polyface vertices into a 2D POLYLINE.
+            item["type"] = "POLYLINE3D"
+        elif _dxf_primitive_non_planar(e, et):
+            # Nonzero Z/elevation or a non-default extrusion is not 2D L4.
+            item["type"] = "NONPLANAR"
+        elif et == "LINE":
             item.update(
                 {
                     "start": [float(e.dxf.start.x), float(e.dxf.start.y)],
@@ -687,9 +776,6 @@ def extract_dxf(path: str, *, use_cache: bool = True) -> Dict[str, Any]:
                     "end_angle": float(e.dxf.end_angle),
                 }
             )
-        elif et == "POLYLINE" and _classic_polyline_is_non_2d(e):
-            # Do not flatten Z/mesh vertices into a 2D POLYLINE.
-            item["type"] = "POLYLINE3D"
         elif et in ("LWPOLYLINE", "POLYLINE"):
             pts: List[List[float]] = []
             bulges: List[float] = []

@@ -130,6 +130,41 @@ def _tenant_dir_key(tenant_id: str) -> str:
     return hashlib.sha256((tenant_id or "").encode("utf-8")).hexdigest()[:24]
 
 
+def _is_hash_dirname(name: str) -> bool:
+    return len(name) == 24 and all(c in "0123456789abcdef" for c in name)
+
+
+def _unattributable_hash_dir(tdir: Path) -> bool:
+    """Hashed dir whose meta/tasks do not name a tenant."""
+    if not _is_hash_dirname(tdir.name):
+        return False
+    if _recorded_tenant_id(tdir) is not None:
+        return False
+    meta = _tenant_id_from_meta(tdir)
+    _, unattributable = _task_attribution(tdir)
+    return meta == _UNREADABLE or unattributable
+
+
+def _attach_unreadable_hash_siblings(
+    groups: Dict[str, List[Path]], tenants: List[Path]
+) -> None:
+    """Keep a corrupt hash sibling in the logical tenant group.
+
+    Without this, ``--apply`` deletes the readable legacy directory and
+    leaves the unreadable hashed directory behind.
+    """
+    idents = [ident for ident in groups if ident != _UNREADABLE]
+    for tdir in tenants:
+        if not _unattributable_hash_dir(tdir):
+            continue
+        for ident in idents:
+            if tdir.name != _tenant_dir_key(ident):
+                continue
+            bucket = groups.setdefault(ident, [])
+            if tdir not in bucket:
+                bucket.append(tdir)
+
+
 def _tenant_matches(tdir: Path, tenant: str) -> bool:
     """Match by original tenant identity, not a colliding hashed basename.
 
@@ -137,14 +172,19 @@ def _tenant_matches(tdir: Path, tenant: str) -> bool:
     ``--tenant <that hash>`` when metadata/tasks identify tenant A.
     Hash-name fallback is only for dirs with no recorded identity (so a
     legacy tenant whose id equals ``sha256(other)[:24]`` is not deleted
-    when cleaning ``other``).
+    when cleaning ``other``). An unreadable hash sibling still matches A
+    so cleanup can refuse the whole group instead of deleting legacy only.
     """
     if _is_mixed_tenant_dir(tdir):
         ids = set(_tenant_ids_from_tasks(tdir))
         meta = _tenant_id_from_meta(tdir)
         if meta is not None:
             ids.add(meta)
-        return tenant in ids
+        if tenant in ids:
+            return True
+        return _unattributable_hash_dir(tdir) and tdir.name == _tenant_dir_key(
+            tenant
+        )
     recorded = _recorded_tenant_id(tdir)
     if recorded is not None:
         return recorded == tenant
@@ -319,6 +359,7 @@ def cmd_cleanup(
             bucket = groups.setdefault(ident, [])
             if tdir not in bucket:
                 bucket.append(tdir)
+    _attach_unreadable_hash_siblings(groups, tenants)
 
     removed = 0
     listed = 0

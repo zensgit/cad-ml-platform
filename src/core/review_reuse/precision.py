@@ -151,6 +151,7 @@ _UNSCORED_GEOM_TYPES = frozenset(
         "3DSOLID",
         "MESH",
         "POLYFACE",
+        "NONPLANAR",
         "REGION",
         "BODY",
         "SURFACE",
