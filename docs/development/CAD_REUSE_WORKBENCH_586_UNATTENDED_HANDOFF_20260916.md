@@ -619,6 +619,21 @@ PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only
 (15-minute kill, then 2 hours before another Sol on the same product);
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 5 wave — 2026-09-24 21:00 UTC
+
+Sol 5.6 vs `origin/main` on `df3f772c` (product `43ab99c4`) exited 0 at
+19:53 UTC. P1 and P2 landed. An earlier completed Sol the same afternoon
+reported the legacy-cleanup P2; that landed in the second commit.
+
+| Item | State |
+|---|---|
+| `42736ea4` | JSON non-planar metadata fail-closed; failed pipeline drops candidates and EvidencePack. Local suite **322 passed** |
+| `46d96be6` | unreadable/empty legacy sibling stays in the cleanup group; ambiguous sanitize refuses. Local suite **328 passed** |
+| CI `tests (3.10)` | not yet observed on these SHAs (last green remains `724710d4`) |
+| Next Sol | on `46d96be6` only. Do not relaunch on `43ab99c4` |
+| Merge | still not done |
+| Decisions | still default-off |
+
 ## Deadline reached — 2026-09-24 15:15 UTC
 
 Window-4 unattended loop stopped (`now` ≥ **2026-09-24 15:00 UTC**).

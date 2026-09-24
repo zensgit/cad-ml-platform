@@ -387,9 +387,24 @@ isolation only.
 Last green CI: `tests (3.10)` / `tests (3.11)` **pass** on `724710d4`.
 Evaluation Report fail = Track E / ignore. `origin/main` is `22e3c77c`.
 
-**Landed:** none yet. Last completed Sol is Window-4 wave114 (non-finite
-L4 tolerances; precision failure must not publish recall candidates).
-Later Sols timed out with no verdict. Do not treat a killed Sol as clean.
+**Landed:**
+
+- `42736ea4` — JSON thickness / extrusion / elevation / non-2D polyline
+  flags fail closed (same as DXF `NONPLANAR` / `POLYLINE3D`). A pipeline
+  exception clears recall candidates and any EvidencePack before commit
+  (GET/list/metrics must not keep upstream `precision-l4`). Local
+  `make test-review-reuse` **322 passed** on that commit.
+- `46d96be6` — cleanup keeps an unreadable or empty legacy sibling whose
+  dirname is the sanitized tenant id (`a/b` → `a_b`). A recent sibling
+  keeps the older hash. Both old and unreadable → `refused_mixed`.
+  `a/b` and `a|b` colliding on `a_b` refuse every selected owner.
+  Local `make test-review-reuse` **328 passed** on this tip.
+
+Sol 5.6 vs `origin/main` on docs `df3f772c` (product `43ab99c4`) finished
+exit 0 at 2026-09-24 19:53 UTC (P1 JSON non-planar, P2 failed-pipeline
+candidates). An earlier completed Sol the same afternoon reported the
+legacy-cleanup P2. Do not treat a killed Sol as clean. Next Sol is on
+`46d96be6`, not on `43ab99c4`.
 
 ### Model routing (by difficulty)
 

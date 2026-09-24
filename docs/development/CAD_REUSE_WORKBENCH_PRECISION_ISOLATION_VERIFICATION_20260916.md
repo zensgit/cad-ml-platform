@@ -588,9 +588,11 @@ Re-run `make test-review-reuse` after each follow-up commit and record the count
 | Check | Result |
 |---|---|
 | Window 5 start HEAD | `7cb7f308` (Window-4 closeout; product `43ab99c4`) |
-| Last green tests (3.10) / tests (3.11) | **pass** on `724710d4` |
+| Last green tests (3.10) / tests (3.11) | **pass** on `724710d4` (before these commits; CI not yet observed on the new tip) |
 | `origin/main` | `22e3c77c` |
-| Last completed Sol | Window-4 wave114 (no new verdict at start) |
+| Sol 2026-09-24 18:40–19:53 UTC | exit 0 on `df3f772c` / product `43ab99c4`. P1: JSON thickness/extrusion/elevation certified as L4. P2: pipeline failure kept recall candidates |
+| Product `42736ea4` | JSON non-planar metadata fail-closed; failed pipeline drops candidates and EvidencePack. Local suite **322 passed** |
+| Product `46d96be6` | unreadable/empty legacy `a_b` stays in the `a/b` cleanup group; ambiguous `a/b` vs `a\|b` refuses both. Local suite **328 passed** |
 | Evaluation Report | fail (Track E; out of scope) |
 | mergeable_state | do not merge (review required) |
 
@@ -647,6 +649,18 @@ cancel → ReviewReuseError store_conflict; legacy file unchanged
 
 # uppercase/mixed 64-hex candidate_id + query-mirroring inline geom
 → store lookup uses lowercase key; same refuse as hashed ids
+
+# JSON LINE thickness 5 (or extrusion (0,0,-1), or polyline elevation 5)
+→ not precision-l4; missing_geom_json. thickness 0 and extrusion (0,0,1) still L4
+
+# apply_precision raises after recall attached precision-l4
+→ status failed; candidates empty; evidence_pack null; metrics candidate_total 0
+
+# cleanup --tenant a/b when legacy a_b holds recent unreadable JSON
+→ hashed a/b kept
+
+# a/b and a|b both old, empty legacy a_b old
+→ refused_mixed; neither hashed dir deleted
 ```
 
 ## 4. Operator commands (decisions off)
