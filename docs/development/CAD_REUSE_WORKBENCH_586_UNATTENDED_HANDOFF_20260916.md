@@ -538,8 +538,22 @@ traceback'd on `not_ready`. Fail closed. Decisions stay off. Never merge.
 | P2 running archive CLI | `not_ready` is reported (exit 2), not a traceback |
 | Product | `00c6cd1d` |
 | Local `make test-review-reuse` | **316 passed** |
-| `tests (3.10)` on `00c6cd1d` | not run yet |
+| `tests (3.10)` / `tests (3.11)` on `c640ed9e` | **pass** |
 | Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (owner must merge) |
+
+## Window 4 wave113 — 2026-09-24 04:11 UTC
+
+Sol 5.6 vs `origin/main` on `c640ed9e` had **no verdict** after 15
+minutes (killed). No product commit. Do not launch another Sol on
+this HEAD until **2026-09-24 06:11 UTC**. Decisions stay off. Never merge.
+
+| Item | State |
+|---|---|
+| HEAD | `c640ed9e` (product `00c6cd1d`) |
+| `tests (3.10)` / `tests (3.11)` | **pass** |
+| Sol wave113 | no verdict; killed 04:11 UTC |
+| Next Sol on `c640ed9e` | not before 06:11 UTC |
 | Merge | still not done (owner must merge) |
 
 ## Window 4 wave111 — 2026-09-23 ~17:49 UTC
