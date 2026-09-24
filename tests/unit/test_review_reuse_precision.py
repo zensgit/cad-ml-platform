@@ -1234,6 +1234,68 @@ def test_pipeline_failed_after_mid_flight_decision_keeps_error(
     assert any(e.event_type == TaskEventType.decision_submitted for e in stored.events)
 
 
+def test_pipeline_failed_after_mid_flight_cancel_keeps_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A cancel that races a pipeline exception must not replay as success."""
+    from src.core.review_reuse.models import TaskEventType, TaskStatus
+
+    svc = _svc()
+    secret = "precision exploded /secret/path token=abc"
+
+    def _cancel_then_boom(*_a, **_k):
+        running = svc.list_tasks("t-can-race")
+        assert running
+        canceled = svc.cancel("t-can-race", running[0].task_id)
+        assert canceled.status == TaskStatus.canceled
+        raise RuntimeError(secret)
+
+    monkeypatch.setattr(
+        "src.core.review_reuse.service.apply_precision", _cancel_then_boom
+    )
+    with pytest.raises(ReviewReuseError) as ei:
+        svc.create_task(
+            tenant_id="t-can-race",
+            file_name="a.dxf",
+            file_bytes=b"x",
+            idempotency_key="idem-can-race",
+            seed_candidates=[
+                {
+                    "candidate_id": "c1",
+                    "state": "similar",
+                    "scores": {"geometric": 0.9, "semantic": 0.8},
+                    "methods": ["precision-l4"],
+                }
+            ],
+        )
+    assert ei.value.code == "pipeline_failed"
+    assert secret not in ei.value.message
+    stored = svc.list_tasks("t-can-race")[0]
+    assert stored.status == TaskStatus.canceled
+    assert stored.error == "review-reuse pipeline failed"
+    assert stored.evidence_pack is None
+    assert stored.candidates == []
+    types = {e.event_type for e in stored.events}
+    assert TaskEventType.failed in types
+    assert TaskEventType.canceled in types
+    assert TaskEventType.precision_completed not in types
+    assert TaskEventType.evidence_pack_ready not in types
+    assert secret not in stored.model_dump_json()
+    with pytest.raises(ReviewReuseError) as replay:
+        svc.create_task(
+            tenant_id="t-can-race",
+            file_name="a.dxf",
+            file_bytes=b"x",
+            idempotency_key="idem-can-race",
+        )
+    assert replay.value.code == "pipeline_failed"
+    again = svc.get_task("t-can-race", stored.task_id)
+    assert again.status == TaskStatus.canceled
+    assert again.error == "review-reuse pipeline failed"
+    assert again.candidates == []
+    assert again.evidence_pack is None
+
+
 def test_low_precision_confidence_ignores_visual() -> None:
     from src.core.review_reuse.models import TaskStatus
 

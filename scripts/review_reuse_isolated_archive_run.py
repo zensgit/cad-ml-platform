@@ -145,8 +145,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {exc.code}: {exc.message}", file=sys.stderr)
         print("decisions=disabled (script never enables REVIEW_REUSE_DECISIONS_ENABLED)")
         return 2
-    pack, md = svc.get_evidence_pack(args.tenant, task.task_id, as_markdown=True)
-    audit = svc.export_audit_bundle(args.tenant, task.task_id)
+    try:
+        pack, md = svc.get_evidence_pack(args.tenant, task.task_id, as_markdown=True)
+        audit = svc.export_audit_bundle(args.tenant, task.task_id)
+    except ReviewReuseError as exc:
+        # Overlap or a fresh crash returns the running snapshot with no pack.
+        print(f"error: {exc.code}: {exc.message}", file=sys.stderr)
+        print(f"task_id={task.task_id}")
+        print(f"status={task.status.value}")
+        print("decisions=disabled (script never enables REVIEW_REUSE_DECISIONS_ENABLED)")
+        return 2
 
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / "task.json").write_text(

@@ -227,6 +227,61 @@ def test_isolated_archive_script_file_offline_no_seed(tmp_path: Path) -> None:
     assert os.environ.get("REVIEW_REUSE_DECISIONS_ENABLED") != "true"
 
 
+def test_isolated_archive_script_running_idempotent_reports_not_ready(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A still-running idempotent snapshot is reported, not a traceback."""
+    import hashlib
+    import time
+
+    from scripts.review_reuse_isolated_archive_run import main
+    from src.core.review_reuse.models import ReviewReuseTask
+    from src.core.review_reuse.store import create_review_reuse_store
+
+    monkeypatch.setenv("REVIEW_REUSE_STORE", "filesystem")
+    monkeypatch.setenv("REVIEW_REUSE_STORE_DIR", str(tmp_path / "store"))
+    monkeypatch.delenv("REVIEW_REUSE_LIVE_DEDUP", raising=False)
+    monkeypatch.delenv("REVIEW_REUSE_DECISIONS_ENABLED", raising=False)
+    payload = b"0\nSECTION\n2\nHEADER\n0\nENDSEC\n0\nEOF\n"
+    now = time.time()
+    store = create_review_reuse_store()
+    store.put(
+        ReviewReuseTask(
+            task_id="running-archive",
+            tenant_id="script-running",
+            status=TaskStatus.running,
+            created_at=now,
+            updated_at=now,
+            source_file_name="synthetic_isolated.dxf",
+            source_content_sha256=hashlib.sha256(payload).hexdigest(),
+            idempotency_key="script-running-1",
+            trace_id="tr-running",
+            pipeline_claim_id="claim-running",
+        )
+    )
+    out = tmp_path / "exports"
+    rc = main(
+        [
+            "--out",
+            str(out),
+            "--tenant",
+            "script-running",
+            "--idempotency-key",
+            "script-running-1",
+        ]
+    )
+    captured = capsys.readouterr()
+    assert rc == 2
+    assert "not_ready" in captured.err
+    assert "Traceback" not in captured.err
+    assert "Traceback" not in captured.out
+    assert "task_id=running-archive" in captured.out
+    assert "status=running" in captured.out
+    assert "decisions=disabled" in captured.out
+    assert not (out / "evidence.json").exists()
+    assert os.environ.get("REVIEW_REUSE_DECISIONS_ENABLED") is None
+
+
 def test_isolated_archive_script_missing_file_exits_2(tmp_path: Path) -> None:
     from scripts.review_reuse_isolated_archive_run import main
 

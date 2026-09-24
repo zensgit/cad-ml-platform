@@ -460,6 +460,27 @@ class ReviewReuseService:
             if current is not None and current.status == TaskStatus.canceled:
                 # A cancel that lands after the last abort check must not
                 # receive candidates, an EvidencePack, or completion events.
+                # A failure that raced the cancel stays on the snapshot so
+                # an idempotent retry still reports pipeline_failed.
+                if not task.error:
+                    return current
+                merged = False
+                if not current.error:
+                    current.error = task.error
+                    merged = True
+                before_events = len(current.events)
+                current.events = _merge_append_only_events(
+                    current.events,
+                    [
+                        event
+                        for event in task.events
+                        if event.event_type == TaskEventType.failed
+                    ],
+                )
+                if len(current.events) != before_events:
+                    merged = True
+                if merged:
+                    current.updated_at = time.time()
                 return current
             if current is not None and current.status == TaskStatus.decided:
                 merged = False
