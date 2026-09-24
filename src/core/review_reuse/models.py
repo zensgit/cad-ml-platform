@@ -99,3 +99,4 @@ class ReviewReuseTask(BaseModel):
     human_decision: Optional[HumanDecision] = None
     error: Optional[str] = None
     calibration_version: str = "workbench-mvp-0"
+    pipeline_claim_id: Optional[str] = None

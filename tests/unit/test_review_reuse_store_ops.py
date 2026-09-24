@@ -15,6 +15,7 @@ from scripts.review_reuse_store_ops import (
     collect_tenant_summaries,
     main,
 )
+from src.core.review_reuse.store import tenant_dir_key
 
 
 def _seed_tenant(
@@ -25,7 +26,10 @@ def _seed_tenant(
     mtime = time.time() - (age_days * 86400.0)
     for i in range(task_count):
         f = tdir / f"task{i + 1}.json"
-        f.write_text(f'{{"task_id":"task{i + 1}"}}', encoding="utf-8")
+        f.write_text(
+            json.dumps({"task_id": f"task{i + 1}", "tenant_id": tenant}),
+            encoding="utf-8",
+        )
         os.utime(f, (mtime, mtime))
     return tdir
 
@@ -116,3 +120,635 @@ def test_list_two_tenants(tmp_path: Path, capsys) -> None:
     assert "tenant=beta" in text
     assert "tasks=2" in text
     assert "tasks=1" in text
+
+
+def test_list_uses_tenant_meta_id(tmp_path: Path) -> None:
+    store = tmp_path / "store"
+    hashed = "aaaaaaaaaaaaaaaaaaaaaaaa"
+    tdir = store / hashed
+    tasks = tdir / "tasks"
+    tasks.mkdir(parents=True)
+    (tasks / "task1.json").write_text(
+        '{"task_id":"task1","tenant_id":"a/b"}', encoding="utf-8"
+    )
+    (tdir / "tenant_meta.json").write_text(
+        '{"tenant_id":"a/b"}', encoding="utf-8"
+    )
+    rows = collect_tenant_summaries(store)
+    assert rows[0]["tenant"] == "a/b"
+    assert rows[0]["task_count"] == 1
+
+
+def _seed_hashed_tenant(
+    store: Path, tenant: str, age_days: float
+) -> Path:
+    hashed = tenant_dir_key(tenant)
+    tdir = store / hashed
+    tasks = tdir / "tasks"
+    tasks.mkdir(parents=True, exist_ok=True)
+    f = tasks / "task1.json"
+    f.write_text(
+        json.dumps({"task_id": "task1", "tenant_id": tenant}), encoding="utf-8"
+    )
+    mtime = time.time() - (age_days * 86400.0)
+    os.utime(f, (mtime, mtime))
+    (tdir / "tenant_meta.json").write_text(
+        json.dumps({"tenant_id": tenant}), encoding="utf-8"
+    )
+    return tdir
+
+
+def test_cleanup_matches_hashed_tenant_by_original_id(
+    tmp_path: Path, capsys
+) -> None:
+    store = tmp_path / "store"
+    hashed_dir = _seed_hashed_tenant(store, "pilot-tenant", 60.0)
+    other_dir = _seed_hashed_tenant(store, "other-tenant", 60.0)
+
+    assert (
+        cmd_cleanup(
+            store, older_than_days=30, dry_run=True, tenant="pilot-tenant"
+        )
+        == 0
+    )
+    dry = capsys.readouterr()
+    assert "would_delete tenant=pilot-tenant" in dry.out
+    assert hashed_dir.is_dir()
+    assert other_dir.is_dir()
+
+    assert (
+        cmd_cleanup(
+            store, older_than_days=30, dry_run=False, tenant="pilot-tenant"
+        )
+        == 0
+    )
+    applied = capsys.readouterr()
+    assert "deleted tenant=pilot-tenant" in applied.out
+    assert not hashed_dir.exists()
+    assert other_dir.is_dir()
+
+
+def test_cleanup_hash_selector_does_not_delete_other_tenant(
+    tmp_path: Path,
+) -> None:
+    """--tenant <sha256(A)[:24]> must not rmtree A's hashed dir."""
+    store = tmp_path / "store"
+    hashed_a = _seed_hashed_tenant(store, "pilot-tenant", 60.0)
+    hash_a = hashed_a.name
+    hashed_literal = _seed_hashed_tenant(store, hash_a, 60.0)
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=hash_a)
+        == 0
+    )
+    assert hashed_a.is_dir()
+    assert not hashed_literal.exists()
+
+
+def test_cleanup_legacy_dir_named_like_other_hash_is_not_selected(
+    tmp_path: Path,
+) -> None:
+    """Legacy tenant id == sha256(other)[:24] must not be cleaned as other."""
+    store = tmp_path / "store"
+    other = "pilot-tenant"
+    hash_name = tenant_dir_key(other)
+    legacy_tasks = store / hash_name / "tasks"
+    legacy_tasks.mkdir(parents=True)
+    task = legacy_tasks / "task1.json"
+    task.write_text(
+        json.dumps({"task_id": "task1", "tenant_id": hash_name}),
+        encoding="utf-8",
+    )
+    old = time.time() - (60.0 * 86400.0)
+    os.utime(task, (old, old))
+
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=other)
+        == 1
+    )
+    assert (store / hash_name).is_dir()
+    assert (
+        cmd_cleanup(
+            store, older_than_days=30, dry_run=False, tenant=hash_name
+        )
+        == 0
+    )
+    assert not (store / hash_name).exists()
+
+
+def test_cleanup_hashed_dir_without_meta_matches_original_id(
+    tmp_path: Path,
+) -> None:
+    store = tmp_path / "store"
+    hashed_dir = _seed_hashed_tenant(store, "pilot-tenant", 60.0)
+    (hashed_dir / "tenant_meta.json").unlink()
+    hashed = hashed_dir.name
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=hashed)
+        == 1
+    )
+    assert hashed_dir.is_dir()
+    assert (
+        cmd_cleanup(
+            store, older_than_days=30, dry_run=False, tenant="pilot-tenant"
+        )
+        == 0
+    )
+    assert not hashed_dir.exists()
+
+
+def test_cleanup_refuses_unreadable_tenant_meta(tmp_path: Path, capsys) -> None:
+    """Present-but-invalid sidecar must not be treated as missing."""
+    store = tmp_path / "store"
+    hashed_dir = _seed_hashed_tenant(store, "pilot-tenant", 60.0)
+    meta = hashed_dir / "tenant_meta.json"
+    meta.write_text("{not-json", encoding="utf-8")
+    assert (
+        cmd_cleanup(
+            store, older_than_days=30, dry_run=False, tenant="pilot-tenant"
+        )
+        == 1
+    )
+    err = capsys.readouterr().err
+    assert "refused_mixed" in err
+    assert hashed_dir.is_dir()
+    assert meta.read_text(encoding="utf-8") == "{not-json"
+
+
+def test_cleanup_refuses_whole_group_when_sibling_is_mixed(
+    tmp_path: Path, capsys
+) -> None:
+    """A mixed sibling must not leave the hashed dir deletable."""
+    store = tmp_path / "store"
+    hashed_dir = _seed_hashed_tenant(store, "pilot-tenant", 60.0)
+    _seed_tenant(store, "pilot-tenant", 60.0)
+    legacy = store / "pilot-tenant"
+    bad = legacy / "tasks" / "broken.json"
+    bad.write_text("{not-json", encoding="utf-8")
+    old = time.time() - (60.0 * 86400.0)
+    os.utime(bad, (old, old))
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=None)
+        == 1
+    )
+    err = capsys.readouterr().err
+    assert "refused_mixed" in err
+    assert hashed_dir.is_dir()
+    assert legacy.is_dir()
+
+
+def test_cleanup_refuses_unreadable_task_json(tmp_path: Path, capsys) -> None:
+    store = tmp_path / "store"
+    hashed_dir = _seed_hashed_tenant(store, "pilot-tenant", 60.0)
+    bad = hashed_dir / "tasks" / "broken.json"
+    bad.write_text("{not-json", encoding="utf-8")
+    old = time.time() - (60.0 * 86400.0)
+    os.utime(bad, (old, old))
+    assert (
+        cmd_cleanup(
+            store, older_than_days=30, dry_run=False, tenant="pilot-tenant"
+        )
+        == 1
+    )
+    err = capsys.readouterr().err
+    assert "refused_mixed" in err
+    assert hashed_dir.is_dir()
+    assert bad.is_file()
+
+
+def test_list_and_cleanup_recover_legacy_sanitized_tenant_id(
+    tmp_path: Path,
+) -> None:
+    store = tmp_path / "store"
+    hashed_dir = _seed_hashed_tenant(store, "a/b", 10.0)
+    legacy = store / "a_b" / "tasks"
+    legacy.mkdir(parents=True)
+    task = legacy / "task1.json"
+    task.write_text('{"task_id":"task1","tenant_id":"a/b"}', encoding="utf-8")
+    mtime = time.time() - (20.0 * 86400.0)
+    os.utime(task, (mtime, mtime))
+
+    rows = collect_tenant_summaries(store)
+    by_tenant = {r["tenant"]: r for r in rows}
+    assert set(by_tenant) == {"a/b"}
+    assert by_tenant["a/b"]["task_count"] == 1
+
+    assert (
+        cmd_cleanup(store, older_than_days=5, dry_run=False, tenant="a/b")
+        == 0
+    )
+    assert not hashed_dir.exists()
+    assert not (store / "a_b").exists()
+
+
+def test_cleanup_keeps_legacy_when_hashed_same_tenant_is_recent(
+    tmp_path: Path,
+) -> None:
+    store = tmp_path / "store"
+    hashed_dir = _seed_hashed_tenant(store, "pilot-tenant", 1.0)
+    _seed_tenant(store, "pilot-tenant", 60.0)
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=None)
+        == 0
+    )
+    assert hashed_dir.is_dir()
+    assert (store / "pilot-tenant").is_dir()
+
+
+def test_cleanup_refuses_mixed_legacy_tenant_dir(
+    tmp_path: Path, capsys
+) -> None:
+    store = tmp_path / "store"
+    hashed_dir = _seed_hashed_tenant(store, "a/b", 60.0)
+    mixed = store / "a_b" / "tasks"
+    mixed.mkdir(parents=True)
+    old = time.time() - (60.0 * 86400.0)
+    for name, tenant in (("task-slash.json", "a/b"), ("task-under.json", "a_b")):
+        path = mixed / name
+        path.write_text(
+            json.dumps({"task_id": name, "tenant_id": tenant}),
+            encoding="utf-8",
+        )
+        os.utime(path, (old, old))
+
+    rows = collect_tenant_summaries(store)
+    by_tenant = {r["tenant"]: r for r in rows}
+    assert "a/b" in by_tenant
+    assert "a_b" in by_tenant
+    assert by_tenant["a/b"]["task_count"] == 1
+    assert by_tenant["a_b"]["task_count"] == 2
+    assert by_tenant["a_b"].get("mixed") is True
+    assert by_tenant["a/b"].get("mixed") is not True
+
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant="a/b")
+        == 1
+    )
+    err = capsys.readouterr().err
+    assert "refused_mixed" in err
+    assert "a/b" in err
+    assert "a_b" in err
+    assert hashed_dir.is_dir()
+    assert (store / "a_b").is_dir()
+    assert (mixed / "task-under.json").is_file()
+
+
+def test_cleanup_tenant_apply_keeps_hashed_when_mixed_other_holds_tasks(
+    tmp_path: Path, capsys
+) -> None:
+    """--tenant A must not delete A's hashed dir if mixed B still holds A."""
+    store = tmp_path / "store"
+    hashed_a = _seed_hashed_tenant(store, "tenant-a", 60.0)
+    hashed_b = _seed_hashed_tenant(store, "tenant-b", 60.0)
+    extra = hashed_b / "tasks" / "task-from-a.json"
+    extra.write_text(
+        json.dumps({"task_id": "task-from-a", "tenant_id": "tenant-a"}),
+        encoding="utf-8",
+    )
+    old = time.time() - (60.0 * 86400.0)
+    os.utime(extra, (old, old))
+
+    assert (
+        cmd_cleanup(
+            store, older_than_days=30, dry_run=False, tenant="tenant-a"
+        )
+        == 1
+    )
+    err = capsys.readouterr().err
+    assert "refused_mixed" in err
+    assert hashed_a.is_dir()
+    assert hashed_b.is_dir()
+    assert extra.is_file()
+
+
+def test_cleanup_refuses_when_meta_disagrees_with_task_tenant(
+    tmp_path: Path, capsys
+) -> None:
+    store = tmp_path / "store"
+    hashed = tenant_dir_key("tenant-a")
+    tdir = store / hashed
+    tasks = tdir / "tasks"
+    tasks.mkdir(parents=True)
+    task = tasks / "task1.json"
+    task.write_text(
+        json.dumps({"task_id": "task1", "tenant_id": "tenant-b"}),
+        encoding="utf-8",
+    )
+    old = time.time() - (60.0 * 86400.0)
+    os.utime(task, (old, old))
+    (tdir / "tenant_meta.json").write_text(
+        json.dumps({"tenant_id": "tenant-a"}), encoding="utf-8"
+    )
+
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant="tenant-a")
+        == 1
+    )
+    err = capsys.readouterr().err
+    assert "refused_mixed" in err
+    assert "tenant-a" in err
+    assert "tenant-b" in err
+    assert tdir.is_dir()
+    assert task.is_file()
+
+
+def test_list_merges_legacy_and_hashed_same_tenant(tmp_path: Path) -> None:
+    store = tmp_path / "store"
+    hashed_dir = _seed_hashed_tenant(store, "pilot-tenant", 10.0)
+    extra = hashed_dir / "tasks" / "task2.json"
+    extra.write_text(
+        '{"task_id":"task2","tenant_id":"pilot-tenant"}', encoding="utf-8"
+    )
+    extra_mtime = time.time() - (10.0 * 86400.0)
+    os.utime(extra, (extra_mtime, extra_mtime))
+    _seed_tenant(store, "pilot-tenant", 20.0, task_count=1)
+
+    rows = collect_tenant_summaries(store)
+    by_tenant = {r["tenant"]: r for r in rows}
+    assert set(by_tenant) == {"pilot-tenant"}
+    # task1 is in both layouts; task2 only hashed → unique count 2, not 3.
+    assert by_tenant["pilot-tenant"]["task_count"] == 2
+    assert abs(float(by_tenant["pilot-tenant"]["age_days"]) - 10.0) < 0.05
+
+
+def test_cleanup_refuses_legacy_when_hashed_sibling_is_unreadable(
+    tmp_path: Path, capsys
+) -> None:
+    """Unreadable hash sibling must block deletion of the readable legacy dir."""
+    store = tmp_path / "store"
+    _seed_tenant(store, "pilot-tenant", 60.0)
+    legacy = store / "pilot-tenant"
+    hashed = store / tenant_dir_key("pilot-tenant")
+    tasks = hashed / "tasks"
+    tasks.mkdir(parents=True)
+    bad_task = tasks / "task1.json"
+    bad_task.write_text("{not-json", encoding="utf-8")
+    meta = hashed / "tenant_meta.json"
+    meta.write_text("{not-json", encoding="utf-8")
+    old = time.time() - (60.0 * 86400.0)
+    os.utime(bad_task, (old, old))
+    os.utime(meta, (old, old))
+
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=None) == 1
+    )
+    err = capsys.readouterr().err
+    assert "refused_mixed" in err
+    assert legacy.is_dir()
+    assert hashed.is_dir()
+    assert bad_task.is_file()
+
+    assert (
+        cmd_cleanup(
+            store, older_than_days=30, dry_run=False, tenant="pilot-tenant"
+        )
+        == 1
+    )
+    err = capsys.readouterr().err
+    assert "refused_mixed" in err
+    assert legacy.is_dir()
+    assert hashed.is_dir()
+
+
+def test_cleanup_keeps_legacy_when_empty_hash_sibling_is_recent(
+    tmp_path: Path,
+) -> None:
+    """A recent identity-less hash dir must keep the old legacy tenant."""
+    store = tmp_path / "store"
+    _seed_tenant(store, "pilot-tenant", 60.0)
+    legacy = store / "pilot-tenant"
+    hashed = store / tenant_dir_key("pilot-tenant")
+    hashed.mkdir()
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=None) == 0
+    )
+    assert legacy.is_dir()
+    assert hashed.is_dir()
+    assert (legacy / "tasks" / "task1.json").is_file()
+
+
+def _seed_unreadable_legacy(
+    store: Path, dirname: str, age_days: float
+) -> Path:
+    legacy = store / dirname
+    tasks = legacy / "tasks"
+    tasks.mkdir(parents=True)
+    bad = tasks / "task1.json"
+    bad.write_text("{not-json", encoding="utf-8")
+    mtime = time.time() - (age_days * 86400.0)
+    os.utime(bad, (mtime, mtime))
+    return legacy
+
+
+def test_cleanup_keeps_hashed_when_unreadable_legacy_sibling_is_recent(
+    tmp_path: Path,
+) -> None:
+    """Recent unreadable ``a_b`` must block deleting older hashed ``a/b``."""
+    store = tmp_path / "store"
+    hashed = _seed_hashed_tenant(store, "a/b", 60.0)
+    legacy = _seed_unreadable_legacy(store, "a_b", 1.0)
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant="a/b")
+        == 0
+    )
+    assert hashed.is_dir()
+    assert legacy.is_dir()
+    assert (legacy / "tasks" / "task1.json").is_file()
+
+
+def test_cleanup_refuses_old_unreadable_legacy_sibling(
+    tmp_path: Path, capsys
+) -> None:
+    """Both layouts old: refuse, do not delete the hashed dir alone."""
+    store = tmp_path / "store"
+    hashed = _seed_hashed_tenant(store, "a/b", 60.0)
+    legacy = _seed_unreadable_legacy(store, "a_b", 60.0)
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=None)
+        == 1
+    )
+    err = capsys.readouterr().err
+    assert "refused_mixed" in err
+    assert hashed.is_dir()
+    assert legacy.is_dir()
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant="a/b")
+        == 1
+    )
+    assert hashed.is_dir()
+    assert legacy.is_dir()
+
+
+def test_cleanup_refuses_ambiguous_unreadable_legacy_owners(
+    tmp_path: Path, capsys
+) -> None:
+    """``a/b`` and ``a|b`` both sanitize to ``a_b``; delete neither hash."""
+    store = tmp_path / "store"
+    hashed_slash = _seed_hashed_tenant(store, "a/b", 60.0)
+    hashed_pipe = _seed_hashed_tenant(store, "a|b", 60.0)
+    legacy = _seed_unreadable_legacy(store, "a_b", 60.0)
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant="a/b")
+        == 1
+    )
+    err = capsys.readouterr().err
+    assert "refused_mixed" in err
+    assert hashed_slash.is_dir()
+    assert hashed_pipe.is_dir()
+    assert legacy.is_dir()
+
+
+def test_cleanup_refuses_ambiguous_empty_legacy_sibling(
+    tmp_path: Path, capsys
+) -> None:
+    """Empty ``a_b`` still collides; do not delete either hashed owner."""
+    store = tmp_path / "store"
+    hashed_slash = _seed_hashed_tenant(store, "a/b", 60.0)
+    hashed_pipe = _seed_hashed_tenant(store, "a|b", 60.0)
+    legacy = store / "a_b"
+    legacy.mkdir()
+    old = time.time() - (60.0 * 86400.0)
+    os.utime(legacy, (old, old))
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant="a/b")
+        == 1
+    )
+    err = capsys.readouterr().err
+    assert "refused_mixed" in err
+    assert hashed_slash.is_dir()
+    assert hashed_pipe.is_dir()
+    assert legacy.is_dir()
+
+
+def test_cleanup_keeps_hashed_when_empty_legacy_sibling_is_recent(
+    tmp_path: Path,
+) -> None:
+    store = tmp_path / "store"
+    hashed = _seed_hashed_tenant(store, "a/b", 60.0)
+    legacy = store / "a_b"
+    legacy.mkdir()
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant="a/b")
+        == 0
+    )
+    assert hashed.is_dir()
+    assert legacy.is_dir()
+
+
+def test_cleanup_deletes_old_empty_legacy_sibling_with_hash(
+    tmp_path: Path,
+) -> None:
+    """An empty unambiguous legacy dir is not mixed; both old layouts go."""
+    store = tmp_path / "store"
+    hashed = _seed_hashed_tenant(store, "a/b", 60.0)
+    legacy = store / "a_b"
+    legacy.mkdir()
+    old = time.time() - (60.0 * 86400.0)
+    os.utime(legacy, (old, old))
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=None)
+        == 0
+    )
+    assert not hashed.exists()
+    assert not legacy.exists()
+
+
+def test_cleanup_keeps_old_empty_legacy_when_hash_is_recent(
+    tmp_path: Path,
+) -> None:
+    """Recent ``a/b`` must keep an old identity-less ``a_b`` sibling."""
+    store = tmp_path / "store"
+    hashed = _seed_hashed_tenant(store, "a/b", 1.0)
+    legacy = store / "a_b"
+    legacy.mkdir()
+    old = time.time() - (60.0 * 86400.0)
+    os.utime(legacy, (old, old))
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=None)
+        == 0
+    )
+    assert hashed.is_dir()
+    assert legacy.is_dir()
+
+
+def test_cleanup_keeps_old_idempotency_legacy_when_hash_is_recent(
+    tmp_path: Path,
+) -> None:
+    """An idempotency-only sibling inherits the recent owner's age."""
+    store = tmp_path / "store"
+    hashed = _seed_hashed_tenant(store, "a/b", 1.0)
+    legacy = store / "a_b"
+    legacy.mkdir()
+    idem = legacy / "idempotency.json"
+    idem.write_text('{"k":"task1"}', encoding="utf-8")
+    old = time.time() - (60.0 * 86400.0)
+    os.utime(idem, (old, old))
+    os.utime(legacy, (old, old))
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=None)
+        == 0
+    )
+    assert hashed.is_dir()
+    assert idem.is_file()
+
+
+def test_cleanup_keeps_legacy_when_exact_name_and_alias_both_exist(
+    tmp_path: Path, capsys
+) -> None:
+    """``a_b`` and ``a/b`` both sanitize to ``a_b``; do not guess the owner."""
+    store = tmp_path / "store"
+    hashed_exact = _seed_hashed_tenant(store, "a_b", 1.0)
+    hashed_alias = _seed_hashed_tenant(store, "a/b", 60.0)
+    legacy = store / "a_b"
+    legacy.mkdir()
+    idem = legacy / "idempotency.json"
+    idem.write_text('{"k":"task1"}', encoding="utf-8")
+    old = time.time() - (60.0 * 86400.0)
+    os.utime(idem, (old, old))
+    os.utime(legacy, (old, old))
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=None)
+        == 1
+    )
+    err = capsys.readouterr().err
+    assert "refused_mixed" in err
+    assert hashed_exact.is_dir()
+    assert hashed_alias.is_dir()
+    assert idem.is_file()
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant="a/b")
+        == 1
+    )
+    err = capsys.readouterr().err
+    assert "refused_mixed" in err
+    assert hashed_exact.is_dir()
+    assert hashed_alias.is_dir()
+    assert idem.is_file()
+
+
+def test_cleanup_deletes_old_empty_dir_without_owner(tmp_path: Path) -> None:
+    """An old empty dirname is still removed when no tenant can own it."""
+    store = tmp_path / "store"
+    legacy = store / "a_b"
+    legacy.mkdir(parents=True)
+    old = time.time() - (60.0 * 86400.0)
+    os.utime(legacy, (old, old))
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=None)
+        == 0
+    )
+    assert not legacy.exists()
+
+
+def test_cleanup_unknown_tenant_returns_not_found(
+    tmp_path: Path, capsys
+) -> None:
+    store = tmp_path / "store"
+    _seed_hashed_tenant(store, "pilot-tenant", 60.0)
+    assert (
+        cmd_cleanup(
+            store, older_than_days=30, dry_run=True, tenant="missing-tenant"
+        )
+        == 1
+    )
+    err = capsys.readouterr().err
+    assert "tenant not found: missing-tenant" in err

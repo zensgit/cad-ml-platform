@@ -119,6 +119,203 @@ def test_isolated_archive_script_seed_similar(tmp_path: Path) -> None:
     assert "similar" in task
 
 
+def test_isolated_file_seed_does_not_replay_unseeded_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Same drawing + tenant must not replay across seed/recall modes."""
+    import json
+
+    from scripts.review_reuse_isolated_archive_run import main
+
+    monkeypatch.setenv("REVIEW_REUSE_STORE", "filesystem")
+    monkeypatch.setenv("REVIEW_REUSE_STORE_DIR", str(tmp_path / "store"))
+    monkeypatch.delenv("REVIEW_REUSE_LIVE_DEDUP", raising=False)
+    dxf = tmp_path / "part.dxf"
+    dxf.write_bytes(b"0\nSECTION\n2\nHEADER\n0\nENDSEC\n0\nEOF\n")
+    out1 = tmp_path / "unseeded"
+    out2 = tmp_path / "seeded"
+    assert main(["--out", str(out1), "--file", str(dxf), "--tenant", "t-mode"]) == 0
+    assert (
+        main(
+            [
+                "--out",
+                str(out2),
+                "--file",
+                str(dxf),
+                "--tenant",
+                "t-mode",
+                "--seed-similar",
+            ]
+        )
+        == 0
+    )
+    t1 = json.loads((out1 / "task.json").read_text(encoding="utf-8"))
+    t2 = json.loads((out2 / "task.json").read_text(encoding="utf-8"))
+    assert t1["task_id"] != t2["task_id"]
+    assert "synthetic-archive-001" not in json.dumps(t1)
+    assert "synthetic-archive-001" in json.dumps(t2)
+
+
+def test_isolated_file_distinct_names_same_bytes_do_not_conflict(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Same bytes under a.dxf vs b.dxf must not share the generated key."""
+    import json
+
+    from scripts.review_reuse_isolated_archive_run import main
+
+    monkeypatch.setenv("REVIEW_REUSE_STORE", "filesystem")
+    monkeypatch.setenv("REVIEW_REUSE_STORE_DIR", str(tmp_path / "store"))
+    monkeypatch.delenv("REVIEW_REUSE_LIVE_DEDUP", raising=False)
+    body = b"0\nSECTION\n2\nHEADER\n0\nENDSEC\n0\nEOF\n"
+    a = tmp_path / "a.dxf"
+    b = tmp_path / "b.dxf"
+    a.write_bytes(body)
+    b.write_bytes(body)
+    out1 = tmp_path / "out-a"
+    out2 = tmp_path / "out-b"
+    assert main(["--out", str(out1), "--file", str(a), "--tenant", "t-name"]) == 0
+    assert main(["--out", str(out2), "--file", str(b), "--tenant", "t-name"]) == 0
+    t1 = json.loads((out1 / "task.json").read_text(encoding="utf-8"))
+    t2 = json.loads((out2 / "task.json").read_text(encoding="utf-8"))
+    assert t1["task_id"] != t2["task_id"]
+    assert t1["source_file_name"] == "a.dxf"
+    assert t2["source_file_name"] == "b.dxf"
+
+
+def test_isolated_archive_script_file_offline_no_seed(tmp_path: Path) -> None:
+    """--file real DXF, no --seed-similar: hashes the drawing, stays offline."""
+    import hashlib
+    import json
+
+    from scripts.review_reuse_isolated_archive_run import main
+
+    fixture = (
+        Path(__file__).resolve().parents[1]
+        / "fixtures"
+        / "ci"
+        / "hybrid_blind_dxf"
+        / "J2925001-01人孔v2.dxf"
+    )
+    assert fixture.is_file(), fixture
+    expected_sha = hashlib.sha256(fixture.read_bytes()).hexdigest()
+    out = tmp_path / "exports"
+    rc = main(
+        [
+            "--out",
+            str(out),
+            "--file",
+            str(fixture),
+            "--tenant",
+            "script-tenant-file",
+            "--idempotency-key",
+            "script-file-1",
+        ]
+    )
+    assert rc == 0
+    _assert_isolated_exports(out)
+    task = json.loads((out / "task.json").read_text(encoding="utf-8"))
+    pack = json.loads((out / "evidence.json").read_text(encoding="utf-8"))
+    assert task["source_file_name"] == fixture.name
+    assert task["source_content_sha256"] == expected_sha
+    assert pack["source"]["content_sha256"] == expected_sha
+    assert task["status"] == "evidence_ready"
+    assert task["candidates"][0]["state"] == "insufficient_evidence"
+    assert "synthetic-archive-001" not in (out / "evidence.json").read_text(
+        encoding="utf-8"
+    )
+    assert os.environ.get("REVIEW_REUSE_DECISIONS_ENABLED") != "true"
+
+
+def test_isolated_archive_script_running_idempotent_reports_not_ready(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A still-running idempotent snapshot is reported, not a traceback."""
+    import hashlib
+    import time
+
+    from scripts.review_reuse_isolated_archive_run import main
+    from src.core.review_reuse.models import ReviewReuseTask
+    from src.core.review_reuse.store import create_review_reuse_store
+
+    monkeypatch.setenv("REVIEW_REUSE_STORE", "filesystem")
+    monkeypatch.setenv("REVIEW_REUSE_STORE_DIR", str(tmp_path / "store"))
+    monkeypatch.delenv("REVIEW_REUSE_LIVE_DEDUP", raising=False)
+    monkeypatch.delenv("REVIEW_REUSE_DECISIONS_ENABLED", raising=False)
+    payload = b"0\nSECTION\n2\nHEADER\n0\nENDSEC\n0\nEOF\n"
+    now = time.time()
+    store = create_review_reuse_store()
+    store.put(
+        ReviewReuseTask(
+            task_id="running-archive",
+            tenant_id="script-running",
+            status=TaskStatus.running,
+            created_at=now,
+            updated_at=now,
+            source_file_name="synthetic_isolated.dxf",
+            source_content_sha256=hashlib.sha256(payload).hexdigest(),
+            idempotency_key="script-running-1",
+            trace_id="tr-running",
+            pipeline_claim_id="claim-running",
+        )
+    )
+    out = tmp_path / "exports"
+    rc = main(
+        [
+            "--out",
+            str(out),
+            "--tenant",
+            "script-running",
+            "--idempotency-key",
+            "script-running-1",
+        ]
+    )
+    captured = capsys.readouterr()
+    assert rc == 2
+    assert "not_ready" in captured.err
+    assert "Traceback" not in captured.err
+    assert "Traceback" not in captured.out
+    assert "task_id=running-archive" in captured.out
+    assert "status=running" in captured.out
+    assert "decisions=disabled" in captured.out
+    assert not (out / "evidence.json").exists()
+    assert os.environ.get("REVIEW_REUSE_DECISIONS_ENABLED") is None
+
+
+def test_isolated_archive_script_missing_file_exits_2(tmp_path: Path) -> None:
+    from scripts.review_reuse_isolated_archive_run import main
+
+    rc = main(
+        [
+            "--out",
+            str(tmp_path / "exports"),
+            "--file",
+            str(tmp_path / "no-such.dxf"),
+            "--tenant",
+            "script-missing-file",
+        ]
+    )
+    assert rc == 2
+
+
+def test_isolated_archive_script_unsupported_file_exits_2(tmp_path: Path) -> None:
+    from scripts.review_reuse_isolated_archive_run import main
+
+    bad = tmp_path / "payload.exe"
+    bad.write_bytes(b"MZ")
+    rc = main(
+        [
+            "--out",
+            str(tmp_path / "exports"),
+            "--file",
+            str(bad),
+            "--tenant",
+            "script-bad-type",
+        ]
+    )
+    assert rc == 2
+
+
 def test_isolated_archive_script_offline_insufficient_evidence(tmp_path: Path) -> None:
     """main() without seed still writes exports (offline insufficient_evidence)."""
     from scripts.review_reuse_isolated_archive_run import main

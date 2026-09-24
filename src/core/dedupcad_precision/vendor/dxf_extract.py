@@ -4,8 +4,10 @@ Relies on ezdxf to parse DXF and produce a simple JSON structure.
 """
 
 import json
+import math
+import re
 from pathlib import Path  # ensure Path available for cache directory logic
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 # Settings import (works for both package and script modes)
 try:  # pragma: no cover - flexible import
@@ -28,11 +30,385 @@ except Exception as e:  # pragma: no cover - optional dependency
     ezdxf = None
 
 
-def extract_dxf(path: str) -> Dict[str, Any]:
+# Bump when extract payload fields change. v11 refuses fitted polylines
+# and nonzero thickness instead of emitting a flat 2D primitive.
+_EXTRACT_CACHE_VERSION = 11
+# Classic POLYLINE group-70: 2=curve-fit, 4=spline-fit, 8=3D,
+# 16=polygon mesh, 32=mesh closed in N, 64=polyface.
+_NON_2D_POLYLINE_FLAGS = 2 | 4 | 8 | 16 | 32 | 64
+
+
+def _header_insunits(doc: Any) -> int:
+    """DXF $INSUNITS; 0 means unitless/unknown and must not be L4-certified."""
+    try:
+        raw = doc.header.get("$INSUNITS")
+        if raw is None:
+            raw = getattr(doc, "units", 0)
+        if isinstance(raw, bool):
+            return 0
+        if isinstance(raw, float):
+            if not math.isfinite(raw) or raw != math.floor(raw):
+                return 0
+            number = int(raw)
+        elif isinstance(raw, int):
+            number = raw
+        else:
+            parsed = float(str(raw).strip())
+            if not math.isfinite(parsed) or parsed != math.floor(parsed):
+                return 0
+            number = int(parsed)
+        return number if 1 <= number <= 24 else 0
+    except Exception:
+        return 0
+
+
+# HEADER is at the start of a DXF; never slurp ENTITIES/BLOCKS for $INSUNITS.
+_HEADER_SCAN_MAX_BYTES = 1_048_576
+_BINARY_DXF_SENTINEL = b"AutoCAD Binary DXF\r\n\x1a\x00"
+
+
+def _read_dxf_header_text(path: str) -> Optional[str]:
+    """HEADER section text, or None if missing or not closed within the cap."""
+    try:
+        with open(path, "rb") as handle:
+            raw = handle.read(_HEADER_SCAN_MAX_BYTES)
+    except OSError:
+        return None
+    text = raw.decode("latin-1", errors="ignore")
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    start = re.search(
+        r"(?:^|\n)[ \t]*0[ \t]*\n[ \t]*SECTION[ \t]*\n[ \t]*2[ \t]*\n"
+        r"[ \t]*HEADER[ \t]*\n",
+        text,
+        flags=re.IGNORECASE,
+    )
+    if start is None:
+        return None
+    rest = text[start.end() :]
+    end = re.search(
+        r"(?:^|\n)[ \t]*0[ \t]*\n[ \t]*ENDSEC[ \t]*(?:\n|\Z)",
+        rest,
+        flags=re.IGNORECASE,
+    )
+    if end is None:
+        return None
+    return rest[: end.start()]
+
+
+def _is_binary_dxf(path: str) -> bool:
+    try:
+        with open(path, "rb") as handle:
+            prefix = handle.read(len(_BINARY_DXF_SENTINEL))
+    except OSError:
+        return False
+    return prefix == _BINARY_DXF_SENTINEL
+
+
+def _insunits_tokens_unsafe(tokens: List[Any]) -> bool:
+    """True when any $INSUNITS token is junk or they disagree."""
+    if not tokens:
+        return False
+    seen: Optional[float] = None
+    for raw_token in tokens:
+        try:
+            number = float(str(raw_token).strip())
+        except (TypeError, ValueError):
+            return True
+        if (not math.isfinite(number)) or number != math.floor(number):
+            return True
+        if seen is None:
+            seen = number
+        elif number != seen:
+            return True
+    return False
+
+
+def _raw_binary_insunits_unsafe(path: str) -> bool:
+    """Scan binary HEADER $INSUNITS; fail closed on conflict or junk.
+
+    Group 70 is an integer in binary DXF, so ASCII truncation does not
+    apply. Duplicate declarations still must agree.
+    """
+    try:
+        with open(path, "rb") as handle:
+            raw = handle.read(_HEADER_SCAN_MAX_BYTES)
+    except OSError:
+        return True
+    if not raw.startswith(_BINARY_DXF_SENTINEL):
+        return True
+    try:
+        from ezdxf.lldxf.tagger import binary_tags_loader
+    except Exception:
+        return True
+    in_header = False
+    saw_section = False
+    expecting_70 = False
+    header_closed = False
+    tokens: List[Any] = []
+    try:
+        for tag in binary_tags_loader(raw):
+            code = int(tag.code)
+            value = tag.value
+            if not in_header:
+                if code == 0 and str(value).strip().upper() == "SECTION":
+                    saw_section = True
+                    continue
+                if (
+                    saw_section
+                    and code == 2
+                    and str(value).strip().upper() == "HEADER"
+                ):
+                    in_header = True
+                    saw_section = False
+                    continue
+                saw_section = False
+                continue
+            if code == 0 and str(value).strip().upper() == "ENDSEC":
+                header_closed = True
+                break
+            if expecting_70:
+                if code != 70:
+                    return True
+                tokens.append(value)
+                expecting_70 = False
+                continue
+            if code == 9 and str(value).strip().upper() == "$INSUNITS":
+                expecting_70 = True
+    except Exception:
+        if not header_closed:
+            return True
+    if expecting_70 or not header_closed:
+        return True
+    return _insunits_tokens_unsafe(tokens)
+
+
+def _raw_insunits_non_integral(path: str) -> bool:
+    """True when raw HEADER $INSUNITS is unsafe before ezdxf truncates.
+
+    Fail closed on a fractional/non-finite/unparseable group-70 token, or
+    when repeated $INSUNITS declarations disagree. The first match is not
+    enough: ezdxf may apply a later truncated value. Binary DXF has no
+    ASCII HEADER framing; scan its tags instead of wiping units.
+    """
+    if _is_binary_dxf(path):
+        return _raw_binary_insunits_unsafe(path)
+    header = _read_dxf_header_text(path)
+    if header is None:
+        # Unbounded/missing ASCII HEADER: do not trust ezdxf's truncated value.
+        return True
+    return _ascii_header_insunits_unsafe(header)
+
+
+def _ascii_header_insunits_unsafe(header: str) -> bool:
+    """Bind each ``$INSUNITS`` to its group-70 value, skipping group 999.
+
+    An adjacency regex misses a comment between the variable and the
+    integer, then ezdxf truncates ``4.9`` to ``4``. Unbound declarations
+    fail closed.
+    """
+    lines = header.split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+    if len(lines) % 2 != 0:
+        return True
+    pairs = [
+        (lines[index].strip(), lines[index + 1].strip())
+        for index in range(0, len(lines), 2)
+    ]
+    tokens: List[str] = []
+    index = 0
+    while index < len(pairs):
+        code, value = pairs[index]
+        if code == "9" and value.upper() == "$INSUNITS":
+            bound = index + 1
+            while bound < len(pairs) and pairs[bound][0] == "999":
+                bound += 1
+            if bound >= len(pairs) or pairs[bound][0] != "70":
+                return True
+            tokens.append(pairs[bound][1])
+            index = bound + 1
+            continue
+        index += 1
+    return _insunits_tokens_unsafe(tokens)
+
+
+def _classic_polyline_is_non_2d(entity: Any) -> bool:
+    """3D polylines, polygon meshes, and polyfaces are not 2D L4 geometry."""
+    flags = getattr(getattr(entity, "dxf", None), "flags", 0)
+    try:
+        return bool(int(flags or 0) & _NON_2D_POLYLINE_FLAGS)
+    except (TypeError, ValueError):
+        return True
+
+
+def _offset_from_xy_plane(raw: Any) -> bool:
+    """True when Z/elevation is non-finite or survives L4's 3-decimal quant."""
+    try:
+        number = float(raw)
+    except (TypeError, ValueError):
+        return True
+    if not math.isfinite(number):
+        return True
+    return round(number, 3) != 0.0
+
+
+def _vec3(raw: Any) -> Optional[tuple[float, float, float]]:
+    if raw is None:
+        return None
+    try:
+        return (float(raw[0]), float(raw[1]), float(raw[2]))
+    except (TypeError, ValueError, IndexError):
+        try:
+            return (float(raw.x), float(raw.y), float(raw.z))
+        except (TypeError, ValueError, AttributeError):
+            return None
+
+
+def _extrusion_leaves_xy_plane(entity: Any) -> bool:
+    """Default extrusion (0, 0, 1) is the XY plane. Anything else is not."""
+    dxf = getattr(entity, "dxf", None)
+    if dxf is None:
+        return True
+    try:
+        raw = dxf.extrusion
+    except AttributeError:
+        return False
+    except Exception:
+        return True
+    coords = _vec3(raw)
+    if coords is None:
+        return True
+    if not all(math.isfinite(value) for value in coords):
+        return True
+    rounded = tuple(round(value, 3) for value in coords)
+    return rounded != (0.0, 0.0, 1.0)
+
+
+def _thickness_leaves_plane(entity: Any) -> bool:
+    """Group-39 thickness extrudes a primitive out of the XY plane."""
+    dxf = getattr(entity, "dxf", None)
+    if dxf is None:
+        return True
+    try:
+        raw = dxf.thickness
+    except AttributeError:
+        return False
+    except Exception:
+        return True
+    if raw is None:
+        return False
+    return _offset_from_xy_plane(raw)
+
+
+def _dxf_primitive_non_planar(entity: Any, et: str) -> bool:
+    """LINE/CIRCLE/ARC/ELLIPSE/LWPOLYLINE/POLYLINE that are not XY-planar."""
+    if et not in ("LINE", "CIRCLE", "ARC", "ELLIPSE", "LWPOLYLINE", "POLYLINE"):
+        return False
+    if _extrusion_leaves_xy_plane(entity):
+        return True
+    if _thickness_leaves_plane(entity):
+        return True
+    dxf = getattr(entity, "dxf", None)
+    if dxf is None:
+        return True
+    try:
+        if et == "LINE":
+            return _offset_from_xy_plane(dxf.start.z) or _offset_from_xy_plane(
+                dxf.end.z
+            )
+        if et in ("CIRCLE", "ARC"):
+            return _offset_from_xy_plane(dxf.center.z)
+        if et == "ELLIPSE":
+            return _offset_from_xy_plane(dxf.center.z) or _offset_from_xy_plane(
+                dxf.major_axis.z
+            )
+        if et == "LWPOLYLINE":
+            return _offset_from_xy_plane(getattr(dxf, "elevation", 0.0))
+        elev = getattr(dxf, "elevation", None)
+        elev_z = getattr(elev, "z", 0.0 if elev is None else elev)
+        if _offset_from_xy_plane(elev_z):
+            return True
+        for vertex in entity.vertices:
+            loc = vertex.dxf.location
+            if _offset_from_xy_plane(getattr(loc, "z", 0.0)):
+                return True
+    except Exception:
+        return True
+    return False
+
+
+def _dxf_polyline_closed(entity: Any, et: str) -> bool:
+    """Classic POLYLINE uses is_closed; LWPOLYLINE uses closed."""
+    if et == "POLYLINE":
+        if hasattr(entity, "is_closed"):
+            return bool(entity.is_closed)
+        flags = getattr(getattr(entity, "dxf", None), "flags", 0) or 0
+        try:
+            return bool(int(flags) & 1)
+        except Exception:
+            return False
+    return bool(getattr(entity, "closed", False))
+
+
+def _width_nonzero(raw: Any) -> bool:
+    if raw is None:
+        return False
+    try:
+        number = float(raw)
+    except (TypeError, ValueError):
+        return True
+    return (not math.isfinite(number)) or number != 0.0
+
+
+def _polyline_xy_and_bulges(
+    entity: Any, et: str
+) -> tuple[List[List[float]], List[float], bool]:
+    """Keep bulge/width so ReviewReuse can refuse unsafe LINE explode."""
+    pts: List[List[float]] = []
+    bulges: List[float] = []
+    has_width = False
+    if et == "LWPOLYLINE":
+        try:
+            has_width = _width_nonzero(getattr(entity.dxf, "const_width", 0.0))
+        except Exception:
+            has_width = True
+        for p in entity.get_points():
+            pts.append([float(p[0]), float(p[1])])
+            bulges.append(float(p[4]) if len(p) >= 5 else 0.0)
+            if len(p) >= 4 and (_width_nonzero(p[2]) or _width_nonzero(p[3])):
+                has_width = True
+        return pts, bulges, has_width
+    try:
+        has_width = _width_nonzero(
+            getattr(entity.dxf, "default_start_width", 0.0)
+        ) or _width_nonzero(getattr(entity.dxf, "default_end_width", 0.0))
+    except Exception:
+        has_width = True
+    for v in entity.vertices:
+        loc = v.dxf.location
+        pts.append([float(loc.x), float(loc.y)])
+        try:
+            bulges.append(float(getattr(v.dxf, "bulge", 0.0) or 0.0))
+        except Exception:
+            bulges.append(0.0)
+        try:
+            if _width_nonzero(getattr(v.dxf, "start_width", 0.0)) or _width_nonzero(
+                getattr(v.dxf, "end_width", 0.0)
+            ):
+                has_width = True
+        except Exception:
+            has_width = True
+    return pts, bulges, has_width
+
+
+def extract_dxf(path: str, *, use_cache: bool = True) -> Dict[str, Any]:
     if ezdxf is None:
         raise RuntimeError("ezdxf not installed: pip install ezdxf")
     doc = ezdxf.readfile(path)
     msp = doc.modelspace()
+    insunits = _header_insunits(doc)
+    if _raw_insunits_non_integral(path):
+        insunits = 0
 
     layers = {}
     for layer in doc.layers:
@@ -60,7 +436,11 @@ def extract_dxf(path: str) -> Dict[str, Any]:
                     type_counts[t] = type_counts.get(t, 0) + 1
                     # capture minimal inner entity for matching
                     ie: Dict[str, Any] = {"type": t}
-                    if t == "LINE":
+                    if t == "POLYLINE" and _classic_polyline_is_non_2d(be):
+                        ie["type"] = "POLYLINE3D"
+                    elif _dxf_primitive_non_planar(be, t):
+                        ie["type"] = "NONPLANAR"
+                    elif t == "LINE":
                         try:
                             ie.update(
                                 {
@@ -82,17 +462,23 @@ def extract_dxf(path: str) -> Dict[str, Any]:
                             pass
                     elif t in ("LWPOLYLINE", "POLYLINE"):
                         pts: List[List[float]] = []
+                        bulges: List[float] = []
+                        has_width = False
                         try:
-                            if t == "LWPOLYLINE":
-                                for p in be.get_points():
-                                    pts.append([float(p[0]), float(p[1])])
-                            else:
-                                for v in be.vertices:
-                                    pts.append([float(v.dxf.location.x), float(v.dxf.location.y)])
+                            pts, bulges, has_width = _polyline_xy_and_bulges(be, t)
                         except Exception:
                             pass
                         if pts:
-                            ie.update({"points": pts})
+                            ie.update(
+                                {
+                                    "points": pts,
+                                    "closed": _dxf_polyline_closed(be, t),
+                                }
+                            )
+                            if any(b != 0.0 for b in bulges):
+                                ie["bulges"] = bulges
+                            if has_width:
+                                ie["has_width"] = True
                     elif t == "ELLIPSE":
                         try:
                             center = [float(be.dxf.center.x), float(be.dxf.center.y)]
@@ -324,39 +710,49 @@ def extract_dxf(path: str) -> Dict[str, Any]:
 
     # ---- Simple signature cache (file-level) ----
     # Use sha256 of the DXF file to cache extracted entities + block hash results
-    sig_cache_dir = (
-        Path(getattr(get_settings(), "cache_dir", "standalone-product/dedupcad2/cache"))
-        / "extract_sig"
-    )
-    try:
-        sig_cache_dir.mkdir(parents=True, exist_ok=True)
-    except Exception:
-        pass
+    sig_cache_dir: Optional[Path] = None
     file_hash = None
-    try:
-        import hashlib
+    if use_cache:
+        sig_cache_dir = (
+            Path(
+                getattr(get_settings(), "cache_dir", "standalone-product/dedupcad2/cache")
+            )
+            / "extract_sig"
+        )
+        try:
+            sig_cache_dir.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+        try:
+            import hashlib
 
-        h = hashlib.sha256()
-        with open(path, "rb") as fbin:
-            while True:
-                chunk = fbin.read(65536)
-                if not chunk:
-                    break
-                h.update(chunk)
-        file_hash = h.hexdigest()
-    except Exception:
-        pass
+            h = hashlib.sha256()
+            with open(path, "rb") as fbin:
+                while True:
+                    chunk = fbin.read(65536)
+                    if not chunk:
+                        break
+                    h.update(chunk)
+            file_hash = h.hexdigest()
+        except Exception:
+            pass
     entities: List[Dict[str, Any]] = []
-    if file_hash:
+    if use_cache and file_hash and sig_cache_dir is not None:
         cache_file = sig_cache_dir / f"{file_hash}.json"
         if cache_file.exists():
             try:
                 cached = json.loads(cache_file.read_text(encoding="utf-8"))
-                if isinstance(cached, dict) and "entities" in cached and "blocks" in cached:
+                if (
+                    isinstance(cached, dict)
+                    and cached.get("extract_cache_version") == _EXTRACT_CACHE_VERSION
+                    and "entities" in cached
+                    and "blocks" in cached
+                ):
                     return {
                         "file_info": {
                             "dxf_version": doc.dxfversion,
                             "cache_hit": True,
+                            "insunits": insunits,
                         },
                         "layers": layers,
                         "entities": cached["entities"],
@@ -369,7 +765,13 @@ def extract_dxf(path: str) -> Dict[str, Any]:
         layer = getattr(e.dxf, "layer", None)
         item = {"type": et, "layer": layer}
         # Minimal geometry capture (can be expanded later)
-        if et == "LINE":
+        if et == "POLYLINE" and _classic_polyline_is_non_2d(e):
+            # Do not flatten Z/mesh/polyface vertices into a 2D POLYLINE.
+            item["type"] = "POLYLINE3D"
+        elif _dxf_primitive_non_planar(e, et):
+            # Nonzero Z/elevation or a non-default extrusion is not 2D L4.
+            item["type"] = "NONPLANAR"
+        elif et == "LINE":
             item.update(
                 {
                     "start": [float(e.dxf.start.x), float(e.dxf.start.y)],
@@ -394,18 +796,21 @@ def extract_dxf(path: str) -> Dict[str, Any]:
             )
         elif et in ("LWPOLYLINE", "POLYLINE"):
             pts: List[List[float]] = []
+            bulges: List[float] = []
+            has_width = False
             try:
                 # LWPOLYLINE .points() -> (x,y[,start_width,end_width,bulge])
-                if et == "LWPOLYLINE":
-                    for p in e.get_points():
-                        pts.append([float(p[0]), float(p[1])])
-                else:
-                    for v in e.vertices:
-                        pts.append([float(v.dxf.location.x), float(v.dxf.location.y)])
+                pts, bulges, has_width = _polyline_xy_and_bulges(e, et)
             except Exception:
                 pass
             if pts:
-                item.update({"points": pts, "closed": bool(getattr(e, "closed", False))})
+                item.update(
+                    {"points": pts, "closed": _dxf_polyline_closed(e, et)}
+                )
+                if any(b != 0.0 for b in bulges):
+                    item["bulges"] = bulges
+                if has_width:
+                    item["has_width"] = True
         elif et == "ELLIPSE":
             # Represent by center and radii (approx)
             try:
@@ -538,15 +943,24 @@ def extract_dxf(path: str) -> Dict[str, Any]:
         "file_info": {
             "dxf_version": doc.dxfversion,
             "cache_hit": False,
+            "insunits": insunits,
         },
         "layers": layers,
         "entities": entities,
         "blocks": blocks,
     }
-    if file_hash:
+    if use_cache and file_hash and sig_cache_dir is not None:
         try:
             (sig_cache_dir / f"{file_hash}.json").write_text(
-                json.dumps({"entities": entities, "blocks": blocks}, ensure_ascii=False),
+                json.dumps(
+                    {
+                        "extract_cache_version": _EXTRACT_CACHE_VERSION,
+                        "entities": entities,
+                        "blocks": blocks,
+                        "insunits": insunits,
+                    },
+                    ensure_ascii=False,
+                ),
                 encoding="utf-8",
             )
         except Exception:

@@ -12,6 +12,7 @@ Does not enable decisions, touch training JSONL, or call network services.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -22,11 +23,295 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+_UNREADABLE = "__unreadable__"
+
 
 def _tenant_dirs(store_dir: Path) -> List[Path]:
     if not store_dir.is_dir():
         return []
     return sorted(p for p in store_dir.iterdir() if p.is_dir() and not p.name.startswith("."))
+
+
+def _task_attribution(tdir: Path) -> tuple[List[str], bool]:
+    """Unique tenant_ids from readable tasks, plus unattributable-file flag."""
+    found: List[str] = []
+    seen = set()
+    unattributable = False
+    for path in _task_files(tdir):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, TypeError, ValueError):
+            unattributable = True
+            continue
+        if not isinstance(data, dict):
+            unattributable = True
+            continue
+        tid = data.get("tenant_id")
+        if isinstance(tid, str) and tid:
+            if tid not in seen:
+                seen.add(tid)
+                found.append(tid)
+        else:
+            unattributable = True
+    return found, unattributable
+
+
+def _tenant_ids_from_tasks(tdir: Path) -> List[str]:
+    ids, _unattributable = _task_attribution(tdir)
+    return ids
+
+
+def _tenant_id_from_meta(tdir: Path) -> Optional[str]:
+    """Sidecar tenant_id, ``_UNREADABLE`` if present-but-invalid, else None."""
+    meta_path = tdir / "tenant_meta.json"
+    if not meta_path.is_file():
+        return None
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        return _UNREADABLE
+    if isinstance(meta, dict):
+        tid = meta.get("tenant_id")
+        if isinstance(tid, str) and tid:
+            return tid
+    return _UNREADABLE
+
+
+def _is_mixed_tenant_dir(tdir: Path) -> bool:
+    ids, unattributable = _task_attribution(tdir)
+    if unattributable:
+        return True
+    if len(ids) > 1:
+        return True
+    meta = _tenant_id_from_meta(tdir)
+    if meta == _UNREADABLE:
+        return True
+    return meta is not None and any(tid != meta for tid in ids)
+
+
+def _recorded_tenant_id(tdir: Path) -> Optional[str]:
+    """Original tenant_id from sidecar or a unique task payload, if any."""
+    meta = _tenant_id_from_meta(tdir)
+    if meta is not None and meta != _UNREADABLE:
+        return meta
+    ids = _tenant_ids_from_tasks(tdir)
+    if len(ids) == 1:
+        return ids[0]
+    return None
+
+
+def _tenant_label(tdir: Path) -> str:
+    recorded = _recorded_tenant_id(tdir)
+    return recorded if recorded is not None else tdir.name
+
+
+def _dir_tenant_identities(tdir: Path) -> List[str]:
+    """Every recorded tenant identity on a dir (meta + task payloads).
+
+    Cleanup groups by this set so a mixed sibling labeled B that still
+    holds A tasks blocks A's hashed directory before any rmtree.
+    """
+    ids: List[str] = []
+    seen = set()
+    meta = _tenant_id_from_meta(tdir)
+    if meta is not None and meta != _UNREADABLE and meta not in seen:
+        seen.add(meta)
+        ids.append(meta)
+    for tid in _tenant_ids_from_tasks(tdir):
+        if tid not in seen:
+            seen.add(tid)
+            ids.append(tid)
+    if ids:
+        return ids
+    return [_tenant_label(tdir)]
+
+
+def _tenant_dir_key(tenant_id: str) -> str:
+    return hashlib.sha256((tenant_id or "").encode("utf-8")).hexdigest()[:24]
+
+
+def _is_hash_dirname(name: str) -> bool:
+    return len(name) == 24 and all(c in "0123456789abcdef" for c in name)
+
+
+def _legacy_safe_name(tenant_id: str) -> str:
+    """Match ``store._legacy_safe_tenant`` (alnum or ``-_.``, else ``_``)."""
+    return "".join(
+        c if c.isalnum() or c in "-_." else "_" for c in tenant_id
+    )[:128] or "unknown"
+
+
+def _unreadable_legacy_dir(tdir: Path) -> bool:
+    """Non-hash dir with no recoverable tenant id.
+
+    Includes an empty directory so cleanup cannot drop the hashed tenant
+    and leave this sibling behind. Hash-shaped names stay on the hash path.
+    """
+    if _is_hash_dirname(tdir.name):
+        return False
+    if _recorded_tenant_id(tdir) is not None:
+        return False
+    meta = _tenant_id_from_meta(tdir)
+    _, unattributable = _task_attribution(tdir)
+    if meta == _UNREADABLE or unattributable:
+        return True
+    return meta is None and not _task_files(tdir)
+
+
+def _recorded_idents(dirs: List[Path]) -> List[str]:
+    """Tenant ids actually stored in meta or task payloads, in first-seen order."""
+    idents: List[str] = []
+    seen = set()
+    for tdir in dirs:
+        meta = _tenant_id_from_meta(tdir)
+        if (
+            meta is not None
+            and meta != _UNREADABLE
+            and meta not in seen
+        ):
+            seen.add(meta)
+            idents.append(meta)
+        for tid in _tenant_ids_from_tasks(tdir):
+            if tid not in seen:
+                seen.add(tid)
+                idents.append(tid)
+    return idents
+
+
+def _unattributable_hash_dir(tdir: Path) -> bool:
+    """Hashed dir whose meta/tasks do not name a tenant.
+
+    An empty hash directory (crash before meta/task write) is included so
+    cleanup does not drop the legacy tenant while keeping the sibling.
+    """
+    if not _is_hash_dirname(tdir.name):
+        return False
+    if _recorded_tenant_id(tdir) is not None:
+        return False
+    meta = _tenant_id_from_meta(tdir)
+    _, unattributable = _task_attribution(tdir)
+    if meta == _UNREADABLE or unattributable:
+        return True
+    return meta is None and not _task_files(tdir)
+
+
+def _attach_unreadable_hash_siblings(
+    groups: Dict[str, List[Path]], tenants: List[Path]
+) -> None:
+    """Keep a corrupt hash sibling in the logical tenant group.
+
+    Without this, ``--apply`` deletes the readable legacy directory and
+    leaves the unreadable hashed directory behind.
+    """
+    idents = [ident for ident in groups if ident != _UNREADABLE]
+    for tdir in tenants:
+        if not _unattributable_hash_dir(tdir):
+            continue
+        for ident in idents:
+            if tdir.name != _tenant_dir_key(ident):
+                continue
+            bucket = groups.setdefault(ident, [])
+            if tdir not in bucket:
+                bucket.append(tdir)
+
+
+def _attach_unreadable_legacy_siblings(
+    groups: Dict[str, List[Path]],
+    selected: List[Path],
+    all_dirs: List[Path],
+) -> set[str]:
+    """Keep a sanitized legacy dir in every logical tenant that could own it.
+
+    ``a/b`` used to be stored as ``a_b``. An unreadable or empty ``a_b``
+    has no tenant id, so grouping by directory name deletes the hashed
+    layout alone. ``a/b`` and ``a|b`` both sanitize to ``a_b``; that
+    collision refuses every selected owner instead of guessing.
+    """
+    recorded = _recorded_idents(all_dirs)
+    selected_set = {path.resolve() for path in selected}
+    ambiguous: set[str] = set()
+    for tdir in all_dirs:
+        if tdir.resolve() not in selected_set:
+            continue
+        if not _unreadable_legacy_dir(tdir):
+            continue
+        owners = [
+            ident
+            for ident in recorded
+            if ident != tdir.name and _legacy_safe_name(ident) == tdir.name
+        ]
+        # ``a_b`` may be a real tenant id and the sanitized name of ``a/b``.
+        # An identity-less ``a_b`` can belong to either. Do not detach it
+        # from the exact-name group and delete it with the alias.
+        if tdir.name in recorded and owners:
+            ambiguous.update(owners)
+            ambiguous.add(tdir.name)
+            continue
+        if not owners:
+            continue
+        attached = False
+        for ident in owners:
+            if ident not in groups:
+                continue
+            bucket = groups[ident]
+            if tdir not in bucket:
+                bucket.append(tdir)
+            attached = True
+        if attached:
+            # The dirname bucket is only a fallback label. Once a real
+            # owner has the sibling, that leftover group is old on its
+            # own and ``rmtree`` would drop the legacy dir (and its
+            # idempotency index) while the recent owner is kept.
+            fallback = groups.get(tdir.name)
+            if fallback is not None:
+                kept = [path for path in fallback if path != tdir]
+                if kept:
+                    groups[tdir.name] = kept
+                else:
+                    del groups[tdir.name]
+        if len(owners) > 1:
+            ambiguous.update(ident for ident in owners if ident in groups)
+            ambiguous.add(tdir.name)
+    return ambiguous
+
+
+def _legacy_sibling_matches(tdir: Path, tenant: str) -> bool:
+    """True when ``tenant`` would have used this unreadable legacy dirname."""
+    return (
+        _unreadable_legacy_dir(tdir)
+        and tenant != tdir.name
+        and _legacy_safe_name(tenant) == tdir.name
+    )
+
+
+def _tenant_matches(tdir: Path, tenant: str) -> bool:
+    """Match by original tenant identity, not a colliding hashed basename.
+
+    A hashed dir named ``sha256(A)[:24]`` must not be selected by
+    ``--tenant <that hash>`` when metadata/tasks identify tenant A.
+    Hash-name fallback is only for dirs with no recorded identity (so a
+    legacy tenant whose id equals ``sha256(other)[:24]`` is not deleted
+    when cleaning ``other``). An unreadable hash sibling still matches A
+    so cleanup can refuse the whole group instead of deleting legacy only.
+    """
+    if _legacy_sibling_matches(tdir, tenant):
+        return True
+    if _is_mixed_tenant_dir(tdir):
+        ids = set(_tenant_ids_from_tasks(tdir))
+        meta = _tenant_id_from_meta(tdir)
+        if meta is not None:
+            ids.add(meta)
+        if tenant in ids:
+            return True
+        return _unattributable_hash_dir(tdir) and tdir.name == _tenant_dir_key(
+            tenant
+        )
+    recorded = _recorded_tenant_id(tdir)
+    if recorded is not None:
+        return recorded == tenant
+    if tdir.name == _tenant_dir_key(tenant):
+        return True
+    return tdir.name == tenant
 
 
 def _task_files(tenant_dir: Path) -> List[Path]:
@@ -73,23 +358,45 @@ def _newest_task_mtime(tenant_dir: Path) -> Optional[float]:
 def collect_tenant_summaries(
     store_dir: Path, *, now: Optional[float] = None
 ) -> List[Dict[str, Any]]:
-    """Return per-tenant task_count and age_days of newest task."""
+    """Return per-tenant task_count and age_days of newest task.
+
+    Hashed and leftover legacy directories for the same original tenant_id
+    are merged so operators see one row, unique task IDs, and the newest age.
+    """
     now_ts = time.time() if now is None else now
     store_dir = store_dir.resolve()
-    rows: List[Dict[str, Any]] = []
+    grouped: Dict[str, Dict[str, Any]] = {}
     for tdir in _tenant_dirs(store_dir):
-        task_files = _task_files(tdir)
+        label = _tenant_label(tdir)
+        stems = {p.stem for p in _task_files(tdir)}
         newest = _newest_task_mtime(tdir)
-        age_days: Optional[float]
-        if newest is None:
-            age_days = None
-        else:
-            age_days = (now_ts - newest) / 86400.0
+        mixed = _is_mixed_tenant_dir(tdir)
+        row = grouped.get(label)
+        if row is None:
+            grouped[label] = {
+                "task_ids": set(stems),
+                "newest": newest,
+                "mixed": mixed,
+            }
+            continue
+        row["task_ids"].update(stems)
+        row["mixed"] = bool(row.get("mixed")) or mixed
+        if newest is not None and (
+            row["newest"] is None or newest > row["newest"]
+        ):
+            row["newest"] = newest
+
+    rows: List[Dict[str, Any]] = []
+    for label in sorted(grouped):
+        item = grouped[label]
+        newest = item["newest"]
+        age_days = None if newest is None else (now_ts - newest) / 86400.0
         rows.append(
             {
-                "tenant": tdir.name,
-                "task_count": len(task_files),
+                "tenant": label,
+                "task_count": len(item["task_ids"]),
                 "age_days": age_days,
+                "mixed": bool(item.get("mixed")),
             }
         )
     return rows
@@ -110,6 +417,7 @@ def cmd_list(store_dir: Path, *, as_json: bool = False) -> int:
                         if r["age_days"] is None
                         else round(float(r["age_days"]), 4)
                     ),
+                    "mixed": bool(r.get("mixed")),
                 }
                 for r in rows
             ],
@@ -122,7 +430,11 @@ def cmd_list(store_dir: Path, *, as_json: bool = False) -> int:
     for r in rows:
         age = r["age_days"]
         age_s = "n/a" if age is None else f"{float(age):.1f}"
-        print(f"tenant={r['tenant']} tasks={r['task_count']} age_days={age_s}")
+        mixed_s = " mixed=true" if r.get("mixed") else ""
+        print(
+            f"tenant={r['tenant']} tasks={r['task_count']} "
+            f"age_days={age_s}{mixed_s}"
+        )
     print(f"tenants={len(rows)} store_dir={store_dir}")
     return 0
 
@@ -155,33 +467,74 @@ def cmd_cleanup(
         print(f"store_dir missing: {store_dir}", file=sys.stderr)
         return 1
     cutoff = time.time() - (older_than_days * 86400.0)
-    tenants = _tenant_dirs(store_dir)
+    all_dirs = _tenant_dirs(store_dir)
     if tenant:
-        tenants = [t for t in tenants if t.name == tenant]
+        tenants = [t for t in all_dirs if _tenant_matches(t, tenant)]
         if not tenants:
             print(f"tenant not found: {tenant}", file=sys.stderr)
             return 1
+    else:
+        tenants = all_dirs
+
+    groups: Dict[str, List[Path]] = {}
+    for tdir in tenants:
+        for ident in _dir_tenant_identities(tdir):
+            bucket = groups.setdefault(ident, [])
+            if tdir not in bucket:
+                bucket.append(tdir)
+    _attach_unreadable_hash_siblings(groups, tenants)
+    ambiguous = _attach_unreadable_legacy_siblings(groups, tenants, all_dirs)
 
     removed = 0
     listed = 0
-    for tdir in tenants:
-        newest = _newest_mtime(tdir)
-        if newest is None:
+    refused = 0
+    seen_paths = set()
+    for label, dirs in groups.items():
+        newest: Optional[float] = None
+        for tdir in dirs:
+            m = _newest_mtime(tdir)
+            if m is not None and (newest is None or m > newest):
+                newest = m
+        if newest is None or newest > cutoff:
             continue
-        if newest > cutoff:
-            continue
-        listed += 1
         age_days = (time.time() - newest) / 86400.0
-        if dry_run:
-            print(f"would_delete tenant={tdir.name} age_days={age_days:.1f} path={tdir}")
-        else:
-            shutil.rmtree(tdir)
-            print(f"deleted tenant={tdir.name} age_days={age_days:.1f}")
-            removed += 1
+        mixed_group = any(_is_mixed_tenant_dir(d) for d in dirs) or (
+            label in ambiguous
+        )
+        for tdir in dirs:
+            resolved = tdir.resolve()
+            if resolved in seen_paths:
+                continue
+            seen_paths.add(resolved)
+            listed += 1
+            if mixed_group:
+                ids = list(_tenant_ids_from_tasks(tdir))
+                meta = _tenant_id_from_meta(tdir)
+                if meta is not None and meta not in ids:
+                    ids = [meta] + ids
+                print(
+                    f"refused_mixed tenant={label} tenant_ids={','.join(ids)} "
+                    f"age_days={age_days:.1f} path={tdir}",
+                    file=sys.stderr,
+                )
+                refused += 1
+                continue
+            if dry_run:
+                print(
+                    f"would_delete tenant={label} age_days={age_days:.1f} "
+                    f"path={tdir}"
+                )
+            else:
+                shutil.rmtree(tdir)
+                print(f"deleted tenant={label} age_days={age_days:.1f}")
+                removed += 1
 
     mode = "dry_run" if dry_run else "apply"
-    print(f"cleanup mode={mode} candidates={listed} deleted={removed} older_than_days={older_than_days}")
-    return 0
+    print(
+        f"cleanup mode={mode} candidates={listed} deleted={removed} "
+        f"refused_mixed={refused} older_than_days={older_than_days}"
+    )
+    return 1 if refused else 0
 
 
 def main(argv: Optional[List[str]] = None) -> int:

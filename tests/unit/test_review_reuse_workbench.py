@@ -362,3 +362,55 @@ class TestDedupAdapterAndMetrics:
         )
         assert "_(none)_" in empty_md
         assert empty_md.endswith("\n")
+
+    def test_pilot_label_metrics(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from src.core.review_reuse.labels import (
+            REASON_FALSE_DUPLICATE,
+            REASON_MISSED_REUSE,
+        )
+
+        monkeypatch.setenv(ENV_DECISIONS_ENABLED, "true")
+        svc = _svc()
+        t1 = svc.create_task(
+            tenant_id="t-lab",
+            file_name="a.dxf",
+            file_bytes=b"1",
+            seed_candidates=_seed_similar(),
+        )
+        svc.submit_decision(
+            tenant_id="t-lab",
+            task_id=t1.task_id,
+            state=HumanDecisionState.revise,
+            reviewer_id="rev-a",
+            reason_codes=[REASON_FALSE_DUPLICATE, "usefulness:4"],
+            candidate_id="arch-001",
+        )
+        t2 = svc.create_task(
+            tenant_id="t-lab",
+            file_name="b.dxf",
+            file_bytes=b"2",
+            seed_candidates=_seed_similar(),
+            idempotency_key="lab-2",
+        )
+        svc.submit_decision(
+            tenant_id="t-lab",
+            task_id=t2.task_id,
+            state=HumanDecisionState.new,
+            reviewer_id="rev-b",
+            reason_codes=[REASON_MISSED_REUSE, "usefulness:2"],
+            candidate_id="arch-001",
+        )
+        m = svc.metrics("t-lab")
+        assert m["metric_family"] == "review_workflow"
+        assert m["false_duplicate_count"] == 1
+        assert m["missed_reuse_count"] == 1
+        assert sorted(m["usefulness_scores"]) == [2, 4]
+        assert m["mean_usefulness"] == 3.0
+        assert m["median_review_time_seconds"] is not None
+        assert m["median_review_time_seconds"] >= 0.0
+        assert m["reviewer_coverage"] == 2
+        from src.core.review_reuse.metrics import format_metrics_markdown
+
+        md = format_metrics_markdown(m)
+        assert "false_duplicate_count: 1" in md
+        assert "missed_reuse_count: 1" in md

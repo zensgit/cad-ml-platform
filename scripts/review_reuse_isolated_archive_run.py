@@ -7,6 +7,7 @@ Does NOT enable human decisions by default. Uses synthetic file bytes unless
 Examples::
 
   python scripts/review_reuse_isolated_archive_run.py --out /tmp/rr_export
+  python scripts/review_reuse_isolated_archive_run.py --file sample.dxf
   python scripts/review_reuse_isolated_archive_run.py --file sample.dxf --seed-similar
 
 Env (optional)::
@@ -19,10 +20,48 @@ Env (optional)::
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
 from pathlib import Path
+
+_DEFAULT_IDEM = "isolated-archive-demo"
+_LIVE_TRUE = frozenset({"1", "true", "yes", "on"})
+
+
+def _generated_recall_mode(*, seed_similar: bool) -> str:
+    """Seed vs live-recall must not share a generated idempotency key."""
+    seed = "seed" if seed_similar else "unseeded"
+    live = os.environ.get("REVIEW_REUSE_LIVE_DEDUP", "").strip().lower() in _LIVE_TRUE
+    recall = "live" if live else "offline"
+    return f"{seed}-{recall}"
+
+
+def resolve_idempotency_key(
+    explicit: str | None,
+    file_bytes: bytes,
+    *,
+    from_file: bool,
+    seed_similar: bool = False,
+    file_name: str = "",
+) -> str:
+    """FILE runs must not reuse the synthetic demo key.
+
+    Generated keys include basename and seed/recall mode so a later
+    ``--seed-similar``, ``REVIEW_REUSE_LIVE_DEDUP`` change, or same-bytes
+    different filename cannot silently replay or conflict.
+    """
+    if explicit:
+        return explicit
+    mode = _generated_recall_mode(seed_similar=seed_similar)
+    if from_file:
+        digest = hashlib.sha256(file_bytes).hexdigest()[:24]
+        name_digest = hashlib.sha256(Path(file_name).name.encode("utf-8")).hexdigest()[
+            :16
+        ]
+        return f"isolated-file-{mode}-{name_digest}-{digest}"
+    return f"{_DEFAULT_IDEM}-{mode}"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -46,8 +85,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--idempotency-key",
-        default="isolated-archive-demo",
-        help="Create-task idempotency key",
+        default=None,
+        help="Create-task idempotency key (FILE default: name+content+mode)",
     )
     args = parser.parse_args(argv)
 
@@ -56,13 +95,16 @@ def main(argv: list[str] | None = None) -> int:
     # Never flip decision on from this script.
     os.environ.pop("REVIEW_REUSE_DECISIONS_ENABLED", None)
 
-    from src.core.review_reuse.service import ReviewReuseService
+    from src.core.review_reuse.service import ReviewReuseError, ReviewReuseService
     from src.core.review_reuse.store import create_review_reuse_store
 
     store = create_review_reuse_store()
     svc = ReviewReuseService(store)
 
     if args.file is not None:
+        if not args.file.is_file():
+            print(f"error: --file not found: {args.file}", file=sys.stderr)
+            return 2
         file_bytes = args.file.read_bytes()
         file_name = args.file.name
     else:
@@ -85,15 +127,34 @@ def main(argv: list[str] | None = None) -> int:
             }
         ]
 
-    task = svc.create_task(
-        tenant_id=args.tenant,
-        file_name=file_name,
-        file_bytes=file_bytes,
-        idempotency_key=args.idempotency_key,
-        seed_candidates=seed,
-    )
-    pack, md = svc.get_evidence_pack(args.tenant, task.task_id, as_markdown=True)
-    audit = svc.export_audit_bundle(args.tenant, task.task_id)
+    try:
+        task = svc.create_task(
+            tenant_id=args.tenant,
+            file_name=file_name,
+            file_bytes=file_bytes,
+            idempotency_key=resolve_idempotency_key(
+                args.idempotency_key,
+                file_bytes,
+                from_file=args.file is not None,
+                seed_similar=args.seed_similar,
+                file_name=file_name,
+            ),
+            seed_candidates=seed,
+        )
+    except ReviewReuseError as exc:
+        print(f"error: {exc.code}: {exc.message}", file=sys.stderr)
+        print("decisions=disabled (script never enables REVIEW_REUSE_DECISIONS_ENABLED)")
+        return 2
+    try:
+        pack, md = svc.get_evidence_pack(args.tenant, task.task_id, as_markdown=True)
+        audit = svc.export_audit_bundle(args.tenant, task.task_id)
+    except ReviewReuseError as exc:
+        # Overlap or a fresh crash returns the running snapshot with no pack.
+        print(f"error: {exc.code}: {exc.message}", file=sys.stderr)
+        print(f"task_id={task.task_id}")
+        print(f"status={task.status.value}")
+        print("decisions=disabled (script never enables REVIEW_REUSE_DECISIONS_ENABLED)")
+        return 2
 
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / "task.json").write_text(

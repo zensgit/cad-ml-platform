@@ -8,8 +8,12 @@ Does not call training paths or eval_integrity_gate.
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import mimetypes
-from typing import Any, Dict, List, Optional
+import threading
+from typing import Any, Dict, List
+
+from .dedup_adapter import optional_unit_score
 
 
 def vision_response_to_hits(response: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -32,40 +36,47 @@ def vision_response_to_hits(response: Dict[str, Any]) -> List[Dict[str, Any]]:
             visual = match.get("visual_similarity")
             if visual is None:
                 visual = match.get("similarity")
-            geom = match.get("precision_score")
-            if geom is None:
-                geom = match.get("similarity")
+            visual = optional_unit_score(visual)
+            # Remote precision_score is a fused semantic/geometric score, not
+            # geometry-only L4. Do not copy it into geometric; local scoring
+            # uses forwarded geom_json instead.
             methods = ["dedup2d-vision"]
-            levels = match.get("levels") or {}
-            if isinstance(levels, dict) and levels.get("l4"):
-                methods.append("precision-l4")
-            hits.append(
-                {
-                    "candidate_id": str(
-                        match.get("file_hash")
-                        or match.get("drawing_id")
-                        or match.get("file_name")
-                        or match.get("id")
-                        or f"live-{len(hits)}"
-                    ),
-                    "candidate_source": "archive",
-                    "state": verdict,
-                    "scores": {
-                        "geometric": geom,
-                        "semantic": visual,
-                        "visual": visual,
-                    },
-                    "match_level": match.get("match_level", 0),
+            hit: Dict[str, Any] = {
+                "candidate_id": str(
+                    match.get("file_hash")
+                    or match.get("drawing_id")
+                    or match.get("file_name")
+                    or match.get("id")
+                    or f"live-{len(hits)}"
+                ),
+                "candidate_source": "archive",
+                "state": verdict,
+                "scores": {
+                    "geometric": None,
+                    "semantic": visual,
+                    "visual": visual,
+                },
+                "match_level": match.get("match_level", 0),
+                "methods": methods,
+                "verification": {
+                    "verdict": verdict,
+                    "level": match.get("match_level", 0),
                     "methods": methods,
-                    "verification": {
-                        "verdict": verdict,
-                        "level": match.get("match_level", 0),
-                        "methods": methods,
-                    },
-                    "decision_source": match.get("decision_source") or "dedup2d-vision",
-                    "rejection_reasons": list(match.get("rejection_reasons") or []),
-                }
-            )
+                },
+                "decision_source": match.get("decision_source") or "dedup2d-vision",
+                "rejection_reasons": list(match.get("rejection_reasons") or []),
+            }
+            # Inline geometry must survive mapping so apply_precision can
+            # run local L4 when the match has no unit precision_score and
+            # the candidate id is not a 64-hex geom-store key.
+            geom_json = match.get("geom_json")
+            if not isinstance(geom_json, dict):
+                nested = match.get("provenance")
+                if isinstance(nested, dict):
+                    geom_json = nested.get("geom_json")
+            if isinstance(geom_json, dict):
+                hit["geom_json"] = geom_json
+            hits.append(hit)
     return hits
 
 
@@ -96,28 +107,106 @@ def default_live_recall(
             max_results=20,
             compute_diff=False,
             enable_ml=False,
-            enable_geometric=False,
+            enable_geometric=True,
         )
 
-    try:
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # Nested loop (e.g. already in async context): use a worker thread.
-                import concurrent.futures
-
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                    response = pool.submit(lambda: asyncio.run(_search())).result(
-                        timeout=120
-                    )
-            else:
-                response = loop.run_until_complete(_search())
-        except RuntimeError:
-            response = asyncio.run(_search())
-    except Exception:
-        raise
-
+    response = _run_coro(_search(), timeout=120)
     return vision_response_to_hits(response if isinstance(response, dict) else {})
+
+
+def _run_coro(coro, *, timeout: float) -> Any:
+    """Run a coroutine from sync code, including when a loop is already running."""
+    bounded = asyncio.wait_for(coro, timeout=timeout)
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        # create_task runs in an AnyIO worker: no running loop, so asyncio.run
+        # must still honor the caller timeout (live recall bound is 120s).
+        try:
+            return asyncio.run(bounded)
+        except asyncio.TimeoutError as exc:
+            # 3.10: asyncio.TimeoutError is not a TimeoutError subclass.
+            raise TimeoutError(str(exc) or "live recall timed out") from exc
+
+    loop = asyncio.new_event_loop()
+    started = threading.Event()
+
+    def _runner() -> None:
+        asyncio.set_event_loop(loop)
+        started.set()
+        loop.run_forever()
+
+    worker = threading.Thread(
+        target=_runner, name="review-reuse-live-recall", daemon=True
+    )
+    worker.start()
+    try:
+        if not started.wait(timeout=1.0):
+            raise TimeoutError("live recall worker failed to start")
+        future = asyncio.run_coroutine_threadsafe(bounded, loop)
+        try:
+            return future.result(timeout=timeout)
+        except (concurrent.futures.TimeoutError, asyncio.TimeoutError) as exc:
+            future.cancel()
+
+            def _cancel_all() -> None:
+                for task in asyncio.all_tasks(loop):
+                    task.cancel()
+
+            loop.call_soon_threadsafe(_cancel_all)
+            raise TimeoutError(str(exc) or "live recall timed out") from exc
+    finally:
+        _shutdown_nested_loop(loop, worker)
+        for pending in (bounded, coro):
+            close = getattr(pending, "close", None)
+            if close is None:
+                continue
+            try:
+                close()
+            except (RuntimeError, ValueError):
+                pass
+
+
+def _shutdown_nested_loop(
+    loop: asyncio.AbstractEventLoop, worker: threading.Thread
+) -> None:
+    """Drain canceled tasks so timeout cleanup can run before close."""
+
+    async def _drain() -> None:
+        # Do not loop.stop() here: that prevents the thread-safe drain
+        # future from completing and adds a 1s wait on every nested call.
+        current = asyncio.current_task()
+        pending = [task for task in asyncio.all_tasks() if task is not current]
+        for task in pending:
+            task.cancel()
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
+
+    def _stop_loop() -> None:
+        try:
+            loop.call_soon_threadsafe(loop.stop)
+        except RuntimeError:
+            try:
+                loop.stop()
+            except RuntimeError:
+                pass
+
+    try:
+        if loop.is_closed():
+            worker.join(timeout=1.0)
+            return
+        drain = asyncio.run_coroutine_threadsafe(_drain(), loop)
+    except RuntimeError:
+        _stop_loop()
+    else:
+        try:
+            drain.result(timeout=1.0)
+        except Exception:
+            pass
+        _stop_loop()
+    worker.join(timeout=1.0)
+    if not worker.is_alive() and not loop.is_closed():
+        loop.close()
 
 
 def ensure_default_live_hook() -> None:
