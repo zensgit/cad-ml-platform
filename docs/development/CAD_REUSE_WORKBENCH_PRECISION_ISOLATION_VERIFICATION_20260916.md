@@ -536,7 +536,7 @@ make test-review-reuse
 | Product wave112 | `00c6cd1d` |
 | tests (3.10) / tests (3.11) on `c640ed9e` | **pass** |
 | Sol window4-w113 vs `origin/main` on `c640ed9e` | no verdict; killed 2026-09-24 04:11 UTC |
-| Next Sol on `c640ed9e` | not before 2026-09-24 06:11 UTC |
+| Next Sol on product `00c6cd1d` | not before 2026-09-24 06:11 UTC |
 
 ### CI (PR #586)
 

@@ -545,15 +545,16 @@ traceback'd on `not_ready`. Fail closed. Decisions stay off. Never merge.
 ## Window 4 wave113 — 2026-09-24 04:11 UTC
 
 Sol 5.6 vs `origin/main` on `c640ed9e` had **no verdict** after 15
-minutes (killed). No product commit. Do not launch another Sol on
-this HEAD until **2026-09-24 06:11 UTC**. Decisions stay off. Never merge.
+minutes (killed 04:11 UTC). No product commit. Do not launch another
+Sol on product `00c6cd1d` or a docs-only tip of it until
+**2026-09-24 06:11 UTC**. Decisions stay off. Never merge.
 
 | Item | State |
 |---|---|
-| HEAD | `c640ed9e` (product `00c6cd1d`) |
-| `tests (3.10)` / `tests (3.11)` | **pass** |
+| HEAD at kill | `c640ed9e` (product `00c6cd1d`) |
+| `tests (3.10)` / `tests (3.11)` on `c640ed9e` | **pass** |
 | Sol wave113 | no verdict; killed 04:11 UTC |
-| Next Sol on `c640ed9e` | not before 06:11 UTC |
+| Next Sol on product `00c6cd1d` | not before 06:11 UTC |
 | Merge | still not done (owner must merge) |
 
 ## Window 4 wave111 — 2026-09-23 ~17:49 UTC
