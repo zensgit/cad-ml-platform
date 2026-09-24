@@ -1238,13 +1238,75 @@ def test_pipeline_failed_persists_failed_task(monkeypatch: pytest.MonkeyPatch) -
     task = listed[0]
     assert task.status == TaskStatus.failed
     assert task.error == "review-reuse pipeline failed"
+    assert task.candidates == []
+    assert task.evidence_pack is None
+    assert svc.metrics("t-fail")["candidate_total"] == 0
     assert secret not in (task.error or "")
     dumped = task.model_dump_json()
     assert secret not in dumped
+    assert "precision-l4" not in dumped
     assert "/secret/path" not in dumped
     assert any(e.event_type == TaskEventType.failed for e in task.events)
     for event in task.events:
         assert secret not in str(event.detail)
+
+
+def test_stale_resume_pipeline_failure_drops_recall_claims(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A resumed running snapshot must not keep upstream L4 after a failure."""
+    import hashlib
+    import time
+
+    from src.core.review_reuse.models import ReviewReuseTask, TaskStatus
+    from src.core.review_reuse.service import STALE_RUNNING_SECONDS
+
+    def _boom(*_a: object, **_k: object) -> None:
+        raise RuntimeError("precision exploded")
+
+    monkeypatch.setattr("src.core.review_reuse.service.apply_precision", _boom)
+    svc = _svc()
+    now = time.time()
+    payload = b"x"
+    prior = ReviewReuseTask(
+        task_id="stuck-fail",
+        tenant_id="t-stale-fail",
+        status=TaskStatus.running,
+        created_at=now - STALE_RUNNING_SECONDS - 10.0,
+        updated_at=now - STALE_RUNNING_SECONDS - 10.0,
+        source_file_name="part.dxf",
+        source_content_sha256=hashlib.sha256(payload).hexdigest(),
+        idempotency_key="idem-stale-fail",
+        trace_id="tr-stale-fail",
+        candidates=[
+            CandidateDecision(
+                candidate_id="c1",
+                state=CandidateState.similar,
+                scores={"geometric": 1.0},
+                verification={
+                    "verdict": "similar",
+                    "level": 4,
+                    "methods": ["precision-l4"],
+                },
+            )
+        ],
+        evidence_pack={"candidates": [{"candidate_id": "c1"}]},
+    )
+    svc.store.put(prior)
+    with pytest.raises(ReviewReuseError) as ei:
+        svc.create_task(
+            tenant_id="t-stale-fail",
+            file_name="part.dxf",
+            file_bytes=payload,
+            idempotency_key="idem-stale-fail",
+        )
+    assert ei.value.code == "pipeline_failed"
+    stored = svc.get_task("t-stale-fail", "stuck-fail")
+    assert stored.status == TaskStatus.failed
+    assert stored.error == "review-reuse pipeline failed"
+    assert stored.candidates == []
+    assert stored.evidence_pack is None
+    assert svc.metrics("t-stale-fail")["candidate_total"] == 0
 
 
 def test_pipeline_failed_after_mid_flight_decision_keeps_error(
@@ -5557,6 +5619,98 @@ def test_nonzero_thickness_is_not_certified_as_planar_l4(tmp_path: Path) -> None
         ],
     }
     _assert_not_planar_l4(dxf_bytes, planar)
+
+
+def _apply_json_pair(query: dict, candidate: dict) -> List[CandidateDecision]:
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "arch-geom",
+                "state": "similar",
+                "geom_json": candidate,
+                "methods": ["seed-adapter"],
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    return apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+
+
+def _assert_json_not_l4(query: dict, candidate: dict) -> None:
+    out = _apply_json_pair(query, candidate)
+    assert "precision-l4" not in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") != 1.0
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
+def test_json_nonplanar_metadata_is_not_certified_as_l4() -> None:
+    """JSON must refuse the same thickness/extrusion/elevation DXF marks NONPLANAR."""
+    planar = _line_geom()
+    thick = json.loads(json.dumps(planar))
+    thick["entities"][0]["thickness"] = 5
+    _assert_json_not_l4(thick, planar)
+    _assert_json_not_l4(planar, thick)
+    _assert_json_not_l4(thick, thick)
+
+    zero = json.loads(json.dumps(planar))
+    zero["entities"][0]["thickness"] = 0
+    zero["entities"][0]["extrusion"] = [0, 0, 1]
+    out = _apply_json_pair(zero, zero)
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
+    assert out[0].scores.get("geometric") == 1.0
+
+    extruded = json.loads(json.dumps(planar))
+    extruded["entities"][0]["extrusion"] = [0, 0, -1]
+    _assert_json_not_l4(extruded, planar)
+
+    elevated = {
+        "file_info": {"insunits": 4},
+        "entities": [
+            {
+                "type": "LWPOLYLINE",
+                "points": [[0.0, 0.0], [10.0, 0.0]],
+                "closed": False,
+                "elevation": 5,
+            }
+        ],
+    }
+    flat_poly = {
+        "file_info": {"insunits": 4},
+        "entities": [
+            {
+                "type": "LWPOLYLINE",
+                "points": [[0.0, 0.0], [10.0, 0.0]],
+                "closed": False,
+            }
+        ],
+    }
+    _assert_json_not_l4(elevated, flat_poly)
+
+    fitted = {
+        "file_info": {"insunits": 4},
+        "entities": [
+            {
+                "type": "POLYLINE",
+                "points": [[0.0, 0.0], [5.0, 5.0], [10.0, 0.0]],
+                "closed": False,
+                "flags": 2,
+            }
+        ],
+    }
+    _assert_json_not_l4(fitted, flat_poly)
+
+    closed_only = json.loads(json.dumps(flat_poly))
+    closed_only["entities"][0]["flags"] = 1
+    closed_only["entities"][0]["closed"] = True
+    flat_closed = json.loads(json.dumps(flat_poly))
+    flat_closed["entities"][0]["closed"] = True
+    out = _apply_json_pair(closed_only, flat_closed)
+    assert "precision-l4" in (out[0].verification.get("methods") or [])
 
 
 def test_fitted_polyline_is_not_flattened_to_l4(tmp_path: Path) -> None:

@@ -22,7 +22,7 @@ from .models import (
     TaskEventType,
     TaskStatus,
 )
-from .precision import apply_precision, strip_transient_candidate_geom
+from .precision import apply_precision
 from .store import (
     CorruptIdempotencyIndexError,
     OccupiedTenantDirError,
@@ -197,18 +197,7 @@ class ReviewReuseService:
             raise
         except Exception as exc:
             logger.warning("review_reuse_pipeline_failed", exc_info=True)
-            task.status = TaskStatus.failed
-            # Persist a public message only; GET/audit must not leak str(exc)
-            # or live unscoped candidate geometry.
-            strip_transient_candidate_geom(task.candidates)
-            task.error = PIPELINE_FAILED_PUBLIC
-            task = self._emit(
-                task, TaskEventType.failed, {"error": PIPELINE_FAILED_PUBLIC}
-            )
-            try:
-                self._commit_pipeline_result(task)
-            except Exception:
-                logger.warning("review_reuse_failed_task_persist_failed", exc_info=True)
+            self._persist_pipeline_failure(task)
             raise ReviewReuseError(
                 "pipeline_failed",
                 PIPELINE_FAILED_PUBLIC,
@@ -264,16 +253,7 @@ class ReviewReuseService:
             raise
         except Exception as exc:
             logger.warning("review_reuse_pipeline_failed", exc_info=True)
-            existing.status = TaskStatus.failed
-            strip_transient_candidate_geom(existing.candidates)
-            existing.error = PIPELINE_FAILED_PUBLIC
-            existing = self._emit(
-                existing, TaskEventType.failed, {"error": PIPELINE_FAILED_PUBLIC}
-            )
-            try:
-                self._commit_pipeline_result(existing)
-            except Exception:
-                logger.warning("review_reuse_failed_task_persist_failed", exc_info=True)
+            self._persist_pipeline_failure(existing)
             raise ReviewReuseError(
                 "pipeline_failed",
                 PIPELINE_FAILED_PUBLIC,
@@ -374,6 +354,25 @@ class ReviewReuseService:
             if snapshot.pipeline_claim_id != claim_id:
                 return snapshot
         return None
+
+    def _persist_pipeline_failure(self, task: ReviewReuseTask) -> None:
+        """Store the failure without recall claims or a stale EvidencePack.
+
+        Recall can attach upstream ``precision-l4`` rows before
+        ``apply_precision`` raises. Stripping inline geom is not enough:
+        GET, list, and metrics would still publish those claims.
+        """
+        task.status = TaskStatus.failed
+        task.candidates = []
+        task.evidence_pack = None
+        task.error = PIPELINE_FAILED_PUBLIC
+        task = self._emit(
+            task, TaskEventType.failed, {"error": PIPELINE_FAILED_PUBLIC}
+        )
+        try:
+            self._commit_pipeline_result(task)
+        except Exception:
+            logger.warning("review_reuse_failed_task_persist_failed", exc_info=True)
 
     def _run_pipeline(
         self,

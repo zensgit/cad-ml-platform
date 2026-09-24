@@ -274,12 +274,77 @@ def _ccw_sweep_deg(start: float, end: float) -> Optional[float]:
     return sweep
 
 
+# Classic POLYLINE group-70 bits that DXF extract refuses to flatten:
+# 2=curve-fit, 4=spline-fit, 8=3D, 16=polygon mesh, 32=closed mesh, 64=polyface.
+_NON_2D_POLYLINE_FLAGS = 2 | 4 | 8 | 16 | 32 | 64
+
+
+def _number_leaves_xy_plane(raw: Any) -> bool:
+    """True when Z/thickness/elevation is non-finite or not ~0 at 3 decimals.
+
+    Same quant as DXF extract. ``None`` means omitted and stays planar.
+    Bools and non-numbers fail closed (``bool`` is an ``int`` subclass).
+    """
+    if raw is None:
+        return False
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        return True
+    number = float(raw)
+    if not math.isfinite(number):
+        return True
+    return round(number, 3) != 0.0
+
+
+def _extrusion_leaves_xy_plane(raw: Any) -> bool:
+    """Default extrusion (0, 0, 1) is the XY plane. Anything else is not."""
+    if not isinstance(raw, (list, tuple)) or len(raw) != 3:
+        return True
+    rounded: List[float] = []
+    for value in raw:
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return True
+        number = float(value)
+        if not math.isfinite(number):
+            return True
+        rounded.append(round(number, 3))
+    return tuple(rounded) != (0.0, 0.0, 1.0)
+
+
+def _polyline_flags_leave_2d(ent: Dict[str, Any]) -> bool:
+    """Curve-fit, 3D, mesh, and polyface flags are not a flat primitive."""
+    et = str(ent.get("type") or "").upper()
+    if et not in ("LWPOLYLINE", "POLYLINE"):
+        return False
+    if "flags" not in ent:
+        return False
+    raw = ent.get("flags")
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        return True
+    number = float(raw)
+    if not math.isfinite(number) or float(int(number)) != number:
+        return True
+    return bool(int(number) & _NON_2D_POLYLINE_FLAGS)
+
+
+def _json_primitive_non_planar(ent: Dict[str, Any]) -> bool:
+    """Do not flatten thickness, extrusion, or elevation that DXF marks NONPLANAR."""
+    if "thickness" in ent and _number_leaves_xy_plane(ent.get("thickness")):
+        return True
+    if "extrusion" in ent and _extrusion_leaves_xy_plane(ent.get("extrusion")):
+        return True
+    if "elevation" in ent and _number_leaves_xy_plane(ent.get("elevation")):
+        return True
+    return _polyline_flags_leave_2d(ent)
+
+
 def _is_geom_entity(ent: Any) -> bool:
     """True for a supported, nondegenerate geometric primitive."""
     if not isinstance(ent, dict):
         return False
     et = str(ent.get("type") or "").upper()
     if et not in _GEOM_ENTITY_TYPES:
+        return False
+    if _json_primitive_non_planar(ent):
         return False
     if et == "LINE":
         return _distinct_xy(ent.get("start"), ent.get("end"))
