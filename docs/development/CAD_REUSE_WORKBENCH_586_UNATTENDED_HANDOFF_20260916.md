@@ -592,6 +592,33 @@ UTC**. Decisions stay off. Never merge.
 | Next Sol on product `43ab99c4` | not before 09:12 UTC |
 | Merge | still not done (owner must merge) |
 
+## Window 5 start — 2026-09-24 15:56 UTC (72h)
+
+Owner away ~72h. Deadline **2026-09-27 16:00 UTC**. Plan in development
+MD §6d. Verification MD is the evidence log.
+
+**Never merge. Never enable `REVIEW_REUSE_DECISIONS_ENABLED`.**
+
+| Item | State |
+|---|---|
+| Branch | `eng/workbench-precision-isolation-20260915` |
+| Start HEAD | `7cb7f308` (Window-4 closeout; product `43ab99c4`) |
+| Last green `tests (3.10)` / `tests (3.11)` | **pass** on `724710d4` |
+| Local `make test-review-reuse` | **320 passed** (recorded on `43ab99c4`) |
+| `origin/main` | `22e3c77c` |
+| Last completed Sol | Window-4 wave114 |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+| Decisions | still default-off |
+
+**Models:** grok-4.6 isolation/precision/CI; grok-4.5 docs; Codex
+`gpt-5.6-sol` vs `origin/main`.
+
+**Wave rule:** if UTC ≥ 2026-09-27 16:00 stop + delete scheduler + kill
+PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only
+(15-minute kill, then 2 hours before another Sol on the same product);
+else idle (no docs-spam). Restart the 10h PR monitor if it died.
+
 ## Deadline reached — 2026-09-24 15:15 UTC
 
 Window-4 unattended loop stopped (`now` ≥ **2026-09-24 15:00 UTC**).

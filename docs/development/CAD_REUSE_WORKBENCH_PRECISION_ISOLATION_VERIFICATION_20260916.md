@@ -583,6 +583,17 @@ Re-run `make test-review-reuse` after each follow-up commit and record the count
 | Evaluation Report | fail (Track E; out of scope) |
 | mergeable_state | do not merge (review required) |
 
+### Window 5 (72h, 2026-09-24 15:56 UTC → 2026-09-27 16:00 UTC)
+
+| Check | Result |
+|---|---|
+| Window 5 start HEAD | `7cb7f308` (Window-4 closeout; product `43ab99c4`) |
+| Last green tests (3.10) / tests (3.11) | **pass** on `724710d4` |
+| `origin/main` | `22e3c77c` |
+| Last completed Sol | Window-4 wave114 (no new verdict at start) |
+| Evaluation Report | fail (Track E; out of scope) |
+| mergeable_state | do not merge (review required) |
+
 ## 3. Honesty probes (must stay true)
 
 ```text

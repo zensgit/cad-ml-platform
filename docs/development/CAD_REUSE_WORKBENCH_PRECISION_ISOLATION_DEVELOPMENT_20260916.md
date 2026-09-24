@@ -373,6 +373,70 @@ auto-converted; Evaluation Report = Track E / ignore; **never merge**.
 Report failures. Ignore GitHub EOF/transport. Human review comments:
 record in handoff, do not guess owner intent; do not resolve threads.
 
+## 6d. Window 5 plan (72h, auto-implement)
+
+**Owner away:** ~72 hours from 2026-09-24 15:56 UTC.
+**Deadline:** **2026-09-27 16:00 UTC**. After that: stop coding, append
+handoff, delete the Window-5 scheduler, kill the PR monitor.
+
+**Goal:** keep PR #586 honest and CI-green. No new L3 track. No decisions
+on. Continue the Sol honesty loop on ReviewReuse precision + tenant
+isolation only.
+
+**Start HEAD:** `7cb7f308` (Window-4 closeout docs). Product `43ab99c4`.
+Last green CI: `tests (3.10)` / `tests (3.11)` **pass** on `724710d4`.
+Evaluation Report fail = Track E / ignore. `origin/main` is `22e3c77c`.
+
+**Landed:** none yet. Last completed Sol is Window-4 wave114 (non-finite
+L4 tolerances; precision failure must not publish recall candidates).
+Later Sols timed out with no verdict. Do not treat a killed Sol as clean.
+
+### Model routing (by difficulty)
+
+| Difficulty | Model | Work |
+|---|---|---|
+| D1 mechanical | grok-4.5 | design/verification/handoff MD |
+| D2 contract | grok-4.6 | precision/store/evidence/live-recall honesty; CI 3.10 |
+| D3 “closed/safe” | grok-4.6 implement + Codex Sol 5.6 | do not self-approve; Sol vs `origin/main` |
+| Isolation / tenancy | grok-4.6 | hashed dirs, mixed-legacy refuse, flock |
+
+Sol command (read-only):
+
+```bash
+codex exec --sandbox read-only review -m gpt-5.6-sol --base origin/main
+```
+
+If Sol has no verdict after 15 minutes, kill it. Do not launch another
+Sol on the same product SHA for 2 hours. Do not push an idle docs commit
+just to record a no-verdict kill. If Codex is usage-limited, grok-4.6
+may implement from the last completed Sol P1/P2 only.
+
+### Wave rule (every 20m)
+
+1. If UTC ≥ **2026-09-27 16:00**: stop coding; append handoff; delete this
+   scheduler; kill the PR monitor. Do not start a new product commit.
+2. If the PR monitor died (10h cap): restart
+   `python3 ~/.grok/bundled/skills/long-running-background-tasks/watch_pr.py https://github.com/zensgit/cad-ml-platform/pull/586`
+   and kill the old one.
+3. If `tests (3.10)` red: fix (grok-4.6). Not Evaluation Report.
+4. Else if the 2-hour Sol cooldown on the current product SHA has elapsed:
+   Sol 5.6 vs `origin/main`; implement remaining **P1/P2 only**
+   (grok-4.6). No Track C, no decisions enable, no merge.
+5. Else idle: do **not** docs-spam.
+6. After a product change: `flake8 --max-line-length=100` on changed
+   files; `make test-review-reuse`; conventional commit; push; never merge.
+7. After a product wave, record the SHA + tests in verification MD and a
+   short handoff stanza. Design MD §6d “Landed” only when the gate changed.
+
+**Holds (unchanged):** decisions default-off; R2 no training JSONL; no
+Track C claim; no eval_integrity_gate/cost_cap/PLM; L3 WIP=1; DWG not
+auto-converted; Evaluation Report = Track E / ignore; **never merge**.
+
+**PR monitor:** 10-hour max; scheduler restarts it. Ignore
+`kind: mergeable` (owner must merge). Ignore Evaluation Report. Ignore
+GitHub EOF/transport. Human review comments: record in handoff, do not
+guess owner intent; do not resolve threads.
+
 ## 7. Risk
 
 | Risk | Mitigation |
