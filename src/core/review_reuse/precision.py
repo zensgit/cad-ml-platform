@@ -909,6 +909,42 @@ def _units_conflict(left: Dict[str, Any], right: Dict[str, Any]) -> bool:
     return left_u != right_u
 
 
+# Denominators in the L4 entity matcher. inf/NaN/<=0 makes distant geometry
+# cost 0 and would persist as geometric 1.0 / precision-l4.
+_L4_MATCH_TOLERANCES = (
+    "tol_line_pos",
+    "tol_circle_center",
+    "tol_circle_radius",
+    "tol_arc_angle_deg",
+    "tol_polyline_len",
+    "tol_spline_ctrl",
+    "tol_insert_pos",
+    "tol_insert_scale",
+    "tol_insert_rot_deg",
+    "tol_dimension_value",
+    "tol_hatch_loops",
+    "tol_ellipse_center",
+    "tol_ellipse_major_len",
+    "tol_ellipse_major_angle_deg",
+    "tol_ellipse_ratio",
+    "tol_ellipse_param",
+    "tol_leader_pos",
+    "tol_leader_len",
+)
+
+
+def _l4_match_tolerances_ok(cfg: Any) -> bool:
+    """False when a matcher tolerance is non-finite or not strictly positive."""
+    for name in _L4_MATCH_TOLERANCES:
+        try:
+            number = float(getattr(cfg, name))
+        except (TypeError, ValueError, AttributeError):
+            return False
+        if not math.isfinite(number) or number <= 0.0:
+            return False
+    return True
+
+
 def _try_l4_score(
     query_geom: Dict[str, Any],
     right: Dict[str, Any],
@@ -941,6 +977,9 @@ def _try_l4_score(
             layer_mismatch_penalty=0.0,
             max_match_entities=_L4_MAX_MATCH_ENTITIES,
         )
+        # Reject before score_pair: non-finite tolerances divide to zero cost.
+        if not _l4_match_tolerances_ok(cfg):
+            return None
         # Cap before copy/explode: a million-vertex polyline must not
         # materialize LINEs and then get rejected.
         if (

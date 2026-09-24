@@ -719,6 +719,65 @@ def test_l4_pins_entity_matching_when_disabled(
     assert out[0].state == CandidateState.different
 
 
+@pytest.mark.parametrize("bad_tol", [float("inf"), float("nan"), 0.0, -1.0])
+def test_nonfinite_line_tolerance_does_not_certify_l4(
+    monkeypatch: pytest.MonkeyPatch, bad_tol: float
+) -> None:
+    """Non-finite or non-positive line tolerance must not certify distant lines."""
+    from dataclasses import replace
+
+    import src.core.dedupcad_precision as dedup_mod
+    from src.core.dedupcad_precision.vendor.config import Settings
+    from src.core.dedupcad_precision.verifier import PrecisionVerifier
+
+    class _BadLineTol(PrecisionVerifier):
+        def __init__(self, settings=None, *, normalize: bool = True) -> None:
+            if settings is None:
+                settings = replace(Settings(), tol_line_pos=bad_tol)
+            super().__init__(settings, normalize=normalize)
+
+    monkeypatch.setattr(dedup_mod, "PrecisionVerifier", _BadLineTol)
+    query = {
+        "file_info": {"insunits": 4},
+        "entities": [
+            {"type": "LINE", "start": [0.0, 0.0], "end": [1.0, 0.0]},
+        ],
+    }
+    far = {
+        "file_info": {"insunits": 4},
+        "entities": [
+            {
+                "type": "LINE",
+                "start": [1_000_000.0, 1_000_000.0],
+                "end": [2_000_000.0, 2_000_000.0],
+            },
+        ],
+    }
+    cands = map_raw_hits_to_candidates(
+        [
+            {
+                "candidate_id": "far-line",
+                "state": "similar",
+                "geom_json": far,
+                "methods": ["seed-adapter"],
+                "scores": {"geometric": 0.9},
+            }
+        ],
+        content_sha="ab",
+        file_name="query.json",
+    )
+    out = apply_precision(
+        cands,
+        file_name="query.json",
+        file_bytes=json.dumps(query).encode("utf-8"),
+    )
+    methods = list((out[0].verification or {}).get("methods") or [])
+    assert "precision-l4" not in methods
+    geo = out[0].scores.get("geometric")
+    assert geo is None or float(geo) < LOW_PRECISION_THRESHOLD
+    assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
 def test_hash_candidate_skips_geom_store_without_query_geometry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1230,6 +1289,10 @@ def test_pipeline_failed_after_mid_flight_decision_keeps_error(
     stored = svc.list_tasks("t-dec-fail")[0]
     assert stored.status == TaskStatus.decided
     assert stored.error == "review-reuse pipeline failed"
+    assert stored.candidates == []
+    pack = stored.evidence_pack or {}
+    assert pack.get("candidates") == []
+    assert (pack.get("confidence") or {}).get("score") == 0.0
     assert any(e.event_type == TaskEventType.failed for e in stored.events)
     assert any(e.event_type == TaskEventType.decision_submitted for e in stored.events)
 

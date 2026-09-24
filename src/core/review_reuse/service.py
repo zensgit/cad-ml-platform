@@ -484,7 +484,11 @@ class ReviewReuseService:
                 return current
             if current is not None and current.status == TaskStatus.decided:
                 merged = False
-                if task.candidates and not current.candidates:
+                # A precision failure still holds recall-stage candidates,
+                # which may carry an upstream precision-l4 score. Do not
+                # publish them or rebuild the served EvidencePack.
+                publish = not task.error
+                if publish and task.candidates and not current.candidates:
                     current.candidates = task.candidates
                     merged = True
                 if merged:
@@ -492,7 +496,9 @@ class ReviewReuseService:
                     # audit export matches stored candidates + decision.
                     current.evidence_pack = build_evidence_pack(current)
                 elif (
-                    task.evidence_pack is not None and current.evidence_pack is None
+                    publish
+                    and task.evidence_pack is not None
+                    and current.evidence_pack is None
                 ):
                     current.evidence_pack = task.evidence_pack
                     merged = True
