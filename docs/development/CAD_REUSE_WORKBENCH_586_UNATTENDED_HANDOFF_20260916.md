@@ -592,6 +592,34 @@ UTC**. Decisions stay off. Never merge.
 | Next Sol on product `43ab99c4` | not before 09:12 UTC |
 | Merge | still not done (owner must merge) |
 
+## Deadline reached — 2026-09-24 15:15 UTC
+
+Window-4 unattended loop stopped (`now` ≥ **2026-09-24 15:00 UTC**).
+No product coding this fire. Scheduler `01a0c489232c` deleted. PR
+monitor for #586 killed. Never merge; decisions stay default-off.
+
+Last product `43ab99c4`, last green 3.10 on `724710d4`, last completed
+Sol wave114, later Sols timed out with no verdict, never merged,
+decisions off.
+
+| Item | State |
+|---|---|
+| Branch | `eng/workbench-precision-isolation-20260915` |
+| HEAD at stop | `724710d4` (docs tip; product `43ab99c4`) |
+| Last product | `43ab99c4` |
+| Last green `tests (3.10)` | `724710d4` (`tests (3.11)` also pass) |
+| Last completed Sol | wave114 |
+| Later Sols | timed out with no verdict (wave115 killed 07:12 UTC; last no-verdict kill wave117 at 14:13 UTC on product `43ab99c4`; idle docs not pushed) |
+| Local `make test-review-reuse` | **320 passed** (recorded on `43ab99c4`) |
+| Evaluation Report | fail (Track E; out of scope) |
+| Human review | none on #586 |
+| Merge | **not done** |
+| Decisions | still default-off (`REVIEW_REUSE_DECISIONS_ENABLED` not enabled) |
+
+Owner next: human review of #586. Do not enable
+`REVIEW_REUSE_DECISIONS_ENABLED`. Do not merge unless the owner
+explicitly asks.
+
 ## Window 4 wave111 — 2026-09-23 ~17:49 UTC
 
 `tests (3.10)` / `tests (3.11)` **pass** on `ea468dc8` (product
