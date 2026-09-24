@@ -595,7 +595,10 @@ Re-run `make test-review-reuse` after each follow-up commit and record the count
 | Product `46d96be6` | unreadable/empty legacy `a_b` stays in the `a/b` cleanup group; ambiguous `a/b` vs `a\|b` refuses both. Local suite **328 passed** |
 | Sol 2026-09-24 21:00–21:09 UTC | exit 0 on `4cb1991e` / product `46d96be6`. P2: overflow thickness/elevation/extrusion/flags raise `OverflowError`. P2: attached legacy sibling still deleted from its dirname group |
 | Product `a0b5ec15` | overflow non-planar metadata is `missing_geom_json`; recent owner keeps old empty or idempotency-only `a_b`. Local suite **332 passed** |
-| `tests (3.10)` / `tests (3.11)` on `a0b5ec15` | not yet observed (last green remains `724710d4`) |
+| `tests (3.10)` / `tests (3.11)` on `a0b5ec15` | not yet observed at the 21:18 UTC Sol start (last green remains `724710d4`) |
+| Sol 2026-09-24 21:18–21:32 UTC | exit 0 on `2db07ef3` / product `a0b5ec15`. P2: exact-name `a_b` omitted from legacy ownership. P2: invalid inline geom kept pre-scored L4. P2: polyline flag bit 1 ignored |
+| Product `272349bc` | shared legacy dirname refused; invalid inline geom strips L4; flag bit 1 closes polylines. Local suite **335 passed** |
+| `tests (3.10)` / `tests (3.11)` on `272349bc` | not yet observed |
 | Evaluation Report | fail (Track E; out of scope) |
 | mergeable_state | do not merge (review required) |
 

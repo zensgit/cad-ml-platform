@@ -652,6 +652,25 @@ Sol 5.6 vs `origin/main` on `4cb1991e` (product `46d96be6`) exited 0 at
 | Merge | still not done |
 | Decisions | still default-off |
 
+## Window 5 wave — 2026-09-24 21:32 UTC
+
+Sol 5.6 vs `origin/main` on `2db07ef3` (product `a0b5ec15`) exited 0 at
+21:32 UTC. Three P2s. No P1. Decisions stay off. Never merge.
+
+| Item | State |
+|---|---|
+| P2 exact-name legacy | `a_b` plus `a/b` sharing dirname `a_b` is ambiguous; cleanup does not delete the identity-less dir under the alias |
+| P2 invalid inline geom | pre-scored `precision-l4` is stripped when supplied geometry is malformed, unsupported, or non-planar |
+| P2 polyline flag bit 1 | omitted `closed` follows the bit; a disagreeing bool is not geometry |
+| Product | `272349bc` |
+| Local `make test-review-reuse` | **335 passed** |
+| `tests (3.10)` / `tests (3.11)` | not yet observed on `272349bc` (last green remains `724710d4`) |
+| Evaluation Report | fail (Track E; out of scope) |
+| Human review | none on #586 |
+| Next Sol | on `272349bc` only. Do not relaunch on `a0b5ec15` |
+| Merge | still not done |
+| Decisions | still default-off |
+
 ## Deadline reached — 2026-09-24 15:15 UTC
 
 Window-4 unattended loop stopped (`now` ≥ **2026-09-24 15:00 UTC**).

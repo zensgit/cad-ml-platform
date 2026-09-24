@@ -405,12 +405,18 @@ Evaluation Report fail = Track E / ignore. `origin/main` is `22e3c77c`.
   attached to a real owner, so a recent `a/b` keeps the old sibling
   (including an idempotency-only dir). An ownerless old empty dir is
   still deleted. Local `make test-review-reuse` **332 passed**.
+- `272349bc` — identity-less `a_b` is ambiguous when both tenant `a_b`
+  and `a/b` exist, so cleanup refuses instead of deleting it under the
+  alias. A pre-scored `precision-l4` is dropped when inline geometry is
+  invalid. Polyline group-70 bit 1 closes the shape; a disagreeing
+  `closed` bool is not geometry. Local `make test-review-reuse`
+  **335 passed**.
 
-Sol 5.6 vs `origin/main` on docs `4cb1991e` (product `46d96be6`) finished
-exit 0 at 2026-09-24 21:09 UTC (P2 overflow non-planar metadata, P2
-attached legacy sibling still deleted from its dirname group). Do not
-treat a killed Sol as clean. Next Sol is on `a0b5ec15`, not on
-`46d96be6`.
+Sol 5.6 vs `origin/main` on docs `2db07ef3` (product `a0b5ec15`) finished
+exit 0 at 2026-09-24 21:32 UTC (P2 exact-name legacy ownership, P2
+pre-scored L4 with invalid inline geom, P2 polyline closed flag). Do not
+treat a killed Sol as clean. Next Sol is on `272349bc`, not on
+`a0b5ec15`.
 
 ### Model routing (by difficulty)
 
