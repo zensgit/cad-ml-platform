@@ -523,6 +523,25 @@ MD §6c. Verification MD is the evidence log.
 PR monitor; else if `tests (3.10)` red fix it; else Sol P1/P2 only;
 else idle (no docs-spam). Restart the 10h PR monitor if it died.
 
+## Window 4 wave112 — 2026-09-24 ~03:40 UTC
+
+`tests (3.10)` / `tests (3.11)` **pass** on `7e8c3844` (product
+`dc72cf20`). Sol 5.6 vs `origin/main` (`22e3c77c`): **P2** a pipeline
+failure that races cancel left a clean canceled snapshot, so the same
+idempotency key later returned success; **P2** the isolated-archive
+CLI treated a still-running idempotent snapshot as evidence-ready and
+traceback'd on `not_ready`. Fail closed. Decisions stay off. Never merge.
+
+| Item | State |
+|---|---|
+| P2 cancel/failure race | public error + `failed` event kept; no candidates or evidence |
+| P2 running archive CLI | `not_ready` is reported (exit 2), not a traceback |
+| Product | `00c6cd1d` |
+| Local `make test-review-reuse` | **316 passed** |
+| `tests (3.10)` on `00c6cd1d` | not run yet |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (owner must merge) |
+
 ## Window 4 wave111 — 2026-09-23 ~17:49 UTC
 
 `tests (3.10)` / `tests (3.11)` **pass** on `ea468dc8` (product

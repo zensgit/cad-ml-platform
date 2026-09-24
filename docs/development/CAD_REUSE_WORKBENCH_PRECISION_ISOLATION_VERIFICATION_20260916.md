@@ -528,6 +528,12 @@ make test-review-reuse
 | Matching-off does not certify shifted lines | `test_l4_pins_entity_matching_when_disabled` |
 | Recent empty hash dir keeps legacy | `test_cleanup_keeps_legacy_when_empty_hash_sibling_is_recent` |
 | `make test-review-reuse` after wave111 fail-closed | **314 passed**, 7 ezdxf warnings |
+| tests (3.10) / tests (3.11) on `7e8c3844` | **pass** (docs; product `dc72cf20`) |
+| Sol window4-w112 vs `origin/main` on `7e8c3844` | P2 cancel/failure race; P2 running archive CLI |
+| Cancel race keeps pipeline_failed | `test_pipeline_failed_after_mid_flight_cancel_keeps_error` |
+| Running archive snapshot is not a traceback | `test_isolated_archive_script_running_idempotent_reports_not_ready` |
+| `make test-review-reuse` after wave112 fail-closed | **316 passed**, 7 ezdxf warnings |
+| Product wave112 | `00c6cd1d` |
 
 ### CI (PR #586)
 

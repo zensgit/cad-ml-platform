@@ -324,6 +324,10 @@ Decisions stay default-off.
 Wave111: L4 pins ``use_entities_matching=True`` so
 ``DEDUPCAD2_ENTITIES_MATCHING=0`` cannot certify shifted lines; an
 empty hashed directory stays in the legacy tenant cleanup group.
+Wave112: a cancel that races a pipeline exception keeps the public
+error and ``failed`` event (no candidates or EvidencePack); the
+isolated-archive CLI reports a still-running idempotent snapshot
+instead of raising ``not_ready``. Decisions stay default-off.
 
 ### Model routing (by difficulty)
 
