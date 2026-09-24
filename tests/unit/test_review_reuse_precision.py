@@ -5713,6 +5713,38 @@ def test_json_nonplanar_metadata_is_not_certified_as_l4() -> None:
     assert "precision-l4" in (out[0].verification.get("methods") or [])
 
 
+def test_overflow_nonplanar_metadata_is_missing_geom_not_500() -> None:
+    """Ints that overflow float must be missing_geom_json, not HTTP 500."""
+    huge = 10**400
+    planar = _line_geom()
+    thick = json.loads(json.dumps(planar))
+    thick["entities"][0]["thickness"] = huge
+    _assert_json_not_l4(thick, planar)
+    _assert_json_not_l4(planar, thick)
+
+    flat_poly = {
+        "file_info": {"insunits": 4},
+        "entities": [
+            {
+                "type": "LWPOLYLINE",
+                "points": [[0.0, 0.0], [10.0, 0.0]],
+                "closed": False,
+            }
+        ],
+    }
+    elevated = json.loads(json.dumps(flat_poly))
+    elevated["entities"][0]["elevation"] = huge
+    _assert_json_not_l4(elevated, flat_poly)
+
+    extruded = json.loads(json.dumps(planar))
+    extruded["entities"][0]["extrusion"] = [0, 0, huge]
+    _assert_json_not_l4(extruded, planar)
+
+    flagged = json.loads(json.dumps(flat_poly))
+    flagged["entities"][0]["flags"] = huge
+    _assert_json_not_l4(flagged, flat_poly)
+
+
 def test_fitted_polyline_is_not_flattened_to_l4(tmp_path: Path) -> None:
     """Curve-fit and spline-fit POLYLINE flags are not straight chords."""
     import ezdxf

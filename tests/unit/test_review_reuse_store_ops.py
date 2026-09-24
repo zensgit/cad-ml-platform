@@ -652,6 +652,59 @@ def test_cleanup_deletes_old_empty_legacy_sibling_with_hash(
     assert not legacy.exists()
 
 
+def test_cleanup_keeps_old_empty_legacy_when_hash_is_recent(
+    tmp_path: Path,
+) -> None:
+    """Recent ``a/b`` must keep an old identity-less ``a_b`` sibling."""
+    store = tmp_path / "store"
+    hashed = _seed_hashed_tenant(store, "a/b", 1.0)
+    legacy = store / "a_b"
+    legacy.mkdir()
+    old = time.time() - (60.0 * 86400.0)
+    os.utime(legacy, (old, old))
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=None)
+        == 0
+    )
+    assert hashed.is_dir()
+    assert legacy.is_dir()
+
+
+def test_cleanup_keeps_old_idempotency_legacy_when_hash_is_recent(
+    tmp_path: Path,
+) -> None:
+    """An idempotency-only sibling inherits the recent owner's age."""
+    store = tmp_path / "store"
+    hashed = _seed_hashed_tenant(store, "a/b", 1.0)
+    legacy = store / "a_b"
+    legacy.mkdir()
+    idem = legacy / "idempotency.json"
+    idem.write_text('{"k":"task1"}', encoding="utf-8")
+    old = time.time() - (60.0 * 86400.0)
+    os.utime(idem, (old, old))
+    os.utime(legacy, (old, old))
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=None)
+        == 0
+    )
+    assert hashed.is_dir()
+    assert idem.is_file()
+
+
+def test_cleanup_deletes_old_empty_dir_without_owner(tmp_path: Path) -> None:
+    """An old empty dirname is still removed when no tenant can own it."""
+    store = tmp_path / "store"
+    legacy = store / "a_b"
+    legacy.mkdir(parents=True)
+    old = time.time() - (60.0 * 86400.0)
+    os.utime(legacy, (old, old))
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=None)
+        == 0
+    )
+    assert not legacy.exists()
+
+
 def test_cleanup_unknown_tenant_returns_not_found(
     tmp_path: Path, capsys
 ) -> None:

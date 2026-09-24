@@ -283,16 +283,14 @@ def _number_leaves_xy_plane(raw: Any) -> bool:
     """True when Z/thickness/elevation is non-finite or not ~0 at 3 decimals.
 
     Same quant as DXF extract. ``None`` means omitted and stays planar.
-    Bools and non-numbers fail closed (``bool`` is an ``int`` subclass).
+    Bools, non-numbers, and ints that overflow ``float`` fail closed
+    (``bool`` is an ``int`` subclass).
     """
     if raw is None:
         return False
-    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+    if not _finite_number(raw):
         return True
-    number = float(raw)
-    if not math.isfinite(number):
-        return True
-    return round(number, 3) != 0.0
+    return round(float(raw), 3) != 0.0
 
 
 def _extrusion_leaves_xy_plane(raw: Any) -> bool:
@@ -301,12 +299,9 @@ def _extrusion_leaves_xy_plane(raw: Any) -> bool:
         return True
     rounded: List[float] = []
     for value in raw:
-        if isinstance(value, bool) or not isinstance(value, (int, float)):
+        if not _finite_number(value):
             return True
-        number = float(value)
-        if not math.isfinite(number):
-            return True
-        rounded.append(round(number, 3))
+        rounded.append(round(float(value), 3))
     return tuple(rounded) != (0.0, 0.0, 1.0)
 
 
@@ -318,10 +313,10 @@ def _polyline_flags_leave_2d(ent: Dict[str, Any]) -> bool:
     if "flags" not in ent:
         return False
     raw = ent.get("flags")
-    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+    if not _finite_number(raw):
         return True
     number = float(raw)
-    if not math.isfinite(number) or float(int(number)) != number:
+    if float(int(number)) != number:
         return True
     return bool(int(number) & _NON_2D_POLYLINE_FLAGS)
 

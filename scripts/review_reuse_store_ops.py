@@ -242,12 +242,26 @@ def _attach_unreadable_legacy_siblings(
         ]
         if not owners:
             continue
+        attached = False
         for ident in owners:
             if ident not in groups:
                 continue
             bucket = groups[ident]
             if tdir not in bucket:
                 bucket.append(tdir)
+            attached = True
+        if attached:
+            # The dirname bucket is only a fallback label. Once a real
+            # owner has the sibling, that leftover group is old on its
+            # own and ``rmtree`` would drop the legacy dir (and its
+            # idempotency index) while the recent owner is kept.
+            fallback = groups.get(tdir.name)
+            if fallback is not None:
+                kept = [path for path in fallback if path != tdir]
+                if kept:
+                    groups[tdir.name] = kept
+                else:
+                    del groups[tdir.name]
         if len(owners) > 1:
             ambiguous.update(ident for ident in owners if ident in groups)
             ambiguous.add(tdir.name)
