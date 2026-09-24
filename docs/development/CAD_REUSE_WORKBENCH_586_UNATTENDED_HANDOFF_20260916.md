@@ -572,8 +572,24 @@ closed. Decisions stay off. Never merge.
 | P2 precision failure vs decision | error kept; recall candidates and pack not published |
 | Product | `43ab99c4` |
 | Local `make test-review-reuse` | **320 passed** |
-| `tests (3.10)` / `tests (3.11)` on `43ab99c4` | pending (not claimed) |
+| `tests (3.10)` / `tests (3.11)` on `202bed7e` | **pass** |
 | Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (owner must merge) |
+
+## Window 4 wave115 — 2026-09-24 07:12 UTC
+
+Sol 5.6 vs `origin/main` on `202bed7e` had **no verdict** after 15
+minutes (killed 07:12 UTC). No product commit. `tests (3.10)` /
+`tests (3.11)` **pass** on `202bed7e`. Do not launch another Sol on
+product `43ab99c4` or a docs-only tip of it until **2026-09-24 09:12
+UTC**. Decisions stay off. Never merge.
+
+| Item | State |
+|---|---|
+| HEAD at kill | `202bed7e` (product `43ab99c4`) |
+| `tests (3.10)` / `tests (3.11)` on `202bed7e` | **pass** |
+| Sol wave115 | no verdict; killed 07:12 UTC |
+| Next Sol on product `43ab99c4` | not before 09:12 UTC |
 | Merge | still not done (owner must merge) |
 
 ## Window 4 wave111 — 2026-09-23 ~17:49 UTC

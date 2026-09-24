@@ -542,6 +542,9 @@ make test-review-reuse
 | Precision failure does not publish decided candidates | `test_pipeline_failed_after_mid_flight_decision_keeps_error` |
 | `make test-review-reuse` after wave114 fail-closed | **320 passed**, 7 ezdxf warnings |
 | Product wave114 | `43ab99c4` |
+| `tests (3.10)` / `tests (3.11)` on `202bed7e` | **pass** |
+| Sol window4-w115 vs `origin/main` on `202bed7e` | no verdict; killed 2026-09-24 07:12 UTC |
+| Next Sol on product `43ab99c4` | not before 2026-09-24 09:12 UTC |
 
 ### CI (PR #586)
 
