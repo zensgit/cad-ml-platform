@@ -399,12 +399,18 @@ Evaluation Report fail = Track E / ignore. `origin/main` is `22e3c77c`.
   keeps the older hash. Both old and unreadable → `refused_mixed`.
   `a/b` and `a|b` colliding on `a_b` refuse every selected owner.
   Local `make test-review-reuse` **328 passed** on this tip.
+- `a0b5ec15` — JSON ints that overflow `float` (thickness, elevation,
+  extrusion, polyline flags) are missing geometry, not `OverflowError`.
+  Cleanup drops the dirname fallback after an identity-less `a_b` is
+  attached to a real owner, so a recent `a/b` keeps the old sibling
+  (including an idempotency-only dir). An ownerless old empty dir is
+  still deleted. Local `make test-review-reuse` **332 passed**.
 
-Sol 5.6 vs `origin/main` on docs `df3f772c` (product `43ab99c4`) finished
-exit 0 at 2026-09-24 19:53 UTC (P1 JSON non-planar, P2 failed-pipeline
-candidates). An earlier completed Sol the same afternoon reported the
-legacy-cleanup P2. Do not treat a killed Sol as clean. Next Sol is on
-`46d96be6`, not on `43ab99c4`.
+Sol 5.6 vs `origin/main` on docs `4cb1991e` (product `46d96be6`) finished
+exit 0 at 2026-09-24 21:09 UTC (P2 overflow non-planar metadata, P2
+attached legacy sibling still deleted from its dirname group). Do not
+treat a killed Sol as clean. Next Sol is on `a0b5ec15`, not on
+`46d96be6`.
 
 ### Model routing (by difficulty)
 

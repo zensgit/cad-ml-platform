@@ -634,6 +634,24 @@ reported the legacy-cleanup P2; that landed in the second commit.
 | Merge | still not done |
 | Decisions | still default-off |
 
+## Window 5 wave — 2026-09-24 21:09 UTC
+
+Sol 5.6 vs `origin/main` on `4cb1991e` (product `46d96be6`) exited 0 at
+21:09 UTC. Two P2s. No P1. Decisions stay off. Never merge.
+
+| Item | State |
+|---|---|
+| P2 overflow metadata | thickness, elevation, extrusion, and polyline flags that overflow `float` are `missing_geom_json` |
+| P2 attached legacy sibling | dirname fallback is removed once a real owner holds `a_b`, so a recent `a/b` keeps an old empty or idempotency-only sibling |
+| Product | `a0b5ec15` |
+| Local `make test-review-reuse` | **332 passed** |
+| `tests (3.10)` / `tests (3.11)` | not yet observed on `a0b5ec15` (last green remains `724710d4`) |
+| Evaluation Report | fail (Track E; out of scope) |
+| Human review | none on #586 |
+| Next Sol | on `a0b5ec15` only. Do not relaunch on `46d96be6` |
+| Merge | still not done |
+| Decisions | still default-off |
+
 ## Deadline reached — 2026-09-24 15:15 UTC
 
 Window-4 unattended loop stopped (`now` ≥ **2026-09-24 15:00 UTC**).

@@ -593,6 +593,9 @@ Re-run `make test-review-reuse` after each follow-up commit and record the count
 | Sol 2026-09-24 18:40–19:53 UTC | exit 0 on `df3f772c` / product `43ab99c4`. P1: JSON thickness/extrusion/elevation certified as L4. P2: pipeline failure kept recall candidates |
 | Product `42736ea4` | JSON non-planar metadata fail-closed; failed pipeline drops candidates and EvidencePack. Local suite **322 passed** |
 | Product `46d96be6` | unreadable/empty legacy `a_b` stays in the `a/b` cleanup group; ambiguous `a/b` vs `a\|b` refuses both. Local suite **328 passed** |
+| Sol 2026-09-24 21:00–21:09 UTC | exit 0 on `4cb1991e` / product `46d96be6`. P2: overflow thickness/elevation/extrusion/flags raise `OverflowError`. P2: attached legacy sibling still deleted from its dirname group |
+| Product `a0b5ec15` | overflow non-planar metadata is `missing_geom_json`; recent owner keeps old empty or idempotency-only `a_b`. Local suite **332 passed** |
+| `tests (3.10)` / `tests (3.11)` on `a0b5ec15` | not yet observed (last green remains `724710d4`) |
 | Evaluation Report | fail (Track E; out of scope) |
 | mergeable_state | do not merge (review required) |
 
