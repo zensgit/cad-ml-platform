@@ -5713,6 +5713,77 @@ def test_json_nonplanar_metadata_is_not_certified_as_l4() -> None:
     assert "precision-l4" in (out[0].verification.get("methods") or [])
 
 
+def test_polyline_closed_flag_bit_is_not_an_open_match() -> None:
+    """Group-70 bit 1 closes the polyline when ``closed`` is omitted."""
+    points = [[0.0, 0.0], [10.0, 0.0], [5.0, 8.0]]
+    for poly_type in ("LWPOLYLINE", "POLYLINE"):
+        by_flag = {
+            "file_info": {"insunits": 4},
+            "entities": [
+                {"type": poly_type, "points": points, "flags": 1},
+            ],
+        }
+        opened = {
+            "file_info": {"insunits": 4},
+            "entities": [
+                {"type": poly_type, "points": points, "closed": False},
+            ],
+        }
+        closed = {
+            "file_info": {"insunits": 4},
+            "entities": [
+                {"type": poly_type, "points": points, "closed": True},
+            ],
+        }
+        out = _apply_json_pair(by_flag, opened)
+        assert out[0].scores.get("geometric") != 1.0
+        out = _apply_json_pair(by_flag, closed)
+        assert "precision-l4" in (out[0].verification.get("methods") or [])
+        assert out[0].scores.get("geometric") == 1.0
+        disagree = json.loads(json.dumps(by_flag))
+        disagree["entities"][0]["closed"] = False
+        out = _apply_json_pair(disagree, opened)
+        assert "precision-l4" not in (out[0].verification.get("methods") or [])
+        assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+        out = _apply_json_pair(disagree, closed)
+        assert "precision-l4" not in (out[0].verification.get("methods") or [])
+
+
+def test_prescored_l4_with_invalid_inline_geom_is_not_trusted() -> None:
+    """A finite precision-l4 score cannot outrank supplied invalid geometry."""
+    query = _line_geom()
+    thick = json.loads(json.dumps(query))
+    thick["entities"][0]["thickness"] = 5
+    malformed = {"file_info": {"insunits": 4}, "entities": [{}]}
+    unsupported = {
+        "file_info": {"insunits": 4},
+        "entities": [{"type": "POINT", "start": [0.0, 0.0]}],
+    }
+    for geom in (thick, malformed, unsupported):
+        cands = map_raw_hits_to_candidates(
+            [
+                {
+                    "candidate_id": "prescored-bad-geom",
+                    "state": "similar",
+                    "geom_json": geom,
+                    "scores": {"geometric": 0.99},
+                    "methods": ["precision-l4"],
+                }
+            ],
+            content_sha="ab",
+            file_name="query.json",
+        )
+        out = apply_precision(
+            cands,
+            file_name="query.json",
+            file_bytes=json.dumps(query).encode("utf-8"),
+        )
+        assert "precision-l4" not in (out[0].verification.get("methods") or [])
+        assert out[0].scores.get("geometric") is None
+        assert int(out[0].verification.get("level") or 0) < 4
+        assert RejectionReason.missing_geom_json.value in out[0].rejection_reasons
+
+
 def test_overflow_nonplanar_metadata_is_missing_geom_not_500() -> None:
     """Ints that overflow float must be missing_geom_json, not HTTP 500."""
     huge = 10**400

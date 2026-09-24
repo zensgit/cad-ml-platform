@@ -826,18 +826,35 @@ def _arc_sweeps_conflict(
     return False
 
 
+def _polyline_flag_closed(entity: Dict[str, Any]) -> Optional[bool]:
+    """DXF group-70 bit 1, or None when ``flags`` is absent or not an int."""
+    if "flags" not in entity:
+        return None
+    raw = entity.get("flags")
+    if not _finite_number(raw):
+        return None
+    number = float(raw)
+    if float(int(number)) != number:
+        return None
+    return bool(int(number) & 1)
+
+
 def _polyline_closed(entity: Dict[str, Any]) -> Optional[bool]:
-    """True/False when ``closed`` is a real bool; None if malformed.
+    """Closed from ``closed`` and, when present, DXF group-70 bit 1.
 
     ``bool("false")`` is True, so a string flag must not explode a closer.
-    Missing ``closed`` means open.
+    Missing ``closed`` is open unless bit 1 is set. A bool that disagrees
+    with bit 1 is malformed so the closing edge is not dropped.
     """
+    flag_closed = _polyline_flag_closed(entity)
     if "closed" not in entity:
-        return False
+        return bool(flag_closed)
     raw = entity.get("closed")
-    if isinstance(raw, bool):
-        return raw
-    return None
+    if not isinstance(raw, bool):
+        return None
+    if flag_closed is not None and raw != flag_closed:
+        return None
+    return raw
 
 
 def _explode_polyline(entity: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -1270,6 +1287,20 @@ def apply_precision(
                 continue
 
         if _has_method(candidate, "precision-l4"):
+            inline_geom = (candidate.provenance or {}).get("geom_json")
+            # Invalid inline geometry must not keep a pre-scored L4. The
+            # local path never ran, because ``_is_geom_json`` was false.
+            if not hash_id and inline_geom is not None and not has_cand_geom:
+                _strip_stale_l4(candidate)
+                if has_numeric_geom:
+                    scores = dict(candidate.scores)
+                    scores.pop("geometric", None)
+                    candidate.scores = scores
+                _append_reason(
+                    candidate, RejectionReason.missing_geom_json.value
+                )
+                out.append(candidate)
+                continue
             if _is_finite_unit_score(geometric):
                 _apply_trusted_l4(candidate, float(geometric))
                 out.append(candidate)

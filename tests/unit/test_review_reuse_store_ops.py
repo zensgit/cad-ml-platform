@@ -691,6 +691,40 @@ def test_cleanup_keeps_old_idempotency_legacy_when_hash_is_recent(
     assert idem.is_file()
 
 
+def test_cleanup_keeps_legacy_when_exact_name_and_alias_both_exist(
+    tmp_path: Path, capsys
+) -> None:
+    """``a_b`` and ``a/b`` both sanitize to ``a_b``; do not guess the owner."""
+    store = tmp_path / "store"
+    hashed_exact = _seed_hashed_tenant(store, "a_b", 1.0)
+    hashed_alias = _seed_hashed_tenant(store, "a/b", 60.0)
+    legacy = store / "a_b"
+    legacy.mkdir()
+    idem = legacy / "idempotency.json"
+    idem.write_text('{"k":"task1"}', encoding="utf-8")
+    old = time.time() - (60.0 * 86400.0)
+    os.utime(idem, (old, old))
+    os.utime(legacy, (old, old))
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=None)
+        == 1
+    )
+    err = capsys.readouterr().err
+    assert "refused_mixed" in err
+    assert hashed_exact.is_dir()
+    assert hashed_alias.is_dir()
+    assert idem.is_file()
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant="a/b")
+        == 1
+    )
+    err = capsys.readouterr().err
+    assert "refused_mixed" in err
+    assert hashed_exact.is_dir()
+    assert hashed_alias.is_dir()
+    assert idem.is_file()
+
+
 def test_cleanup_deletes_old_empty_dir_without_owner(tmp_path: Path) -> None:
     """An old empty dirname is still removed when no tenant can own it."""
     store = tmp_path / "store"

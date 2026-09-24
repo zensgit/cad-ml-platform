@@ -240,6 +240,13 @@ def _attach_unreadable_legacy_siblings(
             for ident in recorded
             if ident != tdir.name and _legacy_safe_name(ident) == tdir.name
         ]
+        # ``a_b`` may be a real tenant id and the sanitized name of ``a/b``.
+        # An identity-less ``a_b`` can belong to either. Do not detach it
+        # from the exact-name group and delete it with the alias.
+        if tdir.name in recorded and owners:
+            ambiguous.update(owners)
+            ambiguous.add(tdir.name)
+            continue
         if not owners:
             continue
         attached = False
