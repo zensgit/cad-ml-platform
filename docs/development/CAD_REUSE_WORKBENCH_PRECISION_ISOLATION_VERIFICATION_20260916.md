@@ -537,6 +537,11 @@ make test-review-reuse
 | tests (3.10) / tests (3.11) on `c640ed9e` | **pass** |
 | Sol window4-w113 vs `origin/main` on `c640ed9e` | no verdict; killed 2026-09-24 04:11 UTC |
 | Next Sol on product `00c6cd1d` | not before 2026-09-24 06:11 UTC |
+| Sol window4-w114 vs `origin/main` on `19fbf183` | P1 non-finite L4 tolerances; P2 precision failure published recall candidates |
+| Non-finite line tolerance is not L4 | `test_nonfinite_line_tolerance_does_not_certify_l4` |
+| Precision failure does not publish decided candidates | `test_pipeline_failed_after_mid_flight_decision_keeps_error` |
+| `make test-review-reuse` after wave114 fail-closed | **320 passed**, 7 ezdxf warnings |
+| Product wave114 | `43ab99c4` |
 
 ### CI (PR #586)
 

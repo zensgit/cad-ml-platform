@@ -557,6 +557,25 @@ Sol on product `00c6cd1d` or a docs-only tip of it until
 | Next Sol on product `00c6cd1d` | not before 06:11 UTC |
 | Merge | still not done (owner must merge) |
 
+## Window 4 wave114 — 2026-09-24 ~06:40 UTC
+
+`tests (3.10)` / `tests (3.11)` **pass** on `19fbf183` (product
+`00c6cd1d`). Sol 5.6 vs `origin/main` (`22e3c77c`): **P1** non-finite
+or non-positive L4 matcher tolerances certify distant geometry as
+`precision-l4`; **P2** a precision exception after a mid-flight
+decision copied recall-stage candidates into the EvidencePack. Fail
+closed. Decisions stay off. Never merge.
+
+| Item | State |
+|---|---|
+| P1 matcher tolerances | non-finite or `<= 0` refuses L4 before `score_pair` |
+| P2 precision failure vs decision | error kept; recall candidates and pack not published |
+| Product | `43ab99c4` |
+| Local `make test-review-reuse` | **320 passed** |
+| `tests (3.10)` / `tests (3.11)` on `43ab99c4` | pending (not claimed) |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (owner must merge) |
+
 ## Window 4 wave111 — 2026-09-23 ~17:49 UTC
 
 `tests (3.10)` / `tests (3.11)` **pass** on `ea468dc8` (product
