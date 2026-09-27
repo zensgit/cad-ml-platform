@@ -768,6 +768,25 @@ else Sol P1/P2 only (15-minute kill, then 2 hours before another Sol on
 the same product); else idle (no docs-spam). Restart the 10h PR monitor
 if it died.
 
+## Window 6 wave1 — 2026-09-27 ~23:14 UTC
+
+`tests (3.10)` / `tests (3.11)` / `lint-type` were **pass** on docs tip
+`fbd58497` (product `272349bc`) before this wave. Sol 5.6 vs
+`origin/main` (`22e3c77c`) returned one **P2**: `isdigit()` accepts
+non-ASCII digits that `int()` rejects, so a persisted `usefulness:`
+label made tenant metrics raise `ValueError`. Fail closed by accepting
+only exact ASCII suffixes `1`–`5`. Decisions stay off. Never merge.
+
+| Item | State |
+|---|---|
+| P2 usefulness labels | ignore non-ASCII and over-long suffixes |
+| Product | `93123c5b` |
+| Local `make test-review-reuse` | **336 passed** |
+| `tests (3.10)` on `93123c5b` | not yet observed |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (owner must merge) |
+| Decisions | still default-off |
+
 ## Window 4 wave105 — 2026-09-23 ~15:19 UTC
 
 `tests (3.10)` / `tests (3.11)` **pass** on `d52d28ae` (product

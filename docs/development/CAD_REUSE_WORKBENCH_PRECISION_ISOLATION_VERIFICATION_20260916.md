@@ -616,6 +616,9 @@ Window 5 is not closed early. No product commit in this start note.
 | Last Sol on `272349bc` | killed 2026-09-27 13:44 UTC, no P1/P2 (not a clean verdict) |
 | Next Sol on `272349bc` | not before 2026-09-27 15:44 UTC |
 | Local `make test-review-reuse` | **335 passed** (recorded on `272349bc`; not re-run for this docs note) |
+| Sol 2026-09-27 22:58–23:13 UTC | exit 0 on `fbd58497` / product `272349bc`. P2: non-ASCII `usefulness:` labels must not break metrics |
+| Product `93123c5b` | exact ASCII usefulness suffixes `1`–`5` only; other suffixes ignored. Local suite **336 passed** |
+| `tests (3.10)` / `tests (3.11)` on `93123c5b` | not yet observed |
 | mergeable_state | do not merge |
 
 ## 3. Honesty probes (must stay true)

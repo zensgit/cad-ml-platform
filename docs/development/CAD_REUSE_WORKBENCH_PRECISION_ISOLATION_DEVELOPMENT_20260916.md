@@ -483,8 +483,11 @@ isolation only.
 `tests (3.10)` / `tests (3.11)` / `lint-type` **pass** on that SHA.
 Evaluation Report fail = Track E / ignore. `origin/main` is `22e3c77c`.
 
-**Landed:** none yet in Window 6. Product work carried forward is the
-Window-5 chain ending at `272349bc` (see §6d).
+**Landed:** `93123c5b` — Sol P2 on product `272349bc`: usefulness labels
+accept only exact ASCII suffixes `1`–`5`. Non-ASCII digits (for example
+superscript `²`) and over-long digit strings are ignored, so tenant
+metrics cannot raise `ValueError`. Decisions stay off. Parent product
+remains the Window-5 chain ending at `272349bc` (see §6d).
 
 Sol 5.6 vs `origin/main` on product `272349bc` was killed at 2026-09-27
 13:44 UTC with no P1/P2 (the review ran ~40 minutes after the scheduler
