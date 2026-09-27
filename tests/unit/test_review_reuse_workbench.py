@@ -414,3 +414,34 @@ class TestDedupAdapterAndMetrics:
         md = format_metrics_markdown(m)
         assert "false_duplicate_count: 1" in md
         assert "missed_reuse_count: 1" in md
+
+    def test_non_ascii_usefulness_label_does_not_break_metrics(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from src.core.review_reuse.labels import parse_usefulness
+
+        superscript = "usefulness:\u00b2"
+        oversized = "usefulness:" + ("1" * 5000)
+        assert parse_usefulness([superscript, oversized, "usefulness:\uff14"]) is None
+        assert parse_usefulness([superscript, "usefulness:3", oversized]) == 3
+        assert parse_usefulness(["usefulness:5", superscript]) == 5
+
+        monkeypatch.setenv(ENV_DECISIONS_ENABLED, "true")
+        svc = _svc()
+        task = svc.create_task(
+            tenant_id="t-ascii-label",
+            file_name="a.dxf",
+            file_bytes=b"1",
+            seed_candidates=_seed_similar(),
+        )
+        svc.submit_decision(
+            tenant_id="t-ascii-label",
+            task_id=task.task_id,
+            state=HumanDecisionState.revise,
+            reviewer_id="rev-a",
+            reason_codes=[superscript, oversized, "usefulness:4"],
+            candidate_id="arch-001",
+        )
+        metrics = svc.metrics("t-ascii-label")
+        assert metrics["usefulness_scores"] == [4]
+        assert metrics["mean_usefulness"] == 4.0

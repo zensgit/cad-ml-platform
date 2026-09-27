@@ -13,6 +13,11 @@ REASON_FALSE_DUPLICATE = "false_duplicate"
 REASON_MISSED_REUSE = "missed_reuse"
 REASON_USEFULNESS_PREFIX = "usefulness:"  # usefulness:1 .. usefulness:5
 
+# Exact ASCII suffixes only. str.isdigit() accepts non-ASCII digits such as
+# superscript ², and int() then raises ValueError (also on over-long digit
+# strings). Those labels must be ignored, not fail tenant metrics.
+_ASCII_USEFULNESS = {"1": 1, "2": 2, "3": 3, "4": 4, "5": 5}
+
 
 def parse_usefulness(reason_codes: Iterable[str]) -> Optional[int]:
     """Return the last valid usefulness:1..5 label, if any."""
@@ -21,11 +26,9 @@ def parse_usefulness(reason_codes: Iterable[str]) -> Optional[int]:
         code = str(raw).strip().lower()
         if not code.startswith(REASON_USEFULNESS_PREFIX):
             continue
-        tail = code[len(REASON_USEFULNESS_PREFIX) :]
-        if tail.isdigit():
-            n = int(tail)
-            if 1 <= n <= 5:
-                found = n
+        n = _ASCII_USEFULNESS.get(code[len(REASON_USEFULNESS_PREFIX) :])
+        if n is not None:
+            found = n
     return found
 
 
