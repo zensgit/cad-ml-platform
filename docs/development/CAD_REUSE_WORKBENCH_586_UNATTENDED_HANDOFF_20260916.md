@@ -738,6 +738,36 @@ off. Never merge.
 | Evaluation Report | fail (Track E; out of scope) |
 | Merge | still not done (owner must merge) |
 
+## Window 6 start — 2026-09-27 14:45 UTC (72h)
+
+Owner away ~72h again, before the Window-5 stop. Deadline **2026-09-30
+15:00 UTC**. The Window-5 16:00 UTC stop does not fire. Plan in
+development MD §6e. Verification MD is the evidence log.
+
+**Never merge. Never enable `REVIEW_REUSE_DECISIONS_ENABLED`.**
+
+| Item | State |
+|---|---|
+| Branch | `eng/workbench-precision-isolation-20260915` |
+| Start HEAD | `60299cdf` (docs tip; product `272349bc`) |
+| `tests (3.10)` / `tests (3.11)` / `lint-type` | **pass** on `60299cdf` |
+| Local `make test-review-reuse` | **335 passed** (recorded on `272349bc`) |
+| `origin/main` | `22e3c77c` |
+| Last Sol | killed 2026-09-27 13:44 UTC, no P1/P2; next Sol on `272349bc` not before 15:44 UTC |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done |
+| Decisions | still default-off |
+| Scheduler | `01a0d423492b` (updated in place; every 20 minutes) |
+
+**Models:** grok-4.6 isolation/precision/CI; grok-4.5 docs; Codex
+`gpt-5.6-sol` vs `origin/main`.
+
+**Wave rule:** if UTC ≥ 2026-09-30 15:00 stop + delete scheduler
+`01a0d423492b` + kill the PR monitor; else if `tests (3.10)` red fix it;
+else Sol P1/P2 only (15-minute kill, then 2 hours before another Sol on
+the same product); else idle (no docs-spam). Restart the 10h PR monitor
+if it died.
+
 ## Window 4 wave105 — 2026-09-23 ~15:19 UTC
 
 `tests (3.10)` / `tests (3.11)` **pass** on `d52d28ae` (product

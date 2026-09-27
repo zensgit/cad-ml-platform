@@ -602,6 +602,22 @@ Re-run `make test-review-reuse` after each follow-up commit and record the count
 | Evaluation Report | fail (Track E; out of scope) |
 | mergeable_state | do not merge (review required) |
 
+### Window 6 (72h, 2026-09-27 14:45 UTC → 2026-09-30 15:00 UTC)
+
+Owner sent the same 72-hour request again before the Window-5 stop.
+Window 5 is not closed early. No product commit in this start note.
+
+| Check | Result |
+|---|---|
+| Window 6 start HEAD | `60299cdf` (docs tip; product `272349bc`) |
+| `tests (3.10)` / `tests (3.11)` / `lint-type` on `60299cdf` | **pass** |
+| Evaluation Report | fail (Track E; out of scope) |
+| `origin/main` | `22e3c77c` |
+| Last Sol on `272349bc` | killed 2026-09-27 13:44 UTC, no P1/P2 (not a clean verdict) |
+| Next Sol on `272349bc` | not before 2026-09-27 15:44 UTC |
+| Local `make test-review-reuse` | **335 passed** (recorded on `272349bc`; not re-run for this docs note) |
+| mergeable_state | do not merge |
+
 ## 3. Honesty probes (must stay true)
 
 ```text
