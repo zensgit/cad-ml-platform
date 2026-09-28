@@ -787,6 +787,26 @@ only exact ASCII suffixes `1`–`5`. Decisions stay off. Never merge.
 | Merge | still not done (owner must merge) |
 | Decisions | still default-off |
 
+## Window 6 wave2 — 2026-09-28 ~04:55 UTC
+
+`tests (3.10)` / `tests (3.11)` / `lint-type` were **pass** on docs tip
+`ae001830` (product `93123c5b`) before this wave. Sol 5.6 vs
+`origin/main` (`22e3c77c`) returned one **P2**: an identity-less hashed
+directory attached to a known legacy tenant stayed in its hash-named
+fallback bucket, so unfiltered `cleanup --apply` could delete that old
+bucket while a recent owner was kept. Fail closed by removing the
+fallback after attachment. Decisions stay off. Never merge.
+
+| Item | State |
+|---|---|
+| P2 hash fallback | identity-less hash dir is aged only with the logical owner |
+| Product | `7371785b` |
+| Local `make test-review-reuse` | **338 passed** |
+| `tests (3.10)` on `7371785b` | not yet observed |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (owner must merge) |
+| Decisions | still default-off |
+
 ## Window 4 wave105 — 2026-09-23 ~15:19 UTC
 
 `tests (3.10)` / `tests (3.11)` **pass** on `d52d28ae` (product

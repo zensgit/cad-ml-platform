@@ -483,11 +483,13 @@ isolation only.
 `tests (3.10)` / `tests (3.11)` / `lint-type` **pass** on that SHA.
 Evaluation Report fail = Track E / ignore. `origin/main` is `22e3c77c`.
 
-**Landed:** `93123c5b` — Sol P2 on product `272349bc`: usefulness labels
-accept only exact ASCII suffixes `1`–`5`. Non-ASCII digits (for example
-superscript `²`) and over-long digit strings are ignored, so tenant
-metrics cannot raise `ValueError`. Decisions stay off. Parent product
-remains the Window-5 chain ending at `272349bc` (see §6d).
+**Landed:** `7371785b` — Sol P2 on product `93123c5b`: an identity-less
+hashed directory attached to a legacy tenant is removed from its
+dirname fallback bucket, so cleanup ages that directory only with the
+logical owner. A recent legacy tenant therefore keeps an old
+idempotency-only hash dir. Decisions stay off. Parent product
+`93123c5b` (ASCII usefulness suffixes `1`–`5` only) remains on the
+Window-5 chain ending at `272349bc` (see §6d).
 
 Sol 5.6 vs `origin/main` on product `272349bc` was killed at 2026-09-27
 13:44 UTC with no P1/P2 (the review ran ~40 minutes after the scheduler

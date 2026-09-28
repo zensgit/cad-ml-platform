@@ -619,6 +619,9 @@ Window 5 is not closed early. No product commit in this start note.
 | Sol 2026-09-27 22:58–23:13 UTC | exit 0 on `fbd58497` / product `272349bc`. P2: non-ASCII `usefulness:` labels must not break metrics |
 | Product `93123c5b` | exact ASCII usefulness suffixes `1`–`5` only; other suffixes ignored. Local suite **336 passed** |
 | `tests (3.10)` / `tests (3.11)` on `93123c5b` | not yet observed |
+| Sol 2026-09-28 04:39 UTC | exit 0 on `ae001830` / product `93123c5b`. P2: identity-less hashed dir kept its dirname fallback bucket |
+| Product `7371785b` | hashed cleanup sibling is aged only with the logical owner. Local suite **338 passed** |
+| `tests (3.10)` / `tests (3.11)` on `7371785b` | not yet observed |
 | mergeable_state | do not merge |
 
 ## 3. Honesty probes (must stay true)
