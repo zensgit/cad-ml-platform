@@ -201,18 +201,33 @@ def _attach_unreadable_hash_siblings(
     """Keep a corrupt hash sibling in the logical tenant group.
 
     Without this, ``--apply`` deletes the readable legacy directory and
-    leaves the unreadable hashed directory behind.
+    leaves the unreadable hashed directory behind. The hash-named bucket
+    is only a fallback label. Once a real owner has the sibling, that
+    leftover group is old on its own and ``rmtree`` would drop the hashed
+    dir (and its idempotency index) while the recent owner is kept.
     """
     idents = [ident for ident in groups if ident != _UNREADABLE]
     for tdir in tenants:
         if not _unattributable_hash_dir(tdir):
             continue
+        attached = False
         for ident in idents:
-            if tdir.name != _tenant_dir_key(ident):
+            if ident == tdir.name or tdir.name != _tenant_dir_key(ident):
                 continue
             bucket = groups.setdefault(ident, [])
             if tdir not in bucket:
                 bucket.append(tdir)
+            attached = True
+        if not attached:
+            continue
+        fallback = groups.get(tdir.name)
+        if fallback is None:
+            continue
+        kept = [path for path in fallback if path != tdir]
+        if kept:
+            groups[tdir.name] = kept
+        else:
+            del groups[tdir.name]
 
 
 def _attach_unreadable_legacy_siblings(

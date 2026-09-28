@@ -526,6 +526,56 @@ def test_cleanup_keeps_legacy_when_empty_hash_sibling_is_recent(
     assert (legacy / "tasks" / "task1.json").is_file()
 
 
+def test_cleanup_keeps_old_hash_idempotency_when_legacy_is_recent(
+    tmp_path: Path,
+) -> None:
+    """Recent legacy tenant keeps an old identity-less hashed idempotency dir."""
+    store = tmp_path / "store"
+    _seed_tenant(store, "pilot-tenant", 1.0)
+    legacy = store / "pilot-tenant"
+    hashed = store / tenant_dir_key("pilot-tenant")
+    hashed.mkdir()
+    idem = hashed / "idempotency.json"
+    idem.write_text('{"k":"task1"}', encoding="utf-8")
+    old = time.time() - (60.0 * 86400.0)
+    os.utime(idem, (old, old))
+    os.utime(hashed, (old, old))
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=None) == 0
+    )
+    assert legacy.is_dir()
+    assert idem.is_file()
+    assert (
+        cmd_cleanup(
+            store, older_than_days=30, dry_run=False, tenant="pilot-tenant"
+        )
+        == 0
+    )
+    assert legacy.is_dir()
+    assert idem.is_file()
+
+
+def test_cleanup_deletes_old_hash_idempotency_with_old_legacy(
+    tmp_path: Path,
+) -> None:
+    """Both layouts old: drop the identity-less hash dir with its owner."""
+    store = tmp_path / "store"
+    _seed_tenant(store, "pilot-tenant", 60.0)
+    legacy = store / "pilot-tenant"
+    hashed = store / tenant_dir_key("pilot-tenant")
+    hashed.mkdir()
+    idem = hashed / "idempotency.json"
+    idem.write_text('{"k":"task1"}', encoding="utf-8")
+    old = time.time() - (60.0 * 86400.0)
+    os.utime(idem, (old, old))
+    os.utime(hashed, (old, old))
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=None) == 0
+    )
+    assert not legacy.exists()
+    assert not hashed.exists()
+
+
 def _seed_unreadable_legacy(
     store: Path, dirname: str, age_days: float
 ) -> Path:
