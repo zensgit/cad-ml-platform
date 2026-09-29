@@ -789,6 +789,84 @@ def test_cleanup_deletes_old_empty_dir_without_owner(tmp_path: Path) -> None:
     assert not legacy.exists()
 
 
+def test_cleanup_refuses_hash_dirname_shared_with_legacy_tenant(
+    tmp_path: Path, capsys
+) -> None:
+    """Dir named sha256(A)[:24] may be tenant H; do not delete it with old A."""
+    store = tmp_path / "store"
+    tenant_a = "pilot-tenant"
+    hash_name = tenant_dir_key(tenant_a)
+    recent_h = _seed_hashed_tenant(store, hash_name, 1.0)
+    _seed_tenant(store, tenant_a, 60.0)
+    legacy_a = store / tenant_a
+    ambiguous = store / hash_name
+    ambiguous.mkdir()
+    idem = ambiguous / "idempotency.json"
+    idem.write_text('{"k":"task-h"}', encoding="utf-8")
+    old = time.time() - (60.0 * 86400.0)
+    os.utime(idem, (old, old))
+    os.utime(ambiguous, (old, old))
+
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=None) == 1
+    )
+    err = capsys.readouterr().err
+    assert "refused_mixed" in err
+    assert ambiguous.is_dir()
+    assert idem.read_text(encoding="utf-8") == '{"k":"task-h"}'
+    assert recent_h.is_dir()
+    assert legacy_a.is_dir()
+    assert (legacy_a / "tasks" / "task1.json").is_file()
+
+    assert (
+        cmd_cleanup(
+            store, older_than_days=30, dry_run=False, tenant=tenant_a
+        )
+        == 1
+    )
+    err = capsys.readouterr().err
+    assert "refused_mixed" in err
+    assert ambiguous.is_dir()
+    assert legacy_a.is_dir()
+    assert recent_h.is_dir()
+
+    assert (
+        cmd_cleanup(
+            store, older_than_days=30, dry_run=False, tenant=hash_name
+        )
+        == 0
+    )
+    assert ambiguous.is_dir()
+    assert idem.is_file()
+    assert recent_h.is_dir()
+    assert legacy_a.is_dir()
+
+
+def test_cleanup_refuses_old_hash_dirname_collision(
+    tmp_path: Path, capsys
+) -> None:
+    """Both tenants old: still refuse, do not assign the shared dirname to A."""
+    store = tmp_path / "store"
+    tenant_a = "pilot-tenant"
+    hash_name = tenant_dir_key(tenant_a)
+    hashed_h = _seed_hashed_tenant(store, hash_name, 60.0)
+    _seed_tenant(store, tenant_a, 60.0)
+    legacy_a = store / tenant_a
+    ambiguous = store / hash_name
+    ambiguous.mkdir()
+    old = time.time() - (60.0 * 86400.0)
+    os.utime(ambiguous, (old, old))
+
+    assert (
+        cmd_cleanup(store, older_than_days=30, dry_run=False, tenant=None) == 1
+    )
+    err = capsys.readouterr().err
+    assert "refused_mixed" in err
+    assert ambiguous.is_dir()
+    assert hashed_h.is_dir()
+    assert legacy_a.is_dir()
+
+
 def test_cleanup_unknown_tenant_returns_not_found(
     tmp_path: Path, capsys
 ) -> None:

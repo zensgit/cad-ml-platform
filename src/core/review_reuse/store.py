@@ -357,6 +357,28 @@ class FilesystemReviewReuseStore:
                 _add(_UNREADABLE)
         return found
 
+    def _ownerless_dir_has_state(self, tenant_dir: Path) -> bool:
+        """True when a dir has bytes but no tenant id in meta or tasks.
+
+        An empty directory, or one with only an empty ``tasks/``, can still
+        be claimed. Any other entry (including ``idempotency.json``) is
+        leftover state and must not be adopted by the hashed tenant.
+        """
+        try:
+            entries = list(tenant_dir.iterdir())
+        except OSError:
+            return True
+        for entry in entries:
+            if entry.name == "tasks" and entry.is_dir():
+                try:
+                    if any(entry.iterdir()):
+                        return True
+                except OSError:
+                    return True
+                continue
+            return True
+        return False
+
     def _ensure_write_dir(self, tenant_id: str) -> Path:
         d = self._hashed_dir(tenant_id)
         if d.exists():
@@ -374,6 +396,11 @@ class FilesystemReviewReuseStore:
                 foreign = [tid for tid in occupants if tid != tenant_id]
                 if foreign:
                     raise OccupiedTenantDirError(tenant_id, d, foreign)
+                # idempotency.json (or any other leftover) without a tenant
+                # id may belong to the legacy tenant whose id is this hash.
+                # Do not stamp it as ours.
+                if not occupants and self._ownerless_dir_has_state(d):
+                    raise OccupiedTenantDirError(tenant_id, d, [_UNREADABLE])
         (d / "tasks").mkdir(parents=True, exist_ok=True)
         self._write_meta(d, tenant_id)
         return d

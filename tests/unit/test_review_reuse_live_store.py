@@ -835,6 +835,47 @@ def test_filesystem_put_refuses_hashed_dir_occupied_by_legacy_tenant(
     assert leftover["tenant_id"] == occupant
 
 
+def test_filesystem_put_refuses_ownerless_idempotency_on_hash_path(
+    tmp_path: Path,
+) -> None:
+    """idempotency.json without tasks or meta must not be claimed by the hash."""
+    from src.core.review_reuse.service import ReviewReuseError
+
+    root = tmp_path / "tasks"
+    tenant_a = "pilot-tenant"
+    hashed = root / tenant_dir_key(tenant_a)
+    hashed.mkdir(parents=True)
+    idem = hashed / "idempotency.json"
+    payload = '{"k":"legacy-task"}'
+    idem.write_text(payload, encoding="utf-8")
+    store = FilesystemReviewReuseStore(root)
+    svc = ReviewReuseService(store)
+    with pytest.raises(ReviewReuseError) as ei:
+        svc.create_task(
+            tenant_id=tenant_a,
+            file_name="p.dxf",
+            file_bytes=b"x",
+        )
+    assert ei.value.code == "store_conflict"
+    assert idem.read_text(encoding="utf-8") == payload
+    assert not (hashed / "tenant_meta.json").exists()
+    assert not (hashed / "tasks").exists()
+
+
+def test_filesystem_put_claims_empty_hash_dir(tmp_path: Path) -> None:
+    """A hash directory with no leftover bytes can still be initialized."""
+    root = tmp_path / "tasks"
+    tenant_a = "pilot-tenant"
+    hashed = root / tenant_dir_key(tenant_a)
+    hashed.mkdir(parents=True)
+    store = FilesystemReviewReuseStore(root)
+    stored = store.put(_running_task(tenant_a, "t-empty-hash"))
+    assert stored.task_id == "t-empty-hash"
+    meta = json.loads((hashed / "tenant_meta.json").read_text(encoding="utf-8"))
+    assert meta["tenant_id"] == tenant_a
+    assert (hashed / "tasks" / "t-empty-hash.json").is_file()
+
+
 def test_filesystem_put_refuses_unreadable_tenant_meta(tmp_path: Path) -> None:
     from src.core.review_reuse.service import ReviewReuseError
 

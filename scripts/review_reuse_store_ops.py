@@ -196,8 +196,10 @@ def _unattributable_hash_dir(tdir: Path) -> bool:
 
 
 def _attach_unreadable_hash_siblings(
-    groups: Dict[str, List[Path]], tenants: List[Path]
-) -> None:
+    groups: Dict[str, List[Path]],
+    tenants: List[Path],
+    all_dirs: List[Path],
+) -> set[str]:
     """Keep a corrupt hash sibling in the logical tenant group.
 
     Without this, ``--apply`` deletes the readable legacy directory and
@@ -205,10 +207,26 @@ def _attach_unreadable_hash_siblings(
     is only a fallback label. Once a real owner has the sibling, that
     leftover group is old on its own and ``rmtree`` would drop the hashed
     dir (and its idempotency index) while the recent owner is kept.
+
+    A directory named ``sha256(A)[:24]`` can also be tenant ``H``'s legacy
+    dir when ``H`` is that hash. Attaching it only to ``A`` and dropping
+    the ``H`` bucket would delete ``H``'s directory with an old ``A``
+    group. That collision is ambiguous: refuse both, do not guess.
     """
     idents = [ident for ident in groups if ident != _UNREADABLE]
+    recorded = _recorded_idents(all_dirs)
+    ambiguous: set[str] = set()
     for tdir in tenants:
         if not _unattributable_hash_dir(tdir):
+            continue
+        owners = [
+            ident
+            for ident in recorded
+            if ident != tdir.name and tdir.name == _tenant_dir_key(ident)
+        ]
+        if tdir.name in recorded and owners:
+            ambiguous.update(owners)
+            ambiguous.add(tdir.name)
             continue
         attached = False
         for ident in idents:
@@ -228,6 +246,7 @@ def _attach_unreadable_hash_siblings(
             groups[tdir.name] = kept
         else:
             del groups[tdir.name]
+    return ambiguous
 
 
 def _attach_unreadable_legacy_siblings(
@@ -497,8 +516,10 @@ def cmd_cleanup(
             bucket = groups.setdefault(ident, [])
             if tdir not in bucket:
                 bucket.append(tdir)
-    _attach_unreadable_hash_siblings(groups, tenants)
-    ambiguous = _attach_unreadable_legacy_siblings(groups, tenants, all_dirs)
+    ambiguous = _attach_unreadable_hash_siblings(groups, tenants, all_dirs)
+    ambiguous.update(
+        _attach_unreadable_legacy_siblings(groups, tenants, all_dirs)
+    )
 
     removed = 0
     listed = 0
