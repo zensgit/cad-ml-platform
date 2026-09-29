@@ -807,6 +807,28 @@ fallback after attachment. Decisions stay off. Never merge.
 | Merge | still not done (owner must merge) |
 | Decisions | still default-off |
 
+## Window 6 wave3 — 2026-09-29 ~02:51 UTC
+
+`tests (3.10)` / `tests (3.11)` were **pass** on docs tip `67101200`
+(product `7371785b`) before this wave. Sol 5.6 vs `origin/main`
+(`22e3c77c`) returned **P1** and **P2**: an unattributable directory
+named `sha256(A)[:24]` was detached from recorded tenant `H` and could
+be deleted with an old `A` group; a hash path that contained only
+`idempotency.json` was stamped as `A`. Fail closed by treating the
+exact-name/hash collision as ambiguous, and by refusing nonempty
+ownerless hash directories on write. Decisions stay off. Never merge.
+
+| Item | State |
+|---|---|
+| P1 hash dirname | ambiguous `H` vs `sha256(A)[:24]` is not assigned only to `A` |
+| P2 ownerless hash path | leftover `idempotency.json` is `store_conflict` |
+| Product | `5a8f6ed1` |
+| Local `make test-review-reuse` | **342 passed** |
+| `tests (3.10)` on `5a8f6ed1` | not yet observed |
+| Evaluation Report | fail (Track E; out of scope) |
+| Merge | still not done (owner must merge) |
+| Decisions | still default-off |
+
 ## Window 4 wave105 — 2026-09-23 ~15:19 UTC
 
 `tests (3.10)` / `tests (3.11)` **pass** on `d52d28ae` (product

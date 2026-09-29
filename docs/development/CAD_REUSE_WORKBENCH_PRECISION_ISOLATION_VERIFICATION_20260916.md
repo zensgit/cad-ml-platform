@@ -621,7 +621,10 @@ Window 5 is not closed early. No product commit in this start note.
 | `tests (3.10)` / `tests (3.11)` on `93123c5b` | not yet observed |
 | Sol 2026-09-28 04:39 UTC | exit 0 on `ae001830` / product `93123c5b`. P2: identity-less hashed dir kept its dirname fallback bucket |
 | Product `7371785b` | hashed cleanup sibling is aged only with the logical owner. Local suite **338 passed** |
-| `tests (3.10)` / `tests (3.11)` on `7371785b` | not yet observed |
+| `tests (3.10)` / `tests (3.11)` on `67101200` (product `7371785b`) | **pass** |
+| Sol 2026-09-29 02:38–02:51 UTC | exit 0 on `67101200` / product `7371785b`. P1: hash-named unattributable dir assigned only to the hashed tenant. P2: ownerless `idempotency.json` claimed by the hash path |
+| Product `5a8f6ed1` | ambiguous hash-dirname cleanup is refused; nonempty ownerless hash dirs are refused on write. Local suite **342 passed** |
+| `tests (3.10)` / `tests (3.11)` on `5a8f6ed1` | not yet observed |
 | mergeable_state | do not merge |
 
 ## 3. Honesty probes (must stay true)

@@ -483,13 +483,13 @@ isolation only.
 `tests (3.10)` / `tests (3.11)` / `lint-type` **pass** on that SHA.
 Evaluation Report fail = Track E / ignore. `origin/main` is `22e3c77c`.
 
-**Landed:** `7371785b` — Sol P2 on product `93123c5b`: an identity-less
-hashed directory attached to a legacy tenant is removed from its
-dirname fallback bucket, so cleanup ages that directory only with the
-logical owner. A recent legacy tenant therefore keeps an old
-idempotency-only hash dir. Decisions stay off. Parent product
-`93123c5b` (ASCII usefulness suffixes `1`–`5` only) remains on the
-Window-5 chain ending at `272349bc` (see §6d).
+**Landed:** `5a8f6ed1` — Sol P1/P2 on product `7371785b`: a directory
+whose name is `sha256(A)[:24]` and is also recorded tenant `H` stays
+ambiguous in cleanup, so an old `A` group cannot delete it while `H`
+still has data. A hashed write path that has `idempotency.json` (or any
+other leftover) but no tenant id is refused instead of being stamped as
+the caller. Decisions stay off. Parent product `7371785b` (hash-dir
+fallback removed after owner attach) remains on the Window-6 chain.
 
 Sol 5.6 vs `origin/main` on product `272349bc` was killed at 2026-09-27
 13:44 UTC with no P1/P2 (the review ran ~40 minutes after the scheduler
