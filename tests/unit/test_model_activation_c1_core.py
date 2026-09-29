@@ -1778,6 +1778,15 @@ def test_dest_dir_open_failure_race_preserves_foreign_no_mbin(
 
 
 def test_ordinary_dest_dir_open_failure_zero_model_bytes(tmp_path: Path) -> None:
+    """Ordinary dest-dir open failure → FREEZE_FAILED, zero model bytes.
+
+    chmod 000 after mkdir so mkdir_owned's dest openat fails with EACCES.
+    Do not spy os.open: a name=='sub' O_DIRECTORY hook without dir_fd can
+    intercept a non-dir_fd open on Linux 3.10 whose OSError is swallowed,
+    so dest open succeeds and this discriminator is vacuous.
+    """
+    if os.geteuid() == 0:
+        pytest.skip("root bypasses dest-dir mode 000")
     root = tmp_path / "store"
     freeze_parent = _trusted_freeze_parent(tmp_path / "freeze")
     _write(root / "bundle" / "sub" / "m.bin", b"payload")
@@ -1785,39 +1794,38 @@ def test_ordinary_dest_dir_open_failure_zero_model_bytes(tmp_path: Path) -> None
         "act.b", "art.b", "bundle", [("sub/m.bin", b"payload")]
     )
     store = _store(root, [pin], freeze_parent=freeze_parent)
-    real_open = os.open
     real_mkdir = os.mkdir
     mkdir_freeze_sub = {"n": 0}
-    seen = {"n": 0}
 
     def spy_mkdir(path, mode=0o777, *, dir_fd=None):  # type: ignore[no-untyped-def]
         real_mkdir(path, mode, dir_fd=dir_fd)
         name = path if isinstance(path, str) else path
         if name == "sub" and dir_fd is not None:
             mkdir_freeze_sub["n"] += 1
-
-    def fail_open(path, flags, mode=0o777, *, dir_fd=None):  # type: ignore[no-untyped-def]
-        name = path if isinstance(path, str) else path
-        if (
-            (flags & os.O_DIRECTORY)
-            and name == "sub"
-            and mkdir_freeze_sub["n"] > 0
-            and seen["n"] == 0
-        ):
-            seen["n"] += 1
-            raise OSError(errno.EACCES, "open fail", "sub")
-        return real_open(path, flags, mode, dir_fd=dir_fd)
+            os.chmod(name, 0, dir_fd=dir_fd)
 
     try:
-        with mock.patch.object(store_mod.os, "mkdir", side_effect=spy_mkdir), mock.patch.object(
-            store_mod.os, "open", side_effect=fail_open
-        ):
-            with pytest.raises(ActivationRefusal):
+        with mock.patch.object(store_mod.os, "mkdir", side_effect=spy_mkdir):
+            with pytest.raises(ActivationRefusal) as ei:
                 store.assert_bundle_digest("act.b", "art.b")
-        for f in freeze_parent.rglob("m.bin"):
-            pytest.fail(f"model byte residual {f}")
+        assert mkdir_freeze_sub["n"] >= 1
+        assert ei.value.reason is RefusalReason.FREEZE_FAILED
     finally:
-        store.close()
+        leftovers: list[Path] = []
+        try:
+            # Restore DAC on the documented empty-shell residual so the
+            # no-m.bin walk, lease scrub, and pytest tmp cleanup can enter it.
+            for freeze_root in freeze_parent.glob("cadml-freeze-*"):
+                sub = freeze_root / "sub"
+                try:
+                    os.chmod(sub, 0o700)
+                except OSError:
+                    pass
+            leftovers = list(freeze_parent.rglob("m.bin"))
+        finally:
+            store.close()
+        for f in leftovers:
+            pytest.fail(f"model byte residual {f}")
 
 
 def test_reconcile_foreign_survives_and_refuses(tmp_path: Path) -> None:

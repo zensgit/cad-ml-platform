@@ -6,6 +6,8 @@ import hashlib
 import logging
 from typing import Any, Dict, List, Optional
 
+import anyio
+
 from fastapi import (
     APIRouter,
     Depends,
@@ -64,8 +66,12 @@ def _http(err: ReviewReuseError) -> HTTPException:
         status = 404
     elif err.code in ("decisions_disabled", "reviewer_not_validated"):
         status = 403
-    elif err.code in ("already_decided",):
+    elif err.code in ("already_decided", "store_conflict", "idempotency_conflict"):
         status = 409
+    elif err.code in ("unsupported_file_type", "unknown_candidate"):
+        status = 400
+    elif err.code == "pipeline_failed":
+        status = 500
     return HTTPException(
         status_code=status, detail={"code": err.code, "message": err.message}
     )
@@ -99,13 +105,20 @@ async def create_task(
     service: ReviewReuseService = Depends(_svc),
 ) -> Dict[str, Any]:
     raw = await file.read()
-    try:
-        task = service.create_task(
-            tenant_id=_tenant_id(request, api_key),
-            file_name=file.filename or "upload.bin",
+    tenant = _tenant_id(request, api_key)
+    name = file.filename or "upload.bin"
+
+    def _create():
+        return service.create_task(
+            tenant_id=tenant,
+            file_name=name,
             file_bytes=raw,
             idempotency_key=idempotency_key,
         )
+
+    try:
+        # DXF extract + L4 scoring is CPU/FS bound; keep it off the event loop.
+        task = await anyio.to_thread.run_sync(_create)
     except ReviewReuseError as exc:
         raise _http(exc) from exc
     return task.model_dump()

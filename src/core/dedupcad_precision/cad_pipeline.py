@@ -22,14 +22,16 @@ class DxfRenderConfig:
     margin_ratio: float = 0.05
 
 
-def extract_geom_json_from_dxf(dxf_path: Path) -> Dict[str, Any]:
+def extract_geom_json_from_dxf(
+    dxf_path: Path, *, use_cache: bool = True
+) -> Dict[str, Any]:
     if not dxf_path.exists():
         raise FileNotFoundError(str(dxf_path))
     if dxf_path.suffix.lower() != ".dxf":
         raise ValueError("Expected .dxf file")
     from src.core.dedupcad_precision.vendor.dxf_extract import extract_dxf
 
-    base = extract_dxf(str(dxf_path))
+    base = extract_dxf(str(dxf_path), use_cache=use_cache)
 
     # Best-effort enrichment: dimensions/hatches are optional but help precision scoring.
     try:
